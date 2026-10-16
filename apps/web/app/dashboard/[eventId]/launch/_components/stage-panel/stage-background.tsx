@@ -48,6 +48,7 @@ export function StageBackground({
   onTile,
   onUpload,
   upload,
+  uploadDone = 0,
   colour,
   customColour,
   opacity,
@@ -74,6 +75,12 @@ export function StageBackground({
   /** Upload's first tile opens the in-place upload — null: not offered on this source. */
   onUpload: boolean;
   upload: ReactNode;
+  /**
+   * 📤 THE UPLOAD LEADS STRAIGHT ON (owner 2026-10-16, after a clip sat on "Uploaded": *"after the upload there is no
+   * more next step?"*). The caller counts each upload it has made the background; every new count closes the sheet,
+   * so the couple lands on the Upload row with the new card ringed, the page wearing it and ✓ Apply counting it.
+   */
+  uploadDone?: number;
   /** Row 3 on a colour: the colour worn (the one circle) and its picker — null: not a colour. */
   colour: string | null;
   customColour: (close: () => void) => ReactNode;
@@ -89,6 +96,9 @@ export function StageBackground({
   pending: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    if (uploadDone > 0) setUploading(false);
+  }, [uploadDone]);
   const [picking, setPicking] = useState(false);
   /* The bar's own position while it is dragged; the stored one otherwise. */
   const [live, setLive] = useState<number | null>(null);
@@ -206,19 +216,22 @@ export function StageBackground({
           {shadeBar}
         </div>
       ) : null}
-      {/* ══ ROW 4 — its shape ══ */}
-      {shape ? (
+      {/* ══ ROW 4 — its shape (and a photo's movement) ══ — a part with no shape choice (the Cover Scene, always full
+          screen since 2026-10-16) passes `shape: null` and keeps its photo's Still · Parallax here. */}
+      {shape || motion ? (
         <div className={`${SP_BG_ROW} row-start-4`} data-stage-bg="shape">
-          <PillSelector
-            label="Width"
-            data="bg-width"
-            value={shape}
-            options={[
-              { key: 'framed', label: 'Framed' },
-              { key: 'full', label: 'Full width' },
-            ]}
-            onPick={(k) => onShape(k)}
-          />
+          {shape ? (
+            <PillSelector
+              label="Width"
+              data="bg-width"
+              value={shape}
+              options={[
+                { key: 'framed', label: 'Framed' },
+                { key: 'full', label: 'Full width' },
+              ]}
+              onPick={(k) => onShape(k)}
+            />
+          ) : null}
           {motion ? (
             <PillSelector
               label="How the photo moves"

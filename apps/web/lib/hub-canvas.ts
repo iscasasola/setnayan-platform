@@ -51,7 +51,7 @@ import { motionFxOn, motionFxVars, sanitizeMotionFx, type MotionFx } from '@/lib
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
-import { GUEST_HERO_VIDEO_PLAYBACK } from '@/lib/guest-hero-video';
+import { GUEST_COVER_CLIP_PLAYBACK } from '@/lib/guest-hero-video';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -447,8 +447,10 @@ export type HubSectionCanvas = {
  * 🖼 WHAT THE COVER SCENE WEARS (`HubSectionCanvas.ground`). The Background tool's four sources, as stored:
  *   Colour   Plain · Diagonal · Glow (a colour) · Opaque · Frosted (a glass over the theme's own) — free
  *   Scene ◆  a ready-made loop, Setnayan's own (`INVITE_THEMES[loop].media`) — screened by definition, plays for guests
- *   Upload ◆ the couple's photo — and a clip only once the hero clip may reach guests (`GUEST_HERO_VIDEO_PLAYBACK`)
- * `shade` is the one Darker ↔ Lighter bar (not on a glass); `shape` Framed (absent) | Full width.
+ *   Upload ◆ the couple's photo, or their own ≤ 15 s muted clip (`{ kind: 'snippet', media, poster }`) — the clip kept
+ *            only while the cover clip may reach guests (`GUEST_COVER_CLIP_PLAYBACK`, owner 2026-10-16)
+ * `shade` is the one Darker ↔ Lighter bar (not on a glass); `shape` is still read and kept but no longer drawn —
+ * the Cover Scene is always full width (owner 2026-10-16, `coverGroundShape`).
  */
 export type HubCoverGround = (
   | { kind: 'color' | 'diagonal' | 'glow'; color: string }
@@ -459,8 +461,8 @@ export type HubCoverGround = (
 
 /**
  * Anything → the Cover Scene's background, or null (The theme's own). Drops rather than repairs, like every canvas
- * key. 🔒 A clip is REFUSED while the hero clip may not reach guests (`clipOk` false — SEC-6): an own video is kept in
- * the couple's media, never worn on the cover.
+ * key. 🔒 A clip is REFUSED unless `clipOk` (the cover clip switch, `GUEST_COVER_CLIP_PLAYBACK` — `sanitizeHubCanvas`
+ * passes it): with the switch closed a stored clip is dropped and the cover is The theme's own.
  */
 export function sanitizeHubCoverGround(raw: unknown, clipOk = false): HubCoverGround | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -818,8 +820,8 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (design) out.design = design;
   const details = sanitizeDetailsOverrides(canvas.details);
   if (details) out.details = details;
-  /* 🖼 The Cover Scene's background (the hero row's) — a clip refused while the hero clip may not reach guests. */
-  const coverGround = sanitizeHubCoverGround(canvas.ground, GUEST_HERO_VIDEO_PLAYBACK);
+  /* 🖼 The Cover Scene's background (the hero row's) — a clip kept only while the cover clip may reach guests. */
+  const coverGround = sanitizeHubCoverGround(canvas.ground, GUEST_COVER_CLIP_PLAYBACK);
   if (coverGround) out.ground = coverGround;
   return out;
 }

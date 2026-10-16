@@ -9384,6 +9384,36 @@ html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) n
   opacity: 0;
   visibility: hidden;
 }
+/* 👁 THE MAKER'S ▶ WHOLE-PAGE PREVIEW IS THE GUEST'S PAGE (owner 2026-10-16, on cale-ice's preview: "full screen?" — a
+   white band above the cover, the page inset in a rounded card, and the Maker's own guest bar drawn under the cover from
+   the first frame). While previewing (`[data-stage-previewing]`, the Maker's top bar already slid away) the shown canvas
+   fills the WHOLE window, edge to edge, no card — so the Cover Scene is the whole first screen at any width, exactly as
+   the guest page draws it. And the Maker's guest bar keeps the guest page's rule ("THE TOP AND BOTTOM BARS ARRIVE ONLY
+   WHEN THE COVER IS FULLY GONE"): the shown frame mirrors its cover marker onto the shell (`data-canvas-cover`,
+   `cover-scene-menu.tsx`), and the bar stays off while it is "wait". Exit preview (z-31) stays above the page. */
+[data-maker-shell][data-stage-previewing] [data-maker-canvas-frames] {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-maker-shell][data-stage-previewing] [data-maker-canvas-frames] > iframe {
+  border-radius: 0;
+}
+[data-maker-shell][data-stage-previewing] [data-stage-guest-bar] {
+  transition: translate 0.35s ease, opacity 0.35s ease, visibility 0.35s !important;
+}
+[data-maker-shell][data-stage-previewing][data-canvas-cover='wait'] [data-stage-guest-bar] {
+  translate: 0 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-maker-shell][data-stage-previewing] [data-stage-guest-bar] {
+    transition: none !important;
+  }
+}
 /* 🚪 A STRANGER'S FIRST SCREEN IS THE COVER AND "GET INSIDE" TOGETHER (live, 2026-10-15, right after Batch 8:
    `/maria-and-jose` signed out at 375 × 812 — the eyebrow ran into the names, the monogram was drawn below the fold,
    "Guests arrive" fell off). The cover's header took the whole first screen ON ITS OWN (`COVER_SCENE_CENTRED`), so the

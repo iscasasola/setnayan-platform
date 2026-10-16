@@ -189,7 +189,7 @@ test('4 · Save the Date: Home · Story · Me — Story is there because the sto
 
 /* ══ 5 · THE BAR OVER THE COVER ══════════════════════════════════════════════ */
 
-test('5 · the bar is hidden over the cover, slides up on leaving it, hides again back on it (reduced motion: no slide)', async () => {
+test('5 · the bars wait while ANY of the cover is on screen, come in once it is fully gone, hide again when it shows (reduced motion: no slide)', async () => {
   const html = await renderSiteBodyFixture(STORY);
   // The page leads with the Cover Scene, and its bar is THE bar the cover's rule names.
   assert.ok(at(html, 'data-cover-scene=""') > 0 && at(html, 'data-cover-scene=""') < at(html, 'aria-label="Site sections"'));
@@ -202,41 +202,70 @@ test('5 · the bar is hidden over the cover, slides up on leaving it, hides agai
   const SHELL = src('_components', 'invitation-shell.tsx');
   assert.equal(SHELL.match(/<CoverSceneMenuWaits \/>/g)?.length, 2);
 
-  /* EXECUTED: the shipped script, run against a page with a shown cover. The marker is the ONE `<style>` in <head>
-     (never the root: hydration-safe) and it goes wait → open on the first swipe → WAIT AGAIN when the cover is back on
-     screen (Q3, owner 2026-10-15: "where the bar hides again") → open on leaving it again; a jump (hashchange) to a
-     section opens it; a page whose cover is not shown (Me) is open. */
+  /* EXECUTED: the shipped script, run against a page with a shown cover 800 px tall. The marker is the ONE `<style>`
+     in <head> (never the root: hydration-safe). Owner 2026-10-16 (DECISION_LOG "THE TOP AND BOTTOM BARS ARRIVE ONLY
+     WHEN THE COVER IS FULLY GONE"): it stays `wait` while ANY pixel of the cover is on screen — 1 px left is still the
+     cover — turns `open` only when the cover's bottom edge has passed the top, and is `wait` again the moment the
+     cover shows (Q3, 2026-10-15). Both doors are run: the IntersectionObserver (threshold 0) every current browser
+     takes, and the scroll measure a browser without one falls back to. A page whose cover is not shown (Me) is open. */
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { CoverSceneMenuWaits } = await import('../_components/cover-scene-menu');
   const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-  const run = (coverShown: boolean) => {
+  const COVER_H = 800;
+  const run = (coverShown: boolean, withIo: boolean) => {
     const attrs: Record<string, string> = {};
     const style = { setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
     const listeners: Record<string, Array<() => void>> = {};
     let rootTouched = false;
+    const win = { scrollY: 0, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f), removeEventListener: () => {} };
+    const header = { offsetParent: {}, getBoundingClientRect: () => ({ top: -win.scrollY, bottom: COVER_H - win.scrollY }) };
     const doc = {
       readyState: 'complete',
       head: { appendChild: () => {} },
       documentElement: new Proxy({}, { get: () => { rootTouched = true; return () => {}; } }),
       createElement: () => style,
-      querySelector: (sel: string) => (sel.startsWith('style') ? null : sel === 'header[data-cover-scene]' && coverShown ? { offsetParent: {} } : null),
+      querySelector: (sel: string) => (sel.startsWith('style') ? null : sel === 'header[data-cover-scene]' && coverShown ? header : null),
       addEventListener: () => {},
       removeEventListener: () => {},
     };
-    const win = { scrollY: 0, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f), removeEventListener: () => {} };
-    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', code)(win, doc, win.addEventListener, win.removeEventListener, (f: () => void) => f());
-    const scrollTo = (y: number, ev = 'scroll') => { win.scrollY = y; for (const f of listeners[ev] ?? []) f(); return attrs['data-cover-menu']; };
-    return { now: () => attrs['data-cover-menu'], scrollTo, rootTouched: () => rootTouched };
+    /* A faithful threshold-0 observer: it reports the cover as intersecting while any of it is in [0, 812). */
+    let observed: unknown = null;
+    let fire: ((es: Array<{ target: unknown; isIntersecting: boolean }>) => void) | null = null;
+    const report = () => fire?.([{ target: observed, isIntersecting: header.getBoundingClientRect().bottom > 0 && header.getBoundingClientRect().top < 812 }]);
+    class IO {
+      constructor(cb: (es: Array<{ target: unknown; isIntersecting: boolean }>) => void, opts: { threshold: number }) {
+        assert.equal(opts.threshold, 0, 'the observer does not fire at fully out (threshold 0)');
+        fire = cb;
+      }
+      observe(t: unknown) { observed = t; }
+      unobserve() { observed = null; }
+    }
+    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', 'IntersectionObserver', code)(win, doc, win.addEventListener, win.removeEventListener, (f: () => void) => f(), withIo ? IO : undefined);
+    report();
+    const scrollTo = (y: number, ev = 'scroll') => {
+      win.scrollY = y;
+      if (withIo) report();
+      for (const f of listeners[ev] ?? []) f();
+      return attrs['data-cover-menu'];
+    };
+    return { now: () => attrs['data-cover-menu'], scrollTo, rootTouched: () => rootTouched, scrollListened: () => (listeners.scroll ?? []).length };
   };
-  const page = run(true);
-  assert.equal(page.now(), 'wait', 'the bar is over the cover on landing');
-  assert.equal(page.scrollTo(360), 'open', 'the first swipe does not bring the bar in');
-  assert.equal(page.scrollTo(0), 'wait', 'back on the cover, the bar does not hide again');
-  assert.equal(page.scrollTo(500), 'open', 'leaving the cover again does not bring the bar back');
-  assert.equal(page.scrollTo(900, 'hashchange'), 'open', 'a jump to a section leaves the bar hidden');
-  assert.equal(page.rootTouched(), false, 'the script touched <html> — hydration-unsafe');
-  assert.equal(run(false).now(), 'open', 'a page without its cover on screen (Me) holds the bar back');
+  for (const withIo of [true, false]) {
+    const how = withIo ? 'observer' : 'scroll measure';
+    const page = run(true, withIo);
+    assert.equal(page.now(), 'wait', `${how}: the bars are over the cover on landing`);
+    assert.equal(page.scrollTo(360), 'wait', `${how}: the bars came in while the cover was still half on screen`);
+    assert.equal(page.scrollTo(COVER_H - 1), 'wait', `${how}: the bars came in with the cover's last pixel still on screen`);
+    assert.equal(page.scrollTo(COVER_H), 'open', `${how}: the cover is fully gone and the bars did not come in`);
+    assert.equal(page.scrollTo(COVER_H - 40), 'wait', `${how}: the cover shows again and the bars did not hide`);
+    assert.equal(page.scrollTo(1600), 'open', `${how}: leaving the cover again does not bring the bars back`);
+    assert.equal(page.scrollTo(0), 'wait', `${how}: back at the top, the bars stayed over the cover`);
+    assert.equal(page.rootTouched(), false, `${how}: the script touched <html> — hydration-unsafe`);
+    assert.equal(run(false, withIo).now(), 'open', `${how}: a page without its cover on screen (Me) holds the bars back`);
+    /* ONE gate: with an observer there is no second, scroll-driven one. */
+    assert.equal(page.scrollListened(), withIo ? 0 : 1, `${how}: a second gate was added`);
+  }
 });
 
 /* ══ 6 · THE LIT ITEM ════════════════════════════════════════════════════════ */

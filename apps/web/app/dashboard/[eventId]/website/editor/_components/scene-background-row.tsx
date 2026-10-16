@@ -146,6 +146,8 @@ export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>
         themeColours={props.themeColours}
         board={props.board}
         photoChoices={props.photoChoices}
+        videoChoice={props.videoChoice}
+        sceneUploads={props.sceneUploads}
         mediaUsedBytes={props.mediaUsedBytes}
         mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
         proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
@@ -250,6 +252,8 @@ function SceneBackgroundRows({
   /* 📤 What was uploaded HERE, this visit — shown from the file itself (a
      local object URL) until the save's refresh brings the signed one. */
   const [justUploaded, setJustUploaded] = useState<SceneUpload[]>([]);
+  /** 📤 How many uploads became this scene's background — each closes the Upload sheet (`StageBackground`). */
+  const [uploadDone, setUploadDone] = useState(0);
   const uploads: SceneUpload[] = [
     ...justUploaded.filter((u) => !sceneUploads.some((s) => s.ref === u.ref)),
     ...sceneUploads,
@@ -440,6 +444,7 @@ function SceneBackgroundRows({
     setJustUploaded((was) => [{ ref, url: file.local, kind: file.kind, poster: file.poster, posterUrl: file.posterUrl }, ...was]);
     if (file.kind === 'snippet') put(clipBg(ref, file.poster));
     else put(photoBg(ref));
+    setUploadDone((n) => n + 1);
   };
 
   const opacityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -672,6 +677,7 @@ function SceneBackgroundRows({
         }}
         onUpload={source === 'own'}
         upload={uploadNode}
+        uploadDone={uploadDone}
         colour={worn && source === 'colour' && current && TINTED.includes(current) ? tint : null}
         customColour={(close) => (
           <ColourSheet

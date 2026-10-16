@@ -9,10 +9,11 @@
  *   (2) a tap on the cover's empty space selects the group, on every page the cover leads — it is first among the
  *       cover's words there, and no arrival lands on it
  *   (3) Colour and The theme's own are free; Scene ◆ and Upload ◆ are Pro — by the shipped rule, never a second one
- *   (4) a clip never survives the sanitiser while the hero clip may not reach guests; a loop that is not one of
- *       Setnayan's own is dropped; nothing stored is The theme's own
+ *   (4) a clip survives the sanitiser exactly while the COVER clip switch is open (owner 2026-10-16 — its own switch,
+ *       never the hero's); a loop that is not one of Setnayan's own is dropped; nothing stored is The theme's own
  *   (5) the cover is the whole first screen in EVERY design (min-h 100svh, 100dvh where supported), and an absent
- *       ground draws no layer at all
+ *       ground draws no layer at all; (8) it is ALWAYS full width, edge to edge (owner 2026-10-16, "THE COVER SCENE
+ *       IS ALWAYS FULL SCREEN" — superseding the 2026-10-15 Framed | Full width), a stored Framed ignored
  *   (6) the words follow the ground: their tone flips with it and AA holds over every sample once the scrim is laid
  *
  * Each claim was broken once and seen red (the sabotage runs are in the PR body).
@@ -54,7 +55,7 @@ import {
   coverSceneLegibility,
 } from './cover-scene';
 import { hubMovingBackgroundIds, sanitizeHubCanvas, sanitizeHubCoverGround, type HubCoverGround } from './hub-canvas';
-import { GUEST_HERO_VIDEO_PLAYBACK } from './guest-hero-video';
+import { GUEST_COVER_CLIP_PLAYBACK, GUEST_HERO_VIDEO_PLAYBACK } from './guest-hero-video';
 import { compositeOver, contrastRatio } from './hub-legibility';
 import { HERO_DESIGNS } from './hero-design';
 import { stripComments } from './strip-comments';
@@ -124,12 +125,14 @@ test('(3) Colour and The theme’s own are free; Scene ◆ and Upload ◆ are Pr
   assert.equal(coverGroundIsPro({ kind: 'photo', media: 'r2://setnayan-media/a.jpg' }), true);
 });
 
-test('(4) a clip never survives the sanitiser while the hero clip may not reach guests; a loop is Setnayan’s own', () => {
-  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'the hero clip opened — re-derive this claim (a clip may then be worn)');
+test('(4) a clip survives the sanitiser exactly while the cover clip switch is open; a loop is Setnayan’s own', () => {
+  assert.equal(GUEST_HERO_VIDEO_PLAYBACK, false, 'the hero boomerang opened — that is not this switch (strangers would see it)');
   const clip = { kind: 'snippet', media: 'r2://setnayan-media/events/x/scene-background/a.mp4' };
-  assert.equal(sanitizeHubCoverGround(clip), null, 'a clip survived the cover’s sanitiser');
-  assert.equal(sanitizeHubCanvas({ ground: clip }).ground, undefined, 'a clip survived the canvas sanitiser');
-  assert.equal(sanitizeHubCanvas({ canvas: { ground: clip } }).ground, undefined);
+  assert.equal(sanitizeHubCoverGround(clip), null, 'a clip survived the cover’s sanitiser with the switch CLOSED');
+  assert.deepEqual(sanitizeHubCoverGround(clip, true), clip, 'a clip was dropped with the switch OPEN');
+  const kept = GUEST_COVER_CLIP_PLAYBACK ? clip : undefined;
+  assert.deepEqual(sanitizeHubCanvas({ ground: clip }).ground, kept, 'the canvas sanitiser does not follow the cover clip switch');
+  assert.deepEqual(sanitizeHubCanvas({ canvas: { ground: clip } }).ground, kept);
   const loops = hubMovingBackgroundIds();
   assert.ok(loops.length >= 5, 'anti-vacuity: the ready-made loops');
   for (const loop of loops) assert.deepEqual(sanitizeHubCanvas({ ground: { kind: 'loop', loop } }).ground, { kind: 'loop', loop });
@@ -205,7 +208,7 @@ test('(7) ONE background, ONE hero writer: an Upload pick IS the hero photo, and
   assert.match(rows, /fd\.set\('patch', JSON\.stringify\(\{ widgets: \{ hero: \{ canvas: canvasNext \} \}, \.\.\.\(heroPhoto \? \{ events: \{ landing_page_hero_image_url: heroPhoto \} \} : \{\}\) \}\)\);/, 'the cover’s photo and the hero photo are written apart');
   assert.equal((rows.match(/fd\.set\('patch'/g) ?? []).length, 1, 'a second save of the cover — two writers');
   /* With a ground, the photo plate under the words is not drawn a second time. */
-  const layer = { shape: 'framed', css: null, still: 'https://x.test/a.jpg', clip: null, parallax: false, veil: null, scrim: { color: COVER_PAPER, opacity: 0.5 }, tone: 'ink' };
+  const layer = { shape: 'full', css: null, still: 'https://x.test/a.jpg', clip: null, parallax: false, veil: null, scrim: { color: COVER_PAPER, opacity: 0.5 }, tone: 'ink' };
   const plate = cover({ mediaSlot: React.createElement('img', { alt: '', 'data-plate': '' }) });
   assert.match(plate, /data-plate/, 'anti-vacuity: the photo cover draws its plate');
   assert.doesNotMatch(cover({ mediaSlot: React.createElement('img', { alt: '', 'data-plate': '' }), ground: layer }), /data-plate/, 'the photo is drawn twice');
@@ -218,19 +221,23 @@ test('(8) the REAL guest page draws it: a stored ground lays the layer behind th
   assert.deepEqual(page.complaints, []);
   assert.match(page.html, /<header data-pahina-first-screen=""[^>]*data-cover-scene="full"[^>]*data-cover-tone="cream"[^>]*><div aria-hidden="true" data-cover-scene-ground="full"/, 'the stored colour is not drawn behind the cover, or the words did not flip');
   assert.match(page.html, /data-cover-scene-ground="full"[^>]*><div class="[^"]*m-0 rounded-none[^"]*" style="background:#111111"/, 'Full width is not edge to edge, or the colour is not painted');
-  const framed = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'color', color: '#F6EFE3' } } }) });
-  assert.match(framed.html, /data-cover-scene="framed"[^>]*data-cover-tone="ink"/);
-  assert.match(framed.html, /data-cover-scene-ground="framed"[^>]*><div class="[^"]*m-3 rounded-\[18px\]/, 'Framed is not inset with its rounded margin');
+  /* 🖼 ALWAYS FULL SCREEN (owner 2026-10-16, DECISION_LOG "THE COVER SCENE IS ALWAYS FULL SCREEN" — supersedes the
+     2026-10-15 Framed | Full width): a ground stored with NO shape (what Framed was — cale-ice's row today) draws edge
+     to edge too, never inset, never with a rounded margin. A stored shape is ignored, never migrated. */
+  const once = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'color', color: '#F6EFE3' } } }) });
+  assert.match(once.html, /data-cover-scene="full"[^>]*data-cover-tone="ink"/, 'a cover stored without a shape (Framed) is not full screen');
+  assert.match(once.html, /data-cover-scene-ground="full"[^>]*><div class="[^"]*m-0 rounded-none/, 'a cover stored as Framed is not edge to edge');
+  assert.doesNotMatch(once.html + page.html, /m-3 rounded-\[18px\]|data-cover-scene(?:-ground)?="framed"/, 'the cover was drawn Framed');
   /* 🚫 The fixture pins the environment (no media host): a loop whose files do not resolve is NOT drawn as an empty
-     veil — the cover stays The theme's own. A clip stored by hand never reaches the page at all. */
+     veil — the cover stays The theme's own; a clip whose still and clip do not resolve is not drawn either. */
   const loop = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'loop', loop: hubMovingBackgroundIds()[0]! } } }) });
   assert.doesNotMatch(loop.html, /data-cover-scene-ground/, 'an unresolved loop drew an empty layer');
   const clip = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'snippet', media: 'r2://setnayan-media/events/x/scene-background/a.mp4' } } }) });
-  assert.doesNotMatch(clip.html, /data-cover-scene-ground/, 'a stored clip was drawn on the cover');
+  assert.doesNotMatch(clip.html, /data-cover-scene-ground/, 'an unresolved clip drew an empty layer on the cover');
   /* …and a resolved loop PLAYS (the layer as the page lays it, the shipped SceneClip). */
   const { CoverSceneGround } = await import('@/app/[slug]/_components/cover-scene-ground');
   const played = renderToStaticMarkup(
-    React.createElement(CoverSceneGround, { layer: { shape: 'framed', css: null, still: 'https://media.test/p.jpg', clip: 'https://media.test/l.mp4', parallax: false, veil: null, scrim: { color: COVER_INK, opacity: 0.4 }, tone: 'cream' } }),
+    React.createElement(CoverSceneGround, { layer: { shape: 'full', css: null, still: 'https://media.test/p.jpg', clip: 'https://media.test/l.mp4', parallax: false, veil: null, scrim: { color: COVER_INK, opacity: 0.4 }, tone: 'cream' } }),
   );
   assert.match(played, /<video[^>]*>/, 'the ready-made loop does not play');
 });
@@ -254,12 +261,12 @@ test('(9) Apply asks Pro for a Scene ◆ or Upload ◆ on the cover — never fo
 
 test('(10) resolveHero and the Cover Scene never disagree: a photo ground draws THE hero photo, and none without one', async () => {
   const src = read('app/[slug]/_lib/cover-scene-layer.ts');
-  assert.match(src, /const still = ground\.kind === 'photo' \? ctx\.heroPhotoUrl : publicUrl\(ground\.poster\);/, 'the cover draws a photo of its own, apart from the hero');
+  assert.match(src, /if \(ground\.kind === 'snippet'\) \{\s*const still = publicUrl\(ground\.poster\);[\s\S]*?\}\s*const still = ctx\.heroPhotoUrl;/, 'the cover draws a photo of its own, apart from the hero');
   const { renderSiteBodyFixtureFull } = await import('./site-body-fixture-render');
   const { fixtureWidgets } = await import('./site-body-fixture');
   const ground = { kind: 'photo', media: 'r2://setnayan-media/events/e1/scene-background/old.jpg' };
   const withHero = await renderSiteBodyFixtureFull({ heroPhotoUrl: 'https://cdn.test/the-hero.jpg', widgets: fixtureWidgets({ hero: { ground } }) });
-  assert.match(withHero.html, /data-cover-scene-ground="framed"[\s\S]{0,300}background-image:url\(&quot;https:\/\/cdn\.test\/the-hero\.jpg&quot;\)/, 'the cover does not draw the hero photo');
+  assert.match(withHero.html, /data-cover-scene-ground="full"[\s\S]{0,300}background-image:url\(&quot;https:\/\/cdn\.test\/the-hero\.jpg&quot;\)/, 'the cover does not draw the hero photo');
   const noHero = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground } }) });
   assert.doesNotMatch(noHero.html, /data-cover-scene-ground/, 'a photo cover with no hero photo drew a picture of its own');
 });
@@ -274,7 +281,7 @@ test('(11) the first screen is the cover LESS what sits above it: the guest colu
   }
 });
 
-test('(12) no bar is drawn over the cover; the bars come in only after the cover leaves the screen (owner 2026-10-15)', async () => {
+test('(12) no bar is drawn over the cover; the bars come in only once the cover is fully gone (owner 2026-10-15, amended 2026-10-16)', async () => {
   const shell = read('app/[slug]/_components/invitation-shell.tsx');
   assert.equal((shell.match(/<CoverSceneMenuWaits \/>/g) ?? []).length, 2, 'a guest page path (the shell, or the Veil/film full-bleed one) no longer holds the bars off the cover');
   assert.match(shell, /<div\s+data-page-column=""/, 'the page column lost its marker — its top padding stays above the cover');
@@ -285,7 +292,9 @@ test('(12) no bar is drawn over the cover; the bars come in only after the cover
   assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
-  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{if\(!isOpen\(\)\)m\.setAttribute\('data-cover-menu','open'\)/, 'the bars never come in after the swipe that moves the cover');
+  /* Owner 2026-10-16 ("THE TOP AND BOTTOM BARS ARRIVE ONLY WHEN THE COVER IS FULLY GONE"): open only once the cover is gone. */
+  assert.match(script, /var open=!h\|\|gone\(h\);if\(open!==isOpen\(\)\)m\.setAttribute\('data-cover-menu',open\?'open':'wait'\)/, 'the bars do not wait for the cover to be fully gone');
+  assert.match(script, /new IntersectionObserver\([\s\S]*?\{vis=e\.isIntersecting;check\(\)\}\},\{threshold:0\}\)/, 'the cover is not watched at threshold 0');
   assert.match(script, /catch\(e\)\{try\{if\(m\)m\.setAttribute\('data-cover-menu','open'\)\}/, 'a failure hides the menu for good — it must fail visible');
 });
 

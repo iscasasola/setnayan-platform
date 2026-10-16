@@ -56,5 +56,15 @@ export function sceneUploadRefs(eventId: string, configs: readonly unknown[]): S
     const poster = bg.kind === 'snippet' && canvas.poster?.startsWith(prefix) ? canvas.poster : null;
     out.set(bg.media, { ref: bg.media, kind: bg.kind, poster });
   }
+  /* 🖼 …and the COVER SCENE's own upload (the hero row's `canvas.ground`, owner 2026-10-16): a clip or photo the cover
+     wears from this folder is one of the couple's uploads too — so after the save's refresh its card is still in the
+     Upload row (with its still), on the cover and on every scene's Upload. */
+  for (const config of configs) {
+    const g = sanitizeHubCanvas(config).ground;
+    if (!g || (g.kind !== 'photo' && g.kind !== 'snippet')) continue;
+    if (!g.media.startsWith(prefix) || out.has(g.media)) continue;
+    const poster = g.kind === 'snippet' && g.poster?.startsWith(prefix) ? g.poster : null;
+    out.set(g.media, { ref: g.media, kind: g.kind, poster });
+  }
   return [...out.values()];
 }

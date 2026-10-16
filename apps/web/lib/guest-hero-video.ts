@@ -108,6 +108,37 @@ export function sceneClipRefForGuests(
 }
 
 /**
+ * 🖼 THE COVER SCENE'S OWN CLIP PLAYS FOR GUESTS ON THE EVENT'S OWN PAGE (owner 2026-10-16, on cale-ice, verbatim:
+ * *"Yes — let a cover video (15 s or less, muted) play for guests on the event's own page. Keep it as a still on
+ * public pages strangers see (Real Stories)."*).
+ *
+ * Its OWN switch — not `GUEST_HERO_VIDEO_PLAYBACK` (the hero boomerang on the masthead, the editorial site and
+ * /realstories, which stays CLOSED) and not `GUEST_SCENE_CLIP_PLAYBACK` (a scene's clip). It governs exactly one
+ * thing: a `{ kind: 'snippet' }` Cover Scene background (`HubSectionCanvas.ground` of the hero row) — whether the
+ * sanitiser keeps it (`sanitizeHubCanvas`) and whether the guest page's cover layer plays it
+ * (`app/[slug]/_lib/cover-scene-layer.ts`). Nothing a stranger sees reads `canvas.ground`: /realstories and the
+ * editorial site draw the hero photo and the hero video column, which this switch never writes.
+ *
+ * The clip is the couple's own, ≤ 15 s (`MAKER_MAX_CLIP_SECONDS`, refused before upload and trimmed by the encode),
+ * compressed silent in their browser (`videoCompressProfile="maker"` + `videoSilent`), and drawn by the shipped
+ * `SceneClip` (still first, muted · inline · loops, never under reduced motion or Save-Data).
+ *
+ * A code constant, never an env var. Closing it: every cover clip is dropped by the sanitiser (the cover falls back
+ * to The theme's own) AND the Cover Scene's Upload refuses a video before a byte is sent — never "Uploaded" for a
+ * clip that would then show nothing (the 2026-10-16 bug, held by `lib/the-cover-takes-a-video.test.ts`).
+ */
+export const GUEST_COVER_CLIP_PLAYBACK = true;
+
+/** Gate the Cover Scene's clip ref on its way to the guest page. `open` defaults to the switch above. */
+export function coverClipRefForGuests(
+  ref: string | null | undefined,
+  open: boolean = GUEST_COVER_CLIP_PLAYBACK,
+): string | null {
+  if (!open) return null;
+  return typeof ref === 'string' && ref.trim().length > 0 ? ref : null;
+}
+
+/**
  * The Main background's gate for a GUEST — the scene-clip switch, one argument,
  * so it can be handed to `resolveMainGround` as its `guestClipGate`. (Passing
  * `sceneClipRefForGuests` itself would let a caller's second argument close or

@@ -506,7 +506,10 @@ export async function hubDraftAction(
         const drafted = item.value as HubSectionCanvas | null;
         // The background (and a clip's still) — the couple's pictures or their
         // own scene upload — and every picture in a template scene's slots.
-        const ground = [drafted?.media, drafted?.poster].filter((r): r is string => Boolean(r));
+        // 🖼 …and the COVER SCENE's own (`canvas.ground` of the hero row): since 2026-10-16 its clip plays for guests,
+        // so its clip and still are held to the same rule as a scene's — never another event's media by a hand-made POST.
+        const cover = drafted?.ground && (drafted.ground.kind === 'photo' || drafted.ground.kind === 'snippet') ? drafted.ground : null;
+        const ground = [drafted?.media, drafted?.poster, cover?.media, cover?.poster].filter((r): r is string => Boolean(r));
         const slotRefs = (drafted?.slots ?? []).map((s) => s.media).filter((r): r is string => Boolean(r));
         if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !ownRefs.has(r))) {
           // A held scene's free part (`canvasFreePart`) is already reported,

@@ -3,8 +3,8 @@
  *
  * Owner-approved 2026-10-15 on `Setnayan/prototypes/maker_cover_group_background_2026-10-14_fable.html`
  * (DECISION_LOG 2026-10-15 "COVER SCENE APPROVED"): *"Cover scene will take up the whole screen initially whatever
- * screen type it is"* · *"Call it Cover Scene"* · Framed = the first screen inset with a rounded margin on the page
- * colour, Full width = edge to edge — "Yes" · the Hero folds into the Cover Scene's Background — "Yes, one
+ * screen type it is"* · *"Call it Cover Scene"* · (Framed | Full width was approved here, then REMOVED 2026-10-16 —
+ * always full width, `coverGroundShape`) · the Hero folds into the Cover Scene's Background — "Yes, one
  * background" · Scene ◆ moving backgrounds stay Pro — "Pro".
  *
  * The part (its key, its door, its three grey lines) is `lib/maker-parts.ts` `MAKER_COVER_SCENE`. This module is
@@ -16,6 +16,7 @@ import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-
 import { hubGlassOpacity, hubMainFadeAt, type HubCoverGround } from './hub-canvas';
 import { compositeOver, requiredScrim } from './hub-legibility';
 import { INVITE_THEMES } from './invite-themes';
+import { GUEST_COVER_CLIP_PLAYBACK } from './guest-hero-video';
 
 /**
  * 📐 THE WHOLE FIRST SCREEN, ON ANY DEVICE: `100svh` — the SMALL viewport, so a phone's browser bars never cut the
@@ -70,14 +71,18 @@ export function coverGroundIsPro(g: HubCoverGround | null | undefined): boolean 
 }
 
 /**
- * 🖼 FRAMED | FULL WIDTH — both the whole first screen tall (owner 2026-10-15, "Yes"): Framed insets the screen with
- * a rounded margin on the page colour (12 px on a phone, the page gutter from `sm`); Full width runs edge to edge.
- * Framed is the default (the absence of `shape`).
+ * 🖼 THE COVER SCENE IS ALWAYS FULL SCREEN, EDGE TO EDGE (owner 2026-10-16, DECISION_LOG "THE COVER SCENE IS ALWAYS
+ * FULL SCREEN", verbatim: *"Yes — remove the Framed / Full width choice. The Cover Scene is always full screen, edge
+ * to edge."* — and *"just for the cover scene"*). This supersedes the 2026-10-15 Framed | Full width approval.
+ *
+ * So the cover has no shape choice: it always draws `COVER_SCENE_FULL` — no inset, no rounded margin, no page colour
+ * round it. A `shape` already stored (cale-ice has Framed today) is IGNORED, never migrated: this answers 'full'
+ * whatever the row holds. ⚠ ONLY the Cover Scene — a scene's or a stage's own Framed | Full width (`HubSectionCanvas`
+ * `shape`, the stage toolbar's Width row) is a different key and is untouched.
  */
-export const COVER_SCENE_FRAMED = 'm-3 rounded-[18px] sm:m-6 overflow-hidden';
 export const COVER_SCENE_FULL = 'm-0 rounded-none overflow-hidden';
-export function coverGroundShape(g: HubCoverGround | null | undefined): 'framed' | 'full' {
-  return g?.shape === 'full' ? 'full' : 'framed';
+export function coverGroundShape(_g?: HubCoverGround | null): 'full' {
+  return 'full';
 }
 
 /* ── legibility: the words follow the Cover Scene's OWN ground (`lib/hub-legibility.ts`, free by ruling 2026-09-25) ─ */
@@ -137,4 +142,45 @@ export function coverGroundCss(g: HubCoverGround): string | null {
     return `color-mix(in srgb, ${g.color ?? '#FFFFFF'} ${a}%, ${THEME_GLASS_UNDER})`;
   }
   return null;
+}
+
+/* ── its Upload: a photo, or the couple's own ≤ 15 s muted clip (owner 2026-10-16) ─────────────────────────────── */
+
+/**
+ * 🎞 WHAT THE COVER'S UPLOAD TAKES. Owner 2026-10-16 on cale-ice: the clip was accepted, compressed, uploaded and said
+ * "Uploaded" — and then nothing was saved, because the Upload threw a clip away (`if (kind === 'clip') return …`) while
+ * one grey line under it, always there, said videos would not play. *"it did say uploaded but nothing showed."*
+ *
+ * Ruling the same day: *"Yes — let a cover video (15 s or less, muted) play for guests on the event's own page."* So a
+ * clip is TAKEN while the cover clip switch is open (`GUEST_COVER_CLIP_PLAYBACK`); with it closed the Upload offers
+ * photos only and refuses a picked video IN PLACE, before a byte is sent — never "Uploaded" for nothing again.
+ * Held by `lib/the-cover-takes-a-video.test.ts`.
+ */
+export function coverSceneTakesClips(open: boolean = GUEST_COVER_CLIP_PLAYBACK): boolean {
+  return open;
+}
+
+/** The plain line a picked video meets while the cover clip switch is closed — where a video CAN go, said in place. */
+export const COVER_SCENE_CLIP_CLOSED_LINE =
+  'A video can’t go on the Cover Scene yet — pick a photo here, or choose Scene ◆ for a moving cover.';
+
+/** A picked file the cover's Upload refuses before it uploads (a video while the switch is closed), else null. */
+export function coverSceneUploadRefusal(type: string, open: boolean = GUEST_COVER_CLIP_PLAYBACK): string | null {
+  return type.startsWith('video/') && !coverSceneTakesClips(open) ? COVER_SCENE_CLIP_CLOSED_LINE : null;
+}
+
+/** The FileUpload label: what the cover's Upload really takes (the stage Upload's shipped words). */
+export function coverSceneUploadLabel(open: boolean = GUEST_COVER_CLIP_PLAYBACK): string {
+  return coverSceneTakesClips(open) ? 'Upload a photo or clip' : 'Upload a photo';
+}
+
+/**
+ * A clip card's name: "Your video" — or, when the row holds more than one clip, its file name (an upload's key is
+ * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards.
+ */
+export function coverClipCardName(ref: string, clipsInRow: number): string {
+  if (clipsInRow <= 1) return 'Your video';
+  const file = ref.split('/').pop() ?? '';
+  const name = file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '');
+  return name || 'Your video';
 }

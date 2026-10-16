@@ -7015,26 +7015,6 @@ html:active-view-transition .sn-page-enter { animation: none; }
   }
 }
 
-/* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──
-   Owner: "make the whole event hub fully animated." No new tokens: every
-   movement reads the site's EXISTING motion set in :root (--sn-dur-elem,
-   --sn-dur-enter, --sn-ease-out), mirrored in lib/motion.ts and held equal by
-   the-hub-moves-with-meaning.test.ts. Keyframes declare only `from` and run
-   `backwards`, NEVER `both` — see the .sn-page-enter note: a held transform
-   silently unpins every `position: fixed` descendant. Every rule is off under
-   prefers-reduced-motion (the block at the end), and the arrival hides
-   nothing unless the ArrivalOnce script has opted the page in. */
-@keyframes sn-hub-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes sn-pass-lift {
-  from {
-    transform: translateY(10px);
-    box-shadow: 0 30px 70px -20px rgb(30 34 41 / 0.5);
-  }
-}
 /* ═══ 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW — EVERY LINE ENTERS AFTER THE UNVEIL (owner 2026-10-16) ═══
    Owner, verbatim: *"Yes — behind the veil, none of the cover's words show. After the unveil, every line enters with
    the cover's entrance (lines with no Build in get the cover's default)."* Live on cale-ice the date, the venue and
@@ -7064,6 +7044,27 @@ html:active-view-transition .sn-page-enter { animation: none; }
      hold's own failsafe (12 s, `VEIL_HOLD_FAILSAFE_MS`) — a stalled page still shows its words. */
   [data-loading-veiled] [data-cover-line] {
     animation: sn-el-waits 12s step-end;
+  }
+}
+
+/* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──
+   Owner: "make the whole event hub fully animated." No new tokens: every
+   movement reads the site's EXISTING motion set in :root (--sn-dur-elem,
+   --sn-dur-enter, --sn-ease-out), mirrored in lib/motion.ts and held equal by
+   the-hub-moves-with-meaning.test.ts. Keyframes declare only `from` and run
+   `backwards`, NEVER `both` — see the .sn-page-enter note: a held transform
+   silently unpins every `position: fixed` descendant. Every rule is off under
+   prefers-reduced-motion (the block at the end), and the arrival hides
+   nothing unless the ArrivalOnce script has opted the page in. */
+@keyframes sn-hub-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sn-pass-lift {
+  from {
+    transform: translateY(10px);
+    box-shadow: 0 30px 70px -20px rgb(30 34 41 / 0.5);
   }
 }
 

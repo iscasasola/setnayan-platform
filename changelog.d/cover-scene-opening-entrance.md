@@ -8,7 +8,7 @@ Part 2 of 2 — part 1 is #6592 (merged).
   Sheer veil ◆ · …), mounted as the group's own rows. The Reveal's tile that floated above the cover ("Opens once, over
   the cover") is gone from every page list and from the canvas (`revealStubHtml` deleted); the cover's top-right corner
   names the opening instead ("Sheer veil ◆ opens over it" / "No opening", Maker canvas only). Nothing can be added above
-  the Cover Scene (the Reveal's lock moved onto the group). Post Event has no opening, so its Style is grey there.
+  the Cover Scene (the Reveal's lock moved onto the group). On Post Event (no opening) its Style is the work area's own, as before.
 - **Animate = ONE entrance** (`lib/cover-entrance.ts`): Entrance ▾ (The theme's own · Event title first · Top to bottom ·
   All together · Soft focus · From the sides · Still), Movement ◆ (Quick · Calm · Cinematic), the beats (at most three —
   the shipped Delay steps), and the words on their own with "Reset to the cover's ›". Stored ONCE as `canvas.entrance` on

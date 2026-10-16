@@ -6,8 +6,8 @@ already has its own `HANDOVER.md`, which must not be overwritten.
 ## The two PRs (a stack)
 | | branch | PR | head | worktree | state |
 |---|---|---|---|---|---|
-| A — items 1–3 | `rd/cover-scene-tools` | **#6592** (draft, `do-not-auto-merge`) | `d7c0d33fed` | `~/Documents/Claude/Projects/wt-cover-scene-a` | **CI: 26/26 green** on that sha. Ready for the coordinator to ship. |
-| B — items 4–5 | `rd/cover-scene-opening` (base: `rd/cover-scene-tools`) | not opened yet | see `git log -1` | `~/Documents/Claude/Projects/wt-cover-scene` | Pushed; tsc 0 errors; touched guards green; full unit suite not re-run after the last fixes |
+| A — items 1–3 | `rd/cover-scene-tools` | **#6592** | `d7c0d33fed` | (worktree pruned) | **MERGED** 2026-10-16 17:47Z (merge 03996514e9) |
+| B — items 4–5 | `rd/cover-scene-opening` (base: main, main merged in) | **#6596** (draft, `do-not-auto-merge`) | see `git log -1` | `~/Documents/Claude/Projects/wt-cover-scene` | Pushed; tsc 0 errors; touched guards green; waiting on CI |
 
 Contract: the corpus DECISION_LOG rows of 2026-10-16 (Cover Scene's own Edit · Style (Opening) · Animate; words in the
 upper part + RSVP button + "Swipe up"; shimmer = an Action on any text; Confirm attendance = RSVP; all animate/effects/
@@ -37,17 +37,14 @@ styles/accents are Pro ◆); prototype v2 `prototypes/cover_scene_edit_animate_2
    were re-anchored to the ruling.
 
 ## Left, in order
-1. Open PR B as a draft with base `rd/cover-scene-tools` and label `do-not-auto-merge`. Run first:
-   `git -C ~/Documents/Claude/Projects/wt-cover-scene rm HANDOVER-cover-scene.md` (commit, push), then
-   `gh pr create --draft --base rd/cover-scene-tools --head rd/cover-scene-opening --label do-not-auto-merge --title "feat(cover-scene): Style = the Opening, one-entrance Animate, ▶ veil → entrance (2/2)" --body-file <body>`
-   (the changelog fragment `changelog.d/cover-scene-opening-entrance.md` is the body's source).
+1. PR B is open (#6596). Before it ships: `git -C ~/Documents/Claude/Projects/wt-cover-scene rm HANDOVER-cover-scene.md` (commit, push).
+   Next exact command: `gh pr checks 6596`.
 2. Wait for CI on B and fix any red. Re-run the full unit suite from `apps/web` under the heavy lock:
    `L=~/Documents/Claude/Projects/heavy-lock.sh; "$L" acquire "unit B" && { npx tsx --test "lib/**/*.test.ts" "app/**/*.test.ts" > /tmp/unitB.txt 2>&1; "$L" release "unit B"; }`
 3. Walk B on the Maker lab (`/dev/maker-lab?studio=1`): Cover Scene › Edit switches, Style = Opening cards + corner tag,
    Animate entrance + ▶, and shimmer on a scene heading. Use WebKit iPhone 13 at 375. The walk script is in
    `controller-2026-10-12/cover-scene-build/handover/walk.mjs` (guest pages only, so the Maker clicks need adding).
    Run `next dev` under the WALK lane and copy `apps/web/.env.local` from the main checkout.
-4. When A merges, rebase or merge main into B and switch B's base to main.
 
 ## Open questions (owner)
 - While the cover's RSVP button shows, the Welcome Reply card under it is not drawn (one doorway), and so neither is the

@@ -29,15 +29,13 @@ Head sha: see `git log -1` on the branch (the feature commit is `4cad4f3981`; th
   scripts `closing-scene/scripts/{serve.sh,walk.mjs,stub.mjs}`.
 
 ## Left, in order
-1. Wait for `node scripts/preflight.mjs` (log `/tmp/closing-preflight.log`; slow, ~716 unit files) — fix any red, push.
-2. Sabotage once and record it on the PR: e.g. delete the `if (fixed === 'closing') …` line in editor-shell.tsx → run
-   `cd apps/web && npx tsx --test lib/the-closing-is-its-own-scene.test.ts` → expect test 2 red → `git checkout` the file.
-3. Run the CI guard aggregator steps from apps/web (preflight covers the cheap ones), then wait for CI green on #6595:
-   `gh pr checks 6595`.
+1. DONE: preflight. The real failures were the comment-stripper lint and a stale ugat screens map, both fixed in b60d82a75d. Everything else timed out on the loaded machine.
+2. DONE: sabotage (removing the editor-shell closing branch turns test 2 red; restored, green). Recorded in a PR comment.
+3. Wait for CI green on #6595: `gh pr checks 6595`. Fix any red, then push.
 4. Report to the controller: PR #6595, head sha, CI count, walk, screenshot paths.
 
 ## Exact next command
-`tail -45 /tmp/closing-preflight.log` (if gone: `cd ~/Documents/Claude/Projects/wt-closing-scene && node scripts/preflight.mjs`)
+`gh pr checks 6595`
 
 ## Open questions / notes
 - The Closing's frame on the canvas shows the generic ＋ (add above) like other fixed rows — not changed here.

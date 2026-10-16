@@ -159,6 +159,8 @@ export function GuestTicketThumb({
           <img
             src={src}
             alt={`${name}'s ticket`}
+            width={300}
+            height={400}
             className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
           />
           <SaveFileLink

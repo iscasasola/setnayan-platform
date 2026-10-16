@@ -1044,8 +1044,10 @@ function GuestRowLine({
         {selectMode ? (
           picked ? <Check aria-hidden strokeWidth={2.2} /> : null
         ) : face ? (
+          // 🖼 Sized in its own markup: a face is never drawn at its file's size before the list's stylesheet
+          // arrives (owner 2026-10-16) — a-face-is-never-drawn-at-its-natural-size.test.ts.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={face} alt="" loading="lazy" />
+          <img src={face} alt="" width={40} height={40} loading="lazy" />
         ) : (
           guestInitials(g)
         )}

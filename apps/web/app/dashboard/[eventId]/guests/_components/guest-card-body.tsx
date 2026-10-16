@@ -400,7 +400,7 @@ export function GuestCardBody({
         {photoDisplayUrl ? (
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10">
             {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
-            <img src={photoDisplayUrl} alt="" className="h-full w-full object-cover" />
+            <img src={photoDisplayUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
           </span>
         ) : (
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent">

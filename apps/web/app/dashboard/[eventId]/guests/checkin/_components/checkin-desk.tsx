@@ -652,6 +652,8 @@ function GuestAvatar({ guest, size }: { guest: DeskGuest; size: 'sm' | 'lg' }) {
       <img
         src={guest.photoUrl}
         alt=""
+        width={size === 'lg' ? 64 : 36}
+        height={size === 'lg' ? 64 : 36}
         className={`${cls} shrink-0 rounded-full object-cover`}
       />
     );

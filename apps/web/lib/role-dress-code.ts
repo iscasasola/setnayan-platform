@@ -38,8 +38,9 @@ import { roleLabel } from '@/lib/entourage';
 import type { RoleNames } from '@/lib/role-names';
 import { resolveAttirePaletteColors, type RolePalette } from '@/lib/mood-board';
 
-/** The styles a couple may ask a role to wear. Owner's three, plus the ones a Filipino wedding actually uses. */
-export const ATTIRE_STYLES = [
+/** The shipped seven — owner's three, plus the ones a Filipino wedding actually uses. A row with no designs of its own
+ *  (the celebrant, Nikah principals, officiants & readers) still offers these (`STYLE_ORDER`, lib/attire-figures.ts). */
+export const GENERAL_ATTIRE_STYLES = [
   'long_gown',
   'cocktail_dress',
   'filipiniana',
@@ -48,8 +49,26 @@ export const ATTIRE_STYLES = [
   'formal',
   'smart_casual',
 ] as const;
+
+/**
+ * EVERY WORD A WEAR MAY BE STORED AS — the seven, plus the eight designs the roles' own lists added (owner 2026-10-16,
+ * DECISION_LOG "EACH ROLE HAS ITS OWN LIST OF DESIGNS"; the table is `ROLE_DESIGNS`, lib/attire-designs.ts). One
+ * vocabulary, so every sanitizer, the dress-code save and the readers accept a design without a second shape.
+ */
+export const ATTIRE_STYLES = [
+  ...GENERAL_ATTIRE_STYLES,
+  'three_piece_suit',
+  'tuxedo',
+  'vest_and_tie',
+  'vest_and_bow_tie',
+  'ball_gown',
+  'mermaid',
+  'a_line',
+  'tulle_dress',
+] as const;
 export type AttireStyle = (typeof ATTIRE_STYLES)[number];
 
+/** The shared word for each — a role names its own designs its own way (`designLabel`, lib/attire-designs.ts). */
 export const ATTIRE_STYLE_LABEL: Record<AttireStyle, string> = {
   long_gown: 'Long gown',
   cocktail_dress: 'Cocktail dress',
@@ -58,6 +77,14 @@ export const ATTIRE_STYLE_LABEL: Record<AttireStyle, string> = {
   suit: 'Suit',
   formal: 'Formal',
   smart_casual: 'Smart casual',
+  three_piece_suit: '3-piece suit',
+  tuxedo: 'Tuxedo',
+  vest_and_tie: 'Vest and tie',
+  vest_and_bow_tie: 'Vest and bow tie',
+  ball_gown: 'Ball gown',
+  mermaid: 'Mermaid',
+  a_line: 'A-line',
+  tulle_dress: 'Tulle dress',
 };
 
 export function isAttireStyle(v: unknown): v is AttireStyle {

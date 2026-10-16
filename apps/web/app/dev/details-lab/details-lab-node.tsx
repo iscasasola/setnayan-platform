@@ -45,7 +45,7 @@ import { labMarchSections } from './march-fixture';
 import { labOpenMarchCard } from './lab-march-cards';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
-import { LAB_SAMPLE } from '../maker-lab/guest/lab-sample';
+import { LAB_SAMPLE, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { LabMoodBoardActions } from './lab-mood-board-actions';
@@ -100,6 +100,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   /* 👗 `?attire=shared` — a two-pick role stored with one shared, women's Wear (the shape the owner's live dress code
      holds, 2026-10-16: "the drawing is not following the type of attire"). */
   const sharedAttire = one('attire') === 'shared';
+  /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`; `&groom=tuxedo` etc. pick a design). */
+  const rolesAttire = one('attire') === 'roles';
+  const rolesPick = { groom: one('groom'), bride: one('bride'), men: one('men'), women: one('women'), boys: one('boys'), girls: one('girls'), gm: one('gm'), gw: one('gw') };
   const wishState = labWishState(one('wish'));
   /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
   const venueLab = one('venue') === 'own';
@@ -340,14 +343,14 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   <LabMoodBoardActions refuse={one('refuse') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
-                    palette={{ reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) } as never}
+                    palette={(rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
                     attire={[
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
-                      ...(sharedAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
+                      ...(sharedAttire || rolesAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
                       /* The rows `studioAttireRows` really builds (a guest list with bridesmaids, groomsmen and
                          bearers) — so each attire board is seen under its own role, as in the Maker. */
                       { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: '2:00 PM' },
@@ -356,7 +359,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                       { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
                     dressConfig={
-                      sharedAttire
+                      rolesAttire
+                        ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)
+                        : sharedAttire
                         ? { roles: { bride: { style: 'long_gown' } }, groups: { principal_sponsors: { style: 'long_gown' }, bridesmaids: { style: 'long_gown' }, groomsmen: { style: 'suit' } } }
                         : { roles: { bride: { style: ATTIRE_STYLES[0] } } }
                     }

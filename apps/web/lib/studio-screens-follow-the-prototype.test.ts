@@ -154,7 +154,9 @@ test('6 · Attire: every colour a role wears is a button that opens the SAME pic
   const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'insp' ? ("));
   assert.doesNotMatch(attire, /<i key=\{i\} aria-label=\{c\}/, 'a role’s colour is still a static dot (owner: “the palettes can still be changed to colors manually”)');
   /* RE-AIMED 2026-10-14 (two picks): the first pick's dot opens the role's colour; the second's, its own (`second-colour`). */
-  assert.match(attire, /data-mood-board-role-colour=\{i\}[\s\S]*?setSheet\(\{\s*kind: 'picker',\s*target: pi === 0 \? \{ kind: 'role-colour'/, 'a dot does not open the picker');
+  /* RE-AIMED 2026-10-16 (per-role attire): every dot is the one `RoleColourDot` (a zone's, a guest option's, a pick's). */
+  assert.match(attire, /<RoleColourDot[\s\S]*?index=\{i\}[\s\S]*?setSheet\(\{\s*kind: 'picker',\s*target:\s*pi === 0\s*\? \{ kind: 'role-colour'/, 'a dot does not open the picker');
+  assert.match(src, /function RoleColourDot\([\s\S]*?data-mood-board-role-colour=\{index\} onClick=\{onPick\}/, 'the dot is not a button that opens what it is handed');
   /* RE-AIMED 2026-10-09: the ＋ is the ActionButton, icon only — its label is its name. */
   assert.match(attire, /`Add a colour for \$\{row\.label\}`/, 'the role lost its ＋');
   /* The picker is the one sheet every colour here uses, and a pick goes through `commit` → the draft. */

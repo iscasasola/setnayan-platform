@@ -5,7 +5,7 @@
  * *"Approved — build the vintage art kit as the proof shows (decorations come with the Vintage look, with an On/Off
  * switch)."* The proof: `prototypes/art_kit_cale_ice_2026-10-16.html` (corpus d5d3f726) — eight Higgsfield pieces
  * cut to transparent (A1–A8, `art_kit_cale_ice_2026-10-16/kit/`) and two SVG hairlines, each in ONE slot.
- * And on pricing, the same evening: *"the accents we added should be part of pro."* — `ART_KIT_IS_PRO` below.
+ * And on pricing, the same evening: *"the accents we added should be part of pro."* — `ART_KIT_IS_PRO` (`lib/art-kit-pro.ts`).
  *
  * ── 🔑 KEYED BY THE THEME'S ORNAMENT HOOK, NOT BY THE THEME ──────────────────────────────────────────────────────
  * `lib/invite-themes.ts` already names each theme's ornament set (`ornament: 'lace-postmark'` on Vintage, the spec's
@@ -29,17 +29,10 @@
  */
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 
-/**
- * 💎 IS A KIT PART OF EVENT HUB PRO? — ONE CONSTANT.
- *
- * Owner 2026-10-16, verbatim: *"the accents we added should be part of pro."* So: tried free in the Maker (the
- * canvas wears it), named "Decorations" at Apply, and on the guest page only while the event owns Event Hub Pro —
- * the event's unlock, so it covers everyone on the event, and an internal host counts (`eventSkuActive` →
- * `eventHostIsInternal`). A free event's guests see no decorations; the switch and the Maker's preview stay.
- *
- * Flip it to `false` and kits come free with their look — every reader below follows; the guard holds both values.
- */
-export const ART_KIT_IS_PRO: boolean = true;
+import { ART_KIT_IS_PRO, decorationsOn } from '@/lib/art-kit-pro';
+
+/* 💎 The price switch and the switch's reading live in `lib/art-kit-pro.ts` (kept out of the Maker's first load). */
+export { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS, decorationsChangeIsPro, decorationsOn } from '@/lib/art-kit-pro';
 
 /** Where a piece is mounted. Each slot is ONE mount on the guest page (`KitSlot`), never two. */
 export const ART_KIT_SLOTS = ['veil', 'cover', 'countdown', 'gifts-card', 'gifts-divider', 'reply', 'closing', 'heading'] as const;
@@ -209,11 +202,6 @@ export function artKitForSaved(saved: unknown): ArtKit | null {
   return artKitFor(normalizeThemeId(saved));
 }
 
-/** The switch, read: NULL (never set) and TRUE are on — the kit comes with the look; only FALSE is off. */
-export function decorationsOn(stored: unknown): boolean {
-  return stored !== false;
-}
-
 /**
  * 🎚 THE ONE DECISION — does this page draw its kit?
  *
@@ -237,14 +225,6 @@ export function artKitShows(input: {
   const pro = input.isPro ?? ART_KIT_IS_PRO;
   if (pro && !input.ownsPro && !input.tryOn) return null;
   return kit;
-}
-
-/**
- * Is a drafted Decorations value a Pro change at Apply? Only turning it ON (or leaving it as the look brings it) is
- * — turning it off is never Pro. A kit-less theme makes it moot, and moot is free.
- */
-export function decorationsChangeIsPro(value: unknown, isPro: boolean = ART_KIT_IS_PRO): boolean {
-  return isPro && decorationsOn(value);
 }
 
 /** The placements of one slot, in order. */

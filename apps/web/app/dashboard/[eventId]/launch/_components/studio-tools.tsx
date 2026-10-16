@@ -62,7 +62,7 @@ import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { ART_KIT_IS_PRO } from '@/lib/art-kits';
+import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 import { Fold } from '@/app/_components/fold';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';

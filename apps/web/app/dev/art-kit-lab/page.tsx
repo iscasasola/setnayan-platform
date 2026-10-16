@@ -35,6 +35,7 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  *
  *   ?decor=0   Decorations off (the couple's switch)            ?free=1   an event without Event Hub Pro
  *   ?veil=1    the Sheer veil over the cover, with its seal     ?photo=0  no cover photo (the oval holds the mark)
+ *   ?ground=dark  the cover over a dark still (where a halo would show)
  *
  * Every picture here is Setnayan's own (`public/std/backgrounds`) or drawn on the page — never anybody's photo.
  */
@@ -62,6 +63,8 @@ export default async function ArtKitLabPage({ searchParams }: { searchParams: Pr
   const names = 'Maria & Jose';
   const date = '2026-12-18';
   const photo = sp.photo === '0' ? null : '/std/backgrounds/ballroom.webp';
+  /* `?ground=dark` — the cover over a DARK ground (Setnayan's own starlit still, no scrim): where a piece's halo would show. */
+  const darkGround = sp.ground === 'dark';
 
   /* 🎚 THE PAGE'S OWN RULE — the theme is Vintage (worn, as on a Pro event), the switch and the Pro answer from the query. */
   const kit = artKitShows({ theme: 'vintage', decorations: sp.decor === '0' ? false : null, ownsPro: sp.free !== '1', tryOn: false });
@@ -127,9 +130,11 @@ export default async function ArtKitLabPage({ searchParams }: { searchParams: Pr
             venueName="Santuario de San Antonio · Seda Vertis North"
             eyebrow="With thanksgiving to God and the blessing of our parents,"
             ground={
-              photo
-                ? { shape: 'full', css: null, still: photo, clip: null, parallax: false, veil: null, scrim: { color: '#eadbc6', opacity: 0.55 }, tone: 'ink' }
-                : null
+              darkGround
+                ? { shape: 'full', css: null, still: '/std/backgrounds/starlit.webp', clip: null, parallax: false, veil: null, scrim: { color: '#000000', opacity: 0 }, tone: 'cream' }
+                : photo
+                  ? { shape: 'full', css: null, still: photo, clip: null, parallax: false, veil: null, scrim: { color: '#eadbc6', opacity: 0.55 }, tone: 'ink' }
+                  : null
             }
             kitSlot={kit ? <KitSlot kit={kit} slot="cover" eager /> : null}
             monogramSlot={

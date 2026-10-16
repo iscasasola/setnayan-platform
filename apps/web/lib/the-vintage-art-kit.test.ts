@@ -24,6 +24,7 @@ import {
   ART_KITS,
   ART_KIT_BYTE_CEILING,
   ART_KIT_IS_PRO,
+  ART_KIT_ORNAMENTS,
   ART_KIT_SLOTS,
   ART_KIT_SLOT_SCENE,
   artKitCss,
@@ -55,6 +56,8 @@ const VINTAGE = artKitFor('vintage')!;
 test('1 · a kit draws only for a look whose ornament has one — today Vintage — and only with Decorations on', () => {
   assert.ok(VINTAGE, 'Vintage lost its kit');
   assert.equal(INVITE_THEMES.vintage.ornament, VINTAGE.ornament, 'the kit is no longer keyed by Vintage’s ornament hook');
+  // The Apply sheet's light list of kit ornaments is the registry's own keys.
+  assert.deepEqual([...ART_KIT_ORNAMENTS].sort(), Object.keys(ART_KITS).sort(), 'ART_KIT_ORNAMENTS drifted from ART_KITS');
   for (const id of INVITE_THEME_IDS) {
     const kit = artKitShows({ theme: id, decorations: null, ownsPro: true, tryOn: false });
     assert.equal(kit !== null, id === 'vintage', `${id}: a kit ${kit ? 'drew' : 'did not draw'}`);

@@ -169,7 +169,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
-import { decorationsChangeIsPro } from '@/lib/art-kits';
+import { decorationsChangeIsPro } from '@/lib/art-kit-pro';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';

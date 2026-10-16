@@ -37,7 +37,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { ART_KIT_IS_PRO, artKitFor, decorationsOn } from '@/lib/art-kits';
+import { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS, decorationsOn } from '@/lib/art-kit-pro';
 import { hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
@@ -141,7 +141,7 @@ function eventEffect(
       /* 🕯 A look that brings an art kit says so while its Decorations are on and Pro (owner 2026-10-16: "Name it
          'Decorations' in the Apply sheet's Pro lines") — one line, the theme's, since paying for the theme is what
          brings them: "Theme · Vintage, with its Decorations". */
-      const withKit = id !== null && ART_KIT_IS_PRO && artKitFor(id) !== null && decorationsOn(decorations);
+      const withKit = id !== null && ART_KIT_IS_PRO && ART_KIT_ORNAMENTS.includes(INVITE_THEMES[id].ornament) && decorationsOn(decorations);
       return { what: 'Theme', where: id ? `${INVITE_THEMES[id].name}${withKit ? ', with its Decorations' : ''}` : 'Your theme', jump: { kind: 'look' } };
     }
     case 'site_font_key':

@@ -273,7 +273,9 @@ export function artKitCss(kit: ArtKit): string {
       `.sn-editorial .pahina-eyebrow::after{width:${flourish.w}px;max-width:40vw;height:${flourish.h}px;background:url("${kitFile(kit, flourish, 'svg')}") left center/contain no-repeat;opacity:1}`
     : '';
   return (
-    'html:has([data-art-kit]){overflow-x:clip}' +
+    /* 🪤 WebKit does not stop the viewport scrolling sideways for `clip` on <html> alone (measured, iPhone 13 WebKit,
+       2026-10-16: the page scrolled 44px to the abaniko) — the body clips too, which it honours. */
+    'html:has([data-art-kit]),html:has([data-art-kit]) body{overflow-x:clip}' +
     '[data-kit-slot]{pointer-events:none}' +
     '[data-kit-slot] picture,[data-kit-slot] img{display:block;width:100%;height:auto}' +
     '[data-kit-piece]{position:absolute;line-height:0}' +

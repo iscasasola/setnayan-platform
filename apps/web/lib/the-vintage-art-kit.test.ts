@@ -90,6 +90,8 @@ test('1b · the slot model is data: every placement names a known piece, a slot,
   // The church on the ceremony card belongs to the venue-card build; Shimmer to the Cover Scene build — never this kit.
   assert.equal(Object.keys(VINTAGE.pieces).some((k) => /church/.test(k)), false, 'the church drawing joined the kit');
   assert.equal(/shimmer/i.test(artKitCss(VINTAGE)), false, 'Shimmer joined the kit');
+  // A piece may hang past the page's edge; the page never scrolls sideways for it — WebKit needs the BODY to clip.
+  assert.ok(artKitCss(VINTAGE).includes('html:has([data-art-kit]) body{overflow-x:clip}'), 'the body no longer clips the kit sideways (WebKit scrolls)');
 });
 
 /* ── 2 · off = no kit markup ────────────────────────────────────────────────────────────────────────────────────── */

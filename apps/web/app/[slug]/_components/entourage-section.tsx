@@ -118,7 +118,8 @@ export function EntourageSection({
                 <ByRoleRows group={group} blocks={blocks} layout={roleLayout} look={look} />
               ) : (
                 <>
-                  {group.sideWords && (look === 'axis' || group.rows.some(([l, r]) => l !== null && r !== null)) ? (
+                  {/* The column words head the columns only where a pair stands in them — a lone person is centred. */}
+                  {group.sideWords && group.rows.some(([l, r]) => l !== null && r !== null) ? (
                     <ColumnWords words={group.sideWords} look={look} />
                   ) : null}
                   <ul className="space-y-3">
@@ -154,15 +155,15 @@ export function EntourageSection({
  *
  *   axis  — ON THE AXIS (`roll-call`, the default). Every group is the same two-column grid at 375. The LEFT cell
  *           is set RIGHT and the right cell left, so each pair meets at the centre of the page — where the printed
- *           invitation puts the "&" the owner removed (2026-10-14). A single keeps his side, the partner cell blank
- *           (owner 2026-09-14, "keep that line blank"). Group headings are centred between two hairlines.
+ *           invitation puts the "&" the owner removed (2026-10-14). Anyone who walks ALONE is centred across both
+ *           columns with his role word (owner 2026-10-17 — it superseded 2026-09-14's "keep that line blank").
+ *           Group headings are centred between two hairlines.
  *   lines — LINES. Pairs flush-left in two columns, a hairline between groups; anyone who walks ALONE is centred
  *           across both columns with their role word — a centred name has no column to say it, so the word must.
  *
  * 🔑 THE RIGHT CELL IS ALWAYS THE LEFT CELL'S PARTNER (owner 2026-10-15: *"the counter column must have
  * significance to the first column"*). Both looks draw `group.rows` exactly as `buildEntourage` paired them — a row
- * is one walk, or one person alone in the column the group's own sides give him — and never move anybody into an
- * empty cell to fill it. Held by `lib/the-entourage-second-column-is-the-partner.test.ts`.
+ * is one walk, or one person alone (centred) — and never move anybody into an empty cell to fill it. Held by `lib/the-entourage-second-column-is-the-partner.test.ts`.
  */
 type Look = 'axis' | 'lines';
 
@@ -247,27 +248,19 @@ function PairRow({
   const said = spoken.length ? <span className="sr-only">, {spoken.join(' and ')}</span> : null;
   const gap = look === 'axis' ? 'gap-x-7' : 'gap-x-6';
   if (people.length === 1) {
+    /*
+      🧍 ALONE, CENTRED ACROSS BOTH COLUMNS — in EVERY look. ⚖ Owner 2026-10-17 (DECISION_LOG "A LONE PERSON IN THE
+      ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED"): *"if they are just 1 and no partner, center it
+      instead of just 1 side."* Supersedes On the axis keeping his side with the partner cell blank (2026-09-14).
+      A centred name sits in neither column, so it carries the word its column would have said (`entourageCellWord`,
+      as Lines has since 2026-10-15). Held by `lib/a-lone-person-is-centred.test.ts`.
+    */
     const one = people[0]!;
-    if (look === 'lines') {
-      /* Alone, centred across both columns, carrying the word its column would have said. */
-      const word = speakRoles ? entourageCellWord(group, one) : null;
-      return (
-        <li className="break-words text-center leading-snug" data-solo-row="centre">
-          <Person person={one} word={word} muted />
-          {word ? null : said}
-        </li>
-      );
-    }
-    /* On the axis: he keeps the cell the pairing gave him; the partner cell stays blank. */
-    const right = row[0] === null;
+    const word = speakRoles ? entourageCellWord(group, one) : null;
     return (
-      <li className={`grid grid-cols-2 items-baseline ${gap} leading-snug`} data-solo-row={right ? 'right' : 'left'}>
-        {right ? <span aria-hidden /> : null}
-        <span className={`min-w-0 break-words ${right ? '' : 'text-right'}`}>
-          <Person person={one} word={roleBesideName(group, one)} />
-          {said}
-        </span>
-        {right ? null : <span aria-hidden />}
+      <li className="break-words text-center leading-snug" data-solo-row="centre">
+        <Person person={one} word={word} muted={look === 'lines'} />
+        {word ? null : said}
       </li>
     );
   }

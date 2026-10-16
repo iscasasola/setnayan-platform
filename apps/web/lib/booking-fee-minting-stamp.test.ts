@@ -41,7 +41,7 @@ test('the stamp is NOT in server start-up, and the root layout schedules it AFTE
 
 test('the scheduler: once per instance, after the response; a write that did not land is retried by a later request, a bounded number of times', async () => {
   const PROD = { VERCEL_ENV: 'production' };
-  const run = (outcomes: StampOutcome[], env: Record<string, string> = PROD) => {
+  const run = (outcomes: StampOutcome[], env: Readonly<Record<string, string | undefined>> = PROD) => {
     const queued: Array<() => Promise<unknown>> = [];
     let stamps = 0;
     const schedule = createMintingStampScheduler({

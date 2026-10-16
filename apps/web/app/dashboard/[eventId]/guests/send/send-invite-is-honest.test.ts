@@ -115,7 +115,8 @@ test('⓸ the QR image is fetched before the tap, never between the tap and navi
   assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
   assert.doesNotMatch(body(read(CELL), 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
   assert.doesNotMatch(body(read(CELL), 'share'), /\bfetch\(/, 'a fetch inside the Invite sheet’s Share can spend iOS’s user activation');
-  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
+  // At the ticket's versioned address when the card has it (the-ticket-is-fetched-once-per-version.test.ts).
+  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId, tv\.v\)/);
 });
 
 test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-30)', () => {

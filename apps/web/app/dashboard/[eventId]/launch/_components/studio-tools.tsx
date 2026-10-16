@@ -67,8 +67,9 @@ import { ActionButton } from '@/components/action-button';
 import { PrintChoicePicker } from './print-choice-picker';
 import { PrintSaveButton } from './print-save-button';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor } from './studio-prints-six';
-import { PrintPaperHead, StudioChartBody, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
+import { PrintPaperHead, StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { StudioPrintsBar } from './studio-prints-bar';
+import { AllInOneButton, StudioEditInPlace, StudioEverything, StudioFileChoice, StudioGuestPiece, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1161,11 +1162,7 @@ export function StudioAllInOne({
 }) {
   if (f === null) return null;
   if (f.kind === 'save') return <PrintSaveButton href={f.href} file={f.file} variant="action" main={main} wide={wide} icon={f.icon} label={f.label} />;
-  return (
-    <span data-print-all-in-one-pro="" className="inline-flex">
-      <StudioProDoor href={f.href} label={f.label} icon={f.icon} note={f.note} />
-    </span>
-  );
+  return <AllInOneButton f={f} />;
 }
 
 /**
@@ -1281,7 +1278,15 @@ export type StudioToolProps =
   | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0])
   /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
   | ({ part: 'all-in-one' } & Parameters<typeof StudioAllInOne>[0])
-  | ({ part: 'one-pass' } & Parameters<typeof StudioOnePass>[0]);
+  | ({ part: 'one-pass' } & Parameters<typeof StudioOnePass>[0])
+  /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
+  | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
+  | ({ part: 'piece-download' } & Parameters<typeof StudioPieceDownload>[0])
+  | ({ part: 'edit-in-place' } & Parameters<typeof StudioEditInPlace>[0])
+  | ({ part: 'guest-piece' } & Parameters<typeof StudioGuestPiece>[0])
+  | ({ part: 'everything' } & Parameters<typeof StudioEverything>[0])
+  | ({ part: 'file-choice' } & Parameters<typeof StudioFileChoice>[0])
+  | ({ part: 'chart-layout' } & Parameters<typeof StudioChartLayoutSetting>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1341,5 +1346,19 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioAllInOne {...props} />;
     case 'one-pass':
       return <StudioOnePass {...props} />;
+    case 'print-settings':
+      return <StudioPrintSettings {...props} />;
+    case 'piece-download':
+      return <StudioPieceDownload {...props} />;
+    case 'edit-in-place':
+      return <StudioEditInPlace {...props} />;
+    case 'guest-piece':
+      return <StudioGuestPiece {...props} />;
+    case 'everything':
+      return <StudioEverything {...props} />;
+    case 'file-choice':
+      return <StudioFileChoice {...props} />;
+    case 'chart-layout':
+      return <StudioChartLayoutSetting {...props} />;
   }
 }

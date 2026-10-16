@@ -633,6 +633,16 @@ test('live hub · the same player and wall, placed three ways; one missing draws
 
 // ── NO STORED STYLE = TODAY'S PAGE, BYTE FOR BYTE (controller 2026-09-29) ────
 
+/**
+ * 🗣 A DEFAULT THE OWNER RULED — the one exception to "no stored style = today's scene", per scene and stage.
+ * Love Story: owner 2026-10-17, *"Conversation as the default look"* (DECISION_LOG "APPROVED — LOVE STORY, TWO
+ * VOICES"), on the Save the Date and the Invitation. Every other scene and stage stays byte-identical below.
+ * Mirrors `OWNER_DEFAULT` in lib/scene-styles-stages.test.ts.
+ */
+const OWNER_DEFAULT: Readonly<Record<string, Partial<Record<'save_the_date' | 'rsvp' | 'event', string>>>> = {
+  our_love_story: { save_the_date: 'conversation', rsvp: 'conversation' },
+};
+
 test('🔒 an event with no stored style renders byte-identically to the shipped scene on every stage', async () => {
   const { sceneStyleOfRow } = await import('@/lib/scene-style-of-row');
   const { CountdownWidget } = await import('./countdown');
@@ -668,6 +678,13 @@ test('🔒 an event with no stored style renders byte-identically to the shipped
       for (const eventType of ['wedding', 'birthday']) {
         for (const config_json of [null, {}, { canvas: {} }, { canvas: { style: 'no-such-style' } }]) {
           const style = sceneStyleOfRow({ widget_type: type, config_json }, stage, eventType);
+          const ruled = OWNER_DEFAULT[type]?.[stage];
+          if (ruled) {
+            // The owner's ruled default replaces today's scene HERE ONLY — named, and drawn as that look.
+            assert.equal(style, ruled, `${type} on ${stage} (${eventType}, ${JSON.stringify(config_json)}) resolved ${style}, not the owner's default ${ruled}`);
+            assert.ok(html(draw(style)).includes(`data-scene-style="${ruled}"`), `${type} on ${stage}: the owner's default ${ruled} is the look drawn`);
+            continue;
+          }
           assert.equal(html(draw(style)), shipped, `${type} on ${stage} (${eventType}, ${JSON.stringify(config_json)}) drew ${style} instead of today's scene`);
         }
       }

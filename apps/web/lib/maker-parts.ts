@@ -161,6 +161,8 @@ export const MAKER_PART_KEYS = [
      the cover's invite line and its link, the Details block, the day's "Happening now" card. */
   'heroline',
   'herolink',
+  /* 🔘 THE RSVP BUTTON at the cover's foot (owner 2026-10-16) — a cover word of its own (hero el `rsvp`). */
+  'rsvpbutton',
   'details',
   'spotlight',
   'livehub',
@@ -341,6 +343,9 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
      hero parts (`HUB_HERO_ELEMENT_KEYS` 'line' / 'link'), typed on the page on the second tap. */
   heroline: { label: 'Invite line', source: 'tool', canvas: 'f:hero', el: 'line', layouts: NONE },
   herolink: { label: 'Link', source: 'tool', canvas: 'f:hero', el: 'link', layouts: NONE },
+  /* 🔘 Its OWN part, not the Reply card's (`rsvpcard` is also Me's card — one key cannot be two places): the cover's
+     foot button, its words the couple's ("Confirm attendance"), its look Look › Buttons'. */
+  rsvpbutton: { label: 'RSVP button', source: 'tool', canvas: 'f:hero', el: 'rsvp', layouts: NONE },
   /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`) — its date and place come from the
      booked venue, so its door is Suppliers'; its looks are the shipped event_details styles. */
   details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
@@ -427,8 +432,10 @@ export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'befor
  * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
  */
 export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
-  /* 🖼 The Cover Scene has Background ONLY — its words each keep their own Edit, Style and Animate. */
-  if (key === MAKER_COVER_SCENE) return tool === 'bg';
+  /* 🖼 THE COVER SCENE'S OWN EDIT (owner-approved 2026-10-16, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING) ·
+     ANIMATE"): Edit = its lines, each with the house switch · Background. Style (the Opening) and Animate (one
+     entrance) follow in the next step of the same build. Its words each keep their own four. */
+  if (key === MAKER_COVER_SCENE) return tool === 'edit' || tool === 'bg';
   if (tool === 'style') return !MAKER_PARTS_NO_LOOK.includes(key);
   if (key === 'camera') return false;
   if (tool === 'edit') return true;
@@ -450,10 +457,9 @@ export const MAKER_COVER_SCENE = 'coverscene' as const satisfies MakerPartKey;
 /** A cover word's Background line — the prototype's own words; the door's label is `MAKER_COVER_SCENE_DOOR`. */
 export const MAKER_COVER_WORD_BG_WHY = 'This sits on the Cover Scene.';
 export const MAKER_COVER_SCENE_DOOR = 'Select the Cover Scene ›';
-/** Why the group's Edit, Style and Animate are grey — the prototype's delta line ("Tap a word to edit it."), and its
- *  three panel lines cut to the toolbar's one short line (`a-tool-with-nothing-to-do-says-so.test.ts`: ≤ 60). */
-export const MAKER_COVER_SCENE_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'bg'>, string>> = {
-  edit: 'Tap a word to edit it.',
+/** Why the group's Style and Animate are still grey — its Edit (the lines) is live; the Opening and the one entrance
+ *  follow (the same approved prototype). One short line each (`a-tool-with-nothing-to-do-says-so.test.ts`: ≤ 60). */
+export const MAKER_COVER_SCENE_TOOL_WHY: Readonly<Record<'style' | 'animate', string>> = {
   style: 'Tap a word for its colour and size.',
   animate: 'Tap a word to animate it on its own.',
 };
@@ -480,7 +486,7 @@ export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'styl
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
   /* 🎛 The Camera's own three lines (the approved prototype's words, 2026-10-09: it is the whole screen). */
   if (key === 'camera' && tool !== 'style') return MAKER_CAMERA_TOOL_WHY[tool];
-  if (key === MAKER_COVER_SCENE && tool !== 'bg') return MAKER_COVER_SCENE_TOOL_WHY[tool];
+  if (key === MAKER_COVER_SCENE && (tool === 'style' || tool === 'animate')) return MAKER_COVER_SCENE_TOOL_WHY[tool];
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
@@ -523,7 +529,7 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     decline: ['logo', 'names', 'heroline', 'nonote'],
   },
   rsvp: {
-    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts', 'closing'],
+    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpbutton', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts', 'closing'],
     details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring', 'closing'],
     story: ['story', 'closing'],
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats', 'closing'],

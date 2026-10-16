@@ -70,7 +70,8 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     ['announce', null, true],
     ['livehub', null, true],
     /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
-    ['coverscene', 'grey', false],
+    /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT") its Edit is the cover's lines. */
+    ['coverscene', 'lines', false],
     ['logo', 'Open in Studio › Logo', true],
     ['ename', 'field', true],
     ['names', 'field', true],
@@ -122,7 +123,9 @@ test('(1) the record: every part of The Day — Edit’s first row and Style —
     for (const [k, door, style] of parts) {
       rows += 1;
       const q = makerPartQuietRow(k);
-      if (door === 'grey') {
+      if (door === 'lines') {
+        assert.equal(makerPartToolWorks(k, 'edit'), true, `${k}: its Edit (the cover's lines) is grey`);
+      } else if (door === 'grey') {
         assert.equal(makerPartToolWorks(k, 'edit'), false, `${k}: Edit is live`);
       } else if (door === 'field') {
         assert.ok(TYPED.includes(k), `${k}: the record types words the page does not take`);

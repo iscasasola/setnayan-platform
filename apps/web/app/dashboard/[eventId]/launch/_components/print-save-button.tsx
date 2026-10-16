@@ -82,6 +82,7 @@ export function PrintSaveButton({
   main = false,
   quiet = false,
   tone,
+  wide = false,
 }: {
   href: string;
   /** The saved file's name — `<event slug>-<print>.pdf`. */
@@ -105,6 +106,8 @@ export function PrintSaveButton({
   tone?: ActionTone;
   /** `action` only: the quiet look (the status line's "Save again" — one quiet word, not a second button competing). */
   quiet?: boolean;
+  /** `action` only: the button takes the room left in its row (the Event pass's "Every guest's pass", owner 2026-10-16). */
+  wide?: boolean;
 }) {
   /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
   const printFetch = usePrintFetch();
@@ -173,8 +176,9 @@ export function PrintSaveButton({
   if (variant === 'action') {
     const word = state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : (label ?? fileName);
     return (
-      <span data-print-save={fileName} className="inline-flex flex-col items-start gap-1">
+      <span data-print-save={fileName} className={wide ? 'flex min-w-0 flex-1 flex-col items-stretch gap-1' : 'inline-flex flex-col items-start gap-1'}>
         <ActionButton
+          className={wide ? 'w-full justify-center' : undefined}
           tone={tone ?? (main ? 'brand' : 'neutral')}
           main={main}
           quiet={quiet}

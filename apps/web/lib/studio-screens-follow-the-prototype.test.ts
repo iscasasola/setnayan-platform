@@ -117,7 +117,8 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   assert.doesNotMatch(studio, /This piece/, 'the old “This piece” block is still drawn');
   const src = read(`${L}/maker-prints.tsx`);
   const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
-  assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
+  /* 3 → 5 (2026-10-16): the Event pass's "Every guest’s pass" — Classic and the theme's — are ActionButtons too. */
+  assert.equal((editor.match(/variant="action"/g) ?? []).length, 5, 'a Studio Save is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
   /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
      (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */

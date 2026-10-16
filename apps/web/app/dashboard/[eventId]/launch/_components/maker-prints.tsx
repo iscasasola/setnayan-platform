@@ -296,7 +296,7 @@ export function PrintPieceEditor({
     menuEmpty || storyMissing ? null : studio ? (
       /* 🧭 Studio › Prints: THE ONE ActionButton — the row's one filled step is the file that prints in the theme (or the only one).
          🎟 The Event pass's own file is ONE pass — a sample (owner 2026-10-16, *"i only saw a sample of the event pass"*): it says so,
-         and the filled step is every guest's pass, below (`everyGuest`). */
+         and the filled step is every guest’s pass, beside it (`everyGuest`). */
       <>
         <PrintSaveButton
           href={classic(k)}
@@ -335,23 +335,19 @@ export function PrintPieceEditor({
        the route says so and the button shows its words in place — no empty file. No count is read here, so none is said. */
     const everyGuest =
       k === 'pass' && fam ? (
-        <div data-print-every-guest="" className="flex flex-col items-start gap-1 pb-2">
-          <div className="flex flex-wrap gap-1.5">
-            {themedReady ? (
-              <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" main label={`Every guest’s pass · ${t.name} (PDF)`} />
-            ) : null}
-            <PrintSaveButton
-              href={classic('passes')}
-              file={file.classic('passes')}
-              variant="action"
-              main={!themedReady}
-              label={themed ? 'Every guest’s pass · Classic (PDF)' : 'Every guest’s pass (PDF)'}
-            />
-          </div>
-          <p data-print-every-guest-line="" className="text-[12px] text-ink/60">
-            Guests who are coming · {formats[fam].label}, ganged on A4 with cut lines
-          </p>
-        </div>
+        <>
+          {themedReady ? (
+            <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" main wide label={`Every guest’s pass · ${t.name} (PDF)`} />
+          ) : null}
+          <PrintSaveButton
+            href={classic('passes')}
+            file={file.classic('passes')}
+            variant="action"
+            main={!themedReady}
+            wide={!themedReady}
+            label={themed ? 'Every guest’s pass · Classic (PDF)' : 'Every guest’s pass (PDF)'}
+          />
+        </>
       ) : null;
     const changed = (
       <ChangedSincePrinted
@@ -400,11 +396,18 @@ export function PrintPieceEditor({
           }
         />
         {saves ? (
-          <div className="flex flex-wrap gap-1.5 pb-2" data-print-piece-saves={k}>
+          /* 🎟 The Event pass: every guest's pass first (the filled step, the row's room), its one-pass sample beside it, and under both
+             what the file holds — the prototype's `.allrow` (owner 2026-10-16). */
+          <div className={everyGuest ? 'flex flex-wrap items-start gap-2 pt-0.5' : 'flex flex-wrap gap-1.5 pb-2'} data-print-piece-saves={k} data-print-every-guest={everyGuest ? '' : undefined}>
+            {everyGuest}
             {saves}
           </div>
         ) : null}
-        {everyGuest}
+        {everyGuest && fam ? (
+          <p data-print-every-guest-line="" className="px-1 pb-2.5 text-[12px] text-ink/60">
+            Guests who are coming · {formats[fam].label}, ganged on A4 with cut lines
+          </p>
+        ) : null}
         {/* 1 · Changed since you printed — the amber status line with one quiet "Save again" (the piece's main file). */}
         {changed}
         {children}

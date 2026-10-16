@@ -188,14 +188,17 @@ test('5 · the Event pass offers EVERY guest’s pass in the size picked on its 
       assert.match(plan.classic('passes'), new RegExp(`^/api/hub-print/passes\\?.*&pass_format=${fmt}$`), `the all-guests file is not in the size picked (${fmt})`);
       assert.match(plan.q('passes', 'print'), new RegExp(`pass_format=${fmt}`));
       const drawn = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
-      const every = drawn.slice(drawn.indexOf('data-print-every-guest=""'));
-      assert.ok(drawn.includes('data-print-every-guest=""'), `${theme}/${pro}: the Event pass row offers no all-guests file`);
-      assert.match(every, /Every guest’s pass[^<]*\(PDF\)/, 'the all-guests file is not named "Every guest’s pass (PDF)"');
-      assert.match(every, new RegExp(`Guests who are coming · ${label}, ganged on A4 with cut lines`), 'the all-guests line does not name the size picked');
-      assert.doesNotMatch(every, /\b\d+ guests coming\b/, 'a count is said that nothing measured');
-      const row = drawn.match(/data-print-piece-saves="pass">([\s\S]*?)<\/div>/)?.[1] ?? '';
-      assert.match(row, /Sample[^<]*\(PDF\)/, 'the Event pass’s one file is not called a sample');
-      assert.doesNotMatch(row, /Save PDF|Every guest/, 'the one-pass file and the all-guests file can be confused');
+      /* ONE row (the prototype's `.allrow`): every guest's pass — the filled step — first, the one-pass sample beside it. */
+      const row = drawn.match(/data-print-piece-saves="pass"[^>]*>([\s\S]*?)<\/div><p data-print-every-guest-line=""[^>]*>([^<]*)<\/p>/);
+      assert.ok(row, `${theme}/${pro}: the Event pass row has no all-guests file with its line under it`);
+      const [, buttons, line] = row;
+      const all = buttons!.search(/Every guest’s pass[^<]*\(PDF\)/);
+      const sample = buttons!.search(/Sample[^<]*\(PDF\)/);
+      assert.ok(all >= 0, 'the all-guests file is not named "Every guest’s pass (PDF)"');
+      assert.ok(sample > all, 'the one-pass file is not a "Sample (PDF)" beside the all-guests file');
+      assert.doesNotMatch(buttons!, /Save PDF/, 'the one-pass file and the all-guests file can be confused');
+      assert.equal(line, `Guests who are coming · ${label}, ganged on A4 with cut lines`, 'the all-guests line does not name the size picked');
+      assert.doesNotMatch(line!, /^\s*\d/, 'a count is said that nothing measured');
     }
   }
   const src = read(`${L}/maker-prints.tsx`);

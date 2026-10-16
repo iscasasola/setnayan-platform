@@ -257,6 +257,32 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </main>
     );
   }
+  /* ⛪ `?venues=<style>` (default · photo-card · full-photo · journey) — the REAL `VenueWidget` with cale-ice's two venue
+     NAMES (the names only — no address, no pin, no photo of theirs), as a guest who has not replied sees them.
+     `&parish=0` swaps the ceremony for a church with no drawing; `&photo=1` gives both cards a stand-in photo (a file
+     this repo ships), to see the drawing take the photo's place; `&art=candlelight` draws it on the dark Look. */
+  if (typeof sp.venues === 'string') {
+    const style = sp.venues === 'default' ? null : sp.venues;
+    const photo = sp.photo === '1' ? LAB_COVER_PHOTO : null;
+    const event = {
+      event_date: '2026-12-18',
+      venue_withheld: true,
+      venues: [
+        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo },
+        { role: 'reception', name: 'Seda Hotel Vertis North', address: null, latitude: null, longitude: null, photoUrl: photo },
+      ],
+    };
+    return (
+      <main
+        className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink"
+        data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
+        data-lab-venues={sp.venues}
+      >
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <VenueWidget event={event as never} sceneStyle={style} map="none" />
+      </main>
+    );
+  }
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said
      yes (`&freeze=<s>` holds one still frame for a screenshot); without it the

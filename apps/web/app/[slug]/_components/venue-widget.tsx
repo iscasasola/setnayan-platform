@@ -5,7 +5,7 @@ import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
 import type { ScheduleBlockRow } from '@/lib/print-pieces';
-import { PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venueStopTimes } from './venue-styles';
+import { ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -131,6 +131,9 @@ const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSP
 
 function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventRow; ownMap: boolean }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
+  // ⛪ The parish's drawing (`lib/parish-drawings.ts`) takes the photo's place:
+  // drawn on the plate, above the name — one picture per card.
+  const { drawing, photoUrl } = venuePicture(venue);
   return (
     <div data-venue-role={venue.role}>
       {/* 🏛📷 THE VENUE'S PHOTO (owner 2026-09-30): the booked supplier's own
@@ -139,11 +142,11 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
           a picture of the place tells a guest no more than its name, which they
           already read. With no photo there is NO band — the old tinted gradient
           read as a picture that failed to load. */}
-      {venue.photoUrl ? (
+      {photoUrl ? (
         <figure className="relative aspect-[16/9] overflow-hidden border border-b-0 border-ink/10 bg-ink/5" data-venue-photo="">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={venue.photoUrl}
+            src={photoUrl}
             alt={venue.name ? `${venue.name}` : 'The venue'}
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover"
@@ -165,6 +168,7 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
         />
       ) : null}
       <div className="pahina-plate space-y-3" style={VENUE_CHIP_GROUND}>
+        {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
         {/* The label is words a guest reads, so it takes the plate's ink — the
             gild is a decor metal and measured 1.76 : 1 here (cale-ice, 2026-09-30). */}
         <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/80">

@@ -158,3 +158,42 @@ export function labCaleRolePalette() {
     touched_roles: ['parents_immediate_family', 'principal_sponsors'],
   };
 }
+
+/**
+ * 👔 `?attire=roles` — THE PER-ROLE ATTIRE WALK (owner 2026-10-16, "APPROVED — ALL 45 ROLE × DESIGN DRAWINGS"), in
+ * cale-ice's own colours (Rosewood · Pandan Green · Cream · Olive Grove · Marigold · Narra Brown). Each role wears one of
+ * ITS designs; `&groom=` · `&bride=` · `&men=` · `&women=` · `&boys=` · `&girls=` pick another (the sponsors' men and
+ * women, the bearers' boys and girls) so every drawing can be walked from the URL. The guests offer FIVE colour options.
+ * Fixture only; nothing here reaches a guest.
+ */
+export const LAB_CALE_ICE = { rosewood: '#5C0700', pandan: '#669C35', cream: '#F7F2EC', olive: '#646B38', marigold: '#F3E5B9', narra: '#6B4226' } as const;
+export function labRolesDressConfig(pick: Partial<Record<'groom' | 'bride' | 'men' | 'women' | 'boys' | 'girls' | 'gm' | 'gw', string>> = {}) {
+  return {
+    title: 'Formal, in our colours',
+    roles: { bride: { style: pick.bride ?? 'mermaid' }, groom: { style: pick.groom ?? 'three_piece_suit' }, guest: { style: pick.gm ?? 'barong_tagalog' } },
+    groups: {
+      principal_sponsors: { style: pick.men ?? 'suit' },
+      bridesmaids: { style: 'filipiniana' },
+      groomsmen: { style: 'vest_and_tie' },
+      bearers_flower_girl: { style: pick.boys ?? 'vest_and_bow_tie' },
+    },
+    women: {
+      groups: { principal_sponsors: { style: pick.women ?? 'filipiniana' }, bearers_flower_girl: { style: pick.girls ?? 'tulle_dress' } },
+      roles: { guest: { style: pick.gw ?? 'long_gown' } },
+    },
+  };
+}
+export function labRolesRolePalette() {
+  const c = LAB_CALE_ICE;
+  return {
+    reception: [c.rosewood, c.pandan, c.cream, c.olive, c.marigold],
+    bride: [c.cream],
+    groom: [c.olive, c.marigold, c.cream, c.narra],
+    principal_sponsors: [c.rosewood, c.marigold],
+    bridesmaids: [c.pandan],
+    groomsmen: [c.narra, c.olive],
+    bearers_flower_girl: [c.olive],
+    guest: [c.rosewood, c.pandan, c.olive, c.marigold, c.narra],
+    touched_roles: ['bride', 'groom', 'principal_sponsors', 'bridesmaids', 'groomsmen', 'bearers_flower_girl', 'guest'],
+  };
+}

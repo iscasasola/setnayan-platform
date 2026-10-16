@@ -9,7 +9,7 @@
  * into `events.style_preferences.scene_styles`. Free — no ◆. Never live before
  * Apply.
  */
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 
 import type { FixedSceneStyles, FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
 import { MAKER_PARTS } from '@/lib/maker-parts';
@@ -51,11 +51,14 @@ function PartLookStyleRow(props: {
   eventType: string | null;
   styles: FixedSceneStyles | null;
   draftAction: ElementDraftAction;
+  /** 🕯 The host's Accent ◆ ▾ (owner 2026-10-16, `accent-row.tsx`) — under its styles, whichever part is picked. */
+  accent?: ReactNode;
 }) {
   const now = useStagePanelNow();
   const at = partLookOf(props.host, now.picked);
-  if (!at) return null;
+  if (!at) return props.accent ? <>{props.accent}</> : null;
   return (
+    <>
     <StyledSceneRow
       key={at.scene}
       eventId={props.eventId}
@@ -66,6 +69,8 @@ function PartLookStyleRow(props: {
       draftAction={props.draftAction}
       previewKey={`f:${props.host}${at.el ? `.${at.el}` : ''}`}
     />
+    {props.accent ?? null}
+    </>
   );
 }
 
@@ -77,11 +82,11 @@ function PartLookStyleRow(props: {
 export function FixedSceneStyleRow(
   props:
     | (Parameters<typeof StyledSceneRow>[0] & { scene: FixedStyleScene })
-    | { eventId: string; scene: PartLookHost; stage: HubStage; eventType: string | null; styles: FixedSceneStyles | null; draftAction: ElementDraftAction },
+    | { eventId: string; scene: PartLookHost; stage: HubStage; eventType: string | null; styles: FixedSceneStyles | null; draftAction: ElementDraftAction; accent?: ReactNode },
 ) {
   if (isPartLookHost(props.scene)) {
     const p = props as Extract<typeof props, { styles: unknown }>;
-    return <PartLookStyleRow eventId={p.eventId} host={p.scene as PartLookHost} stage={p.stage} eventType={p.eventType} styles={p.styles} draftAction={p.draftAction} />;
+    return <PartLookStyleRow eventId={p.eventId} host={p.scene as PartLookHost} stage={p.stage} eventType={p.eventType} styles={p.styles} draftAction={p.draftAction} accent={p.accent} />;
   }
   return <StyledSceneRow {...(props as Parameters<typeof StyledSceneRow>[0])} />;
 }

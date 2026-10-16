@@ -123,7 +123,9 @@ test('3 · the hold-▶ preview’s row: Exit preview, and exactly ONE See as �
   assert.equal(menus, 1, 'the row holds a second dropdown — the stage is picked before ▶ is held, never in the preview');
   assert.doesNotMatch(row, /makerPagePick|onPickPage|MAKER_PAGE_STAGES/, 'a stage control is in the preview');
   // Phone only, like the row itself: a desktop has its one dropdown above the preview.
-  assert.match(row, /className="pointer-events-none absolute inset-x-0 z-\[31\] flex justify-center gap-2 px-3 lg:hidden"/);
+  // (2026-10-16: off the cover's foot — the RSVP button and the "Swipe up" hint live there now — so on a stage's pages
+  // it parks at the right edge; the RSVP stage keeps it over its row of screens. Still phone only: `lg:hidden`.)
+  assert.match(row, /className="pointer-events-none absolute z-\[31\] flex gap-2 lg:hidden"/);
   // The same rows and the same Maker state as the desktop's dropdown — never a second mechanism.
   assert.match(row, /\{ key: SEE_AS_EDITING\.key, label: SEE_AS_EDITING\.label \},\s*\.\.\.SEE_AS\.map\(/);
   assert.match(row, /maker\.setSeeAs\?\.\(next\)/);

@@ -106,7 +106,8 @@ test('3 · the link’s colour and size sit on the part the words and ↓ inheri
   const html = await hero({ elements: sanitizeHubElements({ link: { color: '#8a1c2b', size: 120 } }), stampElements: true });
   assert.match(html, /<div data-el="link" style="color:#8a1c2b;zoom:1\.2" class="mt-4 font-pahina/);
   const hidden = sanitizeHubElements({ link: { hidden: true } });
-  assert.match(await hero({ elements: hidden, stampElements: true }), /data-el="link" style="opacity:0\.3"/, 'ghosted in the Maker');
+  /* 2026-10-16 (owner-approved, Cover Scene › Edit): a hidden line leaves the Maker's canvas too — never ghosted. */
+  assert.match(await hero({ elements: hidden, stampElements: true }), /data-el="link" style="display:none"/, 'still drawn (ghosted) in the Maker');
   assert.match(await hero({ elements: hidden }), /<div style="display:none" class="mt-4 font-pahina/, 'gone for a guest');
 });
 
@@ -211,9 +212,10 @@ const OWN_FACE = /^font-(?:pahina|serif|sans|mono|display|script)$/;
 const KNOWN_BLOCKED = new Set<string>([]);
 
 /** Text the masthead writes that is deliberately NOT a part, with why. */
-const NOT_A_PART_BY_DESIGN: ReadonlyArray<{ tag: string; why: string }> = [
-  // EMPTY. The cover plate's caption was here until the owner answered
-  // "make it editable" (2026-09-28) — it is the `caption` part now.
+const NOT_A_PART_BY_DESIGN: ReadonlyArray<{ tag: string; attr?: string; why: string }> = [
+  // (The cover plate's caption was here until the owner answered "make it editable" (2026-09-28) — it is the
+  // `caption` part now.)
+  { tag: 'p', attr: 'data-cover-hint', why: 'the page’s own "Swipe up for the event" hint — never a part, never hidden (owner-approved 2026-10-16, prototype v2)' },
 ];
 
 async function everyMasthead(): Promise<Array<{ name: string; html: string }>> {
@@ -221,6 +223,8 @@ async function everyMasthead(): Promise<Array<{ name: string; html: string }>> {
     // Text the CALLER fills — marked so the guard can tell it from the masthead's own words.
     badgeSlot: React.createElement('p', { 'data-slot': 'badge' }, 'Happening now'),
     monogramSlot: React.createElement('span', { 'data-slot': 'mark' }, 'C&I'),
+    // 🔘 The cover's RSVP button (2026-10-16) — drawn wherever the reply exists.
+    rsvp: { kind: 'ask', href: '#reply' },
   };
   const out: Array<{ name: string; html: string }> = [];
   for (const design of HERO_DESIGNS as readonly HeroDesignId[]) {
@@ -251,7 +255,7 @@ test('7 · 🔒 every word a guest can read on the hero is a registered part, an
     for (const { text, chain } of textsOf(html)) {
       if (chain.some((n) => 'data-slot' in n.attrs)) continue;
       const at = chain.findIndex((n) => 'data-el' in n.attrs);
-      const why = NOT_A_PART_BY_DESIGN.find((x) => chain.some((n) => n.tag === x.tag));
+      const why = NOT_A_PART_BY_DESIGN.find((x) => chain.some((n) => n.tag === x.tag && (!x.attr || x.attr in n.attrs)));
       if (at < 0) {
         if (why) {
           exempted.add(why.tag);

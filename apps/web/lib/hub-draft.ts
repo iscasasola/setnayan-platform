@@ -169,6 +169,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { ACCENT_NONE, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, sanitizeSceneAccents, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
@@ -950,6 +951,8 @@ export function sanitizeHubDraftEventValue(
       if (isCameraLook(raw[CAMERA_LOOK_PREF_KEY])) out[CAMERA_LOOK_PREF_KEY] = raw[CAMERA_LOOK_PREF_KEY];
       // 🧱 The fixed blocks' looks (`lib/block-looks.ts`) are CARRIED: `readBlockLooks` is their one strict reader.
       if (isPlainObject(raw.block_looks)) out.block_looks = raw.block_looks;
+      // 🕯 Each scene's Accent pick (owner 2026-10-16, `lib/art-kits.ts`) — known scenes and their own choices only.
+      if (isPlainObject(raw[SCENE_ACCENTS_PREF_KEY])) out[SCENE_ACCENTS_PREF_KEY] = sanitizeSceneAccents(raw[SCENE_ACCENTS_PREF_KEY]);
       return Object.keys(out).length > 0 ? out : undefined;
     }
     // 🗂 An answer is a yes or a no (null = back to "not asked"); anything else is dropped.
@@ -1677,7 +1680,10 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
         const cam = cameraLookOfDraft(v);
         // 🧱 …and the fixed blocks' looks: an empty one is no look at all (a look put back to still).
         const b = isPlainObject(v) && isPlainObject(v.block_looks) && Object.keys(v.block_looks).length > 0 ? v.block_looks : undefined;
-        return Object.keys(s).length > 0 || cam || b ? JSON.stringify({ qr: s, cam, b }) : null;
+        // 🕯 …and the scenes' Accent picks (none picked = the look's defaults, no change).
+        const a = sceneAccentsFromPreferences(v);
+        const ac = Object.keys(a).length > 0 ? canonicalJson(a) : undefined;
+        return Object.keys(s).length > 0 || cam || b || ac ? JSON.stringify({ qr: s, cam, b, ac }) : null;
       };
       return refChange(qr(live), qr(next));
     }
@@ -1757,7 +1763,10 @@ export function eventItemIsPro(
   // going back to the plain code is a removal, which is free. 🎛 The camera's
   // look is a style pick — FREE, like every scene style — so the blob is Pro
   // only while its QR moves.
-  if (column === 'style_preferences') return styleQrMoves(live, value);
+  // 🕯 …or turns a scene's accent ON (Event Hub Pro while `ART_KIT_IS_PRO`; turning one off is free).
+  if (column === 'style_preferences') {
+    return styleQrMoves(live, value) || (isPlainObject(value) && SCENE_ACCENTS_PREF_KEY in value && accentsTurnOn(sceneAccentsFromPreferences(live), sceneAccentsFromPreferences(value)).length > 0);
+  }
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
     // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
@@ -2487,9 +2496,15 @@ export function planHubDraftApply(
        in the draft (below), where it now differs from live only by the QR. */
     if (!allowed && item.kind === 'event' && item.column === 'style_preferences') {
       const cam = cameraLookOfDraft(item.value);
-      if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null)) {
-        apply.push({ kind: 'event', column: 'style_preferences', value: { [CAMERA_LOOK_PREF_KEY]: cam }, change: 'change', pro: false, freePart: true });
+      const free: Record<string, unknown> = {};
+      if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null)) free[CAMERA_LOOK_PREF_KEY] = cam;
+      /* 🕯 …and a scene's accent taken OFF is free: the live picks with only the drafted Nones laid on. */
+      if (isPlainObject(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
+        const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+        const offs = Object.entries(sceneAccentsFromPreferences(item.value)).filter(([sc, id]) => id === ACCENT_NONE && liveAccents[sc as keyof typeof liveAccents] !== ACCENT_NONE);
+        if (offs.length > 0) free[SCENE_ACCENTS_PREF_KEY] = { ...liveAccents, ...Object.fromEntries(offs) };
       }
+      if (Object.keys(free).length > 0) apply.push({ kind: 'event', column: 'style_preferences', value: free, change: 'change', pro: false, freePart: true });
     }
     /* 💎 …and a held Post Event look gets its free edits the same way — its
        style, its words, a colour beside a Pro font (`sceneLooksFreePart`). */
@@ -2975,6 +2990,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
       return 'Your camera look';
     }
     if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && item.value.block_looks) return 'How your blocks look';
+    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && SCENE_ACCENTS_PREF_KEY in item.value) return 'Your accents';
     return HUB_DRAFT_EVENT_LABEL[item.column];
   }
   if (item.kind === 'editorial') return postEventItemLabel(item.item);

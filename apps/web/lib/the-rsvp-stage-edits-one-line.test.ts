@@ -171,7 +171,7 @@ test('4 · WIRING: the toolbar hands Edit to the stage’s panel only for a line
      gets the toolbar's own Edit, as before. */
   assert.match(TOOLS, /const rsvpLineTypes = rsvpLineWord\(picked, rsvpLine\) !== null \|\| rsvpList\.own;/);
   /* Its own Edit rows stand aside… */
-  assert.match(TOOLS, /\{editOn && !rsvpLineTypes \? \(\s*<StageEdit /);
+  assert.match(TOOLS, /(?:\{|\) : )editOn && !rsvpLineTypes \? \(\s*<StageEdit /);
   /* …and the stage's panel — hidden under Edit for every other part — stays in sight. */
   assert.match(TOOLS, /data-stage-edit-own=\{rsvpLineTypes && shownTool === 'edit' \? '' : undefined\}/);
   assert.match(TOOLS, /\[data-phone-chrome="panel"\]\{visibility:hidden;pointer-events:none\}' \+\s*'\[data-maker-shell\]:has\(\[data-stage-tools\]\[data-stage-edit-own\]\) \[data-phone-chrome="panel"\]\{visibility:visible;pointer-events:auto\}'/, 'the lift is not written right under the rule it lifts');

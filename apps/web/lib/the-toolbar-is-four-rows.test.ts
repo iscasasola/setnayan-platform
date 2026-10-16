@@ -146,9 +146,10 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   assert.ok(keys.length >= 40);
   let bg = 0;
   for (const k of keys) {
-    /* 🖼 (The Cover Scene — the group of the cover's words — has Background ONLY: owner-approved 2026-10-15.) */
+    /* 🖼 (The Cover Scene — the group of the cover's words — has Edit (its lines) and Background: owner-approved
+       2026-10-15 and 2026-10-16; its Style (the Opening) and Animate (one entrance) follow.) */
     if (k === 'coverscene') {
-      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), ['bg'], 'the Cover Scene has Background only');
+      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), ['edit', 'bg'], 'the Cover Scene has Edit and Background');
       bg += 1;
       continue;
     }

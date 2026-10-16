@@ -15,6 +15,7 @@ import {
 import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { PICK_LABEL, attireRowOfPalette, isTwoPick, picksOf, readerAttire } from '@/lib/attire-rows';
+import { designLabel } from '@/lib/attire-designs';
 import { singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
@@ -634,7 +635,10 @@ export function DressCodeWidget({
             const def = attireRowOfPalette(row.key);
             const picks = def ? picksOf(config as Record<string, unknown> | null, def) : null;
             const two = isTwoPick(def) && picks;
-            const pickLines = two ? picks.filter((p) => p.style).map((p) => ({ label: PICK_LABEL[p.who], styleLabel: ATTIRE_STYLE_LABEL[p.style!] })) : [];
+            const pickLines = two ? picks.filter((p) => p.style).map((p) => ({ label: PICK_LABEL[p.who], styleLabel: designLabel(p.role, p.style!) })) : [];
+            /* 👔 A one-person row with its own designs (the bride, the groom) names the design it draws when no line
+               says it (owner 2026-10-16: the guest page names the design) — the bride's "Mermaid" under "Bride". */
+            const ownLine = !two && picks?.length === 1 && picks[0]!.role && picks[0]!.style && row.lines.length === 0 ? designLabel(picks[0]!.role, picks[0]!.style) : null;
             const lines = two ? row.lines.filter((l) => l.source === 'role') : row.lines;
             /* The group's note stays — it is the couple's words for the whole row, whichever pick a guest is. */
             const groupNote = two ? (row.lines.find((l) => l.source === 'group')?.note ?? null) : null;
@@ -647,6 +651,11 @@ export function DressCodeWidget({
                     {line.label} · {line.styleLabel}
                   </p>
                 ))}
+                {ownLine ? (
+                  <p className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
+                    {ownLine}
+                  </p>
+                ) : null}
                 {groupNote ? <p className="text-xs leading-relaxed text-ink/65">{groupNote}</p> : null}
                 {lines.map((line, i) => (
                   <p key={i} className="text-xs leading-relaxed text-ink/65">

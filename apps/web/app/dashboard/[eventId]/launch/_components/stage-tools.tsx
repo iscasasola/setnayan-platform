@@ -19,6 +19,7 @@ import {
   makerPartToolFor,
   makerPartToolWhy,
   makerPartParent,
+  MAKER_COVER_SCENE,
   MAKER_COVER_SCENE_DOOR,
   MAKER_COVER_WORD_BG_WHY,
   makerPartToolWorks,
@@ -78,6 +79,8 @@ import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
+import { CoverLines, type CoverLine } from './stage-panel/cover-lines';
+import { draftedCanvasOr } from '@/lib/maker-draft-store';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
 import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn, type PartLookField } from './stage-panel/part-look';
@@ -167,6 +170,9 @@ export const STAGE_HOLD_MS = 500;
 /** "Exit preview" sits this far above the screen's safe area — and above the guests' 44-px bar where there is one. */
 export const STAGE_EXIT_GAP_PX = 12;
 export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
+/** 🔘 Where "Exit preview" parks on a stage's pages: the right edge, a little above the middle — the cover's foot is the
+ *  RSVP button's and the "Swipe up" hint's (owner 2026-10-16, prototype v2 `.exitp`). */
+export const STAGE_EXIT_EDGE_TOP = '36%';
 /** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
 export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
 export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
@@ -1435,6 +1441,36 @@ export function StageTools({
     },
     [lookTarget],
   );
+  /* ✏️ THE COVER'S LINES, for Cover Scene › Edit — read off the page (what it drew, and what it drew hidden) and the
+     Maker's own copy of the hero row (each line's `hidden`), again after every render. The Logo is the event's
+     "Show the logo" answer: on while the page draws the mark. */
+  const [coverLines, setCoverLines] = useState<CoverLine[]>([]);
+  useEffect(() => {
+    if (picked !== MAKER_COVER_SCENE || rsvpOpen) return setCoverLines([]);
+    const read = () => {
+      const doc = document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument ?? null;
+      const hero = doc ? findMakerSection(doc, 'f:hero') : null;
+      const now = readPresent(frameSel);
+      const elements = draftedCanvasOr('hero', (askPartOps()?.canvases?.hero ?? null) as never).elements;
+      const next = makerPartsOnPage(stageKey, shownPage)
+        .filter((k) => makerPartParent(k) === MAKER_COVER_SCENE)
+        .filter((k) => k === 'logo' || now.has(`f:hero|${MAKER_PARTS[k].el}`))
+        .map((k): CoverLine => {
+          const el = MAKER_PARTS[k].el!;
+          const node = hero?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null;
+          return {
+            part: k,
+            label: makerPartLabelOn(stageKey, k),
+            sample: k === 'logo' ? 'the monogram' : (node?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+            shown: k === 'logo' ? now.has('f:hero|mark') : elements?.[el]?.hidden !== true,
+          };
+        });
+      setCoverLines((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+    };
+    read();
+    const t = window.setTimeout(read, 400);
+    return () => window.clearTimeout(t);
+  }, [picked, rsvpOpen, frameSel, stageKey, shownPage, present, maker?.renderStamp]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
   /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
@@ -1701,7 +1737,10 @@ export function StageTools({
             </div>
           </div>
         ) : null}
-        {editOn && !rsvpLineTypes ? (
+        {editOn && picked === MAKER_COVER_SCENE && !rsvpOpen ? (
+          /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
+          <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+        ) : editOn && !rsvpLineTypes ? (
           <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
@@ -1751,8 +1790,16 @@ export function StageTools({
                  area at z-30 in this same shell (`maker-shell.tsx`, `data-maker-rsvp-layer`); the button, one above the
                  guests' bar (26), was UNDER that layer's own frame — on the RSVP stage a tap on it reached the guest's
                  page and never left the preview (owner 2026-10-10: "has not return button?"). */
-              className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center gap-2 px-3 lg:hidden"
-              style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 || rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
+              /* 🔘 OFF THE COVER'S FOOT (owner 2026-10-16, approved prototype v2): the foot is the RSVP button's and the
+                 "Swipe up" hint's now, so on a stage's pages the pill parks at the RIGHT EDGE, a little above the middle
+                 (`top: 36%`), its See as ▾ under it. The RSVP stage has no cover — its pill stays over its row of screens. */
+              className="pointer-events-none absolute z-[31] flex gap-2 lg:hidden"
+              data-stage-exit-at={rsvpOpen ? 'foot' : 'edge'}
+              style={
+                rsvpOpen
+                  ? { left: 0, right: 0, justifyContent: 'center', padding: '0 12px', bottom: `calc(env(safe-area-inset-bottom) + ${STAGE_EXIT_OVER_BAR_PX}px)` }
+                  : { right: 12, top: STAGE_EXIT_EDGE_TOP, flexDirection: 'column', alignItems: 'flex-end' }
+              }
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
               {/* 👁 SEE AS ▾ — the phone's one See as (owner 2026-10-15, with the host strip removed: "See as on phone

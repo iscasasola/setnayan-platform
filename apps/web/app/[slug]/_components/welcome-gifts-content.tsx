@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { use, type ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { GiftPageBody } from '../pabuya/_components/gift-page-body';
@@ -27,11 +27,14 @@ export function WelcomeGiftsContent({
   href,
   words,
   wishes = 0,
+  kit = null,
 }: {
   content: Promise<GiftPageContent | null>;
   href: string;
   words: EventWords;
   wishes?: number;
+  /** 🕯 The look's art kit on the gift card (`GiftPageBody` `kit`). Absent → as before. */
+  kit?: ReactNode;
 }) {
   const read = use(content);
   if (!read) return <GiftDoorCard href={href} words={words} wishes={wishes} />;
@@ -40,7 +43,7 @@ export function WelcomeGiftsContent({
       <p data-gift-lead="" className="text-sm text-ink/70">
         {giftDoorLine(words)}
       </p>
-      <GiftPageBody content={read} wishLimit={WELCOME_WISH_LIMIT} />
+      <GiftPageBody content={read} wishLimit={WELCOME_WISH_LIMIT} kit={kit} />
     </>
   );
 }

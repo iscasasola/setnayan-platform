@@ -41,7 +41,8 @@ import { stripComments } from './strip-comments';
 
 /** The owner's table, word for word ("Takes Width" · "Does not"). */
 const TAKES: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'venue', 'caption', 'heading', 'body'];
-const DOES_NOT: readonly HubElementKey[] = ['mark', 'joiner', 'date', 'time', 'link', 'label'];
+/* 🔘 + the RSVP button (2026-10-16): a button, its look Look › Buttons' — no width, like the link. */
+const DOES_NOT: readonly HubElementKey[] = ['mark', 'joiner', 'date', 'time', 'link', 'label', 'rsvp'];
 
 test('1 · exactly the approved parts take a width; the others never draw a cap, even from a hand-made value', () => {
   assert.deepEqual([...HUB_ELEMENT_WIDTH_PARTS].sort(), [...TAKES].sort());
@@ -113,7 +114,8 @@ test('5 · the guest draws it — inline on a cover part, scoped on a scene — 
   assert.deepEqual(hubElementInlineStyle({ width: 'full', align: 'left' }), { textAlign: 'left', justifyContent: 'flex-start', maxWidth: 'min(100%, 76ch)', marginInline: '0 auto' });
   assert.deepEqual(hubElementInlineStyle({ width: 'narrow' }), { maxWidth: 'min(60%, 32ch)', marginInline: 'var(--hub-el-mi, 0 auto)' });
   const masthead = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/pahina-masthead.tsx'), 'utf8'));
-  assert.match(masthead, /style: hubElementInlineStyle\(elements\?\.\[key\], \{ editor: stampElements \}\)/, 'the cover no longer draws its parts’ own style');
+  /* (No `editor` ghost since 2026-10-16: a hidden cover line leaves the canvas too.) */
+  assert.match(masthead, /style: hubElementInlineStyle\(elements\?\.\[key\], \{ editor: stampElements && key === 'joiner' \}\)/, 'the cover no longer draws its parts’ own style');
   // A scene's words, in its scoped style — the element's own choice, so it wins over the theme's (`!important`).
   const css = hubElementSceneCss('schedule', { body: { width: 'wide' }, heading: { width: 'narrow', align: 'center' } })!;
   assert.ok(css.includes('max-width:min(90%, 60ch) !important;margin-inline:var(--hub-el-mi, 0 auto) !important'), css);

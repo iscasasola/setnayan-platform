@@ -41,6 +41,7 @@ import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
 import { replyCardOf } from '@/lib/guest-me-parts';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
@@ -54,7 +55,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -399,8 +400,24 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
   /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
   const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
+  /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
+     it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
+  const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
+  const labRsvp =
+    stageNow === 'rsvp'
+      ? coverRsvpOf({
+          card: replyCardOf({
+            action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+            replyBy: null,
+            seats: 1,
+            window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
+            organizer: 'the couple',
+          }),
+        })
+      : null;
   const masthead = (
     <PahinaMasthead
+      rsvp={labRsvp}
       displayName={labNames}
       eventDate={LAB_SAMPLE.date}
       venueName={LAB_SAMPLE.venueLine}
@@ -424,14 +441,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const cale = sp.board === 'cale';
   /* `?attire=shared` — the sponsors saved with ONE shared, women's Wear before the split (`labSharedAttireDressConfig`); `&you=ninong`: read by a ninong. */
   const sharedAttire = sp.attire === 'shared';
+  /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`); `&you=<guest-list role>` reads it as them. */
+  const rolesAttire = sp.attire === 'roles';
+  const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={cale ? labCaleDressConfig() : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={cale ? labCaleRolePalette() : labRolePalette(LAB_BOARD)}
-      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : null}
+      rolePalette={cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : rolesAttire && one('you') ? (one('you') as never) : null}
       roleNames={null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}

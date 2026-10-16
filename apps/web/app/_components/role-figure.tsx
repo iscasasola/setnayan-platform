@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { CHILD_SCALE, FIGURE_ART, figureIsChild, unsetSilhouette } from '@/lib/attire-figures';
-import { roleFigurePeople, type FigurePerson, type FigurePick } from '@/lib/role-figure';
+import { roleFigurePeople, zoneTints, type FigurePerson, type FigurePick } from '@/lib/role-figure';
 
 /**
  * 👗 THE ILLUSTRATED PERSON IN A ROLE'S COLOURS (owner 2026-09-27, "an ILLUSTRATED person in the exact role colours —
@@ -49,6 +49,19 @@ export function RoleFigure({
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
+function tintStyle(colour: string, mask: string): CSSProperties {
+  return {
+    backgroundColor: colour,
+    WebkitMaskImage: `url(${mask})`,
+    maskImage: `url(${mask})`,
+    WebkitMaskSize: '100% 100%',
+    maskSize: '100% 100%',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    mixBlendMode: 'multiply',
+  };
+}
+
 function FigurePersonView({ person }: { person: FigurePerson }) {
   const height = figureIsChild(person.who) ? `${(CHILD_SCALE * 100).toFixed(1)}%` : '100%';
   if (person.garment === 'unset') {
@@ -62,21 +75,16 @@ function FigurePersonView({ person }: { person: FigurePerson }) {
     );
   }
   const art = FIGURE_ART[person.garment];
-  const tint: CSSProperties = {
-    backgroundColor: HEX.test(person.main) ? person.main : '#9B9B9B',
-    WebkitMaskImage: `url(${art.mask})`,
-    maskImage: `url(${art.mask})`,
-    WebkitMaskSize: '100% 100%',
-    maskSize: '100% 100%',
-    WebkitMaskRepeat: 'no-repeat',
-    maskRepeat: 'no-repeat',
-    mixBlendMode: 'multiply',
-  };
+  /* 🎨 ONE TINT LAYER PER ZONE (owner 2026-10-16, "ATTIRE COLOUR ZONES"): each the same recipe — the zone's colour,
+     clipped to its mask, multiplied over the drawing — so a suit is its coat, its tie and its shirt. */
+  const tints = zoneTints(person.garment, person.colours && person.colours.length > 0 ? person.colours : [HEX.test(person.main) ? person.main : '#9B9B9B']);
   return (
     <span data-person={person.who} data-garment={person.garment} data-colour={person.main} className="relative block [isolation:isolate]" style={{ height, aspectRatio: `${art.w} / ${art.h}` }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- a 7–9 KB still the tint layer must sit exactly over */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a 7–9 KB still the tint layers must sit exactly over */}
       <img src={art.src} alt="" width={art.w} height={art.h} loading="lazy" decoding="async" className="block h-full w-full" />
-      <span className="absolute inset-0" style={tint} />
+      {tints.map((t) => (
+        <span key={t.key} data-zone={t.key} data-zone-colour={t.colour} className="absolute inset-0" style={tintStyle(t.colour, t.mask)} />
+      ))}
     </span>
   );
 }

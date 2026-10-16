@@ -10,7 +10,8 @@
  *
  * Pure. No I/O.
  */
-import { ATTIRE_STYLE_LABEL, type RoleAttireMap, type resolveGuestDressCode } from './role-dress-code';
+import { type RoleAttireMap, type resolveGuestDressCode } from './role-dress-code';
+import { wearLabelFor } from './attire-designs';
 import { resolveAttireFor, type GroupAttireMap } from './role-group-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
 import { roleLabel } from './entourage';
@@ -125,17 +126,22 @@ function linesFor(
       const g = roleGroupOf(role);
       if (g === 'guest' || seenGroups.has(g)) continue;
       seenGroups.add(g);
+      /* 👔 Said in the group's own word for its design (owner 2026-10-16); a Wear that is not theirs says nothing. */
+      const said = wearLabelFor(g, won.rule.style);
+      if (!said) continue;
       out.push({
         label: roleGroupLabel(g, names),
-        styleLabel: ATTIRE_STYLE_LABEL[won.rule.style],
+        styleLabel: said,
         note: won.rule.note ?? null,
         source: 'group',
       });
       continue;
     }
+    const said = wearLabelFor(role, won.rule.style);
+    if (!said) continue;
     out.push({
       label: roleLabel(role, names) ?? guestRoleLabel(role, names),
-      styleLabel: ATTIRE_STYLE_LABEL[won.rule.style],
+      styleLabel: said,
       note: won.rule.note ?? null,
       source: 'role',
     });

@@ -102,7 +102,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
@@ -117,6 +117,9 @@ import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-pa
 import type { NameParts, NameStyle } from '@/lib/name-style';
 import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
 import { floatOpenTips } from '@/lib/float-open-tips';
+import type { InviteThemeId } from '@/lib/invite-themes';
+import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
+import { isAccentScene, type SceneAccents } from '@/lib/art-kit-accents';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -316,6 +319,8 @@ export function MakerWork({
     heroPhoto?: boolean;
     /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
     fixedStyles?: FixedSceneStyles;
+    /** 🕯 Each scene's Accent pick, drafted over live (`style_preferences.scene_accents`, `lib/art-kits.ts`). */
+    sceneAccents?: SceneAccents;
     /** 🎛 The Camera's look, drafted over live (`lib/camera-look.ts`). */
     cameraLook?: CameraLook;
     /** 🧱 The fixed blocks' looks — the RAW `style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
@@ -2176,6 +2181,19 @@ export function MakerWork({
     broadcastToCanvas(message);
     scheduleSnapshots(600);
   };
+  /** 🕯 THE SCENE'S ACCENT ◆ ▾ (owner 2026-10-16, `accent-row.tsx`) — only a scene that has accents gets the row. */
+  const accentRowFor = (type: string) =>
+    elementEditing && isAccentScene(type) ? (
+      <AccentRow
+        key={`accent:${type}`}
+        eventId={eventId}
+        scene={type}
+        picks={sceneFormat?.sceneAccents ?? {}}
+        theme={(sceneFormat?.hubTheme as InviteThemeId | undefined) ?? null}
+        tryPro={ART_KIT_IS_PRO && !ownsPro}
+        draftAction={elementEditing.draftAction}
+      />
+    ) : null;
   const sceneTabs = (() => {
     if (!selectedScene) return null;
     const id = selectedScene.id;
@@ -2206,12 +2224,15 @@ export function MakerWork({
       ) : null;
     const layoutRow =
       elementEditing && ownScene ? <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} /> : null;
+    /* 🕯 A scene that takes an accent (owner 2026-10-16) — its Accent ◆ ▾, row 3 under the Style cards. */
+    const accentRow = elementEditing && sceneFormat ? accentRowFor(type) : null;
     const lookRow =
-      styleRow || paletteRow || layoutRow ? (
+      styleRow || paletteRow || layoutRow || accentRow ? (
         <>
           {styleRow}
           {paletteRow}
           {layoutRow}
+          {accentRow}
         </>
       ) : null;
     const backgroundRow =
@@ -2267,6 +2288,7 @@ export function MakerWork({
                 Background, and (a scene of their own) its Layout. */}
             {styleRow}
             {paletteRow}
+            {accentRow}
             {backgroundRow}
             {layoutRow}
           </>
@@ -3438,13 +3460,16 @@ export function MakerWork({
             /* 🗳 The RSVP form is a row of its own: its three styles are its `canvas.style`. */
             if (fixed === 'rsvp') {
               return (
-                <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+                <>
+                  <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+                  {accentRowFor('rsvp')}
+                </>
               );
             }
             /* 🎨 The hero, E-Gifts and the guest's look: the picked part's own styles (owner 2026-10-07) — the new Maker's. */
             if (maker?.stagesStudio && (fixed === 'hero' || fixed === 'gifts' || fixed === 'look')) {
               return (
-                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} />
+                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} accent={fixed === 'hero' || fixed === 'gifts' ? accentRowFor(fixed) : null} />
               );
             }
             if (!fixed || !isFixedStyleScene(fixed)) return null;

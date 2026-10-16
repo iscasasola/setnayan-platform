@@ -18,20 +18,10 @@ export async function register() {
     } catch {
       /* the app must start even if the recorder cannot */
     }
-    // 💸 Tell the database whether this production build makes booking fees —
-    // the event lock refuses to be on without it (owner 2026-10-13; see
-    // lib/booking-fee-minting-stamp.ts). AWAITED, with a ceiling: fired and
-    // forgotten, the write was frozen mid-flight with the instance and died
-    // as "fetch failed" — 116 faults in 34 hours (stability sweep 2026-10-15).
-    try {
-      const m = await import('./lib/booking-fee-minting-stamp');
-      if (m.shouldStampBookingFeeMinting(process.env)) {
-        const { createAdminClient } = await import('./lib/supabase/admin');
-        await m.stampBookingFeeMinting(createAdminClient(), m.STAMP_CEILING_MS);
-      }
-    } catch {
-      /* the app must start even if the stamp cannot */
-    }
+    // 💸 The booking-fee minting stamp is NOT here (stability sweep 2, 2026-10-16): a network
+    // call at start-up is frozen with the instance — first "fetch failed", then, awaited, an
+    // abort on every wake. It runs after the first response instead: app/layout.tsx →
+    // lib/booking-fee-minting-stamp.server.ts.
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

@@ -35,6 +35,13 @@ Notes: the Maker sheet's dark shot is the app's dormant `html.dark` forced in th
 partner dots there render unfilled exactly like the shipped "Added by" dots in the same lab (the lab's `--ls-*` vars).
 Script: `~/Documents/Claude/Projects/love-voices-shots/shoot.mjs` (copy into apps/web, change import to '@playwright/test').
 
+## Round 2 (17 Oct, restart builder)
+- CI red on 5b5d712: unit tests (3/3) — two guards. Fixed:
+  (a) gild-eyebrow count 21≠18 → the three looks' date eyebrow is ONE `MomentWhen` (rendered HTML identical), count 18 → 19 with a dated note;
+  (b) every-stage-is-todays-page golden: 12 cases moved (STD + Invitation, plain/browse/film/photos, both readers) — diffed main vs branch:
+      ONLY the love story scene, Chapters → Conversation with nothing stored = the owner's default ruling. Regenerated (UPDATE_GOLDEN=1).
+- Merged origin/main (#6592 cover scene) cleanly. Shots copied to ~/Documents/Claude/Projects/shots-2026-10-17/6594/ (look unchanged — no re-shoot).
+
 ## Left, in order
 1. Check CI on PR #6594: `gh pr checks 6594` — fix anything red (typecheck first).
 2. (done) screenshots + side-by-side. Lab path for the sheet: `/dev/details-lab?studio=1&shape=mj` → Love Story nav item

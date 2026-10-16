@@ -102,7 +102,7 @@ test('the named list is exactly the count — with Pro and without — in one wa
     assert.equal(lines.length, summary.changeCount, `ownsPro=${ownsPro}: ${lines.length} lines for a count of ${summary.changeCount}`);
     const said = lines.map(text);
     // The facts carried by several columns are ONE line each.
-    assert.equal(said.filter((l) => l === 'Event Details · Names').length, 1, 'the names are listed twice');
+    assert.equal(said.filter((l) => l === 'Event Details · Event title').length, 1, 'the names are listed twice');
     assert.equal(said.filter((l) => l === 'Event Details · Date').length, 1, 'the date is listed twice');
     assert.ok(said.includes('Event Details · Ceremony time'), said.join(' | '));
     assert.ok(said.includes('Look · Buttons'), said.join(' | '));

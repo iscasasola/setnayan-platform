@@ -108,9 +108,9 @@ export type HubSceneElementKey = (typeof HUB_SCENE_ELEMENT_KEYS)[number];
 export type HubElementKey = (typeof HUB_ELEMENT_KEYS)[number];
 
 export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
-  eyebrow: 'Small line on top',
+  eyebrow: 'Top line',
   mark: 'Your mark',
-  names: 'Names',
+  names: 'Event title',
   joiner: 'Joiner',
   line: 'Invitation line',
   date: 'Date',

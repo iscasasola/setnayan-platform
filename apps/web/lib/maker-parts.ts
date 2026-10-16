@@ -28,8 +28,14 @@
  *   tool                made right here, by the part's own tools (the camera,
  *                       a gallery, the ticket)
  *
- * Names · Date · Place are THREE parts. The Title line (`ename`) is the stage's
+ * Names · Date · Place are THREE parts. The Top line (`ename`) is the stage's
  * first line ("Save the date", "The wedding of") — never the Event Name.
+ *
+ * 🏷 THE COUPLE'S NAMES ARE THE "EVENT TITLE" (owner 2026-10-16, pointing at
+ * "Indalecio & Claire" on his cover: "The event title"). So `names` is labelled
+ * "Event title" and the small line above it (`ename`) "Top line". Labels only —
+ * the keys, the sources (`info:title` / `info:display_name`) and the elements
+ * (`eyebrow` / `names`) are unchanged. Not the Prints' "Opening line" (`opening`).
  *
  * ── LAYOUTS ARE THE SHIPPED STYLES, NEVER A NEW FAMILY ──────────────────────
  * The prototype gave every part the same five families (Classic · Stacked ·
@@ -285,8 +291,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   coverscene: { label: 'Cover Scene', source: 'tool', canvas: 'f:hero', layouts: NONE },
   logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: scene('hero_mark') },
   /* The stage's first line ("Save the date", "The wedding of") — typed on the page; NOT the Event Name. */
-  ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: scene('hero_eyebrow') },
-  names: { label: 'Names', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: scene('hero_names') },
+  ename: { label: 'Top line', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: scene('hero_eyebrow') },
+  names: { label: 'Event title', source: 'info:display_name', canvas: 'f:hero', el: 'names', layouts: scene('hero_names') },
   date: { label: 'Date', source: 'supplier:date', canvas: 'f:hero', el: 'date', layouts: scene('hero_date') },
   place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: scene('hero_venue') },
   countdown: { label: 'Countdown', source: 'info:countdown_line', canvas: 'w:countdown', layouts: scene('countdown') },

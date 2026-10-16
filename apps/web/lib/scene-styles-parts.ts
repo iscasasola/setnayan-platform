@@ -51,7 +51,7 @@ const MY_STYLES = [
 export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   {
     type: 'hero_names',
-    label: 'Names',
+    label: 'Event title',
     styles: [
       { id: 'stacked', name: 'Stacked', line: 'One name a line, the joiner between.', stages: HERO },
       { id: 'one-line', name: 'One line', line: 'Both names on one line.', stages: HERO },
@@ -92,7 +92,7 @@ export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   },
   {
     type: 'hero_eyebrow',
-    label: 'Title',
+    label: 'Top line',
     styles: [
       { id: 'small-caps', name: 'Small caps', line: 'Small, spaced capitals.', stages: HERO },
       { id: 'serif', name: 'Serif', line: 'In the heading face, larger.', stages: HERO },

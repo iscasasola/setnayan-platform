@@ -93,9 +93,9 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   dress_code_config: { place: 'Dress code', what: 'Colours & rules' },
   photo_moments_config: { place: 'Photo moments', what: 'Camera cues' },
   // The typed facts — each ONE change however many columns carry it.
-  display_name: { place: DETAILS, what: 'Names' },
-  bride_name: { place: DETAILS, what: 'Names' },
-  groom_name: { place: DETAILS, what: 'Names' },
+  display_name: { place: DETAILS, what: 'Event title' },
+  bride_name: { place: DETAILS, what: 'Event title' },
+  groom_name: { place: DETAILS, what: 'Event title' },
   event_date: { place: DETAILS, what: 'Date' },
   event_date_precision: { place: DETAILS, what: 'Date' },
   print_details: { place: DETAILS, what: 'Name style' },
@@ -145,8 +145,8 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
    label in `MAKER_PARTS`, and it is the one the sheet now uses, wherever the changed thing IS a part:
 
      · a scene's row            → the part drawn at `w:<type>`           ("Message", "Venue", "Gallery");
-     · a part's Style           → the part whose layouts are that scene  ("Title" for `hero_eyebrow`);
-     · the cover's canvas       → the part(s) of the cover that changed  ("Title"; "Title, Names") — only when
+     · a part's Style           → the part whose layouts are that scene  ("Top line" for `hero_eyebrow`);
+     · the cover's canvas       → the part(s) of the cover that changed  ("Top line"; "Top line, Event title") — only when
                                    nothing ELSE of the cover changed; the cover as a whole keeps its row's name.
 
    No name is invented here: where the Maker has no part for a thing (a scene of their own, the cover as a whole),
@@ -157,7 +157,7 @@ export function makerPartWordAt(canvas: string, el: string | null = null): strin
   for (const part of Object.values(MAKER_PARTS)) if (part.canvas === canvas && (part.el ?? null) === el) return part.label;
   return null;
 }
-/** The Maker's word for the part whose Style a styled scene is (`hero_eyebrow` → "Title"). */
+/** The Maker's word for the part whose Style a styled scene is (`hero_eyebrow` → "Top line"). */
 export function makerPartWordOfStyle(scene: string): string | null {
   for (const part of Object.values(MAKER_PARTS)) if (part.layouts.kind === 'scene' && part.layouts.type === scene) return part.label;
   return null;

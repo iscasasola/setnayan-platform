@@ -253,7 +253,7 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   const GIFTS = src(`${G}/guest-doorway-strip.tsx`);
   /* (2026-10-12, release hub-batch-2) the one card may carry the wish list's count (`wishes`, #6440) — still ONE card. */
   assert.match(GIFTS, /<section className="space-y-3" data-welcome-gifts=""[^>]*>\s*<p className="pahina-eyebrow">\s*<span>E-Gifts<\/span>\s*<\/p>\s*\{children \?\? <GiftDoorCard href=\{href\} words=\{words\} wishes=\{wishes\} \/>\}\s*<\/section>/);
-  assert.match(src('app/[slug]/pabuya/_components/gift-page-body.tsx'), /<div data-gift-ways="">[\s\S]*?<PabuyaCardList methods=\{cards\} \/>/);
+  assert.match(src('app/[slug]/pabuya/_components/gift-page-body.tsx'), /<div data-gift-ways="">[\s\S]*?<PabuyaCardList methods=\{cards\}(?: kit=\{kit\})? \/>/);
   assert.match(src('app/_components/pabuya/pabuya-card-list.tsx'), /<ul className="space-y-3">\s*\{methods\.map\(\(m, i\) => \{[\s\S]*?<li\s+key=\{`\$\{m\.kind\}-\$\{i\}`\}\s+className="overflow-hidden rounded-2xl border border-ink\/10 bg-cream /, 'a way to give is no longer the card the background dresses');
   assert.match(GIFTS, /function GiftDoorCard\([^)]*\) \{\s*return \(\s*<DoorCard/);
   assert.match(GIFTS, /return \(\s*<Link\s+href=\{href\}\s+className="group flex items-center gap-3 rounded-2xl border border-ink\/10 bg-cream /);

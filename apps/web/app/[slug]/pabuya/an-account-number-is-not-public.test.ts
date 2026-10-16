@@ -278,7 +278,8 @@ test('🔒 the Welcome page’s E-Gifts goes through the gift page’s own gate 
   assert.match(flat('app/[slug]/pabuya/page.tsx'), /const content = await loadGiftPage\(admin, event\);/);
   /* The Welcome's block draws only what the reader handed it, with the gift page's own body. */
   const INLINE = flat('app/[slug]/_components/welcome-gifts-content.tsx');
-  assert.match(INLINE, /<GiftPageBody content=\{read\} wishLimit=\{WELCOME_WISH_LIMIT\} \/>/);
+  // 🕯 (2026-10-16) The look's art kit rides along as decoration only (`kit`) — the gate and the reader are unchanged.
+  assert.match(INLINE, /<GiftPageBody content=\{read\} wishLimit=\{WELCOME_WISH_LIMIT\}(?: kit=\{kit\})? \/>/);
   assert.doesNotMatch(INLINE, /fetchEgiftMethods|giftCardsFor|PabuyaCardList|createAdminClient/);
   const DRAW = flat('app/[slug]/pabuya/_components/gift-page-body.tsx');
   assert.doesNotMatch(DRAW, /fetchEgiftMethods|giftCardsFor|qrDisplayUrl|createAdminClient|viewerIsRecognised/, 'the body decides what a reader sees');

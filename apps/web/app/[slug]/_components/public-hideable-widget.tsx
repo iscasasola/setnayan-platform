@@ -31,6 +31,8 @@ import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
 
 /**
  * Per-widget renderer for the anonymous public landing path. Mirrors the
@@ -68,6 +70,11 @@ type PublicHideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
+   * Null/absent → nothing drawn, the card byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
   /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
@@ -118,6 +125,7 @@ function PublicHideableWidgetBody({
   ownClipPlays = false,
   guestView = false,
   stage = null,
+  artKit = null,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
@@ -138,6 +146,7 @@ function PublicHideableWidgetBody({
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
           sceneStyle={sceneStyle}
+          kit={artKit && !bare ? <KitSlot kit={artKit} slot="countdown" /> : null}
         />
       ) : null;
 

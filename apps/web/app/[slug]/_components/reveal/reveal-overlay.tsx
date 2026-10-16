@@ -38,7 +38,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 // Imported, never re-typed: a hand-copied event name drifts silently and the
 // veil simply stops standing down, with nothing failing.
 import { STD_FILM_EXIT_EVENT } from '../save-the-date-film';
@@ -73,6 +73,13 @@ export type { WaxSealConfig } from '@/lib/wax-seal/types';
 type Props = {
   /** True when the page is in the Save-the-Date phase (the only place it shows). */
   enabled: boolean;
+  /**
+   * 🔴 THE LOOK'S WAX SEAL ON THE VEIL (`<KitSeal>`, `lib/art-kits.ts`, owner 2026-10-16) — drawn over the closed veil,
+   * just above its one instruction, fading with it. Decorative and deaf to the pointer: a tap on it lands on the veil's
+   * own hit-zone underneath, so the seal's tap IS the veil's tap (`unveil()` in `veil-reveal.tsx`) — one handler.
+   * Absent → the veil exactly as before. The veil only (the rigid openings carry their own seal).
+   */
+  kitSeal?: ReactNode;
   /** Short couple monogram for the seal fallback, e.g. "A & J". */
   monogram: string;
   /** The couple's monogram SVG markup (uploaded/custom) — pressed into the seal. */
@@ -186,6 +193,7 @@ export function RevealOverlay({
   seenEventId = null,
   materials = null,
   firstPageOnly = false,
+  kitSeal = null,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -433,6 +441,17 @@ export function RevealOverlay({
         {/* 🍪 ABOVE THE FIRST-VISIT COOKIE NOTICE (Batch 8 tester R3, 2026-10-15: the notice, z 70 over the veil's 60,
             covered this — the veil's ONE instruction — until it was answered). It stands the notice's published
             height (`--cookie-banner-top`, 0 once answered or off a phone) above its old 4rem, as #6518 did. */}
+        {kitSeal ? (
+          <div
+            data-veil-seal=""
+            className={`pointer-events-none absolute inset-x-0 transition-opacity ${
+              lifting ? 'opacity-0 duration-0' : open ? 'opacity-0 duration-500' : 'opacity-100 duration-500'
+            }`}
+            style={{ bottom: 'calc(4rem + 4.75rem + var(--cookie-banner-top, 0px))', height: '86px' }}
+          >
+            {kitSeal}
+          </div>
+        ) : null}
         <div
           data-veil-hint=""
           className={`pointer-events-none absolute inset-x-0 flex justify-center transition-opacity ${

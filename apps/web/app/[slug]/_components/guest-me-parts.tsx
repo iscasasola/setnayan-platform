@@ -109,7 +109,19 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
  * top of Me: the line, the host's own reply-by date, and ONE control into the
  * shipped reply sheet. Never the Yes / No buttons; no box around it.
  */
-export function ReplyCardRow({ card, landed = false }: { card: ReplyCard; landed?: boolean }) {
+export function ReplyCardRow({
+  card,
+  landed = false,
+  kit = null,
+}: {
+  card: ReplyCard;
+  landed?: boolean;
+  /**
+   * 🕯 THE LOOK'S ART KIT OVER THE REPLY (`<KitSlot slot="reply">`, owner 2026-10-16) — the garland over the card's top
+   * edge; the kit's stylesheet grows the card's top to clear its dip. Absent → the card byte for byte as before.
+   */
+  kit?: ReactNode;
+}) {
   return (
     <div
       data-reply-card={card.kind}
@@ -118,6 +130,7 @@ export function ReplyCardRow({ card, landed = false }: { card: ReplyCard; landed
       data-pahina-first-screen=""
       className="flex flex-col items-center gap-2 pt-2 text-center"
     >
+      {kit}
       <p className="font-pahina text-xl font-light leading-snug text-ink" data-motion={landed ? 'label-land' : undefined}>
         {card.line}
       </p>

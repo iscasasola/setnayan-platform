@@ -193,7 +193,7 @@ test('6 · the page: above the ways to give, by the one-setting rule, in the pic
   const body = drawn.slice(drawn.indexOf('return ( <div data-gift-page-body'));
   assert.ok(body.length > 200, 'the gift page body is gone');
   const listAt = body.indexOf('<WishList');
-  const waysAt = body.indexOf('<PabuyaCardList methods={cards} />');
+  const waysAt = body.indexOf('<PabuyaCardList methods={cards} kit={kit} />'); // 🕯 (2026-10-16) the art kit rides on the ways to give
   assert.ok(listAt > 0 && waysAt > listAt, 'the wish list is not above the ways to give');
   const wordsAt = body.indexOf('{message ? (');
   assert.ok(wordsAt > 0 && wordsAt < listAt, 'the couple’s words come before the list');

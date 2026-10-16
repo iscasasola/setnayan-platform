@@ -29,7 +29,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { gownFig, roleFigurePeople, roleFigures, suitFig } from './role-figure';
 import { FIGURE_ART, GARMENT_FOR, STYLE_ORDER, garmentFor } from './attire-figures';
-import { ATTIRE_STYLES } from './role-dress-code';
+import { GENERAL_ATTIRE_STYLES } from './role-dress-code';
 import {
   attireRow,
   picksOf,
@@ -65,7 +65,7 @@ function figureIn(html: string): Drawn[] | null {
   if (at < 0) return null;
   const end = html.indexOf('data-role-figure="', at + 10);
   const pic = end < 0 ? html.slice(at) : html.slice(at, end);
-  return [...pic.matchAll(/data-person="([a-z]+)" data-garment="([a-z]+)"(?: data-colour="(#[0-9A-Fa-f]{6})")?/g)].map((m) => ({ who: m[1]!, garment: m[2]!, colour: m[3]?.toUpperCase() ?? null }));
+  return [...pic.matchAll(/data-person="([a-z]+)" data-garment="([a-z_-]+)"(?: data-colour="(#[0-9A-Fa-f]{6})")?/g)].map((m) => ({ who: m[1]!, garment: m[2]!, colour: m[3]?.toUpperCase() ?? null }));
 }
 const people = (d: Drawn[]) => d.map((p) => p.who);
 const colours = (d: Drawn[]) => d.map((p) => p.colour);
@@ -105,7 +105,7 @@ test('👗 the garment follows Wear ▾ — each person’s own styles drawable;
   /* 2026-10-16 (owner: "the drawing is not following the type of attire"): a person's Wear ▾ lists only their own
      styles — no longer every style for everyone (`each-column-wears-its-own.test.ts` holds the lists). The vocabulary
      is still ONE: every style is somebody's, and each of a person's styles has a drawing of its own. */
-  assert.deepEqual([...new Set((['f', 'm', 'girl', 'boy'] as const).flatMap((w) => STYLE_ORDER[w]))].sort(), [...ATTIRE_STYLES].sort(), 'Wear ▾ is not the ONE vocabulary');
+  assert.deepEqual([...new Set((['f', 'm', 'girl', 'boy'] as const).flatMap((w) => STYLE_ORDER[w]))].sort(), [...GENERAL_ATTIRE_STYLES].sort(), 'Wear ▾ is not the shipped seven');
   for (const who of ['f', 'm', 'girl', 'boy'] as const) {
     for (const style of STYLE_ORDER[who]) assert.ok(GARMENT_FOR[who][style]! in FIGURE_ART, `${who} ${style}: no drawing`);
   }
@@ -129,12 +129,18 @@ test('👥 who wears a role: one person, a pair, or one guest per colour', () =>
   assert.deepEqual(roleFigures('principal_sponsor_ninang', ['#C9A24B']).map((p) => p.kind), ['gown'], 'a ninang reading her own panel is one woman');
   assert.deepEqual(roleFigurePeople('bearers_flower_girl', ['#C9A24B']).map((p) => p.who), ['girl', 'boy'], 'the bearers’ row is children');
   assert.deepEqual(roleFigurePeople('ring_bearer', ['#C9A24B']).map((p) => [p.who, p.garment]), [['boy', 'suitb']]);
-  /* With picks, the guests are one man and one woman, each in the first option — never two colours on one person. */
+  /* With picks, the guests are one person PER OPTION in each column (owner 2026-10-16, "GUESTS: UP TO FIVE COLOUR
+     OPTIONS" — each option drawn as its own figure) — never two colours on one person. */
   const guests = roleFigurePeople('guest', ['#2B1D14', '#8E3B5B'], 'options', [
     { who: 'm', style: 'smart_casual', colours: null },
     { who: 'f', style: 'cocktail_dress', colours: null },
   ]);
-  assert.deepEqual(guests, [{ who: 'm', garment: 'shirt', main: '#2B1D14' }, { who: 'f', garment: 'cocktail', main: '#2B1D14' }]);
+  assert.deepEqual(guests, [
+    { who: 'm', garment: 'shirt', main: '#2B1D14', colours: ['#2B1D14'] },
+    { who: 'm', garment: 'shirt', main: '#8E3B5B', colours: ['#8E3B5B'] },
+    { who: 'f', garment: 'cocktail', main: '#2B1D14', colours: ['#2B1D14'] },
+    { who: 'f', garment: 'cocktail', main: '#8E3B5B', colours: ['#8E3B5B'] },
+  ]);
 });
 
 const BOARD: RolePalette = {
@@ -160,16 +166,17 @@ function rowHtml(html: string, key: string): string {
 
 test('📜 the dress-code scene: every role row carries its person, in that row’s colours', async () => {
   const html = await scene({});
-  for (const key of ['bride', 'groom', 'principal_sponsors', 'guest'] as const) {
+  for (const key of ['bride', 'groom', 'principal_sponsors'] as const) {
     const pic = figureIn(rowHtml(html, key));
     assert.ok(pic, `${key}: the row draws its person`);
     assert.ok(pic!.length > 0 && colours(pic!).every((c) => c === BOARD[key]![0]!.toUpperCase()), `${key}: not dressed in its first colour (${JSON.stringify(pic)})`);
   }
-  /* 👥 The guests (owner 2026-10-14): a man and a woman — the two picks — each in the FIRST of the options ("the
-     figures show the first"), never two of them combined on one person. */
+  /* 👥 The guests (owner 2026-10-14 two picks; 2026-10-16 "each option is drawn as its own figure"): a man per option
+     and a woman per option, each in ONE of the options — never two of them combined on one person. */
   const guests = figureIn(rowHtml(html, 'guest'))!;
-  assert.deepEqual(people(guests), ['m', 'f'], 'the guests are a man and a woman');
-  assert.deepEqual(colours(guests), [BOARD.guest![0]!, BOARD.guest![0]!], 'a second option colour is worn — options are never combined');
+  const g = BOARD.guest!.map((c) => c.toUpperCase());
+  assert.deepEqual(people(guests), ['m', 'm', 'm', 'f', 'f', 'f'], 'the guests are a man and a woman per option');
+  assert.deepEqual(colours(guests), [...g, ...g], 'an option is missing, or two are combined');
   /* The sponsors hold both: a man and a woman. The bride is one woman. */
   assert.deepEqual(people(figureIn(rowHtml(html, 'principal_sponsors'))!), ['m', 'f']);
   assert.deepEqual(people(figureIn(rowHtml(html, 'bride'))!), ['f']);
@@ -201,15 +208,16 @@ const SPLIT = {
 
 test('👫 a row that holds both is two picks — each its own Wear and colours; one saved before the split meant everyone', () => {
   assert.deepEqual(picksOf(SPLIT, SPONSORS), [
-    { who: 'm', style: 'barong_tagalog', colours: null },
-    { who: 'f', style: 'filipiniana', colours: ['#8E3B5B'] },
+    { who: 'm', style: 'barong_tagalog', colours: null, role: 'ninong' },
+    { who: 'f', style: 'filipiniana', colours: ['#8E3B5B'], role: 'ninang' },
   ]);
-  /* Saved before the split: the one Wear is everyone's. */
+  /* Saved before the split: the one Wear is read per column, into each one's own design (2026-10-16) — "Formal" is the
+     ninang's Long gown; a ninong has no tuxedo, so his is "Not said yet". */
   const legacy = { groups: { principal_sponsors: { style: 'formal' } } };
-  assert.deepEqual(picksOf(legacy, SPONSORS).map((p) => p.style), ['formal', 'formal']);
-  /* The FIRST change to the men's pins the women's to what it was — it never moves under them. */
+  assert.deepEqual(picksOf(legacy, SPONSORS).map((p) => p.style), [null, 'long_gown']);
+  /* The FIRST change to the men's pins the women's to what they read — it never moves under them. */
   const split = withFirstStyle(legacy, 'groups', 'principal_sponsors', 'barong_tagalog', withAttireStyle);
-  assert.deepEqual(picksOf(split, SPONSORS).map((p) => p.style), ['barong_tagalog', 'formal']);
+  assert.deepEqual(picksOf(split, SPONSORS).map((p) => p.style), ['barong_tagalog', 'long_gown']);
   /* "Not said yet" for the women is said — never "follow the men". */
   assert.deepEqual(picksOf(withSecondStyle(split, 'groups', 'principal_sponsors', null), SPONSORS).map((p) => p.style), ['barong_tagalog', null]);
   /* Their colours: their own, or back to the row's. */
@@ -240,7 +248,7 @@ test('💾 the second pick SURVIVES A SAVE — the draft holds it as sent, the o
   /* 3 · The guest page reads it: the sponsors' row draws a man in a barong and a woman in a terno, in her own colour. */
   const html = await scene({ config: SPLIT });
   const row = figureIn(rowHtml(html, 'principal_sponsors'))!;
-  assert.deepEqual(row.map((p) => [p.who, p.garment, p.colour]), [['m', 'barong', '#C9A24B'], ['f', 'terno', '#8E3B5B']]);
+  assert.deepEqual(row.map((p) => [p.who, p.garment, p.colour]), [['m', 'ninong-barong_tagalog', '#C9A24B'], ['f', 'ninang-filipiniana', '#8E3B5B']]);
   assert.match(rowHtml(html, 'principal_sponsors'), /For men · Barong Tagalog[\s\S]*For women · Filipiniana/);
 });
 
@@ -254,10 +262,10 @@ test('🙋 the reader sees their own pick — or both, named, when the page cann
     return html.slice(html.indexOf('data-dress-code="you"'));
   };
   const ninong = await you({ guestRole: 'principal_sponsor_ninong' });
-  assert.deepEqual(figureIn(ninong)!.map((p) => [p.who, p.garment]), [['m', 'barong']]);
+  assert.deepEqual(figureIn(ninong)!.map((p) => [p.who, p.garment]), [['m', 'ninong-barong_tagalog']]);
   assert.match(ninong, />Barong Tagalog</);
   const her = await you({ guestRole: 'principal_sponsor', guestAttire: 'gown' });
-  assert.deepEqual(figureIn(her)!.map((p) => [p.who, p.garment, p.colour]), [['f', 'terno', '#8E3B5B']]);
+  assert.deepEqual(figureIn(her)!.map((p) => [p.who, p.garment, p.colour]), [['f', 'ninang-filipiniana', '#8E3B5B']]);
   assert.match(her, />Filipiniana</);
   const unknown = await you({ guestRole: 'principal_sponsor' });
   assert.deepEqual(people(figureIn(unknown)!), ['m', 'f'], 'a reader the page cannot place is not shown both');

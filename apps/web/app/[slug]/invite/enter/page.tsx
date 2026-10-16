@@ -1,4 +1,7 @@
 import { Suspense, cache } from 'react';
+import { appleWalletLink } from '@/lib/wallet-pass';
+import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
+import { AppleWalletButton } from '../../_components/apple-wallet-button';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -614,6 +617,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
+  // 🍎 "Add to Apple Wallet" under "Save my ticket" (lib/wallet-pass.ts). Inside an iPhone's in-app browser the
+  // Save line is already the Safari hand-off, so no second hand-off is drawn; never on the Maker's canvas.
+  const appleWallet = canvas || safariSave || passCard !== 'pass' ? null : appleWalletLink(userAgent, invitationUrl, appleWalletOffered());
   const changeWords = canvas || repliesShut ? null : changeReplyWords(reply);
   const ticketLabel = `${guestName}’s ${PASS_CARD_WORDS.digitalTicket}`;
   const ticketFallback = (
@@ -857,6 +863,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 variant="primary"
               />
             )}
+            <AppleWalletButton link={appleWallet} className="mt-2" />
             </div>
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>

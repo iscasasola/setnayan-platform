@@ -1,3 +1,4 @@
+import { bytesStream } from '@/lib/stream-file';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
@@ -9,6 +10,9 @@ import { formatCount } from '@/lib/format-number';
 import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 // ---------------------------------------------------------------------------
 // Caterer meal-count report — the handover artifact for the caterer:
@@ -186,7 +190,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       });
     }
     const bytes = await renderPrintPdf(docs, {}, { mode: 'plain', title: `${event.display_name || 'Wedding'} — caterer meal counts` });
-    return new NextResponse(Buffer.from(bytes), {
+    /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+    return new NextResponse(bytesStream(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

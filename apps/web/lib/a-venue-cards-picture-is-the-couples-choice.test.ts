@@ -20,6 +20,11 @@
  *       without Event Hub Pro (its photo edits still go live), applied for one
  *       with it, named on the Apply sheet, and removable from there; turning it
  *       OFF is free; the Save-the-Date's live venue door can never set it.
+ *   5 · THE PHONE HAS THE SAME ROW (controller ruling 2026-10-17 — phones are
+ *       99% of users, *"no go-edit-elsewhere links; put the same field right
+ *       there"*): the new Maker's Venue scene › Edit draws each card's Picture ▾
+ *       IN PLACE, under the venue's own door — the SAME `VenuePhotoPicker`,
+ *       rendered here, drafting through the same `useVenueChoices`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,6 +50,15 @@ import type { InvitationWidgetRow } from './invitation-widgets';
 import { PUBLIC_R2_BUCKET } from './r2-client-ref';
 
 (globalThis as { React?: unknown }).React = React;
+{
+  /* `details-your-event.tsx` reaches the draft action, whose imports are `server-only`. */
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
 const { VenueWidget } = require('../app/[slug]/_components/venue-widget') as typeof import('../app/[slug]/_components/venue-widget');
 
 const WEB = join(__dirname, '..');
@@ -152,6 +166,9 @@ test('2 · the Maker builds its list from this one function, asking the library 
   assert.match(src, /const options: PickOption\[\] = venuePictureOptions\(\{/);
   assert.doesNotMatch(src, /label: 'Our drawing'/, 'a second, hand-built list');
   assert.match(src, /parishDrawingFor\(\{\s*role: slots\.length === 1 \? 'both' : s\.slot,\s*name: own \? v\.name : \(s\.booked\?\.name \?\? null\),\s*\}\)/);
+  /* …one question, asked by Details › Venues and by the new Maker's rows alike. */
+  assert.equal(count(src, 'parishDrawingFor('), 1, 'a second way to ask the library');
+  assert.equal(count(src, 'drawing={venueCardDrawing(pro, slots, s, own, '), 2, 'Details › Venues and the Venue scene › Edit');
 });
 
 /* ═══ 3 · THE PHOTO IS THE DEFAULT ═════════════════════════════════════════ */
@@ -245,4 +262,69 @@ test("4 · the Save-the-Date's live venue door neither sets nor clears the drawi
   const keep = door.indexOf('delete choice.drawing;');
   assert.ok(keep > 0 && keep < write, 'the posted drawing is dropped before the write');
   assert.match(door.slice(keep, write), /if \(readVenueChoices\(config, eventId\)\[slot\]\?\.drawing === true\) choice\.drawing = true;/);
+});
+
+/* ═══ 5 · THE PHONE HAS THE SAME ROW ═══════════════════════════════════════ */
+
+const L = 'app/dashboard/[eventId]/launch/_components';
+const { VenuePictureRows } = require(`../${L}/details-your-event`) as typeof import('../app/dashboard/[eventId]/launch/_components/details-your-event');
+type Slot = Parameters<typeof VenuePictureRows>[0]['slots'][number];
+
+const slot = (over: Partial<Slot>): Slot =>
+  ({
+    slot: 'ceremony',
+    label: 'Ceremony',
+    booked: null,
+    columns: {} as Slot['columns'],
+    typed: SANTUARIO,
+    address: '',
+    pin: null,
+    choice: { source: 'own', ownPhoto: OWN },
+    photoUrls: { [OWN]: 'https://media.example/church.jpg' },
+    ...over,
+  }) as Slot;
+
+const rows = (slots: Slot[], pro = { owns: false, storeShell: false }) =>
+  renderToStaticMarkup(React.createElement(VenuePictureRows, { eventId: E, slots, pro, onRefused: () => {} }));
+const shownOf = (html: string, s: string) => html.match(new RegExp(`data-venue-photo-picker="${s}" data-venue-picture-row="" data-venue-picture-shown="(\\w+)"`))?.[1];
+
+test("5 · the Venue scene › Edit draws each card's Picture ▾ in rows 2 and 3 — the same picker, the same Pro mark", () => {
+  const two = [slot({ choice: { source: 'own', ownPhoto: OWN, drawing: true } }), slot({ slot: 'reception', label: 'Reception', typed: 'Seda Hotel Vertis North' })];
+  const html = rows(two);
+  assert.equal(count(html, 'data-stage-edit-row="picture"'), 2);
+  assert.match(html, /row-start-2" data-stage-edit-row="picture"><div[^>]*data-venue-photo-picker="ceremony"/);
+  assert.match(html, /row-start-3" data-stage-edit-row="picture"><div[^>]*data-venue-photo-picker="reception"/);
+  assert.ok(html.includes('>Ceremony picture</p>') && html.includes('>Reception picture</p>'));
+  assert.equal(count(html, 'data-venue-photo=""'), 2, 'each row is the house PickMenu');
+  assert.equal(shownOf(html, 'ceremony'), 'drawing');
+  assert.ok(html.includes('aria-label="Ceremony — picture: Our drawing ◆"'), 'a free couple sees it is Pro');
+  assert.equal(shownOf(html, 'reception'), 'photo');
+  assert.equal(count(html, '<img'), 0, 'the page behind is the preview — no picture is drawn in the toolbar');
+  // One card for both: "Picture".
+  assert.ok(rows([slot({ label: 'Venue', slot: 'reception' })]).includes('>Picture</p>'));
+});
+
+test('5 · where Pro is hidden (the app-store shell, not owned) the drawing is never offered — a picked one is not shown', () => {
+  const html = rows([slot({ choice: { source: 'own', ownPhoto: OWN, drawing: true } })], { owns: false, storeShell: true });
+  assert.equal(shownOf(html, 'ceremony'), 'photo');
+  assert.ok(!html.includes('Our drawing'));
+});
+
+test("5 · the toolbar draws them on the Venue scene, under its door, from the launch page's own slots", () => {
+  const tools = code(`${L}/stage-tools.tsx`);
+  assert.match(tools, /const venuePictureRows =\s*picked === 'venue' && !rsvpOpen && venuePictures && venuePictures\.slots\.length > 0 && maker \? \(\s*<VenuePictureRows eventId=\{maker\.eventId\} slots=\{venuePictures\.slots\} pro=\{venuePictures\.pro\}/);
+  assert.match(tools, /<StageEdit key=\{picked\}[^\n]*: venuePictureRows\} \/>/);
+  assert.match(tools, /import \{[^}]*\bVenuePictureRows\b[^}]*\} from '\.\/details-lazy';/, 'loaded with Details, never with the Maker');
+  const lazy = code(`${L}/details-lazy.tsx`);
+  assert.match(lazy, /export const VenuePictureRows = dynamic\(\(\) => import\(\s*'\.\/details-your-event'\)\.then\(\(m\) => m\.VenuePictureRows\)/);
+  const launch = code('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(launch, /if \(yourEvent && stagesStudio\) venuePictures = \{ slots: yourEvent\.venues\.slots, pro: yourEvent\.venues\.pro \?\? \{ owns: false, storeShell \} \};/);
+  assert.match(launch, /venuePictures=\{venuePictures\}/);
+  // The venue itself keeps its one door — only the picture is edited in place.
+  const { makerPartQuietRow } = require('./maker-parts') as typeof import('./maker-parts');
+  assert.equal(makerPartQuietRow('venue')?.words, 'Change it in Suppliers');
+  // The rows draft as Details › Venues does — one hook, one draft door.
+  const editor = code(`${L}/details-your-event.tsx`);
+  assert.equal(count(editor, 'useVenueChoices(eventId, slots, '), 2);
+  assert.equal(count(editor, 'void draftVenueChoice(eventId, slot, next)'), 1);
 });

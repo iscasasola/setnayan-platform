@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { Suspense, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { MapPin } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -12,6 +12,8 @@ import { CityPick, nearestCity } from './details-city-pick';
 import { GovernedFields } from '../../details/_components/governed-fields';
 import { FindDateCandidates, FindDatePicked, useDateState } from './details-date-finder';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
+import { PickSheetContext, pickOpensAsSheet } from '../../website/editor/_components/pick-menu-place';
+import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
@@ -557,6 +559,56 @@ async function draftVenueChoice(eventId: string, slot: VenueSlotKey, choice: Ven
 }
 
 /**
+ * 🏛 THE VENUE CARDS' CHOICES — one card's pick is shown at once and drafted
+ * behind it; a refused save puts the card back and says why (`say`, null when a
+ * new pick clears the last refusal). Shared by Details › Venues and the new
+ * Maker's Venue scene › Edit (`VenuePictureRows`), so the two draft the same way.
+ */
+function useVenueChoices(eventId: string, slots: readonly VenueSlot[], say: (words: string | null) => void) {
+  const [choices, setChoices] = useState<Record<string, VenueChoice>>(() =>
+    Object.fromEntries(slots.map((s) => [s.slot, s.choice])),
+  );
+  /** One card's choice: shown now, drafted behind it. */
+  const choose = (slot: VenueSlotKey, next: VenueChoice) => {
+    const was = choices[slot] ?? {};
+    setChoices((c) => ({ ...c, [slot]: next }));
+    say(null);
+    void draftVenueChoice(eventId, slot, next)
+      .then((refused) => {
+        if (!refused) return;
+        setChoices((c) => ({ ...c, [slot]: was }));
+        say(refused);
+      })
+      .catch(() => {
+        setChoices((c) => ({ ...c, [slot]: was }));
+        say('That did not save. Nothing changed — please try again.');
+      });
+  };
+  return { choices, choose };
+}
+
+/**
+ * ⛪ Does the library have a drawing of THIS place? Asked of the name the guest
+ * reads — the typed one on their own details, else the booking's — on the
+ * card's role (one place for both = "both"). Null where Pro is hidden
+ * (`makerProUsable`: in the app-store shell, unless it is owned).
+ */
+function venueCardDrawing(
+  pro: { owns: boolean; storeShell: boolean },
+  slots: readonly VenueSlot[],
+  s: VenueSlot,
+  own: boolean,
+  v: { name: string },
+): ParishDrawing | null {
+  return makerProUsable(pro)
+    ? parishDrawingFor({
+        role: slots.length === 1 ? 'both' : s.slot,
+        name: own ? v.name : (s.booked?.name ?? null),
+      })
+    : null;
+}
+
+/**
  * 📍 DETAILS › VENUES (owner 2026-10-01, "A REAL PIN AND A PICKED CITY";
  * design approved 2026-10-04). A BOOKED venue shows the supplier's details and
  * pin and follows the booking; "Enter your own" is the name, the shipped
@@ -583,11 +635,6 @@ export function VenuesEditor({
   const [values, setValues] = useState<Record<string, { name: string; address: string; pin: LatLng | null }>>(() =>
     Object.fromEntries(slots.map((s) => [s.slot, { name: s.typed, address: s.address, pin: s.pin }])),
   );
-  /* 🏛 Each card's choice, held here so a pick shows at once and drafts behind
-     it. Switching source never touches the typed words: they stay in `values`. */
-  const [choices, setChoices] = useState<Record<string, VenueChoice>>(() =>
-    Object.fromEntries(slots.map((s) => [s.slot, s.choice])),
-  );
   const [cityValue, setCityValue] = useState(city ?? '');
   /* A city is sent only once PICKED here — a stored line from before the list
      (typed by hand) is never re-sent, so it can never be refused on a save
@@ -595,6 +642,9 @@ export function VenuesEditor({
   const [cityPicked, setCityPicked] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /* 🏛 Each card's choice — shown at once, drafted behind it (`useVenueChoices`).
+     Switching source never touches the typed words: they stay in `values`. */
+  const { choices, choose } = useVenueChoices(eventId, slots, setError);
   const ownDetails = (s: VenueSlot) => !s.booked || choices[s.slot]?.source === 'own';
   const typedSlots = slots.filter(ownDetails);
   const reception = slots.find((s) => s.slot === 'reception') ?? null;
@@ -629,23 +679,6 @@ export function VenuesEditor({
         setError('That did not save. Nothing changed — please try again.');
       }
     });
-  };
-
-  /** One card's choice: shown now, drafted behind it. */
-  const choose = (slot: VenueSlotKey, next: VenueChoice) => {
-    const was = choices[slot] ?? {};
-    setChoices((c) => ({ ...c, [slot]: next }));
-    setError(null);
-    void draftVenueChoice(eventId, slot, next)
-      .then((refused) => {
-        if (!refused) return;
-        setChoices((c) => ({ ...c, [slot]: was }));
-        setError(refused);
-      })
-      .catch(() => {
-        setChoices((c) => ({ ...c, [slot]: was }));
-        setError('That did not save. Nothing changed — please try again.');
-      });
   };
 
   return (
@@ -708,17 +741,8 @@ export function VenuesEditor({
               own={own}
               choice={choices[s.slot] ?? {}}
               onChoose={(c) => choose(s.slot, c)}
-              /* ⛪ Does the library have a drawing of THIS place? Asked of the name the
-                 guest reads — the typed one on their own details, else the booking's —
-                 on the card's role (one place for both = "both"). */
-              drawing={
-                makerProUsable(pro)
-                  ? parishDrawingFor({
-                      role: slots.length === 1 ? 'both' : s.slot,
-                      name: own ? v.name : (s.booked?.name ?? null),
-                    })
-                  : null
-              }
+              /* ⛪ The library's drawing of the name the guest reads, typed as it stands. */
+              drawing={venueCardDrawing(pro, slots, s, own, v)}
               pro={pro}
             />
           </div>
@@ -771,6 +795,7 @@ function VenuePhotoPicker({
   onChoose,
   drawing = null,
   pro = { owns: false, storeShell: false },
+  row = null,
 }: {
   eventId: string;
   slot: VenueSlot;
@@ -780,7 +805,14 @@ function VenuePhotoPicker({
   /** The library's drawing of this venue, or null — "Our drawing" is offered only with one. */
   drawing?: ParishDrawing | null;
   pro?: { owns: boolean; storeShell: boolean };
+  /**
+   * 📱 THE SAME ROW IN THE NEW MAKER'S VENUE SCENE › EDIT (`VenuePictureRows`): only
+   * "<caption> ▾" in one 44 px toolbar row — the page behind is the preview, so no
+   * picture is drawn here, and an upload opens in the Maker's one bottom sheet.
+   */
+  row?: { caption: string } | null;
 }) {
+  const sheet = useContext(PickSheetContext);
   const [local, setLocal] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
   const url = (ref: string | null | undefined) => (ref ? (local[ref] ?? slot.photoUrls[ref] ?? null) : null);
@@ -805,6 +837,68 @@ function VenuePhotoPicker({
   const shown = drawingOn ? null : url(current);
   const noneYet = supplierPhotos.length === 0 && !ownRef;
 
+  const picture = (
+    <PickMenu
+      className="flex-1 justify-between"
+      label={`${slot.label} — picture`}
+      value={uploading ? PICTURE_UPLOAD : drawingOn ? PICTURE_DRAWING : (current ?? PICTURE_NONE)}
+      buttonText={drawingOn && mark === 'try' ? 'Our drawing ◆' : undefined}
+      options={options}
+      onPick={(k) => {
+        if (k === PICTURE_UPLOAD) setUploading(true);
+        else {
+          setUploading(false);
+          onChoose(pickVenuePicture(choice, k, own));
+        }
+      }}
+      dataAttr="data-venue-photo"
+    />
+  );
+  const upload = (
+    <FileUpload
+      bucket="media"
+      pathPrefix={sceneBackgroundPathPrefix(eventId)}
+      multiple={false}
+      maxSizeMB={25}
+      acceptedTypes={IMAGE_TYPES}
+      compressImage
+      onFilePicked={(file) => {
+        try {
+          setLocal((l) => ({ ...l, __picked: URL.createObjectURL(file) }));
+        } catch {
+          /* a preview is a nicety */
+        }
+      }}
+      onChange={(value) => {
+        const ref = typeof value === 'string' ? value : null;
+        if (!ref) return;
+        setLocal((l) => (l.__picked ? { ...l, [ref]: l.__picked } : l));
+        setUploading(false);
+        /* An upload is a pick of the photo — it takes the drawing off. */
+        onChoose(uploadedVenuePicture(choice, ref, own));
+      }}
+      label="Upload a photo of the place"
+    />
+  );
+
+  if (row) {
+    /* 📱 The new Maker's row: the list is always offered (Upload your photo · None at the
+       least), and the upload opens in the one bottom sheet on a phone. */
+    const asSheet = uploading && sheet !== null && typeof window !== 'undefined' && pickOpensAsSheet(true, window.innerWidth);
+    return (
+      <div
+        className="flex min-w-0 flex-1 items-center gap-3"
+        data-venue-photo-picker={slot.slot}
+        data-venue-picture-row=""
+        data-venue-picture-shown={drawingOn ? 'drawing' : shown ? 'photo' : 'none'}
+      >
+        <p className="shrink-0 text-sm text-ink/70">{row.caption}</p>
+        {picture}
+        {asSheet && sheet ? sheet({ label: `${row.caption} — upload`, onClose: () => setUploading(false), children: <div className="px-3 pb-2">{upload}</div> }) : uploading ? upload : null}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-1 flex flex-col gap-2" data-venue-photo-picker={slot.slot} data-venue-picture-shown={drawingOn ? 'drawing' : shown ? 'photo' : 'none'}>
       {shown ? (
@@ -821,52 +915,65 @@ function VenuePhotoPicker({
           {/* The pill takes the row: a list placed under a pill pinned to the right edge
               is only as wide as the room left of the screen, and its labels wrapped
               ("Your / photo") — under a wide pill each choice reads on one line. */}
-          <PickMenu
-            className="flex-1 justify-between"
-            label={`${slot.label} — picture`}
-            value={uploading ? PICTURE_UPLOAD : drawingOn ? PICTURE_DRAWING : (current ?? PICTURE_NONE)}
-            buttonText={drawingOn && mark === 'try' ? 'Our drawing ◆' : undefined}
-            options={options}
-            onPick={(k) => {
-              if (k === PICTURE_UPLOAD) setUploading(true);
-              else {
-                setUploading(false);
-                onChoose(pickVenuePicture(choice, k, own));
-              }
-            }}
-            dataAttr="data-venue-photo"
-          />
+          {picture}
         </div>
       )}
-      {uploading || (noneYet && !drawingOn) ? (
-        <FileUpload
-          bucket="media"
-          pathPrefix={sceneBackgroundPathPrefix(eventId)}
-          multiple={false}
-          maxSizeMB={25}
-          acceptedTypes={IMAGE_TYPES}
-          compressImage
-          onFilePicked={(file) => {
-            try {
-              setLocal((l) => ({ ...l, __picked: URL.createObjectURL(file) }));
-            } catch {
-              /* a preview is a nicety */
-            }
-          }}
-          onChange={(value) => {
-            const ref = typeof value === 'string' ? value : null;
-            if (!ref) return;
-            setLocal((l) => (l.__picked ? { ...l, [ref]: l.__picked } : l));
-            setUploading(false);
-            /* An upload is a pick of the photo — it takes the drawing off. */
-            onChoose(uploadedVenuePicture(choice, ref, own));
-          }}
-          label="Upload a photo of the place"
-        />
-      ) : null}
+      {uploading || (noneYet && !drawingOn) ? upload : null}
     </div>
   );
 }
+
+/**
+ * 📱 THE VENUE CARDS' PICTURES IN THE NEW MAKER — the Venue scene › Edit
+ * (controller ruling 2026-10-17 on owner's rules: phones are 99% of users, and
+ * *"no go-edit-elsewhere links; put the same field right there"*). Row 1 stays
+ * the venue's own door ("Change it in Suppliers" — the place itself is the
+ * booking's); rows 2–3 are each card's SAME "Picture ▾" Details › Venues draws
+ * (`VenuePhotoPicker`): the same list (`venuePictureOptions`), the same draft
+ * (`useVenueChoices` → `draftVenueChoice`), the same ◆ and Pro hold at Apply.
+ * One card: "Picture"; two: "Ceremony picture" · "Reception picture".
+ */
+export function VenuePictureRows({
+  eventId,
+  slots,
+  pro,
+  onRefused,
+}: {
+  eventId: string;
+  slots: readonly VenueSlot[];
+  pro: { owns: boolean; storeShell: boolean };
+  /** A refused save, said on the line under the tools. */
+  onRefused: (words: string) => void;
+}) {
+  const { choices, choose } = useVenueChoices(eventId, slots, (words) => {
+    if (words) onRefused(words);
+  });
+  return (
+    <>
+      {slots.slice(0, 2).map((s, i) => {
+        const choice = choices[s.slot] ?? {};
+        const own = !s.booked || choice.source === 'own';
+        return (
+          <div key={s.slot} className={`${SP_ROWS_ROW} ${PICTURE_ROW[i]}`} data-stage-edit-row="picture">
+            <VenuePhotoPicker
+              eventId={eventId}
+              slot={s}
+              own={own}
+              choice={choice}
+              onChoose={(c) => choose(s.slot, c)}
+              drawing={venueCardDrawing(pro, slots, s, own, { name: s.typed })}
+              pro={pro}
+              row={{ caption: slots.length === 1 ? 'Picture' : `${s.label} picture` }}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** The grid rows of the cards' Picture ▾ — under the venue's door in row 1; written out, so the stylesheet has them. */
+const PICTURE_ROW = ['row-start-2', 'row-start-3'] as const;
 
 // ── SHARED ────────────────────────────────────────────────────────────────────
 

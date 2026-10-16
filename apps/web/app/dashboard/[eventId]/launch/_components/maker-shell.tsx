@@ -41,6 +41,7 @@ import {
   type MakerPageJump,
   type MakerSelection,
   type MakerState,
+  type MakerVenuePictures,
 } from './maker-context';
 import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, isDetailsItemKey, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerCameBackToItself, makerDoorLanding, makerLoadNow, makerResumeKey, noteMakerResume, takeMakerResume } from '@/lib/maker-resume';
@@ -181,6 +182,7 @@ export function MakerShell({
   details = null,
   rsvpStage = null,
   factEditors = NO_FACT_EDITORS,
+  venuePictures = null,
   hasWork,
   viewAsFree = null,
   theHost = 'the host',
@@ -239,6 +241,8 @@ export function MakerShell({
    *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
    *  moved into Details whole (part 2b); their pages are Details items now. */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
+  /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — `MakerState.venuePictures`. */
+  venuePictures?: MakerVenuePictures | null;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the doors then have nothing to open. */
   hasWork: boolean;
@@ -580,6 +584,7 @@ export function MakerShell({
       lookPages,
       setLookPages,
       factEditors,
+      venuePictures,
       liveLoveStoryBook: LiveLoveStoryBook as ComponentType<Record<string, unknown>>,
       liveStoryPanel: LiveStoryPanel as ComponentType<Record<string, unknown>>,
       guestPages,
@@ -601,7 +606,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page

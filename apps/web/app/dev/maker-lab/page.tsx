@@ -8,7 +8,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { detailsLabNode } from '../details-lab/details-lab-node';
+import { detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
@@ -201,6 +201,13 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
+      /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
+         (`&vpic=photo|drawing|none`, `&pro=1`). */
+      venuePictures={
+        (sp.studio === '1' || sp.ss === '1') && sp.venue === 'church'
+          ? ((v) => ({ slots: v.slots, pro: v.pro ?? { owns: false, storeShell: false } }))(labChurchVenues(typeof sp.vpic === 'string' ? sp.vpic : undefined, sp.pro === '1'))
+          : null
+      }
       studio={
         sp.studio === '1' || sp.ss === '1'
           ? {

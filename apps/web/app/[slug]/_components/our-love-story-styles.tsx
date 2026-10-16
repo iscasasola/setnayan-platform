@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { momentReadLine, momentVoiceLines, type LoveStoryScene, type MomentVoiceSlot } from '@/lib/love-story-moments';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * LOVE STORY · C · THE YEARS (prototype `every_scene_three_styles_2026-09-29.html`
@@ -477,7 +478,7 @@ export function LoveStoryCards({ scenes, partners, mediaUrls, entrance = false, 
             ))}
           </div>
           <p className="mt-1 text-center font-mono text-[0.65rem] uppercase tracking-[0.2em] text-ink/65">
-            Swipe · {active + 1} of {scenes.length}
+            Swipe · {formatCount(active + 1)} of {formatCount(scenes.length)}
           </p>
         </>
       ) : null}

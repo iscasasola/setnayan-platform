@@ -45,6 +45,8 @@ Script: `~/Documents/Claude/Projects/love-voices-shots/shoot.mjs` (copy into app
 - Round 3 (c0eec58527): typecheck PASS; only unit tests (1/3) red — every-scene-style-draws "no stored style = byte-identical"
   had no OWNER_DEFAULT carve-out. Added it (Love Story → Conversation on STD + Invitation only; sabotage → 1 fail).
 
+- Round 4 (4d04ee5aaa): only unit tests (1/3) red — numbers-carry-commas: Swipe cards' "N of M" counter → formatCount.
+
 ## Left, in order
 1. Check CI on PR #6594: `gh pr checks 6594` — fix anything red (typecheck first).
 2. (done) screenshots + side-by-side. Lab path for the sheet: `/dev/details-lab?studio=1&shape=mj` → Love Story nav item

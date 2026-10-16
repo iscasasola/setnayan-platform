@@ -232,7 +232,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, ty
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
-import { STRANGER_DOOR_ID, coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
 import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
@@ -1205,10 +1205,6 @@ export async function SiteBody({
      2026-10-16). Unanswered (null) keeps the mark, as before. */
   const coverLogoOff = (event as { logo_wanted?: boolean | null }).logo_wanted === false;
   const replyDoor = inviteReplyPath(event.slug ?? '');
-  /* 🔘 THE COVER'S RSVP BUTTON FOR A VISITOR WITHOUT A KEY (owner 2026-10-16): the passcode FIRST — so it leads to the
-     stranger's one door ("Get inside", below the cover), never past it to the reply page (a stranger is never handed
-     the guest's reply door). Never on a ticketed public event (its door is "Get tickets"), never to the host. */
-  const visitorRsvp = pageStage === 'rsvp' && !ticketUrl && !viewerIsHost ? coverRsvpOf({ card: null, visitorHref: `#${STRANGER_DOOR_ID}` }) : null;
   const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
   /* 📬 THE REPLY IS OPEN HERE — the stage allows it (`plan.rsvpShouldRender`) AND the couple's window is
      open (owner 2026-10-14). Every guest door to the reply below asks THIS; the Reply card alone still
@@ -2072,7 +2068,7 @@ export async function SiteBody({
             eventDate={event.event_date}
             venueName={venueLine}
             badgeSlot={dayOfBadge}
-            rsvp={visitorRsvp}
+            foot={false}
             monogramSlot={coverLogoOff ? null : (
               <HeroMonogram
                 event={event}
@@ -2118,7 +2114,7 @@ export async function SiteBody({
                   eventDate={event.event_date}
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
-                  rsvp={visitorRsvp}
+                  foot={false}
                   monogramSlot={coverLogoOff ? null : (
                     <HeroMonogram
                       event={event}
@@ -2153,7 +2149,7 @@ export async function SiteBody({
                    its one explaining line above the same button.
                    🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the
                    door is the first screen's own child and can dock above the bar. */
-                <div className="sn-door-row" id={STRANGER_DOOR_ID}>
+                <div className="sn-door-row">
                   {reason === 'invalid_invite' ? (
                     <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
                       That invite link doesn&rsquo;t look right — it may have been replaced with a new

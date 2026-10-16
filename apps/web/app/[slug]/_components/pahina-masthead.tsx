@@ -70,6 +70,7 @@ export function PahinaMasthead({
   waiting = null,
   rsvp = null,
   still = false,
+  foot: withFoot = true,
   kitSlot = null,
 }: {
   /**
@@ -78,6 +79,12 @@ export function PahinaMasthead({
    * plain and not pressable. Null: no reply on this page — no button (the hint stays).
    */
   rsvp?: CoverRsvp | null;
+  /**
+   * The foot (the RSVP button and the "Swipe up" hint). False on the STRANGER's cover: its first screen is the cover
+   * and the page's ONE door ("Get inside", docked under it — owner 2026-09-26/27, "one button"), so nothing is added
+   * there — the passcode door IS a visitor's way to reply.
+   */
+  foot?: boolean;
   /**
    * 🎬 The cover's entrance is Still (`coverEntranceIsStill`): no line enters — after an unveil they appear together,
    * so every line is marked as its own and the veil's default entrance passes them by.
@@ -371,7 +378,7 @@ export function PahinaMasthead({
       )}
     </a>
   );
-  const foot = (
+  const foot = !withFoot ? null : (
     <div {...{ [COVER_FOOT_ATTR]: '' }} className={COVER_SCENE_FOOT}>
       {rsvpPart}
       <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">

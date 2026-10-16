@@ -314,9 +314,9 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
   assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">/, 'the text-only masthead, in its marked wrapper');
   /* (2026-10-11 on main: the door's row draws no box of its own now — `sn-door-row`, `display: contents`.) */
-  /* The door carries its id (2026-10-16): a visitor's RSVP button on the cover leads to it — the passcode first. */
-  assert.match(html, /<\/header><div class="sn-door-row" id="site-get-inside">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
-  assert.match(html, /<a [^>]*data-cover-rsvp="ask" href="#site-get-inside"/, 'the visitor’s RSVP button does not lead to the one door');
+  assert.match(html, /<\/header><div class="sn-door-row">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
+  /* The stranger's cover draws no foot (2026-10-16): its first screen is the cover and the ONE door. */
+  assert.ok(!html.includes('data-cover-foot'), 'the stranger’s cover draws the guest’s foot — a second door');
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
   assert.ok(html.includes('Until we say ‘I do’') && html.includes(FIXTURE_WORDS.venue), 'the general details');
@@ -325,7 +325,7 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
   /* 📜 On the one page (owner 2026-10-15) Home's mark is no longer at the top: it lands AFTER the cover and its door. */
-  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row" id="site-get-inside">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
@@ -372,7 +372,7 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
         const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
         const REST = '</header></div><div data-pahina-chapters="" class="hub-cover-after empty:hidden"></div></div>';
         assert.ok(stored.html.includes(`<div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden">${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
-        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row" id="site-get-inside">`), 'the rest box is not empty, or the door is not the next group’s');
+        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">`), 'the rest box is not empty, or the door is not the next group’s');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
       } else {
         /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper, the door in the rest box with the wrapper's
@@ -382,7 +382,7 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
            top margin, the one the first-screen fit closes up: `STRANGER_TEXT_COVER_BOXES_DOOR_FIRST`.) */
         const REST = '</header></div><div class="hub-cover-after mt-[calc(0.75rem+0.75rem*var(--fs-air,1))] space-y-6 empty:hidden">';
         assert.ok(stored.html.includes(`<div data-pahina-first-screen="" class="space-y-6 text-center">${CELL}<header data-pahina-first-screen=""`), 'the text-only masthead is not in the cover’s box, in its wrapper');
-        assert.ok(stored.html.includes(`${REST}<div class="sn-door-row" id="site-get-inside">`) && stored.html.slice(stored.html.indexOf(REST), stored.html.indexOf(REST) + 700).includes('data-get-inside="'), 'the door is not what follows the cover in its box');
+        assert.ok(stored.html.includes(`${REST}<div class="sn-door-row">`) && stored.html.slice(stored.html.indexOf(REST), stored.html.indexOf(REST) + 700).includes('data-get-inside="'), 'the door is not what follows the cover in its box');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
         /* (The rest box and the cell close right after the door, before the wrapper and the group do: two closing
            tags out of a run of them, just before the next group.) */

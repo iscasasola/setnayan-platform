@@ -82,6 +82,8 @@ import {
   InspectorLayout,
 } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
+import { toGuestListRow, type GuestListRow } from '@/lib/guest-list-rows';
+import { passCardTicketVersion } from '@/lib/pass-card.server';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
@@ -345,6 +347,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       : null,
   );
   inspectedCardP?.catch(() => undefined);
+  // 🎟 THE OPEN CARD'S TICKET VERSION, started now beside everything else and handed to the card as a
+  // promise — the card never waits for it; it streams in, and the ticket is then asked for at its
+  // year-long cached address (owner 2026-10-16: "it always reloads i thought we have cache").
+  const inspectedTicketVP =
+    inspectParam && isUuid(inspectParam)
+      ? passCardTicketVersion(createAdminClient(), inspectParam).catch(() => null)
+      : null;
   inspectedHelperP?.catch(() => undefined);
 
   // All reads fire in ONE parallel batch — including the share-invite token,
@@ -809,6 +818,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
         kit={TEMPLATE_KIT}
+        ticketVersion={inspectedTicketVP}
         helperAccess={
           inspectedHelper ? (
             <GuestHelperAccess
@@ -845,7 +855,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
      Handing the sheet the very row objects the list already gets lets the RSC payload send
      each once and point at it. The sheet reads the six fields it always read (and keeps its
      own `extra_roles ?? []`). 🔒 app/dashboard/[eventId]/guests/the-guest-list-does-no-work-twice.test.ts */
-  const quickAddPool = guests;
+  /* 📦 …AND ONLY WHAT THE LIST DRAWS (owner 2026-10-16, "loads fast"). The rows the phone gets carry the
+     fields the list draws and searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS) — not the QR token,
+     the photo ref, the attire, the timestamps. One lean object per guest, shared by the list and the sheet,
+     so the payload still sends each guest once. The open card reads its own row (`loadGuestCard`).
+     🔒 guests/the-list-sends-only-what-it-draws.test.ts */
+  const listRowById = new Map(guests.map((g) => [g.guest_id, toGuestListRow(g)] as const));
+  const listRowOf = (g: GuestRow): GuestListRow => listRowById.get(g.guest_id) ?? toGuestListRow(g);
+  const quickAddPool = guests.map(listRowOf);
   const quickAddGroups = groups.map((g) => ({
     group_id: g.group_id,
     label: g.label,
@@ -881,7 +898,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       (a, b) =>
         honoreeRank(a.role) - honoreeRank(b.role) ||
         sortCompare(a, b, 'importance', undefined, seatByGuest),
-    );
+    )
+    .map(listRowOf);
   // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
   const mapRoot = mapRootLabel(rosterAll, eventWord);
   const guestsScreen = (
@@ -1114,7 +1132,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
           SHOWS INSTANTLY, THEN REFRESHES"). A refused guest read is never
           kept — the next open shows the last list that WAS measured. */}
-      <LastSeenCapture page="guests" fresh={guestsMeasured}>
+      {/* 📋 The rows themselves are kept by the list's own screen (`GuestsScreen` → guest-list-copy.ts),
+          and its loading screen draws them LIVE; this keeps no picture of the page (`keepHtml={false}`) and
+          says "Updated just now" when a copy was on screen. */}
+      <LastSeenCapture page="guests" fresh={guestsMeasured} keepHtml={false}>
         <InspectorLayout
           paramKey="inspect"
           className="sn-inspector-shell--card"

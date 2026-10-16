@@ -330,7 +330,47 @@ export function passCardVersion(kit: PassCardKit, g: PassCardGuest, design: Pass
     }),
   );
   if (mark) h.update(Buffer.from(mark));
+  // 🖼 EVERY PICTURE THE CARD IS DRAWN WITH (2026-10-16): the couple's photo, the theme's still, the poster
+  // photo — not only the mark. The card's address is now cached for a YEAR under this version
+  // (`?v=`, the route answers `immutable`), so a new photo that did not change the version would never be
+  // seen again on a phone that had the old one.
+  for (const key of Object.keys(kit.set.images).sort()) {
+    if (key === 'mark') continue;
+    const img = (kit.set.images as Record<string, { bytes?: Uint8Array } | undefined>)[key];
+    if (img?.bytes) h.update(`|${key}|`).update(Buffer.from(img.bytes));
+  }
+  h.update(JSON.stringify({ det: kit.set.data.details ?? null }));
   return h.digest('base64url').slice(0, 22);
+}
+
+/** A version is 22 url-safe characters — anything else in `?v=` is ignored. */
+export const PASS_CARD_VERSION_SHAPE = /^[A-Za-z0-9_-]{22}$/;
+
+/**
+ * 🎟 THE VERSION OF ONE GUEST'S TICKET, for the host's guest card (owner 2026-10-16: *"Why is there a 2-6
+ * second gap to see the digital pass of a person"* · *"And it always reloads i thought we have cache."*).
+ *
+ * The card puts it in the ticket's address (`?guest=…&v=…`); the route answers that address `immutable` for a
+ * year when `v` is the ticket's CURRENT version — so the phone asks for each picture ONCE, and every later
+ * open (the same card again, Guests tomorrow) draws it from the phone's own cache with no request at all.
+ * Any input changing — a new QR, a name, the theme, the photo, the table on the day, the build — is a new
+ * version and so a new address: the change shows at once, never a stale picture.
+ *
+ * Null when there is no ticket to draw (no code, a request, can't come, no event address) — the card then
+ * asks the old way and the route keeps its revalidating answer.
+ */
+export async function passCardTicketVersion(admin: SupabaseClient, guestId: string): Promise<string | null> {
+  try {
+    const { target, bringer, failed } = await readPassCardGuest(admin, guestId);
+    if (failed || !target?.qr_token) return null;
+    if (passCardEligibility(asPassCardRow(target), bringer ? asPassCardRow(bringer) : null) !== 'pass') return null;
+    const kit = await loadPassCardKit(admin, target.event_id, { seatsFor: [target.guest_id] });
+    if (!kit?.set.event.slug) return null;
+    return passCardVersion(kit, target, passCardDesignFor(kit));
+  } catch (err) {
+    logQueryError('pass-card.ticketVersion', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
 }
 
 export async function renderPassCardFor(

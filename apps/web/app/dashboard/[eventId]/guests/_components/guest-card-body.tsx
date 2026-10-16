@@ -205,6 +205,7 @@ export function GuestCardBody({
   helperAccess,
   actions,
   kit,
+  ticketVersion,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -237,6 +238,12 @@ export function GuestCardBody({
   SendInvite?: typeof GuestInviteCell;
   /** Their ticket, small (tap → full view + Save ticket). Absent (the Maker) → a plain ticket image. */
   TicketThumb?: ComponentType<Parameters<typeof GuestTicketThumb>[0]>;
+  /**
+   * 🎟 The ticket's version (`passCardTicketVersion`), handed in as a PROMISE so the card never waits for it:
+   * it streams in after the card, and the ticket is then asked for at its year-long cached address — once
+   * per version, never again on a later open (owner 2026-10-16).
+   */
+  ticketVersion?: Promise<string | null> | null;
   /** The ⋯ (Write to NFC · New QR · Unlink). Absent (the Maker) → none; the Guest list has it. */
   MoreMenu?: ComponentType<Parameters<typeof GuestMoreMenu>[0]>;
   /**
@@ -434,7 +441,7 @@ export function GuestCardBody({
           the ticket, "Tap to view" or the status line (owner 2026-10-04). */}
       <section className="flex items-start gap-3.5 border-b border-ink/10 pb-4" data-guest-card-top="" data-menus-open-below="">
         {TicketThumb ? (
-          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
+          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} version={ticketVersion ?? undefined} />
         ) : hasTicket ? (
           // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
           <img
@@ -473,6 +480,7 @@ export function GuestCardBody({
                 inviteUrl,
                 sentAt: guest.invitation_sent_at,
                 hasTicket,
+                ticketVersion: ticketVersion ?? undefined,
               }}
               facts={inviteSetup.facts}
               template={inviteSetup.template}

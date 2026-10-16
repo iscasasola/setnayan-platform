@@ -29,10 +29,17 @@ import { LastSeenMark, lastSeenPath, takeLastSeenShown } from './last-seen-mark'
 export function LastSeenCapture({
   page,
   fresh = true,
+  keepHtml = true,
   children,
 }: {
   page: LastSeenPage;
   fresh?: boolean;
+  /**
+   * 📋 false when the page keeps its DATA itself (the Guest list, 2026-10-16: `GuestsScreen` keeps the rows
+   * it draws, and its loading screen draws them LIVE). This wrapper then only says "Updated just now" —
+   * one copy per page, never a picture of the list beside the list.
+   */
+  keepHtml?: boolean;
   children: ReactNode;
 }) {
   const scope = useLastSeenScope();
@@ -49,7 +56,7 @@ export function LastSeenCapture({
 
   useEffect(() => {
     const root = ref.current;
-    if (!scope || !fresh || !root) return;
+    if (!scope || !fresh || !keepHtml || !root) return;
     let timer = 0;
     let alive = true;
     const take = () => {
@@ -98,7 +105,7 @@ export function LastSeenCapture({
       watcher.disconnect();
       window.clearTimeout(timer);
     };
-  }, [scope, fresh, page]);
+  }, [scope, fresh, keepHtml, page]);
 
   return (
     <div ref={ref} data-last-seen-root={page} style={{ display: 'contents' }}>

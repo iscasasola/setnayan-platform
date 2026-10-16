@@ -73,6 +73,8 @@ export type SendInviteGuest = {
    * cannot come, and that "failure" was landing in the Problems log.
    */
   hasTicket?: boolean;
+  /** Their ticket's version (`TicketVersion`) — the Share then fetches the SAME cached address the card shows. */
+  ticketVersion?: TicketVersion;
 };
 
 type ShareNav = Navigator & {
@@ -88,8 +90,36 @@ type ShareNav = Navigator & {
  */
 export const TICKET_ROUTE = '/api/guest/pass-card';
 
-export function ticketUrl(guestId: string): string {
-  return `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
+export function ticketUrl(guestId: string, version?: string | null): string {
+  const base = `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
+  // 🎟 With its version the address is cached for a year (`passCardTicketVersion`): asked for once per
+  // version, then drawn from the phone's own cache — no request on any later open.
+  return version ? `${base}&v=${encodeURIComponent(version)}` : base;
+}
+
+/**
+ * A ticket's version as a surface hands it in: absent (the old, revalidating address), known, or still on
+ * its way from the server (a promise streamed with the guest card, so the card never waits for it).
+ */
+export type TicketVersion = string | null | Promise<string | null> | undefined;
+
+/** `{ ready: false }` while a streamed version is still coming; then the version to put in the address. */
+export function useTicketVersion(version: TicketVersion): { ready: boolean; v: string | null } {
+  const pending = Boolean(version) && typeof (version as Promise<unknown>).then === 'function';
+  const [got, setGot] = useState<{ from: TicketVersion; v: string | null } | null>(null);
+  useEffect(() => {
+    if (!pending) return;
+    let alive = true;
+    (version as Promise<string | null>).then(
+      (v) => alive && setGot({ from: version, v: typeof v === 'string' ? v : null }),
+      () => alive && setGot({ from: version, v: null }),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [pending, version]);
+  if (!pending) return { ready: true, v: typeof version === 'string' ? version : null };
+  return got && got.from === version ? { ready: true, v: got.v } : { ready: false, v: null };
 }
 
 /** The ticket's file name — "Maria-Santos-ticket.png"; the route's own header wins when it sends one. */
@@ -104,17 +134,23 @@ export function ticketFileName(name: string): string {
  * it instead of sending the message without the ticket — and `null` when there
  * is none (no ticket, a device that cannot share files, or not asked yet).
  */
-export function useTicketFile(guestId: string, name: string, enabled: boolean): File | null | undefined {
+export function useTicketFile(
+  guestId: string,
+  name: string,
+  enabled: boolean,
+  version?: TicketVersion,
+): File | null | undefined {
   const [file, setFile] = useState<File | null | undefined>(null);
+  const tv = useTicketVersion(version);
   useEffect(() => {
     setFile(null);
-    if (!enabled) return;
+    if (!enabled || !tv.ready) return;
     const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
     // Only a device that can share files needs the bytes.
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
     setFile(undefined);
     let alive = true;
-    fetch(ticketUrl(guestId), { credentials: 'same-origin' })
+    fetch(ticketUrl(guestId, tv.v), { credentials: 'same-origin' })
       .then(async (r) => {
         if (!r.ok) return null;
         // The route names the file the way "Save my ticket" does — use that.
@@ -132,7 +168,7 @@ export function useTicketFile(guestId: string, name: string, enabled: boolean): 
     return () => {
       alive = false;
     };
-  }, [guestId, name, enabled]);
+  }, [guestId, name, enabled, tv.ready, tv.v]);
   return file;
 }
 
@@ -198,7 +234,7 @@ export function SendInviteActions({
   const [pending, startTransition] = useTransition();
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
-  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl));
+  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl), guest.ticketVersion);
 
   useEffect(() => {
     setSentAt(guest.sentAt);

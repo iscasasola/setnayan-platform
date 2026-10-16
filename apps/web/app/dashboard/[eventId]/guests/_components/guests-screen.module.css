@@ -105,6 +105,22 @@
   font-size: 12px;
   margin: 5px 0 0;
   color: var(--gs-mute);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* 📥 Download as Excel — one tap from the list, a plain door in the replied line (no frame: it is a link). */
+.export {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgb(var(--color-mulberry-700));
+  font-weight: 500;
+}
+.export svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ═══ a plain row (requests to join) ═══ */

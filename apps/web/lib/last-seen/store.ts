@@ -56,6 +56,12 @@ export type LastSeenEntry = {
   url: string;
   html: string;
   savedAt: number;
+  /**
+   * 📋 A page that keeps its DATA instead of its picture (the Guest list, 2026-10-16): the rows its own
+   * client screen draws, as guarded JSON (`guardSnapshotData`). Such an entry has no html and is never
+   * painted as html — the page's own screen draws it, live (`saveLastSeenData` / `readLastSeenData`).
+   */
+  json?: string;
 };
 
 export function lastSeenKey(userId: string, eventId: string, page: LastSeenPage): string {
@@ -85,6 +91,23 @@ export function guardSnapshotHtml(html: string): string | null {
   if (/<script[\s>]/i.test(out) || /<iframe[\s>]/i.test(out)) return null;
   out = out.replace(/\s(on[a-z]+|href|action|formaction|srcdoc|ping)="[^"]*"/gi, '');
   if (/javascript:/i.test(out)) return null;
+  return out;
+}
+
+/**
+ * The same gate for a page's kept DATA (JSON text): a peso figure inside any string is masked, and the
+ * copy is REFUSED if a sign or a PHP amount survives — fail closed, exactly as for html. The Guest list
+ * holds no money; this is the belt that keeps it so if a guest's own note ever says "₱5,000 gift".
+ */
+export function guardSnapshotData(json: string): string | null {
+  if (typeof json !== 'string' || json.length === 0) return null;
+  const out = json.replace(MONEY_FIGURE, '—');
+  if (PESO_SIGN.test(out) || PHP_AMOUNT.test(out)) return null;
+  try {
+    JSON.parse(out);
+  } catch {
+    return null;
+  }
   return out;
 }
 
@@ -118,7 +141,9 @@ function parseEntry(raw: string | null): LastSeenEntry | null {
     if (typeof v.url !== 'string' || typeof v.html !== 'string' || typeof v.savedAt !== 'number') {
       return null;
     }
-    return { url: v.url, html: v.html, savedAt: v.savedAt };
+    return typeof v.json === 'string'
+      ? { url: v.url, html: v.html, savedAt: v.savedAt, json: v.json }
+      : { url: v.url, html: v.html, savedAt: v.savedAt };
   } catch {
     return null;
   }
@@ -209,6 +234,66 @@ export function readLastSeen(
     if ((input.now ?? Date.now()) - entry.savedAt > MAX_AGE_MS) return null;
     const html = guardSnapshotHtml(entry.html);
     return html === null ? null : { ...entry, html };
+  } catch {
+    return null;
+  }
+}
+
+// ── A PAGE'S DATA (the Guest list) ───────────────────────────────────────────
+// Same key (account + event + page), same owner rule, same wipe, same size caps
+// and age — one store, one set of rules, a different thing kept.
+
+export type SaveDataInput = Omit<SaveInput, 'html'> & { data: unknown };
+
+/** Keeps a page's data. Returns true if it was kept. Never throws. */
+export function saveLastSeenData(storage: LastSeenStorage | null | undefined, input: SaveDataInput): boolean {
+  if (!storage || !input.userId || !input.eventId) return false;
+  if (!(LAST_SEEN_PAGES as readonly string[]).includes(input.page)) return false;
+  let raw: string;
+  try {
+    raw = JSON.stringify(input.data);
+  } catch {
+    return false;
+  }
+  const json = guardSnapshotData(raw);
+  if (json === null || json.length > MAX_ENTRY_CHARS) return false;
+  const key = lastSeenKey(input.userId, input.eventId, input.page);
+  const value = JSON.stringify({ url: input.url, html: '', json, savedAt: input.now ?? Date.now() });
+  try {
+    claimFor(storage, input.userId);
+    evictOldest(storage, key, MAX_ENTRIES - 1, value.length);
+    try {
+      storage.setItem(key, value);
+    } catch {
+      evictOldest(storage, key, 0, value.length);
+      storage.setItem(key, value);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads a page's kept data for this account + event + page, if it may be shown — the same owner, path
+ * and age rules as `readLastSeen`. Another account's data is never returned (the store is wiped).
+ */
+export function readLastSeenData(
+  storage: LastSeenStorage | null | undefined,
+  input: ReadInput,
+): { data: unknown; savedAt: number } | null {
+  if (!storage || !input.userId || !input.eventId) return null;
+  try {
+    const owner = storage.getItem(OWNER_KEY);
+    if (owner !== input.userId) {
+      wipeLastSeen(storage);
+      return null;
+    }
+    const entry = parseEntry(storage.getItem(lastSeenKey(input.userId, input.eventId, input.page)));
+    if (!entry || entry.json === undefined || entry.url !== input.url) return null;
+    if ((input.now ?? Date.now()) - entry.savedAt > MAX_AGE_MS) return null;
+    const json = guardSnapshotData(entry.json);
+    return json === null ? null : { data: JSON.parse(json), savedAt: entry.savedAt };
   } catch {
     return null;
   }

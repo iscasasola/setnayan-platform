@@ -159,7 +159,12 @@ export function GuestInviteCell({
     the two, and Share waits for it rather than sending without it.
   */
   const fileName = ticketFileName(guest.fullName);
-  const file = useTicketFile(guest.guestId, fileName, open && touch && Boolean(guest.inviteUrl) && guest.hasTicket !== false);
+  const file = useTicketFile(
+    guest.guestId,
+    fileName,
+    open && touch && Boolean(guest.inviteUrl) && guest.hasTicket !== false,
+    guest.ticketVersion,
+  );
 
   const sentDay = sentAt
     ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })

@@ -119,7 +119,7 @@ test('1 · a kept page renders at once from the phone, then the fresh render rep
   release('3 on your list — Ana Cruz replied');
   const full = await run.done;
   assert.match(shell, /Maria Santos/, 'the shell paints the kept roster at once');
-  assert.match(shell, /Updating…/, 'under the "Updating…" mark');
+  assert.match(shell, /Showing your last copy · updating…/, 'under the "Showing your last copy · updating…" mark');
   assert.doesNotMatch(shell, /Ana Cruz/, 'before the fresh data exists');
   assert.match(full, /3 on your list — Ana Cruz replied/, 'then the fresh render arrives and takes its place');
   assert.match(shell, /inert/, 'and the kept copy can never be tapped as if it were live');
@@ -279,10 +279,10 @@ test('5 · a refresh that does not come says so — old data is never passed off
   const failed = renderToStaticMarkup(
     React.createElement(LastSeenView, { html: ROSTER, savedAt: Date.UTC(2026, 9, 1, 7, 42), phase: 'failed' }),
   );
-  assert.match(failed, /Couldn(’|&#x27;|')t refresh|Couldn&rsquo;t refresh/);
+  assert.match(failed, /Couldn(’|&#x27;|')t update — showing your last copy/);
   assert.match(failed, /may be out of date/);
   assert.match(failed, /Try again/);
-  assert.doesNotMatch(failed, /Updating…/);
+  assert.doesNotMatch(failed, /updating…/);
 
   // A failed READ is never kept as last-seen: each page passes its honest-read flag.
   assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<LastSeenCapture page="guests" fresh=\{guestsMeasured\}>/);

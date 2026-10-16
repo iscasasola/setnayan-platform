@@ -10,7 +10,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { useGuestActions } from './guest-actions-context';
-import { ticketFileName, ticketUrl } from './send-invite';
+import { ticketFileName, ticketUrl, useTicketVersion, type TicketVersion } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
@@ -42,12 +42,20 @@ export function GuestTicketThumb({
   guestId,
   name,
   available,
+  version,
 }: {
   guestId: string;
   /** The guest's full name — the saved file is named after them. */
   name: string;
   /** False when they have no ticket (replied they can't come, a request, passed away). */
   available: boolean;
+  /**
+   * 🎟 The ticket's version, streamed with the card (`passCardTicketVersion`; owner 2026-10-16: "it always
+   * reloads i thought we have cache"). The picture is asked for at its versioned address, which the route
+   * caches for a year — so every later open draws it from the phone with no request. Absent → the old
+   * address (asked again on every open).
+   */
+  version?: TicketVersion;
 }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
@@ -55,7 +63,8 @@ export function GuestTicketThumb({
   const [loaded, setLoaded] = useState(false);
   const titleId = useId();
   const imgRef = useRef<HTMLImageElement>(null);
-  const src = ticketUrl(guestId);
+  const tv = useTicketVersion(version);
+  const src = ticketUrl(guestId, tv.v);
   useEffect(() => setMounted(true), []);
   // A card that switches guests starts over — only when the ADDRESS changes, so
   // an error that already fired for this ticket is never wiped.
@@ -107,7 +116,7 @@ export function GuestTicketThumb({
             box). A broken picture still falls back to "No ticket" above. */}
         <span className="relative block aspect-[3/4] w-full">
           <TicketPlaceholder name={name} waiting={!loaded} />
-          {mounted ? (
+          {mounted && tv.ready ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
             <img
               ref={imgRef}

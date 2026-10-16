@@ -46,6 +46,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
+  Download,
   Ellipsis,
   Heart,
   House,
@@ -110,13 +111,19 @@ import { openAddGuest } from './add-guest-sheet';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
+import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
+import type { GuestListRow } from '@/lib/guest-list-rows';
+import { LastSeenMark } from '@/app/_components/last-seen/last-seen-mark';
 
 
 export type GuestsScreenProps = {
   eventId: string;
   gview: 'list' | 'map' | 'share';
-  /** Every guest, importance-sorted by the page (the honoree first). */
-  guests: GuestRow[];
+  /**
+   * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
+   * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
+   */
+  guests: readonly GuestListRow[];
   /** The read was measured — a refused read never prints counts. */
   measured: boolean;
   /**
@@ -161,6 +168,12 @@ export type GuestsScreenProps = {
    * read was REFUSED, "We couldn't load your guest list" (never "no guests").
    */
   empty?: ReactNode;
+  /**
+   * 📋 This is the phone's LAST COPY of the list, not the fresh one (`guest-list-copy.ts`): the loading
+   * screen drawing it while the fresh list comes (`updating`), or the page after the fresh read was refused
+   * (`failed`). The mark says so, and nothing that writes is offered — no Select, no Remove, no Add.
+   */
+  copy?: GuestsCopyState | null;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -210,10 +223,30 @@ function useShellBarOffset(root: React.RefObject<HTMLElement | null>) {
 }
 
 export function GuestsScreen(props: GuestsScreenProps) {
+  // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
+  // Only when the phone holds one for this account + event; otherwise the page's honest "We couldn't load
+  // your guest list" stays (`empty`). 🔒 guests/a-failed-refresh-shows-the-last-copy-as-old.test.ts
+  const unread = useKeptGuestList(!props.measured && props.gview === 'list' && !props.copy);
+  const live: GuestsScreenProps = unread
+    ? {
+        ...props,
+        ...unread.list,
+        guests: unread.list.rows,
+        measured: true,
+        notLoaded: null,
+        songsByGuest: {},
+        linkedGuestIds: null,
+        groups: [],
+        tables: [],
+        empty: null,
+        initialQuery: '',
+        initialSelect: false,
+        copy: { phase: 'failed', savedAt: unread.savedAt },
+      }
+    : props;
   const {
     eventId,
     gview,
-    guests,
     measured,
     notLoaded = null,
     hasSides,
@@ -231,11 +264,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     chatHrefFor,
     setup,
     empty,
-  } = props;
+    copy = null,
+  } = live;
+  // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
+  // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
+  // record each field read.
+  const guests = live.guests as unknown as GuestRow[];
   const router = useRouter();
   const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
+  // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
+  useKeepGuestList(
+    { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
+    !copy && measured && gview === 'list' && !initialQuery && !initialSelect,
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -539,7 +582,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         const v = e.currentTarget.value.trim();
         if (timer.current) clearTimeout(timer.current);
         setQ(v);
-        if (v && !roster.some((g) => rosterSearchMatches(v, g, facts))) openAddGuest(v);
+        if (!copy && v && !roster.some((g) => rosterSearchMatches(v, g, facts))) openAddGuest(v);
       }}
     />
   );
@@ -628,11 +671,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
             onClick={() => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.key)))}
             data-testid="thumb-expand"
           />
-          <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="thumb-select" />
+          {copy ? null : (
+            <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="thumb-select" />
+          )}
         </span>
         {field}
         <span className={styles.acts} data-fit-acts="" data-side="right">
-          {noMatch ? addBtn : sortPick}
+          {noMatch && !copy ? addBtn : sortPick}
         </span>
       </div>
     );
@@ -726,10 +771,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
-                      verbs={rowVerbsFor(g, {
-                        linked: linked ? linked.has(g.guest_id) : null,
-                        chatHref: chatHrefFor?.(g.guest_id) ?? null,
-                      })}
+                      verbs={
+                        copy
+                          ? []
+                          : rowVerbsFor(g, {
+                              linked: linked ? linked.has(g.guest_id) : null,
+                              chatHref: chatHrefFor?.(g.guest_id) ?? null,
+                            })
+                      }
                       chatHref={chatHrefFor?.(g.guest_id) ?? null}
                       onOpen={openCard}
                       onToggle={() => toggleOne(g.guest_id)}
@@ -752,7 +801,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
           <span className={styles.acts} data-fit-acts="">
-            <ActionButton tone="brand" main icon={Plus} label={`Add “${q}”`} onClick={() => openAddGuest(q)} />
+            {copy ? null : <ActionButton tone="brand" main icon={Plus} label={`Add “${q}”`} onClick={() => openAddGuest(q)} />}
             <ActionButton
               tone="neutral"
               icon={X}
@@ -775,7 +824,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
-      <div ref={rootRef} className={styles.screen} data-settled={settled ? 'true' : 'false'} data-guests-screen={gview}>
+      {copy ? <LastSeenMark phase={copy.phase} savedAt={copy.savedAt} /> : null}
+      <div
+        ref={rootRef}
+        className={styles.screen}
+        data-settled={settled ? 'true' : 'false'}
+        data-guests-screen={gview}
+        data-guests-copy={copy ? copy.phase : undefined}
+        style={copy?.phase === 'failed' ? { opacity: 0.7 } : undefined}
+      >
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
               draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
@@ -827,7 +884,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 <Fill value={replied} id="gs-replied" className={styles.meterFill} />
               </div>
               <div className={styles.replied}>
-                <Count value={replied} format="pct" id="gs-replied-pct" /> replied
+                <span>
+                  <Count value={replied} format="pct" id="gs-replied-pct" /> replied
+                </span>
+                {/* 📥 THE LIST AS A SPREADSHEET, ONE TAP (owner 2026-10-16: "just have a excel file for their
+                    guests"). The server writes it fresh, in the import template's own columns, so the same
+                    file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
+                    JavaScript, nothing added to any bundle. */}
+                <a
+                  href={`/dashboard/${eventId}/guests/export`}
+                  download
+                  className={`${styles.countsDoor} ${styles.export}`}
+                  data-guests-export=""
+                >
+                  <Download aria-hidden strokeWidth={1.9} />
+                  Download as Excel
+                </a>
               </div>
               {/* 📏 A read beside the list that did not happen is SAID, here, in the strip's own words — never drawn
                   as "no groups" / "nobody seated". Only under a list that WAS read: a refused list has its own

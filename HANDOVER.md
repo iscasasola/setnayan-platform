@@ -40,8 +40,9 @@ DECISION_LOG 2026-10-16, "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE". Owner,
 3. **Dark mode.** The Maker lab is not a dark-ready route (`theme-bootstrap-script.ts` `DARK_READY`), so the dark shots add `.dark` to `<html>` by script. Say so when reporting.
 
 ## Left, in order
-1. Re-shoot 02 and 03 in light and dark at 375 (WebKit iPhone 13), plus desktop 1280: `scripts/shoot.mjs` (command below). The light 375 shot of 38d5df2 exists and was checked (one line each). The dark and desktop shots did not finish because the dev server died: memory pressure, 4 `next dev` processes on the machine.
-2. Look at each PNG yourself, then report to the controller: new head sha, the screenshot paths, and open questions 1–3.
+1. DONE 2026-10-17 02:00: re-shot 02 and 03, light and dark, at 375 (`shoot2.log`, all ok). Every option is on one line, ◆ Pro is on the "Our drawing" line, and the list is inside the screen. Desktop light was shot in an earlier run (`02-/03-…-desktop-light.png`). Desktop dark was not shot (the dev server ran out of memory; re-run with `DESKTOP=1` if wanted).
+   STILL SEE-THROUGH: the list is the shipped glass popover (open question 2). That needs a controller decision, not a builder fix.
+2. Report to the controller: head sha, the screenshot paths, open questions 1–3. Wait for the go/no-go on Q1 (phone path) and Q2 (opaque popover).
 3. Wait for CI on the head. Keep the PR a draft with `do-not-auto-merge`.
 4. After the PR merges: `git worktree remove ~/Documents/Claude/Projects/wt-venue-choice --force && git worktree prune`.
 
@@ -58,7 +59,7 @@ touch $D/scripts/STOP     # ALWAYS — releases the walk lane
 
 ## Screenshots (`~/Documents/Claude/Projects/controller-2026-10-12/venue-picture-choice/`)
 - First walk (d70db4c), all ok: `01-maker-your-photo.png` · `02-maker-picture-list-open.png` (the shot the controller rejected: wrapped labels) · `03-maker-picked-our-drawing.png` · `04-maker-our-drawing.png` · `05-maker-none.png` · `06-maker-reception-no-drawing.png` · `07-guest-your-photo.png` · `08-guest-our-drawing.png` · `09-guest-none.png` · `walk.log`.
-- After the fix (38d5df2): `02-maker-picture-list-open-375-light.png` · `03-maker-picked-our-drawing-375-light.png` (from the run that died; re-shoot all four sets).
+- After the fix (38d5df2), WebKit iPhone 13 at 375: `02-maker-picture-list-open-375-light.png` · `02-maker-picture-list-open-375-dark.png` · `03-maker-picked-our-drawing-375-light.png` · `03-maker-picked-our-drawing-375-dark.png` (log `shoot2.log`). Desktop 1280 light: `02-maker-picture-list-open-desktop-light.png` · `03-maker-picked-our-drawing-desktop-light.png`.
 - New Maker evidence for open question 1: `peek-studio.png` (Venue scene → "Change it in Suppliers").
 - Scripts: `scripts/serve.sh` · `scripts/walk.mjs` · `scripts/shoot.mjs` · `scripts/stub.mjs`.
 

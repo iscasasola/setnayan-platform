@@ -10,7 +10,7 @@
  *
  * CSV, not .xlsx: no spreadsheet writer is in the dependencies, and this costs the phone nothing (the
  * route writes it on the server). Made for Excel on purpose:
- *   · a UTF-8 byte-order mark first, so "Peñaflor" and "Nuñez" open as themselves, not "PeÃ±aflor";
+ *   · a UTF-8 byte-order mark first, so "Peñaflor" and "Nuñez" open as themselves, never as Latin-1 garble;
  *   · CRLF line ends; a cell with a comma, quote or line break is quoted;
  *   · a Philippine number is written the local way ("0917 123 4567") — "+63 917…" would open in Excel as a
  *     FORMULA (#NAME?), and the importer reads the local way back to the same number;

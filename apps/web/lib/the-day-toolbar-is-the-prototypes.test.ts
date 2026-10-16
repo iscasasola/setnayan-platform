@@ -212,7 +212,11 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
      into a page its own React has not taken over yet is a hydration failure — the whole page thrown away and drawn
      again. A canvas with no Camera page gets no camera. */
   assert.match(page, /const CANVAS_IS_UP = '\[data-setnayan-editor-bound\]';/);
-  assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /el\.dataset\.setnayanEditorBound = '1';/, 'the bridge no longer marks a page that is up — the camera would never be drawn');
+  /* The bridge binds through its section binder (`canvas-section-binder.ts`, 2026-10-16), which writes the mark. */
+  assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /createSectionBinder\(document,/, 'the bridge no longer binds its page — the camera would never be drawn');
+  const binder = read('app/[slug]/_components/canvas-section-binder.ts');
+  assert.match(binder, /export const EDITOR_BOUND_ATTR = 'data-setnayan-editor-bound';/);
+  assert.match(binder, /el\.setAttribute\(EDITOR_BOUND_ATTR, '1'\);/, 'the bridge no longer marks a page that is up — the camera would never be drawn');
   assert.match(page, /if \(new URL\(f\.src, window\.location\.href\)\.searchParams\.get\('phase'\) !== stage\) continue;/);
   assert.match(page, /if \(doc\?\.querySelector\(CANVAS_IS_UP\) && doc\.querySelector\(CAMERA_PAGE\)\) out\.push\(doc\);/);
   /* A canvas still on its way is looked for again a bounded number of times — never for ever, never on a guess. */

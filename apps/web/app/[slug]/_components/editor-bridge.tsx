@@ -25,7 +25,7 @@ import {
   type HubElementStyles,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
-import { CANVAS_REDRAW_COMMITS_EVENT, findMakerSection, sectionAfter } from './maker-section-find';
+import { CANVAS_REDRAW_COMMITS_EVENT, SCENE_LOOK_HIDDEN_ATTR, findMakerSection, sectionAfter } from './maker-section-find';
 import { layScenePicture, takeScenePicturesOff } from './scene-look-lay';
 import { keepReactChildren, keepReactNodes, putReactChildrenBack } from './react-children-keep';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
@@ -36,6 +36,7 @@ import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
+import { createSectionBinder } from './canvas-section-binder';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
 import { finishArrivals, playSequence } from './play-sequence';
 import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
@@ -530,9 +531,13 @@ export function EditorBridge() {
   const startRedrawRef = useRef(startRedraw);
   startRedrawRef.current = startRedraw;
   const wasRedrawing = useRef(false);
+  /** The tap sweep (`bindAll` in the bridge's effect) — run again once a redraw is on the page. */
+  const rebindRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (wasRedrawing.current && !redrawing) {
       groundPreview.current?.redrawDone();
+      /* 👆 the server's render may have brought new section nodes: each is bound before the couple can tap it */
+      rebindRef.current?.();
       /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (the Maker's held-redraw watch). */
       window.parent?.postMessage({ source: 'setnayan-site', t: 'redrawn' }, window.location.origin);
     }
@@ -610,9 +615,9 @@ export function EditorBridge() {
     cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
-    const bind = (el: HTMLElement, key: string) => {
-      if (el.dataset.setnayanEditorBound === '1') return;
-      el.dataset.setnayanEditorBound = '1';
+    /* 🔑 WHAT IS BOUND IS WHAT THIS BRIDGE BOUND (`canvas-section-binder.ts`, 2026-10-16 live: "cannot select on maker
+       preview screen anymore") — a Style card's picture laid over a section arrives wearing another page's mark. */
+    const listen = (el: HTMLElement, key: string) => {
       const prevCursor = el.style.cursor;
       el.style.cursor = 'pointer';
       const send = (e: Event) => {
@@ -677,28 +682,22 @@ export function EditorBridge() {
         );
       };
       el.addEventListener('click', send);
-      cleanups.push(() => {
+      return () => {
         el.removeEventListener('click', send);
         el.style.cursor = prevCursor;
-        delete el.dataset.setnayanEditorBound;
-      });
+      };
     };
-    document.querySelectorAll('[data-maker-section]').forEach((m) => {
-      const el = sectionAfter(m);
-      if (!el) return;
-      const key = m.getAttribute('data-maker-section')!;
-      stampSceneElements(el, key);
-      bind(el, key);
+    const binder = createSectionBinder(document, listen, (el, key) => void stampSceneElements(el, key));
+    cleanups.push(() => binder.dispose());
+    /* 🔁 EVERY SECTION ON THE PAGE NOW — at mount, the moment a Style card's picture is laid over a section (that copy
+       IS the section the couple sees and taps), and after every in-place redraw (the server's render can bring a NEW
+       node where the bound one stood). A sweep that finds nothing new does nothing. */
+    const bindAll = binder.sweep;
+    bindAll();
+    rebindRef.current = bindAll;
+    cleanups.push(() => {
+      rebindRef.current = null;
     });
-    for (const key of ['f:entourage', 'f:story']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
-    // The legacy rows (details, …) — bubbling from a section above stops first.
-    for (const key of ['home', 'details', 'gallery', 'me']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
 
     /* 📱 A tap that lands on NO section (the page's margins, the ground between
        scenes) — the Maker folds an open part sheet to its bar on a phone
@@ -706,7 +705,7 @@ export function EditorBridge() {
        its own clicks, so only a stray tap reaches here. */
     const onStray = (e: MouseEvent) => {
       if (guest.on) return;
-      if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
+      if (binder.holds(e.target)) return;
       window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
     };
     document.addEventListener('click', onStray);
@@ -723,7 +722,9 @@ export function EditorBridge() {
         if (typing.typing()) return;
         const hit = selectionInPart(window.getSelection());
         const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
-        const marker = section?.previousElementSibling;
+        /* A laid Style picture stands after the page's own (hidden) section, which stands after the marker. */
+        let marker = section?.previousElementSibling ?? null;
+        if (marker?.hasAttribute(SCENE_LOOK_HIDDEN_ATTR)) marker = marker.previousElementSibling;
         const key = marker?.getAttribute('data-maker-section') ?? null;
         window.parent?.postMessage(
           hit && key
@@ -992,7 +993,7 @@ export function EditorBridge() {
         /* 🎨 A STYLE PICK, ON THE PAGE AT THE TAP (`lib/maker-scene-look.ts`): the picked card's own section — the
            guest page drawn in that style — laid over this one until the in-place redraw brings the server's. */
         const html = (data as { html?: unknown }).html;
-        if (typeof html === 'string' && html.length < 400_000) layScenePicture(document, data.key, html);
+        if (typeof html === 'string' && html.length < 400_000 && layScenePicture(document, data.key, html)) bindAll();
         return;
       }
       const el = findMakerSection(document, data.key);

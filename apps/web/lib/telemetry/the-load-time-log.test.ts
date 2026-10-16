@@ -383,7 +383,8 @@ test('4 · the read is reached only behind requireAdmin()', () => {
 
 test('4 · the phone answers, it does not edit: the target form stands down below lg, and a line says so', () => {
   const s = code('app/admin/app-performance/_surfaces/slow-loads-surface.tsx');
-  assert.match(s, /<form action=\{saveLoadTarget\} className="hidden [^"]*lg:flex/);
+  assert.match(s, /<div className="hidden [^"]*lg:flex">\s*<form action=\{saveLoadTarget\}/);
+  assert.equal((s.match(/<form action=\{saveLoadTarget\}/g) ?? []).length, 2, 'both target forms sit inside the lg-only wrapper');
   assert.match(s, /Targets are set on the computer\./);
 });
 

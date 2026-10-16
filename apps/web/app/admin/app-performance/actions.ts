@@ -151,8 +151,8 @@ export async function viewReceipt(formData: FormData): Promise<void> {
 /**
  * ⏱ A page's load-time target (the Slow loads tab, 2026-10-16). Seconds in,
  * ms stored in platform_settings.load_time_targets, clamped to 1–30 s (never
- * below what the browser always sends — lib/telemetry/load-timing.ts). Empty or
- * "Use 1.5 s" removes the override, so the page falls back to the default.
+ * below what the browser always sends — lib/telemetry/load-timing.ts). An empty
+ * target ("Use 1.5 s" sends one) removes the override, so the page falls back to the default.
  * Only a route the app actually has (or one already holding a target) may be
  * set — the map can never fill with invented keys. Desktop only: the phone
  * admin answers, it does not edit (owner ruling 2026-08-26).
@@ -160,7 +160,6 @@ export async function viewReceipt(formData: FormData): Promise<void> {
 export async function saveLoadTarget(formData: FormData): Promise<void> {
   const userId = await requireAdmin();
   const route = str(formData.get('route'));
-  const clear = formData.get('clear') === '1';
   const seconds = Number.parseFloat(str(formData.get('target_s')));
   const back = (q: string) => redirect(`/admin/app-performance?tab=slow-loads&${q}`);
 
@@ -170,12 +169,12 @@ export async function saveLoadTarget(formData: FormData): Promise<void> {
   const targets = coerceTargets((data as { load_time_targets?: unknown } | null)?.load_time_targets);
   if (!routePatterns().includes(route) && !(route in targets)) back('target=unknown');
 
-  if (clear || !str(formData.get('target_s'))) {
+  if (!str(formData.get('target_s'))) {
     delete targets[route];
   } else {
-    const ms = clampTarget(Number.isFinite(seconds) ? seconds * 1000 : NaN);
-    if (ms === null) back('target=invalid');
-    targets[route] = ms as number;
+    const targetMs = clampTarget(Number.isFinite(seconds) ? seconds * 1000 : NaN);
+    if (targetMs === null) back('target=invalid');
+    targets[route] = targetMs as number;
   }
 
   const { error: saveErr } = await admin

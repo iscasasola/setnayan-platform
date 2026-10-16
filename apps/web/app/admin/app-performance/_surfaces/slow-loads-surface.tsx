@@ -217,33 +217,40 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
                         {formatMs(p.target)}
                         {p.targetSet ? '' : ' (default)'}
                       </span>
-                      <form action={saveLoadTarget} className="hidden items-center gap-1.5 lg:flex">
-                        <input type="hidden" name="route" value={p.route} />
-                        <label className="sr-only" htmlFor={`t-${p.route}`}>
-                          Target for {p.route}, in seconds
-                        </label>
-                        <input
-                          id={`t-${p.route}`}
-                          name="target_s"
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          min={TARGET_MIN_MS / 1000}
-                          max={TARGET_MAX_MS / 1000}
-                          defaultValue={p.targetSet ? (p.target / 1000).toString() : ''}
-                          placeholder={(DEFAULT_TARGET_MS / 1000).toFixed(1)}
-                          className="input-field h-8 w-20 py-0 text-sm tabular-nums"
-                        />
-                        <span className="text-[11px] text-ink/50">s</span>
-                        <button type="submit" className="button-secondary h-8 px-2.5 text-xs">
-                          Save
-                        </button>
-                        {p.targetSet ? (
-                          <button type="submit" name="clear" value="1" className="h-8 px-1.5 text-xs text-ink/55 underline-offset-2 hover:underline">
-                            Use {(DEFAULT_TARGET_MS / 1000).toFixed(1)} s
+                      <div className="hidden items-center gap-1.5 lg:flex">
+                        <form action={saveLoadTarget} className="flex items-center gap-1.5">
+                          <input type="hidden" name="route" value={p.route} />
+                          <label className="sr-only" htmlFor={`t-${p.route}`}>
+                            Target for {p.route}, in seconds
+                          </label>
+                          <input
+                            id={`t-${p.route}`}
+                            name="target_s"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.1"
+                            min={TARGET_MIN_MS / 1000}
+                            max={TARGET_MAX_MS / 1000}
+                            defaultValue={p.targetSet ? (p.target / 1000).toString() : ''}
+                            placeholder={(DEFAULT_TARGET_MS / 1000).toFixed(1)}
+                            className="input-field h-8 w-20 py-0 text-sm tabular-nums"
+                          />
+                          <span className="text-[11px] text-ink/50">s</span>
+                          <button type="submit" className="button-secondary h-8 px-2.5 text-xs">
+                            Save
                           </button>
+                        </form>
+                        {p.targetSet ? (
+                          // An empty target is "no override": the page goes back to the default.
+                          <form action={saveLoadTarget}>
+                            <input type="hidden" name="route" value={p.route} />
+                            <input type="hidden" name="target_s" value="" />
+                            <button type="submit" className="h-8 px-1.5 text-xs text-ink/55 underline-offset-2 hover:underline">
+                              Use {(DEFAULT_TARGET_MS / 1000).toFixed(1)} s
+                            </button>
+                          </form>
                         ) : null}
-                      </form>
+                      </div>
                     </td>
                     <td className="py-2.5 pr-4 text-right tabular-nums text-ink/75">
                       {formatCount(p.loads)}

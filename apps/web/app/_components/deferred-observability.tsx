@@ -145,6 +145,12 @@ export function DeferredObservability() {
           if (!cancelled) m.installFaultObserver();
         })
         .catch(() => {});
+      // ⏱ The load-time log (2026-10-16): its own chunk too, same idle moment.
+      void import('@/lib/telemetry/load-reporter')
+        .then((m) => {
+          if (!cancelled) m.installLoadReporter();
+        })
+        .catch(() => {});
     });
     return () => {
       cancelled = true;

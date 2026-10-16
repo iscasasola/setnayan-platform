@@ -85,7 +85,9 @@ test('2 · a piece’s head is ONE Form row: its name and sizes on the left, its
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const i = await input('house', false);
   const inv = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'invitation', studio: true } as never));
-  assert.match(inv, /data-form-row-kind="chosen"[\s\S]*?Invitation[\s\S]*?5 × 7 in or A5[\s\S]*?data-print-format-picker=""/, 'the invitation’s head is not the Form row with its size ▾');
+  /* RE-AIMED 2026-10-16 (owner: "short size lines"): the line names the CHOSEN size only — "5 × 7 in or A5" listed both. */
+  assert.match(inv, /data-form-row-kind="chosen"[\s\S]*?Invitation[\s\S]*?5 × 7 in · 127 × 178 mm[\s\S]*?data-print-format-picker=""/, 'the invitation’s head is not the Form row with its chosen size and its size ▾');
+  assert.doesNotMatch(inv, /5 × 7 in or A5/, 'the invitation’s head lists every size again');
   assert.match(inv, /aria-haspopup="listbox"/, 'the size ▾ is not the house dropdown');
   /* A piece with one size has the row without a dropdown. */
   const ent = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'entourage', studio: true } as never));

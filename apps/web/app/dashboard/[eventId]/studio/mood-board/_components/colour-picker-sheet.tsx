@@ -79,6 +79,12 @@ export function ColourPickerSheet({
   const suggest = pickerShelves(palette, { names: slots ? MAIN_COLOUR_NAMES : undefined, readsOn });
   const custom = customColourInput(code);
   const typed = custom.code;
+  /* The matches open UNDER the field, at the sheet's foot — brought into view as they appear, or a phone shows none of them. */
+  const matchList = useRef<HTMLDivElement>(null);
+  const matchKey = custom.matches.map((m) => m.hex).join();
+  useEffect(() => {
+    if (matchKey) matchList.current?.scrollIntoView({ block: 'nearest' });
+  }, [matchKey]);
   const now = current.toUpperCase();
   const read = pickerReadsOn(current, readsOn);
   const sw = (c: string) => {
@@ -190,7 +196,7 @@ export function ColourPickerSheet({
             }}
             aria-label="Colour name or code"
             aria-controls="picker-name-matches"
-            placeholder="A colour name or code (#7A1F2B)"
+            placeholder="Colour name or code"
             autoComplete="off"
             autoCapitalize="none"
             autoCorrect="off"
@@ -202,7 +208,7 @@ export function ColourPickerSheet({
           <ActionButton tone="brand" main icon={Check} label="Use" disabled={!custom.use} onClick={() => custom.use && onPick(custom.use)} className="!h-11" />
         </div>
         {custom.matches.length > 0 ? (
-          <div id="picker-name-matches" className="-mt-1 flex flex-col" aria-label="Colours by that name" data-picker-name-matches="">
+          <div ref={matchList} id="picker-name-matches" className="-mt-1 flex flex-col" aria-label="Colours by that name" data-picker-name-matches="">
             {custom.matches.map((m) => (
               <button
                 key={m.hex}

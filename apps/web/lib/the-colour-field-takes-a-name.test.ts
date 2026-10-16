@@ -81,7 +81,7 @@ test('D · the sheet draws the matches, Use and Enter on custom.use, a name-or-c
   assert.match(src, /label="Use" disabled=\{!custom\.use\} onClick=\{\(\) => custom\.use && onPick\(custom\.use\)\}/, '✓ Use is not enabled by a name');
   assert.match(src, /e\.key === 'Enter' && custom\.use[\s\S]{0,80}onPick\(custom\.use\)/, 'Enter does not use the top match');
   assert.match(src, /custom\.matches\.map\(\(m\) =>[\s\S]{0,400}onClick=\{\(\) => onPick\(m\.hex\)\}/, 'a name match is not a tap that sets its colour');
-  assert.match(src, /placeholder="A colour name or code \(#7A1F2B\)"/, 'the field does not say it takes a name');
+  assert.match(src, /placeholder="Colour name or code"/, 'the field does not say it takes a name (and a code), short enough not to clip at 375');
   assert.doesNotMatch(src, /maxLength=\{7\}/, 'the field is capped at a code’s 7 characters — "dusty rose" cannot be typed');
   const wheel = /<input\s+type="color"[\s\S]*?\/>/.exec(src)?.[0] ?? '';
   assert.ok(wheel, 'the wheel is gone');

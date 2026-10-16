@@ -41,7 +41,7 @@ export function styleCardInSight(el: Element, view: Pick<Window, 'getComputedSty
 }
 /** What `visibility`-hides the look body (`stage-tools.tsx`'s rules read these on `[data-stage-tools]`) — a change is
  *  when a waiting card looks again. A `display:none` that lifts gives the card a box, which its observer is told of. */
-const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'aria-hidden'];
+const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'data-stage-cover-rows', 'aria-hidden'];
 
 /** The canvas's own address → the same page, one part, one style. Null: no canvas to read yet. */
 export function stylePreviewSrc(canvasSrc: string, canvasKey: string, sceneType: string, styleId: string, origin: string): string | null {

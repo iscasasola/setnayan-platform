@@ -695,10 +695,13 @@ function RevealStagePart({
   failed: ReactNode;
 }) {
   const look = useStageRevealLook();
-  /* The cover's corner names the opening chosen here (`stage-tools.tsx`) — None too ("No opening"). */
+  /* The cover's corner names the opening that plays on THIS stage (`stage-tools.tsx`) — None too ("No opening"), and ▶
+     plays the veil only when one does. None is stored as "no stage plays it" (`lib/reveal-none.ts`), so the template
+     stays and `effective` alone kept saying "Sheer veil ◆ opens over it" after None was picked (walk 2026-10-17). */
+  const playsHere = effective !== REVEAL_NONE_ID && shownHere;
   useEffect(() => {
-    setStageRevealKind(effective);
-  }, [effective]);
+    setStageRevealKind(playsHere ? effective : REVEAL_NONE_ID);
+  }, [effective, playsHere]);
   const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
   const mark = makerProMark({ owns: ownsPro, storeShell });
   const now = { effective, stages };

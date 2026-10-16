@@ -17,6 +17,10 @@ Part 2 of 2 — part 1 is #6592 (merged).
   own, offers "Reset to the cover's entrance ›". Pro at Apply (motion), like a part's own motion.
 - **▶ on the Cover Scene** plays the closed veil with none of the words → the unveil → every line in its beat
   (`play-sequence.ts` `playCover`); no opening: the entrance alone; reduced motion: nothing, and it says so.
+- **None says "No opening".** None is stored as "no stage plays it" (`lib/reveal-none.ts`) and keeps the template, so the
+  corner kept reading "Sheer veil ◆ opens over it" after None was picked (walk 2026-10-17, WebKit 375). The toolbar is
+  now handed what plays on THIS stage — and ▶ plays no veil there either.
+- A style card wakes when the cover's own rows come and go (`data-stage-cover-rows` joins `SIGHT_ATTRIBUTES`).
 - Guard: `lib/the-cover-scene-has-its-own-animate.test.ts`.
 
 SPEC IMPACT: None — implements the 2026-10-16 corpus rows as written.

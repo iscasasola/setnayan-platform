@@ -103,3 +103,13 @@ test('(4) ▶ on the cover: the closed veil with none of the words, the unveil, 
   assert.match(TOOLS, /if \(picked === MAKER_COVER_SCENE && !rsvpOpen\) \{[\s\S]{0,200}t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook\.kind !== 'none'/);
   assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /seqStop = playCover\(header, \(data as \{ veil\?: unknown \}\)\.veil === true,/);
 });
+
+test('(3) the corner says "No opening" once None is picked — the kind the toolbar reads is what plays on THIS stage', () => {
+  /* Walk 2026-10-17 (WebKit 375): None ringed, and the corner still read "Sheer veil ◆ opens over it" — None is stored as
+     "no stage plays it" (`lib/reveal-none.ts`), the template stays, and the toolbar was handed the template. */
+  const reveal = read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
+  assert.match(reveal, /const playsHere = effective !== REVEAL_NONE_ID && shownHere;/);
+  assert.match(reveal, /setStageRevealKind\(playsHere \? effective : REVEAL_NONE_ID\);/, 'the toolbar is handed the template, not what plays here');
+  assert.equal((reveal.match(/setStageRevealKind\(/g) ?? []).length, 1, 'ONE place says the kind');
+  assert.match(TOOLS, /veil: revealStage !== null && revealLook\.kind !== 'none'/, '▶ plays a veil that the corner says is not there');
+});

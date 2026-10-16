@@ -170,7 +170,7 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
   console.log(`[try-pro] sheet: ${lines.join(' | ')}`);
   assert.deepEqual(lines.sort(), [
     'Added scene · Photo left, words right',
-    'Animation · Names on the Hero',
+    'Animation · Event title on the Hero',
     'Animation · Schedule',
     'Photo background · Countdown',
     'Theme · Luxe',
@@ -186,7 +186,7 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
     assert.ok(e.remove, `${hubProEffectLine(e)} cannot be removed`);
   }
   assert.ok(!effects.some((e) => e.what === 'Font'), 'a part’s font is named as Pro (it is free since 2026-10-06)');
-  const anim = effects.find((e) => e.what === 'Animation' && /Names/.test(e.where))!;
+  const anim = effects.find((e) => e.what === 'Animation' && /Event title/.test(e.where))!;
   assert.deepEqual(anim.jump, {
     kind: 'scene',
     widgetId: 'W-HERO',

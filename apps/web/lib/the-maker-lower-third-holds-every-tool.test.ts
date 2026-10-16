@@ -139,11 +139,11 @@ test('2 · the menu is a sheet INSIDE the lower third with exactly two groups �
 
 test('3 · a tool open folds the menu and the navigator into the left column — name · ‹ › · × — and the tool takes ≥ 300 px', async () => {
   let closed = 0;
-  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Names', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
+  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Event title', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
   const col = /<div\b[^>]*data-lt-column=""[^>]*>/.exec(html)![0];
   assert.match(col, /\bw-\[52px\]/, 'the column is not 52 px');
   assert.doesNotMatch(col, /aria-hidden/, 'the column is hidden while a tool is open');
-  assert.match(html, /data-lt-column-name=""[\s\S]*?>Names</, 'the column does not name the tool');
+  assert.match(html, /data-lt-column-name=""[\s\S]*?>Event title</, 'the column does not name the tool');
   assert.match(html, /data-lt-step="prev"[^>]*disabled=""/, '‹ is offered with nothing before');
   assert.doesNotMatch(/<button\b[^>]*data-lt-step="next"[^>]*>/.exec(html)![0], /\sdisabled=""/, '› is not offered');
   assert.match(html, /data-lt-close=""/, 'the column has no ×');

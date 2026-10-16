@@ -14,8 +14,8 @@
  *     empty list's "No guests yet";
  *   · a refused read is never kept as the copy, and a copy on screen never re-keeps itself.
  *
- * Sabotage (2026-10-16): the 'failed' mark reading "Showing your last copy · updating…" → test 1 red; the
- * keep gate without `measured` → test 3 red. Both reverted.
+ * Sabotage (2026-10-16): the failed line reading "Your last copy · updating…" → test 1 red; the keep gate
+ * without `measured` → test 3 red; the line moved out of the flow (fixed) → test 2 red. All reverted.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,28 +36,36 @@ const guests = [
 ];
 const SAVED = Date.UTC(2026, 9, 15, 7, 42);
 
-test('1 · a failed refresh keeps the list and says so — never fresh, never empty', async () => {
+test('1 · a failed refresh keeps the list and says so, in ONE line under the selector — never fresh, never empty', async () => {
   const html = await renderGuestsScreen({ guests, copy: { freshness: 'failed', savedAt: SAVED } });
-  assert.match(html, /data-last-seen-mark="failed"/);
-  assert.match(html, /Couldn(’|&#x27;|&rsquo;|')t update — showing your last copy from /);
-  assert.match(html, /It may be\s+out of date/);
-  assert.match(html, /Try again/);
+  assert.match(html, /data-guests-status="failed"/);
+  assert.match(html, /Couldn(’|&#x27;|&rsquo;|')t update · showing your copy from /);
+  assert.match(html, /<button type="button" class="statusTry">Try again<\/button>/, 'Try again is a small text button on the line');
   assert.doesNotMatch(html, /updating…|Updated just now/, 'a failed refresh never claims to be updating or current');
   assert.match(html, /data-guest-row=""/, 'the rows stay');
   assert.doesNotMatch(html, /No guests yet|Nobody here yet/, 'a failure is never an empty list');
-  assert.match(html, /data-guests-copy="failed"[^>]*style="opacity:0.7"/, 'and the old list is dimmed');
+  assert.match(html, /data-guests-copy="failed"/);
+  const css = readFileSync(join(HERE, '_components', 'guests-screen.module.css'), 'utf8');
+  assert.match(css, /\.screen\[data-guests-copy='failed'\] \[data-guest-rows\] \{\s*opacity: 0\.6;/, 'the old rows are dimmed');
 });
 
-test('2 · while the fresh list comes, the copy says it is the last copy — and offers nothing that writes', async () => {
+test('2 · while the fresh list comes, the line says it is the last copy — in the flow, offering nothing that writes', async () => {
   const html = await renderGuestsScreen({ guests, copy: { freshness: 'updating', savedAt: SAVED } });
-  assert.match(html, /Showing your last copy · updating…/);
+  assert.match(html, /Your last copy · updating…/);
   assert.doesNotMatch(html, /Updated just now/);
+  // NOTHING COVERS CONTENT (owner rule): the line is inside the sticky block, right after the selector — not
+  // a fixed layer over it — and it is not the floating last-seen pill.
+  const stick = html.slice(html.indexOf('data-guests-stick'), html.indexOf('data-roster-counts'));
+  assert.match(stick, /<\/nav><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
+  assert.doesNotMatch(html, /data-last-seen-mark|class="[^"]*\bfixed\b[^"]*"[^>]*data-guests-status/);
   for (const write of ['data-testid="thumb-select"', '>Remove<', 'data-testid="thumb-add"']) {
     assert.equal(html.includes(write), false, `no ${write} on a copy`);
   }
   const fresh = await renderGuestsScreen({ guests });
-  assert.doesNotMatch(fresh, /data-last-seen-mark|last copy/, 'the fresh list wears no copy mark');
+  assert.doesNotMatch(fresh, /data-guests-status|last copy/, 'the fresh list draws no line (until a copy was on screen)');
   assert.ok(fresh.includes('data-testid="thumb-select"') && fresh.includes('>Remove<'), 'and keeps its tools');
+  const mark = readFileSync(join(HERE, '_components', 'guest-copy-mark.tsx'), 'utf8');
+  assert.match(mark, /if \(copy \|\| !fresh\) return;\s*if \(!takeLastSeenShown\('guests'\)\) return;/, 'a refused read is never "Updated just now"');
 });
 
 test('3 · a refused read shows the copy as failed (or the honest "couldn’t load"), and is never kept', () => {

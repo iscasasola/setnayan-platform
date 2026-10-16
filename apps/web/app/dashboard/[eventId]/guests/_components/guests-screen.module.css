@@ -751,3 +751,67 @@ button.node {
   color: var(--gs-mute);
   font-size: 13px;
 }
+
+/* ═══ 📋 the copy line (guest-copy-mark.tsx) — in the flow under List · Map · Setup, one line at 375 ═══ */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  min-height: 18px;
+  max-height: 40px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--gs-mute);
+  transition:
+    opacity 300ms var(--gs-ease),
+    max-height 300ms var(--gs-ease),
+    margin 300ms var(--gs-ease);
+}
+.statusGone {
+  opacity: 0;
+  max-height: 0;
+  min-height: 0;
+  margin-top: 0;
+}
+.statusFailed {
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 0;
+  color: rgb(var(--color-ink));
+}
+.statusDot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+.statusDotOk {
+  background: var(--gs-ok);
+  opacity: 1;
+}
+/* A text button — no frame (it is pressable, but a frame would be louder than the line it sits in). */
+.statusTry {
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  font-weight: 600;
+  color: rgb(var(--color-mulberry-700));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.statusTry::after {
+  content: '';
+  position: absolute;
+  inset: -13px -8px;
+}
+/* A failed copy is dimmed — the counts and the rows, never the line that says why. */
+.screen[data-guests-copy='failed'] .counts,
+.screen[data-guests-copy='failed'] .meter,
+.screen[data-guests-copy='failed'] .replied,
+.screen[data-guests-copy='failed'] [data-guest-rows] {
+  opacity: 0.6;
+}

@@ -7,14 +7,15 @@ instead of always waiting for that 2.5 sec load everytime?"* · *"We want us to 
 
 - **Opens from the phone.** The Guests loading screen used to paint an INERT html picture of the last list
   (#6288's last-seen mechanism) until the server answered. It now draws the host's last COPY of the rows with
-  the real `GuestsScreen` — scroll, fold, search work at once — under "Showing your last copy · updating…",
-  and the fresh list replaces it ("Updated just now"). Same store, same keys (account + event + page), same
+  the real `GuestsScreen` — scroll, fold, search work at once — with one slim line IN THE FLOW under
+  List · Map · Setup, "Your last copy · updating…"; the fresh list replaces it and the same line says
+  "Updated just now", then folds away (nothing floats over the list). Same store, same keys (account + event + page), same
   sign-out wipe and one-account rule, a data entry instead of html (`saveLastSeenData` / `readLastSeenData`).
   The copy holds only what a row shows — never mobile, email, the couple's notes, the diet or the QR token —
   compact (~0.36 KB a guest). Nothing on a copy writes (no Select, Remove, Add).
 - **Honest when the refresh fails.** No fresh list after 15 s, offline, or a REFUSED guest read → the copy
-  stays, dimmed, under "Couldn't update — showing your last copy from <when>. It may be out of date." + Try
-  again. Never "No guests", never fresh. A refused read is never kept.
+  stays, its counts and rows dimmed, under the line "Couldn't update · showing your copy from <when>" + a small
+  text Try again. Never "No guests", never fresh. A refused read is never kept.
 - **Lean rows.** The page sends the list `toGuestListRow` objects — the 26 fields it draws and searches, not
   the 44-column row (`lib/guest-list-rows.ts`). The card still reads its own row on open.
 - **Download as Excel**, one tap on the replied line: `GET /dashboard/[eventId]/guests/export` — a CSV in the
@@ -41,7 +42,8 @@ Guards: `guests/the-guest-list-opens-from-the-phone.test.ts` (repeat-open budget
 `lib/the-ticket-is-fetched-once-per-version.test.ts` · `guests/a-face-is-never-drawn-at-its-natural-size.test.ts`.
 Each sabotaged once.
 
-SPEC IMPACT: the last-seen mark's words change for all five pages ("Showing your last copy · updating…",
-"Couldn't update — showing your last copy from <when>…") and the Guest list keeps rows rather than a picture
+SPEC IMPACT: the last-seen mark's words change for the other four pages ("Showing your last copy ·
+updating…", "Couldn't update — showing your last copy from <when>…"); the Guest list keeps rows rather than a
+picture and says it in an in-flow line
 — a refinement of DECISION_LOG 2026-10-02 "LAST-SEEN DATA SHOWS INSTANTLY, THEN REFRESHES"; flagged for the
 controller to record, not written to the corpus from this builder.

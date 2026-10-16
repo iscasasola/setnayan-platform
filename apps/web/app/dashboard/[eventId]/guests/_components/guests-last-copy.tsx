@@ -13,14 +13,14 @@ import { useKeptGuestList } from './guest-list-copy';
  *
  * While the server renders the fresh list, this draws the host's LAST COPY of it (`guest-list-copy.ts`) with
  * the REAL screen — the same `GuestsScreen`, so the rows sit exactly where the fresh ones will land, and the
- * host can already scroll, fold a section or search a name. Over it, the one last-seen mark:
- * "Showing your last copy · updating…". When the fresh list arrives, Next swaps this screen for the page,
- * and the mark says "Updated just now" (`LastSeenCapture`).
+ * host can already scroll, fold a section or search a name. Under the selector, IN THE FLOW (never over
+ * anything): "Your last copy · updating…". When the fresh list arrives, Next swaps this screen for the page,
+ * and the same line says "Updated just now", then folds away (`guest-copy-mark.tsx`).
  *
  * 🔒 THE HONEST-READ RULES (lib/guests.ts, guests-read-is-honest.test.ts):
  *  · nothing on the copy writes — no Select, no Remove, no Add (`GuestsScreen` `copy`);
- *  · offline, or no fresh list after `REFRESH_TIMEOUT_MS`, and the mark changes to "Couldn't update —
- *    showing your last copy from <when>. It may be out of date." with Try again; the copy dims;
+ *  · offline, or no fresh list after `REFRESH_TIMEOUT_MS`, and the line changes to "Couldn't update ·
+ *    showing your copy from <when>" with a small Try again; the copy's counts and rows dim;
  *  · nothing kept (a first visit, another account, a filtered address) → the skeleton, as before.
  */
 export function GuestsLastCopy({ children }: { children: ReactNode }) {

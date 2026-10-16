@@ -30,6 +30,7 @@ export function LastSeenCapture({
   page,
   fresh = true,
   keepHtml = true,
+  showMark = true,
   children,
 }: {
   page: LastSeenPage;
@@ -40,6 +41,12 @@ export function LastSeenCapture({
    * one copy per page, never a picture of the list beside the list.
    */
   keepHtml?: boolean;
+  /**
+   * false when the page says "Updated just now" itself, in its own flow (the Guest list's copy line,
+   * `guests/_components/guest-copy-mark.tsx`) — this wrapper then neither draws its floating pill nor takes
+   * the loading screen's note (the page takes it).
+   */
+  showMark?: boolean;
   children: ReactNode;
 }) {
   const scope = useLastSeenScope();
@@ -48,11 +55,11 @@ export function LastSeenCapture({
 
   // The loading screen showed old data for this page → say it is now current.
   useEffect(() => {
-    if (!takeLastSeenShown(page)) return;
+    if (!showMark || !takeLastSeenShown(page)) return;
     setJustUpdated(true);
     const t = window.setTimeout(() => setJustUpdated(false), 2500);
     return () => window.clearTimeout(t);
-  }, [page]);
+  }, [page, showMark]);
 
   useEffect(() => {
     const root = ref.current;

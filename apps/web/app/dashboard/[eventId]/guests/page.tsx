@@ -1135,7 +1135,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* 📋 The rows themselves are kept by the list's own screen (`GuestsScreen` → guest-list-copy.ts),
           and its loading screen draws them LIVE; this keeps no picture of the page (`keepHtml={false}`) and
           says "Updated just now" when a copy was on screen. */}
-      <LastSeenCapture page="guests" fresh={guestsMeasured} keepHtml={false}>
+      <LastSeenCapture page="guests" fresh={guestsMeasured} keepHtml={false} showMark={false}>
         <InspectorLayout
           paramKey="inspect"
           className="sn-inspector-shell--card"

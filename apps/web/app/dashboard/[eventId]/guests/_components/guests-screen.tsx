@@ -113,7 +113,7 @@ import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
-import { GuestCopyMark } from './guest-copy-mark';
+import { GuestListStatus } from './guest-copy-mark';
 
 
 export type GuestsScreenProps = {
@@ -829,14 +829,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
-      {copy ? <GuestCopyMark copy={copy} /> : null}
       <div
         ref={rootRef}
         className={styles.screen}
         data-settled={settled ? 'true' : 'false'}
         data-guests-screen={gview}
         data-guests-copy={copy ? copy.freshness : undefined}
-        style={copy?.freshness === 'failed' ? { opacity: 0.7 } : undefined}
       >
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
@@ -847,6 +845,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
             {seg('map', 'Map')}
             {seg('share', 'Setup')}
           </nav>
+          {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
+          <GuestListStatus copy={copy} fresh={props.measured} />
           {measured ? (
             <>
               <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="">

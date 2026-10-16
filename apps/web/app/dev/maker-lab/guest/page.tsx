@@ -68,6 +68,8 @@ import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
+import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
+import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -784,6 +786,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
       <CoverSceneMenuWaits />
+      {/* 🎭 `&veil=1` — the REAL opening over the lab's cover (`RevealMount`, the guest page's own: its hold script, then the
+          Sheer veil), as an owned Pro page mounts it, so "behind the veil none of the cover's words show" (owner
+          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. */}
+      {sp.veil === '1' && !makerCanvas ? (
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" />
+      ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>

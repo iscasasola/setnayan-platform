@@ -47,7 +47,7 @@ type Props = Omit<
  * `fetchRevealConfig` already uses — so it resolves once per request no matter
  * how many times the overlay is mounted.
  */
-const stdOpeningsActiveCached = cache(async (eventId: string) =>
+export const stdOpeningsActiveCached = cache(async (eventId: string) =>
   eventStdOpeningsActive(createAdminClient(), eventId),
 );
 export async function RevealOverlayServer({ eventId, hostTrial = false, ...props }: Props) {

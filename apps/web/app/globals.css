@@ -9397,6 +9397,38 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
   }
 }
 
+/* ═══ 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW — EVERY LINE ENTERS AFTER THE UNVEIL (owner 2026-10-16) ═══
+   Owner, verbatim: *"Yes — behind the veil, none of the cover's words show. After the unveil, every line enters with
+   the cover's entrance (lines with no Build in get the cover's default)."* Live on cale-ice the date, the venue and
+   the mark's hairlines showed through the fabric: they had no Build in, so nothing held them back.
+   · WHILE THE VEIL IS CLOSED the hold's own `<style data-veil-hold>` (`lib/hub-veil.ts`) draws every cover line
+     (`[data-cover-line]`, `pahina-masthead.tsx`) at opacity 0 — its place kept, so nothing jumps when it enters.
+   · AFTER THE UNVEIL the page keeps `<style data-veil-words>` (written beside the hold, never removed), and here every
+     line with no Build in of its own (`data-cover-line=""`) takes the cover's default entrance: the shipped default
+     Build in (Calm — `hub-in-fade`, 1.1 s, the timed ease, `COVER_DEFAULT_ENTRANCE`), one after another in reading
+     order (`--cover-at`, numbered by the release). It was paused at its first frame under the hold, so it starts on
+     the unveil. A line with its own Build in (`data-cover-line="own"`) keeps it, untouched. A line that moves but has
+     no Build in (a Drift alone) keeps its Drift and fades in on the same clock as a transition, so its own animation
+     is never replaced.
+   · No veil on the page → no marker → nothing here matches. Reduced motion → the hold never runs (those guests get no
+     opening) → the lines are simply there. Held by `app/[slug]/_components/the-veil-hides-the-cover-words.test.ts`
+     and, rendered, `tests/e2e/the-veil-hides-the-cover-words.spec.ts`. */
+@media screen and (prefers-reduced-motion: no-preference) {
+  html:has(> head > style[data-veil-words]) [data-cover-line='']:not([data-el-motion]) {
+    animation: hub-in-fade 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) calc(0.12s * var(--cover-at, 0)) both;
+  }
+  html:has(> head > style[data-veil-words]) [data-cover-line=''][data-el-motion] {
+    transition: opacity 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) calc(0.12s * var(--cover-at, 0));
+  }
+  /* 👻 …AND THE LOADING SCREEN BEFORE IT (coordinator, live 2026-10-16: the date and the hairlines showed on the
+     loading frame, then the veil came in). Where the page about to land opens under a veil (`loadingOpensUnderAVeil`,
+     `_lib/loading-stage.ts`), the loading screen keeps every cover line's place but does not draw it. Capped at the
+     hold's own failsafe (12 s, `VEIL_HOLD_FAILSAFE_MS`) — a stalled page still shows its words. */
+  [data-loading-veiled] [data-cover-line] {
+    animation: sn-el-waits 12s step-end;
+  }
+}
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element

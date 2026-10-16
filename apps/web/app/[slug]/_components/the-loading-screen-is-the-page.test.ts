@@ -29,6 +29,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { COVER_SCENE_ABOVE_PAGE } from '@/lib/cover-scene-screen';
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -207,11 +208,15 @@ test('3 · the frame is the shell’s frame — the same band and the same colum
 
   const { skeleton } = await renderBoth(CASES[0]!, 'IC');
   assert.ok(
-    skeleton.includes(`<header class="${band[1]}"><div class="${band[2]}">`),
+    /* `data-sticky-top`, as the shell's: the ONE rule that holds the page's bar off the Cover Scene holds this one
+       off too (owner 2026-10-15, "NO TOP BAR, NO BOTTOM BAR OVER IT"). */
+    skeleton.includes(`<header data-sticky-top="" class="${band[1]}"><div class="${band[2]}">`),
     `the skeleton's band is not the shell's band:\n  shell: ${band[1]} | ${band[2]}`,
   );
   assert.ok(
-    skeleton.includes(`<div class="${column[1]}">`),
+    /* …and the shell's `data-page-column` with its cover-scene measures (`COVER_SCENE_ABOVE_PAGE`), so the cover's
+       first screen on the loading frame is the page's. */
+    skeleton.includes(`<div data-page-column="" class="${COVER_SCENE_ABOVE_PAGE} ${column[1]}">`),
     `the skeleton's column is not the shell's column — the page would jump when it lands:\n  shell: ${column[1]}`,
   );
   // The monogram sits where the shell puts it, in the shell's face.

@@ -19,3 +19,11 @@ loading takes more that 1.5 seconds … or when it load longer than its target l
 
 ## State
 See git log. Next steps are listed at the bottom as they are done.
+
+## Progress (2026-10-16)
+- DONE: migration 20271270180398 (table + RPC + targets column), reporter (lazy chunk), ingest `{loads}` shape,
+  server read/write, Slow loads tab, two live overview cards, save-target action (desktop only), guards
+  (unit 18 tests + db 5 tests), every guard sabotaged once (red) and restored (green), exposure baseline +1.
+- Bundle baseline on main 89d1904a59 (CI run 38857969690): 201.7 KB shared.
+- Lab: scratchpad lab-stub.ts (PGlite-backed Supabase stand-in on :54321) + walk.mjs (Playwright, throttled).
+- NEXT: build → bundle number → lab walk + screenshots → preflight → push → draft PR → corpus row.

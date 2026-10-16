@@ -123,7 +123,9 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   /* The toolbar draws it for a Post Event SCENE only (a part with a `p:` scene on that stage). */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf\(stageKey, picked\) \? makerPartCanvasOn\(stageKey, picked\) : null;/);
-  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : null\} \/>/);
+  /* …and otherwise only the Venue scene's own Picture ▾ rows (2026-10-17 — `a-venue-cards-picture-is-the-couples-choice.test.ts`). */
+  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : venuePictureRows\} \/>/);
+  assert.match(tools, /const venuePictureRows =\s*picked === 'venue' && !rsvpOpen && /);
   assert.equal(makerPostEventSceneOf('editorial', 'wishes'), 'wishes');
   assert.equal(makerPostEventSceneOf('editorial', 'names'), null, 'a line of the cover is given a switch');
   assert.equal(makerPostEventSceneOf('rsvp', 'wishes'), null);

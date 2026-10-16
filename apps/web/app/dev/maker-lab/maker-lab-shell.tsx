@@ -12,6 +12,7 @@ import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
 import type { StudioTileModel } from '@/lib/studio-tiles';
+import type { MakerVenuePictures } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
 import { MakerWork, type MakerScene } from '@/app/dashboard/[eventId]/website/editor/_components/editor-shell';
 import type { MakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
@@ -175,6 +176,7 @@ export function MakerLabShell({
   renderStamp = 'lab',
   stagesStudio = false,
   studio = null,
+  venuePictures = null,
   fixedStyles = {},
   cameraLook = 'classic',
   blockLooks = {},
@@ -201,6 +203,8 @@ export function MakerLabShell({
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
   studio?: { tiles: readonly StudioTileModel[] } | null;
+  /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
+  venuePictures?: MakerVenuePictures | null;
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -411,6 +415,7 @@ export function MakerLabShell({
       theHost="the couple"
       stagesStudio={stagesStudio}
       studio={studio}
+      venuePictures={venuePictures}
     >
       <MakerWork
         eventId={eventId}

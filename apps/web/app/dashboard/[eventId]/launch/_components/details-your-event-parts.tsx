@@ -81,7 +81,13 @@ export type YourEventInput = {
     /** 🕒 The Ceremony block's start, HH:MM — as drafted, else live. */
     ceremonyTime?: string | null;
   };
-  venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null };
+  venues: {
+    resolved: readonly EventVenue[];
+    slots: readonly VenueSlot[];
+    city: string | null;
+    /** ⛪ Event Hub Pro as the viewer is shown it — "Our drawing ◆" (owner 2026-10-16). Absent = not owned, web. */
+    pro?: { owns: boolean; storeShell: boolean };
+  };
   /** 🚶 The march as the maker draws it — its sections and walks, the couple's sides included (`marchSections`). */
   march: {
     sections: readonly MarchSectionData[];
@@ -315,6 +321,6 @@ function VenuesSeen({ venues, single }: { venues: readonly EventVenue[]; single:
  */
 export function venuesEditorFor(eventId: string, input: Pick<YourEventInput, 'venues'>): ReactNode {
   return (
-    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} />
+    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} pro={input.venues.pro} />
   );
 }

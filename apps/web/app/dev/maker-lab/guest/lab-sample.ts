@@ -83,7 +83,12 @@ const LONE_ROWS: Row[] = [
      "Dr." Eduardo Santos, whose title says neither father nor mother. */
   ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_immediate_family', 20, 0],
   ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_immediate_family', 20, 1],
+  /* A lone Groomsman beside the lone Bridesmaid above — /maria-and-jose's crew as the controller found it live on
+     2026-10-17 (two crew members, no pair, so no column words drawn). */
+  ['gmen3', 'Mr.', 'Gabriel', 'Castillo', 'groomsman', 21, 0],
 ];
+/** In the lone cast the Maid of Honor and the Best Man do not walk together (the same live state): she walks alone. */
+const LONE_WALKS: Record<string, number> = { moh: 22 };
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
 export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
@@ -98,7 +103,7 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
     last_name: last,
     role,
     extra_roles: [],
-    march: { walk_no: walk, place_in_walk: place },
+    march: { walk_no: cast === 'lone' ? (LONE_WALKS[id] ?? walk) : walk, place_in_walk: place },
   }));
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and

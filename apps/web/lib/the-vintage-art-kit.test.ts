@@ -4,8 +4,9 @@
  * switch)."* And on pricing, the same evening: *"the accents we added should be part of pro."*
  *
  * What this holds (each sabotaged once when it was written — see the PR):
- *   1 · the pieces draw ONLY for a look whose ornament has a kit (Vintage), and only with Decorations on;
- *   2 · Decorations off (or no kit) = NO kit markup — every mount renders byte for byte what it did before;
+ *   1 · each scene draws ONLY its own accent (owner 2026-10-16, "AN ACCENT BELONGS TO ITS SCENE…"): its pick, else
+ *       the look's default (Vintage: on; any other look: None); None draws nothing; 1c · the Maker's one Accent ▾;
+ *   2 · no kit (or every scene at None) = NO kit markup — every mount renders byte for byte what it did before;
  *   3 · the Pro gate is ONE constant (`ART_KIT_IS_PRO`), held for BOTH values: on the guest page, in the draft's
  *       pricing, and on the Apply sheet's line;
  *   4 · reduce motion = no animation; a piece moves only while on screen; the keyframes move only rotate/translate;
@@ -21,18 +22,25 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
+  ACCENT_NONE,
+  ACCENT_SCENES,
+  ACCENT_SLOT,
   ART_KITS,
   ART_KIT_BYTE_CEILING,
   ART_KIT_IS_PRO,
   ART_KIT_ORNAMENTS,
   ART_KIT_SLOTS,
   ART_KIT_SLOT_SCENE,
+  KIT_DEFAULT_ACCENTS,
+  SCENE_ACCENTS,
+  accentsTurnOn,
   artKitCss,
   artKitFor,
-  artKitShows,
-  decorationsChangeIsPro,
+  artKitView,
   kitFiles,
   kitPlacements,
+  sanitizeSceneAccents,
+  viewPlacements,
 } from './art-kits';
 import { INVITE_THEMES, INVITE_THEME_IDS } from './invite-themes';
 import { eventItemIsPro, mergeHubDraft, emptyHubDraft, type HubLiveState } from './hub-draft';
@@ -50,33 +58,59 @@ const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const h = React.createElement;
 const VINTAGE = artKitFor('vintage')!;
+/** The Vintage page with every scene at the look's default — what a Pro Vintage event draws before any pick. */
+const VIEW = artKitView({ theme: 'vintage', accents: {}, ownsPro: true, tryOn: false })!;
 
 /* ── 1 · only Vintage, only with Decorations on ─────────────────────────────────────────────────────────────────── */
 
-test('1 · a kit draws only for a look whose ornament has one — today Vintage — and only with Decorations on', () => {
+test('1 · each scene draws ONLY its own accent — the pick, else the look’s default; None draws nothing', () => {
   assert.ok(VINTAGE, 'Vintage lost its kit');
   assert.equal(INVITE_THEMES.vintage.ornament, VINTAGE.ornament, 'the kit is no longer keyed by Vintage’s ornament hook');
-  // The Apply sheet's light list of kit ornaments is the registry's own keys.
   assert.deepEqual([...ART_KIT_ORNAMENTS].sort(), Object.keys(ART_KITS).sort(), 'ART_KIT_ORNAMENTS drifted from ART_KITS');
-  for (const id of INVITE_THEME_IDS) {
-    const kit = artKitShows({ theme: id, decorations: null, ownsPro: true, tryOn: false });
-    assert.equal(kit !== null, id === 'vintage', `${id}: a kit ${kit ? 'drew' : 'did not draw'}`);
+  // Each scene offers only its own pieces — every option's pieces are placed in THAT scene's slot.
+  for (const scene of ACCENT_SCENES) {
+    const slotPieces = new Set(kitPlacements(VINTAGE, ACCENT_SLOT[scene]).map((p) => p.piece));
+    for (const o of SCENE_ACCENTS[scene]) for (const piece of o.pieces) assert.ok(slotPieces.has(piece), `${scene} offers ${piece}, which is not its slot’s`);
   }
-  assert.equal(artKitShows({ theme: 'vintage', decorations: false, ownsPro: true, tryOn: false }), null, 'Decorations off still drew the kit');
-  assert.ok(artKitShows({ theme: 'vintage', decorations: true, ownsPro: true, tryOn: false }), 'Decorations on drew nothing');
-  assert.ok(artKitShows({ theme: 'vintage', decorations: null, ownsPro: true, tryOn: false }), 'never set must be on — the kit comes with the look');
-  assert.equal(artKitShows({ theme: null, decorations: true, ownsPro: true, tryOn: true }), null);
+  assert.deepEqual(SCENE_ACCENTS.countdown.map((o) => o.pieces), [['countdown-frame']], 'the countdown’s accent is the narra columns');
+  // Picking draws exactly that piece in its slot; None draws nothing there.
+  const v = artKitView({ theme: 'vintage', accents: { hero: 'drapes', countdown: 'none' }, ownsPro: true, tryOn: false })!;
+  assert.deepEqual([...new Set(viewPlacements(v, 'cover').map((p) => p.piece))], ['drape'], 'Drapes drew more than the drapes');
+  assert.deepEqual(viewPlacements(v, 'countdown'), [], 'None still drew the columns');
+  assert.deepEqual([...new Set(viewPlacements(v, 'gifts-card').map((p) => p.piece))], ['corner-floral', 'fan'], 'an unpicked Vintage scene lost its default');
+  // A Vintage page starts every scene ON; another look starts at None — and may still pick.
+  for (const scene of ACCENT_SCENES) assert.ok(viewPlacements(VIEW, ACCENT_SLOT[scene]).length > 0, `Vintage’s ${scene} does not start with its accent`);
+  for (const id of INVITE_THEME_IDS.filter((t) => t !== 'vintage')) {
+    assert.equal(artKitView({ theme: id, accents: {}, ownsPro: true, tryOn: false }), null, `${id} drew an accent nobody picked`);
+  }
+  const house = artKitView({ theme: 'house', accents: { countdown: 'narra-columns' }, ownsPro: true, tryOn: false })!;
+  assert.equal(viewPlacements(house, 'countdown').length, 2, 'Classic could not pick the columns');
+  assert.equal(house.look, false);
+  assert.equal(viewPlacements(house, 'veil').length + viewPlacements(house, 'heading').length, 0, 'the look’s own pieces came with a scene’s pick');
+  // Stored picks are kept to known scenes and their own choices.
+  assert.deepEqual(sanitizeSceneAccents({ countdown: 'garland', hero: 'drapes', bogus: 'x', rsvp: ACCENT_NONE }), { hero: 'drapes', rsvp: ACCENT_NONE });
+  assert.deepEqual(Object.keys(KIT_DEFAULT_ACCENTS).sort(), [...ACCENT_SCENES].sort());
 
-  // The page asks the rule ONCE, of the RESOLVED theme and the stored switch, and hands the answer to every mount.
+  // The page asks the rule ONCE, of the RESOLVED theme and the stored picks, and hands the answer to every mount.
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(
     body,
-    /const artKit = artKitShows\(\{ theme: sceneTheme, decorations: event\.site_decorations, ownsPro: proWatermarkHidden, tryOn: isEditorCanvas \}\);/,
-    'site-body no longer decides the kit from the resolved theme, the switch and the event’s Pro',
+    /const artKit = artKitView\(\{ theme: sceneTheme, accents: sceneAccentsFromPreferences\(\(event as \{ style_preferences\?: unknown \}\)\.style_preferences\), ownsPro: proWatermarkHidden, tryOn: isEditorCanvas \}\);/,
+    'site-body no longer decides the kit from the resolved theme, the scenes’ picks and the event’s Pro',
   );
-  assert.equal((body.match(/artKitShows\(/g) ?? []).length, 1, 'the kit is decided more than once on the page');
-  // The guest page reads the switch (the service-role shell select).
-  assert.match(read('app/[slug]/_lib/loaders.ts'), /site_art_direction, site_decorations, invite_theme/, 'the guest page no longer reads site_decorations');
+  assert.equal((body.match(/artKitView\(/g) ?? []).length, 1, 'the kit is decided more than once on the page');
+});
+
+test('1c · the Maker: a scene’s Style has ONE Accent ▾ listing only its own accents, written to the draft', () => {
+  const row = stripComments(read('app/dashboard/[eventId]/website/editor/_components/accent-row.tsx'));
+  assert.match(row, /const options = SCENE_ACCENTS\[scene\];/, 'the row lists more than its scene’s accents');
+  assert.match(row, /\{ key: ACCENT_NONE, label: 'None' \}/, 'None is not offered');
+  assert.match(row, /save\(\{ style_preferences: \{ \[SCENE_ACCENTS_PREF_KEY\]: next \} \}\)/, 'the pick does not go to the draft whole');
+  assert.match(row, /data-look-row="accent"/, 'the row would be hidden under the Style cards');
+  assert.equal((row.match(/<Dd\b/g) ?? []).length, 1, 'one dropdown is enough');
+  const shell = stripComments(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'));
+  assert.match(shell, /elementEditing && isAccentScene\(type\) \?/, 'a scene without accents would get the row');
+  for (const scene of ['rsvp', 'fixed'] as const) assert.ok(shell.includes(`accentRowFor(${scene === 'rsvp' ? "'rsvp'" : 'fixed'})`), `no Accent row on ${scene}`);
 });
 
 test('1b · the slot model is data: every placement names a known piece, a slot, and the slot’s scene', () => {
@@ -89,9 +123,9 @@ test('1b · the slot model is data: every placement names a known piece, a slot,
   }
   // The church on the ceremony card belongs to the venue-card build; Shimmer to the Cover Scene build — never this kit.
   assert.equal(Object.keys(VINTAGE.pieces).some((k) => /church/.test(k)), false, 'the church drawing joined the kit');
-  assert.equal(/shimmer/i.test(artKitCss(VINTAGE)), false, 'Shimmer joined the kit');
+  assert.equal(/shimmer/i.test(artKitCss(VIEW)), false, 'Shimmer joined the kit');
   // A piece may hang past the page's edge; the page never scrolls sideways for it — WebKit needs the BODY to clip.
-  assert.ok(artKitCss(VINTAGE).includes('html:has([data-art-kit]) body{overflow-x:clip}'), 'the body no longer clips the kit sideways (WebKit scrolls)');
+  assert.ok(artKitCss(VIEW).includes('html:has([data-art-kit]) body{overflow-x:clip}'), 'the body no longer clips the kit sideways (WebKit scrolls)');
 });
 
 /* ── 2 · off = no kit markup ────────────────────────────────────────────────────────────────────────────────────── */
@@ -100,20 +134,20 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
   const mastProps = { displayName: 'Maria & Jose', eventDate: '2026-12-18', venueName: 'Seda' };
   const bare = renderToStaticMarkup(h(PahinaMasthead, mastProps));
   assert.equal(renderToStaticMarkup(h(PahinaMasthead, { ...mastProps, kitSlot: null })), bare, 'a null kit changed the cover');
-  const dressed = renderToStaticMarkup(h(PahinaMasthead, { ...mastProps, kitSlot: h(KitSlot, { kit: VINTAGE, slot: 'cover', eager: true }) }));
+  const dressed = renderToStaticMarkup(h(PahinaMasthead, { ...mastProps, kitSlot: h(KitSlot, { kit: VIEW, slot: 'cover', eager: true }) }));
   assert.match(dressed, /data-kit-slot="cover"/);
-  assert.equal((dressed.match(/data-kit-piece=/g) ?? []).length, kitPlacements(VINTAGE, 'cover').length);
+  assert.equal((dressed.match(/data-kit-piece=/g) ?? []).length, viewPlacements(VIEW, 'cover').length);
 
   const card = { kind: 'ask', line: 'Will you join us?', replyBy: null, href: '#reply', cta: 'Reply' } as never;
   assert.equal(renderToStaticMarkup(h(ReplyCardRow, { card, kit: null })), renderToStaticMarkup(h(ReplyCardRow, { card })), 'a null kit changed the reply card');
-  assert.match(renderToStaticMarkup(h(ReplyCardRow, { card, kit: h(KitSlot, { kit: VINTAGE, slot: 'reply' }) })), /data-kit-slot="reply"/);
+  assert.match(renderToStaticMarkup(h(ReplyCardRow, { card, kit: h(KitSlot, { kit: VIEW, slot: 'reply' }) })), /data-kit-slot="reply"/);
 
   const methods = [
     { kind: 'gcash', label: 'GCash', accountName: 'M', handle: '1', note: null, qrUrl: null },
     { kind: 'bank', label: 'Bank transfer', accountName: 'M', handle: '2', note: null, qrUrl: null },
   ];
   assert.equal(renderToStaticMarkup(h(PabuyaCardList, { methods, kit: null })), renderToStaticMarkup(h(PabuyaCardList, { methods })), 'a null kit changed the gift cards');
-  const gifts = renderToStaticMarkup(h(PabuyaCardList, { methods, kit: h(KitSlot, { kit: VINTAGE, slot: 'gifts-card' }) }));
+  const gifts = renderToStaticMarkup(h(PabuyaCardList, { methods, kit: h(KitSlot, { kit: VIEW, slot: 'gifts-card' }) }));
   assert.equal((gifts.match(/data-kit-slot="gifts-card"/g) ?? []).length, 1, 'the gift kit is drawn on more than one card');
   assert.ok(gifts.indexOf('data-kit-slot') > gifts.indexOf('GCash'), 'the gift kit dressed the GCash card, not the bank card');
 
@@ -125,7 +159,7 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
     ['seal', /kitSeal=\{artKit \? <KitSeal kit=\{artKit\} mark=\{hubLook\.monogram\} \/> : null\}/],
     ['style', /\{artKit \? <KitStyle kit=\{artKit\} \/> : null\}/],
     ['motion', /\{artKit \? <ArtKitMotion \/> : null\}/],
-    ['closing', /kitClosing=\{\s*artKit\s*\?/],
+    ['closing', /kitClosing=\{\s*artKit\?\.pieces\.closing\?\.length\s*\?/],
   ] as const) {
     assert.match(body, re, `site-body's ${what} mount is no longer gated on the kit`);
   }
@@ -144,41 +178,37 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
 
 test('3 · ART_KIT_IS_PRO is the one gate — both values hold on the guest page, in the draft and at Apply', () => {
   for (const isPro of [true, false]) {
-    // A free event's GUESTS: no kit while Pro; the kit while free.
-    const freeGuest = artKitShows({ theme: 'vintage', decorations: null, ownsPro: false, tryOn: false, isPro });
+    const freeGuest = artKitView({ theme: 'vintage', accents: {}, ownsPro: false, tryOn: false, isPro });
     assert.equal(freeGuest !== null, !isPro, `isPro=${isPro}: a free event’s guest page`);
-    // The host's own Maker canvas always tries it; an owning event always shows it.
-    assert.ok(artKitShows({ theme: 'vintage', decorations: null, ownsPro: false, tryOn: true, isPro }), `isPro=${isPro}: the Maker canvas`);
-    assert.ok(artKitShows({ theme: 'vintage', decorations: null, ownsPro: true, tryOn: false, isPro }), `isPro=${isPro}: an owning event`);
-    // Turning Decorations on is Pro only while the constant says so; turning them off never is.
-    assert.equal(decorationsChangeIsPro(true, isPro), isPro);
-    assert.equal(decorationsChangeIsPro(false, isPro), false, 'turning Decorations off must always be free');
+    assert.ok(artKitView({ theme: 'vintage', accents: {}, ownsPro: false, tryOn: true, isPro }), `isPro=${isPro}: the Maker canvas`);
+    assert.ok(artKitView({ theme: 'vintage', accents: {}, ownsPro: true, tryOn: false, isPro }), `isPro=${isPro}: an owning event`);
+    // Turning an accent on is Pro only while the constant says so; turning one off never is.
+    assert.deepEqual(accentsTurnOn({}, { countdown: 'narra-columns' }, isPro), isPro ? ['countdown'] : []);
+    assert.deepEqual(accentsTurnOn({ countdown: 'narra-columns' }, { countdown: ACCENT_NONE }, isPro), [], 'None must always be free');
   }
   // The draft's pricing reads the constant, live.
-  assert.equal(eventItemIsPro('site_decorations', true, 'change'), ART_KIT_IS_PRO, 'Decorations on is not priced by ART_KIT_IS_PRO');
-  assert.equal(eventItemIsPro('site_decorations', false, 'change'), false, 'Decorations off was priced as Pro');
+  assert.equal(eventItemIsPro('style_preferences', { scene_accents: { countdown: 'narra-columns' } }, 'change', {}), ART_KIT_IS_PRO);
+  assert.equal(eventItemIsPro('style_preferences', { scene_accents: { countdown: ACCENT_NONE } }, 'change', {}), false, 'None was priced as Pro');
 
-  // …and the Apply sheet names it, both as its own line and on the theme that brings it.
-  const live: HubLiveState = { events: { site_decorations: false, invite_theme: 'house' }, widgets: [] };
-  const on = hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { site_decorations: true } }), live, false).map((e) => `${e.what} · ${e.where}`);
-  assert.deepEqual(on, ART_KIT_IS_PRO ? ['Decorations · Whole Event Hub'] : [], 'the Apply sheet’s Decorations line');
-  const theme = hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { invite_theme: 'vintage' } }), { events: {}, widgets: [] }, false).map(
-    (e) => `${e.what} · ${e.where}`,
-  );
+  // …and the Apply sheet names it "Decorations", with the scenes it dresses — and on the theme that brings them.
+  const live: HubLiveState = { events: { style_preferences: {}, invite_theme: 'house' }, widgets: [] };
+  const on = hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { scene_accents: { countdown: 'narra-columns', hero: 'drapes' } } } }), live, false).map((e) => `${e.what} · ${e.where}`);
+  assert.deepEqual(on, ART_KIT_IS_PRO ? ['Decorations · Cover, Countdown'] : [], 'the Apply sheet’s Decorations line');
+  const off = hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { scene_accents: { countdown: ACCENT_NONE } } } }), live, false);
+  assert.deepEqual(off, [], 'taking an accent off was asked for Pro');
+  const theme = hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { invite_theme: 'vintage' } }), { events: {}, widgets: [] }, false).map((e) => `${e.what} · ${e.where}`);
   assert.deepEqual(theme, [ART_KIT_IS_PRO ? 'Theme · Vintage, with its Decorations' : 'Theme · Vintage']);
-  assert.deepEqual(hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { site_decorations: true } }), live, true), [], 'an owning couple was asked');
+  assert.deepEqual(hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { scene_accents: { countdown: 'narra-columns' } } } }), live, true), [], 'an owning couple was asked');
 
-  // The page's Pro answer is the event's own (as the viewer is shown it — an internal host included), never a guess.
   const loaders = stripComments(read('app/[slug]/_lib/loaders.ts'));
   assert.match(loaders, /const proWatermarkHiddenAhead = startAhead\(websiteProActiveFor\(event\.event_id\)\);/);
-  // The Studio's switch wears ◆ for a couple without Pro, through the one constant.
-  assert.match(stripComments(read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx')), /note=\{ART_KIT_IS_PRO && !ownsPro \? <PaidMark state="try"/);
+  assert.match(stripComments(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx')), /tryPro=\{ART_KIT_IS_PRO && !ownsPro\}/, 'the Accent row is not ◆ through the one constant');
 });
 
 /* ── 4 · motion ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 test('4 · reduce motion = no animation; a piece moves only while on screen; the keyframes only turn and lift', () => {
-  const css = artKitCss(VINTAGE);
+  const css = artKitCss(VIEW);
   assert.ok(css.includes('@media (prefers-reduced-motion:reduce){[data-kit-motion]{animation-name:none!important}}'), 'reduce motion no longer stills the kit');
   assert.ok(css.includes('[data-kit-motion]{animation-play-state:paused;'), 'a piece is not paused until it is on screen');
   assert.ok(css.includes('[data-kit-motion][data-kit-live]{animation-play-state:running}'), 'nothing un-pauses a piece on screen');
@@ -218,7 +248,7 @@ test('5 · every kit file ships, lazy, and a whole kit is ≤ 600 KB (each piece
     assert.deepEqual(shipped, [...kitFiles(kit)].sort(), 'the kit’s folder holds a file the registry does not draw');
   }
   // Raster pieces are AVIF first, WebP behind, lazy by default with their slot's size.
-  const html = renderToStaticMarkup(h(KitSlot, { kit: VINTAGE, slot: 'reply' }));
+  const html = renderToStaticMarkup(h(KitSlot, { kit: VIEW, slot: 'reply' }));
   assert.match(html, /<source type="image\/avif"/);
   assert.match(html, /loading="lazy"/);
   assert.match(html, /sizes="/);
@@ -227,11 +257,11 @@ test('5 · every kit file ships, lazy, and a whole kit is ≤ 600 KB (each piece
 /* ── 6 · the seal ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
 test('6 · the seal’s tap unveils — deaf to the pointer, over the veil’s own hit-zone, whose tap calls unveil()', () => {
-  const seal = renderToStaticMarkup(h(KitSeal, { kit: VINTAGE, mark: 'I & C' }));
+  const seal = renderToStaticMarkup(h(KitSeal, { kit: VIEW, mark: 'I & C' }));
   assert.equal(/<button|onclick|role="button"|href=/i.test(seal), false, 'the seal grew a press of its own — a second unveil handler');
   assert.match(seal, /data-kit-seal-mark=""[^>]*>IC</, 'the couple’s mark is not in the seal');
   assert.equal(sealLetters('C & I'), 'CI');
-  assert.ok(artKitCss(VINTAGE).includes('[data-kit-slot]{pointer-events:none}'), 'the seal is no longer deaf to the pointer');
+  assert.ok(artKitCss(VIEW).includes('[data-kit-slot]{pointer-events:none}'), 'the seal is no longer deaf to the pointer');
 
   const overlay = stripComments(read('app/[slug]/_components/reveal/reveal-overlay.tsx'));
   const veil = overlay.slice(overlay.indexOf('if (veil) {'), overlay.indexOf('data-veil-hint'));
@@ -245,7 +275,7 @@ test('6 · the seal’s tap unveils — deaf to the pointer, over the veil’s o
 /* ── 7 · the closing's photo ────────────────────────────────────────────────────────────────────────────────────── */
 
 test('7 · the closing never shows another couple’s photo — the event’s own cover photo, or their mark', () => {
-  const base = { kit: VINTAGE, names: 'Maria & Jose', date: 'December 18, 2026', mark: 'M & J', hideWatermark: false };
+  const base = { kit: VIEW, names: 'Maria & Jose', date: 'December 18, 2026', mark: 'M & J', hideWatermark: false };
   const none = renderToStaticMarkup(h(KitClosing, { ...base, photoUrl: null }));
   const pics = [...none.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(pics.every((src) => src!.startsWith(VINTAGE.dir)), `with no photo the closing drew a picture: ${pics.join(', ')}`);

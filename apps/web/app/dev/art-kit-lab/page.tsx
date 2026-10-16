@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { INVITE_THEMES } from '@/lib/invite-themes';
-import { artKitShows } from '@/lib/art-kits';
+import { artKitView, sanitizeSceneAccents } from '@/lib/art-kits';
 import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 import { replyCardOf } from '@/lib/guest-me-parts';
 import { resolveArrivalAction } from '@/lib/arrival-action';
@@ -33,7 +33,8 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  * guest page's REAL component, wearing the REAL Vintage look (`HostDraftLook`), and the kit decided by the page's own
  * rule (`artKitShows`):
  *
- *   ?decor=0   Decorations off (the couple's switch)            ?free=1   an event without Event Hub Pro
+ *   ?decor=0   every scene's Accent at None                     ?free=1   an event without Event Hub Pro
+ *   ?accents=countdown:none,hero:drapes   per-scene picks         ?theme=house  a look with no kit
  *   ?veil=1    the Sheer veil over the cover, with its seal     ?photo=0  no cover photo (the oval holds the mark)
  *   ?ground=dark  the cover over a dark still (where a halo would show)
  *
@@ -67,7 +68,15 @@ export default async function ArtKitLabPage({ searchParams }: { searchParams: Pr
   const darkGround = sp.ground === 'dark';
 
   /* 🎚 THE PAGE'S OWN RULE — the theme is Vintage (worn, as on a Pro event), the switch and the Pro answer from the query. */
-  const kit = artKitShows({ theme: 'vintage', decorations: sp.decor === '0' ? false : null, ownsPro: sp.free !== '1', tryOn: false });
+  /* `?accents=countdown:none,hero:drapes` — each scene's Accent pick, as the Maker stores it; `?decor=0` = every scene None;
+     `?theme=house` — a look with no kit (every scene starts at None, and may still pick). */
+  const picks = sanitizeSceneAccents(
+    sp.decor === '0'
+      ? { hero: 'none', countdown: 'none', gifts: 'none', rsvp: 'none', 'sign-off': 'none' }
+      : Object.fromEntries(String(sp.accents ?? '').split(',').filter(Boolean).map((kv) => kv.split(':') as [string, string])),
+  );
+  const theme = sp.theme === 'house' ? 'house' : 'vintage';
+  const kit = artKitView({ theme, accents: picks, ownsPro: sp.free !== '1', tryOn: false });
 
   const look: GuestLook = {
     theme: 'vintage',
@@ -106,7 +115,7 @@ export default async function ArtKitLabPage({ searchParams }: { searchParams: Pr
         monogramText="M & J"
         stageLabel="Invitation"
         hideWatermark={false}
-        kitClosing={kit ? { kit, names, date: formatEventDate(date), photoUrl: photo, mark: 'M & J', twoPeople: true } : null}
+        kitClosing={kit?.pieces.closing?.length ? { kit, names, date: formatEventDate(date), photoUrl: photo, mark: 'M & J', twoPeople: true } : null}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         {kit ? <KitStyle kit={kit} /> : null}

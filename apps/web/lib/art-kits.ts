@@ -170,8 +170,9 @@ const VINTAGE_KIT: ArtKit<VintagePiece> = {
     { piece: 'fan', slot: 'gifts-card', scene: 'gifts', box: { right: '-50px', bottom: '-34px', width: '150px', transform: 'scaleX(-1) rotate(-14deg)' }, motion: 'still' },
     // Between the countdown and E-gifts: the divider, centred.
     { piece: 'divider', slot: 'gifts-divider', scene: 'gifts', box: { left: 'calc(50% - 150px)', top: '0px', width: '300px' }, motion: 'still' },
-    // Reply: the garland over the reply card's top edge (the card's top grows to clear its dip).
-    { piece: 'rsvp-ornament', slot: 'reply', scene: 'rsvp', box: { left: 'calc(50% - min(171.5px, 50%))', top: '0px', width: 'min(343px, 100%)' }, motion: 'float', period: 6 },
+    // Reply: the garland over the reply card's top edge, 40px above it as the proof hangs it (the card's top grows to
+    // clear its dip — walked 2026-10-16: at 0px its swag sat on "Will you join us?").
+    { piece: 'rsvp-ornament', slot: 'reply', scene: 'rsvp', box: { left: 'calc(50% - min(171.5px, 50%))', top: '-40px', width: 'min(343px, 100%)' }, motion: 'float', period: 6 },
     // The closing oval (the photo inside it is the couple's — `KitClosing`).
     { piece: 'closing-frame', slot: 'closing', scene: 'sign-off', box: { left: '0px', top: '0px', width: '300px' }, motion: 'still' },
     // Every section eyebrow: the flourish replaces the plain rule (drawn by the kit's stylesheet, below).

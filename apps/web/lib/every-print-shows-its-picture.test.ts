@@ -48,7 +48,9 @@ const pathOf = (href: string) => unescape(href).split('?')[0]!;
 
 async function input(theme: string, ownsPro: boolean) {
   const { formatFor } = await import('./print-pieces');
-  return { eventId: EVENT, slug: 'rosa-ben', theme, ownsPro, storeShell: false, previewVersion: '0123456789abcdef', formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+  /* 🎟 Who View as ▾ lists (2026-10-17) — a guest print's free Download is that guest's file. */
+  const passGuests = [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const }];
+  return { eventId: EVENT, slug: 'rosa-ben', theme, ownsPro, storeShell: false, previewVersion: '0123456789abcdef', passGuests, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
 }
 
 /** Every thumbnail drawn, by its row's item: its picture's address. */
@@ -66,7 +68,8 @@ test('1+2 · every piece of the invitation set has its picture in its head — t
       assert.ok(thumbs[k], `${theme}/${pro}: ${k}'s head has no picture`);
       const body = await renderSettled(React.createElement(PrintPieceBody as never, { input: i, piece: k } as never));
       const bodySrc = unescape(body.match(/data-print-preview-src="([^"]+)"/)?.[1] ?? '');
-      assert.equal(thumbs[k], bodySrc, `${theme}/${pro}: ${k}'s thumbnail is not the picture its body draws`);
+      /* 🎟 The Event pass's picture is the guest View as ▾ picked (2026-10-17) — the body's own address with that guest added. */
+      assert.equal(k === 'pass' ? thumbs[k]!.replace(/&pass_guest=[^&]+$/, '') : thumbs[k], bodySrc, `${theme}/${pro}: ${k}'s thumbnail is not the picture its body draws`);
       assert.equal(pathOf(thumbs[k]!), `/api/hub-print/${k}`, `${k}'s thumbnail is not its own route`);
       /* Its Saves (the menu and the story poster have none until they have something to print) download from that same route. */
       const plan = printPlan(i);
@@ -81,14 +84,14 @@ test('1+2 · every piece of the invitation set has its picture in its head — t
 
 test('1+2+3 · every print for the day — and the entrance chart, its own row — has its picture; each is the route its Save uses', async () => {
   const { freePrintParts } = await import(`../${L}/maker-prints`);
-  const parts = freePrintParts(EVENT, 'rosa-ben', undefined, true) as Array<{ key: string; editor: React.ReactNode }>;
+  const parts = freePrintParts(EVENT, 'rosa-ben', await input('house', false), true) as Array<{ key: string; editor: React.ReactNode }>;
   assert.deepEqual(parts.map((p) => p.key), [...FREE_PRINT_KEYS], 'the free group and the details items disagree');
   for (const p of parts) {
     const html = await renderSettled(React.createElement('div', null, p.editor));
     const thumbs = thumbsIn(html);
     assert.ok(thumbs[p.key], `${p.key}'s row has no picture`);
     assert.ok(savesDrawn(html) >= 1, `${p.key}: no Save drawn`);
-    const fp = freePrints(EVENT, 'rosa-ben').find((x) => x.key === p.key)!;
+    const fp = freePrints(EVENT, 'rosa-ben', { version: '0123456789abcdef' }).find((x) => x.key === p.key)!;
     assert.equal(thumbs[p.key], unescape(fp.preview), `${p.key}: the thumbnail is not the print's own preview address`);
     for (const s of fp.saves) assert.equal(pathOf(s.href), pathOf(thumbs[p.key]!), `${p.key}: its picture comes from ${pathOf(thumbs[p.key]!)} but its Save from ${pathOf(s.href)}`);
   }
@@ -97,7 +100,8 @@ test('1+2+3 · every print for the day — and the entrance chart, its own row �
   const chartHtml = await renderSettled(React.createElement('div', null, chart.editor));
   assert.match(chartHtml, /data-studio-chart=""/, 'the chart is not its own row');
   assert.match(thumbsIn(chartHtml)['seating-chart']!, /\/seating\/print\?chart=table&format=preview$/);
-  assert.match(chartHtml, /data-pill-selector="chart-layout"/, 'By table | A to Z is not the two-way pill');
+  /* By table | A to Z lives in ⚙ Print settings since 2026-10-17 (`StudioChartLayoutSetting`) — not on the row. */
+  assert.doesNotMatch(chartHtml, /data-pill-selector="chart-layout"|data-form-row="chart-layout"/, 'the chart’s layout is on its row again — its home is Print settings');
   assert.match(chartHtml, /data-chart-size-picker=""/, 'the chart has no size ▾');
   const pack = parts.find((p) => p.key === 'seating-pack')!;
   const packHtml = await renderSettled(React.createElement('div', null, pack.editor));

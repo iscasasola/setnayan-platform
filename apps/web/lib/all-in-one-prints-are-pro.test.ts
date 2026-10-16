@@ -10,6 +10,10 @@
  *       unlock page (never a page jump: the centred note); a Pro couple: the file, ◆ unlocked; the store shell without it: nothing —
  *       and the one-guest pass is a plain free Save.
  *
+ * 🗂 2026-10-17 (DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL GUESTS ◆,
+ * EVERYTHING ◆"): the Guest QR sheet, the place-card pack and Everything are all-in-one files too; every guest print's "All guests"
+ * wears the ◆ pattern, and its Download (one guest) is a plain free Save. "Pass for ▾" is retired — View as ▾ picks the guest.
+ *
  * SABOTAGE (each seen RED, then restored — see the PR): the route's refusal removed · the refusal asking `printReady` (a theme rule)
  * instead of the event's Pro · the Event pass's all-guests file drawn as a plain save · one guest's pass treated as all-in-one.
  */
@@ -70,6 +74,13 @@ test('the rule: every guest’s passes and the whole set are all-in-one; a piece
   assert.equal(isAllInOnePrint('set', 'sample'), false, 'the whole set’s watermarked sample sheet stays free');
   assert.equal(isAllInOnePrint('pass', 'print'), false, 'one guest’s pass is the Event pass piece — free');
   for (const k of ['invitation', 'entourage', 'details', 'menu', 'poster', 'story-poster', 'card']) assert.equal(isAllInOnePrint(k, 'print'), false);
+  /* 2026-10-17: every guest's QR, every place card and Everything — the sheet's on-screen picture stays free. */
+  assert.equal(isAllInOnePrint('qr-codes', 'sample'), true, 'the QR sheet’s PDF (asked with no mode) is not all-in-one');
+  assert.equal(isAllInOnePrint('qr-codes', 'print'), true);
+  assert.equal(isAllInOnePrint('qr-codes', 'screen'), false, 'the QR sheet’s picture is refused');
+  assert.equal(isAllInOnePrint('seating-pack', 'print'), true);
+  assert.equal(isAllInOnePrint('everything', 'print'), true);
+  assert.equal(isAllInOnePrint('guest-registry', 'print'), false, 'the registry is not a guest’s file — it stays free');
 });
 
 test('1 · the server refuses the all-in-one files to a free event — Classic too — and serves them to a Pro event', async () => {
@@ -77,6 +88,7 @@ test('1 · the server refuses the all-in-one files to a free event — Classic t
     `passes?event=${EVENT}&mode=print&theme=house&pass_format=calling-card`,
     `passes?event=${EVENT}&mode=print&theme=house&pass_format=phone-card`,
     `set?event=${EVENT}&mode=print&theme=house`,
+    `everything?event=${EVENT}&mode=print&theme=house`,
   ]) {
     const free = await ask(path, false);
     assert.equal(free.status, 403, `${path}: a free event is not refused`);
@@ -87,6 +99,14 @@ test('1 · the server refuses the all-in-one files to a free event — Classic t
     assert.notEqual(pro.status, 403, `${path}: a Pro event is refused`);
     assert.equal(pro.drew, true, `${path}: a Pro event does not reach the drawing`);
   }
+});
+
+test('1c · every guest’s QR in one file is refused to a free event; its on-screen picture is not', async () => {
+  const free = await ask(`qr-codes?event=${EVENT}`, false);
+  assert.equal(free.status, 403, 'a free event is handed every guest’s QR');
+  assert.match(free.text, /Every guest’s QR in one file is Event Hub Pro/);
+  const picture = await ask(`qr-codes?event=${EVENT}&mode=screen`, false).catch(() => ({ status: 0, text: '', drew: false }));
+  assert.notEqual(picture.status, 403, 'the QR sheet’s picture is refused to a free event');
 });
 
 test('1b · …and ONE guest’s pass, a piece’s own PDF and the set’s sample stay free', async () => {
@@ -101,42 +121,55 @@ test('1b · …and ONE guest’s pass, a piece’s own PDF and the set’s sampl
   }
 });
 
-test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pattern; one guest’s pass is a plain free Save', async () => {
+test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pattern; one guest’s file is a plain free Download', async () => {
   const L = '../app/dashboard/[eventId]/launch/_components';
-  const { PrintPieceEditor, PrintSetDownloads, PassCardsPanel } = await import(`${L}/maker-prints`);
+  const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, PrintSetDownloads, PassCardsPanel, freePrintParts } = await import(`${L}/maker-prints`);
   const { formatFor } = await import('./print-pieces');
   const draw = async (ownsPro: boolean, storeShell: boolean) => {
     const input = {
       eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro, storeShell,
       formats: { pass: formatFor('pass', 'train')!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
       passGuests: [{ id: GUEST, name: 'Ana Reyes', reply: 'attending' as const }, { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'pending' as const }],
+      passCardsZip: 'rosa-ben-tickets.zip',
     };
     const pass = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
-    const set = await renderSettled(React.createElement(PrintSetDownloads as never, { input, studio: true } as never));
-    const cards = await renderSettled(React.createElement(PassCardsPanel as never, { input, studio: true } as never));
-    return { pass, set, cards };
+    const everything = await renderSettled(React.createElement(PrintEverythingStudio as never, { input } as never));
+    const ticket = await renderSettled(React.createElement(DigitalTicketEditor as never, { input } as never));
+    const free = (freePrintParts as (...a: unknown[]) => Array<{ key: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input, true);
+    const day = await renderSettled(React.createElement(React.Fragment, null, ...free.filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack').map((f) => React.createElement(React.Fragment, { key: f.key }, f.editor))));
+    /* The shipped Details (the flag off) — its own all-in-one buttons, the same ◆ pattern. */
+    const set = await renderSettled(React.createElement(PrintSetDownloads as never, { input } as never));
+    const cards = await renderSettled(React.createElement(PassCardsPanel as never, { input } as never));
+    const shippedDay = await renderSettled(React.createElement(React.Fragment, null, ...(freePrintParts as (...a: unknown[]) => Array<{ key: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input).filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack').map((f) => React.createElement(React.Fragment, { key: f.key }, f.editor))));
+    return { pass, everything, ticket, day, set, cards, shippedDay };
   };
   const free = await draw(false, false);
-  /* A free couple: the all-guests file, the whole set, every guest's ticket and the printed batch are the ◆ door — nothing to save. */
-  assert.match(free.pass, /data-print-all-in-one-pro=""[\s\S]*?Every guest’s pass \(PDF\)/, 'a free couple is handed every guest’s pass');
-  assert.doesNotMatch(free.pass, /data-print-save="rosa-ben-passes\.pdf"/, 'a free couple can save every guest’s pass');
-  assert.doesNotMatch(free.set, /data-print-save="rosa-ben-(?:set|passes)\.pdf"/, 'a free couple can save the whole set or every ticket');
-  assert.equal((free.set.match(/data-print-all-in-one-pro=""/g) ?? []).length, 2, 'the whole set and every ticket are not the ◆ door');
-  assert.match(free.cards, /data-pass-cards-print=""[\s\S]*?data-print-all-in-one-pro=""/, 'the printed ticket batch is not the ◆ door');
-  for (const h of [free.pass, free.set, free.cards]) {
-    assert.match(h, /data-paid-mark="try"/, 'a free couple is not shown ◆ PRO');
+  /* A free couple: All guests (pass · ticket · QR · place cards), Everything and the shipped all-in-one files are the ◆ door. */
+  for (const [k, h] of Object.entries({ pass: free.pass, ticket: free.ticket, everything: free.everything })) {
+    assert.match(h, /data-print-all-in-one-pro=""/, `${k}: a free couple is handed the all-in-one file`);
+    assert.match(h, /data-paid-mark="try"/, `${k}: a free couple is not shown ◆ PRO`);
     assert.doesNotMatch(h, /data-paid-mark="locked"/, 'a padlock');
   }
-  /* …one guest's pass is a plain Save — free — named for the guest, in the size picked. */
-  assert.match(free.pass, /data-print-one-pass=""[\s\S]*?Ana Reyes[\s\S]*?data-print-save="rosa-ben-pass-ana-reyes\.pdf"/, 'one guest’s pass is not a free Save');
+  assert.equal((free.day.match(/data-print-all-in-one-pro=""/g) ?? []).length, 2, 'every guest’s QR and every place card are not the ◆ door');
+  assert.doesNotMatch(free.pass + free.everything + free.day, /data-print-save="rosa-ben-(?:passes|everything|qr-codes|seating-pack)\.pdf"|data-print-save="rosa-ben-tickets\.zip"/, 'a free couple can save an all-in-one file');
+  assert.equal((free.set.match(/data-print-all-in-one-pro=""/g) ?? []).length, 2, 'shipped: the whole set and every ticket are not the ◆ door');
+  assert.match(free.cards, /data-pass-cards-print=""[\s\S]*?data-print-all-in-one-pro=""/, 'shipped: the printed ticket batch is not the ◆ door');
+  assert.equal((free.shippedDay.match(/data-print-all-in-one-pro=""/g) ?? []).length, 2, 'shipped: every guest’s QR and the pack are not the ◆ door');
+  /* …one guest's file is a plain Download — free — named for the guest, in the size picked. */
+  assert.match(free.pass, /data-print-save="rosa-ben-pass-ana-reyes\.pdf"/, 'one guest’s pass is not a free Download');
+  assert.match(free.ticket, /data-print-save="rosa-ben-ticket-ana-reyes\.png"/, 'one guest’s ticket is not a free Download');
+  assert.match(free.day, /data-print-save="rosa-ben-qr-ana-reyes\.png"/, 'one guest’s QR is not a free Download');
+  assert.match(free.day, /data-print-save="rosa-ben-place-card-ana-reyes\.pdf"/, 'one guest’s place card is not a free Download');
   /* A Pro couple (an internal host's event reads as owned): the files themselves, ◆ unlocked. */
   const pro = await draw(true, false);
   assert.match(pro.pass, /data-print-save="rosa-ben-passes\.pdf"/, 'a Pro couple cannot save every guest’s pass');
-  assert.match(pro.set, /data-print-save="rosa-ben-set\.pdf"/);
+  assert.match(pro.everything, /data-print-save="rosa-ben-everything\.pdf"/, 'a Pro couple cannot save everything');
+  assert.match(pro.ticket, /data-print-save="rosa-ben-tickets\.zip"/);
+  assert.match(pro.day, /data-print-save="rosa-ben-qr-codes\.pdf"[\s\S]*data-print-save="rosa-ben-seating-pack\.pdf"/);
   assert.match(pro.pass, /data-paid-mark="unlocked"/);
-  assert.doesNotMatch(pro.pass + pro.set + pro.cards, /data-print-all-in-one-pro/, 'a Pro couple is sent to the unlock page');
-  /* The store shell without Pro: no door, no file — the purchase hint is absent. */
+  assert.doesNotMatch(Object.values(pro).join(''), /data-print-all-in-one-pro/, 'a Pro couple is sent to the unlock page');
+  /* The store shell without Pro: no door, no file — the purchase hint is absent; one guest's file stays. */
   const shell = await draw(false, true);
-  assert.doesNotMatch(shell.pass + shell.set + shell.cards, /data-print-all-in-one-pro|rosa-ben-passes\.pdf|rosa-ben-set\.pdf|data-paid-mark/);
-  assert.match(shell.pass, /data-print-one-pass=""/, 'one guest’s pass is gone from the store shell too');
+  assert.doesNotMatch(Object.values(shell).join(''), /data-print-all-in-one-pro|rosa-ben-(?:passes|set|everything|qr-codes|seating-pack)\.pdf|data-paid-mark/);
+  assert.match(shell.pass, /data-print-save="rosa-ben-pass-ana-reyes\.pdf"/, 'one guest’s pass is gone from the store shell too');
 });

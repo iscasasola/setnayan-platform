@@ -289,10 +289,17 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   assert.ok(samplePath > refuse, 'the sample path follows the print-ready block');
   const freeGroupEnd = route.indexOf("if (PRINT_PIECES[piece].kind === 'free') return");
   assert.ok(freeGroupEnd > 0 && freeGroupEnd < themeAt, 'the free group returns before the theme gate');
+  // 🗂 Everything ◆ (2026-10-17) draws in its own function — which is CALLED only from inside the gated block, after `mayServe`.
+  const everyFrom = route.indexOf('async function everythingPdf(');
+  const everyTo = route.indexOf('\n}\n', everyFrom);
+  const everyCalls = [...route.matchAll(/return everythingPdf\(req, /g)].map((m) => m.index!);
+  assert.ok(everyFrom > 0 && everyTo > everyFrom, 'the Everything helper moved — this guard must follow it');
+  assert.deepEqual(everyCalls.map((at) => at > refuse && at < samplePath), [true], 'Everything is drawn outside the mayServe-checked block');
   // Every print-ready render call lives inside the gated block — except the FREE group's plain sheets.
   for (const call of ['renderPrintPdf(', 'renderImposedPdf(', 'renderPrintSvg(']) {
     for (const m of route.matchAll(new RegExp(call.replace('(', '\\('), 'g'))) {
       const at = m.index!;
+      if (at > everyFrom && at < everyTo) continue;
       if (at < freeGroupEnd) {
         // Only plain sheets or a page-1 thumbnail of the free group are drawn up here.
         if (call === 'renderPrintPdf(') assert.ok(route.slice(at, at + 120).includes("mode: 'plain'"), 'a free sheet is a plain PDF');
@@ -309,8 +316,11 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   // The sample renderer cannot make a print-ready file at all.
   const raster = read('lib/print-sample-raster.ts');
   assert.doesNotMatch(raster, /print-render-pdf|renderPrintPdf|pdf-lib/);
-  // The QR sheet asks no Pro question — it is free for every event.
-  assert.ok(route.indexOf("piece === 'qr-codes'") < route.indexOf('printOwnsPro('));
+  // The QR sheet's PICTURE asks no Pro question; every guest's QR in one PDF is an all-guests file (2026-10-17) — asked of the event's
+  // Pro (never the theme's), inside the free branch, before anything is drawn.
+  const qrBranch = route.slice(route.indexOf("if (piece === 'qr-codes' || piece === 'guest-registry') {"), freeGroupEnd);
+  assert.match(qrBranch, /if \(isAllInOnePrint\(piece, mode\)\) \{\s*const \[ownsPro, storeShell\] = await Promise\.all\(\[printOwnsPro\(eventId\), isStoreShellRequest\(\)\]\);\s*if \(!ownsPro\) return/);
+  assert.ok(qrBranch.indexOf('printOwnsPro(') < qrBranch.indexOf('await freeSheet('), 'the QR sheet is drawn before the Pro question');
 });
 
 test('entourage groups print in lib/entourage.ts order', () => {
@@ -343,7 +353,8 @@ test('the Maker workspace prints no price and hides the Pro path in the store sh
     /* 900: each themed file is now the ◆ all-in-one part (2026-10-16) — longer lines between the condition and the address. */
     const before = ws.slice(Math.max(0, m.index! - 900), m.index!);
     /* `themedReady ? (` a control, or `themedReady ? q(…)` an address (one guest's pass, 2026-10-16) — either way behind the one condition. */
-    assert.match(before + ws.slice(m.index!, m.index! + 2), /themedReady \? (?:\(|q\()/, 'a themed print-ready control renders only for a free theme or with Pro');
+    /* …or `themedReady ? { href: q(…) }` — a row's ONE Download (2026-10-17), the same condition. */
+    assert.match(before + ws.slice(m.index!, m.index! + 2), /themedReady \? (?:\(|q\(|\{ href: q\()/, 'a themed print-ready control renders only for a free theme or with Pro');
   }
   // The Classic controls render for EVERYONE — no condition, and they ask for theme=house.
   assert.match(ws, /const classic = \(piece: string\) => `\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=print&theme=\$\{CLASSIC_PRINT_THEME\}/);

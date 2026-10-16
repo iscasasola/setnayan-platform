@@ -714,22 +714,23 @@ export function StudioPosterPhoto({ eventId, saved, thumb }: { eventId: string; 
   return (
     <div ref={root} data-poster-photo={photo ? 'photo' : 'theme'} data-studio-poster-photo="" aria-busy={saving || pct !== null || undefined} className="flex flex-col gap-1">
       <FormRows data="poster-photo">
-        <FormRow name="Background" data="poster-background">
-          <PillSelector
-            label="The poster’s background"
-            value={mode}
-            grow={false}
-            data="poster-photo"
-            options={[
-              { key: 'theme', label: 'Theme’s picture' },
-              { key: 'photo', label: 'My photo' },
-            ]}
-            onPick={(k) => {
-              setMode(k);
-              if (k === 'theme' && photo) post('');
-            }}
-          />
-        </FormRow>
+        {/* ▾ The house dropdown (owner 2026-10-17, prototype `poster_bg` — "any set of choices is a dropdown"): the SAME two choices. */}
+        <ChosenRow
+          name="Background"
+          label="The poster’s background"
+          value={mode}
+          options={[
+            { key: 'theme', label: 'Theme’s picture' },
+            { key: 'photo', label: 'My photo' },
+          ]}
+          onPick={(k) => {
+            const next = k === 'photo' ? 'photo' : 'theme';
+            setMode(next);
+            if (next === 'theme' && photo) post('');
+          }}
+          dataAttr="data-poster-photo-pick"
+          data="poster-background"
+        />
       </FormRows>
       {mode === 'photo' ? (
         <div className="flex items-center gap-3.5 py-2" data-poster-photo-row="">

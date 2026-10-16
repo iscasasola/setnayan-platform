@@ -97,7 +97,7 @@ test('2 · the opening line: ONE dropdown in Studio, never a pill row — the sh
   assert.match(shipped, /name="opening_line"/);
 });
 
-test('3 · a print in Studio is one row of the list: name · sizes · size ▾ · its Saves under it', async () => {
+test('3 · a print in Studio is one row of the list: name · sizes · size ▾ · its ONE Download under it', async () => {
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const { formatFor } = await import('./print-pieces');
   const input = {
@@ -113,13 +113,18 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here, their shape from the source.
      RE-AIMED 2026-10-09 (Prints wears the templates): the name · sizes · size ▾ are ONE Form row, drawn by the lazy `print-head` part (its place is the
      lazy slot at the head of the editor), and the Saves — still right under it — are the ONE ActionButton (`variant="action"`), not the old chip. */
-  assert.match(studio, /data-print-studio=""[^>]*>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
   assert.doesNotMatch(studio, /This piece/, 'the old “This piece” block is still drawn');
   const src = read(`${L}/maker-prints.tsx`);
   const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
-  /* (The Event pass's "Every guest’s pass" is the ◆ all-in-one part — `StudioTool part="all-in-one"`, an ActionButton or the Pro door.) */
-  assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
-  assert.equal((editor.match(/part="all-in-one"/g) ?? []).length, 2, 'every guest’s pass is not the ◆ all-in-one part');
+  /* RE-AIMED 2026-10-17 (owner *"ok on prints"*: ONE Download per piece): the row's head, then its ONE Download right under it — the
+     lazy `piece-download` part (the ActionButton inside it, `studio-prints-settings.tsx`); the Event pass is the guest print part. */
+  const studioSrc = editor.slice(editor.indexOf('if (studio) {'));
+  assert.match(studioSrc, /part="print-head"[\s\S]*?\/>\s*\{menuEmpty \|\| storyMissing \? null : \(\s*<StudioTool\s+part="piece-download"/, 'the Download is not right under the piece’s row');
+  assert.equal((studioSrc.match(/part="piece-download"/g) ?? []).length, 1, 'a piece has more than its one Download');
+  assert.equal((studioSrc.match(/part="guest-piece"/g) ?? []).length, 1, 'the Event pass is not a guest print');
+  assert.doesNotMatch(studioSrc, /part="all-in-one"|part="one-pass"|Sample \(PDF\)|Save · Classic/, 'a retired Save is drawn on a Studio row');
+  const sheet = read(`${L}/studio-prints-settings.tsx`);
+  assert.match(sheet.slice(sheet.indexOf('export function StudioPieceDownload(')), /<PrintSaveButton href=\{href\} file=\{file\} variant="action" main label=\{label\}/, 'the Download is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
   /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
      (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */

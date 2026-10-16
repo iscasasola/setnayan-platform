@@ -47,11 +47,12 @@ const tagsOf = (m: string, tag: string) => [...m.matchAll(new RegExp(`<${tag}\\b
 
 async function input(theme: string, ownsPro: boolean, storeShell = false) {
   const { formatFor } = await import('./print-pieces');
-  return { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+  const passGuests = [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const }];
+  return { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, passGuests, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
 }
 
 test('1 · every Save on Studio › Prints is the ONE ActionButton — a button of the template, never a hand-made link or the old chip/primary look', async () => {
-  const { PrintPieceEditor, PrintSetDownloads, PassCardsPanel, freePrintParts } = await import(`../${L}/maker-prints`);
+  const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, freePrintParts } = await import(`../${L}/maker-prints`);
   const states: Array<[string, boolean]> = [['house', false], ['galeriya', false], ['abaca', false], ['abaca', true]];
   for (const [theme, pro] of states) {
     const i = await input(theme, pro);
@@ -60,15 +61,16 @@ test('1 · every Save on Studio › Prints is the ONE ActionButton — a button 
         React.Fragment,
         null,
         ...(['invitation', 'details', 'pass', 'entourage', 'poster', 'story-poster', 'card'] as const).map((k) => React.createElement(PrintPieceEditor as never, { key: k, input: i, piece: k, studio: true } as never)),
-        React.createElement(PrintSetDownloads as never, { key: 'set', input: i, studio: true } as never),
-        React.createElement(PassCardsPanel as never, { key: 'pass-cards', input: i, studio: true } as never),
-        ...freePrintParts('E1', 'rosa-ben', undefined, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
+        /* ⚙ 2026-10-17: the Digital ticket's row and Everything ◆ replace "The ticket guests save" and Download the set in Studio. */
+        React.createElement(DigitalTicketEditor as never, { key: 'ticket', input: i } as never),
+        React.createElement(PrintEverythingStudio as never, { key: 'everything', input: i } as never),
+        ...freePrintParts('E1', 'rosa-ben', i, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
       ),
     );
     /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files (the whole set, every guest's pass) are the door to Event Hub Pro. */
     const saves = [...drawn.matchAll(/<span data-print-save="[^"]*"[^>]*>[\s\S]*?<\/span>/g)].length;
     const doors = (drawn.match(/data-print-all-in-one-pro=""/g) ?? []).length;
-    assert.ok(saves + doors >= 18, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);
+    assert.ok(saves + doors >= 20, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);
     assert.doesNotMatch(drawn, /button-primary|button-secondary|<a\b[^>]*\bdownload=/, `${theme}/${pro}: a Studio save is the old look or a bare download link`);
     assert.doesNotMatch(drawn, /sn-press inline-flex h-9 items-center rounded-md bg-cream/, `${theme}/${pro}: the old chip is drawn`);
     /* Every save button (`<span data-print-save>` wraps ONE ActionButton) is the template's, with its tone. */

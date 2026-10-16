@@ -236,7 +236,12 @@ test('4 · the scenes are real scene cards, and nothing says "Loading…" out lo
   const status = /<p role="status" class="([^"]*)">([^<]*)<\/p>/.exec(skeleton);
   assert.ok(status, 'the loading state is no longer announced');
   assert.match(status[1]!, /\bsr-only\b/, 'the "Loading…" line is visible again — the owner saw exactly that line');
-  const visible = skeleton.replace(/<p role="status"[^>]*>[^<]*<\/p>/, '').replace(/<[^>]+>/g, ' ');
+  /* A `<script>`'s source is never drawn (the page's own cover-menu marker, written by the loading screen too, reads
+     `document.readyState==='loading'`) — only the text a guest can see is checked. */
+  const visible = skeleton
+    .replace(/<p role="status"[^>]*>[^<]*<\/p>/, '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
+    .replace(/<[^>]+>/g, ' ');
   assert.doesNotMatch(visible, /loading/i, 'a visible "loading" word is back on the skeleton');
 });
 

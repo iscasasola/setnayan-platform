@@ -46,7 +46,10 @@
  *     a name with a section (Schedule, Gallery), whose one value lives on that
  *     section's `canvas.style` (`POST_EVENT_STYLE_HOME` in `post-event-styles.ts`).
  * Both are drafted and written by Apply like every other key, and NEITHER is a
- * Pro look key (`HUB_CANVAS_LOOK_KEYS` does not list `style`). An ABSENT style
+ * Pro look key (`HUB_CANVAS_LOOK_KEYS` does not list `style`) — 💎 except the
+ * few looks `lib/scene-style-pro.ts` names per scene type (the Love Story's
+ * two-lane timeline and swipe cards, owner 2026-10-17), which the Apply gate
+ * asks for by its own `style` facet (`canvasLookFacets`). An ABSENT style
  * is the stage's default — "Auto is an absence" (`lib/hub-canvas.ts`).
  *
  * Pure. No I/O. Client-safe.
@@ -58,6 +61,7 @@ import { POST_EVENT_SCENE_STYLE_SETS } from '@/lib/scene-styles-post-event';
 import { STAGE_SCENE_STYLE_SETS } from '@/lib/scene-styles-stages';
 import { PART_SCENE_STYLE_SETS } from '@/lib/scene-styles-parts';
 import { SCENE_STYLE_ID_RE, sanitizeSceneStyleId } from '@/lib/scene-style-id';
+import { sceneStyleIsPro } from '@/lib/scene-style-pro';
 
 export type SceneStyle = {
   /** Permanent, semantic, shared by every stage that draws it: `[a-z][a-z0-9-]{0,31}`. */
@@ -79,6 +83,11 @@ export type SceneStyle = {
    * stage the later file draws it on shows that file's name and line (`sceneStylesOn`).
    */
   stageNames?: Partial<Record<HubStage, { name: string; line: string }>>;
+  /**
+   * 💎 Event Hub Pro ◆ — set by `sceneStylesOn` from `lib/scene-style-pro.ts` (the ONE list the Apply gate asks),
+   * never written in a set. Absent = free.
+   */
+  pro?: boolean;
 };
 
 export type SceneStyleSet = {
@@ -158,7 +167,8 @@ export function sceneStylesOn(type: string | null | undefined, stage: HubStage, 
     )
     .map((st) => {
       const own = st.stageNames?.[stage];
-      return own ? { ...st, ...own } : st;
+      const named = own ? { ...st, ...own } : st;
+      return sceneStyleIsPro(type, st.id) ? { ...named, pro: true } : named;
     });
 }
 

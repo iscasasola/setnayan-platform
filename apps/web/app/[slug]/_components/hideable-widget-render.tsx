@@ -34,7 +34,8 @@ import { YourPhotosWidget } from './your-photos-widget';
 import { sceneCardClass } from '@/lib/scene-card-look';
 import type { MarchPlace } from '@/lib/march-place';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow, sceneHasEntranceOfRow } from '@/lib/scene-style-of-row';
+import { loveStoryPartners } from '@/lib/love-story-moments';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
@@ -301,7 +302,16 @@ function HideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
+      /* 🗣 The partners' names, in the order the Maker's "Added by" gives them — voice a is the first (owner 2026-10-17). */
+      return (
+        <OurLoveStoryWidget
+          config={event.love_story}
+          mediaUrls={canvasMediaUrls}
+          sceneStyle={sceneStyle}
+          partners={loveStoryPartners(event.display_name, event.event_type)}
+          entrance={sceneHasEntranceOfRow(widget)}
+        />
+      );
 
     case 'tier_comparison':
       return (

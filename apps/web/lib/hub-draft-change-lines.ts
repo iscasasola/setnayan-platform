@@ -132,6 +132,7 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
   'part-motion': 'Animation',
   'slot-media': 'Photos',
   playback: 'Clip playback',
+  look: 'Look',
 };
 
 /** Where a scene lives: "Invitation · When & where" when it is on one stage, else just its name. */
@@ -188,11 +189,11 @@ function scenePlace(t: WidgetType): string {
 }
 
 /** What changed in a scene's look: its facets' words ("Font, Animation"), else "Look". */
-function canvasWhat(liveConfig: unknown, next: unknown): string {
+function canvasWhat(liveConfig: unknown, next: unknown, sceneType?: string | null): string {
   const live = sanitizeHubCanvas(liveConfig);
   const drafted = (next as HubSectionCanvas | null) ?? {};
   const words: string[] = [];
-  for (const f of canvasLookFacets(live, drafted)) {
+  for (const f of canvasLookFacets(live, drafted, sceneType)) {
     if (f.change === 'none') continue;
     const w = FACET_WORD[f.group];
     if (!words.includes(w)) words.push(w);
@@ -326,7 +327,7 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           const row = live.widgets.find((r) => r.widget_id === item.widgetId);
           /* 🏷 The cover: named for the part of it that changed (the Title, the Names…) — see "ONE NAME PER THING". */
           const parts = item.widgetType === 'hero' ? coverPartsChanged(row?.config_json, item.value) : null;
-          return { place: parts ? parts.join(', ') : place, what: canvasWhat(row?.config_json, item.value) };
+          return { place: parts ? parts.join(', ') : place, what: canvasWhat(row?.config_json, item.value, item.widgetType) };
         }
       }
     }

@@ -96,14 +96,23 @@ export function useLoveStoryRefusal(): { seq: number; text: string } | null {
 /** What the canvases draw of the story — changes here the bridge cannot lay. */
 function sceneShape(story: Story): string {
   return loveStoryScenes(story)
-    .map((s) => `${s.id}|${s.chapter}|${s.media.join(',')}`)
+    /* 🗣 Which voices a moment has is its SHAPE (a bubble appears or goes) — the bridge lays words, never a bubble. */
+    .map((s) => `${s.id}|${s.chapter}|${s.media.join(',')}|${s.voices?.a ? 'a' : ''}${s.voices?.b ? 'b' : ''}`)
     .join(';');
 }
 
 function postPreview(story: Story) {
   postToMakerCanvas(
     loveStoryPreviewMessage(
-      loveStoryScenes(story).map((s) => ({ id: s.id, when: s.when, chapterLabel: s.chapterLabel, line: s.line, place: s.place ?? '' })),
+      loveStoryScenes(story).map((s) => ({
+        id: s.id,
+        when: s.when,
+        chapterLabel: s.chapterLabel,
+        line: s.line,
+        place: s.place ?? '',
+        ...(s.voices?.a ? { voiceA: s.voices.a } : {}),
+        ...(s.voices?.b ? { voiceB: s.voices.b } : {}),
+      })),
     ),
   );
 }

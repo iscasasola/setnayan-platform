@@ -80,7 +80,17 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'chapters', name: 'Chapters', line: 'One part per moment, in story order.', stages: STD_INV },
       { id: 'essay', name: 'The essay', line: 'A drop cap, a pull quote, the milestones as a list.', stages: STD_INV },
       { id: 'years', name: 'The years', line: 'A rail of years — tap one and its line opens. One screen.', stages: STD_INV },
+      /* 🗣 TWO VOICES (owner 2026-10-17, DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES"; prototype
+         `love_story_two_voices_2026-10-17.html`), verbatim: *"Conversation as the default look, Timeline and Swipe
+         cards as Pro looks in Style."* Conversation is FREE and the scene's default (below — the owner's ruling
+         overrides "the default is always the shipped look" for this scene); the two-lane timeline and the swipe
+         cards are ◆ Pro (`lib/scene-style-pro.ts`, asked at ✓ Apply). Each draws only the voices that were written,
+         and the line told together for a moment with none. */
+      { id: 'conversation', name: 'Conversation', line: 'A thread: the first partner on the left, the second on the right.', stages: STD_INV },
+      { id: 'timeline', name: 'Two-lane timeline', line: 'A line down the centre; one partner’s words left, the other’s right.', stages: STD_INV },
+      { id: 'cards', name: 'Swipe cards', line: 'One moment per card, swiped sideways, with dots.', stages: STD_INV },
     ],
+    defaults: { save_the_date: 'conversation', rsvp: 'conversation' },
   },
   {
     type: 'event_details',
@@ -232,7 +242,7 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
  */
 const RECOMMENDED: Readonly<Record<string, (stage: HubStage, eventType: string | null) => string | null>> = {
   countdown: (stage) => (stage === 'save_the_date' ? 'big-number' : 'four-tiles'),
-  our_love_story: (stage) => (stage === 'save_the_date' ? 'years' : 'chapters'),
+  /* our_love_story: none — its default IS the owner's pick since 2026-10-17 (Conversation), so the default carries the hint. */
   event_details: (_s, t) => (t === 'wedding' || t === 'debut' ? 'card' : 'plate'),
   schedule: (stage) => (stage === 'event' ? 'one-per-screen' : stage === 'rsvp' ? 'programme-rail' : null),
   photo_moments: (stage) => (stage === 'event' ? 'down-the-day' : null),

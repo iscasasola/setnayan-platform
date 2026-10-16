@@ -13,7 +13,11 @@
  *   5 · Everything ◆: one route piece (`everything`), Pro, the set + every guest's pass + the day's sheets, a failed part fails the file.
  *   6 · The words: View as ▾'s groups and counts, the count lines (the number IS the file, never a guess), the ◆ notes, the bar's ⬇.
  *
- * SABOTAGE (each seen RED, then restored — see the PR): the sheet drawn only while open · View as ▾ dropped from a guest print · the Event
+ *   7 · View as ▾ has "Search guests" once the list is longer than 8 (controller 2026-10-17): it filters every group, each head keeps its
+ *       whole count; the sheet is its own lazy piece — the shared `PickMenu` never grows.
+ *
+ * SABOTAGE (each seen RED, then restored — see the PR): the search box dropped · the search not filtering a group · a filtered head
+ * re-counted · the guest sheet imported eagerly · the sheet drawn only while open · View as ▾ dropped from a guest print · the Event
  * card made a guest print · the pack's PDF without its Pro question · Everything skipping a part that failed · "Sample (PDF)" put back.
  */
 import test from 'node:test';
@@ -26,6 +30,8 @@ import { renderSettled } from './render-settled.test-helper';
 import {
   EVERYTHING_HEAD,
   GUEST_PRINT_KEYS,
+  GUEST_SEARCH_FROM,
+  guestPickGroups,
   PRINT_SETTINGS_HEADS,
   guestPickOptions,
   guestPrintCountLine,
@@ -189,4 +195,44 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
   assert.match(dl, /<FormRow name="Everything"/);
   assert.match(dl, /const here = item && item !== 'download' \? \(all\.get\(item\) \?\? null\) : null;/, '"This piece" is not the row’s own registered file');
   void input;
+});
+
+test('7 · View as ▾ has "Search guests" over a long list — it filters every group, each head keeps its whole count; its own lazy piece', async () => {
+  const many: PrintGuest[] = [
+    ...Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, name: i === 2 ? 'Bea Santillan' : `Coming ${i}`, reply: 'attending' as const })),
+    ...Array.from({ length: 103 }, (_, i) => ({ id: `p${i}`, name: i === 50 ? 'Beatriz Lacson' : `Pending ${i}`, reply: 'pending' as const })),
+  ];
+  assert.equal(GUEST_SEARCH_FROM, 8);
+  assert.deepEqual(guestPickGroups(many, '').map((g) => [g.head, g.options.length]), [['Coming · 6', 6], ['Not replied yet · 103', 103]]);
+  /* Typed: both groups filtered, their heads (and whole counts) kept — accent- and case-blind. */
+  assert.deepEqual(guestPickGroups(many, 'BEA').map((g) => [g.head, g.options.map((o) => o.label)]), [['Coming · 6', ['Bea Santillan']], ['Not replied yet · 103', ['Beatriz Lacson']]]);
+  assert.deepEqual(guestPickGroups(many, 'béatriz').map((g) => g.head), ['Not replied yet · 103'], 'a group with no match is drawn, or the search is accent-blind only one way');
+  assert.deepEqual(guestPickGroups(many, 'zzz'), []);
+  /* Drawn: the box over a long list, none over a short one; its listbox in groups. */
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { GuestPickSheet } = await import(`../${L}/print-guest-sheet`);
+  const g = globalThis as unknown as { document?: unknown };
+  const had = g.document;
+  g.document = {};
+  const reactDom = require('react-dom') as { createPortal: (n: unknown) => unknown };
+  const portal = reactDom.createPortal;
+  reactDom.createPortal = (n: unknown) => n;
+  try {
+    const long = renderToStaticMarkup(React.createElement(GuestPickSheet as never, { guests: many, value: 'c2', onPick: () => {}, onClose: () => {} } as never));
+    assert.match(long, /data-print-guest-search=""[\s\S]*?placeholder="Search guests"/, 'a long list has no "Search guests"');
+    assert.match(long, /data-pick-group="Coming · 6"[\s\S]*?aria-selected="true"[^>]*>[\s\S]*?Bea Santillan[\s\S]*?data-pick-group="Not replied yet · 103"/);
+    const short = renderToStaticMarkup(React.createElement(GuestPickSheet as never, { guests: GUESTS, value: ANA, onPick: () => {}, onClose: () => {} } as never));
+    assert.doesNotMatch(short, /data-print-guest-search/, 'a short list wears a search box');
+  } finally {
+    reactDom.createPortal = portal;
+    g.document = had;
+  }
+  /* Its own lazy piece: imported with `dynamic()` by the View as row only — never statically, never through PickMenu. */
+  const settings = read(`${L}/studio-prints-settings.tsx`);
+  assert.match(settings, /const GuestPickSheet = dynamic\(\(\) => import\(\s*'\.\/print-guest-sheet'\)/, 'the guest sheet is not its own dynamic import');
+  assert.match(readFileSync(join(WEB, `${L}/studio-prints-settings.tsx`), 'utf8'), /import\(\/\* webpackChunkName: "prints-guest-sheet" \*\/ '\.\/print-guest-sheet'\)/, 'the guest sheet’s chunk is not named (an unnamed chunk grows the every-page runtime)');
+  const importers = ['studio-prints-settings.tsx', 'studio-tools.tsx', 'maker-prints.tsx', 'maker-details.tsx', 'details-lazy.tsx', 'details-workspace.tsx']
+    .filter((f) => /from '\.\/print-guest-sheet'/.test(read(`${L}/${f}`)));
+  assert.deepEqual(importers, [], 'the guest sheet is imported statically');
+  assert.doesNotMatch(read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx'), /search/i, 'the shared PickMenu grew a search');
 });

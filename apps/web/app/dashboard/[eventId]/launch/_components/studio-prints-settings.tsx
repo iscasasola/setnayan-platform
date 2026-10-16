@@ -2,9 +2,11 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, Download, Settings } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ChevronDown, ChevronRight, Download, Settings } from 'lucide-react';
+import { pickArrowClass, pickButtonClass } from '../../website/editor/_components/pick-menu-place';
 import { ActionButton } from '@/components/action-button';
-import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
+import { ChosenRow, FORM_PICK_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   GUEST_TOKEN,
@@ -12,7 +14,6 @@ import {
   PRINT_SETTINGS_LABEL,
   PRINT_SETTINGS_LINE,
   guestFileWord,
-  guestPickOptions,
   type PrintGuest,
 } from '@/lib/studio-prints-settings';
 import { PrintSaveButton } from './print-save-button';
@@ -276,16 +277,7 @@ export function StudioGuestPiece({
         {guests === null ? (
           <FormRow name="View as" data="view-as" below={<p className="pb-3 text-[12.5px] text-ink/60">Your guest list could not be read just now — reopen Prints in a moment.</p>} />
         ) : guest ? (
-          <ChosenRow
-            name="View as"
-            label="View as — which guest"
-            value={guest.id}
-            options={guestPickOptions(list)}
-            onPick={setPicked}
-            dataAttr="data-print-view-as"
-            data="view-as"
-            attrs={{ 'data-print-view-as-row': item }}
-          />
+          <ViewAsRow item={item} guests={list} guest={guest} onPick={setPicked} />
         ) : (
           <FormRow name="View as" data="view-as" below={<p data-print-view-as-none="" className="pb-3 text-[12.5px] text-ink/60">{none}</p>} />
         )}
@@ -298,6 +290,33 @@ export function StudioGuestPiece({
       </p>
       {changed}
     </div>
+  );
+}
+
+/**
+ * 👤 View as ▾ — the Form row's pill (the house dropdown's look), opening the guest sheet: "Search guests" over the groups
+ * (`print-guest-sheet.tsx`, loaded the first time it is pressed — its own lazy piece; `PickMenu` never grows).
+ */
+const GuestPickSheet = dynamic(() => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then((m) => m.GuestPickSheet), { ssr: false });
+function ViewAsRow({ item, guests, guest, onPick }: { item: string; guests: readonly PrintGuest[]; guest: PrintGuest; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const width = usePillWidth();
+  return (
+    <FormRow name="View as" data="view-as" attrs={{ 'data-print-view-as-row': item, 'data-form-row-kind': 'chosen' }}>
+      <button
+        type="button"
+        aria-label={`View as — which guest: ${guest.name}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-print-view-as=""
+        onClick={() => setOpen(true)}
+        className={`${pickButtonClass(false)} ${FORM_PICK_CLASS} ${width}`}
+      >
+        <span className="min-w-0 truncate">{guest.name}</span>
+        <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
+      </button>
+      {open ? <GuestPickSheet guests={guests} value={guest.id} onPick={onPick} onClose={() => setOpen(false)} /> : null}
+    </FormRow>
   );
 }
 

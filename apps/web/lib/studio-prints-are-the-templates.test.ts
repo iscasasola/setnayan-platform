@@ -124,7 +124,12 @@ test('3 · every include switch is the Form row’s switch — a switch button o
   const sheet = read(`${L}/studio-prints-settings.tsx`);
   assert.doesNotMatch(sheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Prints settings part draws a bare control');
   assert.doesNotMatch(sheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Prints settings part writes a colour of its own');
-  assert.equal((sheet.match(/<ChosenRow\b/g) ?? []).length, 2, 'View as ▾ or a two-file dropdown is not the Form row’s one dropdown');
+  assert.equal((sheet.match(/<ChosenRow\b/g) ?? []).length, 1, 'a two-file dropdown is not the Form row’s one dropdown');
+  /* View as ▾ is the Form row's pill (the house dropdown's own look) opening its own lazy guest sheet — with "Search guests". */
+  assert.match(sheet, /className=\{`\$\{pickButtonClass\(false\)\} \$\{FORM_PICK_CLASS\} \$\{width\}`\}/, 'View as ▾ is not the Form row’s pill');
+  const guestSheet = read(`${L}/print-guest-sheet.tsx`);
+  assert.doesNotMatch(guestSheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'the guest sheet draws a bare control');
+  assert.doesNotMatch(guestSheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'the guest sheet writes a colour of its own');
   assert.match(parts, /<SwitchRow[\s\S]{0,400}fieldName=\{name\}\s+formId=\{form\}/, 'the include switch does not post through the words form');
 });
 

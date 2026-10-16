@@ -51,6 +51,30 @@ export function guestPickOptions(guests: readonly PrintGuest[]): Array<{ key: st
   return (['attending', 'pending', 'maybe'] as const).flatMap((r) => guests.filter((g) => g.reply === r).map((g) => ({ key: g.id, label: g.name, group: group[r] })));
 }
 
+/**
+ * 🔎 "Search guests" — shown in the View as ▾ sheet once the list is longer than this (controller 2026-10-17: real events hold
+ * 100–200 guests; the prototype's sheet shows "Not replied yet · 103" under its search box).
+ */
+export const GUEST_SEARCH_FROM = 8;
+
+/**
+ * The View as ▾ sheet's groups for a typed search: every group whose guests match (case- and accent-blind, any part of the name),
+ * each keeping its head with the group's WHOLE count — "Not replied yet · 103" stays 103 while it shows the two that match. A group
+ * with no match is left out; no query → every guest.
+ */
+export function guestPickGroups(guests: readonly PrintGuest[], query = ''): Array<{ head: string; options: Array<{ key: string; label: string }> }> {
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const q = fold(query.trim());
+  const out: Array<{ head: string; options: Array<{ key: string; label: string }> }> = [];
+  for (const o of guestPickOptions(guests)) {
+    if (q && !fold(o.label).includes(q)) continue;
+    const last = out.at(-1);
+    if (last && last.head === o.group) last.options.push({ key: o.key, label: o.label });
+    else out.push({ head: o.group, options: [{ key: o.key, label: o.label }] });
+  }
+  return out;
+}
+
 /** A name as a file word — `bea-santillan` (the pass route's own rule). */
 export function guestFileWord(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';

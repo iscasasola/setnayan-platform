@@ -1,6 +1,7 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
+import { genderOfRow, type TitleGender } from '@/lib/guest-title';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -78,6 +79,11 @@ export type EntouragePerson = {
    * Gender is not stored; without a word from the couple nothing is guessed (never from a first name).
    */
   parentWord?: 'father' | 'mother' | null;
+  /**
+   * Woman / man as the couple entered it — picked WITH the title ("Atty. (Woman)", `guests.gender`), else a title
+   * that says it. Null when nothing does. Decides a LEGACY principal sponsor's column (`sideOf`). Never printed.
+   */
+  gender?: TitleGender | null;
   /** `guests.side`, when the read asked for it (the march's walk side — `walkSideOf`). */
   side?: string | null;
   /**
@@ -841,11 +847,12 @@ export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_
 
 /**
  * + what tells a parent's "Mother of the Groom" from "Father of the Groom" when the title cannot (`parentWordOf`):
- * the guest card's attire pick. Asked by the readers that print the entourage, beside the couple fields —
+ * the woman / man picked WITH the title ("Atty. (Woman)", `guests.gender`, owner 2026-10-17), then the guest card's
+ * attire pick. Asked by the readers that print the entourage, beside the couple fields —
  * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}` — never inside `ENTOURAGE_COLUMNS`
  * (its "DO NOT WIDEN" note).
  */
-export const ENTOURAGE_PARENT_FIELDS = 'attire';
+export const ENTOURAGE_PARENT_FIELDS = 'attire, gender';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = PRINTED.flatMap((g) => [...g.roles]);
@@ -889,6 +896,8 @@ export type EntourageGuestRow = {
   invited_to_blocks?: readonly string[] | null;
   /** `guests.attire` ('neutral' · 'gown' · 'suit') — asked by `ENTOURAGE_PARENT_FIELDS`; see `parentWordOf`. */
   attire?: string | null;
+  /** `guests.gender` ('woman' · 'man' · null) — picked with the title; asked by `ENTOURAGE_PARENT_FIELDS`. */
+  gender?: string | null;
   /**
    * `guests.side` ('groom' · 'bride' · 'both') — read by the Wedding MARCH only
    * (its walk side, owner 2026-10-06 "Brides crew should be on right and grooms
@@ -1162,12 +1171,17 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
 
 /**
  * 'father' / 'mother' from what the couple entered for THIS person, else null:
+ *   0. the woman / man picked WITH the title — "Atty. (Woman)" (`guests.gender`, owner 2026-10-17: "let them choose
+ *      Atty (Female) or Atty (Male)") — FIRST, whenever it is set;
  *   1. the typed title (prefix, else the display name's first word) — Mr. → father; Mrs., Ms., Miss → mother;
  *   2. else the guest card's "Attire · 3D seat plan" pick (`guests.attire`) — Gown → mother, Suit → father.
- * A title that says neither (Atty., Dr., Hon.) with the attire left at 'neutral' (its default) is null, and the
- * page says "Parent of the Groom". There is no gender column; nothing is guessed from a first name.
+ * A title that says neither (Atty., Dr., Hon.) with no gender picked and the attire left at 'neutral' (its default)
+ * is null, and the page says "Parent of the Groom". Nothing is guessed from a first name.
+ * `needsWomanOrMan` (lib/guest-title.ts) lists exactly the people steps 0–1 leave null; a test holds the two equal.
  */
-function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
+export function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
+  if (row.gender === 'woman') return 'mother';
+  if (row.gender === 'man') return 'father';
   const title = (row.name_prefix ?? row.display_name?.trim().split(/\s+/)[0] ?? '')
     .trim()
     .toLowerCase()
@@ -1201,6 +1215,7 @@ function peopleForSpec(
         ceremonyOnly: isCeremonyOnly(row),
         sortKey: sortKeyOf(row, name),
         parentWord: parentWordOf(row),
+        gender: genderOfRow(row),
         ...(row.side !== undefined ? { side: row.side } : {}),
         ...(row.not_walking ? { notWalking: true as const } : {}),
       });
@@ -1333,10 +1348,17 @@ export function buildEntourage(
 
 /** Which column a person belongs in, or null when the group has one side. */
 function sideOf(
-  person: Pick<EntouragePerson, 'role'>,
+  person: Pick<EntouragePerson, 'role' | 'gender'>,
   sides: GroupSpec['sides'],
 ): 0 | 1 | null {
   if (!sides) return null;
+  /* 👔 A LEGACY principal sponsor (from before the Ninong / Ninang split) whose entry SAYS woman or man — picked with
+     the title ("Atty. (Woman)"), or a Mr. / Mrs. — stands in that column: no longer a guess (owner 2026-10-17). One
+     whose entry says neither keeps the left column, as before. */
+  if (person.role === 'principal_sponsor' && person.gender) {
+    const col = sides.findIndex((s) => s.includes(person.gender === 'woman' ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong'));
+    if (col === 0 || col === 1) return col;
+  }
   if (sides[0].includes(person.role)) return 0;
   if (sides[1].includes(person.role)) return 1;
   /* A role in the group but on neither side. Left column — visible and

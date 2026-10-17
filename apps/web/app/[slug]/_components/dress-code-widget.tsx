@@ -12,17 +12,17 @@ import {
   resolveGuestAttireWithGroups,
   sanitizeGroupAttire,
 } from '@/lib/role-group-dress-code';
-import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
+import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { PICK_LABEL, attireRowOfPalette, isTwoPick, picksOf, readerAttire } from '@/lib/attire-rows';
-import { designLabel } from '@/lib/attire-designs';
+import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf } from '@/lib/attire-rows';
+import { pickDots } from '@/lib/role-figure';
 import { singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
-import { PaletteLookList } from './dress-code-palette-looks';
+import { DotWords, PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
 import { SceneSample, dosSample, paletteSample } from './maker-scene-samples';
 import { DressCodeDos } from './dress-code-dos';
@@ -234,16 +234,6 @@ export function DressCodeWidget({
   // hides BOTH figures (the reader's own panel and every role row); the chips,
   // the words and the lists are untouched.
   const showFigure = config?.show_figure !== false;
-  const authoredPalette = Array.isArray(config?.palette)
-    ? config.palette.filter(
-        (p): p is { name: string; hex: string } =>
-          !!p &&
-          typeof p.name === 'string' &&
-          typeof p.hex === 'string' &&
-          /^#[0-9a-fA-F]{6}$/.test(p.hex),
-      )
-    : [];
-
   // ── COMPUTED BEFORE THE EMPTY-STATE DECISION, and that ordering is the fix.
   //
   // 🔴 SEEN ON A REAL EVENT, 2026-09-20: a couple who had set ONLY per-role
@@ -272,26 +262,38 @@ export function DressCodeWidget({
   const board = resolveDisplayPalette(stored);
   const roles = sanitizeRoleAttire(
     (config as { roles?: unknown } | null)?.roles,
-    (v) => roleLabel(v as GuestRole) !== null,
+    isDressableRole,
   );
   const groups = sanitizeGroupAttire((config as { groups?: unknown } | null)?.groups);
-  // THE GENERAL VIEW — "our theme and the palettes of each role".
-  const everyone = dressCodeForEveryone({ stored, board, roles, groups, ceremonyType, names: roleNames });
-  // "Our colours": the Mood Board's main colours lead (live); a colour the
-  // couple typed in the dress-code editor lends a same-hex chip its name, or
-  // follows after — see `ourColoursWith` for why this merges.
-  const palette = ourColoursWith(everyone.ourColours, authoredPalette);
+  // THE GENERAL VIEW — "our theme and the palettes of each role" — read from the Studio's own rows and people
+  // (`dressCodeForEveryone`: `ATTIRE_ROWS` + `picksOf`, 2026-10-17 "ONE FACT").
+  const everyone = dressCodeForEveryone({ config, stored, board, ceremonyType, names: roleNames });
+  // 🎨 "Our colours" are the Mood Board's five main colours — the ONE palette (DECISION_LOG 2026-10-06, "Colours = the
+  // five main colours (one palette with Look › Colours)"). The six an older dress-code form typed into
+  // `dress_code_config.palette` are no longer added after them (owner 2026-10-17: eleven colours against the five he
+  // picked); the stored list is kept, unread here.
+  const palette = everyone.ourColours.map((hex) => ({ hex, name: '' }));
   const generalHasContent = palette.length > 0 || everyone.rows.length > 0;
   // THE SPECIFIC VIEW — "if there is an account specified to this, show their
   // palette only". A panel that could only name the role stands down for the
   // general view (`speaksToThisReader`).
-  const resolved = speaksToThisReader(resolveGuestAttireWithGroups({
+  // 🪞 Their colours are their Studio row's (`studioRowOf` — a maid of honor wears the Bridesmaids row the couple
+  // dressed, never an older palette key the Studio no longer shows).
+  const readerRowKey = studioRowOf(guestRole)?.paletteKey ?? null;
+  const readerRowHexes = readerRowKey ? (board[readerRowKey] ?? []).filter((h) => typeof h === 'string' && h.length > 0) : [];
+  const resolvedRaw = resolveGuestAttireWithGroups({
     role: guestRole,
     roles,
     groups,
     palette: board,
     names: roleNames,
-  }), generalHasContent);
+  });
+  const resolved = speaksToThisReader(
+    resolvedRaw.panel && readerRowHexes.length > 0
+      ? { ...resolvedRaw, panel: { ...resolvedRaw.panel, hexes: [...readerRowHexes], hex: readerRowHexes[0] ?? null } }
+      : resolvedRaw,
+    generalHasContent,
+  );
   /* 👗 THE READER'S OWN PICK (owner 2026-10-14): from a group with two picks (men · women, boys · girls), theirs — or
      both, named, when the page cannot tell which they are. Their colours and their person follow the same pick. */
   const mineDress = resolved.panel
@@ -307,6 +309,17 @@ export function DressCodeWidget({
       })
     : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
+  /* 👗 A person is drawn only in a Wear that was picked (owner 2026-10-17: "if … nothing is picked, then nothing should
+     show") — never a plain gown or suit assumed for them; their colours still show, each said by what it colours. */
+  const mineWears = Boolean(mineDress?.picks.some((p) => p.style));
+  /* 🏷 The reader's colours, each said by what it colours (`pickDots`, the Studio's words) — per person when the page
+     shows them both (it cannot tell which they are). */
+  const mineDots: Array<{ label: string | null; dots: EveryoneDot[] }> = mine
+    ? (mineDress?.picks.length ? mineDress.picks : [{ who: 'f' as const, style: null, colours: null, role: null }]).map((p, _i, all) => ({
+        label: all.length > 1 ? PICK_LABEL[p.who] : null,
+        dots: pickDots(p.style, p.colours && p.colours.length > 0 ? p.colours : mine.hexes, p.role),
+      }))
+    : [];
   // Said only when the answer came from the group, so a reader knows the couple
   // dressed her whole group and did not overlook her.
   const mineFromGroup = resolved.source === 'group' ? groupLabelOf(guestRole, roleNames) : null;
@@ -381,16 +394,16 @@ export function DressCodeWidget({
           <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{mine.styleLabel}</p>
         ) : null}
         {mine.note ? <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p> : null}
-        {showFigure && mine.hexes.length > 0 && guestRole ? (
+        {showFigure && mine.hexes.length > 0 && guestRole && mineWears ? (
           <RoleFigure
             roleKey={guestRole}
             hexes={mine.hexes}
             meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-            picks={mineDress?.picks ?? null}
+            picks={mineDress?.picks.filter((p) => p.style) ?? null}
             className="h-28 w-auto"
           />
         ) : null}
-        {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
+        {mine.hexes.length > 0 ? <YourColours groups={mineDots} look={look} /> : null}
       </section>
       </>
     );
@@ -574,16 +587,16 @@ export function DressCodeWidget({
           {/* 👗 THE PERSON IN YOUR COLOURS (owner 2026-09-27, "an illustrated
               person in the exact role colours"): a ninang sees a woman in her
               colours, a groomsman a man — drawn from the same hexes as the chips. */}
-          {showFigure && mine.hexes.length > 0 && guestRole ? (
+          {showFigure && mine.hexes.length > 0 && guestRole && mineWears ? (
             <RoleFigure
               roleKey={guestRole}
               hexes={mine.hexes}
               meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-              picks={mineDress?.picks ?? null}
+              picks={mineDress?.picks.filter((p) => p.style) ?? null}
               className="h-28 w-auto"
             />
           ) : null}
-          {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
+          {mine.hexes.length > 0 ? <YourColours groups={mineDots} look={look} /> : null}
           </>
           ) : null}
         </div>
@@ -630,63 +643,33 @@ export function DressCodeWidget({
         /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
            part after another" scene — the run of show's mechanism, not its own. */
         <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles" data-hub-rows="">
-          {everyone.rows.map((row) => {
-            /* 👗 A row with two picks (owner 2026-10-14) — men · women, boys · girls — says each, draws each. */
-            const def = attireRowOfPalette(row.key);
-            const picks = def ? picksOf(config as Record<string, unknown> | null, def) : null;
-            const two = isTwoPick(def) && picks;
-            const pickLines = two ? picks.filter((p) => p.style).map((p) => ({ label: PICK_LABEL[p.who], styleLabel: designLabel(p.role, p.style!) })) : [];
-            /* 👔 A one-person row with its own designs (the bride, the groom) names the design it draws when no line
-               says it (owner 2026-10-16: the guest page names the design) — the bride's "Mermaid" under "Bride". */
-            const ownLine = !two && picks?.length === 1 && picks[0]!.role && picks[0]!.style && row.lines.length === 0 ? designLabel(picks[0]!.role, picks[0]!.style) : null;
-            const lines = two ? row.lines.filter((l) => l.source === 'role') : row.lines;
-            /* The group's note stays — it is the couple's words for the whole row, whichever pick a guest is. */
-            const groupNote = two ? (row.lines.find((l) => l.source === 'group')?.note ?? null) : null;
-            return (
-            <li key={row.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2.5" data-role-row={row.key}>
-              <div className="min-w-0 flex-1 basis-40 space-y-0.5">
-                <p className="text-sm font-medium leading-snug text-ink">{row.label}</p>
-                {pickLines.map((line) => (
-                  <p key={line.label} className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
-                    {line.label} · {line.styleLabel}
-                  </p>
-                ))}
-                {ownLine ? (
-                  <p className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
-                    {ownLine}
-                  </p>
-                ) : null}
-                {groupNote ? <p className="text-xs leading-relaxed text-ink/65">{groupNote}</p> : null}
-                {lines.map((line, i) => (
-                  <p key={i} className="text-xs leading-relaxed text-ink/65">
-                    {line.label} · {line.styleLabel}
-                    {line.note ? <> — {line.note}</> : null}
-                  </p>
+          {everyone.rows.map((row) => (
+            /* 👗 THE ROW AS THE STUDIO DRAWS IT (2026-10-17, "ONE FACT"): its people from `picksOf` — men · women,
+               boys · girls, or one — each said in their own word, drawn in their own Wear (none drawn while the Wear is
+               not picked: nothing is assumed), and every colour said by what it colours (`pickDots`). A person with
+               nothing picked is not here; a row with nobody is not here (`dressCodeForEveryone`). */
+            <li key={row.key} className="space-y-2 py-3" data-role-row={row.key}>
+              <p className="text-sm font-medium leading-snug text-ink">{row.label}</p>
+              {row.note ? <p className="text-xs leading-relaxed text-ink/65">{row.note}</p> : null}
+              <div className="flex flex-wrap gap-x-6 gap-y-3" data-dress-code-people={row.picks.length}>
+                {row.picks.map((p) => (
+                  <div key={p.who} className="flex min-w-0 items-end gap-2.5" data-dress-code-person={p.who}>
+                    {showFigure && p.style && p.colours.length > 0 ? (
+                      <RoleFigure roleKey={row.key} hexes={p.colours} meaning={row.meaning} picks={[{ who: p.who, style: p.style, colours: p.colours, role: p.role }]} />
+                    ) : null}
+                    <div className="min-w-0 space-y-1.5">
+                      {p.label || p.styleLabel ? (
+                        <p className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
+                          {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
+                        </p>
+                      ) : null}
+                      <RowDots dots={p.dots} look={look} label={`${row.label}${p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
+                    </div>
+                  </div>
                 ))}
               </div>
-              {row.hexes.length > 0 ? (
-                <div className="flex items-end gap-2">
-                  {/* 👗 The role, drawn in its colours — a gown and a suit for a
-                      role that holds both, one person per colour for the guests. */}
-                  {showFigure ? (
-                    <RoleFigure roleKey={row.key} hexes={row.hexes} meaning={meaningOf(row.key)} picks={picks} />
-                  ) : null}
-                  {look !== 'tags' ? (
-                    <PaletteLookList look={look} size="row" items={row.hexes.map((hex) => ({ hex, name: colourName(hex) || undefined }))} label={`${row.label} colours`} />
-                  ) : (
-                    <ul className="flex flex-wrap gap-1.5" aria-label={`${row.label} colours`}>
-                      {row.hexes.map((hex, i) => (
-                        <li key={`${hex}-${i}`} title={colourName(hex) || undefined}>
-                          <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: hex }} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
             </li>
-            );
-          })}
+          ))}
         </ul>
       ) : null}
       {/* 🔲 The Maker's canvas, no list yet: where the Do's & Don'ts will go, in the look picked — in greys. */}
@@ -729,23 +712,54 @@ export function DressCodeWidget({
   );
 }
 
-/** 🎨 THE READER'S OWN COLOURS — every colour their role wears, in the scene's
- *  palette look (Tags = the shipped chips). One drawing for the Welcome's "you"
- *  panel and Me's "What to wear". */
-function YourColours({ hexes, look }: { hexes: readonly string[]; look: PaletteLookId }) {
-  if (look !== 'tags') {
-    return <PaletteLookList look={look} items={hexes.map((hex) => ({ hex, name: colourName(hex) || undefined }))} label="Your colours" />;
-  }
+/** 🏷 A PERSON'S COLOURS AT ROW SIZE, each said by what it colours — the scene's palette look (Tags = the shipped
+ *  chips), the words in one key line under them (`DotWords`). */
+function RowDots({ dots, look, label }: { dots: readonly EveryoneDot[]; look: PaletteLookId; label: string }) {
+  if (dots.length === 0) return null;
+  const items = dots.map((d) => ({ hex: d.hex, name: d.word }));
+  if (look !== 'tags') return <PaletteLookList look={look} size="row" items={items} label={label} words />;
   return (
-    <ul className="flex flex-wrap gap-2" aria-label="Your colours">
-      {hexes.map((hex, i) => (
-        <li key={`${hex}-${i}`} className="w-[3.25rem]">
-          <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-          <span className={`mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
-            {colourName(hex)}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <span className="inline-flex flex-col items-start gap-1">
+      <ul className="flex flex-wrap gap-1.5" aria-label={label}>
+        {items.map((it, i) => (
+          <li key={`${it.hex}-${i}`} title={it.name}>
+            <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: it.hex }} />
+            <span className="sr-only">{it.name}</span>
+          </li>
+        ))}
+      </ul>
+      <DotWords items={items} />
+    </span>
+  );
+}
+
+/** 🎨 THE READER'S OWN COLOURS — every colour their role wears, in the scene's palette look (Tags = the shipped
+ *  chips), each said by WHAT IT COLOURS (owner 2026-10-17) — per person when both are shown. One drawing for the
+ *  Welcome's "you" panel and Me's "What to wear". */
+function YourColours({ groups, look }: { groups: ReadonlyArray<{ label: string | null; dots: readonly EveryoneDot[] }>; look: PaletteLookId }) {
+  return (
+    <div className="space-y-3" data-your-colours="">
+      {groups.map((g, gi) =>
+        g.dots.length === 0 ? null : (
+          <div key={gi} className="space-y-1.5">
+            {g.label ? <p className="text-xs leading-relaxed text-ink/65">{g.label}</p> : null}
+            {look !== 'tags' ? (
+              <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: d.word }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
+            ) : (
+              <ul className="flex flex-wrap gap-2" aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
+                {g.dots.map((d, i) => (
+                  <li key={`${d.hex}-${i}`} className="w-[3.25rem]">
+                    <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: d.hex }} />
+                    <span className={`mt-2 block text-center font-mono text-[0.75rem] uppercase leading-tight tracking-[0.06em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
+                      {d.word}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ),
+      )}
+    </div>
   );
 }

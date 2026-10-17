@@ -34,7 +34,8 @@ import {
   type RolePalette,
 } from './mood-board';
 import { resolveDisplayPalette } from './room-palette';
-import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from './dress-code-for-everyone';
+import { dressCodeForEveryone, speaksToThisReader } from './dress-code-for-everyone';
+import { ATTIRE_ROWS } from './attire-rows';
 import { ROLE_LABELS, type GuestRole } from './guests';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -71,17 +72,19 @@ const BOARD: RolePalette = {
     'wedding_party', 'principal_sponsors', 'secondary_sponsors', 'guest',
   ],
 };
-/* …and the owner's dress-code config, exactly as measured: two roles, nothing else. */
+/* …and a dress code as the Studio saves it (2026-10-17, "ONE FACT"): the sponsors' row, men and women. The old
+   per-ROLE lines (a ninang's own) are no longer read — the Studio dresses her by her row. */
 const CONFIG = {
-  roles: {
-    principal_sponsor_ninang: { style: 'long_gown', note: 'in the wedding colours' },
-    principal_sponsor_ninong: { style: 'barong_tagalog' },
-  },
+  groups: { principal_sponsors: { style: 'barong_tagalog', note: 'in the wedding colours' } },
+  women: { groups: { principal_sponsors: { style: 'long_gown' } } },
 };
-const ROLES_ON_THE_BOARD = [
-  'bride', 'groom', 'best_man', 'maid_of_honor', 'bridesmaids', 'groomsmen',
-  'wedding_party', 'principal_sponsors', 'secondary_sponsors', 'guest',
-] as const;
+/* The Studio's rows the board's picked colours reach — in the Studio's order. `best_man`, `maid_of_honor` and
+   `wedding_party` are colours the Studio has no row for: they are not drawn (2026-10-17). */
+const ROLES_ON_THE_BOARD = ATTIRE_ROWS.map((r) => r.paletteKey).filter(
+  (k): k is NonNullable<typeof k> => !!k && (BOARD.touched_roles ?? []).includes(k),
+);
+/** A row's chips, per person, are its colours (no Wear picked → each colour as it is). */
+const PEOPLE: Partial<Record<string, number>> = { principal_sponsors: 2, secondary_sponsors: 2, guest: 2 };
 
 const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 
@@ -124,32 +127,32 @@ test('🌐 a stranger (no role) sees our colours AND every dressed role, each wi
     const row = rowHtml(html, key);
     assert.deepEqual(
       chipColours(row),
-      (BOARD[key] as string[]).map((h) => h.toUpperCase()),
-      `${key}: every colour the Mood Board holds, not just its first`,
+      Array.from({ length: PEOPLE[key] ?? 1 }, () => (BOARD[key] as string[]).map((h) => h.toUpperCase())).flat(),
+      `${key}: every colour the Mood Board holds, not just its first — for each person of the row`,
     );
   }
 });
 
-test('🌐 the rows run couple → entourage → sponsors → guests, in the Mood Board’s own order', async () => {
+test('🌐 the rows run in the Studio’s own order — couple → parents → sponsors → entourage → bearers → guests', async () => {
   const rows = rowOrder(await widget({ rolePalette: BOARD }));
   const at = (k: string) => rows.indexOf(k);
   assert.ok(at('bride') === 0 && at('groom') === 1, `the couple leads (got ${rows.join(', ')})`);
-  assert.ok(at('principal_sponsors') < at('bridesmaids'), 'principal sponsors before the entourage (the board’s rank 3 → 4)');
-  assert.ok(at('bridesmaids') < at('secondary_sponsors'), 'the entourage before the secondary sponsors');
+  assert.ok(at('principal_sponsors') < at('bridesmaids'), 'principal sponsors before the entourage');
   assert.equal(rows[rows.length - 1], 'guest', 'guests close the list');
+  assert.deepEqual(rows, ROLES_ON_THE_BOARD, 'the page draws the Studio’s rows in the Studio’s order');
   assert.deepEqual(rows, dressCodeForEveryone({
+    config: CONFIG,
     stored: sanitizeRolePalette(BOARD),
     board: resolveDisplayPalette(sanitizeRolePalette(BOARD)),
-    roles: {},
-    groups: {},
   }).rows.map((r) => r.key), 'the page draws the builder’s order, not its own');
 });
 
-test('🌐 the ninang’s and ninong’s outfit lines sit under the Principal Sponsors row', async () => {
+test('🌐 the sponsors’ row says each person’s own Wear, and the couple’s note for the row', async () => {
   const row = rowHtml(await widget({ rolePalette: BOARD }), 'principal_sponsors');
   assert.match(row, /Principal Sponsors/);
-  assert.match(row, /Ninang · Long gown — in the wedding colours/);
-  assert.match(row, /Ninong · Barong Tagalog/);
+  assert.match(row, /For men · Barong Tagalog/);
+  assert.match(row, /For women · Long gown/);
+  assert.match(row, /in the wedding colours/);
 });
 
 test('🌐 a role with no colours on the board is left out — the rows never draw empty', async () => {
@@ -160,8 +163,8 @@ test('🌐 a role with no colours on the board is left out — the rows never dr
 
 test('🌐 a Nikah Principals row waits for a muslim ceremony', () => {
   const board = { reception: ['#111111'], muslim_principals: ['#059669'] } as RolePalette;
-  const catholic = dressCodeForEveryone({ stored: board, board, roles: {}, groups: {}, ceremonyType: 'catholic' });
-  const muslim = dressCodeForEveryone({ stored: board, board, roles: {}, groups: {}, ceremonyType: 'muslim' });
+  const catholic = dressCodeForEveryone({ config: null, stored: board, board, ceremonyType: 'catholic' });
+  const muslim = dressCodeForEveryone({ config: null, stored: board, board, ceremonyType: 'muslim' });
   assert.ok(!catholic.rows.some((r) => r.key === 'muslim_principals'));
   assert.ok(muslim.rows.some((r) => r.key === 'muslim_principals'));
 });
@@ -173,10 +176,9 @@ test('🌐 the colours are the ones the Mood Board SHOWS, not the raw stored one
   const shown = resolveDisplayPalette(sanitizeRolePalette(untouched));
   assert.notDeepEqual(shown.bridesmaids, untouched.bridesmaids, 'precondition: the board really does derive this role');
   const row = dressCodeForEveryone({
+    config: null,
     stored: sanitizeRolePalette(untouched),
     board: shown,
-    roles: {},
-    groups: {},
   }).rows.find((r) => r.key === 'bridesmaids');
   assert.deepEqual(row?.hexes, shown.bridesmaids);
   /* …and the PAGE draws those, in both views — the builder being right is not
@@ -232,8 +234,10 @@ test('👤 a bridesmaid sees ONLY her role, and ALL of its colours', async () =>
 });
 
 test('👤 a ninang keeps her call time FIRST, then her outfit, then her colours', async () => {
+  /* Her row's call time and her row's Wear for women (the Studio's — 2026-10-17). */
   const config = {
-    roles: { principal_sponsor_ninang: { style: 'long_gown', note: 'in the wedding colours', callTime: '13:00' } },
+    groups: { principal_sponsors: { style: 'barong_tagalog', note: 'in the wedding colours', callTime: '13:00' } },
+    women: { groups: { principal_sponsors: { style: 'long_gown' } } },
   };
   const html = await widget({ rolePalette: BOARD, guestRole: 'principal_sponsor_ninang', config });
   const time = html.indexOf('1:00 PM');
@@ -342,19 +346,10 @@ test('⛓ resolveAttirePaletteColors[0] IS resolveAttirePaletteColor, for every 
   assert.ok(PALETTE_ORDER.length > 0);
 });
 
-/* ══ AUTHORED DATA — the typed palette merges, it is never dropped ═════════ */
+/* ══ ONE PALETTE — "Our colours" are the five main colours (2026-10-17) ══════ */
 
-test('🖋 a typed dress-code palette MERGES into "Our colours": names lend, extras follow, nothing is lost', () => {
-  const main = ['#7A1F2B', '#C9A24B'];
-  const typed = [
-    { name: 'Wine', hex: '#7a1f2b' },
-    { name: 'Sage', hex: '#9CAF88' },
-  ];
-  assert.deepEqual(ourColoursWith(main, typed), [
-    { name: 'Wine', hex: '#7A1F2B' },
-    { name: '', hex: '#C9A24B' },
-    { name: 'Sage', hex: '#9CAF88' },
-  ]);
-  assert.deepEqual(ourColoursWith([], typed), typed, 'no Mood Board → exactly what the couple typed, as before');
-  assert.deepEqual(ourColoursWith(main, []), main.map((hex) => ({ name: '', hex })));
+test('🖋 a palette typed into the older dress-code form is no longer appended to "Our colours"', async () => {
+  const html = await widget({ rolePalette: BOARD, config: { ...CONFIG, palette: [{ name: 'Sage', hex: '#9CAF88' }] } });
+  const ours = html.slice(html.indexOf('data-dress-code="ours"'), html.indexOf('data-dress-code="roles"'));
+  assert.deepEqual(chipColours(ours), BOARD.reception!.map((h) => h.toUpperCase()));
 });

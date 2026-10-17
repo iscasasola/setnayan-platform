@@ -1,6 +1,6 @@
 'use client';
 
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
+import { ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import type { GuestRole } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
 
@@ -23,11 +23,14 @@ export function RoleAttireField({
   roles,
   saved,
   compact,
+  wear,
 }: {
   /** The roles present on this event's guest list, with their labels. */
   roles: { role: GuestRole; label: string; count: number }[];
   saved: RoleAttireMap;
   compact?: boolean;
+  /** The Wear as Studio › Mood Board & Dress Code says it (`wearSaid`) — the one place it is picked (2026-10-17). */
+  wear?: (tier: 'roles' | 'groups', key: string) => string | null;
 }) {
   if (roles.length === 0) {
     return (
@@ -56,22 +59,12 @@ export function RoleAttireField({
                   {formatCount(count)} {count === 1 ? 'person' : 'people'}
                 </span>
               </span>
-              <label htmlFor={`role-style-${role}`} className="sr-only">
-                What {label} wears
-              </label>
-              <select
-                id={`role-style-${role}`}
-                name="role_style"
-                defaultValue={current?.style ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              >
-                <option value="">Not set</option>
-                {ATTIRE_STYLES.map((style) => (
-                  <option key={style} value={style}>
-                    {ATTIRE_STYLE_LABEL[style]}
-                  </option>
-                ))}
-              </select>
+              {/* 👗 The Wear is the Studio's (2026-10-17): said here as the Studio says it, posted back unchanged so the
+                  zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
+              <input type="hidden" name="role_style" value={current?.style ?? ''} />
+              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-role-wear={role}>
+                {wear?.('roles', role) ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
+              </span>
             </div>
             {/* ⏰ CALL TIME (owner 2026-09-23: “what she needs most is her call
                 time”). `type="time"` so a phone offers its own wheel and the

@@ -131,7 +131,10 @@ test('the editor offers only the roles this wedding actually has', () => {
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'role-attire-field.tsx'),
     'utf8',
   );
-  assert.match(field, /value=""[\s\S]{0,40}Not set/, '"Not set" is offered and is the default');
+  /* 2026-10-17 ("ONE FACT"): the Wear is picked in Studio › Mood Board & Dress Code only — this field SAYS it (and
+     posts it back unchanged); it no longer offers a second Wear ▾ of its own. */
+  assert.doesNotMatch(field, /<select\b/, 'a second Wear ▾ is back in the older form');
+  assert.match(field, /type="hidden" name="role_style"/, 'the stored Wear rides back unchanged');
 });
 
 test('a config with ONLY roles still renders — seen on a real event, 2026-09-20', () => {

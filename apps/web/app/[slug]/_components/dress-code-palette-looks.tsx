@@ -57,17 +57,27 @@ export function PaletteLookList({
   size?: 'full' | 'row';
   /** What the list is, for a screen reader. */
   label?: string;
+  /**
+   * 🏷 Row size only: each item's `name` is WHAT IT COLOURS ("Coat & pants", "Long gown" — `pickDots`), said in one
+   * key line under the swatches (`DotWords`), each word after a bullet of its own colour (owner 2026-10-17: *"there are
+   * palettes but no indication of what the colors control"*).
+   */
+  words?: boolean;
 }) {
   if (items.length === 0) return null;
   if (size === 'row') {
     return (
-      <ul className={`sn-pal sn-pal-row sn-pal-${look}`} data-pal-row={look} aria-label={label}>
-        {items.map((it, i) => (
-          <li key={`${it.hex}-${i}`} title={it.name || undefined} {...swatchAttrs(it.hex, i)}>
-            <i aria-hidden />
-          </li>
-        ))}
-      </ul>
+      <span className="inline-flex flex-col items-start gap-1">
+        <ul className={`sn-pal sn-pal-row sn-pal-${look}`} data-pal-row={look} aria-label={label}>
+          {items.map((it, i) => (
+            <li key={`${it.hex}-${i}`} title={it.name || undefined} {...swatchAttrs(it.hex, i)}>
+              <i aria-hidden />
+              {words && it.name ? <span className="sr-only">{it.name}</span> : null}
+            </li>
+          ))}
+        </ul>
+        {words ? <DotWords items={items} /> : null}
+      </span>
     );
   }
   const circles = look === 'circles';
@@ -114,6 +124,26 @@ export function PaletteLookList({
         </p>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 🏷 WHAT EACH COLOUR COLOURS — one key line under a row's swatches: a bullet in the colour, then its word, in order.
+ * Drawn for every look the same way (Tags too — `dress-code-widget.tsx` passes its chips' words here), so a word is
+ * never a look's own decision. Hidden from a screen reader: each swatch already carries its word.
+ */
+export function DotWords({ items }: { items: readonly PaletteLookItem[] }) {
+  if (!items.some((it) => it.name)) return null;
+  return (
+    <p aria-hidden className="sn-dot-words flex flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-snug text-ink/70" data-dot-words="">
+      {items.map((it, i) =>
+        it.name ? (
+          <span key={`${it.hex}-${i}`} className="inline-flex items-center gap-1" style={swatchVars(it.hex)} data-dot-word={it.name}>
+            {it.name}
+          </span>
+        ) : null,
+      )}
+    </p>
   );
 }
 

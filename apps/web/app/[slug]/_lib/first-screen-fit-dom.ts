@@ -84,9 +84,15 @@ export function firstScreenFitter(
   };
   const snapshot = (list: FitBlock[]): FitSnapshot => {
     const at = offset();
+    /* 🎬 WHERE A PART RESTS, NOT WHERE ITS ENTRANCE HAS IT THIS FRAME (2026-10-18). The cover's mark, names and date
+       arrive by sliding up 8 px (`sn-arrive-settle`, ~0.5 s), and a box read mid-slide is up to 8 px low — the fit then
+       laid a part that gave way that much too close to the next (CI, 320 × 568 with the notice: the mark and "Guests
+       arrive" 1.7 px apart). A translate never moves the layout, so it is taken off the reading. */
     const box = (key: string, el: HTMLElement) => {
       const r = el.getBoundingClientRect();
-      return { key, top: r.top + at, bottom: r.bottom + at };
+      const t = getComputedStyle(el).transform;
+      const dy = t && t !== 'none' && typeof DOMMatrixReadOnly !== 'undefined' ? new DOMMatrixReadOnly(t).m42 : 0;
+      return { key, top: r.top - dy + at, bottom: r.bottom - dy + at };
     };
     const parts = list.map((b) => box(b.key, b.el));
     /* No door: a line of no height right under the last part — what must stand above the limit is the parts kept. */

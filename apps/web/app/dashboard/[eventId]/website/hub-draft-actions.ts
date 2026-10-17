@@ -61,7 +61,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { parsePrintDetails } from '@/lib/print-pieces';
+import { updatePrintDetails } from '@/lib/print-details-write';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
@@ -763,29 +764,15 @@ export async function hubDraftAction(
       if (auditErr) console.error('[hub-draft] reply-by audit row not written:', auditErr.message);
     }
     if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
-      const admin = createAdminClient();
-      const { data: pdRow, error: pdErr } = await admin
-        .from('events')
-        .select('print_details')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      if (pdErr || !pdRow) {
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
-      }
-      const stored = parsePrintDetails(pdRow.print_details);
-      const { data: pdRows, error: pdWriteErr } = await admin
-        .from('events')
-        .update({
-          print_details: serializePrintDetails({
-            ...stored,
-            ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
-            ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
-            ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
-          }),
-        })
-        .eq('event_id', eventId)
-        .select('event_id');
-      if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {
+      // 👥 Applied to print_details as it is when the write lands (lib/print-details-write.ts) — never a copy read
+      // earlier, which a menu or a poster photo saved meanwhile may already have passed. A row-count proof inside.
+      const pd = await updatePrintDetails(createAdminClient(), eventId, (now) => ({
+        ...now,
+        ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
+        ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
+        ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
+      }));
+      if (!pd.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

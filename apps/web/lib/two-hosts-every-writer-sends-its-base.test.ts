@@ -15,6 +15,8 @@ import { rebaseHubDraftPatch } from './hub-draft-rebase';
 import { emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { MERGE_BASE_FIELD } from './merge-base-field';
 import { eventDetailsToWrite, formFieldsOf } from './event-details-merge';
+import { updatePrintDetails } from './print-details-write';
+import { parseMenu, parsePrintDetails, serializePrintDetails } from './print-pieces';
 import { JSON_COLUMN_WRITE_ATTEMPTS, JsonColumnMovedError, updateJsonColumn, type JsonColumnClient } from './update-json-column';
 import type { HubSectionCanvas } from './hub-canvas';
 
@@ -137,26 +139,26 @@ test('2c · the form sends what it started from, and the writer leaves out what 
       tests/db/two-hosts-every-writer-sends-its-base.db.test.ts) ─────────────────────────── */
 
 /** A fake client: one row, whose update lands only when its compare matches — or never (`refuse`). */
-function fakeRow(start: unknown, refuse = false) {
+function fakeRow(start: unknown, refuse = false, column = 'c') {
   const row = { value: start as unknown, reads: 0, writes: 0 };
   const client: JsonColumnClient = {
     from: () => ({
       select: () => {
-        const r = { eq: () => r, maybeSingle: async () => (row.reads++, { data: { c: row.value } as Record<string, unknown>, error: null }) };
+        const r = { eq: () => r, maybeSingle: async () => (row.reads++, { data: { [column]: row.value } as Record<string, unknown>, error: null }) };
         return r;
       },
       update: (values: Record<string, unknown>) => {
         let same = true;
         const w = {
           eq: (col: string, v: unknown) => {
-            if (col === 'c') same &&= JSON.stringify(row.value) === v;
+            if (col === column) same &&= JSON.stringify(row.value) === v;
             return w;
           },
           is: () => w,
           select: async () => {
             if (refuse || !same) return { data: [], error: null };
             row.writes++;
-            row.value = values.c;
+            row.value = values[column];
             return { data: [{ k: 1 }], error: null };
           },
         };
@@ -204,4 +206,33 @@ test('3c · the room design sends what each pick was built on, and is merged ont
   const action = code('app', 'dashboard', '[eventId]', 'seating', 'actions.ts');
   assert.match(action, /column: 'reception_design'/, 'saveReceptionDesign writes the design without the compare again');
   assert.match(action, /const m = mergeFromBase\(baseClean, clean, stored \?\? \{\}\);/, 'the design is no longer merged from its base');
+});
+
+/* ── 5 · `events.print_details` — seven writers, one blob ─────────────────── */
+
+test('5a · the poster photo measured for seconds while the menu is saved: the menu stays (each write is a change on the blob as it is now)', async () => {
+  const start = serializePrintDetails({ ...parsePrintDetails(null), openingLine: 'Together with their families' });
+  const { row, client } = fakeRow(start, false, 'print_details');
+  let measured = false;
+  // The poster photo's write: its change runs when the write lands — after the menu landed.
+  const photo = await updatePrintDetails(client, 'E1', (now) => {
+    if (!measured) {
+      measured = true;
+      row.value = serializePrintDetails({ ...parsePrintDetails(row.value), menu: parseMenu([{ title: 'Main', dishes: ['Kare-kare'] }]) });
+    }
+    return { ...now, posterPhoto: { ref: 'r2://media/E1/poster.jpg', w: 4000, h: 3000 } };
+  });
+  assert.equal(photo.ok, true);
+  const out = parsePrintDetails(row.value);
+  assert.equal(out.posterPhoto?.ref, 'r2://media/E1/poster.jpg', 'the poster photo was not written');
+  assert.equal(out.menu.length, 1, 'the menu saved while the photo was measured was wiped');
+  assert.equal(out.openingLine, 'Together with their families', 'a key neither writer owns was lost');
+});
+
+test('5b · every print_details writer goes through the one door', () => {
+  const route = code('app', 'api', 'hub-print', '[piece]', 'route.ts');
+  assert.equal((route.match(/updatePrintDetails\(admin, eventId, \(now\) => \(\{ \.\.\.now,/g) ?? []).length, 5, 'a print_details write in the route no longer goes through updatePrintDetails');
+  assert.doesNotMatch(route, /\.update\(\{ print_details:/, 'the route writes print_details from the copy it read at the top again');
+  assert.match(code('app', 'dashboard', '[eventId]', 'guests', 'send', 'actions.ts'), /updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{ \.\.\.now, inviteMessage: template \}\)\)/);
+  assert.match(code('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts'), /const pd = await updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{/);
 });

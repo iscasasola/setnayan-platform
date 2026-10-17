@@ -33,3 +33,7 @@ another builder's serve.sh in a shared folder killed a server today). Changelog 
       Tests 3a–3c + tests/db/two-hosts-every-writer-sends-its-base.db.test.ts (3); sabotage S9–S12 red→restored. Prod sizes measured
       (largest jsonb on the target columns: style_preferences 763 chars; editorial draft_json 4965 > the 3000 compare cap).
 - [ ] 4. Seating floor plan/booths/signs — LEFT (whole-row upsert of ~30 columns + replace-all lists; its own PR).
+- [x] 5. print_details: lib/print-details-write.ts `updatePrintDetails(admin, eventId, change)` on updateJsonColumn; all 7 writers
+      (route name-style · poster clear · poster set · menu · words; saveInviteMessage; Apply) pass a CHANGE on the blob as it is now.
+      5 guards re-pointed to the same property in the new shape (name-style AST guard now: no direct serialize + every change spreads its arg).
+      Tests 5a–5b; sabotage S13–S15 red→restored.

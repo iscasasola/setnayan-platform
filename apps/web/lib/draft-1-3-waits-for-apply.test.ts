@@ -135,7 +135,7 @@ test('B · the Maker writes each into the DRAFT, never the live column', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /const draftLine = form\.get\('opening_line_to_draft'\) === '1' && form\.has\('opening_line'\);/);
   assert.match(route, /saveHubDraftPatch\(eventId, \{ events: \{ print_details: \{ opening_line: words\.openingLine \} \} \}\)/, 'the opening line is not drafted');
-  assert.match(route, /openingLine: draftLine \? stored\.openingLine : words\.openingLine/, 'a drafted opening line still reaches the live blob');
+  assert.match(route, /openingLine: draftLine \? now\.openingLine : words\.openingLine/, 'a drafted opening line still reaches the live blob');
   assert.match(read(`${D}/launch/_components/maker-details.tsx`), /<input type="hidden" name="opening_line_to_draft" value="1" \/>/, 'the Maker’s words form does not draft the opening line');
 });
 

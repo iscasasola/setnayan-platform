@@ -406,8 +406,9 @@ test('7b · Apply merges the one key into the prints’ blob — through the adm
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(action, /delete eventsPatch\.print_details;/, 'the blob leaves the session UPDATE (no UPDATE grant on it)');
   // 🎫 Since 2026-10-05 the drafted Ticket style rides the same merge — each key only when the draft holds it.
-  assert.match(action, /const stored = parsePrintDetails\(pdRow\.print_details\);[\s\S]*?serializePrintDetails\(\{\s*\.\.\.stored,\s*\.\.\.\(nameStyleWrite !== undefined \? \{ nameStyle: nameStyleWrite \} : \{\}\),/, 'every other key of the blob is carried untouched');
-  assert.match(action, /if \(pdWriteErr \|\| !Array\.isArray\(pdRows\) \|\| pdRows\.length === 0\)/, 'a zero-row write is not success');
+  // 👥 Since 2026-10-18: a change applied to the blob as it is NOW (`updatePrintDetails`, whose write proves its row).
+  assert.match(action, /updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{\s*\.\.\.now,\s*\.\.\.\(nameStyleWrite !== undefined \? \{ nameStyle: nameStyleWrite \} : \{\}\),/, 'every other key of the blob is carried untouched');
+  assert.match(action, /if \(!pd\.ok\) \{/, 'a zero-row write is not success');
   assert.ok(
     action.indexOf('requireHostMembershipOrThrow(eventId, FORBIDDEN)') < action.indexOf('const nameStyleWrite'),
     'the host check runs first',

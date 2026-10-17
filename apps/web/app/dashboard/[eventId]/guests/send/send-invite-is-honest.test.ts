@@ -139,9 +139,10 @@ test('⓹ the couple’s wording survives the Details and Menu saves that share 
   const route = read(PRINT_ROUTE);
   // The words save starts from EVERYTHING stored and overwrites only its own
   // keys (2026-09-30: a named key list had dropped the poster photo).
-  assert.match(route, /const details = \{\s*\.\.\.stored,/,
+  // 👥 Since 2026-10-18 each save is a change applied to the blob as it is NOW (`updatePrintDetails`).
+  assert.match(route, /updatePrintDetails\(admin, eventId, \(now\) => \(\{ \.\.\.now, openingLine:/,
     'the Details (words) save rebuilds print_details without the invite message — it would erase it');
-  assert.match(route, /serializePrintDetails\(\{\s*\.\.\.stored,\s*menu:/, 'the Menu save no longer carries the rest');
+  assert.match(route, /updatePrintDetails\(admin, eventId, \(now\) => \(\{ \.\.\.now, menu \}\)\)/, 'the Menu save no longer carries the rest');
 });
 
 test('the send surfaces never say "website" to the couple (owner 2026-09-24: it is an Event Hub)', () => {

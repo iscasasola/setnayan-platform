@@ -61,7 +61,9 @@ type Props = {
   /**
    * 🕯 THE LOOK'S ART KIT AT THE COUNTDOWN (`<KitSlot slot="countdown">`, owner 2026-10-16) — the narra posts at the
    * card's edges, drawn as the card's first child (the kit's stylesheet widens the card's sides so the numbers stand
-   * clear). The four tiles only, on their own card — the proof's countdown. Absent → the card byte for byte as before.
+   * clear). EVERY style draws it, on its own card or on the scene's own background (owner 17 Oct, cale-ice: Boxes +
+   * Narra columns on a frosted ground, *"why narra columns are not showing?"* — it was the four tiles on their own card
+   * only, so a background or another style dropped a pick the Accent ▾ had saved). Absent → the card as before.
    */
   kit?: ReactNode;
 };
@@ -134,19 +136,19 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
   const label =
     w.eventWord === 'wedding' ? <>Until we say &lsquo;I do&rsquo;</> : <>Until the day</>;
   if (sceneStyle === 'big-number') {
-    return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+    return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'offset') {
-    return <CountdownOffset label={label} remaining={remaining} bare={bare} />;
+    return <CountdownOffset label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'line') {
-    return <CountdownLine label={label} remaining={remaining} bare={bare} />;
+    return <CountdownLine label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'circle') {
-    return <CountdownCircle label={label} remaining={remaining} bare={bare} />;
+    return <CountdownCircle label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'calendar') {
-    return <CountdownCalendar label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+    return <CountdownCalendar label={label} remaining={remaining} targetIso={targetIso} bare={bare} kit={kit} />;
   }
 
   const boxes: { label: string; value: number | null }[] = [
@@ -161,7 +163,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
       data-scene-card={bare ? 'bare' : 'own'}
       className={sceneCardClass('countdown', bare)}
     >
-      {bare ? null : kit}
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (

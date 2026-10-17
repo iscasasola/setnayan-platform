@@ -19,6 +19,7 @@ import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
+import { SeeWhereYouAre } from './see-where-you-are';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 import { DotWords, PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
@@ -350,6 +351,8 @@ export function DressCodeWidget({
         </p>
         <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{named}</p>
         {marchLine}
+        {/* 🫵 Their marked name in the entourage, one tap away (owner 2026-10-17) — drawn only when it is on the page. */}
+        <SeeWhereYouAre />
       </section>
     );
   }
@@ -524,6 +527,8 @@ export function DressCodeWidget({
           {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
               so a walker whose role has no outfit line still reads it. */}
           {marchLine}
+          {/* 🫵 Their marked name in the entourage, one tap away (owner 2026-10-17) — drawn only when it is on the page. */}
+          <SeeWhereYouAre />
           {mine ? (
           <>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.

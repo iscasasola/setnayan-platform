@@ -1176,7 +1176,7 @@ export async function EditorialContent({
             entourage:
               isOn('entourage') && entourage.length > 0 && styleOf('entourage') ? (
                 <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')} fx={fxOf('entourage')}>
-                  <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} />
+                  <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} myGuestId={own.guestId ?? null} />
                 </PostEventSceneFrame>
               ) : (
                 waitingScene('entourage', 'The entourage', isOn('entourage'))

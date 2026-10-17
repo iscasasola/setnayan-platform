@@ -683,7 +683,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     }
     return makerCanvas ? (
       <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
-        <MakerEmptyScene type={type as never} look={makerWordsLook(type)} />
+        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} />
       </div>
     ) : null;
   };

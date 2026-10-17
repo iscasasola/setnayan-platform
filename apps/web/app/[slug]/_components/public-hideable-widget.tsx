@@ -102,7 +102,7 @@ export function PublicHideableWidget(props: PublicHideableWidgetProps) {
       {props.makerEmpty ? (
         <MakerEmptyScene
           type={props.widget.widget_type}
-          look={makerWordsLook(props.widget.widget_type)}
+          look={makerWordsLook(props.widget.widget_type, props.widget.config_json)}
           setupLocks={hubSetupApplies(props.event.event_type)}
           styleId={sceneStyleOfRow(props.widget, props.stage ?? null, props.event.event_type)}
         />

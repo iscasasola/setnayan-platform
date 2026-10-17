@@ -89,8 +89,9 @@ export function ownLookPart(section: Element, field: string): HTMLElement | null
   const look = section.querySelector<HTMLElement>('[data-maker-look]');
   const empty = '[data-maker-empty^="custom_"]';
   if (!look || !(section.matches(empty) || section.querySelector(empty))) return null;
-  if (field === 'title') return look.querySelector<HTMLElement>('.pahina-eyebrow');
-  if (field === 'body') return look.querySelector<HTMLElement>('p:not(.pahina-eyebrow)');
+  /* The template's heading and words (`scene-template.tsx`), else the plain scene's eyebrow and words. */
+  if (field === 'title') return look.querySelector<HTMLElement>('.hub-tpl-h') ?? look.querySelector<HTMLElement>('.pahina-eyebrow');
+  if (field === 'body') return look.querySelector<HTMLElement>('.hub-tpl-p') ?? look.querySelector<HTMLElement>('p:not(.pahina-eyebrow)');
   return null;
 }
 

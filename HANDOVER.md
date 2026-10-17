@@ -70,3 +70,9 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       removed → 2 red · lock removed → 1 red · notify before `created` → 1 red. Guard a-list-only-event-takes-no-requests
       test 4 now allows exactly this one writer, held to: service_role only, sole caller createJoinRequest, called after
       the setting gate.
+- [x] 4 recordGift — FIXED. Migration 20271274314846: `event_gift_records.client_ref` + UNIQUE (giver_guest_id,
+      client_ref). Sheet mints one ref per sheet (useRef) and re-sends it; gift door passes `ref`; recordGift answers a
+      repeat with the FIRST record (early read, and again on 23505 if two raced past it) — nowGot false, no 2nd row.
+      Test tests/db/a-gift-record-is-kept-once.db.test.ts (5) + existing a-gift-record-is-a-guests-own (12) green.
+      Sabotage: early read + 23505 branch removed → 1 red · client_ref not written → 3 red · sheet drops ref → 1 red ·
+      early read alone removed → green by design (the index + 23505 branch answer).

@@ -12,7 +12,7 @@
  *   • the early `theFirstKept` read removed (the index still refuses the row,
  *     the 23505 branch answers)                                → still green — by design;
  *   • the early read AND the 23505 branch removed              → test 1 red (a refusal);
- *   • `client_ref` not written on the insert                   → test 1 red (two rows);
+ *   • `client_ref` not written on the insert                   → tests 1, 2, 4 red;
  *   • the sheet stops sending its ref                          → test 5 red.
  */
 import { test, before, after } from 'node:test';

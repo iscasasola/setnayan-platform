@@ -4,8 +4,10 @@ import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { MAIN_COLOUR_NAMES, PICKER_SWATCHES, cleanHexInput, pickerReadsOn, pickerShelves, type PickerRow } from '@/lib/mood-board-studio';
+import { MAIN_COLOUR_NAMES, cleanHexInput, pickerReadsOn, pickerShelves, type PickerRow } from '@/lib/mood-board-studio';
+import { browserStorage, readRecentColours, recentColourKey, rememberRecentColour } from '@/lib/colour-picker-recent';
 import { customColourInput } from '@/lib/colour-name-search';
+import { useLastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
 import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
 
@@ -13,31 +15,36 @@ import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind'
  * 🎨 THE COLOUR PICKER — THE ONE (owner 2026-10-06, DECISION_LOG "AUTO PALETTE BESIDE SAVED — AND A
  * REAL COLOUR PICKER FOR CHANGING IT BY HAND": *"how do we change the palette?"*; owner 2026-10-08:
  * *"we already have a design for the color palettes and how to pick colors on the moodboard. apply
- * that same concept on the background and on any other color rules parts"* · *"the color suggestions
- * should rely on the moodboard as well. so the mood board colors, then the complementing colors for
- * them"* · *"restudy is good"* — `BACKGROUND_RESTUDY_2026-10-08_fable.md` § 2.2 + § 6 row 4,
- * picture `prototypes/background-restudy-2026-10-08/08-picker.png`).
+ * that same concept on the background and on any other color rules parts"* · *"restudy is good"* —
+ * `BACKGROUND_RESTUDY_2026-10-08_fable.md` § 2.2 + § 6 row 4).
+ *
+ * 📱 ONE SCREEN, NO SCROLL (owner 2026-10-17, on the Attire › Shirt sheet, verbatim: *"maybe there is a
+ * better way to arrange this scroll free. so color code box can be viewed easily. Just have the Moodboard
+ * and Recently Used 5 colors."*). "Goes with your Mood Board", "From your photos" and the sixteen
+ * Swatches left the sheet that day, and each colour row became ONE row of five dots — so the whole
+ * sheet, Custom's code field included, stands inside a 375 × 812 phone's bottom sheet without a scroll
+ * (held in the rendered page by `tests/e2e/the-colour-sheet-fits-one-screen.spec.ts`).
  *
  * Every colour control opens THIS sheet — the Mood Board's own, `StudioColourField` for the Studio's
  * rows, `ColourWell` / `ColourSheet` for every well in Stages and Look, the Mood Board's swatches
- * (`swatch-popover.tsx`) — never a second picker. Its shelves, top to bottom, in the approved order:
+ * (`swatch-popover.tsx`) — never a second picker. Its shelves, top to bottom:
  *
  *   Against the background   the AA line, only when the caller hands the ground the colour sits on
  *                            (`readsOn`): how the colour chosen NOW reads there — "Clear to read ·
  *                            7.2:1" AA · "Hard to read — pick a deeper colour · 2.1:1" AA ✗ — and
- *                            the two shelves under it then lead with the colours that read on it
- *   Your Mood Board          the five, each with its name (its slot's with `slots`, else the colour's own)
- *   Goes with your Mood Board  the Mood Board's own harmony for them (`pickerSuggestions`)
- *   From your photos         where the caller has them (the Mood Board)
- *   Swatches                 the sixteen
+ *                            the Mood Board row then leads with the colours that read on it
+ *   Your Mood Board          the five, one row of dots, each with its name under it (its slot's with
+ *                            `slots`, else the colour's own); the colour chosen now wears a ring and its code
+ *   Recently used            up to five this person last picked HERE, on this event, newest first, never one
+ *                            of the five (`lib/colour-picker-recent.ts` — this browser only); not drawn when empty
  *   Custom                   the system wheel + a NAME or a code to type + ✓ Use. A name lists up to six of
  *                            OUR colours under the field as it is typed ("burgund" → Garnet · for burgundy,
  *                            `lib/colour-name-search.ts`); a tap sets one; ✓ Use / Enter set a valid code, else
- *                            the top match (owner 2026-10-16: *"color picker still not working"* — the field
- *                            took only a code and ✓ Use sat grey under "burgund", saying nothing)
+ *                            the top match (owner 2026-10-16: *"color picker still not working"*)
+ *   the caller's quiet row   "Use the default", "Follow Neutral again", "Remove this colour"
  *
- * ONE tap sets that colour and closes; the caller then says what it changed. Opening it writes
- * nothing. The colour chosen now is the marked row (✓), and Custom's code opens on it.
+ * ONE tap sets that colour and closes; the caller then says what it changed (and the colour joins Recently
+ * used). Opening it writes nothing. Custom's code opens on the colour chosen now.
  *
  * The sheet is the new Maker's ONE bottom sheet (`PickSheetContext`, handed down by the shell on a
  * phone); a desktop draws the same body in a small centred panel.
@@ -46,7 +53,6 @@ export function ColourPickerSheet({
   title,
   job,
   current,
-  fromPhotos,
   onPick,
   onClose,
   extra,
@@ -55,31 +61,81 @@ export function ColourPickerSheet({
   slots = false,
   readsOn,
 }: {
-  /** "Remove this colour" under the swatches (a role's own colour, a part set by hand). */
+  /** "Remove this colour" at the foot (a role's own colour, a part set by hand). */
   onRemove?: () => void;
-  /** The Mood Board's five — drawn FIRST, then the colours that go with them. Empty = both shelves are left out. */
+  /** The Mood Board's five — drawn FIRST. Empty = the row is left out. */
   palette?: readonly string[];
   /** "Dominant", "Table linens", "Bridesmaids". */
   title: string;
   /** What it changes, said under the title ("Headings and big blocks · flowers · lights"). Empty = no line. */
   job: string;
   current: string;
-  /** The colours read from the couple's photos — empty = the shelf is not drawn. */
-  fromPhotos: readonly string[];
+  /** No longer drawn (owner 2026-10-17: "Just have the Moodboard and Recently Used") — accepted so no caller breaks. */
+  fromPhotos?: readonly string[];
   onPick: (hex: string) => void;
   onClose: () => void;
-  /** One quiet row under the swatches ("Follow Neutral again"). */
+  /** The caller's quiet action ("Use the default", "Follow Neutral again"), drawn at the foot. */
   extra?: ReactNode;
   /** `palette` IS the five main colours in slot order: each wears its slot's name (Dominant … Accent 2). Else a colour wears its own name. */
   slots?: boolean;
-  /** The ground this colour sits on (words on a background). Draws "Against the background" and leads the suggestions with what reads on it — reordered, never hidden. */
+  /** The ground this colour sits on (words on a background). Draws "Against the background" and leads the Mood Board row with what reads on it — reordered, never hidden. */
   readsOn?: string | null;
 }) {
+  /* Recently used: this signed-in person, this event, this browser. No scope (a page outside an event) → no row. */
+  const scope = useLastSeenScope();
+  const key = scope ? recentColourKey(scope.userId, scope.eventId) : null;
+  const [recent] = useState(() => readRecentColours(browserStorage(), key));
+  const pick = (hex: string) => {
+    rememberRecentColour(browserStorage(), key, hex);
+    onPick(hex);
+  };
+  return (
+    <StudioSheet label={title} onClose={onClose}>
+      <ColourPickerBody
+        job={job}
+        current={current}
+        palette={palette}
+        recent={recent}
+        slots={slots}
+        readsOn={readsOn}
+        onPick={pick}
+        extra={extra}
+        onRemove={onRemove}
+      />
+    </StudioSheet>
+  );
+}
+
+/**
+ * The sheet's body — what `ColourPickerSheet` puts in the Maker's bottom sheet or the centred panel. Pure:
+ * the recent colours come in (`recent`), so the one-screen check can draw it with five of each.
+ */
+export function ColourPickerBody({
+  job,
+  current,
+  palette,
+  recent,
+  slots,
+  readsOn,
+  onPick,
+  extra,
+  onRemove,
+}: {
+  job: string;
+  current: string;
+  palette: readonly string[];
+  recent: readonly string[];
+  slots: boolean;
+  readsOn?: string | null;
+  onPick: (hex: string) => void;
+  extra?: ReactNode;
+  onRemove?: () => void;
+}) {
   const [code, setCode] = useState(current);
-  const suggest = pickerShelves(palette, { names: slots ? MAIN_COLOUR_NAMES : undefined, readsOn });
+  const suggest = pickerShelves(palette, { names: slots ? MAIN_COLOUR_NAMES : undefined, readsOn, recent });
   const custom = customColourInput(code);
   const typed = custom.code;
-  /* The matches open UNDER the field, at the sheet's foot — brought into view as they appear, or a phone shows none of them. */
+  /* The matches open UNDER the field — brought into view as they appear, or a phone shows none of them. */
   const matchList = useRef<HTMLDivElement>(null);
   const matchKey = custom.matches.map((m) => m.hex).join();
   useEffect(() => {
@@ -87,24 +143,16 @@ export function ColourPickerSheet({
   }, [matchKey]);
   const now = current.toUpperCase();
   const read = pickerReadsOn(current, readsOn);
-  const sw = (c: string) => {
-    const on = c.toUpperCase() === now;
-    return (
-      <button
-        key={c}
-        type="button"
-        aria-label={c}
-        aria-pressed={on}
-        onClick={() => onPick(c)}
-        className={`aspect-square min-h-9 w-full rounded-full border border-ink/15 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''}`}
-        style={{ background: c }}
-        data-picker-swatch={c}
-      />
-    );
-  };
-  /* A suggestion: the colour, its name, its code, ✓ on the one chosen now. */
-  const row = (r: PickerRow) => {
+  /* One dot of a row: the colour, its name under it, and — on the colour chosen now — a ring and its code. The code's
+     line is kept on every dot of the row that holds the chosen colour (so that row never jumps), and only there. */
+  const remove = (fn: () => void) => (
+    <span data-picker-remove="" className="self-start">
+      <ActionButton tone="neutral" icon={X} label="Remove this colour" onClick={fn} className="!h-11" />
+    </span>
+  );
+  const dot = (r: PickerRow, i: number, row: readonly PickerRow[]) => {
     const on = r.hex === now;
+    const coded = row.some((x) => x.hex === now);
     return (
       <button
         key={r.hex}
@@ -112,64 +160,59 @@ export function ColourPickerSheet({
         aria-label={r.name ? `${r.name} ${r.hex}` : r.hex}
         aria-pressed={on}
         onClick={() => onPick(r.hex)}
-        className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left ${on ? 'bg-sn-accent/10' : ''}`}
+        className="sn-press flex min-h-11 min-w-0 flex-col items-center gap-1 rounded-2xl px-0.5 pt-1"
         data-picker-swatch={r.hex}
       >
-        <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: r.hex }} />
-        {r.name ? <span className={`min-w-0 truncate text-[14px] text-ink ${on ? 'font-semibold' : ''}`}>{r.name}</span> : null}
-        <small className="shrink-0 font-mono text-[11px] text-ink/50">{r.hex}</small>
-        {on ? <Check aria-hidden className="ml-auto h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2.4} /> : null}
+        <span
+          aria-hidden
+          className={`h-9 w-9 shrink-0 rounded-full border border-ink/15 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''}`}
+          style={{ background: r.hex }}
+        />
+        <span className={`w-full truncate text-center text-[11px] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/70'}`}>{r.name ?? '\u00A0'}</span>
+        {coded ? (
+          <small className="font-mono text-[10px] leading-none text-ink/50" data-picker-code={on ? '' : undefined}>
+            {on ? r.hex : '\u00A0'}
+          </small>
+        ) : null}
       </button>
     );
   };
   return (
-    <StudioSheet label={title} onClose={onClose}>
-      <div className="flex flex-col gap-3 px-2 pb-2" data-colour-picker="">
-        {job ? <p className="-mt-1 text-[12px] text-ink/60">{job}</p> : null}
-        {read ? (
-          <>
-            <p className={SHELF}>Against the background</p>
-            <div className="flex min-h-9 items-center gap-3 px-3" role="status" data-picker-against={read.grade}>
-              <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: readsOn ?? undefined }} />
-              <small className="min-w-0 flex-1 text-[12.5px] text-ink/70">{read.words}</small>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.06em] ${
-                  read.grade === 'clear' ? 'bg-success-50 text-success-700' : 'bg-terracotta/10 text-terracotta-700'
-                }`}
-              >
-                {read.grade === 'clear' ? 'AA' : 'AA ✗'}
-              </span>
-            </div>
-          </>
-        ) : null}
-        {suggest.board.length > 0 ? (
-          <>
-            <p className={SHELF}>Your Mood Board</p>
-            <div className="flex flex-col" data-picker-palette="">
-              {suggest.board.map(row)}
-            </div>
-            {suggest.goesWith.length > 0 ? (
-              <>
-                <p className={SHELF}>Goes with your Mood Board</p>
-                <div className="flex flex-col" data-picker-goes-with="">
-                  {suggest.goesWith.map(row)}
-                </div>
-              </>
-            ) : null}
-          </>
-        ) : null}
-        {fromPhotos.length > 0 ? (
-          <>
-            <p className={SHELF}>From your photos</p>
-            <div className="grid grid-cols-8 gap-2" data-picker-from-photos="">
-              {fromPhotos.slice(0, 8).map(sw)}
-            </div>
-          </>
-        ) : null}
-        <p className={SHELF}>Swatches</p>
-        <div className="grid grid-cols-8 gap-2" data-picker-swatches="">
-          {PICKER_SWATCHES.map(sw)}
+    <div className="flex flex-col gap-3 px-2 pb-2" data-colour-picker="">
+      {job ? <p className="-mt-1 text-[12px] text-ink/60">{job}</p> : null}
+      {read ? (
+        <div className="flex flex-col gap-1">
+          <p className={SHELF}>Against the background</p>
+          <div className="flex min-h-9 items-center gap-3 px-1" role="status" data-picker-against={read.grade}>
+            <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: readsOn ?? undefined }} />
+            <small className="min-w-0 flex-1 text-[12.5px] text-ink/70">{read.words}</small>
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.06em] ${
+                read.grade === 'clear' ? 'bg-success-50 text-success-700' : 'bg-terracotta/10 text-terracotta-700'
+              }`}
+            >
+              {read.grade === 'clear' ? 'AA' : 'AA ✗'}
+            </span>
+          </div>
         </div>
+      ) : null}
+      {suggest.board.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <p className={SHELF}>Your Mood Board</p>
+          <div className="grid grid-cols-5 gap-1" data-picker-palette="">
+            {suggest.board.map(dot)}
+          </div>
+        </div>
+      ) : null}
+      {suggest.recent.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <p className={SHELF}>Recently used</p>
+          <div className="grid grid-cols-5 gap-1" data-picker-recent="">
+            {suggest.recent.map(dot)}
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-1.5">
         <p className={SHELF}>Custom</p>
         <div className="flex items-center gap-2" data-picker-custom="">
           {/* 📱 THE WHEEL IS THE INPUT ITSELF — the 44 px tap target, never an invisible input inside a label, so
@@ -207,39 +250,46 @@ export function ColourPickerSheet({
           {/* The sheet's ONE main action: the app's main button (the accent), never an ink pill of its own. */}
           <ActionButton tone="brand" main icon={Check} label="Use" disabled={!custom.use} onClick={() => custom.use && onPick(custom.use)} className="!h-11" />
         </div>
-        {custom.matches.length > 0 ? (
-          <div ref={matchList} id="picker-name-matches" className="-mt-1 flex flex-col" aria-label="Colours by that name" data-picker-name-matches="">
-            {custom.matches.map((m) => (
-              <button
-                key={m.hex}
-                type="button"
-                aria-label={m.typed ? `${m.name}, for ${m.typed}, ${m.hex}` : `${m.name} ${m.hex}`}
-                onClick={() => onPick(m.hex)}
-                className="sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left"
-                data-picker-name-match={m.hex}
-              >
-                <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: m.hex }} />
-                <span className="min-w-0 truncate text-[14px] text-ink">
-                  {m.name}
-                  {m.typed ? <span className="text-ink/50"> · for {m.typed}</span> : null}
-                </span>
-                <small className="ml-auto shrink-0 font-mono text-[11px] text-ink/50">{m.hex}</small>
-              </button>
-            ))}
-          </div>
-        ) : !typed && /^[^#\d]{2,}$/.test(code.trim()) ? (
-          <p id="picker-name-matches" className="-mt-1 px-3 text-[12px] text-ink/55" role="status" data-picker-name-none="">
-            No colour by that name — try another word, or a code like #7A1F2B.
-          </p>
-        ) : null}
-        {extra}
-        {onRemove ? (
-          <span data-picker-remove="" className="self-start">
-            <ActionButton tone="neutral" icon={X} label="Remove this colour" onClick={onRemove} className="!h-11" />
-          </span>
-        ) : null}
       </div>
-    </StudioSheet>
+      {custom.matches.length > 0 ? (
+        <div ref={matchList} id="picker-name-matches" className="-mt-1 flex flex-col" aria-label="Colours by that name" data-picker-name-matches="">
+          {custom.matches.map((m) => (
+            <button
+              key={m.hex}
+              type="button"
+              aria-label={m.typed ? `${m.name}, for ${m.typed}, ${m.hex}` : `${m.name} ${m.hex}`}
+              onClick={() => onPick(m.hex)}
+              className="sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left"
+              data-picker-name-match={m.hex}
+            >
+              <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: m.hex }} />
+              <span className="min-w-0 truncate text-[14px] text-ink">
+                {m.name}
+                {m.typed ? <span className="text-ink/50"> · for {m.typed}</span> : null}
+              </span>
+              <small className="ml-auto shrink-0 font-mono text-[11px] text-ink/50">{m.hex}</small>
+            </button>
+          ))}
+        </div>
+      ) : !typed && /^[^#\d]{2,}$/.test(code.trim()) ? (
+        <p id="picker-name-matches" className="-mt-1 px-3 text-[12px] text-ink/55" role="status" data-picker-name-none="">
+          No colour by that name — try another word, or a code like #7A1F2B.
+        </p>
+      ) : null}
+      {/* The caller's quiet action and "Remove this colour" share ONE line when both are there — a second line is what
+          pushed the fullest sheet past the phone. */}
+      {extra && onRemove ? (
+        <div className="flex flex-wrap items-center gap-2" data-picker-quiet="">
+          {extra}
+          {remove(onRemove)}
+        </div>
+      ) : (
+        <>
+          {extra}
+          {onRemove ? remove(onRemove) : null}
+        </>
+      )}
+    </div>
   );
 }
 

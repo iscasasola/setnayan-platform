@@ -113,16 +113,41 @@ test('3 · every caller refuses a list-only event before it reaches the writer',
   assert.match(page.slice(pageGate, page.indexOf('<JoinFlow')), /sub=\{INVITATION_ONLY_LINE\}/, 'the /join refusal does not say why');
 });
 
-test('4 · no database function writes a request row', () => {
+// ⚖ ONE EXCEPTION, AND IT IS THE SAME WRITER (event-day L1·3, 2026-10-18):
+// `guest_join_request_create` is where `createJoinRequest` now does its INSERT,
+// under a lock on the event, so the same form sent twice is one request and the
+// ceiling cannot be raced. It is service_role only and `createJoinRequest` is its
+// only caller — AFTER the setting is asked — which is what this test exists to
+// hold: no way to write a request that does not pass through that gate.
+const LOCKED_REQUEST_WRITER = '20271273586425_a_join_request_is_written_once.sql';
+
+test('4 · no database function writes a request row — but the one writer’s own locked insert', () => {
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
   const offenders: string[] = [];
   for (const name of readdirSync(dir).filter((n) => n.endsWith('.sql'))) {
     const sql = readFileSync(join(dir, name), 'utf8').replace(/--[^\n]*/g, '');
     for (const m of sql.matchAll(/INSERT\s+INTO\s+(?:public\.)?guests\b[\s\S]*?;/gi)) {
-      if (/self_added_unlisted/.test(m[0])) offenders.push(name);
+      if (/self_added_unlisted/.test(m[0]) && name !== LOCKED_REQUEST_WRITER) offenders.push(name);
     }
   }
   assert.deepEqual(offenders, [], `a migration inserts a join request: ${offenders.join(', ')}`);
+
+  // The exception holds only while it is the server's alone and the gate's alone.
+  const sql = readFileSync(join(dir, LOCKED_REQUEST_WRITER), 'utf8');
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.guest_join_request_create\(UUID, UUID, INTEGER, JSONB\) FROM PUBLIC, anon, authenticated;/,
+    'the locked request writer became callable by a browser role',
+  );
+  const callers: string[] = [];
+  for (const f of [...sources(join(WEB, 'app')), ...sources(join(WEB, 'lib'))]) {
+    if (/guest_join_request_create/.test(stripComments(readFileSync(f, 'utf8')))) callers.push(f.slice(WEB.length + 1));
+  }
+  assert.deepEqual(callers, [join('app', 'join', '[eventId]', 'actions.ts')], `a second caller of the request writer: ${callers.join(', ')}`);
+  const writer = bodyOf(read('app', 'join', '[eventId]', 'actions.ts'), 'async function createJoinRequest(');
+  const gate = writer.indexOf('if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;');
+  const rpc = writer.indexOf("rpc('guest_join_request_create'");
+  assert.ok(gate > -1 && rpc > -1 && gate < rpc, 'the locked writer is called before the setting is asked');
 });
 
 test('5 · rendered: a stranger on a list-only event is told it is by invitation only — and offered no ask', async () => {

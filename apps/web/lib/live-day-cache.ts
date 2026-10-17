@@ -1,0 +1,92 @@
+import { unstable_cache } from 'next/cache';
+
+/**
+ * live-day-cache.ts — ON THE DAY, ONE ANSWER PER EVENT EVERY FEW SECONDS, HOWEVER MANY PHONES ASK
+ * (2026-10-18, live-day polling · owner: "make sure app will not collapse when a lot of users are … connecting to the
+ * event").
+ *
+ * 🧯 WHY. Every open guest phone asks the server the same questions on a timer while the event is live — the photo
+ * wall's freshness feed, the watch link, the coordinator's announcement, "has anything changed?". The ANSWER is the same
+ * for every guest of one event, but each ask used to be its own set of database reads, so 200 phones were 200 × the
+ * reads of one. Here the answer is remembered for a few seconds (Next's data cache, `unstable_cache`, shared by every
+ * server instance) under a key that names the EVENT, so the database is asked once per event per window, whatever the
+ * number of guests watching.
+ *
+ * This is `lib/global-settings-cache.ts`'s pattern (`rememberedGlobalRead`) applied to one event's live answers, with
+ * the same three rules:
+ *
+ * 🔒 THE SAME FOR EVERY READER. What is remembered is an answer that does not depend on who asks: read with the service
+ *    client, never through a session, never `cookies()` (Next refuses it inside `unstable_cache`). A caller that needs a
+ *    per-viewer gate asks it OUTSIDE, around the remembered answer.
+ * ⛔ A REFUSED OR UNMEASURED ANSWER IS NEVER REMEMBERED. A loader that THROWS stores nothing (the next ask reads again).
+ *    A loader whose answer is honest but must not be handed to everyone for the next few seconds — "status unreadable",
+ *    "closed because a read failed" — wraps it in `notRemembered(value)`: this caller gets the value, nobody else does.
+ *    One guest's blip must never become every guest's answer.
+ * 📦 JSON ONLY (the data cache stores `JSON.stringify(value)`).
+ * 🧪 OUTSIDE NEXT (a unit test, a script) there is no data cache: the loader simply runs, every call.
+ *
+ * Held by `lib/live-day-answers-are-shared.test.ts`.
+ */
+
+/** How long one event's live answer may be handed out before it is read again (seconds). */
+export const LIVE_DAY_SECONDS = 10;
+
+/** The data-cache tag for one event's live answers — a writer that must be seen AT ONCE clears it. */
+export function liveDayTag(eventKey: string): string {
+  return `live-day:${eventKey}`;
+}
+
+const NOT_REMEMBERED = Symbol('live-day-not-remembered');
+type NotRemembered<T> = { [NOT_REMEMBERED]: true; value: T };
+
+/** An honest answer for THIS caller that must not be stored for the others. See the docblock. */
+export function notRemembered<T>(value: T): never {
+  throw { [NOT_REMEMBERED]: true, value } satisfies NotRemembered<T>;
+}
+
+function isNotRemembered<T>(e: unknown): e is NotRemembered<T> {
+  return typeof e === 'object' && e !== null && NOT_REMEMBERED in e;
+}
+
+/**
+ * Read `load` through the data cache under `key`, tagged for `eventKey`.
+ *
+ * `key` names the answer and everything that changes it (bump its `-vN` suffix when the SHAPE changes). `load` throws
+ * to refuse (nothing stored, the error reaches the caller) or calls `notRemembered(value)` to answer this caller only.
+ * If the data cache itself cannot run, the read is asked directly — a broken cache must never become an outage.
+ */
+export async function rememberedLiveRead<T>(
+  key: string,
+  eventKey: string,
+  load: () => Promise<T>,
+  seconds: number = LIVE_DAY_SECONDS,
+): Promise<T> {
+  let loadSettled: 'no' | 'threw' | 'not-remembered' = 'no';
+  let loadError: unknown;
+  const remembered = unstable_cache(
+    async () => {
+      try {
+        return await load();
+      } catch (error) {
+        loadSettled = isNotRemembered(error) ? 'not-remembered' : 'threw';
+        loadError = error;
+        throw error;
+      }
+    },
+    ['live-day', key],
+    { tags: [liveDayTag(eventKey)], revalidate: seconds },
+  );
+  try {
+    return await remembered();
+  } catch (error) {
+    if (loadSettled === 'not-remembered') return (loadError as NotRemembered<T>).value;
+    if (loadSettled === 'threw') throw loadError;
+    // The cache machinery failed (or no data cache — plain node): ask directly, once.
+    try {
+      return await load();
+    } catch (direct) {
+      if (isNotRemembered<T>(direct)) return direct.value;
+      throw direct;
+    }
+  }
+}

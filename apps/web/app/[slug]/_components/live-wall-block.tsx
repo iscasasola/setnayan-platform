@@ -4,6 +4,7 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
+import { jittered } from '@/lib/live-day-timing';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
@@ -21,7 +22,7 @@ import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
  *
  * LIVENESS without sockets: the venue projector owns the realtime channel;
  * a phone block only needs "feels live" — so it polls /[slug]/live-wall every
- * 25s WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
+ * 25s (± 20 %, so phones drift apart) WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
  * pocketed phone polls zero). Merge is feedId-deduped via the wall's own pure
  * mergeTiles, so tiles never re-animate on refresh. Request-driven only — no
  * cron (house rule).
@@ -112,7 +113,9 @@ export function LiveWallBlock({
   const [openedId, setOpenedId] = useState<string | null>(null);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    // A chain of timeouts, not one interval: each wait is POLL_MS ± 20 % drawn fresh (`jittered`), so the phones at
+    // one venue drift apart rather than asking in step (lib/live-day-timing.ts).
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let inFlight = false;
     // Consecutive failures. TWO, not one: a single miss on venue wifi is
     // ordinary and must not accuse the network. Two in a row is a pattern, and
@@ -191,12 +194,24 @@ export function LiveWallBlock({
       }
     };
 
+    let running = false;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        timer = null;
+        void poll().finally(() => {
+          if (running) schedule();
+        });
+      }, jittered(POLL_MS));
+    };
     const start = () => {
-      if (!timer) timer = setInterval(() => void poll(), POLL_MS);
+      if (running) return;
+      running = true;
+      schedule();
     };
     const stop = () => {
+      running = false;
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
         timer = null;
       }
     };

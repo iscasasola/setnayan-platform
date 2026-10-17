@@ -2,6 +2,7 @@ import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widg
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
 import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
 import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { ClosingLine } from '@/app/[slug]/_components/closing-line';
 import { formatEventDate } from '@/lib/events';
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
@@ -1058,13 +1059,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {labKit ? (
         <footer className="relative z-10 text-center">
           <KitStyle kit={labKit} />
-          <KitClosing kit={labKit} names={labNames} date={formatEventDate(LAB_SAMPLE.date) || null} photoUrl="/std/backgrounds/ballroom.webp" mark="M & J" twoPeople hideWatermark={false} />
+          <KitClosing kit={labKit} names={labNames} date={formatEventDate(LAB_SAMPLE.date) || null} photoUrl="/std/backgrounds/ballroom.webp" mark="M & J" twoPeople hideWatermark={false} line={heroCanvas.elements?.closing ?? null} stamp={sp.editor === '1'} />
         </footer>
       ) : (
         <footer className="relative z-10 border-t border-ink/10 px-4 py-8 text-center">
-          <p data-shell-sign-off="" className="font-pahina text-lg italic text-terracotta-700">
-            See you soon.
-          </p>
+          {/* 🕯 The closing's line — the drafted hero row's `elements.closing`, as the real shell draws it. */}
+          <ClosingLine line={heroCanvas.elements?.closing ?? null} stamp={sp.editor === '1'} className="font-pahina text-lg italic text-terracotta-700" />
           <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
         </footer>
       )}

@@ -134,7 +134,15 @@ test('(2) row 4 is Colour + Size side by side: ONE circle and one slider, no Fon
     const def = MAKER_PARTS[k];
     const t = partLookTarget(makerPartCanvasOn('rsvp', k), def.el ?? null);
     const scene = (def.canvas ?? '').startsWith('w:');
-    const want = def.canvas === 'f:hero' && def.el ? { key: 'f:hero', widgetType: 'hero', el: def.el } : scene ? { key: def.canvas, widgetType: def.canvas!.slice(2), el: 'heading' } : null;
+    /* 🕯 The closing's line (2026-10-17) — its own words, stored on the hero row beside the cover's (`lib/closing-line.ts`). */
+    const want =
+      def.canvas === 'f:closing' && def.el === 'closing'
+        ? { key: 'f:closing', widgetType: 'hero', el: 'closing' }
+        : def.canvas === 'f:hero' && def.el
+          ? { key: 'f:hero', widgetType: 'hero', el: def.el }
+          : scene
+            ? { key: def.canvas, widgetType: def.canvas!.slice(2), el: 'heading' }
+            : null;
     assert.deepEqual(t, want, `${k}: whose colour and size`);
     const can = partLookFields(t);
     if (t) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -398,6 +398,11 @@ export function ElementSheet({
   const motion: HubElementMotion = style.motion ?? {};
   /** 🎬 A cover word under the Cover Scene's entrance (`lib/cover-entrance.ts`): what it lays here, and whether this word
    *  has a Build in of its own. Null off the cover, or with no entrance chosen. */
+  /* 🕯 THE CLOSING'S LINE (`lib/closing-line.ts`): no Delay — its Build in plays as a guest reaches the page's foot —
+     and no Leaves — it is stored on the hero row, but it ends the page: there is no next scene, and the hero's own
+     hand-off is not its to set. Laid over the shipped props below (each optional here, so nothing else is overwritten). */
+  const closingAnimate: Partial<Pick<ComponentProps<typeof StageAnimate>, 'delay' | 'leaves'>> =
+    target.key === 'f:closing' ? { delay: null, leaves: null } : {};
   const follow = (() => {
     if (target.key !== 'f:hero' || !canvas.entrance || canvas.entrance.key === 'still') return null;
     const laid = coverEntranceFor(canvas.entrance, target.el as HubHeroElementKey);
@@ -635,6 +640,8 @@ export function ElementSheet({
                   if (t !== 'scroll') c.transition = t as HubTransition;
                 }),
             }}
+            /* 🕯 The closing's line: no Delay, no Leaves (`closingAnimate`, above). */
+            {...closingAnimate}
           />
         ) : (
           <StageText

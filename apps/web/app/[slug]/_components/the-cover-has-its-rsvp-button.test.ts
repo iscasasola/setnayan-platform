@@ -115,11 +115,12 @@ test('(2) the RSVP button opens the shipped reply, and shows the three states', 
 
   // The page wires it: the guest's from the Reply card, the visitor's to the reply door; never on another stage.
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  // A visitor without a key: the stranger's cover keeps today's first screen — the cover and its ONE door ("Get
-  // inside", the passcode first), docked under it — so it draws no foot (no second button, owner 2026-09-26/27).
-  assert.doesNotMatch(body, /visitorRsvp/);
+  // A visitor without a key: the stranger's ONE door stands IN the cover's foot, in the button's place (owner
+  // 2026-10-17 — "Confirm your Booking", the passcode first) — never a second button beside it (owner 2026-09-26/27).
+  // `the-cover-always-has-a-way-on.test.ts` holds the stranger's foot whole.
   assert.match(body, /: coverRsvpOf\(\{ card: replyCard \}\);/, 'the guest’s button does not read their own Reply card');
-  assert.equal((body.match(/foot=\{false\}/g) ?? []).length, 2, 'a stranger’s cover draws a second door at its foot');
+  assert.equal((body.match(/foot=\{false\}/g) ?? []).length, 0, 'a cover draws no foot — its first screen ends in nothing');
+  assert.equal((body.match(/door=\{footDoor\}/g) ?? []).length, 2, 'a stranger’s cover does not hold its door in the foot');
   assert.equal((body.match(/rsvp=\{guestRsvp\}/g) ?? []).length, 2, 'a guest’s cover has no button');
 });
 

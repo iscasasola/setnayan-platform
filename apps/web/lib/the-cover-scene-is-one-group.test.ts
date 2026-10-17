@@ -291,7 +291,7 @@ test('(12) no bar is drawn over the cover; the bars come in only once the cover 
   for (const bar of ["\\[data-sticky-top\\]", "nav\\[aria-label='Site sections'\\]"]) {
     assert.match(css, new RegExp(`html:has\\(> head > style\\[data-cover-menu='wait'\\]\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
   }
-  assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
+  assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: var\(--cookie-banner-top, 0px\);/, 'the cover does not start at the top edge, or its foot rests under the cookie notice');
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
   /* Owner 2026-10-16 ("THE TOP AND BOTTOM BARS ARRIVE ONLY WHEN THE COVER IS FULLY GONE"): open only once the cover is gone. */

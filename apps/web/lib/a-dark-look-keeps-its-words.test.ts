@@ -5,7 +5,7 @@
  * on a light paper, wearing a DARK ombré. The page's own ink had flipped light,
  * as it should — and these had not followed it:
  *
- *   · "Reply to the invitation", "Get inside", "Upload your QR · Sign in"
+ *   · "Reply to the invitation", "Confirm your Booking" (it read "Get inside" until 2026-10-17), "Upload your QR · Sign in"
  *     (`.button-primary`)            rgb(30 34 41) on rgb(55 59 49) — 1.4 : 1
  *   · the footer's "See you soon."   rgb(42 45 37) on the dark page — 1.1 : 1
  *   · the host's ribbon label        the page's pale ink on the gold plate
@@ -366,7 +366,8 @@ test('(6) the page paints with the tokens measured above', () => {
   const shell = stripComments(read('app/[slug]/_components/invitation-shell.tsx'));
   assert.match(shell, /backdrop \? 'text-cream\/90' : 'text-terracotta-700'/);
   const door = stripComments(read('app/[slug]/_components/get-inside.tsx'));
-  assert.match(door, /<summary className="button-primary [^"]*">\s*<span className="text-base">Get inside<\/span>/);
+  assert.match(door, /<summary className="button-primary [^"]*">\s*<span className="text-base">\{STRANGER_DOOR_WORDS\}<\/span>/);
+  assert.match(door, /export const STRANGER_DOOR_WORDS = 'Confirm your Booking';/);
 
   // Words on the PLATE's paper take the plate's ink — a plain block's plate (`lib/block-looks.ts` ROOT_PLAIN) paints
   // exactly that pair. (This was measured on the host strip's label until the strip went, 2026-10-15 — owner:

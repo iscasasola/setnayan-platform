@@ -34,7 +34,7 @@ import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { LabStudioActions } from '../details-lab/lab-studio-actions';
 import { LabLogoActions } from './lab-logo-actions';
-import { LAB_PHOTO_CHOICES, LAB_VIDEO_CHOICE } from './lab-own-media';
+import { LAB_COVER_PHOTO_CHOICES, LAB_PHOTO_CHOICES, LAB_SCENE_UPLOADS, LAB_VIDEO_CHOICE } from './lab-own-media';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -516,8 +516,10 @@ export function MakerLabShell({
         sceneFormat={{
           /* maria-and-jose's Classic colours — Look › Colours › Palette needs some to show. */
           colorChoices: ['#A9834B', '#2C2A29', '#C7A27C', '#E8D9C5'],
-          photoChoices: [],
+          /* 🎞 cale-ice's shape (2026-10-17): one photo, and a clip the couple uploaded on the cover itself. */
+          photoChoices: LAB_COVER_PHOTO_CHOICES,
           videoChoice: null,
+          sceneUploads: LAB_SCENE_UPLOADS,
           mediaHref: '/dev/maker-lab',
           hubTheme: kitTheme ?? 'house',
           openBrowse: true,

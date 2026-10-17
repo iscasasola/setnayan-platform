@@ -168,8 +168,8 @@ function SceneBackgroundRows({
   themeColours,
   board,
   photoChoices = [],
-  videoChoice = null,
-  sceneUploads = [],
+  videoChoice,
+  sceneUploads,
   mediaUsedBytes,
   ownsPro,
   storeShell = false,
@@ -211,10 +211,15 @@ function SceneBackgroundRows({
   /** The five main colours in slot order (Dominant … Accent 2) — the one picker's "Your Mood Board" shelf, named. Absent = `themeColours`, unnamed. */
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
-  /** The event's one video; `poster` = its still (the hero photo) for guests. */
-  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
-  /** Photos and clips the scenes already wear from their own upload folder. */
-  sceneUploads?: readonly SceneUpload[];
+  /** The event's one video; `poster` = its still (the hero photo) for guests. Null: the event has none. */
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  /**
+   * Photos and clips the scenes — and the Cover Scene — already wear from their own upload folder (`sceneUploadRefs`).
+   * 🔒 REQUIRED, never defaulted: on 2026-10-17 both Cover Scene mounts left it out, so the couple's own cover VIDEO —
+   * the very ground the cover was wearing — was missing from its Upload row ("why is the video not showing on the list
+   * of uploaded media files?"). Held by `lib/every-cover-upload-is-listed.test.ts`.
+   */
+  sceneUploads: readonly SceneUpload[];
   /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   ownsPro: boolean;

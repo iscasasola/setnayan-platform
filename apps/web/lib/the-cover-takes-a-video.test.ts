@@ -118,6 +118,7 @@ test('(3) the couple’s clips are cards beside "Your photo" — ▶-marked, the
         draftAction: (async () => ({ ok: true })) as never,
         themeColours: ['#2C2A29'],
         photoChoices: [{ ref: `r2://setnayan-media/events/${EV}/std-background/p.jpg`, url: 'https://media.test/p.jpg' }],
+        videoChoice: null,
         sceneUploads: uploads as never,
         mediaCapBytes: 500 * 1024 * 1024,
         proHref: null,
@@ -134,7 +135,8 @@ test('(3) the couple’s clips are cards beside "Your photo" — ▶-marked, the
   assert.equal(coverClipCardName(CLIP, 1), 'Your video');
   /* Tapping a clip card makes it the cover's clip WITH its still. */
   const rows = read(ROWS);
-  assert.match(rows, /const clip = clips\.find\(\(c\) => c\.ref === key\);\s*put\(clip \? \{ kind: 'snippet', media: key, \.\.\.\(clip\.poster \? \{ poster: clip\.poster \} : \{\}\) \} : \{ kind: 'photo', media: key \}\);/);
+  /* (…and keeps the cover's one Darker ↔ Lighter where it was — `...keep`, 2026-10-17.) */
+  assert.match(rows, /const clip = clips\.find\(\(c\) => c\.ref === key\);[\s\S]{0,400}?put\(clip \? \{ kind: 'snippet', media: key, \.\.\.\(clip\.poster \? \{ poster: clip\.poster \} : \{\}\)(, \.\.\.keep)? \} : \{ kind: 'photo', media: key(, \.\.\.keep)? \}\);/);
 });
 
 test('(4) the event’s own page plays the cover clip (the shipped loop); a closed switch shows its still only', async () => {

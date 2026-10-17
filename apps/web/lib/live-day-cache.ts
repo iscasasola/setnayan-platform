@@ -65,23 +65,8 @@ function isNotRemembered<T>(e: unknown): e is NotRemembered<T> {
   return typeof e === 'object' && e !== null && NOT_REMEMBERED in e;
 }
 
-type Stamped<T> = { at: number; value: T };
-
-/** One direct read per key at a time on this server; a `notRemembered` answer is unwrapped for every sharer. */
+/** Answers being read right now on this server, by window — the asks that arrive meanwhile share the read. */
 const inFlight = new Map<string, Promise<unknown>>();
-function directOnce<T>(key: string, load: () => Promise<T>): Promise<T> {
-  let p = inFlight.get(key) as Promise<T> | undefined;
-  if (!p) {
-    p = load()
-      .catch((e: unknown) => {
-        if (isNotRemembered<T>(e)) return e.value;
-        throw e;
-      })
-      .finally(() => inFlight.delete(key));
-    inFlight.set(key, p);
-  }
-  return p;
-}
 
 /**
  * Read `load` through the data cache under `key`, tagged for `eventKey`.
@@ -89,6 +74,12 @@ function directOnce<T>(key: string, load: () => Promise<T>): Promise<T> {
  * `key` names the answer and everything that changes it (bump its `-vN` suffix when the SHAPE changes). `load` throws
  * to refuse (nothing stored, the error reaches the caller) or calls `notRemembered(value)` to answer this caller only.
  * If the data cache itself cannot run, the read is asked directly — a broken cache must never become an outage.
+ *
+ * ⏱ FIXED WINDOWS, NEVER A STALE ANSWER. The entry is keyed by the `seconds`-long window the clock is in, so an answer
+ * is at most `seconds` old and the next window simply misses. (Measured in the lab: the data cache's own expiry serves
+ * an expired entry once while it refreshes — that added a whole poll to how long a change took to reach a phone — and
+ * reading past it as well doubled the reads.) The asks on this server that arrive while a window's read is running
+ * share it, so a window's start is one read here, not a herd.
  */
 export async function rememberedLiveRead<T>(
   key: string,
@@ -96,30 +87,35 @@ export async function rememberedLiveRead<T>(
   load: () => Promise<T>,
   seconds: number = LIVE_DAY_SECONDS,
 ): Promise<T> {
+  const window = Math.floor(Date.now() / (seconds * 1000));
+  const flightKey = `${key}@${window}`;
+  const running = inFlight.get(flightKey) as Promise<T> | undefined;
+  if (running) return running;
+  const p = readWindow(key, eventKey, load, seconds, window).finally(() => inFlight.delete(flightKey));
+  inFlight.set(flightKey, p);
+  return p;
+}
+
+async function readWindow<T>(key: string, eventKey: string, load: () => Promise<T>, seconds: number, window: number): Promise<T> {
   // A holder, not two `let`s: the loader runs inside the cache's closure, and a narrowed `let` would read as still
   // 'no' to the compiler at the checks below.
   const outcome: { settled: 'no' | 'threw' | 'not-remembered'; error: unknown } = { settled: 'no', error: undefined };
   const remembered = unstable_cache(
-    async (): Promise<Stamped<T>> => {
+    async () => {
       try {
-        return { at: Date.now(), value: await load() };
+        return await load();
       } catch (error) {
         outcome.settled = isNotRemembered(error) ? 'not-remembered' : 'threw';
         outcome.error = error;
         throw error;
       }
     },
-    ['live-day', key],
-    { tags: [liveDayTag(eventKey)], revalidate: seconds },
+    ['live-day', key, String(window)],
+    // Kept a little past its window so it is never served stale inside it; nothing asks for an old window again.
+    { tags: [liveDayTag(eventKey)], revalidate: seconds * 2 },
   );
   try {
-    const got = await remembered();
-    // ⏱ NEVER HAND OUT AN ANSWER OLDER THAN THE WINDOW. The data cache serves an expired entry once ("stale while it
-    // revalidates") — measured in the lab, that added a whole poll to how long a change took to reach a phone. An
-    // expired entry is still refreshed in the background by the cache; THIS caller reads directly, and the callers on
-    // this server that arrive while that read is in flight share it (`directOnce`), so expiry is not a herd either.
-    if (Date.now() - got.at > seconds * 1000) return await directOnce(key, load);
-    return got.value;
+    return await remembered();
   } catch (error) {
     if (outcome.settled === 'not-remembered') return (outcome.error as NotRemembered<T>).value;
     if (outcome.settled === 'threw') throw outcome.error;

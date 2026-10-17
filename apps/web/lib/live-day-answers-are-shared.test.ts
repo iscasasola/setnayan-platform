@@ -59,6 +59,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 test('1 · two hundred phones asking one event inside the window are ONE database read', async () => {
   const { rememberedLiveRead } = await cacheModule();
   installDataCache();
+  const realNow = Date.now;
+  Date.now = () => 1_000_000_000_000; // one window — the test must not straddle a boundary
   try {
     let reads = 0;
     const load = async () => {
@@ -73,6 +75,7 @@ test('1 · two hundred phones asking one event inside the window are ONE databas
     await rememberedLiveRead('test-wall-v1:jose', 'jose', load);
     assert.equal(reads, 2, 'two events shared one answer');
   } finally {
+    Date.now = realNow;
     removeDataCache();
   }
 });
@@ -121,9 +124,10 @@ test('1 · `notRemembered` answers THIS phone and stores nothing for the others'
   }
 });
 
-test('1 · an answer older than its window is never handed out — the next ask reads, and concurrent asks share that read', async () => {
+test('1 · an answer never outlives its window, and asks arriving during a read share it', async () => {
   const { rememberedLiveRead } = await cacheModule();
-  const fake = installDataCache();
+  installDataCache();
+  const realNow = Date.now;
   try {
     let reads = 0;
     const load = async () => {
@@ -131,13 +135,17 @@ test('1 · an answer older than its window is never handed out — the next ask 
       await new Promise((r) => setTimeout(r, 20));
       return `answer-${reads}`;
     };
-    assert.equal(await rememberedLiveRead('test-old-v1', 'e', load, 10), 'answer-1');
-    // Age the stored entry past its window (what the data cache would serve once, "stale while it revalidates").
-    for (const [k, v] of fake.entries) fake.entries.set(k, JSON.parse(JSON.stringify(v).replace(/(\\?"at\\?":)\d+/, `$1${Date.now() - 11_000}`)));
-    const three = await Promise.all([1, 2, 3].map(() => rememberedLiveRead('test-old-v1', 'e', load, 10)));
-    assert.deepEqual(three, ['answer-2', 'answer-2', 'answer-2'], 'an expired answer was handed out, or each phone read on its own');
+    let now = 1_000_000_000_000;
+    Date.now = () => now;
+    const three = await Promise.all([1, 2, 3].map(() => rememberedLiveRead('test-window-v1', 'e', load, 10)));
+    assert.deepEqual(three, ['answer-1', 'answer-1', 'answer-1'], 'three asks at once were three reads');
+    now += 9_000;
+    assert.equal(await rememberedLiveRead('test-window-v1', 'e', load, 10), 'answer-1', 'inside the window the answer is shared');
+    now += 2_000; // the next window
+    assert.equal(await rememberedLiveRead('test-window-v1', 'e', load, 10), 'answer-2', 'an answer was handed out past its window');
     assert.equal(reads, 2);
   } finally {
+    Date.now = realNow;
     removeDataCache();
   }
 });

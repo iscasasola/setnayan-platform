@@ -5240,11 +5240,27 @@ html.dark [data-art='candlelight'] {
   --font-sans: var(--font-body);
   font-family: var(--font-body);
 }
-[data-hub-roles~='eyebrow'] .pahina-eyebrow {
+/* 🪆 …AND TEXT, LABELS & BUTTONS HANDED BACK SHOW ON THE CANVAS TOO (2026-10-18 — the Names hand-back's same cause,
+   measured on the real guest markup in the canvas's two scopes, Chromium + WebKit): a draft that handed Text or
+   Labels & buttons back ("Event Hub font") over a live pick kept the LIVE face on the canvas until Apply — the
+   buttons and (on a theme) the eyebrows matched the layout's mark one scope up, and on Classic the text inherited
+   the layout scope's face, because Classic has no theme block to set the page's own again. So, as for the names,
+   the NEAREST worn scope decides: the eyebrow and button rules hold only where no worn scope without the mark sits
+   between; and a worn Classic scope without the Text mark, inside one with it, takes back the page's own text face
+   (`--hub-page-text-face`: what `<body>`'s `font-sans` resolves to, captured where it is set). A painted theme's
+   scope sets its own face itself. A guest's page (one scope, or two that agree) is unchanged. */
+body {
+  --hub-page-text-face: var(--font-sans);
+}
+[data-hub-roles~='body'] [data-guest-look]:not([data-hub-roles~='body']):not([data-hub-theme]) {
+  --font-sans: var(--hub-page-text-face);
+  font-family: var(--hub-page-text-face), ui-sans-serif, system-ui, sans-serif;
+}
+[data-hub-roles~='eyebrow'] .pahina-eyebrow:not([data-hub-roles~='eyebrow'] [data-guest-look]:not([data-hub-roles~='eyebrow']) *) {
   font-family: var(--font-mono);
 }
-[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
-[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
+[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]):not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *),
+[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry:not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *) {
   font-family: var(--hub-role-button-font);
 }
 /* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG

@@ -30,9 +30,9 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Changelog fragment
 
 | # | Verified? | State |
 |---|---|---|
-| 1 | traced: Text (body) and Labels & buttons have the same nested-scope gap (button var inherits from the layout's scope; body font-family inherits) | in progress |
+| 1 | REPRODUCED on the real guest markup in the canvas's two scopes (Chromium+WebKit): handed back, buttons stayed live face (Classic+theme), theme eyebrows stayed it, Classic text stayed it | FIXED `globals.css` nearest-scope rules + `--hub-page-text-face`; guard `app/[slug]/_components/a-font-handed-back-shows-on-the-canvas.test.ts` (3 sabotages red); shots item1-* |
 | 2 | named gap in `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` docblock (foot door unfitted, `FirstScreenDoor fit={false}`) | todo — re-enable the fit for the foot door (door = the foot), text cover only |
-| 3 | `lib/print-set.server.ts` `attireLines` reads `cfg.groups`/`cfg.roles` (old); guest page reads `dressCodeForEveryone` (ATTIRE_ROWS + picksOf) | todo |
+| 3 | REPRODUCED: print printed "Maid of Honor — Cocktail dress", no women's pick | FIXED `dressCodeLines` (lib/dress-code-for-everyone.ts) read by print-set; guard `lib/the-print-says-the-pages-dress-code.test.ts` (2 sabotages red); shots item3-* |
 | 4 | REPRODUCED: `searchColorNames` listed "Coral"/"Gold"/"Navy"/"Plum"/"Forest Green" twice (wedding + CSS, hex-only dedupe) — 45 queries | FIXED `lib/color-search.ts` `listedOnce` + sweep test (sabotage: main's file → red) |
 | 5 | `DressFiguresRow` not mounted (`<DressFiguresRow` 0 hits); `useBlockLooksDraft` race is a Maker draft save — the lane of rd/two-hosts-never-overwrite (merge-from-base) | SKIP (named in PR body) |
 | 6 | report source not found in notes; measure `/dashboard` + event home at 375 | todo |

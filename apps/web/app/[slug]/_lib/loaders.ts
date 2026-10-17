@@ -26,6 +26,7 @@ import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { noteEventStamp, rememberedEventRead } from '@/lib/event-shared-reads';
 import { startAhead } from '@/lib/start-ahead';
 import { EVENT_ROW_ONCE_EXTRA_COLUMNS, eventRowOnce, holdEventRow, withoutOnceExtras } from '@/lib/event-row-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -182,24 +183,83 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 function theOneEventRead(admin: AdminClient, slug: string) {
   const read = <S extends string>(columns: S) => admin.from('events').select(columns).ilike('slug', slug).maybeSingle();
   return {
+    /** The row as the database gave it — the extras included when `held` — and nothing held yet. */
     async select<S extends string>(columns: S) {
       const whole = await read(`${columns}, ${EVENT_ROW_ONCE_EXTRA_COLUMNS.join(', ')}` as S);
-      if (whole.error) return whole.error.code === '42703' ? await read(columns) : whole;
-      if (!whole.data) return whole;
-      const row = whole.data as unknown as Record<string, unknown>;
-      if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
-      return { ...whole, data: withoutOnceExtras(row) as unknown as NonNullable<typeof whole.data> };
+      if (whole.error) return whole.error.code === '42703' ? { ...(await read(columns)), held: false } : { ...whole, held: false };
+      return { ...whole, held: whole.data !== null };
     },
   };
+}
+
+/**
+ * 🗂 THE SHELL, REMEMBERED UNDER THE EVENT'S STAMP (2026-10-18 · `lib/event-shared-reads.ts`).
+ *
+ * One small read first — `event_public_stamp(slug)`: which event this address
+ * names, and the value its public rows are at — then the shell row from the
+ * data cache filed under `[event, rev, slug]`. A write to the event moves the
+ * rev, so the next view reads the row again; nothing is "fresh enough".
+ *
+ * 🔑 KEPT ONLY WHEN IT IS PROVABLY THE STAMPED EVENT'S ROW: a clean read, with
+ * the extras, whose `event_id` is the one the stamp named. Anything else — a
+ * refusal, no row, the 42703 shell-alone path, a slug that moved between the
+ * two reads — is handed back exactly as read and never filed. No stamp (the
+ * function missing, a refusal, no row, two events matching) → the read the
+ * page always made, alone.
+ *
+ * Every caller of `loadEventShell` gets this (the layout, the metadata, the
+ * guest tree's other pages, the Maker's canvas): the row is the same for every
+ * viewer and the rev is read in the same request. Only the guest page itself
+ * opens the rest of its reads to the cache (`openSharedEventReads`).
+ */
+async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eventId: string; rev: number } | null> {
+  try {
+    const { data, error } = await admin.rpc('event_public_stamp', { p_slug: slug });
+    if (error || !Array.isArray(data) || data.length !== 1) return null;
+    const row = data[0] as { event_id?: unknown; rev?: unknown };
+    const rev = typeof row.rev === 'string' ? Number(row.rev) : row.rev;
+    if (typeof row.event_id !== 'string' || typeof rev !== 'number' || !Number.isSafeInteger(rev)) return null;
+    return { eventId: row.event_id, rev };
+  } catch {
+    return null;
+  }
+}
+
+async function readEventShellRow<S extends string>(admin: AdminClient, slug: string, columns: S) {
+  const direct = () => theOneEventRead(admin, slug).select(columns);
+  type Read = Awaited<ReturnType<typeof direct>>;
+  const stamp = await eventStampBySlug(admin, slug);
+  if (!stamp) return direct();
+  noteEventStamp(stamp.eventId, stamp.rev);
+  return rememberedEventRead<Read>(
+    { eventId: stamp.eventId, rev: stamp.rev, key: `shell-v1:${slug}:${columns}` },
+    direct,
+    (read) =>
+      !read.error &&
+      read.held &&
+      (read.data as unknown as { event_id?: unknown } | null)?.event_id === stamp.eventId,
+    (read) => read.data,
+    (row) => ({ data: row, error: null, count: null, status: 200, statusText: 'OK', held: true }) as unknown as Read,
+  );
 }
 
 export const loadEventShell = cache(async (slug: string) => {
   // Every guest-tree render begins here: the data-privacy controls it asks about are read in one request.
   readDataPrivacyControlsTogether();
   const admin = createAdminClient();
-  const { data, error } = await theOneEventRead(admin, slug).select(
+  const { data: whole, error, held } = await readEventShellRow(
+    admin,
+    slug,
       'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, logo_wanted, gifts_on, date_candidates',
   );
+  // The one read leaves the whole row in hand for the rest of the render (`holdEventRow`)
+  // and gives the page back the shell's own columns only — exactly as before.
+  let data = whole;
+  if (whole && held) {
+    const row = whole as unknown as Record<string, unknown>;
+    if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
+    data = withoutOnceExtras(row) as unknown as typeof whole;
+  }
   // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
   //
   // The error used to be discarded, so a database hiccup returned `data = null`

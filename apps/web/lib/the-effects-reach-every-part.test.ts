@@ -13,6 +13,10 @@
  *   (4) THE SAME RULES AS THE COVER — the scene pictures' Develop · Curtain · Light leak play only behind the
  *       reduced-motion gate and off Save-Data; Light leak is the shipped ambient leak's own drawing; and each is named
  *       Pro at Apply for a couple without Pro.
+ *   (5) LIGHT LEAK REACHES EVERY GLIMPSE FRAME AND EVERY LOVE STORY PHOTO (owner 2026-10-17, a Love Story moment's
+ *       photos show as Glimpse): the leak's box list is read off the stylesheet and must hold the element each of
+ *       those photos is drawn in — a Glimpse card (a button), filled or whole, and a Love Story photo's own place —
+ *       each holding its one photo as its only child.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -177,4 +181,51 @@ test('(4) the scene pictures play behind the gate, Light leak is the ambient lea
   assert.deepEqual(asked('venue_map', { during: 'leak' }), ['Light leak']);
   assert.deepEqual(asked('schedule', { elements: { heading: { motion: { words: 'word' } } } }), ['Word by word']);
   assert.deepEqual(hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { widgets: { venue_map: { canvas: { during: 'leak' } } } } as never), live('venue_map'), true), []);
+});
+
+test('(5) Light leak reaches every Glimpse frame and every Love Story photo — the box each is drawn in is on the leak’s list', async () => {
+  (globalThis as unknown as { React: unknown }).React = (await import('react')).default;
+  {
+    const Mod = require('node:module');
+    const load = Mod._load;
+    Mod._load = function (request: string, ...rest: unknown[]) {
+      if (request === 'server-only' || request === 'client-only') return {};
+      return load.call(this, request, ...rest);
+    };
+  }
+  const React = (await import('react')).default;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const css = read('app/globals.css');
+  const list = /\.hub-during-leak > \.hub-canvas-body :where\(([^)]*)\):has\(> :is\(img, video\):only-child\)::before/.exec(css);
+  assert.ok(list, 'the scene pictures’ Light leak selector moved — this guard reads its box list');
+  const boxes = new Set(list![1]!.split(',').map((t) => t.trim()));
+  /** Every element carrying `attr`, with its tag and whether its only child is one <img>. */
+  const holders = (html: string, attr: string) =>
+    [...html.matchAll(new RegExp(`<(\\w+)[^>]*\\s${attr}=""[^>]*>([\\s\\S]*?)</\\1>`, 'g'))].map((m) => ({ tag: m[1]!, alone: /^<img [^>]*\/>$/.test(m[2]!) }));
+  const { GlimpseRail } = await import('../app/[slug]/_components/glimpse-rail');
+  const urls = ['https://img.test/a.jpg', 'https://img.test/b.jpg', 'https://img.test/c.jpg'];
+  const { OurLoveStoryWidget } = await import('../app/[slug]/_components/our-love-story-widget');
+  const ref = (n: string) => `r2://setnayan-media/events/E1/love-story/${n}.jpg`;
+  const story = { moments: [
+    { id: 'three', date: { y: 2019 }, line: 'Three.', media: [ref('a'), ref('b'), ref('c')], order: 0, canvas: {} },
+    { id: 'one', date: { y: 2020 }, line: 'One.', media: [ref('d')], order: 1, canvas: {} },
+  ] };
+  const mediaUrls = Object.fromEntries(['a', 'b', 'c', 'd'].map((n) => [ref(n), `https://img.test/${n}.jpg`]));
+  const cases: Array<[string, string, string]> = [
+    ['Photos scene Glimpse', renderToStaticMarkup(React.createElement(GlimpseRail, { urls })), 'data-glimpse-card'],
+    ['Glimpse, whole photos', renderToStaticMarkup(React.createElement(GlimpseRail, { urls, whole: true })), 'data-glimpse-card'],
+    ...(['conversation', 'timeline', 'cards', 'chapters'] as const).map((st): [string, string, string] => [
+      `Love Story · ${st} · the one photo`,
+      renderToStaticMarkup(React.createElement(OurLoveStoryWidget, { config: story, mediaUrls, sceneStyle: st, partners: ['Maria', 'Jose'] })),
+      'data-love-photo',
+    ]),
+  ];
+  for (const [what, html, attr] of cases) {
+    const hs = holders(html, attr);
+    assert.ok(hs.length > 0, `${what}: no photo drawn — the guard read nothing`);
+    for (const h of hs) {
+      assert.ok(h.alone, `${what}: a photo is not its box's only child, so Light leak cannot reach it`);
+      assert.ok(boxes.has(h.tag), `${what}: a photo drawn in a <${h.tag}>, which is not on Light leak's box list (${[...boxes].join(', ')})`);
+    }
+  }
 });

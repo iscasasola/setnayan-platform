@@ -7168,18 +7168,21 @@ html:active-view-transition .sn-page-enter { animation: none; }
    (`.pahina-in`), on its own Movement (`--hub-duration`); never on the photo behind while it Slow-lifts (that layer's
    one animation is the lift). Light leak is the shipped ambient leak's own drawing (`AMBIENT_PHOTO_LEAK_SPEC`: its
    band, its colours, its 16 s, its still — held equal by the guard) laid over each picture that is its box's only
-   child; `contain: paint` clips it to the picture without moving the box. Outside the gate: held faint, still. */
+   child; `contain: paint` clips it to the picture without moving the box. Outside the gate: held faint, still.
+   `button` is in the box list because a Glimpse card IS a button holding its one photo (owner 2026-10-17, a Love
+   Story moment's photos show as Glimpse) — the leak reaches every Glimpse frame, the Photos scene's and the Love
+   Story's alike. */
 @keyframes el-fx-leak {
   0% { opacity: 0; transform: rotate(-18deg) translateX(-22%); }
   40% { opacity: 0.50; }
   100% { opacity: 0; transform: rotate(-18deg) translateX(22%); }
 }
-.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture):has(> :is(img, video):only-child),
+.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child),
 .hub-has-media.hub-during-leak > .hub-canvas-media {
   contain: paint;
   isolation: isolate;
 }
-.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture):has(> :is(img, video):only-child)::before,
+.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child)::before,
 .hub-has-media.hub-during-leak > .hub-canvas-media::before {
   content: '';
   position: absolute;
@@ -7232,7 +7235,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
   :root:not(.sn-save-data) .hub-reveal-curtain.pahina-in:not(.hub-during-lift) > .hub-canvas-media {
     animation: el-fx-curtain var(--hub-duration, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
-  :root:not(.sn-save-data) .hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture):has(> :is(img, video):only-child)::before,
+  :root:not(.sn-save-data) .hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child)::before,
   :root:not(.sn-save-data) .hub-has-media.hub-during-leak > .hub-canvas-media::before {
     animation: el-fx-leak 16s ease-in-out infinite;
   }

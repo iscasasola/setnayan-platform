@@ -1,4 +1,5 @@
 import { loveStoryScenes, momentVoiceLines } from '@/lib/love-story-moments';
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
 import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
 
 import { LoveStoryCards, LoveStoryConversation, LoveStoryTimeline, LoveStoryYears } from './our-love-story-styles';
@@ -103,9 +104,13 @@ export function OurLoveStoryWidget({
             </p>
             {photos.length > 0 ? (
               <div className={`mt-3 grid gap-2 ${photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {/* 🖼 Each photo WHOLE in its reserved 4:5 place — never cropped, the Glimpse corners and lift
+                    (owner 2026-10-17, "it looking cropped"; `WHOLE_PHOTO_CLASS`). */}
                 {photos.map((url) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={url} src={url} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
+                  <span key={url} data-love-photo="" className="relative block aspect-[4/5] max-h-[70svh] w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" loading="lazy" className={WHOLE_PHOTO_CLASS} />
+                  </span>
                 ))}
               </div>
             ) : null}

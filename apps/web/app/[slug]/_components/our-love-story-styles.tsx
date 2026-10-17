@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import { momentReadLine, momentVoiceLines, type LoveStoryScene, type MomentVoiceSlot } from '@/lib/love-story-moments';
 import { formatCount } from '@/lib/format-number';
 
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
+
+import { GlimpseRail } from './glimpse-rail';
+
 /**
  * LOVE STORY · C · THE YEARS (prototype `every_scene_three_styles_2026-09-29.html`
  * §3). A · Chapters is `OurLoveStoryWidget`; B · The essay is the shipped
@@ -206,6 +210,66 @@ function MomentWhen({ s, fx, at, lead }: { s: LoveStoryScene; fx: 'in' | undefin
 const photosOf = (s: LoveStoryScene, mediaUrls?: Readonly<Record<string, string>>) =>
   s.media.map((ref) => mediaUrls?.[ref]).filter((u): u is string => Boolean(u));
 
+/**
+ * 🎞 A MOMENT'S PHOTOS, AS GLIMPSE (owner 2026-10-17, DECISION_LOG "A LOVE STORY MOMENT'S PHOTOS SHOW AS GLIMPSE"),
+ * verbatim: *"Use the Glimpse swipe for a moment's photos: one big, the next peeking, swipe or auto-scroll; one photo
+ * stays as now."* A moment holding two or more photos draws them at its photo slot as the Photos scene's OWN rail
+ * (`GlimpseRail` — the drift, the pause on touch, the still under reduced motion, tap → the shipped full-screen
+ * photo); never a second carousel. ONE photo is not this: each look keeps its own `<img>`, unchanged.
+ *
+ * The rail is sized from the moment, not the window: the box is a size container and `width` is in its `cqw`, so the
+ * centre card sits where the look's single photo sits and the neighbours peek inside the moment. The look's own
+ * entrance (`data-love-fx`) rides on the box, so the whole rail arrives as the one photo did.
+ */
+function MomentGlimpse({
+  photos,
+  width,
+  label,
+  fx,
+  at,
+  className = '',
+}: {
+  photos: readonly string[];
+  width: string;
+  label: string;
+  fx?: 'in' | 'develop';
+  at?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      data-love-photos={photos.length}
+      data-love-fx={fx}
+      style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined}
+      className={`w-full min-w-0 [container-type:inline-size] ${className}`}
+    >
+      <GlimpseRail urls={photos} width={width} label={label} whole />
+    </div>
+  );
+}
+
+/**
+ * 🖼 A MOMENT'S ONE PHOTO, WHOLE (owner 2026-10-17, on live "The Proposal", a man cut off at the photo's edge: *"there
+ * might be a better way to present instead if it looking cropped"*). The look's place for the photo is reserved as
+ * before (its width and shape, at most 70 % of the screen's height), so the words below never jump while it loads;
+ * the photo is drawn WHOLE inside it at its own shape, centred, never cropped, with the Glimpse cards' corners and
+ * lift — one photo and several read as one family. A moment's photos carry no stored crop or focal point (`media` is
+ * refs only), so there is nothing to honour but the whole picture.
+ */
+function MomentPhoto({ src, place, fx, at }: { src: string; place: string; fx?: 'in' | 'develop'; at?: string }) {
+  return (
+    <span data-love-photo="" className={`relative block ${place}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" loading="lazy" data-love-fx={fx} style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined} className={WHOLE_PHOTO_CLASS} />
+    </span>
+  );
+}
+
+/** The centre card's width in each look — where that look's one photo sits (Conversation 72 %, the lane 150 px). */
+const GLIMPSE_IN_CONVERSATION = '72cqw';
+const GLIMPSE_IN_TIMELINE = '46cqw';
+const GLIMPSE_IN_CARD = '56cqw';
+
 type VoicesLookProps = {
   scenes: readonly LoveStoryScene[];
   partners: readonly string[];
@@ -239,7 +303,8 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
       </p>
       {scenes.map((s) => {
         const voices = momentVoiceLines(s, partners);
-        const photo = photosOf(s, mediaUrls)[0];
+        const photos = photosOf(s, mediaUrls);
+        const photo = photos[0];
         return (
           <article key={s.id} data-love-scene={s.id} className="grid gap-2.5">
             <MomentWhen s={s} fx="in" lead="text-center" />
@@ -248,9 +313,10 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
                 {s.title}
               </h3>
             ) : null}
-            {photo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photo} alt="" loading="lazy" data-love-fx="in" className="aspect-[4/5] w-[72%] max-w-full justify-self-center rounded-xl object-cover" />
+            {photos.length > 1 ? (
+              <MomentGlimpse photos={photos} width={GLIMPSE_IN_CONVERSATION} label={s.title || whenOf(s)} fx="in" />
+            ) : photo ? (
+              <MomentPhoto src={photo} fx="in" place="aspect-[4/5] max-h-[70svh] w-[72%] max-w-full justify-self-center" />
             ) : null}
             {voices.map((v, i) => (
               <div
@@ -308,7 +374,8 @@ export function LoveStoryTimeline({ scenes, partners, mediaUrls, entrance = fals
       <div className="grid">
         {scenes.map((s, idx) => {
           const voices = momentVoiceLines(s, partners);
-          const photo = photosOf(s, mediaUrls)[0];
+          const photos = photosOf(s, mediaUrls);
+          const photo = photos[0];
           const a = voices.find((v) => v.slot === 'a');
           const b = voices.find((v) => v.slot === 'b');
           return (
@@ -320,9 +387,10 @@ export function LoveStoryTimeline({ scenes, partners, mediaUrls, entrance = fals
                   {s.title}
                 </h3>
               ) : null}
-              {photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="" loading="lazy" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-2.5 aspect-[4/5] w-[150px] max-w-full object-cover" />
+              {photos.length > 1 ? (
+                <MomentGlimpse photos={photos} width={GLIMPSE_IN_TIMELINE} label={s.title || whenOf(s)} fx="in" at="0.3s" className="mt-2.5" />
+              ) : photo ? (
+                <MomentPhoto src={photo} fx="in" at="0.3s" place="mt-2.5 aspect-[4/5] max-h-[70svh] w-[150px] max-w-full" />
               ) : null}
               {a || b ? (
                 <div className="relative mt-3.5 grid w-full grid-cols-2 gap-x-[22px]">
@@ -409,7 +477,8 @@ export function LoveStoryCards({ scenes, partners, mediaUrls, entrance = false, 
       >
         {scenes.map((s, idx) => {
           const voices = momentVoiceLines(s, partners);
-          const photo = photosOf(s, mediaUrls)[0];
+          const photos = photosOf(s, mediaUrls);
+          const photo = photos[0];
           const on = idx === active;
           return (
             <article
@@ -419,9 +488,13 @@ export function LoveStoryCards({ scenes, partners, mediaUrls, entrance = false, 
               aria-roledescription="card"
               className="grid min-w-0 shrink-0 basis-[calc(100%-28px)] snap-start content-start gap-2.5"
             >
-              {photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="" loading="lazy" data-love-fx={on ? 'develop' : undefined} className="aspect-[4/3] w-full max-w-full rounded-2xl object-cover" />
+              {/* 👆 Two swipes, one per place: inside the photos the finger moves the photos (the rail is its own
+                  scroller and contains its overscroll, so it never hands the swipe on to the deck); anywhere else on
+                  the card — the date, the words, the next card peeking — it moves the cards. */}
+              {photos.length > 1 ? (
+                <MomentGlimpse photos={photos} width={GLIMPSE_IN_CARD} label={s.title || whenOf(s)} fx={on ? 'develop' : undefined} />
+              ) : photo ? (
+                <MomentPhoto src={photo} fx={on ? 'develop' : undefined} place="aspect-[4/3] max-h-[70svh] w-full max-w-full" />
               ) : null}
               <MomentWhen s={s} fx={on ? 'in' : undefined} />
               {s.title ? (

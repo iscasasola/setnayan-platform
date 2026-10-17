@@ -145,7 +145,8 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   const { labDraftStep } = await labEngine();
   const scrub = labScrubOn();
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect') }, scrub, readLabPublished(scrub));
+  /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Hub Pro: Apply holds nothing, as the real gate does for an unlocked event. */
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1' }, scrub, readLabPublished(scrub));
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
@@ -192,7 +193,10 @@ export function MakerLabShell({
   summary,
   scrub = false,
   revealLab = null,
+  ownsPro = false,
 }: {
+  /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
+  ownsPro?: boolean;
   /** 🎭 `?reveal=owner|all` — the Reveal panel on the owner's map (`page.tsx` asks the guest page's own rule). */
   revealLab?: { themeName: string; defaultOpening: string; defaultIsTheme: boolean; openings: readonly string[] } | null;
   /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
@@ -433,7 +437,9 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
+      /* 💎 The Apply sheet names the Pro effects a free event tried (the real bar's `asksForPro` needs a purchase page —
+         the lab's own address stands in; nothing is bought here). `?pro=1`: the event owns Pro, so nothing is asked. */
+      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={ownsPro ? null : '/dev/maker-lab'} ownsPro={ownsPro} draftAction={labDraft} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
@@ -451,7 +457,7 @@ export function MakerLabShell({
         navigator={navigator}
         scenePanels={Object.fromEntries(scenes.map((s) => [s.id, stand(`${s.label} — its settings`)]))}
         rows={lookRows}
-        ownsPro={false}
+        ownsPro={ownsPro}
         toggleAction={formNoop}
         setModeAction={formNoop}
         moveUpAction={formNoop}

@@ -113,7 +113,7 @@ test('4 · the Look: Wide is nothing stored (112 px, the picture’s own), Tall 
   assert.match(rsvpLookCss(readRsvpLook({ look: moving }), ['rsvp'], []), /^\[data-rsvp-line="a:1"\]\[data-rsvp-line\]\{height:176px;--rl-o:/);
   /* The panel: Style on a picture is Look ▾ (Wide · Tall) — the RSVP rows' own dropdown — and nothing else. */
   const LOOK = src(`${L}/rsvp-line-look.tsx`);
-  assert.match(LOOK, /<Dd\s+stacked\s+small="Look"\s+label="Look"\s+data="rsvp-picture-look"\s+value=\{value\}\s+options=\{RSVP_PICTURE_LOOKS\.map\(\(key\) => \(\{ key, label: RSVP_PICTURE_LOOK_NAME\[key\] \}\)\)\}\s+onPick=\{\(key\) => onPick\(\{ l: key === 'tall' \? 'tall' : null \}\)\}/);
+  assert.match(LOOK, /<Dd\s+stacked\s+small="Look ◆"\s+label="Look"\s+data="rsvp-picture-look"\s+value=\{value\}\s+options=\{RSVP_PICTURE_LOOKS\.map\(\(key\) => \(\{ key, label: RSVP_PICTURE_LOOK_NAME\[key\] \}\)\)\}\s+onPick=\{\(key\) => onPick\(\{ l: key === 'tall' \? 'tall' : null \}\)\}/);
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
   assert.match(PANEL, /<RsvpPictureLookRows line=\{pictureLine\} now=\{readRsvpLook\(local\)\.lines\?\.\[pictureLine\] \?\? \{\}\} onPick=\{\(patch\) => void save\(\{ look: rsvpLookWith\(latest\.current, pictureLine, patch\) \}, '“Look”'\)\} \/>/);
   /* The branch is taken for a picture the couple added — asked of the stored list, not of the page. */

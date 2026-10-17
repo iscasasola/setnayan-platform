@@ -70,6 +70,13 @@ export type GiftRecordInput = {
   name?: unknown;
   /** `r2://…` from the guest presign route, or empty. */
   shotRef?: unknown;
+  /**
+   * 🔁 The sheet's own id for THIS Send (a UUID minted once per sheet, re-sent on
+   * a retry). A second arrival of the same Send is answered with the first
+   * record — never a second row, never counted twice toward its wish
+   * (event-day L1·4, migration 20271274314846). Absent → written as before.
+   */
+  ref?: unknown;
 };
 
 export type GiftRecordResult =
@@ -90,6 +97,52 @@ export type GiftRecordResult =
 export type GiftRecordSession = { guest_id: string; event_id: string };
 
 const PUBLIC_WISH_ID = /^S89H-[0-9A-HJKMNP-TV-Z]{10}$/;
+const CLIENT_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type KeptRow = { amount_php: number; giver_name: string; wish_item_id: string | null; screenshot_r2_key: string | null; message: string | null };
+const KEPT_FIELDS = 'amount_php, giver_name, wish_item_id, screenshot_r2_key, message';
+
+/**
+ * The record this guest already kept under this Send's `ref`, answered as if it
+ * were kept now — the thank-you and the list line come from the FIRST arrival.
+ * `nowGot` is false: whatever the first arrival settled is already on the wish.
+ */
+async function theFirstKept(
+  admin: SupabaseClient,
+  eventId: string,
+  guestId: string,
+  ref: string,
+  slug: string | null,
+): Promise<GiftRecordResult | null> {
+  const { data, error } = await admin
+    .from('event_gift_records')
+    .select(KEPT_FIELDS)
+    .eq('event_id', eventId)
+    .eq('giver_guest_id', guestId)
+    .eq('client_ref', ref)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] recordGift: the first record could not be read', error, { eventId });
+    return { ok: false, error: GIFT_NOT_KEPT };
+  }
+  const row = data as KeptRow | null;
+  if (!row) return null;
+  let wishName: string | null = null;
+  if (row.wish_item_id) {
+    const { data: w } = await admin.from('event_wish_items').select('name').eq('wish_item_id', row.wish_item_id).maybeSingle();
+    wishName = ((w as { name?: string | null } | null)?.name ?? null) || null;
+  }
+  return {
+    ok: true,
+    giverName: row.giver_name,
+    amountPhp: row.amount_php,
+    wishName,
+    hasShot: row.screenshot_r2_key != null,
+    hasMessage: row.message != null,
+    nowGot: false,
+    slug,
+  };
+}
 
 export async function recordGift(
   admin: SupabaseClient,
@@ -166,6 +219,14 @@ export async function recordGift(
     if (!wish) return { ok: false, error: GIFT_WISH_GONE };
   }
 
+  /* 🔁 the same Send, arriving again (its answer was lost) — the first record, never a second */
+  const refRaw = typeof input.ref === 'string' ? input.ref.trim().toLowerCase() : '';
+  const ref = CLIENT_REF.test(refRaw) ? refRaw : null;
+  if (ref) {
+    const first = await theFirstKept(admin, eventId, session.guest_id, ref, event.slug);
+    if (first) return first;
+  }
+
   /* the write — service role; a zero-row insert is a refusal, never a thank-you */
   const { data: kept, error: keepErr } = await admin
     .from('event_gift_records')
@@ -178,8 +239,15 @@ export async function recordGift(
       giver_name: who.name,
       giver_guest_id: session.guest_id,
       method_kind: onlyWayToGive(ways.map((w) => w.method_kind)),
+      client_ref: ref,
     })
     .select('gift_record_id');
+  /* Two arrivals of one Send racing past the read above: the UNIQUE (giver, ref) index lets one
+     row in; the other is answered with it. */
+  if (keepErr && ref && (keepErr as { code?: string }).code === '23505') {
+    const first = await theFirstKept(admin, eventId, session.guest_id, ref, event.slug);
+    if (first) return first;
+  }
   if (keepErr || !kept || kept.length === 0) {
     if (keepErr) console.error('[supabase-error] recordGift: insert', keepErr, { eventId });
     return { ok: false, error: GIFT_NOT_KEPT };

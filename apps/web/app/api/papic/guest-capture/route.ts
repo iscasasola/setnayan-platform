@@ -25,6 +25,7 @@ import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { capturedAtIso, parseCapturedAtMs } from '@/lib/papic-capture-minute';
+import { CLIENT_CAPTURE_ID_FIELD, readClientCaptureId } from '@/lib/papic-client-capture-id';
 
 // POST /api/papic/guest-capture
 //
@@ -370,6 +371,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'terms_required' }, { status: 403 });
   }
 
+  // 🔁 THIS SHUTTER ALREADY LANDED. The phone never heard "saved" (the answer
+  // was lost on bad signal) and sent the same shot again. Answer with the first
+  // row — asked of the RPC with the same id, which replies `duplicate` with the
+  // guest's current figures and charges nothing — BEFORE any pool booking or R2
+  // upload, so the retry costs no points and leaves no second object. A
+  // duplicate that races past this read is caught again inside the RPC's lock.
+  const clientCaptureId = readClientCaptureId(form.get(CLIENT_CAPTURE_ID_FIELD));
+  if (clientCaptureId) {
+    const { data: prior, error: priorErr } = await admin
+      .from('papic_guest_captures')
+      .select('capture_id')
+      .eq('guest_id', session.guest_id)
+      .eq('client_capture_id', clientCaptureId)
+      .maybeSingle();
+    if (priorErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.select(client_capture_id)', priorErr);
+    if (prior?.capture_id) {
+      const { data: again } = await admin.rpc('papic_record_guest_capture', {
+        p_guest_id: session.guest_id,
+        p_client_capture_id: clientCaptureId,
+      });
+      return NextResponse.json({
+        ...((again ?? {}) as Record<string, unknown>),
+        status: 'ok',
+        duplicate: true,
+        captureId: prior.capture_id as string,
+      });
+    }
+  }
+
   // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
   // event pool meters (Free / Papic One / Papic Pool all draw the same pool).
   // Same as the seat record seam: the length is already parsed above (and
@@ -439,7 +469,9 @@ export async function POST(req: Request) {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const stamp = Date.now();
+  // 🔁 The object is named by the shutter's own id when the camera sent one, so
+  // a retry overwrites the SAME object instead of leaving a second one behind.
+  const stamp = clientCaptureId ?? String(Date.now());
   // Clip → .mp4 (video/mp4); photo → .jpg (image/jpeg). The poster (if present)
   // rides a sibling .jpg key so the NSFW screen + clip thumbnail can find it.
   const key = isClip
@@ -546,6 +578,9 @@ export async function POST(req: Request) {
   // carry media_type — recording every clip of that window as a photo.
   // 🕐 The 8-arg rung is the same rung for 20271214644139: during ITS window the
   // capture records with its upload minute instead of not recording at all.
+  // 🔁 The 9-arg rung carries the shutter's id (20271272777206) and is the only
+  // one that can answer `duplicate`. During that migration's deploy window it
+  // 42883s and the 8-arg rung records the capture as before.
   let { data, error } = await admin.rpc('papic_record_guest_capture', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
@@ -555,7 +590,20 @@ export async function POST(req: Request) {
     p_poster_r2_key: posterRef,
     p_points_cost: cost,
     p_captured_at: capturedAtIsoValue,
+    p_client_capture_id: clientCaptureId,
   });
+  if (error && /p_client_capture_id|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
+    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
+      p_guest_id: session.guest_id,
+      p_r2_object_key: r2Ref,
+      p_consent_to_public: sharePublicly,
+      p_media_type: mediaType,
+      p_duration_ms: durationMs,
+      p_poster_r2_key: posterRef,
+      p_points_cost: cost,
+      p_captured_at: capturedAtIsoValue,
+    }));
+  }
   if (error && /p_captured_at|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
     ({ data, error } = await admin.rpc('papic_record_guest_capture', {
       p_guest_id: session.guest_id,
@@ -596,7 +644,11 @@ export async function POST(req: Request) {
   // leaves points spent — symmetric to the seat path. Best-effort; a failed
   // unwind costs the couple points, never a broken capture.
   const recordStatus = (data as { status?: string } | null)?.status;
-  if (error || recordStatus !== 'ok') {
+  // 🔁 A `duplicate` answer is a success that spent nothing in the record: the
+  // first arrival of this shutter already paid. The pool points THIS request
+  // booked above are put back exactly as for a refusal.
+  const recordDuplicate = (data as { duplicate?: boolean } | null)?.duplicate === true;
+  if (error || recordStatus !== 'ok' || recordDuplicate) {
     // ONE call, both halves — the guest's own balance and the host's pot each
     // get back exactly what this capture took from them. Releasing the whole
     // cost to either side alone would move credits between the two: the guest
@@ -658,8 +710,16 @@ export async function POST(req: Request) {
     ceiling?: number | null;
   };
 
-  let captureId: string | null = null;
-  if (result.status === 'ok') {
+  let captureId: string | null =
+    typeof (data as { capture_id?: unknown } | null)?.capture_id === 'string'
+      ? ((data as { capture_id: string }).capture_id)
+      : null;
+  // The first arrival of this shutter already ran the screen, the wall, the
+  // derivatives and the Drive copy — answer with its row and do none of it twice.
+  if (recordDuplicate && result.status === 'ok') {
+    return NextResponse.json({ ...result, captureId });
+  }
+  if (result.status === 'ok' && !captureId) {
     // Resolve the new capture's id (the RPC reports quota only) — the Kwento
     // author sheet anchors on it, and the wall ingest below reuses it.
     try {

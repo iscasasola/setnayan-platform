@@ -220,27 +220,27 @@ const LIVE: HubLiveState = {
   ],
 };
 
-test('a part’s own FONT is FREE — Apply writes it for every couple (owner 2026-10-06)', () => {
-  // 🔤 2026-10-06 ("EVENT DETAILS IS REBUILT": *"font on a single part is FREE"*) — was Pro since 2026-09-28.
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB
+   PRO ◆"): *everything in Style is Pro (colour, size, font …)*. A part's font, colour and size were freed on 2026-09-28
+   and 2026-10-06; they are tried free in the Maker and held at ✓ Apply again — the event's unlock writes them. */
+test('💎 a part’s own FONT is Pro at Apply — held without Pro, written with it (2026-10-16)', () => {
   const draft = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { font: 'script' } } } } },
   });
   const free = planHubDraftApply(draft, LIVE, false);
-  assert.equal(free.refused.length, 0, 'a part’s font was held as Pro');
-  assert.equal(free.apply.length, 1, 'a free couple’s font did not reach the live page');
-  assert.equal(free.apply[0]!.kind === 'widget' && free.apply[0]!.field, 'canvas');
+  assert.equal(free.refused.length, 1, 'a part’s font went live for a couple without Pro');
+  assert.equal(free.apply.length, 0);
   const pro = planHubDraftApply(draft, LIVE, true);
   assert.equal(pro.apply.length, 1);
+  assert.equal(pro.apply[0]!.kind === 'widget' && pro.apply[0]!.field, 'canvas');
 });
 
-test('💎 a part’s own COLOUR and SIZE are free — Apply writes them for a couple without Pro', () => {
-  // Owner 2026-09-28: "free to change design, change text, size, color …".
+test('💎 a part’s own COLOUR and SIZE are Pro at Apply — held without Pro, written with it (2026-10-16)', () => {
   const draft = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { color: '#8a1c2b', size: 120 } } } } },
   });
-  const free = planHubDraftApply(draft, LIVE, false);
-  assert.equal(free.refused.length, 0, 'a free couple’s colour and size were held as Pro');
-  assert.equal(free.apply.length, 1);
+  assert.equal(planHubDraftApply(draft, LIVE, false).refused.length, 1, 'a free couple’s colour and size went live');
+  assert.equal(planHubDraftApply(draft, LIVE, true).apply.length, 1);
 });
 
 test('taking an element style OFF is free, even while another element keeps its own', () => {

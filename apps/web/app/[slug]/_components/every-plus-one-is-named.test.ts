@@ -273,8 +273,9 @@ test('submitRsvp: a details-only seat never touches the name; meal is checked an
   assert.doesNotMatch(branch, /first_name|last_name|plus_one_name_confirmed_at|\.delete\(/, 'a blank name renamed or removed a seat');
   assert.match(src, /ask\.meal && op\.meal !== undefined && MEAL_VALUES\.includes\(op\.meal/);
   assert.match(src, /ask\.dietary && op\.dietary !== undefined/);
-  // The new row carries the seat's answers, beside the fields that make it a seat.
-  assert.match(src, /\.insert\(\{\s*\.\.\.seatAnswers,\s*event_id: eventId/);
+  // The new row carries the seat's answers, beside the fields that make it a seat —
+  // minted by the one locked writer (migration 20271272305444), never a bare insert.
+  assert.match(src, /rpc\('guest_plus_one_seat_mint', \{[\s\S]{0,120}?p_seat: \{\s*\.\.\.seatAnswers,/);
   // The host-list mirror takes the first NAMED seat, never a details-only one.
   assert.match(src, /ops\.find\(\(o\) => o\.kind !== 'details'\)/);
 });

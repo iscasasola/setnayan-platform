@@ -685,7 +685,8 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   );
   const store = read('lib/hub-draft-store.ts');
   const forget = store.slice(store.indexOf('export async function forgetDraftedEventColumn'), store.indexOf('/** Where a form\'s draft save goes back'));
-  assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): built inside `updateHubDraft`, on the draft as it is when the write lands. */
+  assert.match(forget, /delete events\[column\];\s*return \{ next: \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
   const details = read(`${L}/maker-details.tsx`);
   // 2026-10-08: the whole Look (`theme`) and its Background row are the one panel, with no film line (one mount at a time — `item=`).
   assert.match(details, /theme: <LookPanel item="theme" \/>,/, 'the whole Look is not the one panel');

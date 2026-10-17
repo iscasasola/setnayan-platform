@@ -174,5 +174,6 @@ test('6 · Attire: every colour a role wears is a button that opens the SAME pic
   assert.match(src, /const removeRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'removing a role colour does not go through the draft');
   assert.match(src, /data-mood-board-role-remove/, 'no way to remove a role’s colour');
   /* RE-AIMED 2026-10-09: the fields come from `paletteDraftFields` (lib/studio-mood-board-saves.ts, held byte for byte by studio-mood-board-posts-the-same). */
-  assert.match(src, /paletteDraftFields\(wrote\)/, 'the palette no longer writes into the draft');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): the board also sends the board it was built on (`sentPalette`). */
+  assert.match(src, /paletteDraftFields\(wrote, sentPalette\.current\)/, 'the palette no longer writes into the draft');
 });

@@ -24,6 +24,8 @@ import {
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
+import { rebaseHubDraftPatch } from '@/lib/hub-draft-rebase';
+import { TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
 import { hubDraftProEffects, hubProEffectView } from '@/lib/hub-pro-effects';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
@@ -218,7 +220,7 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
 export function labDraftStep(
   current: HubDraft,
   /** `pro` — 💎 `?pro=1`: the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown },
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
@@ -255,8 +257,25 @@ export function labDraftStep(
     } catch {
       return { draft: current, published, result: { ok: false, intent, error: 'That change could not be read.' } };
     }
+    /* 👥 Merged from what the screen built it on (`MERGE_BASE_FIELD`), onto the draft as this browser holds it NOW — the
+       real action's own rebase (`lib/hub-draft-rebase.ts`). The lab's draft is this browser's, shared by its tabs: two
+       tabs are two screens. */
+    let base: unknown;
+    try {
+      base = typeof fields.base === 'string' && fields.base ? (JSON.parse(fields.base) as unknown) : undefined;
+    } catch {
+      base = undefined;
+    }
+    const live = labLive(scrub, published);
+    const canvas: Record<string, unknown> = {};
+    for (const row of live.widgets) {
+      const c = (row.config_json as { canvas?: unknown } | null)?.canvas;
+      if (c !== undefined) canvas[row.widget_type] = c;
+    }
+    const rebased = rebaseHubDraftPatch(current, patch, base, { events: live.events as Record<string, unknown>, canvas });
     /* ⚡ The bar comes back with the save only when the save asked for it (`HUB_DRAFT_BAR_FIELD`) — as the real one. */
-    return done(mergeHubDraft(current, patch), fields.bar === '1');
+    const step = done(mergeHubDraft(current, rebased.patch), fields.bar === '1');
+    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed, note: TWO_SCREENS_NOTE } } } : step;
   }
   if (intent === 'apply') {
     /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a

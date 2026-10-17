@@ -1179,6 +1179,11 @@ function sanitizeState(raw: unknown): HubDraftState {
   };
 }
 
+/** A posted patch (or a save's `base`, the same shape) → its well-formed state, through the SAME readers every write uses. */
+export function sanitizeHubDraftPatch(raw: unknown): HubDraftState {
+  return sanitizeState(raw);
+}
+
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
 export function sanitizeHubDraft(raw: unknown): HubDraft {
   const state = sanitizeState(raw);
@@ -3002,6 +3007,12 @@ export type HubDraftActionResult =
       matched?: boolean;
       /** `date_change` only: what happened, in words ("Asked. Your date stays as it is…"). */
       message?: string;
+      /**
+       * 👥 `save` only: another screen's change reached this save (`lib/hub-draft-rebase.ts`). `merged` holds the values
+       * that now differ from what this screen sent — what it must show — and `clashed` the ones both screens changed
+       * (this save's value was kept). The screen shows them with one calm line (`TWO_SCREENS_NOTE`).
+       */
+      elsewhere?: { merged: HubDraftPatch; clashed: string[]; note: string };
     }
   | {
       ok: false;

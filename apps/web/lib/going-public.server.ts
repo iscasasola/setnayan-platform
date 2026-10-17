@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { readHubDraft, writeHubDraft } from '@/lib/hub-draft-store';
+import { readHubDraft, updateHubDraft } from '@/lib/hub-draft-store';
 import { draftAskToJoinOnGoingPublic } from '@/lib/going-public';
 
 type Client = Parameters<typeof readHubDraft>[0];
@@ -17,9 +17,11 @@ type Client = Parameters<typeof readHubDraft>[0];
  */
 export async function carryAskToJoinIntoDraft(client: Client | SupabaseClient, eventId: string): Promise<void> {
   try {
-    const draft = await readHubDraft(client as Client, eventId);
-    const next = draftAskToJoinOnGoingPublic(draft);
-    if (next) await writeHubDraft(client as Client, eventId, next);
+    // 👥 Built on the draft as it is when the write lands (`updateHubDraft`) — a host's save made meanwhile is kept.
+    await updateHubDraft(client as Client, eventId, (draft) => {
+      const next = draftAskToJoinOnGoingPublic(draft);
+      return next ? { next } : null;
+    });
   } catch (e) {
     console.error(
       '[going-public] the Maker draft still holds the old "Who can RSVP?" — Apply would switch requests off:',

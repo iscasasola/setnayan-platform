@@ -18,4 +18,8 @@ Decisions made here (no record covered them):
 Coordination: the pair-inference work (rd/the-other-parent-is-named, wt-other-parent) was UNCOMMITTED and unpushed when
 this started; both edit `parentWordOf` and `loadMarch`'s select. Expect a small conflict; keep gender as step 0.
 
-Open: CI; shots at 375; corpus DECISION_LOG row.
+Done since: corpus DECISION_LOG row pushed (Setnayan-specs 07437fd9) · exposure + port baselines regenerated · card
+form golden regenerated (name_prefix → name_title) · 8 shots at 375 in ~/Documents/Claude/Projects/shots-2026-10-17/titles/
+· guard sabotage 6/6 red.
+
+Open: CI green (watch round in progress).

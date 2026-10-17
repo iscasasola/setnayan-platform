@@ -34,15 +34,12 @@ Skip anything whose equivalence you cannot prove; name it in the PR. No UI chang
 changelog.d/rd-event-day-database.md (SPEC IMPACT: None unless a ruling changes).
 
 ## BUILDER STATE (updated as I go)
-- Prod measured (SELECT-only): replay's 60 policies on the 15 hot tables are byte-identical to prod (md5 of the
-  exposure-baseline lines == md5 of the same lines built from prod pg_policy).
-- Item 1: migration 20271274849201_event_day_policies_read_the_caller_once.sql — 37 ALTER POLICY (auth.uid/jwt/role +
-  is_admin wrapped) + count_unread_message_threads wrap + in-migration self-check. Test: TODO.
-- Item 2/3: migration 20271275124348_event_day_indexes_and_duplicate_drops.sql — event_moderators(user_id),
-  chat_messages(thread_id, created_at desc); drop guests_event_guest_key + comp_grants_public_id_unique.
-- Item 4: claim_periodic_job is ALREADY pre-throttled per instance (lib/periodic-jobs.ts CHECK_THROTTLE_MS) and fires
-  only from app/page.tsx, explore, admin layout (not guest event routes). pg_stat_statements reset 2026-05-12, so 281k
-  calls = ~1.8k/day. Skip. Unread RPC: 47 ms is a cold-connection cost (warm call <1 ms measured); plan = wrap auth.uid
-  in RPC + debounce badge refresh bursts (no 30 s cache: a stale badge after reading would lie).
-- Item 5: app_telemetry_logs HAS a live reader — app/admin/connection-logs/connection-logs-client.tsx (postgres_changes
-  INSERT/UPDATE), mounted by /admin/connection-logs and /admin/app-performance. Left in the publication.
+- DONE + pushed: both migrations; tests/db/event-day-policies-admit-the-same-rows.db.test.ts (7/7, sabotaged 3 ways);
+  exposure baseline regenerated (37 policy lines); badge debounce via lib/settle-burst.ts +
+  lib/the-unread-badge-asks-once-per-burst.test.ts (sabotaged both halves); changelog fragment.
+- Prod measured (SELECT-only): replay's 60 policies on the 15 hot tables are byte-identical to prod (md5 match).
+- Item 4: claim_periodic_job already pre-throttled per instance (CHECK_THROTTLE_MS), fires from app/page.tsx /
+  explore / admin layout only; pg_stat_statements reset 2026-05-12 so 281k = ~1.8k/day. Skipped. Unread RPC 47 ms
+  = cold-connection cost (warm <1 ms measured); wrapped auth.uid in the RPC + badge burst debounce. No 30 s cache.
+- Item 5: app_telemetry_logs has a live reader (admin/connection-logs-client.tsx postgres_changes). Left as is.
+- NEXT: targeted db test set running (scratchpad dbset.sh) → open draft PR → CI loop.

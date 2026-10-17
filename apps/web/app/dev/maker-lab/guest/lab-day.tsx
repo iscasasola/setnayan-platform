@@ -37,6 +37,7 @@ export function LabDayPages({
   given,
   styleOf,
   galleryStyle,
+  gallery,
 }: {
   /** The address's `?tab=` — the first page when absent. */
   tab: string | undefined;
@@ -55,6 +56,8 @@ export function LabDayPages({
   /** The look a fixed part is drawn in (the lab's drafted `scene_styles`, a miniature's laid over). */
   styleOf: (part: FixedStyleScene) => string | null;
   galleryStyle: string | null;
+  /** 🖼 `lab_pictures=1`: the lab's real gallery with its own drawn pictures (in place of the empty scene's place). */
+  gallery?: ReactNode;
 }) {
   const pages = makerStagesPages('event');
   const keys = pages.map((p) => p.key);
@@ -95,11 +98,12 @@ export function LabDayPages({
     [
       'w:our_photos',
       /* An empty scene's place: the Maker's canvas alone, as on the real page (`maker-empty-scene.tsx`). */
-      maker ? (
+      /* 🖼 `lab_pictures=1`: the lab's real gallery (`gallery`), its pictures' effects tried here. */
+      gallery ?? (maker ? (
         <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
           <MakerEmptyScene type="our_photos" styleId={galleryStyle} />
         </div>
-      ) : null,
+      ) : null),
     ],
     ['f:photos_of_you', dayPart('photos_of_you')],
     ['f:find_your_seat', dayPart('find_your_seat')],

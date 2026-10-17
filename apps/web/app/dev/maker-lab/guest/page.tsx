@@ -78,6 +78,8 @@ import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
+import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
 import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 
@@ -110,6 +112,11 @@ const LAB_VENUE_EVENT = {
     { role: 'ceremony', name: 'Santuario de San Antonio', address: 'McKinley Rd, Forbes Park, Makati', latitude: 14.5476, longitude: 121.0335 },
     { role: 'reception', name: 'Seda Vertis North', address: '1 Astra Way, Vertis North, Quezon City', latitude: 14.6537, longitude: 121.0367 },
   ],
+};
+/** 🖼 …with a picture on each (`lab_pictures=1`): Setnayan's own ready-made stills, never anybody's photo. */
+const LAB_VENUE_EVENT_PICTURED = {
+  ...LAB_VENUE_EVENT,
+  venues: LAB_VENUE_EVENT.venues.map((v, i) => ({ ...v, photoUrl: i === 0 ? '/std/backgrounds/rose-archway.webp' : '/std/backgrounds/ballroom.webp' })),
 };
 
 /** The canvas keys whose node draws its own marker (the guest stand-ins), or has none (the March — `#site-entourage`). */
@@ -325,7 +332,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
-     in a phone column; `&art=candlelight` draws it on the dark Look. Stand-in names only. */
+     in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
+     (`labEntourage('cale')`). Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
     return (
@@ -335,7 +343,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-entourage={sp.entourage}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <EntourageSection groups={labEntourage('lone')} id="site-entourage" sceneStyle={style} />
+        <EntourageSection groups={labEntourage(sp.cast === 'cale' ? 'cale' : 'lone')} id="site-entourage" sceneStyle={style} />
       </main>
     );
   }
@@ -445,7 +453,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      reminders, a guest's own schedule and directions): the page's one answer (`sceneOnStage`), on the lab's rows
      with its draft over them. The lab's Day drew a fixed set — the gallery always, whatever the table said (the walk
      of 2026-10-11, M08: "Our photos × The Day EMPTY but drawn"). */
+  /* 🖼 `lab_pictures=1`: The Day draws the lab's gallery (its pictures' effects are tried there). */
+  const dayGallery = (await cookies()).get('lab_pictures')?.value === '1';
   const dayDraws = (type: WidgetType): boolean =>
+    (dayGallery && type === 'our_photos') ||
     stageTiles.includes(`w:${type}`) || (sceneOnStage({ ...labSeen(labRowsNow), stage: 'event', reader: 'guest' }, type)?.offList ?? null) !== null;
   /* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) — ONE mount for every page of the lab's canvas, wearing
      the hero row's drafted canvas as the real page does (`site-body.tsx` `heroElements`): a typed Title, a part's
@@ -540,6 +551,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
+  const labPictures = (await cookies()).get('lab_pictures')?.value === '1';
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
   const scene: Record<LabScrubScene | 'our_love_story', ReactNode> = {
     countdown: (
@@ -555,10 +567,20 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     /* 🧩 AN EMPTY SCENE IS THE MAKER'S CANVAS ALONE (`makerCanvas`), as on the real page (`site-body.tsx`
        `isMakerCanvas`; `maker-empty-scene.tsx`: "A guest never receives this markup"). The lab drew "Only you see this"
        on its guest page whoever asked (the walk of 2026-10-11, P11). */
+    /* 🖼 `lab_pictures=1` (a cookie, so the Maker's canvas reloads keep it): the REAL Love Story with the lab's two
+       photos, in the REAL scene frame — where its pictures' Reveal ▾ and Light leak ◆ (owner 2026-10-17) are tried. */
     our_love_story: makerCanvas ? (
-      <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
-        <MakerEmptyScene type="our_love_story" />
-      </div>
+      labPictures ? (
+        <HubCanvasFrame widget={{ ...rowOf('our_love_story'), widget_id: 'lab-love-story' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+        <section data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8 text-left">
+          <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={sceneStyleOfRow(rowOf('our_love_story'), stage, 'wedding')} partners={['Maria', 'Jose']} />
+        </section>
+      </HubCanvasFrame>
+      ) : (
+        <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
+          <MakerEmptyScene type="our_love_story" />
+        </div>
+      )
     ) : null,
     special_message: (
       /* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */
@@ -584,7 +606,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       /* 🏛 The REAL Venue widget — the church and the hotel, in its drafted (or previewed) Style. */
       <HubCanvasFrame widget={{ ...rowOf('venue_map'), widget_id: 'lab-venue' } as never} hubTheme="house" ownClipPlays>
         <section data-lab-scene="venue_map" className="border-t border-ink/10 px-4 py-8 text-left">
-          <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />
+          <VenueWidget event={(labPictures ? LAB_VENUE_EVENT_PICTURED : LAB_VENUE_EVENT) as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />
         </section>
       </HubCanvasFrame>
     ),
@@ -639,9 +661,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /** A scene the sample has nothing in yet: its place on the Maker's canvas (`MakerEmptyScene`), nothing for a guest. */
   const emptyScene = (type: 'what_to_bring' | 'our_photos') =>
     makerCanvas ? (
-      <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
+      /* 🖼 `lab_pictures=1`: the REAL gallery with the lab's own drawn pictures, in the REAL scene frame. */
+      type === 'our_photos' && labPictures ? (
+        <HubCanvasFrame widget={{ ...rowOf('our_photos'), widget_id: 'lab-photos' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+        <section data-lab-scene="our_photos" className="border-t border-ink/10 px-4 py-8 text-left">
+          <OurPhotosWidget urls={labPhotoUrls(5)} sceneStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')} heading={null} />
+        </section>
+      </HubCanvasFrame>
+      ) : (
+        <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
         <MakerEmptyScene type={type} />
       </div>
+      )
     ) : null;
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {
@@ -724,6 +755,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           mark={mark}
           styleOf={(part) => fixedSceneStyleOf(labEvent.style_preferences, part, stage, 'wedding')}
           galleryStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')}
+          gallery={labPictures ? stageGiven['w:our_photos'] : undefined}
           /* Every node the lab has (`stageGiven`): the day's own five, and any scene ticked onto The Day. */
           given={stageGiven}
         />
@@ -922,9 +954,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <CoverSceneMenuWaits />
       {/* 🎭 `&veil=1` — the REAL opening over the lab's cover (`RevealMount`, the guest page's own: its hold script, then the
           Sheer veil), as an owned Pro page mounts it, so "behind the veil none of the cover's words show" (owner
-          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. */}
+          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. Told the page's own
+          `firstPageOnly` (`site-body.tsx`), so the drape that stays with the cover (owner 2026-10-17) walks here too. */}
       {sp.veil === '1' && !makerCanvas ? (
-        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" />
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>

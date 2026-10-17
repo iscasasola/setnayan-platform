@@ -243,6 +243,24 @@ export function onlyWhatGuestsMaySee<Q extends { eq: unknown; is: unknown; neq: 
   return fenced.neq('visibility', 'coordinator_only') as unknown as Q;
 }
 
+/**
+ * 🔒 THE SAME FENCE, ASKED OF ONE ROW ALREADY IN HAND — a realtime change's payload (2026-10-18, live-day polling).
+ *
+ * The guests' live header (`run-of-show-header.tsx`, `forGuests`) used to answer every change on
+ * `event_schedule_blocks` by re-reading the timeline — so one advance by the coordinator made EVERY guest's phone read
+ * the database at the same instant. It now applies the change it was sent (`lib/run-of-show-live.ts`), and a row is
+ * shown to guests only if it passes the three conditions `onlyWhatGuestsMaySee` asks of a query, here asked of the row:
+ *
+ *   'yes'     — all three columns are present and pass;
+ *   'no'      — present, and one of them fails (the line leaves the guests' list);
+ *   'unknown' — a fence column is MISSING from the row (a payload that did not carry it). Never read as "yes": the
+ *               caller re-reads through `onlyWhatGuestsMaySee` instead.
+ */
+export function rowGuestsMaySee(row: Record<string, unknown>): 'yes' | 'no' | 'unknown' {
+  if (typeof row.is_public !== 'boolean' || !('audience' in row) || !('visibility' in row)) return 'unknown';
+  return row.is_public === true && row.audience === null && row.visibility !== 'coordinator_only' ? 'yes' : 'no';
+}
+
 export async function fetchPublicScheduleBlocks(
   supabase: SupabaseClient,
   eventId: string,

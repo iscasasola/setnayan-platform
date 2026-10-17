@@ -218,3 +218,92 @@ test('4 · a hidden phone does not poll the watch link', () => {
   const embed = read('app/[slug]/_components/watch-live-embed.tsx');
   assert.match(embed, /setInterval\(async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/);
 });
+
+// ── 3 · the run-of-show and the announcement: no herd on a change ───────────
+
+const block = (id: string, start: string, state: 'upcoming' | 'live' | 'done') => ({
+  block_id: id,
+  label: id,
+  start_at: start,
+  end_at: null,
+  location: null,
+  run_state: state,
+  actual_start_at: null,
+  block_type: '',
+  is_public: true,
+});
+const row = (over: Record<string, unknown>) => ({
+  block_id: 'b2',
+  label: 'Dinner',
+  start_at: '2026-10-18T19:00:00+08:00',
+  end_at: null,
+  location: 'Hall',
+  run_state: 'live',
+  actual_start_at: '2026-10-18T19:02:00+08:00',
+  block_type: 'dinner',
+  is_public: true,
+  audience: null,
+  visibility: 'couple',
+  ...over,
+});
+
+test('3 · an advance is applied from its payload — the guest’s phone reads nothing', async () => {
+  const { applyGuestBlockChange } = await import('./run-of-show-live');
+  const blocks = [block('b1', '2026-10-18T17:00:00+08:00', 'live'), { ...block('b2', '2026-10-18T19:00:00+08:00', 'upcoming'), label: 'Dinner' }];
+  const next = applyGuestBlockChange(blocks, { eventType: 'UPDATE', new: row({}) });
+  assert.ok(next, 'a complete payload was sent back for a re-read');
+  assert.equal(next!.find((b) => b.block_id === 'b2')!.run_state, 'live');
+  assert.equal(next!.find((b) => b.block_id === 'b2')!.actual_start_at, '2026-10-18T19:02:00+08:00');
+  assert.deepEqual(next!.map((b) => b.block_id), ['b1', 'b2'], 'the advance moved the line');
+  // DELETE takes the line off; INSERT puts it in time order.
+  assert.deepEqual(applyGuestBlockChange(next!, { eventType: 'DELETE', old: { block_id: 'b1' } })!.map((b) => b.block_id), ['b2']);
+  const inserted = applyGuestBlockChange(next!, { eventType: 'INSERT', new: row({ block_id: 'b0', start_at: '2026-10-18T15:00:00+08:00', run_state: 'done' }) });
+  assert.deepEqual(inserted!.map((b) => b.block_id), ['b0', 'b1', 'b2']);
+});
+
+test('3 · the guests’ fence holds on a payload — a hidden line never appears, and unknown is never "show"', async () => {
+  const { applyGuestBlockChange } = await import('./run-of-show-live');
+  const { rowGuestsMaySee } = await import('./schedule');
+  const blocks = [block('b2', '2026-10-18T19:00:00+08:00', 'upcoming')];
+  // Each failing condition takes the line OFF the guests' list.
+  for (const bad of [{ is_public: false }, { audience: ['entourage'] }, { visibility: 'coordinator_only' }]) {
+    assert.equal(rowGuestsMaySee(row(bad)), 'no');
+    assert.deepEqual(applyGuestBlockChange(blocks, { eventType: 'UPDATE', new: row(bad) }), [], `a ${JSON.stringify(bad)} line stayed on the guests' phones`);
+    assert.deepEqual(applyGuestBlockChange([], { eventType: 'INSERT', new: row(bad) }), [], `a ${JSON.stringify(bad)} line reached the guests' phones`);
+  }
+  // A payload missing a fence column cannot be judged: it is re-read through the fence, never shown.
+  for (const missing of ['is_public', 'audience', 'visibility']) {
+    const r: Record<string, unknown> = row({});
+    delete r[missing];
+    assert.equal(rowGuestsMaySee(r), 'unknown');
+    assert.equal(applyGuestBlockChange(blocks, { eventType: 'UPDATE', new: r }), null, `a payload without ${missing} was shown to guests`);
+  }
+  assert.equal(applyGuestBlockChange(blocks, { eventType: 'UPDATE', new: { block_id: 'b2' } }), null);
+  assert.equal(applyGuestBlockChange(blocks, { eventType: 'DELETE', old: {} }), null);
+});
+
+test('3 · the guests’ header applies the change; only hosts re-read on every change', () => {
+  const header = read('app/_components/run-of-show-header.tsx');
+  assert.match(header, /const next = applyGuestBlockChange\(blocksRef\.current, change\);\s*if \(next\) setBlocks\(next\);\s*else reread\(\);/);
+  // The subscription hands the payload over; the bare re-read on every change is gone.
+  assert.match(header, /\(change\) => \{\s*onChange\(change as BlockChange\);\s*\}/);
+  assert.doesNotMatch(header, /'postgres_changes',[\s\S]{0,400}?\(\) => \{\s*void refetch\(\);/, 'every change re-reads again — a herd per advance');
+  // A guest's re-read (and the one after a reconnect) waits a random moment.
+  assert.match(header, /herdDelay\(GUEST_REREAD_SPREAD_MS\)/);
+  assert.match(header, /if \(subscribedOnce\.current\) reread\(\);/);
+});
+
+test('3 · the announcement: one read per event, the writer forgets it BEFORE the ping, phones spread their asks', () => {
+  const action = read('app/[slug]/announcement-actions.ts');
+  assert.match(action, /rememberedLiveRead\(`announcement-v\d+:\$\{eventId\}`, eventId,/);
+  assert.match(action, /latest === BROADCASTS_UNREADABLE \? notRemembered\(latest\) : latest/, 'a refused read became every guest’s answer');
+  // The per-guest gate stays per request, outside the shared answer.
+  assert.ok(action.indexOf('readGuestSession()') < action.indexOf('rememberedLiveRead('), 'the cookie check must come first');
+  const writer = read('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
+  const forget = writer.indexOf('revalidateTag(liveDayTag(eventId))');
+  const ping = writer.indexOf('.channel(`announce:${eventId}`)');
+  assert.ok(forget > 0 && ping > 0 && forget < ping, 'the remembered announcement must be forgotten BEFORE the ping — or phones read the old words');
+  const card = read('app/[slug]/_components/day-of-announcement.tsx');
+  assert.match(card, /herdDelay\(PING_SPREAD_MS\)/, 'every phone asks the instant the ping lands');
+  assert.match(card, /const pull = async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/, 'a pocketed phone asks every 45 s again');
+});

@@ -99,7 +99,7 @@ import type { StagePageOption } from './stage-item-menu';
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
+import { BlockAnimateRows, CameraPartTools, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
@@ -1473,6 +1473,14 @@ export function StageTools({
   }, [picked, rsvpOpen, frameSel, stageKey, shownPage, present, maker?.renderStamp]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
+  /* 📱 THE VENUE CARDS' PICTURE ▾, RIGHT HERE — Edit's rows 2–3 on the Venue scene (controller ruling 2026-10-17 on the
+     owner's "no go-edit-elsewhere links; put the same field right there"). Row 1 keeps the venue's own door to Suppliers
+     (the place is the booking's); each card's Picture ▾ is the SAME row Details › Venues draws (`VenuePictureRows`). */
+  const venuePictures = maker?.venuePictures ?? null;
+  const venuePictureRows =
+    picked === 'venue' && !rsvpOpen && venuePictures && venuePictures.slots.length > 0 && maker ? (
+      <VenuePictureRows eventId={maker.eventId} slots={venuePictures.slots} pro={venuePictures.pro} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+    ) : null;
   /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
   const statusOn = edits.status !== null && (editOn || picked === null || statusFresh);
   /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
@@ -1741,7 +1749,7 @@ export function StageTools({
           /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
           <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : venuePictureRows} />
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a

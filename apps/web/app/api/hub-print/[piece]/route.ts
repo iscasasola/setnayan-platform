@@ -9,6 +9,7 @@ import { GET as seatingPrintGET } from '@/app/dashboard/[eventId]/seating/print/
 import { GET as seatingExportGET } from '@/app/dashboard/[eventId]/seating/export/route';
 import { GET as catererGET } from '@/app/dashboard/[eventId]/seating/caterer/route';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
+import { bytesStream } from '@/lib/stream-file';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
@@ -98,8 +99,9 @@ import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '
  */
 
 export const dynamic = 'force-dynamic';
-/* 300 s (was 60): Everything ◆ draws the set, every guest's pass and the day's sheets in one request — measured 2026-10-17 on a
-   developer Mac at ~0.1 s per guest; the shipped zip route (`/api/guest/pass-card/all`) runs under the same 300. */
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). Everything ◆ (the set, every
+   guest's pass and the day's sheets in one request) runs under the same ceiling. */
 export const maxDuration = 300;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -154,8 +156,9 @@ function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
   return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
+/** 📤 Every print PDF leaves as a STREAM — the same bytes, no Content-Length (`lib/stream-file.ts`: a buffered body stops at 4.5 MB on Vercel). */
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: string | null = null): NextResponse {
-  return new NextResponse(Buffer.from(bytes), {
+  return new NextResponse(bytesStream(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/pdf',
@@ -328,40 +331,14 @@ async function everythingPdf(
     await append(new Uint8Array(await res.arrayBuffer()));
   }
   const bytes = await out.save();
-  /* 📤 STREAMED, the shipped way for a big file (`/api/guest/pass-card/all`, `papic/me/[token]/download`): a Vercel Function's
-     BUFFERED response body stops at 4.5 MB (`FUNCTION_PAYLOAD_TOO_LARGE`); a streamed one does not ("we recommend using streaming
-     functions, which don't have this limit" — Vercel KB, "How do I bypass the 4.5MB body size limit"). The file's size and time at 240
-     and 400 guests are measured in the PR that made it (#6597), never written here. */
-  return pdfStream(bytes, fileName(set.event.slug, 'everything', set.theme), await printInputsVersion(eventId).catch(() => null));
+  /* 📤 STREAMED like every print PDF (`pdfResponse` → `bytesStream`, lib/stream-file.ts): a buffered Vercel body stops at 4.5 MB. The
+     file's size and time at 240 and 400 guests are measured in the PR that made it (#6597), never written here. */
+  return pdfResponse(bytes, fileName(set.event.slug, 'everything', set.theme), false, await printInputsVersion(eventId).catch(() => null));
 }
 
 /** The PDF size at which Everything's QR is drawn — the passes' own (600 px), shared by the QR sheet. */
 const EVERYTHING_QR_PX = 600;
 
-/** A PDF sent as a STREAM, in 1 MB parts — the headers `pdfResponse` sends, with no Content-Length (a streamed body). */
-function pdfStream(bytes: Uint8Array, name: string, version: string | null): Response {
-  const PART = 1 << 20;
-  let at = 0;
-  const body = new ReadableStream<Uint8Array>({
-    pull(c) {
-      if (at >= bytes.length) {
-        c.close();
-        return;
-      }
-      c.enqueue(bytes.subarray(at, at + PART));
-      at += PART;
-    },
-  });
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'content-type': 'application/pdf',
-      'content-disposition': `attachment; filename="${name}"`,
-      'cache-control': 'private, no-store',
-      ...(version ? { [PRINT_VERSION_HEADER]: version } : {}),
-    },
-  });
-}
 
 export async function GET(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece: rawPiece } = await ctx.params;

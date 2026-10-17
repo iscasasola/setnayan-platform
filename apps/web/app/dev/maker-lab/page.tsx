@@ -1,3 +1,4 @@
+import { sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kit-accents';
 import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
@@ -8,7 +9,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { detailsLabNode } from '../details-lab/details-lab-node';
+import { detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
@@ -117,6 +118,15 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     blockLooks = {};
   }
+  /* 🕯 The lab's drafted Accent picks (`lab_accents`, the stand-in for `style_preferences.scene_accents`), and the look
+     the lab's page wears for them — `lab_kit=vintage` puts the Vintage look on, so each scene starts at its accent. */
+  let sceneAccents: SceneAccents = {};
+  try {
+    sceneAccents = sanitizeSceneAccents(JSON.parse(decodeURIComponent((await cookies()).get('lab_accents')?.value ?? '{}')));
+  } catch {
+    sceneAccents = {};
+  }
+  const labKitTheme = (await cookies()).get('lab_kit')?.value === 'vintage' ? ('vintage' as const) : null;
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
     rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
   );
@@ -190,6 +200,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
       blockLooks={blockLooks}
+      sceneAccents={sceneAccents}
+      kitTheme={labKitTheme}
       /* ✓ The draft's summary as this render read it (`lab_bar`, written from the draft by the lab's door) — it was 0
          on every render, so the ✓ count fell to nothing by itself (P05). `?changes=3` still stands in for a draft. */
       summary={
@@ -201,6 +213,13 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
+      /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
+         (`&vpic=photo|drawing|none`, `&pro=1`). */
+      venuePictures={
+        (sp.studio === '1' || sp.ss === '1') && sp.venue === 'church'
+          ? ((v) => ({ slots: v.slots, pro: v.pro ?? { owns: false, storeShell: false } }))(labChurchVenues(typeof sp.vpic === 'string' ? sp.vpic : undefined, sp.pro === '1'))
+          : null
+      }
       studio={
         sp.studio === '1' || sp.ss === '1'
           ? {

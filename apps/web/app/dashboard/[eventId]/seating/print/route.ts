@@ -24,6 +24,7 @@ import {
 import { registryDate } from '@/lib/print-guest-registry';
 import { printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
+import { bytesStream } from '@/lib/stream-file';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import type { PrintImages } from '@/lib/print-layout';
 import { formatCount } from '@/lib/format-number';
@@ -34,6 +35,9 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { allInOneRefusal } from '@/lib/studio-prints-six';
 
 export const dynamic = 'force-dynamic';
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 const GUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The one card's guest, as a file word — `place-card-bea-santillan.pdf`. */
@@ -148,7 +152,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       title: `${coupleName} — seating chart`,
       subject: `${chartSizeSpec(size).label} · ${result.seated} seated`,
     });
-    return new NextResponse(Buffer.from(bytes), {
+    /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+    return new NextResponse(bytesStream(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -245,7 +250,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       for (const g of pu.guests) images[g.qrRef] = { bytes: await png(`${site}?g=${g.qrRef.slice(2)}`), mime: 'image/png' };
     }
     const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${coupleNameEarly} — seating pack`, subject: `${units.length} tables` });
-    return new NextResponse(Buffer.from(bytes), {
+    /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+    return new NextResponse(bytesStream(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

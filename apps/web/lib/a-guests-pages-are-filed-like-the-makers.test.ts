@@ -108,6 +108,9 @@ test('1 · the hand-copied prototype map IS what the one filing reads — every 
         if (canvas) named.add(canvas);
       }
     named.add('f:pass');
+    /* 🕯 The Closing (owner 2026-10-17) is the shell's footer, drawn under EVERY page — never filed on one, so the
+       prototype's map has no page for it (`the-closing-is-its-own-scene.test.ts`). */
+    named.delete('f:closing');
     assert.deepEqual([...named].sort(), Object.keys(PROTOTYPE[stage]).sort(), `${stage}: the test's copy of the prototype names other keys than the parts map`);
     for (const [key, page] of Object.entries(PROTOTYPE[stage])) {
       assert.equal(prototypePageOf(stage, key, pages), page, `${stage}: ${key}`);

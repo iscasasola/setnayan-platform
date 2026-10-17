@@ -9,7 +9,7 @@ import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
-import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
+import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_PARENT_FIELDS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
@@ -52,7 +52,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
-import { printStoryChapters } from '@/lib/love-story-moments';
+import { loveStoryPartners, printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
@@ -211,7 +211,7 @@ async function readEntourage(
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
     // + who is a real couple — the card prints a pair line exactly as the page does.
-    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}`)
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
@@ -735,7 +735,7 @@ export async function loadPrintSet(
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
     // The Our Story poster — the Love Story's one source, read from the same row.
-    story: printStoryChapters(event.love_story),
+    story: printStoryChapters(event.love_story, loveStoryPartners(event.display_name, event.event_type)),
     hasStill: Boolean(images.still),
     hasPosterBg: Boolean(images.posterBg),
     hasEventQr,

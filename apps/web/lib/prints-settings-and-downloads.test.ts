@@ -162,9 +162,10 @@ test('5 · Everything ◆: one piece of the route, Pro, the set + every guest’
   assert.match(fn, /const qrSheet = layoutQrCodes\(/, 'Everything leaves out the QR sheet');
   assert.match(fn, /layoutPasses\(\{ \.\.\.input, format: passFormat \}, tickets\.passes/, 'Everything leaves out every guest’s pass');
   assert.match(fn, /renderPrintBook\(\s*\[\s*\{ kind: 'pages', docs: \[\.\.\.docs, \.\.\.registry\.docs, \.\.\.qrSheet\] \},\s*\.\.\.\(passDocs\.length \? \[\{ kind: 'imposed' as const/, 'the set, the registry, the QR sheet and the passes are not ONE book');
-  /* 📤 STREAMED — a buffered Vercel response stops at 4.5 MB. */
-  assert.match(fn, /return pdfStream\(bytes, /, 'Everything is buffered — over 4.5 MB it would fail on Vercel');
-  assert.doesNotMatch(fn, /pdfResponse\(/, 'Everything is buffered');
+  /* 📤 STREAMED — through the route's one PDF door, which streams every print (`bytesStream`, lib/stream-file.ts, #6599). */
+  assert.match(fn, /return pdfResponse\(bytes, fileName\(set\.event\.slug, 'everything', set\.theme\)/, 'Everything does not leave through the route’s streamed PDF door');
+  assert.match(route, /function pdfResponse\([^)]*\): NextResponse \{\s*return new NextResponse\(bytesStream\(bytes\), \{/, 'the route’s PDF door is buffered — over 4.5 MB it would fail on Vercel');
+  assert.doesNotMatch(route, /function pdfStream\(/, 'a second copy of the stream helper');
   assert.match(route, /export const maxDuration = 300;/, 'Everything has less than the zip route’s 300 s');
   for (const path of ['print\\?format=pdf', 'print\\?chart=table&format=pdf', 'caterer\\?format=pdf', 'export\\?mode=moodboard']) {
     assert.match(fn, new RegExp(`at\\('${path}'\\)`), `Everything leaves out the day’s sheet at ${path}`);

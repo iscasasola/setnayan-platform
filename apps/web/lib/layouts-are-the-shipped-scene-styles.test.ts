@@ -118,7 +118,11 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
     for (const id of ids) assert.equal(resolveSceneStyle(type, stage, id, 'wedding'), id, `${type}: a page that stored "${id}" no longer draws it`);
     /* …and a value nobody draws falls back to the stage's first shipped look — never to nothing. */
     assert.equal(resolveSceneStyle(type, stage, 'no-such-style', 'wedding'), resolveSceneStyle(type, stage, null, 'wedding'));
-    assert.ok(ids.includes(resolveSceneStyle(type, stage, null, 'wedding')!), `${type}: the default is not a shipped look`);
+    /* 🗣 …except where the OWNER moved the default: the Love Story's Conversation (2026-10-17, "Conversation as the
+       default look") — a new look, which no stored id is renamed to. */
+    const ownerDefault: Readonly<Record<string, string>> = { our_love_story: 'conversation' };
+    const def = resolveSceneStyle(type, stage, null, 'wedding')!;
+    assert.ok(ids.includes(def) || ownerDefault[type] === def, `${type}: the default is not a shipped look`);
   }
   /* 🚫 THE ONE OWNER-RULED WITHDRAWAL: `two-sides` (2026-10-15, *"two sides feels messy"*) reads as the default — never as nothing. */
   for (const stage of ['rsvp', 'event'] as const) {

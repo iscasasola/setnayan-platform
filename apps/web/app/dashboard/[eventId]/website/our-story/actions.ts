@@ -142,7 +142,11 @@ type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
 /* add · edit · delete · arrange are applied by `applyMomentIntent`
    (`lib/love-story-moment-intent.ts`) — the SAME function the Maker's instant
-   scrapbook applies at the tap, so the two can never disagree. */
+   scrapbook applies at the tap, so the two can never disagree.
+   🗣 TWO VOICES (owner 2026-10-17): the form's `voice_a` / `voice_b` are read
+   there too (`momentFromForm`) — a moment needs a year and at least one of the
+   line, voice a or voice b; a form without the line keeps the moment's own, so
+   writing a voice never blanks the line told together. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
   const user = await getCurrentUser();

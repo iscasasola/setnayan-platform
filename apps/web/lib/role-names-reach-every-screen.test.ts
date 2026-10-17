@@ -158,7 +158,10 @@ test('every screen that shows a role word is handed the couple’s words', () =>
   })
     .split('\n')
     .filter((f) => f && !/\.test\.tsx?$/.test(f));
-  assert.ok(files.length > 20, `the sweep found only ${files.length} files — has the grep broken?`);
+  /* A floor for a BROKEN grep (zero, a handful), not a census: 21 → 20 on 2026-10-17 when the march's words moved
+     into `marchLineWords` (lib/entourage.ts, which this sweep skips) and `entourage-styles.tsx` stopped calling
+     `roleLabel` — a real file leaving, not the grep failing. */
+  assert.ok(files.length > 15, `the sweep found only ${files.length} files — has the grep broken?`);
 
   const used = new Set<string>();
   const offenders: string[] = [];

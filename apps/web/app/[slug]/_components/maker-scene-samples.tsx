@@ -432,6 +432,57 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
       <Line w="w-4/5" className="mx-auto" />
     </span>
   ),
+  /* 🗣 The two-voices looks (owner 2026-10-17) — bubbles left and right · two lanes on a centre line · a card with dots. */
+  'our_love_story:conversation': () => (
+    <span className="block space-y-3">
+      <Line w="w-1/3" className="mx-auto bg-ink/25" />
+      <Head w="w-1/2" className="mx-auto" />
+      <Box className="mx-auto aspect-[4/5] w-2/3" />
+      <span aria-hidden data-sample-box="" className="block w-4/5 rounded-2xl rounded-bl-sm bg-ink/15 px-3 py-2.5">
+        <Line w="w-11/12" className="bg-ink/25" />
+      </span>
+      <span aria-hidden data-sample-box="" className="ml-auto block w-3/4 rounded-2xl rounded-br-sm bg-ink/10 px-3 py-2.5">
+        <Line w="w-5/6" className="ml-auto bg-ink/20" />
+      </span>
+    </span>
+  ),
+  'our_love_story:timeline': () => (
+    <span className="relative block space-y-3">
+      <span aria-hidden className="absolute bottom-0 left-1/2 top-0 block w-px -translate-x-1/2 bg-ink/15" />
+      <Line w="w-1/3" className="relative mx-auto bg-ink/25" />
+      <Box className="relative mx-auto aspect-[4/5] w-2/5" />
+      <span className="relative grid grid-cols-2 gap-x-4">
+        <span className="block space-y-2 border-r-2 border-ink/25 pr-2">
+          <Line w="w-full" />
+          <Line w="w-3/4" className="ml-auto" />
+        </span>
+        <span className="block space-y-2 border-l-2 border-ink/15 pl-2">
+          <Line w="w-full" />
+          <Line w="w-2/3" />
+        </span>
+      </span>
+    </span>
+  ),
+  'our_love_story:cards': () => (
+    <span className="block space-y-3 text-left">
+      <span className="flex gap-2 overflow-hidden">
+        <span className="block w-5/6 shrink-0 space-y-2">
+          <Box className="aspect-[4/3] w-full" />
+          <Line w="w-1/3" className="bg-ink/25" />
+          <Head w="w-1/2" />
+          <span className="block border-l-2 border-ink/25 pl-2">
+            <Line w="w-11/12" />
+          </span>
+        </span>
+        <Box className="aspect-[4/3] w-1/4 shrink-0" />
+      </span>
+      <span className="flex items-center justify-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 rounded-full ${i === 0 ? 'w-4 bg-ink/30' : 'w-1.5 bg-ink/15'}`} />
+        ))}
+      </span>
+    </span>
+  ),
   /* ── Countdown (it needs the date) ── */
   'countdown:four-tiles': () => (
     <span className="flex justify-center gap-2">

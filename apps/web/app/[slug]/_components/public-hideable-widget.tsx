@@ -30,7 +30,8 @@ import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow, sceneHasEntranceOfRow } from '@/lib/scene-style-of-row';
+import { loveStoryPartners } from '@/lib/love-story-moments';
 import type { ArtKitView } from '@/lib/art-kits';
 import { KitSlot } from './kit-piece';
 
@@ -234,7 +235,16 @@ function PublicHideableWidgetBody({
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
+      /* 🗣 The partners' names, in the order the Maker's "Added by" gives them — voice a is the first (owner 2026-10-17). */
+      return (
+        <OurLoveStoryWidget
+          config={event.love_story}
+          mediaUrls={canvasMediaUrls}
+          sceneStyle={sceneStyle}
+          partners={loveStoryPartners(event.display_name, event.event_type)}
+          entrance={sceneHasEntranceOfRow(widget)}
+        />
+      );
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are

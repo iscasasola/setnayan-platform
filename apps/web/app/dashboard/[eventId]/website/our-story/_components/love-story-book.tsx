@@ -10,6 +10,8 @@ import {
   sortMoments,
   loveStoryScenes,
   mayAddMoment,
+  momentHasBothVoices,
+  momentReadLine,
   type LoveStoryMoment,
 } from '@/lib/love-story-moments';
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
@@ -297,10 +299,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                           </p>
                           {m.title ? <h3 data-moment-title-shown="" className="mt-2 font-pahina text-2xl font-medium">{m.title}</h3> : null}
                           <p className="mt-2 max-w-prose whitespace-pre-line font-pahina text-2xl font-light leading-snug">
-                            {m.line}
+                            {/* 🗣 Only the voices that wrote, named; none, the line told together (owner 2026-10-17). */}
+                            {momentReadLine(m, sheetProps.partners)}
                           </p>
                           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--ls-muted)]">
-                            {m.added_by ? <span>Added by {m.added_by}</span> : null}
+                            {/* "Added by" hides once both voices are written — the names say who wrote what. */}
+                            {m.added_by && !momentHasBothVoices(m) ? <span>Added by {m.added_by}</span> : null}
                             {(m.media ?? []).length === 0 ? <span>words only</span> : null}
                             {m.hidden ? <span>Off the Event Hub</span> : null}
                             <MomentSheet

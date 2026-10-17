@@ -67,20 +67,43 @@ const ROWS: Row[] = [
   ['fg', null, 'Sofia', 'Reyes', 'flower_girl', 17, 0],
 ];
 
+/**
+ * 🧍 `?entourage=` — the sample plus two more people who walk ALONE, so every kind of group holds a lone person
+ * (owner 2026-10-17, DECISION_LOG "A LONE PERSON IN THE ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED"):
+ * a Ninang with no Ninong is already in the sample (ps13, a sided group), the Ring Bearer and the Flower Girl walk
+ * alone in groups of one role; these add a lone Coin sponsor (a by-role group) and a lone Bridesmaid (a group whose
+ * two columns are two roles). Every name is a stand-in.
+ */
+const LONE_ROWS: Row[] = [
+  ['cn1', 'Mr.', 'Ramon', 'Ilagan', 'coin_sponsor', 18, 0],
+  ['bmaid3', 'Ms.', 'Lea', 'Navarro', 'bridesmaid', 19, 0],
+  /* 👵 TWO GRANDPARENTS, IN THE SHAPE A COUPLE RECORDS THEM TODAY (owner 2026-10-17, "the 2 grandparents should not be
+     named immediate family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.",
+     `relation` empty — nothing on the row says grandparent. Stand-in names. The unknown-sex parent is already above:
+     "Dr." Eduardo Santos, whose title says neither father nor mother. */
+  ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_immediate_family', 20, 0],
+  ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_immediate_family', 20, 1],
+  /* A lone Groomsman beside the lone Bridesmaid above — /maria-and-jose's crew as the controller found it live on
+     2026-10-17 (two crew members, no pair, so no column words drawn). */
+  ['gmen3', 'Mr.', 'Gabriel', 'Castillo', 'groomsman', 21, 0],
+];
+/** In the lone cast the Maid of Honor and the Best Man do not walk together (the same live state): she walks alone. */
+const LONE_WALKS: Record<string, number> = { moh: 22 };
+
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' = 'sample') {
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
   if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
-  const rows: EntourageGuestRow[] = ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
+  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : ROWS).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
     first_name: first,
     last_name: last,
     role,
     extra_roles: [],
-    march: { walk_no: walk, place_in_walk: place },
+    march: { walk_no: cast === 'lone' ? (LONE_WALKS[id] ?? walk) : walk, place_in_walk: place },
   }));
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and

@@ -31,10 +31,7 @@ test('changed only when a save was seen AND the inputs moved on — never a fals
 test('every print PDF carries its version; the Save keeps it; the pieces show the notice', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /\.\.\.\(version \? \{ \[PRINT_VERSION_HEADER\]: version \} : \{\}\)/);
-  assert.equal((route.match(/false, await printInputsVersion\(eventId\)\.catch\(\(\) => null\)\)/g) ?? []).length, 3, 'the ticket batch, one guest’s pass (2026-10-16) or the set/piece PDF lost its version');
-  /* 🗂 Everything ◆ (2026-10-17) is STREAMED — its version rides the same header. */
-  assert.match(route, /return pdfStream\(bytes, fileName\(set\.event\.slug, 'everything', set\.theme\), await printInputsVersion\(eventId\)\.catch\(\(\) => null\)\);/);
-  assert.match(route, /function pdfStream\([\s\S]{0,900}\.\.\.\(version \? \{ \[PRINT_VERSION_HEADER\]: version \} : \{\}\)/, 'the streamed file lost its version header');
+  assert.equal((route.match(/false, await printInputsVersion\(eventId\)\.catch\(\(\) => null\)\)/g) ?? []).length, 4, 'the ticket batch, one guest’s pass (2026-10-16), Everything (2026-10-17) or the set/piece PDF lost its version');
   assert.equal(PRINT_VERSION_HEADER, 'x-print-version');
   const save = read('app/dashboard/[eventId]/launch/_components/print-save-button.tsx');
   assert.match(save, /if \(version && target\) writePrintedStamp\(target\.eventId, target\.piece, version\)/);

@@ -18,6 +18,7 @@ import {
   plainGuestNames,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
+  ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
   type EntourageGuestRow,
 } from '@/lib/entourage';
@@ -141,7 +142,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     admin
       .from('guests')
       // + who is a real couple — the same read as the invitation's section.
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
       .eq('event_id', event.event_id)
       .is('deleted_at', null)
       .or(

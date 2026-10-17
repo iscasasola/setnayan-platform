@@ -67,6 +67,10 @@ export type EventVenue = {
    *  the booked supplier's public shop photos, or the couple's own upload
    *  (owner 2026-09-30). Absent/null = a clean text card. */
   photo?: string | null;
+  /** ⛪ The couple PICKED "Our drawing" for this card (`VenueChoice.drawing`,
+   *  owner 2026-10-16). Only then does a parish drawing show — and it shows only
+   *  where the library has one (`venueDrawingFor` in lib/parish-drawings.ts). */
+  drawingChosen?: true;
   /** That ref, signed for display — attached by the page's loader. */
   photoUrl?: string | null;
 };
@@ -118,6 +122,15 @@ export type VenueBookings = {
 //                     photos or the couple's own upload; `null` = no photo;
 //                     absent = the supplier's first photo.
 //   · `ownPhoto`      the photo in 'own' mode (their upload); absent/null = none.
+//   · `drawing`       ⛪ `true` = the couple PICKED "Our drawing ◆" — the parish's
+//                     drawing (lib/parish-drawings.ts) shows in place of the photo,
+//                     and only where the library has one for this venue. Absent =
+//                     the photo (if any) — a drawing NEVER replaces a photo by
+//                     itself (owner 2026-10-16, DECISION_LOG "A VENUE CARD'S
+//                     PICTURE IS THE COUPLE'S CHOICE"). Event Hub Pro: tried in
+//                     the draft, held at Apply (`venueBagNewDrawings`, hub-draft.ts).
+//                     The photo refs are kept beside it, so picking the photo back
+//                     restores it.
 
 export type VenueSlotKey = 'ceremony' | 'reception';
 export type VenueSource = 'supplier' | 'own';
@@ -125,6 +138,7 @@ export type VenueChoice = {
   source?: VenueSource;
   supplierPhoto?: string | null;
   ownPhoto?: string | null;
+  drawing?: true;
 };
 export type VenueChoices = Partial<Record<VenueSlotKey, VenueChoice>>;
 
@@ -175,6 +189,7 @@ export function readVenueChoices(config: unknown, eventId: string): VenueChoices
     else if (typeof r.supplierPhoto === 'string' && r.supplierPhoto.length <= 512 && r.supplierPhoto.startsWith('r2://'))
       c.supplierPhoto = r.supplierPhoto;
     if (isOwnVenuePhotoRef(r.ownPhoto, eventId)) c.ownPhoto = r.ownPhoto;
+    if (r.drawing === true) c.drawing = true;
     if (Object.keys(c).length) out[key] = c;
   }
   return out;
@@ -405,9 +420,12 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
   const ceremonyPhoto = venuePhotoFor(bookings.ceremony, choices.ceremony);
   const receptionPhoto = venuePhotoFor(bookings.reception, choices.reception);
   const ceremonyPin = pin(event.ceremony_venue_latitude, event.ceremony_venue_longitude);
+  // ⛪ …and whether the couple PICKED "Our drawing" for it (never on its own).
+  const ceremonyDrawing = choices.ceremony?.drawing === true ? ({ drawingChosen: true } as const) : {};
+  const receptionDrawing = choices.reception?.drawing === true ? ({ drawingChosen: true } as const) : {};
 
   const ceremony: (EventVenue & { placeKey?: string | null }) | null = bookings.ceremony
-    ? { role: 'ceremony', ...bookings.ceremony, photo: ceremonyPhoto }
+    ? { role: 'ceremony', ...bookings.ceremony, photo: ceremonyPhoto, ...ceremonyDrawing }
     : clean(event.std_film_ceremony_name) || clean(event.ceremony_venue_address) || ceremonyPin.latitude != null
       ? {
           role: 'ceremony',
@@ -418,17 +436,18 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
           // 📍 …and the pin they placed on the map (guests' Directions open it).
           ...ceremonyPin,
           photo: ceremonyPhoto,
+          ...ceremonyDrawing,
         }
       : null;
 
   let reception: (EventVenue & { placeKey?: string | null }) | null = null;
   if (bookings.reception) {
-    reception = { role: 'reception', ...bookings.reception, photo: receptionPhoto };
+    reception = { role: 'reception', ...bookings.reception, photo: receptionPhoto, ...receptionDrawing };
   } else {
     const p = pin(event.venue_latitude, event.venue_longitude);
     const name = clean(event.venue_name) ?? clean(event.std_film_venue_name);
     const address = clean(event.venue_address);
-    if (name || address || p.latitude != null) reception = { role: 'reception', name, address, ...p, photo: receptionPhoto };
+    if (name || address || p.latitude != null) reception = { role: 'reception', name, address, ...p, photo: receptionPhoto, ...receptionDrawing };
   }
 
   const strip = (v: EventVenue & { placeKey?: string | null }): EventVenue => ({
@@ -438,6 +457,7 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
     latitude: v.latitude,
     longitude: v.longitude,
     ...(v.photo ? { photo: v.photo } : {}),
+    ...(v.drawingChosen ? { drawingChosen: true as const } : {}),
   });
 
   // The event row's one venue, with nothing saying where the ceremony is, keeps
@@ -457,6 +477,8 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
         ...((best.photo ?? (best === reception ? ceremony.photo : reception.photo))
           ? { photo: best.photo ?? (best === reception ? ceremony.photo : reception.photo) }
           : {}),
+        // ⛪ One place: the drawing was picked on either card — the ceremony's is the parish.
+        ...(ceremony.drawingChosen || reception.drawingChosen ? { drawingChosen: true as const } : {}),
       },
     ];
   }

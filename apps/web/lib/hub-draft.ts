@@ -169,6 +169,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { sceneStyleIsPro } from '@/lib/scene-style-pro';
 import { ACCENT_NONE, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, sanitizeSceneAccents, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
@@ -727,6 +728,9 @@ export type HubDraftWidget = {
    * (`config_json.venue`, lib/event-venues.ts `VenueChoice`), drafted with the
    * venues' words and pins (owner 2026-10-04). Merged slot by slot. Apply
    * re-reads it through `readVenueChoices` (this event's own photos only).
+   * ⛪ A card's `drawing: true` ("Our drawing ◆", owner 2026-10-16) is the one
+   * Pro key in the bag: turning it ON is held at Apply for a couple without
+   * Event Hub Pro (`venueBagNewDrawings`); the rest of the bag still goes live.
    */
   venue?: HubDraftVenueChoices;
   /**
@@ -740,7 +744,7 @@ export type HubDraftWidget = {
 };
 
 /** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
-export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null };
+export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null; drawing?: true };
 export type HubDraftVenueChoices = Partial<Record<'ceremony' | 'reception', HubDraftVenueChoice>>;
 
 /** A stored or posted `config_json.venue` bag → its shape, refs `r2://` only (the event is checked at Apply). */
@@ -755,7 +759,31 @@ export function draftVenueChoices(raw: unknown): HubDraftVenueChoices {
     if (r.source === 'supplier' || r.source === 'own') c.source = r.source;
     if (r.supplierPhoto === null || ref(r.supplierPhoto)) c.supplierPhoto = (r.supplierPhoto as string | null);
     if (r.ownPhoto === null || ref(r.ownPhoto)) c.ownPhoto = (r.ownPhoto as string | null);
+    if (r.drawing === true) c.drawing = true;
     if (Object.keys(c).length) out[key] = c;
+  }
+  return out;
+}
+
+/**
+ * ⛪ THE ONE PRO KEY IN A VENUE BAG (owner 2026-10-16, "A VENUE CARD'S PICTURE IS
+ * THE COUPLE'S CHOICE"): the cards whose "Our drawing ◆" the next bag turns ON
+ * where the live bag does not have it. Event Hub Pro — tried in the draft, held
+ * at Apply for a couple without it, and named on the Apply sheet. Turning a
+ * drawing OFF (back to the photo, or None) is never Pro.
+ */
+export function venueBagNewDrawings(live: HubDraftVenueChoices, next: HubDraftVenueChoices): Array<'ceremony' | 'reception'> {
+  return (['ceremony', 'reception'] as const).filter((k) => next[k]?.drawing === true && live[k]?.drawing !== true);
+}
+
+/** The bag with every NEW drawing taken off again — what goes live without Pro (photo and source edits kept). */
+export function venueBagFreePart(live: HubDraftVenueChoices, next: HubDraftVenueChoices): HubDraftVenueChoices {
+  const out: HubDraftVenueChoices = { ...next };
+  for (const k of venueBagNewDrawings(live, next)) {
+    const { drawing: _drawing, ...rest } = next[k]!;
+    void _drawing;
+    if (Object.keys(rest).length) out[k] = rest;
+    else delete out[k];
   }
   return out;
 }
@@ -1798,7 +1826,9 @@ export type CanvasFacetGroup =
   | 'font'
   | 'part-motion'
   | 'slot-media'
-  | 'playback';
+  | 'playback'
+  /** 💎 A Pro look (Style) — the Love Story's two-lane timeline and swipe cards (`lib/scene-style-pro.ts`). */
+  | 'look';
 
 export type CanvasLookFacet = {
   key: string;
@@ -1831,7 +1861,7 @@ const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], Canva
  * so a colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
-export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas): CanvasLookFacet[] {
+export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): CanvasLookFacet[] {
   const out: CanvasLookFacet[] = [
     { key: 'media', group: 'media', change: refChange(canvasMediaRef(live), canvasMediaRef(next)) },
   ];
@@ -1877,7 +1907,17 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
      Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
      and Apply it — the gate would see no look key change at all. */
   out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
+  /* 💎 A PRO LOOK (owner 2026-10-17, "Timeline and Swipe cards as Pro looks in Style") — the scene's `style` when it
+     is one of its type's Pro looks (`lib/scene-style-pro.ts`); every other style, and going back to a free one, is
+     free. Asked by scene TYPE (a style id means nothing alone: `cards` is also the Camera cues' free look), so a
+     caller that does not name the type sees no change here — every Apply caller names it. */
+  out.push({ key: 'style', group: 'look', change: refChange(proLookRef(sceneType, live), proLookRef(sceneType, next)) });
   return out;
+}
+
+/** The scene's style when it is a Pro look on this scene type — else null (a free style, or no type to ask by). */
+function proLookRef(sceneType: string | null | undefined, c: HubSectionCanvas): string | null {
+  return sceneStyleIsPro(sceneType, c.style) ? (c.style ?? null) : null;
 }
 
 /** The Cover Scene's background as one comparable ref — only its Pro half (a loop, a photo); null for a colour or none. */
@@ -1888,8 +1928,8 @@ function coverGroundProRef(c: HubSectionCanvas): string | null {
 }
 
 /** A section's canvas, live → drafted, as ONE change: the most demanding facet. */
-export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
-  return combineChanges(...canvasLookFacets(live, next).map((f) => f.change));
+export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): LookChange {
+  return combineChanges(...canvasLookFacets(live, next, sceneType).map((f) => f.change));
 }
 
 /** The media behind a scene, as one comparable ref — null for any colour ground. */
@@ -1944,6 +1984,9 @@ export function canvasWithoutFacet(
     put('video', live.video);
   } else if (key === 'ground') {
     put('ground', live.ground);
+  } else if (key === 'style') {
+    /* 💎 A Pro look taken off: the scene wears the style guests see today. */
+    put('style', live.style);
   } else if (key.startsWith('slot:')) {
     const i = Number(key.slice('slot:'.length));
     if (next.slots && Number.isInteger(i) && i >= 0 && i < next.slots.length) {
@@ -2014,12 +2057,12 @@ export function canvasWithoutFacet(
  * then CHECKED against it: if the result would still add or change a look, the
  * live canvas comes back unchanged — nothing Pro can leak through this door.
  */
-export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): HubSectionCanvas {
+export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): HubSectionCanvas {
   let free = sanitizeHubCanvas({ canvas: next });
-  for (const facet of canvasLookFacets(live, next)) {
+  for (const facet of canvasLookFacets(live, next, sceneType)) {
     if (grows(facet.change)) free = canvasWithoutFacet(live, free, facet);
   }
-  return grows(canvasLookChange(live, free)) ? live : free;
+  return grows(canvasLookChange(live, free, sceneType)) ? live : free;
 }
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
@@ -2305,19 +2348,31 @@ export function classifyHubDraft(
       }
     }
     /* 🏛 The venue cards' source and photo — compared as the page reads the
-       bag; the value written is the WHOLE merged bag. Never Pro. */
+       bag; the value written is the WHOLE merged bag. Free — except ⛪ "Our
+       drawing ◆" turned ON on a card (owner 2026-10-16): that is Event Hub Pro,
+       an 'add' the gate holds for a couple without it (its free part — every
+       photo and source edit — still goes live; see `planHubDraftApply`). */
     if (w.venue !== undefined && type === 'venue_map') {
       const liveBag = draftVenueChoices(isPlainObject(row.config_json) ? row.config_json.venue : null);
-      const nextBag = configWithVenue(row.config_json, w.venue).venue;
+      const nextBag = configWithVenue(row.config_json, w.venue).venue as HubDraftVenueChoices;
       if (JSON.stringify(liveBag) !== JSON.stringify(nextBag)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'venue', value: nextBag, change: 'change', pro: false });
+        const addsDrawing = venueBagNewDrawings(liveBag, nextBag).length > 0;
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'venue',
+          value: nextBag,
+          change: addsDrawing ? 'add' : 'change',
+          pro: addsDrawing,
+        });
       }
     }
     if (w.canvas !== undefined) {
       const liveCanvas = liveCanvasOf(row.config_json);
       const nextCanvas = w.canvas ?? {};
       if (JSON.stringify(liveCanvas) !== JSON.stringify(nextCanvas)) {
-        const change = canvasLookChange(liveCanvas, nextCanvas);
+        const change = canvasLookChange(liveCanvas, nextCanvas, type);
         items.push({
           kind: 'widget',
           widgetType: type,
@@ -2426,9 +2481,21 @@ export function planHubDraftApply(
     if (!allowed && item.kind === 'widget' && item.field === 'canvas') {
       const row = live.widgets.find((r) => r.widget_type === item.widgetType);
       const liveCanvas = liveCanvasOf(row?.config_json);
-      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {});
+      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType);
       if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
-        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
+        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free, item.widgetType), pro: false, freePart: true });
+      }
+    }
+    /* ⛪ A held venue bag (a new "Our drawing ◆") still gets its free edits: every
+       photo and source pick is written now, the drawing left as live; the whole
+       drafted bag stays in the draft (below), where it differs from live only by
+       the drawing. */
+    if (!allowed && item.kind === 'widget' && item.field === 'venue') {
+      const cfg = live.widgets.find((r) => r.widget_type === item.widgetType)?.config_json;
+      const liveBag = draftVenueChoices(isPlainObject(cfg) ? cfg.venue : null);
+      const free = venueBagFreePart(liveBag, item.value as HubDraftVenueChoices);
+      if (JSON.stringify(free) !== JSON.stringify(liveBag)) {
+        apply.push({ ...item, value: free, change: 'change', pro: false, freePart: true });
       }
     }
     /* 🎉 A held RSVP config still gets its free edits: the words and switches
@@ -2508,6 +2575,8 @@ export function planHubDraftApply(
       // 👁 …and so does a held per-stage choice (the whole merged key the classifier compared).
       else if (item.field === 'stage_show') w.stage_show = heldStageShow(item.value);
       else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
+      // ⛪ A held venue bag stays drafted WHOLE, its drawing still picked.
+      else if (item.field === 'venue') w.venue = item.value as HubDraftVenueChoices;
     }
   }
   return { apply, refused, remaining, orphans };

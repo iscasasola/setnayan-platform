@@ -44,6 +44,17 @@
  * are cut by colour-to-alpha against white; the building stays opaque. 686 px
  * wide = 2× the 343 px card. AVIF first, WebP fallback, both under 60 KB.
  * The cut: `controller-2026-10-12/venue-drawing/cut_church.py`.
+ *
+ * 🖼 THE DRAWING IS THE COUPLE'S CHOICE, NEVER AUTOMATIC (owner 2026-10-16,
+ * DECISION_LOG "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE"), verbatim:
+ * *"on a church you can upload a photo or use our pro feature photos of the
+ * venue"*. #6588 drew the drawing on every matching ceremony card and so
+ * REPLACED the couple's own uploaded photo. Now the card draws it only once the
+ * couple picks "Our drawing ◆" in the Maker (`VenueChoice.drawing`, stored in
+ * the `venue_map` scene's `config_json.venue`) — `venueDrawingFor` below is the
+ * ONE reader the guest card uses. `parishDrawingFor` only answers "does the
+ * library HAVE a drawing of this venue?" — what the Maker asks before it offers
+ * the choice at all. Event Hub Pro: tried in the draft, named at Apply.
  */
 
 import type { EventVenue } from '@/lib/event-venues';
@@ -105,4 +116,16 @@ export function parishDrawingFor(venue: Pick<EventVenue, 'role' | 'name'> | null
     if (name === entry.match || name.startsWith(`${entry.match} `)) return entry.drawing;
   }
   return null;
+}
+
+/**
+ * ⛪ The drawing a guest's venue card SHOWS: the library's drawing for this
+ * venue, and only when the couple picked "Our drawing" for the card
+ * (`EventVenue.drawingChosen`). Absent the pick, null — whatever the name.
+ */
+export function venueDrawingFor(
+  venue: Pick<EventVenue, 'role' | 'name' | 'drawingChosen'> | null | undefined,
+): ParishDrawing | null {
+  if (!venue?.drawingChosen) return null;
+  return parishDrawingFor(venue);
 }

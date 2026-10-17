@@ -491,6 +491,11 @@ export async function saveAllStdContent(
         : {};
     const bag = config[VENUE_CHOICES_KEY];
     const venue = bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
+    // ⛪ "Our drawing ◆" is Event Hub Pro and only ever reaches the row through
+    // the Maker's Apply gate (`venueBagNewDrawings`, lib/hub-draft.ts). This live
+    // door neither sets nor clears it: the card keeps whatever the row holds.
+    delete choice.drawing;
+    if (readVenueChoices(config, eventId)[slot]?.drawing === true) choice.drawing = true;
     // A zero-row UPDATE is success-shaped (RLS refuses silently): ask for the row back.
     const { data: wrote, error: ue } = await supabase
       .from('invitation_widgets')

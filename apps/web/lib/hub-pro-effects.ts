@@ -34,6 +34,7 @@ import { MAKER_TOOL_EDITOR_NAME, makerSceneLabel, type MakerFixedKey } from '@/l
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { STAGE_SHOW_KEY, configWithStageShow } from '@/lib/stage-scenes';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { sceneStyleSet, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
@@ -45,8 +46,10 @@ import {
   canvasFacetGrows,
   canvasLookFacets,
   canvasWithoutFacet,
+  draftVenueChoices,
   heldStageShow,
   planHubDraftApply,
+  venueBagNewDrawings,
   rsvpAskFreePart,
   rsvpAskFreePartMoves,
   type CanvasFacetGroup,
@@ -55,6 +58,7 @@ import {
   type HubDraftItem,
   type HubDraftPatch,
   type HubDraftState,
+  type HubDraftVenueChoices,
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -129,6 +133,8 @@ const GROUP_NAME: Record<CanvasFacetGroup, { what: string; tab: 'format' | 'anim
   'part-motion': { what: 'Animation', tab: 'animate' },
   'slot-media': { what: 'Photo in the scene', tab: 'content' },
   playback: { what: 'Clip playback', tab: 'content' },
+  /* 💎 The scene's Pro look, named by the look ("Look · Two-lane timeline" is said by `where`). */
+  look: { what: 'Look', tab: 'format' },
 };
 
 /** One `events` column → what, where and where to go. Only Pro columns reach here. */
@@ -344,6 +350,32 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       });
       continue;
     }
+    if (item.field === 'venue') {
+      /* ⛪ "Our drawing ◆" on a venue card (owner 2026-10-16) — one effect per
+         card whose drawing the draft turns on. "Remove" takes the drawing off
+         that card only, keeping its drafted photo and source; with nothing else
+         drafted on the card it says "no photo" (`ownPhoto: null`), which reads
+         exactly as a card with no choice (`venuePhotoFor`). */
+      const liveCfg = row?.config_json;
+      const liveBag = draftVenueChoices(liveCfg && typeof liveCfg === 'object' && !Array.isArray(liveCfg) ? (liveCfg as Record<string, unknown>).venue : null);
+      const nextBag = item.value as HubDraftVenueChoices;
+      for (const slot of venueBagNewDrawings(liveBag, nextBag)) {
+        const { drawing: _drawing, ...rest } = nextBag[slot] ?? {};
+        void _drawing;
+        push({
+          id: `venue-drawing:${slot}`,
+          what: 'Our drawing',
+          where: slot === 'ceremony' ? 'Ceremony venue' : 'Venue',
+          jump: { kind: 'tool', key: 'details' },
+          remove: {
+            widgets: {
+              [item.widgetType]: { venue: { [slot]: Object.keys(rest).length ? rest : { ownPhoto: null } } },
+            } as HubDraftPatch['widgets'],
+          },
+        });
+      }
+      continue;
+    }
     if (item.field === 'canvas') {
       for (const effect of canvasEffects(item, row?.config_json, scene, stages)) push(effect);
     }
@@ -403,7 +435,7 @@ function canvasEffects(
   const live = sanitizeHubCanvas(liveConfig);
   const drafted = (item.value as HubSectionCanvas | null) ?? {};
   const groups = new Map<string, CanvasLookFacet[]>();
-  for (const facet of canvasLookFacets(live, drafted)) {
+  for (const facet of canvasLookFacets(live, drafted, item.widgetType)) {
     if (!canvasFacetGrows(facet)) continue;
     const key = facet.element ? `${facet.group}:${facet.element}` : facet.group;
     groups.set(key, [...(groups.get(key) ?? []), facet]);
@@ -413,7 +445,10 @@ function canvasEffects(
     const first = facets[0]!;
     const name = GROUP_NAME[first.group];
     const what =
-      first.group === 'media' && drafted.kind === 'snippet'
+      first.group === 'look'
+        ? /* 💎 The Pro look by its own name — "Two-lane timeline". */
+          (sceneStyleSet(sceneStyleTypeOfWidget(item.widgetType))?.styles.find((st) => st.id === drafted.style)?.name ?? name.what)
+        : first.group === 'media' && drafted.kind === 'snippet'
         ? 'Video background'
         : first.group === 'slot-media' && facets.some((f) => drafted.slots?.[f.slot ?? -1]?.kind === 'snippet')
           ? 'Clip in the scene'

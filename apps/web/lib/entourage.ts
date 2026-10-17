@@ -74,9 +74,8 @@ export type EntouragePerson = {
    */
   sortKey?: { last: string; first: string };
   /**
-   * 'father' / 'mother' when the name's OWN title says so (Mr. → father; Mrs.,
-   * Ms., Miss → mother), else null. Gender is not stored; the title the couple
-   * typed is the only honest source, and without one nothing is guessed.
+   * 'father' / 'mother' when the couple's own entry for THIS person says so, else null — see `parentWordOf`.
+   * Gender is not stored; without a word from the couple nothing is guessed (never from a first name).
    */
   parentWord?: 'father' | 'mother' | null;
   /** `guests.side`, when the read asked for it (the march's walk side — `walkSideOf`). */
@@ -535,9 +534,60 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
   const spec = GROUPS.find((g) => g.key === group.key);
   if (spec?.byRole) return null;
   if (spec?.headingNames?.includes(person.role)) return null;
+  /* 👪 A PARENT IS NAMED PER PERSON ON EVERY LOOK (owner 2026-10-17: *"It needs to be identified as the mother or
+     father of the bride or groom."*). Before the one-role check on purpose: a page holding only the groom's parents
+     is one role, and the heading "Parents" says neither whose nor which. */
+  const parent = parentBesideOne(person, group.names);
+  if (parent) return parent;
   const distinct = new Set(peopleOf(group).map((p) => p.role));
   if (distinct.size <= 1) return null;
-  return parentBesideOne(person, group.names) ?? roleLabel(person.role, group.names);
+  return roleLabel(person.role, group.names);
+}
+
+/**
+ * 🧍 THE WORD UNDER SOMEONE CENTRED ALONE ON THE AXIS (controller 2026-10-17, found live on /maria-and-jose after
+ * #6593) — or null for none.
+ *
+ * A centred name stands in neither column, and the column words are drawn only over a pair, so in a group whose
+ * HEADING names its two columns ("Maid of Honor & Best Man", "Bride's Crew & Groom's Crew" — a spec with
+ * `sideWords`) a lone person could be either. He carries the word his column would have said. A group whose heading
+ * is a category (Principal Sponsors) or that says the role per sub-heading (Secondary Sponsors) adds nothing — the
+ * owner's 2026-09-30 "the sub text Ninong can be removed" holds.
+ */
+export function loneRoleWord(group: EntourageGroup, person: EntouragePerson): string | null {
+  const beside = roleBesideName(group, person);
+  if (beside) return beside;
+  const spec = GROUPS.find((g) => g.key === group.key);
+  if (!spec?.sideWords || !spec.sides) return null;
+  const side = sideOf(person, spec.sides) ?? 0;
+  const words = columnWordLists(spec, group.names, new Set([person.role]))[side] ?? [];
+  return words.length ? words.join(' · ') : null;
+}
+
+/**
+ * THE WORDS UNDER ONE MARCH LINE, in name order — e.g. "Father of the Groom · Mother of the Groom", "Ninong · Ninang".
+ *
+ * Each parent is named per person (owner 2026-10-17); any other word is said once ("Bridesmaid", not twice). Two
+ * parents of one side whose entries say neither father nor mother keep the plural "Parents of the Groom": a
+ * singular beside two names is the defect "ONE NAME IS ONE PARENT" was written against, and repeating it twice
+ * says nothing more.
+ */
+export function marchLineWords(people: readonly EntouragePerson[], group: Pick<EntourageGroup, 'names' | 'label'>): string {
+  const parentWords = people.map((p) => parentBesideOne(p, group.names));
+  if (
+    people.length > 1 &&
+    parentWords.every(Boolean) &&
+    people.every((p) => !p.parentWord) &&
+    new Set(people.map((p) => p.role)).size === 1
+  ) {
+    return roleLabel(people[0]!.role, group.names) ?? group.label;
+  }
+  const words: string[] = [];
+  people.forEach((p, i) => {
+    const w = parentWords[i] ?? roleLabel(p.role, group.names) ?? group.label;
+    if (parentWords[i] || !words.includes(w)) words.push(w);
+  });
+  return words.join(' · ');
 }
 
 /**
@@ -548,7 +598,7 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
  * hold one role (Flower Girls) carries none — its heading already says it.
  */
 export function entourageCellWord(group: EntourageGroup, person: EntouragePerson): string | null {
-  const beside = roleBesideName(group, person);
+  const beside = loneRoleWord(group, person);
   if (beside) return beside;
   if (GROUPS.find((g) => g.key === group.key)?.byRole) return null;
   const distinct = new Set(peopleOf(group).map((p) => p.role));
@@ -720,6 +770,14 @@ export const ENTOURAGE_COLUMNS =
  */
 export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
 
+/**
+ * + what tells a parent's "Mother of the Groom" from "Father of the Groom" when the title cannot (`parentWordOf`):
+ * the guest card's attire pick. Asked by the readers that print the entourage, beside the couple fields —
+ * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}` — never inside `ENTOURAGE_COLUMNS`
+ * (its "DO NOT WIDEN" note).
+ */
+export const ENTOURAGE_PARENT_FIELDS = 'attire';
+
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = PRINTED.flatMap((g) => [...g.roles]);
 
@@ -760,6 +818,8 @@ export type EntourageGuestRow = {
   extra_roles?: readonly string[] | null;
   /** `guests.invited_to_blocks` — a ceremony-only sponsor still walks. */
   invited_to_blocks?: readonly string[] | null;
+  /** `guests.attire` ('neutral' · 'gown' · 'suit') — asked by `ENTOURAGE_PARENT_FIELDS`; see `parentWordOf`. */
+  attire?: string | null;
   /**
    * `guests.side` ('groom' · 'bride' · 'both') — read by the Wedding MARCH only
    * (its walk side, owner 2026-10-06 "Brides crew should be on right and grooms
@@ -1031,7 +1091,13 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
   return sideOf({ role: role as GuestRole }, spec.sides);
 }
 
-/** 'father' / 'mother' from the typed title (prefix, else the display name's first word). */
+/**
+ * 'father' / 'mother' from what the couple entered for THIS person, else null:
+ *   1. the typed title (prefix, else the display name's first word) — Mr. → father; Mrs., Ms., Miss → mother;
+ *   2. else the guest card's "Attire · 3D seat plan" pick (`guests.attire`) — Gown → mother, Suit → father.
+ * A title that says neither (Atty., Dr., Hon.) with the attire left at 'neutral' (its default) is null, and the
+ * page says "Parent of the Groom". There is no gender column; nothing is guessed from a first name.
+ */
 function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
   const title = (row.name_prefix ?? row.display_name?.trim().split(/\s+/)[0] ?? '')
     .trim()
@@ -1039,6 +1105,8 @@ function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
     .replace(/\.$/, '');
   if (title === 'mr') return 'father';
   if (title === 'mrs' || title === 'ms' || title === 'miss') return 'mother';
+  if (row.attire === 'gown') return 'mother';
+  if (row.attire === 'suit') return 'father';
   return null;
 }
 

@@ -349,7 +349,9 @@ export type HubSectionCanvas = {
    * 🎨 THE SCENE'S STYLE (owner 2026-09-29, "EVERY SCENE ON EVERY STAGE HAS AT
    * LEAST THREE PREMADE STYLES") — a permanent style id from the ONE registry
    * (`lib/scene-styles.ts`, resolved per stage by `resolveSceneStyle`). FREE:
-   * not a look key (`HUB_CANVAS_LOOK_KEYS`). Absent = the stage's default. One
+   * not a look key (`HUB_CANVAS_LOOK_KEYS`) — 💎 except a Pro look of its scene
+   * type (`lib/scene-style-pro.ts`, asked by `canvasLookFacets`' `style` facet,
+   * owner 2026-10-17). Absent = the stage's default. One
    * row, one value: a scene shown on several stages wears the same pick
    * wherever that style is drawn.
    */

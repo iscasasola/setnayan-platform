@@ -3466,6 +3466,10 @@ export function MakerWork({
                 </>
               );
             }
+            /* 🕯 THE CLOSING (owner 2026-10-17, "Make the closing (See you soon) its own scene in the Maker, with Style ›
+               Accent ◆ ▾: None · Oval frame"): its Style is that ONE dropdown — the sign-off's accents, the same row
+               and the same `scene_accents` map as the cover's, the countdown's, E-Gifts' and the reply card's. */
+            if (fixed === 'closing') return accentRowFor('sign-off');
             /* 🎨 The hero, E-Gifts and the guest's look: the picked part's own styles (owner 2026-10-07) — the new Maker's. */
             if (maker?.stagesStudio && (fixed === 'hero' || fixed === 'gifts' || fixed === 'look')) {
               return (

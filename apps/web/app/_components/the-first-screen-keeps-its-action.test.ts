@@ -219,7 +219,9 @@ test('(5) the page wears it: the button never floats, the component measures wha
   const door = stripComments(read('app/[slug]/_components/get-inside.tsx'));
   // (2026-10-17: a door IN the cover's foot is not docked — `inFoot`; the fit is for a door below a cover.)
   assert.match(door, /<details className=\{`group mx-auto max-w-md\$\{dock && !inFoot \? ' sn-door-dock' : ''\}`\} data-get-inside="door">/);
-  assert.match(door, /\{inFoot \? <FirstScreenDoor fit=\{false\} \/> : dock \? <FirstScreenDoor \/> : null\}/);
+  /* (2026-10-18: a door in the foot is fitted AS the foot — on a phone the text cover is taller than, the cover makes
+     room for the whole foot; `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` measures it at 4 sizes × notice.) */
+  assert.match(door, /\{inFoot \? <FirstScreenDoor foot \/> : dock \? <FirstScreenDoor \/> : null\}/);
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}\s*inFoot=\{inFoot\}/, 'the canvas fits the door, or the foot’s door is fitted');
   assert.match(body, /<div className="sn-door-row">\{strangerDoor\(false\)\}<\/div>/, 'the door’s own row (no cover drawn) changed');
@@ -230,8 +232,14 @@ test('(5) the page wears it: the button never floats, the component measures wha
   // unchanged: three measurements, the rule, the limit.)
   const fit = stripComments(read('app/[slug]/_components/first-screen-door.tsx'));
   const hands = stripComments(read('app/[slug]/_lib/first-screen-fit-dom.ts'));
-  assert.match(fit, /firstScreenFitter\(screen, cover, inner, door, \(\) => window\.scrollY, photo\)/, 'the door no longer fits through the one fitter');
-  assert.match(fit, /plan = make\(list, limit\);/);
+  assert.match(fit, /const block = foot \?\? door;/, 'the foot is not the fitted block when the door is in it');
+  assert.match(fit, /firstScreenFitter\(screen, cover, inner, block, \(\) => window\.scrollY, photo\)/, 'the door no longer fits through the one fitter');
+  assert.match(fit, /plan = make\(list, limit \+ footFit\);/);
+  /* The foot's limit is the DOOR's (what stands under it in the foot is added back), clear of the edge by 16 px; not from xl. */
+  assert.match(fit, /const footFit = foot \? foot\.getBoundingClientRect\(\)\.bottom - door\.getBoundingClientRect\(\)\.bottom - \(banner > 0 \? 0 : 16\) : 0;/);
+  assert.match(fit, /const footFits = foot !== null && !window\.matchMedia\?\.\('\(min-width: 1280px\)'\)\.matches;/);
+  /* The door's own block is never a part of the cover (else the foot would be given way as "the link"). */
+  assert.match(hands, /if \(door && \(next === door \|\| next\.contains\(door\)\)\) continue;/);
   assert.match(hands, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*let plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
   assert.doesNotMatch(hands, /style\.(?:position|top|transform)\b/, 'the fit positions a block itself');
   assert.match(fit, /getPropertyValue\('--cookie-banner-top'\)/);

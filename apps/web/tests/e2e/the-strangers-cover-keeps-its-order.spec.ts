@@ -9,22 +9,23 @@ import { join } from 'node:path';
  * Live, 2026-10-15, right after Batch 8 (`/maria-and-jose`, signed out, 375 × 812): the cover's words regrouped while
  * a first-screen fit made room for the door under the cover. Since 2026-10-17 (owner, on `/cale-ice`: *"the button
  * shows after the cover?"*) the stranger's ONE door — "Confirm your Booking" — stands IN the cover's foot, where a
- * guest's RSVP button stands, with the "Swipe up" hint under it; no fit runs around it (`FirstScreenDoor fit={false}`).
+ * guest's RSVP button stands, with the "Swipe up" hint under it. Since 2026-10-18 the foot is FITTED on a phone the
+ * text cover is taller than (`FirstScreenDoor foot`): the air closes, the mark shrinks, and only then whole parts move
+ * below the whole foot — so the door is on the first screen at 375 × 667 and above the notice too.
  *
  * So this renders the REAL stranger's page (`SiteBody`, the fixture invitation — Maria & Jose) under the app's own
  * compiled CSS, mounts the REAL `FirstScreenDoor` as the page does, and measures, at 375 × 812, 390 × 844 and
  * 375 × 667, with and without the first-visit cookie notice, with no ground and with a Full / Framed ground:
  *   • the cover's parts stand in the order the page writes them — eyebrow · mark · names · line · date · time · link —
- *     then the door, then the hint: nothing moved;
+ *     then the door, then the hint, then whatever the fit moved below the foot, in that same order; the names never move;
  *   • no two of them overlap (each box ≥ 2px clear of the next);
  *   • nothing is cut off the top; the names and the date are on the first screen;
- *   • the door is in the cover's own foot, and on a 812 / 844 phone with no notice up it is on the first screen.
+ *   • the door is in the cover's own foot and ON THE FIRST SCREEN at every size, notice up or not — clear of the
+ *     screen's edge by 16 px, or of the notice by 8 px (the measured gap of 2026-10-17 at 375 × 667, closed 2026-10-18);
+ *   • a screen the cover already fits (812 / 844, no notice) is drawn as written: nothing is moved.
  *
- * ⚠ WHAT A PASS DOES NOT PROVE — AND A MEASURED GAP, NAMED (2026-10-17): this TEXT cover (the card, its large mark and
- * its "the day, the place ↓") is taller than a 375 × 667 screen, so there the door stands just below the fold — the
- * same place the guest's RSVP button stands on this cover — and with the notice up it is under the notice until the
- * reader scrolls. The photo cover (cale-ice's shape) fits both. Not asserted, so not hidden: it is in the PR body.
- * Also not covered: the couple's own logo image, and WebKit (this suite is Chromium).
+ * ⚠ WHAT A PASS DOES NOT PROVE: the couple's own logo image, and WebKit (this suite is Chromium; the 2026-10-18 walk
+ * measured both engines).
  */
 
 const WEB = join(__dirname, '..', '..');
@@ -109,6 +110,8 @@ for (const [w, h] of [
   [390, 844],
   /* 📱 A short phone (iPhone SE / 8 — Batch 9 walk R4, 2026-10-16): nothing may be cut off the top. */
   [375, 667],
+  /* 📱 …and the smallest (iPhone SE 1st gen): the fit's last step — whole parts below the foot — runs here. */
+  [320, 568],
 ] as const) {
   for (const ground of ['plain', 'full', 'framed']) {
     for (const banner of [0, 133]) {
@@ -121,8 +124,14 @@ for (const [w, h] of [
           expect.arrayContaining(['eyebrow', 'mark', 'names', 'line', 'date', 'time']),
         );
         expect(inFoot, 'the stranger’s door is not in the cover’s foot').toBe(true);
-        // The order: every part as the page writes it, then the door, then the hint — the fit moves nothing.
-        const drawn = [...written, door, hint];
+        // The order: the parts kept as the page writes them, the door, the hint, then the parts the fit moved below the
+        // foot — in that same order. The names never move.
+        const kept = written.filter((p) => p.top < door.top);
+        const given = written.filter((p) => p.top >= door.top);
+        expect(given.map((p) => p.key), 'the names gave way').not.toContain('names');
+        // A screen the cover fits is drawn as written — nothing moved.
+        if (!banner && h >= 812) expect(given, 'a part moved on a screen the cover fits').toEqual([]);
+        const drawn = [...kept, door, hint, ...given];
         expect([...drawn].sort((a, b) => a.top - b.top).map((p) => p.key), 'the cover is out of the written order').toEqual(drawn.map((p) => p.key));
         // Nothing is cut off the TOP of the screen: the first part the page writes starts on it (Batch 9 R4).
         expect(written[0]!.top, `"${written[0]!.key}" starts above the top of the screen (${written[0]!.top.toFixed(1)}px)`).toBeGreaterThanOrEqual(0);
@@ -137,8 +146,9 @@ for (const [w, h] of [
           const p = written.find((x) => x.key === k)!;
           expect(p.bottom, `${k} is below the first screen`).toBeLessThanOrEqual(limit + 0.5);
         }
-        // …and the door, on a phone the cover fits (see the docblock's named gap for 375 × 667 and the notice).
-        if (!banner && h >= 812) expect(door.bottom, '"Confirm your Booking" is below the first screen').toBeLessThanOrEqual(vh + 0.5);
+        // …and the door, on every phone, clear of the edge or of the notice (2026-10-18: the foot is fitted).
+        const doorLimit = banner ? vh - banner - 8 : vh - 16;
+        expect(door.bottom, `"Confirm your Booking" is below the first screen (${door.bottom.toFixed(1)} > ${doorLimit})`).toBeLessThanOrEqual(doorLimit + 0.5);
         await page.screenshot({ path: test.info().outputPath(`cover-${w}x${h}-${ground}-${banner ? 'notice' : 'clear'}.png`) });
       });
     }

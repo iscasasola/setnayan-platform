@@ -60,8 +60,9 @@ export function GetInside({
   /** Fit the first screen around the signed-out door (see above). */
   dock?: boolean;
   /**
-   * 🦶 Drawn IN the cover's foot (`PahinaMasthead` `door`, owner 2026-10-17): the foot is already the bottom of the
-   * first screen, so nothing is fitted around it — an opened door is only brought into view.
+   * 🦶 Drawn IN the cover's foot (`PahinaMasthead` `door`, owner 2026-10-17): the foot is the bottom of the first
+   * screen — and where the text cover is taller than a short phone, the cover makes room for the foot by the same fit
+   * (`FirstScreenDoor foot`, 2026-10-18).
    */
   inFoot?: boolean;
   /**
@@ -133,7 +134,7 @@ export function GetInside({
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the
           phone, or their account. */}
-      {inFoot ? <FirstScreenDoor fit={false} /> : dock ? <FirstScreenDoor /> : null}
+      {inFoot ? <FirstScreenDoor foot /> : dock ? <FirstScreenDoor /> : null}
       <div className="mt-4 space-y-4">
         {slug ? <UploadYourQr slug={slug} /> : null}
         <Link

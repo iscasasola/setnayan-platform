@@ -256,8 +256,11 @@ test('(4) the names are marked on the three hero surfaces and nowhere else; ONE 
     "[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
     "[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
     "[data-hub-roles~='body']",
-    "[data-hub-roles~='eyebrow'] .pahina-eyebrow",
-    "[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]), [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry",
+    /* 🪆 …and Text, Labels & buttons handed back on the canvas (2026-10-18) — the nearest scope decides here too; held,
+       with the selectors EVALUATED, by `app/[slug]/_components/a-font-handed-back-shows-on-the-canvas.test.ts`. */
+    "[data-hub-roles~='body'] [data-guest-look]:not([data-hub-roles~='body']):not([data-hub-theme])",
+    "[data-hub-roles~='eyebrow'] .pahina-eyebrow:not([data-hub-roles~='eyebrow'] [data-guest-look]:not([data-hub-roles~='eyebrow']) *)",
+    "[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]):not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *), [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry:not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *)",
   ]);
   assert.doesNotMatch(css, /data-hub-roles[^{}]*font-pahina|--font-pahina-display\s*:/, 'a rule or a variable now moves every font-pahina text — only the names may change');
   /* The marks the stylesheet keys on are exactly the marks the page can wear. */

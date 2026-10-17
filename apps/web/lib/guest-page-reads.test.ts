@@ -35,6 +35,7 @@ type View = {
   steps: string[];
   widgetIds: string[];
   ownRowReads: number;
+  shellEventId: string;
 };
 const VIEWS = [
   'coldInvitedOnTheDay',
@@ -49,7 +50,7 @@ const VIEWS = [
   'strangerWithOrders',
   'invitedWithOrders',
 ] as const;
-type Report = Record<(typeof VIEWS)[number], View> & { rememberedKeys: string[] };
+type Report = Record<(typeof VIEWS)[number] | 'addressMovedMidRead' | 'addressMovedNextView', View> & { rememberedKeys: string[] };
 
 
 const WEB = join(__dirname, '..');
@@ -193,6 +194,14 @@ test('🎨 THE MAKER’S CANVAS IS NEVER SERVED A REMEMBERED READ — only the s
   for (const table of ['invitation_widgets', 'event_vendors', 'guests', 'event_schedule_blocks', 'march_not_walking', 'event_floor_plan']) {
     assert.equal(asked(canvas, table), 1, `the canvas did not read ${table} from the database\n${summary(canvas)}`);
   }
+});
+
+test('🔀 A ROW IS FILED ONLY UNDER ITS OWN EVENT’S STAMP — an address that moved between the two reads files nothing', () => {
+  const mid = REPORT.addressMovedMidRead;
+  assert.equal(mid.eventsReads, 1, 'the view did not read the row');
+  const next = REPORT.addressMovedNextView;
+  assert.equal(next.eventsReads, 1, 'the next view was handed a filed row — one event’s row filed under another’s stamp');
+  assert.equal(next.shellEventId, '00000000-0000-4000-8000-0000000000e2', 'the next view was shown the other event’s row');
 });
 
 test('💳 AN EVENT WITH ORDERS ASKS ITS OWNERSHIP FACTS ONCE — no request per product, no per-fact reads', () => {

@@ -111,6 +111,9 @@ const GUEST_ROW: Record<string, unknown> = {
  */
 const STATE = {
   rev: 1,
+  /** Which event the stamp names, and which event the address's row is — two different ones = a rename between the two reads. */
+  stampEventId: EVENT_ID,
+  rowEventId: EVENT_ID,
   orders: [] as Array<{ service_key: string; status: string }>,
   basket: [] as Array<{ service_code: string; order_id: string; status: string }>,
   widgets: [{ widget_id: 'w-hero', event_id: EVENT_ID, widget_type: 'hero', display_order: 0, is_visible: true }] as Row[],
@@ -152,13 +155,14 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   let body: unknown = single ? null : [];
   if (table === 'events') {
     // Like PostgREST: exactly the columns that were asked for, null where the stand-in holds none.
-    const row = Object.fromEntries(select.split(',').map((c) => c.trim()).filter(Boolean).map((c) => [c, EVENT_ROW[c] ?? null]));
+    const whole = { ...EVENT_ROW, event_id: STATE.rowEventId };
+    const row = Object.fromEntries(select.split(',').map((c) => c.trim()).filter(Boolean).map((c) => [c, whole[c] ?? null]));
     body = single ? row : [row];
   }
   else if (table === 'guests') body = single ? GUEST_ROW : [GUEST_ROW];
   else if (table === 'invitation_widgets') body = STATE.widgets;
   else if (table === 'orders') body = STATE.orders;
-  else if (table === 'rpc/event_public_stamp') body = [{ event_id: EVENT_ID, rev: STATE.rev }];
+  else if (table === 'rpc/event_public_stamp') body = [{ event_id: STATE.stampEventId, rev: STATE.rev }];
   else if (table === 'rpc/event_entitlement_facts')
     body = { orders: STATE.orders, comp_skus: [], host_internal: false, founder_seat: false, basket: STATE.basket };
   else if (table === 'rpc/event_basket_orders_granting') {
@@ -179,6 +183,8 @@ type ViewReport = {
   widgetIds: string[];
   /** How many of the view's requests were the viewer's OWN guest row (`guests?guest_id=eq.…`). */
   ownRowReads: number;
+  /** Which event's row the view was handed. */
+  shellEventId: string;
 };
 
 async function main() {
@@ -258,6 +264,7 @@ async function main() {
       byPhase,
       steps: sent.map((s) => `${s.step} ${s.what}`),
       widgetIds: widgets.map((w) => String(w.widget_id)),
+      shellEventId: String((event as { event_id?: unknown }).event_id),
       ownRowReads,
     };
   }
@@ -289,6 +296,14 @@ async function main() {
   out.coldWithOrders = await view('invited', 'live');
   out.strangerWithOrders = await view('stranger', 'live');
   out.invitedWithOrders = await view('invited', 'live');
+  // 🔀 THE ADDRESS MOVED BETWEEN THE TWO READS: the stamp names another event than the row the
+  // address returns (a rename landing between them). That row must not be filed under the stamp…
+  STATE.stampEventId = '00000000-0000-4000-8000-0000000000e2';
+  STATE.rev = 500;
+  out.addressMovedMidRead = await view('stranger', 'pre', false);
+  // …so the next view, where both agree on the other event, reads that event's own row.
+  STATE.rowEventId = '00000000-0000-4000-8000-0000000000e2';
+  out.addressMovedNextView = await view('stranger', 'pre', false);
   // What the data cache holds — every key, so the test can show none is about one guest.
   out.rememberedKeys = [...dataCache.keys()];
   process.stdout.write(`GUEST_PAGE_READS ${JSON.stringify(out)}\n`);

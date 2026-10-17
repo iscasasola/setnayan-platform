@@ -39,6 +39,16 @@ export function isWordsScene(
  * 'body'), or any tap on it while it is empty — the placeholder IS the invitation
  * to write. Its label or heading still opens the style sheet on a written scene.
  */
-export function tapOpensWords(input: { wordsScene: boolean; el: unknown; empty: unknown }): boolean {
+export function tapOpensWords(input: { wordsScene: boolean; el: unknown; empty: unknown; ownScene?: boolean }): boolean {
+  /* ✍ …and a scene of their own while it is EMPTY (owner 2026-10-17, on a "Your own section" just added: *"i cannot
+     edit this"*): its placeholder's name and prompt are drawn as words, so a tap on them opened the font · colour ·
+     size sheet of a placeholder — never the Content where its Heading, Words and pictures are written. Written, it
+     keeps the tap every scene has. */
+  if (input.ownScene === true && input.empty === true) return true;
   return input.wordsScene && (input.el === 'body' || input.empty === true);
+}
+
+/** A scene of the couple's own (`custom_1`…`custom_6`, `lib/custom-sections.ts`) — restated so the shell's first load stays light. */
+export function isOwnSceneType(widgetType: string): boolean {
+  return /^custom_[1-6]$/.test(widgetType);
 }

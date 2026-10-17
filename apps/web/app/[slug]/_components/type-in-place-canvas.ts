@@ -79,6 +79,44 @@ export function readSceneTypeWords(raw: unknown): SceneTypeWords[] {
   return out;
 }
 
+/**
+ * ✍ AN EMPTY SCENE OF THEIR OWN'S HEADING AND WORDS (owner 2026-10-17, on a "Your own section" just added: *"i cannot
+ * edit this"*). Its placeholder (`MakerEmptyScene`) draws no words, so Edit's Heading and Words rows had nothing on the
+ * page to show while being typed. The placeholder carries the scene's guest look hidden (`makerWordsLook`: the
+ * eyebrow · the words); the field's part in it is returned — null for any other scene or field.
+ */
+export function ownLookPart(section: Element, field: string): HTMLElement | null {
+  const look = section.querySelector<HTMLElement>('[data-maker-look]');
+  const empty = '[data-maker-empty^="custom_"]';
+  if (!look || !(section.matches(empty) || section.querySelector(empty))) return null;
+  /* The template's heading and words (`scene-template.tsx`), else the plain scene's eyebrow and words. */
+  if (field === 'title') return look.querySelector<HTMLElement>('.hub-tpl-h') ?? look.querySelector<HTMLElement>('.pahina-eyebrow');
+  if (field === 'body') return look.querySelector<HTMLElement>('.hub-tpl-p') ?? look.querySelector<HTMLElement>('p:not(.pahina-eyebrow)');
+  return null;
+}
+
+/** Lay `text` into the empty scene's look, show the look (and only the parts with words) in place of its prompt. */
+export function showOwnLookWords(section: Element, field: string, text: string): boolean {
+  const part = ownLookPart(section, field);
+  if (!part) return false;
+  setPartWords(part, text);
+  const look = section.querySelector<HTMLElement>('[data-maker-look]')!;
+  const parts = [ownLookPart(section, 'title'), ownLookPart(section, 'body')].filter((p): p is HTMLElement => p !== null);
+  const written = (p: HTMLElement) => {
+    const t = (p.textContent ?? '').trim();
+    return t.length > 0 && t !== '\u2026';
+  };
+  for (const p of parts) p.style.display = written(p) ? '' : 'none';
+  const blank = !parts.some(written);
+  look.hidden = blank;
+  look.style.display = blank ? 'none' : '';
+  section.querySelectorAll<HTMLElement>('[data-maker-empty-prompt]').forEach((p) => {
+    p.hidden = !blank;
+    p.style.display = blank ? '' : 'none';
+  });
+  return true;
+}
+
 /** ✍ A scene's part the Maker offered to type in (`markSceneWords`) — the field its words are. */
 export function sceneTypeField(part: HTMLElement | null): SceneTypeField | null {
   const f = part?.getAttribute('data-el-field');
@@ -479,6 +517,12 @@ export function createCanvasTyping(
           : field
             ? (section?.querySelector<HTMLElement>(`[data-el-field="${field}"]`) ?? null)
             : (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null);
+      /* ✍ A scene of their own with no words yet draws none to type over: its words go into its hidden look instead,
+         which steps in for the placeholder (`ownLookPart`). */
+      if (!part && field && section) {
+        showOwnLookWords(section, field, text);
+        return;
+      }
       if (!part) return;
       setPartWords(part, text);
       if (session && session.part === part && session.target === doc.activeElement) {

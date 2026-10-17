@@ -41,7 +41,7 @@ import { LOOK_ROW_OF, isLookRow } from '@/lib/maker-look-sections';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
 import { askScheduleFocus } from '../../../schedule/_components/schedule-focus';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
-import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
+import { isOwnSceneType, isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
 import {
   NO_CANVAS_HOLD,
@@ -1089,7 +1089,7 @@ export function MakerWork({
     if (!key.startsWith('w:')) return false;
     const type = key.slice(2);
     const { canvases, ownWords } = wordsInfo.current;
-    return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty });
+    return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty, ownScene: isOwnSceneType(type) });
   };
   const postWords = (key: string, text: string) => broadcastToCanvas({ source: 'setnayan-editor', t: 'words', key, text });
 

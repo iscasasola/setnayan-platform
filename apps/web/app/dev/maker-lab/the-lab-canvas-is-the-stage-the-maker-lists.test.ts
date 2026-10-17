@@ -104,7 +104,9 @@ test('P11 — "Only you see this" and the per-guest samples are the Maker’s ca
   assert.match(GUEST, /const emptyScene = \(type: 'what_to_bring' \| 'our_photos'\) =>\s*makerCanvas \? \(/);
   /* Every mount of the empty-scene stand-in on the ordinary canvas sits behind that gate. */
   const mounts = [...GUEST.matchAll(/<MakerEmptyScene type=/g)].length;
-  assert.equal(mounts, 2, 'a new empty-scene mount — is it behind `makerCanvas`?');
+  assert.equal(mounts, 3, 'a new empty-scene mount — is it behind `makerCanvas`?');
+  /* ✍ …the third: a scene of their own with nothing in it yet (`ownSceneNode`, 2026-10-17). */
+  assert.match(GUEST, /return makerCanvas \? \(\s*<div data-lab-scene=\{type\} className="border-t border-ink\/10 px-4 py-8">\s*<MakerEmptyScene type=\{type as never\} look=\{makerWordsLook\(type, config\)\} \/>/);
   /* The real page's rule, which this mirrors. */
   assert.match(readFileSync(join(process.cwd(), 'app', '[slug]', '_components', 'maker-empty-scene.tsx'), 'utf8'), /A guest\s+\* never receives this markup/);
 });

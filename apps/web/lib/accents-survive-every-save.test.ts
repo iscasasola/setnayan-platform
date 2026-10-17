@@ -159,3 +159,10 @@ test('the Accent row reads and builds through the Maker’s draft store — neve
   const action = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/hub-draft-actions.ts'), 'utf8'));
   assert.match(action, /\.update\(\{ style_preferences: \{ \.\.\.\(prefs \?\? \{\}\), \.\.\.qrWrite \} \}\)/, 'Apply no longer lays the drafted keys INTO the live blob');
 });
+
+test('the Apply sheet names an accent pick for what it is — "Countdown, Cover · Decorations", never "Guest’s ticket · QR look"', async () => {
+  const { hubDraftChangePlace } = await import('./hub-draft-change-lines');
+  const live = { events: { style_preferences: { scene_accents: { gifts: 'spray' } } }, widgets: [] } as unknown as import('./hub-draft').HubLiveState;
+  const item = { kind: 'event', column: 'style_preferences', value: { scene_accents: { gifts: 'spray', countdown: 'none', hero: 'drapes' } }, change: 'change', pro: true } as const;
+  assert.deepEqual(hubDraftChangePlace(item as never, live), { place: 'Cover, Countdown', what: 'Decorations' });
+});

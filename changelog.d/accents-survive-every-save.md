@@ -11,4 +11,10 @@ Every pick is now noted in the Maker's draft store (`noteAccentPick` / `draftedA
 Guarded by `apps/web/lib/accents-survive-every-save.test.ts` (an accent on every scene + a Love Story save + ✓ Apply +
 reload; two properties of the draft door), with five sabotages seen red.
 
+The Apply sheet also named an accent pick "Guest's ticket · QR look"; it now reads the scenes and "Decorations"
+(`hubDraftChangePlace`, `lib/hub-draft-change-lines.ts`), the word the Pro sheet already uses.
+
+Walked in the Maker lab at 375 px (Chromium, light + dark): before — each pick replaced the last in the draft and a
+reopened Accent ▾ showed the look's default; after — all four lab scenes' picks stay, through ✓ Apply and a reload.
+
 SPEC IMPACT: None

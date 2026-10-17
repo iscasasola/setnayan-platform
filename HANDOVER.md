@@ -67,6 +67,10 @@ Never open the owner's cale-ice Maker (it is Pro anyway); use the lab / a seeded
 - Not marked ◆ (named at Apply anyway): the older part sheet's Font ▾ (`free-vs-pro-redrawn` §5 pins "no mark");
   scene Animate rows other than Movement/Leaves.
 
+### State
+- PR #6623 (draft, do-not-auto-merge, auto-merge null). Walk done: shots in ~/Documents/Claude/Projects/shots-2026-10-18/6623/.
+- CI round 1 red (typecheck: FACET_WORD missing 'part-style'; part-runs P; Maker first-load 0.2 KB over) → fixed in
+  25ba43fef6 (table shrunk to one free id per type, field-group rule). Watching round 2.
 ### NEXT
-- widened targeted test rerun → sabotage (grandfather + rsvp) → WebKit walk (scripts in
-  ~/Documents/Claude/Projects/shots-2026-10-18/pro-regate-walk/scripts) → draft PR → CI loop
+- CI to green; if bundle still over, trim more from hub-draft's first-load additions (rsvp look / block helpers).
+- delete this file only when CI is fully green and nothing is left.

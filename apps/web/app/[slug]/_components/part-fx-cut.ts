@@ -14,13 +14,15 @@ import type { RunsDoc } from './part-runs';
 
 /** The part's word / letter / line spans unwrapped back into plain text (before its words or runs are laid again). */
 export function unwrapPartFx(part: Element, doc: RunsDoc): void {
-  const spans = part.querySelectorAll(`[${HUB_FX_WORD_ATTR}],[${HUB_FX_LETTER_ATTR}],[${HUB_FX_LINE_ATTR}]`);
+  /* One attribute per query (the line, then the words, then their letters) — outermost first, so each unwrap moves
+     whole pieces up. */
+  const spans = [HUB_FX_LINE_ATTR, HUB_FX_WORD_ATTR, HUB_FX_LETTER_ATTR].flatMap((a) => Array.from(part.querySelectorAll(`[${a}]`)));
   if (spans.length === 0) return;
   spans.forEach((span) => {
     const parent = span.parentNode;
     if (!parent) return;
     keepReactChildren(span.parentElement);
-    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    for (const c of Array.from(span.childNodes)) parent.insertBefore(c, span);
     parent.removeChild(span);
   });
   void doc;

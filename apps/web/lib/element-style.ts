@@ -1736,6 +1736,10 @@ export const HUB_ELEMENT_MOTION_PROPS = [
   '--el-out-o',
   '--el-out-t',
   '--el-out-f',
+  /* ✨ The words' and the reveal's timing (`hubElementFxVars`). */
+  '--el-fx-dur',
+  '--el-fx-delay',
+  '--el-fx-gap',
   'animation',
   'animation-timeline',
   'animation-range',

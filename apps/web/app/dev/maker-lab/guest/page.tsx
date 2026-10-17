@@ -22,6 +22,7 @@ import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-w
 import { MakerGuestScenes, MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
+import { HeroBackgroundMedia } from '@/app/[slug]/_components/hero-background-media';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
@@ -180,6 +181,8 @@ function labLoopMedia(loop: string): { still: string; clip: string } | null {
  * (`../lab-own-media.ts`), else a stand-in of fabric on sand — never anybody's own photo, nothing signed.
  */
 const LAB_COVER_PHOTO = '/realstories/jack-jill-g3.jpg';
+/** 🖼 The cover plate's stand-in (`lab_plate=1`) — the ready-made ballroom still the Scene ◆ backgrounds ship. */
+const LAB_PLATE_PHOTO = '/std/backgrounds/ballroom.webp';
 function labCoverPhoto(g: { kind: string; media?: string } | null | undefined): string | null {
   if (!g || g.kind !== 'photo') return null;
   return (g.media && LAB_SIGNED[g.media]) || LAB_COVER_PHOTO;
@@ -467,6 +470,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           }),
         })
       : null;
+  const labPlate = (await cookies()).get('lab_plate')?.value === '1';
   const masthead = (
     <PahinaMasthead
       rsvp={labRsvp}
@@ -487,6 +491,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           M &amp; J
         </span>
       }
+      /* 🖼 `lab_plate=1` (a cookie, so the Maker's own canvas reloads keep it) — the cover's photo PLATE under the words,
+         as a couple with a cover photo and no Cover Scene background has it: the `photo` part the six new effects'
+         pictures play on (owner-approved 2026-10-16). Setnayan's own ready-made ballroom, never anybody's photo. */
+      mediaSlot={labPlate ? <HeroBackgroundMedia photoUrl={LAB_PLATE_PHOTO} /> : undefined}
     />
   );
   /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker.

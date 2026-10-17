@@ -154,7 +154,8 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
       continue;
     }
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09.) */
-    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
+    /* (🖼 …and the cover's photo, which has no words — its Edit says where the picture is changed, 2026-10-16.) */
+    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera' && k !== 'coverphoto', `${k}: Edit`);
     /* (…and Style on all but a part with no look to pick at all — `MAKER_PARTS_NO_LOOK`, The Day's "Happening now".) */
     assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     const scene = (MAKER_PARTS[k].canvas ?? '').startsWith('w:');

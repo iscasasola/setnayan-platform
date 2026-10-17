@@ -218,7 +218,7 @@ test('(5) the Camera has only Style: Edit, Background and Animate are grey on it
   for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('camera', t), 'style');
   /* Only the Camera — and the Cover Scene, the group of the cover's words, which has Background alone (owner-approved
      2026-10-15; each word under it keeps its own Edit): every other part keeps its Edit (its door or its name, and its place). */
-  for (const k of KEYS) if (k !== 'camera' && k !== 'coverscene') assert.equal(makerPartToolWorks(k, 'edit'), true, `${k} lost Edit`);
+  for (const k of KEYS) if (k !== 'camera' && k !== 'coverscene' && k !== 'coverphoto') assert.equal(makerPartToolWorks(k, 'edit'), true, `${k} lost Edit`);
   /* No move row: Edit's rows are never drawn for it (they are Edit's, and Edit is grey), and its frame has no place. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const editOn = picked !== null && shownTool === 'edit';/);

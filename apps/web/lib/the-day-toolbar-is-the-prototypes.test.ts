@@ -79,7 +79,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     ['date', 'Change it in Suppliers', true],
     ['place', 'Change it in Suppliers', true],
     /* 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): it only moves — no words, no look. */
-    ['coverphoto', null, false],
+    ['coverphoto', 'grey', false],
     ['herolink', 'field', true],
     ['schedule', 'Open in Studio › Schedule', true],
   ],

@@ -443,6 +443,8 @@ export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): bool
      ANIMATE"): Edit = its lines, each with the house switch · Style = the Opening (the shipped reveal picker) ·
      Background · Animate = ONE entrance (`lib/cover-entrance.ts`). Its words each keep their own four as well. */
   if (key === MAKER_COVER_SCENE) return true;
+  /* 🖼 The cover's photo has no words — its picture is Details' — so its Edit is grey and says where (`MAKER_COVER_PHOTO_EDIT_WHY`). */
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return false;
   if (tool === 'style') return !MAKER_PARTS_NO_LOOK.includes(key);
   if (key === 'camera') return false;
   if (tool === 'edit') return true;
@@ -464,6 +466,7 @@ export const MAKER_COVER_SCENE = 'coverscene' as const satisfies MakerPartKey;
 /** 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS") — a part with no look of its own (`MAKER_PARTS_NO_LOOK`):
  *  it moves (Animate); its picture is Details' "Cover photo"; it sits on the Cover Scene's background like every cover word. */
 export const MAKER_COVER_PHOTO = 'coverphoto' as const satisfies MakerPartKey;
+export const MAKER_COVER_PHOTO_EDIT_WHY = 'Change the cover photo in Details.';
 /** A cover word's Background line — the prototype's own words; the door's label is `MAKER_COVER_SCENE_DOOR`. */
 export const MAKER_COVER_WORD_BG_WHY = 'This sits on the Cover Scene.';
 export const MAKER_COVER_SCENE_DOOR = 'Select the Cover Scene ›';
@@ -491,6 +494,7 @@ export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'styl
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
   /* 🎛 The Camera's own three lines (the approved prototype's words, 2026-10-09: it is the whole screen). */
   if (key === 'camera' && tool !== 'style') return MAKER_CAMERA_TOOL_WHY[tool];
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return MAKER_COVER_PHOTO_EDIT_WHY;
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';

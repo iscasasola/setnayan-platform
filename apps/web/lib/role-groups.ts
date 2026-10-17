@@ -52,6 +52,9 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   groom: 'couple',
   bride_parents: 'vip_family',
   groom_parents: 'vip_family',
+  // 👵 Owner 2026-10-17 — grandparents stand with the parents (VIP family).
+  bride_grandparents: 'vip_family',
+  groom_grandparents: 'vip_family',
   bride_immediate_family: 'vip_family',
   groom_immediate_family: 'vip_family',
   // Owner 2026-09-14: "wedding party needs to show groomsmen and bridesmaid as
@@ -152,6 +155,8 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'groom',
   'bride_parents',
   'groom_parents',
+  'bride_grandparents',
+  'groom_grandparents',
   'bride_immediate_family',
   'groom_immediate_family',
   // Muslim Nikah principals rank just below the couple's immediate family and

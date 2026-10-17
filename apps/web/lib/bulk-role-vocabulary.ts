@@ -54,6 +54,8 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
     roles: [
       'bride_parents',
       'groom_parents',
+      'bride_grandparents',
+      'groom_grandparents',
       'bride_immediate_family',
       'groom_immediate_family',
     ],

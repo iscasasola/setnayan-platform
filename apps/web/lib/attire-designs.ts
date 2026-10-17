@@ -174,6 +174,8 @@ export const READER_FIGURE: Readonly<Partial<Record<string, FigureRole | readonl
   principal_sponsor: ['ninong', 'ninang'],
   bride_parents: ['father', 'mother'],
   groom_parents: ['father', 'mother'],
+  bride_grandparents: ['father', 'mother'],
+  groom_grandparents: ['father', 'mother'],
   bride_immediate_family: ['father', 'mother'],
   groom_immediate_family: ['father', 'mother'],
   candle_sponsor: ['sponsor_m', 'sponsor_w'],

@@ -360,7 +360,7 @@ export function EntourageScene({
     const tier = (keys: readonly string[]) =>
       groups.filter((g) => keys.includes(g.key)).flatMap((g) => peopleIn(g).map((p) => ({ p, role: g.label })));
     const tiers = [
-      tier(['parents', 'immediate_family']),
+      tier(['parents', 'grandparents', 'immediate_family']),
       tier(['principal_sponsors', 'secondary_sponsors']),
       tier(['honour', 'bridesmaids_groomsmen', 'bearers', 'flower_girls', 'ceremony', 'nikah']),
     ].filter((t) => t.length > 0);

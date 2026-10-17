@@ -198,6 +198,12 @@ type GroupSpec = {
   roleFirst?: true;
   /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
   headingIsRole?: boolean;
+  /**
+   * 👵 A group added AFTER couples could arrange their sections (owner 2026-09-21): where it goes in a saved
+   * `events.entourage_section_order` that predates it — right after this group — instead of the end. Every save
+   * writes the full list, so the only keys a saved order ever lacks are groups added since. See `orderedGroupKeys`.
+   */
+  joinsSavedOrderAfter?: string;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
@@ -223,6 +229,42 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     it.
   */
   { key: 'parents', label: 'Parents', roles: ['groom_parents', 'bride_parents'], roleFirst: true },
+  /*
+    👵 OWNER 2026-10-17: *"the 2 grandparents should not be named immediate
+    family on the wedding march list."* Asked "Grandparents of the Bride /
+    Groom as roles, the same way Parents works (own heading, own march place,
+    each reads 'Grandmother of the Groom' etc.)", he answered "Okay". So this
+    group is Parents' twin: right after Parents and BEFORE Immediate Family,
+    the groom's side first (the 2026-09-20 Parents ruling), print in role order
+    (`roleFirst`), and each person named per person by the SAME resolver as a
+    parent (`parentBesideOne` → "Grandfather / Grandmother / Grandparent of the
+    Groom"). In the march it is not replaced by the couple's sides (only the
+    parents walk with their child), so it walks right after "The Groom & his
+    parents".
+
+    🔴 THIS IS A VISIBILITY CHANGE, NOT A LAYOUT ONE — the same note as
+    Immediate Family below, and the same class as Parents. `ENTOURAGE_ROLES` is
+    derived from this list and is also the query's `role.in.(…)` filter, so a
+    grandparent's real name is readable by anyone who can open the invitation
+    — the entourage section is NOT behind the recognised-viewer gate that
+    hides the plain guest list. Nothing new is exposed on day one: every
+    grandparent recorded until today holds `*_immediate_family`, which already
+    publishes; a couple who re-picks the role moves the name from one heading
+    to another. `landing_page_visibility` remains the only control that closes
+    that door.
+
+    ⛔ A GRANDPARENT IS NEVER "IMMEDIATE FAMILY" ON ANY LOOK — held by
+    `lib/grandparents-are-never-immediate-family.test.ts`.
+  */
+  {
+    key: 'grandparents',
+    label: 'Grandparents',
+    roles: ['groom_grandparents', 'bride_grandparents'],
+    roleFirst: true,
+    /* A couple who arranged their sections before today has no "grandparents" in that list: it joins after THEIR
+       Parents, wherever they put Parents — never after the Nikah. */
+    joinsSavedOrderAfter: 'parents',
+  },
   /*
     ⚖ OWNER 2026-09-20. Immediate family PUBLISHES for the first time. These two
     roles existed in the dashboard from the start and appeared in NO group here,
@@ -405,6 +447,11 @@ const MARCH_REPLACED = new Set(
 const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   bride_parents: 'Parents of the Bride',
   groom_parents: 'Parents of the Groom',
+  /* 👵 Owner 2026-10-17. Beside ONE name a grandparent is named per person
+     (`parentBesideOne`); this plural is what two whose entries say neither
+     grandfather nor grandmother share on one march line. */
+  bride_grandparents: 'Grandparents of the Bride',
+  groom_grandparents: 'Grandparents of the Groom',
   /* Short on purpose: this sits BESIDE a name, and the heading above already
      says Immediate Family. The dashboard's longer "Bride's Immediate Family"
      is a picker label, where it has a dropdown to disambiguate in. */
@@ -536,7 +583,8 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
   if (spec?.headingNames?.includes(person.role)) return null;
   /* 👪 A PARENT IS NAMED PER PERSON ON EVERY LOOK (owner 2026-10-17: *"It needs to be identified as the mother or
      father of the bride or groom."*). Before the one-role check on purpose: a page holding only the groom's parents
-     is one role, and the heading "Parents" says neither whose nor which. */
+     is one role, and the heading "Parents" says neither whose nor which. A grandparent the same way (owner
+     2026-10-17, "Grandmother of the Groom"). */
   const parent = parentBesideOne(person, group.names);
   if (parent) return parent;
   const distinct = new Set(peopleOf(group).map((p) => p.role));
@@ -567,21 +615,17 @@ export function loneRoleWord(group: EntourageGroup, person: EntouragePerson): st
 /**
  * THE WORDS UNDER ONE MARCH LINE, in name order — e.g. "Father of the Groom · Mother of the Groom", "Ninong · Ninang".
  *
- * Each parent is named per person (owner 2026-10-17); any other word is said once ("Bridesmaid", not twice). Two
- * parents of one side whose entries say neither father nor mother keep the plural "Parents of the Groom": a
+ * Each parent — and each grandparent — is named per person (owner 2026-10-17); any other word is said once
+ * ("Bridesmaid", not twice). People on one line who are the SAME word share it in the plural (`kinWordForSeveral`):
+ * "Grandmothers of the Groom", "Mothers of the Bride", and two whose entries say neither father nor mother
+ * "Parents of the Groom" / "Grandparents of the Groom": a
  * singular beside two names is the defect "ONE NAME IS ONE PARENT" was written against, and repeating it twice
  * says nothing more.
  */
 export function marchLineWords(people: readonly EntouragePerson[], group: Pick<EntourageGroup, 'names' | 'label'>): string {
   const parentWords = people.map((p) => parentBesideOne(p, group.names));
-  if (
-    people.length > 1 &&
-    parentWords.every(Boolean) &&
-    people.every((p) => !p.parentWord) &&
-    new Set(people.map((p) => p.role)).size === 1
-  ) {
-    return roleLabel(people[0]!.role, group.names) ?? group.label;
-  }
+  const shared = kinWordForSeveral(parentWords);
+  if (shared) return shared;
   const words: string[] = [];
   people.forEach((p, i) => {
     const w = parentWords[i] ?? roleLabel(p.role, group.names) ?? group.label;
@@ -614,12 +658,37 @@ export function entourageCellWord(group: EntourageGroup, person: EntouragePerson
  * group heading already carries it. The couple's own word still wins.
  */
 function parentBesideOne(person: EntouragePerson, names: RoleNames | null | undefined): string | null {
-  if (person.role !== 'bride_parents' && person.role !== 'groom_parents') return null;
+  const kin = KIN_OF_ROLE[person.role];
+  if (!kin) return null;
   if (roleNameOne(person.role, names) !== null) return null;
-  const side = person.role === 'bride_parents' ? 'Bride' : 'Groom';
-  const who = person.parentWord === 'father' ? 'Father' : person.parentWord === 'mother' ? 'Mother' : 'Parent';
-  return `${who} of the ${side}`;
+  const who = person.parentWord === 'father' ? 'father' : person.parentWord === 'mother' ? 'mother' : 'parent';
+  const word = kin.grand ? `Grand${who}` : who.charAt(0).toUpperCase() + who.slice(1);
+  return `${word} of the ${kin.side}`;
 }
+
+/**
+ * 👪 SEVERAL PEOPLE ON ONE LINE WHO ARE THE SAME WORD SAY IT ONCE, IN THE PLURAL (controller 2026-10-17, on #6600: the
+ * owner's two grandmothers, both "Ms.", read "Grandmother of the Groom · Grandmother of the Groom"). Two mothers of
+ * the bride → "Mothers of the Bride"; two grandfathers → "Grandfathers of the Bride"; two whose entries say neither →
+ * "Parents / Grandparents of the …" (the older plural, now the same rule). Null when any person has no kin word, or
+ * the words differ — those stay "X · Y", one per person.
+ */
+function kinWordForSeveral(words: readonly (string | null)[]): string | null {
+  if (words.length < 2 || !words.every(Boolean) || new Set(words).size !== 1) return null;
+  return words[0]!.replace(/^(\S+) of the /, '$1s of the ');
+}
+
+/**
+ * 👵 THE ROLES NAMED PER PERSON, and whose: a parent, and — owner 2026-10-17 — a grandparent, read by the one
+ * resolver (`parentBesideOne`, the per-person word; `parentWordOf`, father/mother from the couple's own entry).
+ * "Grandfather / Grandmother of the Groom", "Grandparent of the Groom" when nothing says which.
+ */
+const KIN_OF_ROLE: Partial<Record<GuestRole, { side: 'Bride' | 'Groom'; grand: boolean }>> = {
+  bride_parents: { side: 'Bride', grand: false },
+  groom_parents: { side: 'Groom', grand: false },
+  bride_grandparents: { side: 'Bride', grand: true },
+  groom_grandparents: { side: 'Groom', grand: true },
+};
 
 /**
  * The short sub-heading word for a by-role group — "Candle", not "Candle
@@ -1186,9 +1255,10 @@ function isCeremonyOnly(row: EntourageGuestRow): boolean {
  *
  * 🔑 FORGIVING BY DESIGN. A saved list is a snapshot of the groups that existed
  * when the couple arranged them. Keys this build no longer knows are dropped;
- * groups the list lacks (added since) are appended in the built-in order. So a
- * stale value can never hide a section, duplicate one, or print a heading for
- * nothing — and there is no SQL copy of the key set to drift.
+ * groups the list lacks (added since) are appended in the built-in order — or,
+ * for a group that names one (`joinsSavedOrderAfter`), placed right after that
+ * group. So a stale value can never hide a section, duplicate one, or print a
+ * heading for nothing — and there is no SQL copy of the key set to drift.
  */
 export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
   const known = new Set(ENTOURAGE_GROUP_KEYS);
@@ -1196,7 +1266,12 @@ export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
   for (const key of saved ?? []) {
     if (known.has(key) && !out.includes(key)) out.push(key);
   }
-  for (const key of ENTOURAGE_GROUP_KEYS) if (!out.includes(key)) out.push(key);
+  for (const key of ENTOURAGE_GROUP_KEYS) {
+    if (out.includes(key)) continue;
+    const after = saved ? out.indexOf(PRINTED.find((g) => g.key === key)?.joinsSavedOrderAfter ?? '') : -1;
+    if (after === -1) out.push(key);
+    else out.splice(after + 1, 0, key);
+  }
   return out;
 }
 

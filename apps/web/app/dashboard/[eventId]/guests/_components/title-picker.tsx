@@ -115,6 +115,9 @@ export function TitlePicker({
           autoCapitalize="words"
           data-title-typed=""
           className={`input-field w-full ${className}`}
+          /* Typing is not the answer yet — the card's autosave hears only the pick (the `FormPick` contract). */
+          onInput={(e) => e.stopPropagation()}
+          onChange={(e) => e.stopPropagation()}
           onBlur={(e) => keepTyped(e.currentTarget.value)}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
             if (e.key === 'Enter') {

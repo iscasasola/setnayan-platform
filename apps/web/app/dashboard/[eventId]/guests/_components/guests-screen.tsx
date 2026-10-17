@@ -718,7 +718,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         </div>
       ) : null}
       {titlesWaiting.length > 0 && !copy ? (
-        <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t, s: styles.s, acts: styles.acts }} />
+        <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />
       ) : null}
       {empty && !q ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {

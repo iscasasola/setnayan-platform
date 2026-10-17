@@ -343,9 +343,10 @@ export default async function GuestsLabPage({
     const low = sp.low === '1';
     /* 🪪 `&title=atty` — the groom's mother as cale-ice holds her ("Atty.", no woman / man yet: the pending pick);
        `&gender=woman` after she is picked as "Atty. (Woman)". */
-    const titled =
+    const pickedGender: GuestRow['gender'] = sp.gender === 'woman' ? 'woman' : sp.gender === 'man' ? 'man' : null;
+    const titled: Partial<GuestRow> =
       sp.title === 'atty'
-        ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents' as const, group_category: 'family' as const, name_prefix: 'Atty.', gender: sp.gender === 'woman' || sp.gender === 'man' ? sp.gender : null }
+        ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
         : {};
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })

@@ -94,7 +94,8 @@ test('an import whose title cell says "Atty. (Woman)" stores "Atty." and woman',
 });
 
 /** The host's own screens: the only places the picker's words may be drawn. */
-const HOST_SCREENS = [/^app\/dashboard\/\[eventId\]\/guests\//, /^lib\/guest-title\.ts$/];
+/** (+ the dev labs, which production builds 404.) */
+const HOST_SCREENS = [/^app\/dashboard\/\[eventId\]\/guests\//, /^lib\/guest-title\.ts$/, /^app\/dev\//];
 const PICKER_WORDS = /\b(titlePickLabel|titleChoices|choicesOfTitle|titleButtonText|pendingTitleText|GENDER_WORD)\b/;
 
 function sources(dir: string, out: string[] = []): string[] {

@@ -315,7 +315,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
-     in a phone column; `&art=candlelight` draws it on the dark Look. Stand-in names only. */
+     in a phone column; `&art=candlelight` draws it on the dark Look; `&titles=1` the parents' titles picked with woman /
+     man (`labEntourage('titles')`). Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
     return (
@@ -325,7 +326,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-entourage={sp.entourage}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <EntourageSection groups={labEntourage('lone')} id="site-entourage" sceneStyle={style} />
+        <EntourageSection groups={labEntourage(sp.titles === '1' ? 'titles' : 'lone')} id="site-entourage" sceneStyle={style} />
       </main>
     );
   }

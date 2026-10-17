@@ -62,6 +62,8 @@ import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
 import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
+import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
+import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
@@ -99,6 +101,14 @@ const NOTICES: NotificationRow[] = [
     created_at: new Date().toISOString(),
   },
 ] as NotificationRow[];
+
+/** 🪪 `?part=screen&titles=1` — the List's "N people need Woman or Man for their title" row, on stand-in names. */
+const LAB_TITLES_WAITING: TitleWaitingPerson[] = [
+  { guestId: 'g-t1', name: 'Atty. Eufemia Dela Cruz', roleWord: 'Parents of the Groom', title: 'Atty.', key: titleKey('Atty.', null), text: titleButtonText('Atty.', null, true) },
+  { guestId: 'g-t2', name: 'Dr. Eduardo Santos', roleWord: 'Parents of the Bride', title: 'Dr.', key: titleKey('Dr.', null), text: titleButtonText('Dr.', null, true) },
+  { guestId: 'g-t3', name: 'Regional Prosecutor Rex Diaz', roleWord: 'Grandparents of the Groom', title: 'Regional Prosecutor', key: titleKey('Regional Prosecutor', null), text: titleButtonText('Regional Prosecutor', null, true) },
+  { guestId: 'g-t4', name: 'Carmen Diaz', roleWord: 'Grandparents of the Groom', title: null, key: titleKey(null, null), text: titleButtonText(null, null, true) },
+];
 
 function guest(p: Partial<GuestRow>): GuestRow {
   return {
@@ -331,9 +341,15 @@ export default async function GuestsLabPage({
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
     const low = sp.low === '1';
+    /* 🪪 `&title=atty` — the groom's mother as cale-ice holds her ("Atty.", no woman / man yet: the pending pick);
+       `&gender=woman` after she is picked as "Atty. (Woman)". */
+    const titled =
+      sp.title === 'atty'
+        ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents' as const, group_category: 'family' as const, name_prefix: 'Atty.', gender: sp.gender === 'woman' || sp.gender === 'man' ? sp.gender : null }
+        : {};
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
-      : guest({});
+      : guest(titled);
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
@@ -465,6 +481,7 @@ export default async function GuestsLabPage({
                     linkedGuestIds={roster.filter((_, i) => i % 2 === 0).map((g) => g.guest_id)}
                     faceByGuest={{}}
                     requests={3}
+                    titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
                     setup={setupRows}

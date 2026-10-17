@@ -92,7 +92,17 @@ const LONE_ROWS: Row[] = [
 const LONE_WALKS: Record<string, number> = { moh: 22 };
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
+/**
+ * 🪪 `titles` — the sample with its parents' titles as cale-ice holds them (owner 2026-10-17): the groom's mother an
+ * "Atty." picked as "Atty. (Woman)", the bride's father a "Dr." picked as "Dr. (Man)" (`guests.gender`). Before the
+ * pick both printed "Parent of the …"; now "Mother of the Groom" / "Father of the Bride". The title alone prints.
+ */
+const TITLE_PICKS: Record<string, { name_prefix: string; gender: 'woman' | 'man' }> = {
+  gp2: { name_prefix: 'Atty.', gender: 'woman' },
+  bp1: { name_prefix: 'Dr.', gender: 'man' },
+};
+
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'titles' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
@@ -105,6 +115,7 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
     role,
     extra_roles: [],
     march: { walk_no: cast === 'lone' ? (LONE_WALKS[id] ?? walk) : walk, place_in_walk: place },
+    ...(cast === 'titles' ? TITLE_PICKS[id] : {}),
   }));
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and

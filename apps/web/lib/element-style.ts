@@ -110,7 +110,15 @@ export function heroPartsFor(
   });
 }
 export const HUB_SCENE_ELEMENT_KEYS = ['label', 'heading', 'body'] as const;
-export const HUB_ELEMENT_KEYS = [...HUB_HERO_ELEMENT_KEYS, ...HUB_SCENE_ELEMENT_KEYS] as const;
+/**
+ * 🕯 THE CLOSING'S LINE (owner 2026-10-17: *"allow styles on the see you soon and customization. so we can edit the text
+ * there"*) — the "See you soon." the shell draws under every page (`closing-line.tsx`). Its words are the couple's
+ * (`word`, absent = `HUB_CLOSING_DEFAULT_WORDS`), its look a cover word's. Not a part of the cover: it is stored on the
+ * hero row's canvas beside the cover's words (one row, one draft key, one Pro gate) but drawn in the footer — so it is
+ * no `HUB_HERO_ELEMENT_KEYS` member (the cover's Part ▾ and its lines never list it). `lib/closing-line.ts`.
+ */
+export const HUB_CLOSING_ELEMENT_KEYS = ['closing'] as const;
+export const HUB_ELEMENT_KEYS = [...HUB_HERO_ELEMENT_KEYS, ...HUB_CLOSING_ELEMENT_KEYS, ...HUB_SCENE_ELEMENT_KEYS] as const;
 export type HubHeroElementKey = (typeof HUB_HERO_ELEMENT_KEYS)[number];
 export type HubSceneElementKey = (typeof HUB_SCENE_ELEMENT_KEYS)[number];
 export type HubElementKey = (typeof HUB_ELEMENT_KEYS)[number];
@@ -128,6 +136,7 @@ export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
   caption: 'Photo caption',
   rsvp: 'RSVP button',
   photo: 'Photo',
+  closing: 'Closing line',
   label: 'Label',
   heading: 'Heading',
   body: 'Words',
@@ -216,6 +225,9 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   rsvp: ['word', 'motion', 'hidden'],
   // 🖼 The cover's photo: its motion only (Reveal ▾ · Action ▾) — the picture itself is the hero photo.
   photo: ['motion'],
+  // 🕯 The closing's line: its words (empty = "See you soon.") and a cover word's look — never hidden (an empty band is
+  // not a closing; the owner asked for its words, not its removal).
+  closing: ['word', ...TEXT_FIELDS.filter((f) => f !== 'hidden'), 'width'],
   label: TEXT_FIELDS,
   heading: [...TEXT_FIELDS, 'width'],
   body: [...TEXT_FIELDS, 'width'],
@@ -317,6 +329,7 @@ export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubE
   rsvp: { min: 85, max: 145 },
   /* (The photo takes no size — the plate's box is the masthead's — the bounds are the line's, never offered.) */
   photo: { min: 85, max: 145 },
+  closing: { min: 70, max: 160 },
   label: { min: 85, max: 145 },
   heading: { min: 70, max: 145 },
   body: { min: 85, max: 145 },
@@ -503,7 +516,10 @@ export const HUB_PART_WORDS_HINT: Partial<Record<HubElementKey, string>> = {
   link: HUB_LINK_DEFAULT_WORDS,
   caption: 'The venue',
   rsvp: 'Confirm attendance',
+  closing: 'See you soon.',
 };
+/** 🕯 The closing's line while the couple wrote none — the words every page has always ended on. */
+export const HUB_CLOSING_DEFAULT_WORDS = 'See you soon.';
 /** 🔘 The RSVP button's words while the couple wrote none (owner 2026-10-16: *"Confirm Attendance is RSVP"*). */
 export const HUB_RSVP_DEFAULT_WORDS = 'Confirm attendance';
 export function sanitizeHubPartLine(raw: unknown): string | null {
@@ -531,7 +547,7 @@ export function sanitizeHubPartSentence(raw: unknown): string | null {
 /** A part's own words, by the part — the joiner's word, one line (the link, the caption) or one sentence. */
 export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string | null {
   if (key === 'joiner') return sanitizeHubJoinerWord(raw);
-  if (key === 'link' || key === 'caption' || key === 'rsvp') return sanitizeHubPartLine(raw);
+  if (key === 'link' || key === 'caption' || key === 'rsvp' || key === 'closing') return sanitizeHubPartLine(raw);
   if (key === 'eyebrow' || key === 'line') return sanitizeHubPartSentence(raw);
   return null;
 }
@@ -702,9 +718,28 @@ export function hubElementShimmer(motion: HubElementMotion | null | undefined): 
    canvas re-cuts them on a pick (`app/[slug]/_components/part-fx-cut.ts`). Pro ◆ at Apply, named by
    `hubElementEffectNames`. Held by `lib/six-effects-finish-still-and-ask-pro.test.ts`. */
 
-/** Does this part take Words ▾ and Glow? A COVER part with words (it is cut server-side) — never the joiner (one word inside the title). */
+/**
+ * Does this part take Words ▾ and Glow? EVERY part that takes a Shimmer (owner 2026-10-17, "extend the effects to every
+ * text and picture part") — the cover's words cut server-side (`pahina-masthead.tsx`), a scene's label · heading · words
+ * cut in the browser as the scene nears the screen (`HubSceneFx`). Never the joiner: one word INSIDE the Event title,
+ * cut with the title's own words (`HUB_WORD_FX_NOT`).
+ */
+export const HUB_WORD_FX_NOT: Readonly<Partial<Record<HubElementKey, string>>> = {
+  joiner: 'One word inside the Event title — it is cut, and glows, with the title’s own words.',
+  /* 🕯 The closing's line takes Glow (`hubElementTakesGlow`) but not Words ▾ — cut server-side, a word-by-word arrival
+     would play on the clock at load, at the page's foot, out of sight (`lib/closing-line.ts`). */
+  closing: 'At the foot of the page — its words would arrive before a guest gets there. It can glow.',
+};
 export function hubElementTakesWordFx(key: HubElementKey): boolean {
-  return (HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(key) && key !== 'joiner' && hubElementTakesShimmer(key);
+  return hubElementTakesShimmer(key) && !(key in HUB_WORD_FX_NOT);
+}
+/**
+ * Does this part take Glow? Every part that takes Words ▾ — and 🕯 the closing's line, cut server-side the same way
+ * (`closing-line.tsx`). Not Words ▾ there: a Word by word on the clock at the page's foot would play before a guest
+ * gets there (`lib/closing-line.ts`).
+ */
+export function hubElementTakesGlow(key: HubElementKey): boolean {
+  return hubElementTakesWordFx(key) || key === 'closing';
 }
 /** Is this part a picture (Reveal ▾ and the picture's Action ▾)? */
 export function hubElementIsPicture(key: HubElementKey): boolean {
@@ -713,7 +748,7 @@ export function hubElementIsPicture(key: HubElementKey): boolean {
 /** The Action ▾ a part offers, in the owner's order: a picture's five · a cover word's four · any word's three · the rest two. */
 export function hubElementDuringOffered(key: HubElementKey): readonly HubElDuring[] {
   if (hubElementIsPicture(key)) return HUB_EL_DURING_PICTURE;
-  if (hubElementTakesWordFx(key)) return ['still', 'drift', 'shimmer', 'glow'];
+  if (hubElementTakesGlow(key)) return ['still', 'drift', 'shimmer', 'glow'];
   if (hubElementTakesShimmer(key)) return ['still', 'drift', 'shimmer'];
   return ['still', 'drift'];
 }
@@ -1913,6 +1948,30 @@ export function hubSceneRunsAttr(elements: HubElementStyles | null | undefined):
     const style = elements[key];
     if (!style?.runs?.length || !style.of) continue;
     out[key] = { runs: style.runs, of: style.of, ...(style.was !== undefined ? { was: style.was } : {}) };
+  }
+  return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
+}
+
+/**
+ * ✨ A SCENE'S WORD EFFECTS, AS THE PAGE CARRIES THEM (owner 2026-10-17, "extend the effects to every text and picture
+ * part") — Word by word · Spread · Glow on a scene's label · heading · words, per part: `{ motion: { words, during,
+ * speed, delay } }`. Rides on the scene's own `<style data-hub-els>` as `data-hub-word-fx` (`HubCanvasFrame`, Post Event's
+ * `PostEventSceneFrame`, the Maker's preview) and is cut into the words by `HubSceneFx` — read back through
+ * `readHubSceneRuns`, sanitized again. Null when no part of the scene has one.
+ */
+export const HUB_SCENE_FX_ATTR = 'data-hub-word-fx';
+export function hubSceneFxAttr(elements: HubElementStyles | null | undefined): string | null {
+  if (!elements) return null;
+  const out: Partial<Record<HubSceneElementKey, Pick<HubElementStyle, 'motion'>>> = {};
+  for (const key of HUB_SCENE_ELEMENT_KEYS) {
+    const m = elements[key]?.motion;
+    if (!m || !hubElementWordCut(elements[key])) continue;
+    const motion: HubElementMotion = {};
+    if (m.words) motion.words = m.words;
+    if (m.during === 'glow') motion.during = 'glow';
+    if (m.speed) motion.speed = m.speed;
+    if (m.delay) motion.delay = m.delay;
+    out[key] = { motion };
   }
   return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
 }

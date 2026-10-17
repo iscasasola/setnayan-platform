@@ -1,6 +1,8 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { KitClosing } from './kit-piece';
+import { ClosingLine } from './closing-line';
+import type { HubElementStyle } from '@/lib/element-style';
 import { Logo } from '@/app/_components/logo';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { pageGround } from '@/lib/page-ground';
@@ -40,7 +42,14 @@ export function InvitationShell({
   exitHref = null,
   kitClosing = null,
   closingMark = null,
+  closingLine = null,
 }: {
+  /**
+   * 🕯 THE CLOSING'S LINE (owner 2026-10-17, `lib/closing-line.ts`): the hero row's `elements.closing` — the couple's
+   * words for "See you soon." and its look, drawn by BOTH sign-offs below (`ClosingLine`). Null → the line byte for
+   * byte as before. Stamped with its part key on the Maker's canvas only (`closingMark` is that canvas's tell).
+   */
+  closingLine?: HubElementStyle | null;
   /**
    * 🕯 THE CLOSING'S MAKER MARKER (owner 2026-10-17, DECISION_LOG "THE CLOSING ('SEE YOU SOON') IS ITS OWN SCENE IN THE
    * MAKER"): `site-body.tsx`'s `makerMark('f:closing')` — a hidden span set right BEFORE the footer, so the canvas's
@@ -302,7 +311,7 @@ export function InvitationShell({
       {closingMark}
       {kitClosing ? (
         <footer className="relative z-10 text-center">
-          <KitClosing {...kitClosing} hideWatermark={hideWatermark} />
+          <KitClosing {...kitClosing} hideWatermark={hideWatermark} line={closingLine} stamp={closingMark != null} />
         </footer>
       ) : (
       <footer
@@ -314,14 +323,7 @@ export function InvitationShell({
             the light gold vanished on a light page over the theme's moving
             ground. `terracotta-700` is every theme's own deepest accent — white
             on Cyber Neon, a deep gold on a Mood-Board page. */}
-        <p
-          data-shell-sign-off=""
-          className={`font-pahina text-lg italic ${
-            backdrop ? 'text-cream/90' : 'text-terracotta-700'
-          }`}
-        >
-          See you soon.
-        </p>
+        <ClosingLine line={closingLine} stamp={closingMark != null} className={`font-pahina text-lg italic ${backdrop ? 'text-cream/90' : 'text-terracotta-700'}`} />
         {hideWatermark ? null : (
           <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/70'}`}>
             Powered by Setnayan · setnayan.com

@@ -41,7 +41,9 @@ const code = (p: string) => stripComments(read(p));
 
 test('1 · the closing is a part of every page the shell draws, a fixed row, and a tap on it selects it', () => {
   assert.equal(MAKER_PARTS.closing.canvas, 'f:closing', 'the Closing names no section on the canvas');
-  assert.equal(MAKER_PARTS.closing.el, undefined, 'the Closing is a whole section, not a line inside one');
+  /* 🕯 Since 2026-10-17 its LINE is a part (`el` 'closing', "allow styles on the see you soon") — and a tap anywhere
+     else on the footer (the oval, the band) is still the Closing (the loop below asks with no `el`). */
+  assert.equal(MAKER_PARTS.closing.el, 'closing', 'the Closing’s line is not a part of its own');
   assert.ok(MAKER_FIXED_LABEL.closing, 'the Closing is not a fixed row the Maker knows');
   assert.equal(fixedOfKey('f:closing'), 'closing');
   assert.deepEqual(selectionForCanvasKey('f:closing', []), { kind: 'row', key: 'f:closing' }, 'a tap on the closing selects nothing');

@@ -359,8 +359,11 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Day's "Watch live · Live photo wall" part (`MakerDayPartStandIn` `live_hub`) — a tap on it picked nothing. */
   livehub: { label: 'Live hub', source: 'tool', canvas: 'f:live_hub', layouts: scene('live_hub') },
   /* 🕯 The closing (`invitation-shell.tsx`, the page's footer, marked `f:closing` on the Maker's canvas): its Style is
-     ONE Accent ◆ ▾ — None · Oval frame (`lib/art-kit-accents.ts` scene `sign-off`). Drawn under every page. */
-  closing: { label: 'Closing', source: 'tool', canvas: 'f:closing', layouts: NONE },
+     the Accent ◆ ▾ — None · Oval frame (`lib/art-kit-accents.ts` scene `sign-off`) — and, since 2026-10-17 (owner:
+     "allow styles on the see you soon and customization"), its LINE is a part like a cover word: `el` 'closing', its
+     words typed in Edit, Colour · Size · Width in Style, Animate (`lib/closing-line.ts`). A tap anywhere else on the
+     footer (the oval, the band) is still the Closing. Drawn under every page. */
+  closing: { label: 'Closing', source: 'tool', canvas: 'f:closing', el: 'closing', layouts: NONE },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
@@ -700,6 +703,16 @@ export const MAKER_ROW_SCENES: readonly string[] = [
   'entourage',
   'gifts',
 ];
+
+/**
+ * 🖼 THE SCENES THAT DRAW PICTURES (owner 2026-10-17, "extend the effects to every text and picture part"): the Love
+ * Story's photos, the gallery, the photo moments, the venue's picture — so Animate offers Reveal ▾ (Plain · Develop ◆ ·
+ * Curtain ◆) and Light leak ◆ there (as on any scene with a photo behind its words, `hubLiftMoves`).
+ */
+export const MAKER_PICTURE_SCENES: readonly string[] = ['our_love_story', 'our_photos', 'photo_moments', 'venue_map'];
+export function makerSceneHasPictures(widgetType: string): boolean {
+  return MAKER_PICTURE_SCENES.includes(widgetType);
+}
 
 /** Does this scene's Build in offer Rows ▾? */
 export function makerSceneHasRows(widgetType: string): boolean {

@@ -4280,6 +4280,9 @@ export async function SiteBody({
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
       /* 🕯 The Closing is a part of the Maker (owner 2026-10-17): its marker, right before the footer. */
       closingMark={makerMark('f:closing')}
+      /* 🕯 …and its line — the couple's words for "See you soon." and their look, on the hero row's canvas
+         (`lib/closing-line.ts`, owner 2026-10-17). Draft-overlaid on the Maker's canvas like every cover word. */
+      closingLine={heroCanvas.elements?.closing ?? null}
       /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark.
          Drawn when the Closing's Accent is on (the oval), AND on a kit look whose Closing picked None (owner
          2026-10-17: None keeps "See you soon." and the band, without the oval — `KitClosing` draws no oval then). */

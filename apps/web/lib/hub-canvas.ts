@@ -105,7 +105,16 @@ export const HUB_MOTION_PRESET_LABEL: Record<HubMotionPreset, string> = {
    this replaces the old list outright rather than carrying it. */
 export const HUB_IN = ['none', 'fade', 'move', 'move_fade'] as const;
 export const HUB_OUT = ['none', 'fade', 'move', 'move_fade', 'settle'] as const;
-export const HUB_DURING = ['still', 'lift'] as const;
+/* ✨ `leak` — LIGHT LEAK on the scene's pictures (owner 2026-10-17, "extend the effects to every text and picture part";
+   the six's ruling: the shipped ambient Light leak ◆ drawn over each picture, globals.css "THE SIX NEW EFFECTS"). */
+export const HUB_DURING = ['still', 'lift', 'leak'] as const;
+/**
+ * 🖼 REVEAL ▾ ON A SCENE'S PICTURES (owner 2026-10-17, "extend the effects to every text and picture part") — how the
+ * scene's pictures arrive: Plain (an absence) · Develop · Curtain, on every picture the scene draws (its photos, its
+ * venue picture, its photo behind the words), as the scene nears the screen. `HUB_EL_REVEALS` is the part's own list.
+ */
+export const HUB_SCENE_REVEALS = ['develop', 'curtain'] as const;
+export type HubSceneReveal = (typeof HUB_SCENE_REVEALS)[number];
 /** `time` plays once on arrival; `scrub` follows the scroll and reverses. */
 export const HUB_TIMELINE = ['time', 'scrub'] as const;
 
@@ -168,6 +177,7 @@ export const HUB_TIMELINE_LABEL: Record<HubTimeline, string> = {
 export const HUB_DURING_LABEL: Record<HubDuring, string> = {
   still: 'Still',
   lift: 'Slow lift',
+  leak: 'Light leak',
 };
 
 
@@ -326,6 +336,8 @@ export type HubSectionCanvas = {
   /** The Out's four effects — same rule against `out` + `outTo`. */
   outFx?: MotionFx;
   during?: HubDuring;
+  /** ✨ Reveal ▾ — how the scene's pictures arrive (Develop · Curtain); absent = Plain. */
+  reveal?: HubSceneReveal;
   timeline?: HubTimeline;
   stagger?: number;
   duration?: number;
@@ -792,6 +804,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
     Object.assign(out, hubSceneFxFields('out', outFx));
   }
   if (inSet(HUB_DURING, canvas.during)) out.during = canvas.during;
+  if (inSet(HUB_SCENE_REVEALS, canvas.reveal)) out.reveal = canvas.reveal;
   if (inSet(HUB_TIMELINE, canvas.timeline)) out.timeline = canvas.timeline;
   if (inSet(HUB_SEQUENCES, canvas.sequence)) out.sequence = canvas.sequence;
   /* ⛔ Scroll is the default and an absence; a speed means nothing unless the
@@ -1282,6 +1295,8 @@ export function hubCanvasClass(canvas: HubSectionCanvas, hasMedia = false): stri
     `hub-out-${m.out}`,
     `hub-during-${m.during}`,
     `hub-tl-${m.timeline}`,
+    /* ✨ Reveal ▾ on the scene's pictures (globals.css "THE SIX NEW EFFECTS"). */
+    ...(canvas.reveal ? [`hub-reveal-${canvas.reveal}`] : []),
   ].join(' ');
 }
 

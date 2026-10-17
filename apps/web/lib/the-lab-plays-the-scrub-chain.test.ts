@@ -194,8 +194,10 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
   assert.match(overlay, /export const REVEAL_UP_ATTR = 'data-reveal-up';/);
   assert.match(island, /const REVEAL_UP = 'data-reveal-up';/, 'the island and the Reveal no longer name the same mark');
   /* …written where the Reveal MEASURES "a guest is looking at the opening" — the one expression every stand-down is
-     folded into — and taken off with it. */
-  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
+     folded into — and taken off with it. 🎭 RE-ANCHORED 2026-10-17: the lifted veil now STAYS as a drape on the cover
+     (owner: "it should stay until cover is gone"), and an OPENED veil is no longer "looking at the opening" — so the
+     mark is `showing` less the drape (`drapeMode`, which begins at the unveil gesture). */
+  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing && !drapeMode\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
   /* Off → the engine's own `stop` (every mark taken off — `scrub-is-a-held-hand-over` (4)). */
   assert.match(island, /const disarm = \(\) => \{\s*for \(const stop of stops\.splice\(0\)\) stop\(\);\s*\};/);
   /* The bridge is who says "as a guest". */

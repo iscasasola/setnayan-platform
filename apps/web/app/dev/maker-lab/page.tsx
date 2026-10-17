@@ -19,6 +19,7 @@ import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
+import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -165,7 +166,10 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       openings: on,
     };
   })();
+  /* 🕘 A signed-in viewer on this event, as the event layout hands down (`LastSeenScope`) — so the colour picker's
+     "Recently used" (per person, per event, this browser) works in the lab as in the app. A lab id, never a real one. */
   return (
+    <LastSeenScope userId="lab-viewer" eventId={EVENT}>
     <MakerLabShell
       eventId={EVENT}
       revealLab={revealLab}
@@ -241,5 +245,6 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
           : null
       }
     />
+    </LastSeenScope>
   );
 }

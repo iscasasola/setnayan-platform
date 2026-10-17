@@ -55,6 +55,8 @@ export type WelcomeLook = {
   guestRole: GuestRole | null;
   /** 👗 `guests.attire` — which of a two-pick role's picks is theirs (`DressCodeWidget` `guestAttire`). */
   guestAttire?: GuestAttire | null;
+  /** 👪 Title · shown name — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
   march: MarchPlace | null;
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
@@ -123,6 +125,7 @@ export function GuestWelcome({
                 genderSeparation={look.genderSeparation}
                 guestRole={look.guestRole}
                 guestAttire={look.guestAttire ?? null}
+                guestNameParts={look.guestNameParts ?? null}
                 march={look.march}
                 rolePalette={look.rolePalette}
                 paletteLook={look.paletteLook ?? null}

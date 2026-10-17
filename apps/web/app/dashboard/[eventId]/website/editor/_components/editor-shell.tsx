@@ -75,7 +75,7 @@ import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot'
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
 import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
-import { SEE_AS, SEE_AS_EDITING, SEE_AS_PARAM, seeAsDrawsMe, seeAsLabel, seeAsOf } from '@/lib/see-as';
+import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, SEE_AS_PARAM, seeAsDrawsMe, seeAsLabel, seeAsOf, seeAsRoleQuery } from '@/lib/see-as';
 import { PickMenu } from './pick-menu';
 import {
   canvasKeyOfSelection,
@@ -297,8 +297,9 @@ export function MakerWork({
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
-    /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
-    sceneUploads?: readonly SceneUpload[];
+    /** The scenes' (and the Cover Scene's) own in-place uploads (their `scene-background` folder), signed. Required:
+     *  the Cover Scene's Upload row lists its clips from it (`every-cover-upload-is-listed.test.ts`). */
+    sceneUploads: readonly SceneUpload[];
     /** 💾 `events.couple_media_bytes`, settled — the plan's media meter beside Upload media. */
     mediaUsedBytes?: number;
     mediaHref: string;
@@ -1008,11 +1009,13 @@ export function MakerWork({
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
   const seeAs = maker?.seeAs ?? null;
+  /* 🎭 …and Role ▾ — which wedding role that sample guest stands in (`?asrole=`, only while See as is a guest). */
+  const roleQuery = seeAsRoleQuery(seeAs, maker?.seeAsRole);
   /* 🧭 Stages: each tab its own page, as guests get it (owner 2026-10-07 "yes pages"; `hubTabsOn`'s canvas exception).
      The tab on screen is switched IN the loaded page (the bridge's `hubTab`), never by a reload. */
   const stagesTabs = maker?.stagesStudio ? '&tabs=1' : '';
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${stagesTabs}`
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${roleQuery}${stagesTabs}`
     : null;
   const canvasSrc = previewSrc;
   /* 🔥 A STAGE THE COUPLE HAS OPENED STAYS LOADED (owner 2026-09-28: *"is it
@@ -2981,6 +2984,21 @@ export function MakerWork({
               onPick={(key) => maker.setSeeAs?.(seeAsOf(key))}
               compact
             />
+            {/* 🎭 ROLE ▾ (owner 2026-10-17, "view it as a father of the bride") — while See as is a guest, which
+                guest: a role from this event's own list, the man / woman half where the role needs it. */}
+            {seeAsDrawsMe(seeAs) && maker.setSeeAsRole && (maker.seeAsRoles?.length ?? 0) > 1 ? (
+              <PickMenu
+                label="Role"
+                dataAttr="data-maker-see-as-role"
+                value={maker.seeAsRole ?? SEE_AS_ANY_ROLE}
+                buttonText={`Role · ${maker.seeAsRoles?.find((r) => r.key === (maker.seeAsRole ?? SEE_AS_ANY_ROLE))?.label ?? 'Any guest'}`}
+                options={(maker.seeAsRoles ?? []).map((r) => (r.group ? { key: r.key, label: r.label, group: r.group } : { key: r.key, label: r.label }))}
+                onPick={(key) => maker.setSeeAsRole?.(key === SEE_AS_ANY_ROLE ? null : key)}
+                stickyGroups
+                compact
+                className="ml-2"
+              />
+            ) : null}
           </div>
         ) : null}
         {canvasSrc && seeAs ? (
@@ -2989,6 +3007,7 @@ export function MakerWork({
             className="mb-1.5 self-start rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-terracotta-700 ring-1 ring-terracotta/40 lg:hidden"
           >
             See as · {seeAsLabel(seeAs)}
+            {roleQuery ? ` · ${maker?.seeAsRoles?.find((r) => r.key === maker?.seeAsRole)?.label ?? ''}` : null}
           </p>
         ) : null}
         {canvasSrc ? (
@@ -3449,6 +3468,8 @@ export function MakerWork({
                 themeColours={sceneFormat.colorChoices}
                 board={elementEditing.palette.board}
                 photoChoices={sceneFormat.photoChoices}
+                videoChoice={sceneFormat.videoChoice}
+                sceneUploads={sceneFormat.sceneUploads}
                 mediaUsedBytes={sceneFormat.mediaUsedBytes}
                 loopPosters={sceneFormat.loopPosters}
                 ownsPro={ownsPro}

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6a0e7ed0f",
+  "generatedFromRef": "d85959f01b",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6563,
+  "blocks": 6569,
   "routes": {
     "/": {
       "files": [
@@ -789,6 +789,7 @@
         "[slug]/_components/cover-play-events.ts",
         "[slug]/_components/cover-scene-ground.tsx",
         "[slug]/_components/cover-scene-menu.tsx",
+        "[slug]/_components/cover-shade-preview.ts",
         "[slug]/_components/custom-section-widget.tsx",
         "[slug]/_components/day-directions.tsx",
         "[slug]/_components/day-of-announcement.tsx",
@@ -1321,6 +1322,9 @@
         "MinuteEntry",
         "MinuteMedia",
         "ModeIcon",
+        "MomentGlimpse",
+        "MomentPhoto",
+        "MomentPhotosSample",
         "MomentWhen",
         "MomentsEssay",
         "Monogram",
@@ -8420,6 +8424,7 @@
         "ChosenRow",
         "ClipboardEntry",
         "ClosedRoundNote",
+        "ColourPickerBody",
         "ColourPickerSheet",
         "ColourPill",
         "ColourRow",
@@ -10654,6 +10659,7 @@
         "LabDraftEngine",
         "LabLogoActions",
         "LabStudioActions",
+        "LastSeenScope",
         "LogoActions",
         "LogoActionsProvider",
         "LookSample",
@@ -10729,6 +10735,7 @@
         "RsvpNoteLines",
         "RsvpSheet",
         "RsvpWidget",
+        "SceneSample",
         "ScheduleWidget",
         "SpecialMessageWidget",
         "VenueWidget",

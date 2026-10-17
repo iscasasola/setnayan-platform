@@ -77,3 +77,28 @@ export function seeAsDrawingLine(v: SeeAs | null): string {
 export function seeAsDrawsMe(v: SeeAs | null | undefined): boolean {
   return v === 'pending' || v === 'replied' || v === 'declined';
 }
+
+/**
+ * 🎭 SEE AS · ROLE ▾ (owner 2026-10-17: *"for example i want to view it as a father of the bride"*) — WHICH guest the
+ * sample is: a role from this event's guest list, plus the man / woman half where the role does not say it. Its own
+ * param beside `?as=`, read by the guest page only inside the See as branch (a verified host); the rows and the strict
+ * read live in `lib/preview-role.ts` (server — it knows the role vocabulary). Here: the param, the row's shape and the
+ * words, for the Maker's client side.
+ */
+export const SEE_AS_ROLE_PARAM = 'asrole';
+
+/** One row of Role ▾ — plain data, built on the server. `group` is its heading in the list ('' = none). */
+export type SeeAsRoleRow = { key: string; label: string; group: string };
+
+/** The row that is no role at all — the sample as it always was. */
+export const SEE_AS_ANY_ROLE = 'any';
+
+/** The one line said while the canvas redraws for a Role pick. */
+export function seeAsRoleDrawingLine(label: string | null): string {
+  return label ? `Drawing it as ${label.replace(/ · (woman|man)$/, ' ($1)')}…` : 'Drawing it as any guest…';
+}
+
+/** The canvas address's Role part — only while See as draws a guest, and never for "any guest". */
+export function seeAsRoleQuery(seeAs: SeeAs | null, role: string | null | undefined): string {
+  return seeAsDrawsMe(seeAs) && role && role !== SEE_AS_ANY_ROLE ? `&${SEE_AS_ROLE_PARAM}=${encodeURIComponent(role)}` : '';
+}

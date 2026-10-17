@@ -675,6 +675,21 @@ function parentBesideOne(person: EntouragePerson, names: RoleNames | null | unde
 }
 
 /**
+ * 👪 ONE READER'S OWN KIN WORD, by the SAME per-person resolver the entourage prints with (controller 2026-10-17, the
+ * owner's #6598 ruling "each parent named per person"): the Dress code's "You are …" reads "You are Father of the
+ * Bride", never "Parents of the Bride". Title → attire (`parentWordOf`), then the word (`parentBesideOne`) —
+ * "Parent of the Bride" when nothing says which; null for a role that is not a parent / grandparent, or one the couple
+ * renamed (their word wins, as it does beside a name).
+ */
+export function kinWordOfReader(
+  role: GuestRole,
+  person: Pick<EntourageGuestRow, 'name_prefix' | 'display_name' | 'attire'>,
+  names?: RoleNames | null,
+): string | null {
+  return parentBesideOne({ role, parentWord: parentWordOf(person as EntourageGuestRow) } as EntouragePerson, names);
+}
+
+/**
  * 👪 SEVERAL PEOPLE ON ONE LINE WHO ARE THE SAME WORD SAY IT ONCE, IN THE PLURAL (controller 2026-10-17, on #6600: the
  * owner's two grandmothers, both "Ms.", read "Grandmother of the Groom · Grandmother of the Groom"). Two mothers of
  * the bride → "Mothers of the Bride"; two grandfathers → "Grandfathers of the Bride"; two whose entries say neither →

@@ -40,12 +40,21 @@ import { firstScreenFitter } from '../_lib/first-screen-fit-dom';
  * taken back; when the hold is off again (reduce motion, the Reveal still up,
  * no hand-over at all) it fits exactly as before. The arming is watched.
  */
-export function FirstScreenDoor() {
+export function FirstScreenDoor({ fit: fits = true }: { fit?: boolean } = {}) {
   const mark = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const door = mark.current?.closest('details');
     if (!door) return;
     const calm = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    /* 🦶 THE DOOR IN THE COVER'S FOOT (owner 2026-10-17): the cover's own foot already stands at the bottom of the first
+       screen, so there is nothing to make room for — only an opened door is brought into view. */
+    if (!fits) {
+      const onToggle = () => {
+        if (door.open) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
+      };
+      door.addEventListener('toggle', onToggle);
+      return () => door.removeEventListener('toggle', onToggle);
+    }
     const card = door.closest<HTMLElement>('[data-pahina-first-screen]');
     const cardCover = card?.querySelector<HTMLElement>('[data-cover-frameless]');
     const cardInner = cardCover?.firstElementChild;
@@ -125,6 +134,6 @@ export function FirstScreenDoor() {
       clear(blocks());
       markScreen(false);
     };
-  }, []);
+  }, [fits]);
   return <span ref={mark} hidden />;
 }

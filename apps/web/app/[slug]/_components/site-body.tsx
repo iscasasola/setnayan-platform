@@ -1994,6 +1994,70 @@ export async function SiteBody({
     // `splitAroundEntourage`) — drawn right after the entourage mount below.
     const detailsAround = splitAroundEntourage(pageStage, hereScenes);
     const publicWidgetNodes = sceneNodes(detailsAround.before);
+    /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ─────────────────────
+       General details above; ONE way in — "Confirm your Booking" (owner 2026-10-17, verbatim: *"Change the button to
+       'Confirm your Booking'"*; it read "Get inside"): "Upload your QR · Sign in", or, for a signed-in account not on
+       this list, "Ask to join". A stale or other-event key keeps its one explaining line above the same button.
+       THE HOST'S OWN PAGE meets none: a stale or absent guest cookie says nothing about somebody whose host membership
+       the database just confirmed (✂ no host strip since 2026-10-15 — the host's page is a guest's). 👁 See as › Signed
+       out draws THE DOOR on the canvas — the same GetInside, with no join action bound (a sample viewer asks to join
+       nothing). */
+    const doorShown = !viewerIsHost && !(vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out'));
+    const strangerDoor = (inFoot: boolean) => (
+      <>
+        {viewerIsHost ? (
+          /* THE HOST'S OWN PAGE: no door (see above). */
+          null
+        ) : (
+        <>
+          {reason === 'invalid_invite' ? (
+            <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+              That invite link doesn&rsquo;t look right — it may have been replaced with a new
+              one. Ask your host for your current QR or link; every guest has their own, and
+              an old one stops working the moment it&rsquo;s replaced.
+            </p>
+          ) : reason === 'wrong_event' ? (
+            <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
+              You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
+              QR or invite link to switch.
+            </p>
+          ) : null}
+          {vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out') ? null : (
+            <GetInside
+              slug={event.slug}
+              eventId={event.event_id}
+              dock={!isEditorCanvas}
+              inFoot={inFoot}
+              signedInNotListed={anon.signedInNotListed}
+              theOrganizer={clientWords.theOrganizer}
+              mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
+              joinAction={
+                sampleViewer === null && oneQrLetsYouIn(event.rsvp_ask_config)
+                  ? joinEventAction.bind(null, event.event_id, '')
+                  : undefined
+              }
+            />
+          )}
+        </>
+        )}
+      </>
+    );
+    /* 🦶 THE COVER ALWAYS HAS A WAY ON (live on cale-ice 2026-10-17 — owner: *"where is the RSVP and swipe marker?"* ·
+       *"the button shows after the cover?"*). Since the Cover Scene took the whole first screen (100svh), the door that
+       stood under the cover was drawn BELOW the fold and the cover itself had no foot — a first screen that ended in
+       nothing. So whenever a stranger's cover is drawn (the photo cover or the text one — the same test as the Maker's
+       list, `lib/maker-scene-list.ts`), the door moves INTO its foot, where a guest's RSVP button stands, with the
+       "Swipe up" hint under it, and is not drawn again below (never twice). A viewer who meets no door (the host, a
+       booked supplier, the canvas seen as someone else) gets the RSVP button to the shipped reply door in its place
+       (`coverRsvpOf`, the reply page asks a visitor without a key for the passcode first). With no cover drawn the
+       door keeps its row below, as before. Held by `the-cover-always-has-a-way-on.test.ts`. */
+    const coverHoldsDoor = plan.anonymousHeroBanner || !hasHeroMedia;
+    const footDoor = coverHoldsDoor && doorShown ? strangerDoor(true) : null;
+    const strangerCoverRsvp = footDoor
+      ? null
+      : pageStage === 'rsvp' && plan.rsvpShouldRender
+        ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+        : null;
 
     return (
       <>
@@ -2046,8 +2110,8 @@ export async function SiteBody({
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
         {/* 🎬 THE STRANGER'S PHOTO COVER HANDS OVER (hand-over zero, as the guest tree's does — `HubCoverHold`). It is
-            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page —
-            the door, in the next group — found by the engine, and because the door is the page's action row the
+            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page
+            (its door rides in its own foot since 2026-10-17, `footDoor`) — found by the engine, and because the door is the page's action row the
             block after it arrives with it (owner 2026-10-10: *"Together."*). The cover's marker goes in WITH it, so
             the Maker still finds the cover right after its marker.
             🔒 A cover that does not leave — every page today — is not wrapped: the marker and the masthead AS GIVEN. */}
@@ -2069,7 +2133,8 @@ export async function SiteBody({
             eventDate={event.event_date}
             venueName={venueLine}
             badgeSlot={dayOfBadge}
-            foot={false}
+            door={footDoor}
+            rsvp={strangerCoverRsvp}
             monogramSlot={coverLogoOff ? null : (
               <HeroMonogram
                 event={event}
@@ -2098,7 +2163,7 @@ export async function SiteBody({
                   🔒 Not wrapped unless the cover leaves: every page today is drawn exactly as before. */}
               <HubCoverHold
                 leaves={coverStoredToLeave && !hasHeroMedia}
-                boxes={ticketUrl ? STRANGER_TEXT_COVER_BOXES : STRANGER_TEXT_COVER_BOXES_DOOR_FIRST}
+                boxes={ticketUrl || coverHoldsDoor ? STRANGER_TEXT_COVER_BOXES : STRANGER_TEXT_COVER_BOXES_DOOR_FIRST}
                 cover={<>
               {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
@@ -2115,7 +2180,8 @@ export async function SiteBody({
                   eventDate={event.event_date}
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
-                  foot={false}
+                  door={footDoor}
+                  rsvp={strangerCoverRsvp}
                   monogramSlot={coverLogoOff ? null : (
                     <HeroMonogram
                       event={event}
@@ -2133,56 +2199,10 @@ export async function SiteBody({
                   own view included, so they see what their visitors get. The
                   organizer sells the tickets; this only links to their page. */}
               <GetTickets url={ticketUrl} />
-              {viewerIsHost ? (
-                /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
-                   a stale or absent guest cookie says nothing about somebody
-                   whose host membership the database just confirmed, and the
-                   invite-error wording would be actively wrong for them.
-                   ✂ No explaining paragraph (owner 2026-10-03, "too much going
-                   on"), and since 2026-10-15 no host strip either ("Remove it"):
-                   the host's page is a guest's. The host simply meets no "Get inside". */
-                null
-              ) : (
-                /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ──────────
-                   General details above; ONE way in below — "Get inside: Scan
-                   your QR, Tap NFC or Sign in", or, for a signed-in account not
-                   on this list, "Ask to join". A stale or other-event key keeps
-                   its one explaining line above the same button.
-                   🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the
-                   door is the first screen's own child and can dock above the bar. */
-                <div className="sn-door-row">
-                  {reason === 'invalid_invite' ? (
-                    <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-                      That invite link doesn&rsquo;t look right — it may have been replaced with a new
-                      one. Ask your host for your current QR or link; every guest has their own, and
-                      an old one stops working the moment it&rsquo;s replaced.
-                    </p>
-                  ) : reason === 'wrong_event' ? (
-                    <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
-                      You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
-                      QR or invite link to switch.
-                    </p>
-                  ) : null}
-                  {/* 👁 See as › Signed out draws THE DOOR on the canvas — the
-                      same GetInside, with no join action bound (a sample
-                      viewer asks to join nothing). */}
-                  {vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out') ? null : (
-                    <GetInside
-                      slug={event.slug}
-                      eventId={event.event_id}
-                      dock={!isEditorCanvas}
-                      signedInNotListed={anon.signedInNotListed}
-                      theOrganizer={clientWords.theOrganizer}
-                      mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
-                      joinAction={
-                        sampleViewer === null && oneQrLetsYouIn(event.rsvp_ask_config)
-                          ? joinEventAction.bind(null, event.event_id, '')
-                          : undefined
-                      }
-                    />
-                  )}
-                </div>
-              )}
+              {/* 🚪 The door's own row — only where no cover holds it (`coverHoldsDoor` above): never drawn twice.
+                  🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the door is the first screen's
+                  own child and can dock above the bar. */}
+              {coverHoldsDoor || viewerIsHost ? null : <div className="sn-door-row">{strangerDoor(false)}</div>}
               </HubCoverHold>
               {/* 📜 One page: Home lands after the cover and its one door (see the guest tree). */}
               {onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
@@ -2757,6 +2777,7 @@ export async function SiteBody({
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
       guestAttire: guestAttireOf(guest),
+      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
@@ -3858,6 +3879,7 @@ export async function SiteBody({
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     guestAttire: guestAttireOf(guest),
+      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}

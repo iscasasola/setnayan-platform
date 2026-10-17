@@ -291,7 +291,9 @@ test('8 · "each editor of each event will adapt to their event": a real name an
   assert.match(LOADER, /\.order\('plus_one_allowed', \{ ascending: false \}\)/);
   assert.doesNotMatch(LOADER, /\.(insert|update|upsert|delete|rpc)\(/, 'the preview loader writes');
   const PAGE = read('[slug]/page.tsx');
-  assert.match(PAGE, /person: await loadPreviewPerson\(admin, event\.event_id\),/);
+  // 🎭 …except a Role ▾ preview (owner 2026-10-17), which is named for its role and reads no person
+  // (`a-role-preview-is-that-roles-sample.test.ts` holds that half).
+  assert.match(PAGE, /person: (previewRole \? null : )?await loadPreviewPerson\(admin, event\.event_id\),/);
 });
 
 // ═══ 9 · a step never holds another step (owner 2026-09-28) ══════════════

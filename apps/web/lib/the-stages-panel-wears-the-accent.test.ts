@@ -145,11 +145,10 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   assert.doesNotMatch(keys, /#[0-9a-fA-F]{6}\b/, 'the typing bar writes a colour');
   const picker = read('app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx');
   assert.match(picker, /<ActionButton tone="brand" main icon=\{Check\} label="Use" disabled=\{!custom\.use\}/, 'Use is not the main button');
-  /* …and the colour picked NOW is marked in the accent: its ring, its row, its tick. (The "AA ✗" badge is a state
-     badge and keeps its own colour.) */
+  /* …and the colour picked NOW is marked in the accent: its ring. (The "AA ✗" badge is a state badge and keeps its own
+     colour.) Since 2026-10-17 every colour in the sheet is a dot in a row of five (owner: "Just have the Moodboard and
+     Recently Used 5 colors") — the list rows that carried an accent wash and a tick are gone; the ring marks it. */
   assert.match(picker, /\$\{on \? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''\}/);
-  assert.match(picker, /\$\{on \? 'bg-sn-accent\/10' : ''\}/);
-  assert.match(picker, /\{on \? <Check aria-hidden className="ml-auto h-4 w-4 shrink-0 text-sn-accent"/);
   assert.doesNotMatch(picker, /mulberry|bg-ink px-4|ring-terracotta|bg-terracotta-700\/10/, 'the colour sheet marks a pick, or draws a button, in a colour of its own');
 
   /* THE MAIN BUTTON IS THE ACCENT: its fill reads `--sn-accent`, its word `--sn-on-accent` — swap the line, it is blue. */

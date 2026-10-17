@@ -1578,6 +1578,8 @@ export default async function WebsiteEditorPage({
                   themeColours={colorChoices}
                   board={mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId)}
                   photoChoices={photoChoices}
+                  videoChoice={videoChoice}
+                  sceneUploads={sceneUploads}
                   mediaUsedBytes={mediaUsedBytes}
                   loopPosters={Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null]))}
                   ownsPro={ownsPro}

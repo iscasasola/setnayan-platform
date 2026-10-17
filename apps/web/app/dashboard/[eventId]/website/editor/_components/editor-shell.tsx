@@ -3227,7 +3227,8 @@ export function MakerWork({
           hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
           resize={toolsResize}
-          parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
+          /* 🕯 The closing's line is ONE part of its own (stored on the hero row, drawn in the footer). */
+          parts={elementTarget.key === 'f:closing' ? ['closing'] : elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
           /* 🎞 A Post Event scene's part: saved into the story's looks, and its
              own words edited right here (no "Edit in … ↗"). */
           {...(() => {

@@ -58,6 +58,7 @@ import {
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import {
@@ -616,7 +617,8 @@ export function StageTools({
         const work = makerWorkTool(t);
         if (work !== 'style' && def?.canvas && def.el && !rsvpOpenRef.current) {
           window.dispatchEvent(
-            new CustomEvent(MAKER_OPEN_PART_EVENT, { detail: { key: def.canvas, widgetType: def.canvas === 'f:hero' ? 'hero' : def.canvas.slice(2), el: def.el } }),
+            /* 🕯 The cover's words and the closing's line are the hero row's (`elementCanvasOwner`). */
+            new CustomEvent(MAKER_OPEN_PART_EVENT, { detail: { key: def.canvas, widgetType: elementCanvasOwner(def.canvas), el: def.el } }),
           );
         }
         window.dispatchEvent(new CustomEvent(MAKER_STAGE_TOOL_EVENT, { detail: work }));

@@ -110,6 +110,16 @@ async function recentYesKey(guestId: string, qrToken: string): Promise<string | 
   }
 }
 
+/**
+ * Is this guest's session token still the one on their row? — the chokepoint's
+ * question, exported so its memory can be held by a test
+ * (`lib/guest-session-recent-yes.test.ts`). Every caller in the app goes
+ * through `readGuestSession`.
+ */
+export function guestSessionTokenStillCurrent(guestId: string, qrToken: string): Promise<boolean> {
+  return sessionTokenMatchesDb(guestId, qrToken);
+}
+
 /** TEST ONLY — forget every remembered answer. */
 export function forgetRecentGuestSessionChecksForTest(): void {
   recentYes.clear();

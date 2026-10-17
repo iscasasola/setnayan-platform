@@ -58,3 +58,15 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       papic-guest-spend-ceiling.
       LEFT (name in PR): pool reserve (separate RPC) before the record can leak if the function dies between them —
       folding it in moves three ledgers + the fn-not-found carve-out; not contained.
+- [x] 3 join requests — FIXED. Migration 20271273586425: `guests.join_request_key` + UNIQUE (event_id, key);
+      `guest_join_request_create` (service_role): lock on the EVENT, repeat of the same form key → existing row
+      (`created:false`, app refreshes answers, NO second claim/notice), live requests counted vs SELF_JOIN_CEILING inside
+      the lock (`ceiling`), then insert. Key = `<RequestKeyInput />` (client component, minted in the browser on mount —
+      never in a server render, so a shared cache can never hand one person's request to another) in RequestForm and
+      get-inside's "Join as a guest". DECISION (mine, per the door's "a name is not a secret" rule): dedupe by the form
+      key, NOT by name/mobile — merging on a typed name+number would hand the 2nd person the 1st's pending ticket.
+      A ceiling hit inside the lock reads `join_failed` (the app's own pre-count still says `join_closed` first).
+      Test tests/db/a-join-request-is-written-once.db.test.ts (6); sabotage: repeat lookup removed → 3 red · ceiling
+      removed → 2 red · lock removed → 1 red · notify before `created` → 1 red. Guard a-list-only-event-takes-no-requests
+      test 4 now allows exactly this one writer, held to: service_role only, sole caller createJoinRequest, called after
+      the setting gate.

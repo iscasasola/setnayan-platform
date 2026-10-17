@@ -13,8 +13,8 @@
  * ceiling is counted inside the function. The lock + order is read from the SQL.
  *
  * 🛡 Sabotaged, each red then restored (2026-10-18):
- *   • the same-key lookup removed from the function          → test 1 red;
- *   • the ceiling refusal removed                            → test 3 red;
+ *   • the same-key lookup removed from the function          → tests 1, 3, 5 red;
+ *   • the ceiling refusal removed                            → tests 3, 5 red;
  *   • the lock removed                                       → test 5 red;
  *   • the app notifies before asking `created`               → test 6 red.
  */

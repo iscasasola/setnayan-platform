@@ -17,6 +17,7 @@ Owner ask (17 Oct): "allow styles on the see you soon and customization. so we c
 ## State
 - [x] code
 - [x] guard + 6 sabotages (all caught)
-- [ ] walk at 375 (Maker lab) + shots
+- [ ] walk at 375 (Maker lab) + shots — queued in the WALK lane (serve: scratchpad/closing-walk/serve.sh, port 3611, walk.mjs)
+- ⚠ 15:25 this builder overwrote serve.sh + lib.mjs in a SHARED scratchpad dir `scratchpad/walk/` (another session's); note left there
 - [x] PR #6608 draft, do-not-auto-merge
 - [ ] CI green

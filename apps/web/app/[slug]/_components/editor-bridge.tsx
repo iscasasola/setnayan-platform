@@ -27,6 +27,7 @@ import {
   hubElementShimmer,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
+import { CLOSING_EL, closingLineMotionVars } from '@/lib/closing-line';
 import { CANVAS_REDRAW_COMMITS_EVENT, SCENE_LOOK_HIDDEN_ATTR, findMakerSection, sectionAfter } from './maker-section-find';
 import { layScenePicture, takeScenePicturesOff } from './scene-look-lay';
 import { keepReactChildren, keepReactNodes, putReactChildrenBack } from './react-children-keep';
@@ -306,7 +307,13 @@ const LOOK_PROPS: readonly string[] = HUB_ELEMENT_LOOK_PROPS;
  * must not replay the entrance. `animation-name` goes with the motion because
  * ▶ Play leaves its `-p` twin inline.
  */
-export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | null | undefined, motion: boolean): void {
+export function applyHeroPartStyle(
+  part: HTMLElement,
+  style: HubElementStyle | null | undefined,
+  motion: boolean,
+  /* 🕯 The closing's line lays its motion for the page's foot (`lib/closing-line.ts`) — the guest page's own vars. */
+  motionVars: (style: HubElementStyle | null | undefined) => Array<[string, string]> = hubElementHeroMotionVars,
+): void {
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
@@ -316,7 +323,7 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */
-  const vars = hubElementHeroMotionVars(style);
+  const vars = motionVars(style);
   for (const [p, v] of vars) part.style.setProperty(p, v);
   if (vars.length > 0) part.setAttribute('data-el-motion', '');
   else part.removeAttribute('data-el-motion');
@@ -403,6 +410,20 @@ export function applyElementPreview(
   doc: PreviewDoc,
 ): HTMLElement[] {
   const parts = Array.from(section.querySelectorAll<HTMLElement>(`[data-el="${el}"]`));
+  /* 🕯 THE CLOSING'S LINE (`f:closing`, stored on the hero row): its look, its words and its cut — as the guest page
+     draws it (`closing-line.tsx`). No other part shares its alignment, so only it is re-laid. */
+  if (el === CLOSING_EL) {
+    for (const part of parts) {
+      applyHeroPartStyle(part, elements?.[el], motion, closingLineMotionVars);
+      /* The sign-off's own ink (the kit's, `data-el-ink`) is under the couple's colour — back when theirs is taken off. */
+      const ink = part.getAttribute('data-el-ink');
+      if (ink && !part.style.color) part.style.color = ink;
+      unwrapPartFx(part, doc);
+      applyPartWords(part, elements?.[el]?.word);
+      wrapPartFx(part, elements?.[el], doc);
+    }
+    return parts;
+  }
   if ((HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(el)) {
     /* The hero's alignment is ONE choice for every part (`withElementAlign`), and
        "↺ Use the Event Hub style" takes it off every part — so every hero part's

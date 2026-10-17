@@ -457,7 +457,9 @@ function canvasEffects(
             first.group === 'part-motion' && first.element && hubElementEffectNames(drafted.elements?.[first.element]?.motion).length > 0
             ? hubElementEffectNames(drafted.elements?.[first.element]?.motion).join(' · ')
             : name.what;
-    const where = first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
+    /* 🕯 The closing's line is stored on the hero row but is no part of the cover — named, and reached, as itself. */
+    const closing = first.element === 'closing';
+    const where = closing ? HUB_ELEMENT_LABEL.closing : first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
     let without = drafted;
     for (const f of facets) without = canvasWithoutFacet(live, without, f);
     out.push({
@@ -471,7 +473,7 @@ function canvasEffects(
         tab: name.tab,
         ...(first.element ? { element: first.element } : {}),
         stages,
-        ...fixedOf(item.widgetType),
+        ...(closing ? { fixed: 'closing' } : fixedOf(item.widgetType)),
       },
       remove: { widgets: { [item.widgetType]: { canvas: without } } as HubDraftPatch['widgets'] },
     });

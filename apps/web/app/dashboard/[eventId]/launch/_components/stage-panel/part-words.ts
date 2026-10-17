@@ -27,13 +27,14 @@ import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMa
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
-import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
+import { HUB_ELEMENT_LABEL, HUB_PART_LINE_MAX, type HubElementKey } from '@/lib/element-style';
 import { SCENE_TYPE_MULTILINE, isTypeCaretPart, type SceneTypeField } from '@/lib/hub-part-words';
 import { withTypedWords } from '@/lib/type-in-place';
 import { SCENE_FIELD_LABEL, sceneFieldMax, sceneTypeWrite, type SceneOwnWords } from '@/lib/scene-type-words';
 import { DISPLAY_NAME_MAX, typedDisplayName } from '@/lib/typed-names';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 import { readPostEventWords } from './post-event-edit';
+import { CLOSING_CANVAS_KEY, CLOSING_EL } from '@/lib/closing-line';
 
 /** The names' own queue key — the typing bar's (`type-in-place.tsx`): the two doors' writes never race. */
 export const NAMES_WRITE_KEY = 'event:display_name';
@@ -72,6 +73,12 @@ export function readPartWords(doc: Document | null | undefined, key: string | nu
   const section = findMakerSection(doc, key);
   if (!section) return [];
   if (el) {
+    /* 🕯 The closing's line (owner 2026-10-17): its own words, one line — empty is "See you soon." (`data-el-word`). */
+    if (key === CLOSING_CANVAS_KEY && el === CLOSING_EL) {
+      const part = section.querySelector<HTMLElement>(`[data-el="${CLOSING_EL}"]`);
+      if (!part) return [];
+      return [{ key, el, field: null, label: partLabel || HUB_ELEMENT_LABEL.closing, text: partWords(part), auto: part.getAttribute('data-el-word'), long: false, maxLength: HUB_PART_LINE_MAX, twoPeople: false }];
+    }
     if (key !== 'f:hero' || !isTypeCaretPart(el)) return [];
     const part = section.querySelector<HTMLElement>(`[data-el="${CSS.escape(el)}"]`);
     if (!part) return [];

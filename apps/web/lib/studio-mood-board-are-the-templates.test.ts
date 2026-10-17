@@ -204,7 +204,6 @@ test('8 · the first load: the page’s files and the templates they pull in are
     `${MB}/mood-board-editor.tsx`,
     `${MB}/dress-code-lists-form.tsx`,
     `${MB}/list-field.tsx`,
-    `${MB}/palette-field.tsx`,
     `${MB}/group-attire-field.tsx`,
     `${MB}/role-attire-field.tsx`,
     `${MB}/mood-board-lazy.tsx`,

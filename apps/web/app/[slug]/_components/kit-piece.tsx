@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
 import { artKitCss, kitFile, viewPlacements, type ArtKit, type ArtKitPlacement, type ArtKitSlot, type ArtKitView } from '@/lib/art-kits';
 import { splitCoupleNames } from '@/lib/split-names';
+import type { HubElementStyle } from '@/lib/element-style';
+import { ClosingLine } from './closing-line';
 
 /**
  * 🕯 THE ART KIT, DRAWN — one component per piece (`KitPiece`), one per slot (`KitSlot`), each placed by the registry
@@ -140,7 +142,13 @@ export function KitClosing({
   mark,
   hideWatermark,
   twoPeople = true,
+  line = null,
+  stamp = false,
 }: {
+  /** 🕯 The closing's line — the couple's words and look (`closing-line.tsx`); null: "See you soon." as drawn before. */
+  line?: HubElementStyle | null;
+  /** The Maker's canvas: the line carries its part key. */
+  stamp?: boolean;
   kit: ArtKitView;
   names: string;
   date: string | null;
@@ -196,9 +204,7 @@ export function KitClosing({
           </span>
         </div>
       ) : null}
-      <p data-shell-sign-off="" className="mx-4 mb-6 mt-5 font-pahina text-[1.625rem] italic" style={{ color: kit.closing.soon }}>
-        See you soon.
-      </p>
+      <ClosingLine line={line} stamp={stamp} className="mx-4 mb-6 mt-5 font-pahina text-[1.625rem] italic" base={{ color: kit.closing.soon }} />
       <div data-kit-band="" className="px-5 pb-7 pt-8" style={{ background: kit.closing.band, color: kit.closing.ink }}>
         <p className="font-pahina text-[2.125rem] font-light leading-[1.05]">
           {split.first}

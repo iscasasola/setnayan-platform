@@ -36,6 +36,7 @@ import { GUEST_OPTIONS_MAX, columnRole, designLabel, designOf, readerFigureRole,
 import type { GuestAttire, GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { roleGroupOf } from './role-groups';
+import { roleLabel } from './entourage';
 
 const roleGroupOfRole = (role: GuestRole): string | null => {
   const g = roleGroupOf(role);
@@ -84,6 +85,30 @@ export function attireRow(tier: AttireTier, key: string): AttireRowDef | null {
 }
 export function attireRowOfPalette(paletteKey: string): AttireRowDef | null {
   return ATTIRE_ROWS.find((r) => r.paletteKey === paletteKey) ?? null;
+}
+/**
+ * 🪞 THE STUDIO ROW A GUEST-LIST ROLE IS DRESSED BY (2026-10-17, "ONE FACT"): its own row for the four the Studio
+ * lists by role (the celebrant, the bride, the groom, the guests), else its group's row (a ninang → Principal
+ * Sponsors, a best man → Groomsmen, the groom's parents → VIP · Immediate Family). Null for a role the Studio has no
+ * row for. Every reader of "what does this person wear" goes through it, so the guest page answers from the row the
+ * couple picked on — never from a second store the editor does not show.
+ */
+export function studioRowOf(role: GuestRole | null | undefined): AttireRowDef | null {
+  if (!role) return null;
+  const own = attireRow('roles', role);
+  if (own) return own;
+  const group = roleGroupOfRole(role);
+  return group ? attireRow('groups', group) : null;
+}
+/**
+ * 🪞 A ROLE THAT MAY CARRY ITS OWN WEAR in `dress_code_config.roles`: the entourage's roles (`roleLabel`) AND the four
+ * the Studio lists by themselves — the celebrant, the bride, the groom, the guests (2026-10-17). Every reader of the
+ * stored roles keeps these; the old filter (`roleLabel` alone — the entourage's list) silently dropped the bride's,
+ * the groom's and the guests' Wear on the way into the Studio, so the editor showed "Not said yet" for a saved pick
+ * and its next save wrote the config back without it.
+ */
+export function isDressableRole(v: string): boolean {
+  return roleLabel(v as GuestRole) !== null || attireRow('roles', v) !== null;
 }
 export const isTwoPick = (row: AttireRowDef | null): boolean => (row?.who.length ?? 0) === 2;
 
@@ -181,6 +206,13 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
     { who: row.who[0], style: own(0, first), colours: null, role: columnRole(row.key, 0) },
     { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : first), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
   ];
+}
+
+/** A row's Wear in one line, as the Studio says it — "For men: Suit and tie · For women: Long gown", or "Not said yet". */
+export function wearSaid(config: Config, row: AttireRowDef): string {
+  const picks = picksOf(config, row);
+  const two = picks.length === 2;
+  return picks.map((p) => `${two ? `${PICK_LABEL[p.who]}: ` : ''}${p.style ? designLabel(p.role, p.style) : 'Not said yet'}`).join(' · ');
 }
 
 const womenOf = (config: Record<string, unknown>): SecondPicks => sanitizeSecondPicks(config.women);
@@ -287,11 +319,13 @@ export function readerAttire(input: {
   /** The role's single person by the shipped figure rule (`roleFigures`' gown / suit), or null for a role that holds both. */
   single: (role: GuestRole) => 'gown' | 'suit' | null;
 }): { styleLabel: string | null; hexes: string[]; picks: Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null }> } {
-  const { role, attire, source, config, style, hexes, label } = input;
+  const { role, attire, config, style, hexes, label } = input;
   /* 👔 Said in the person's OWN words for the design ("Filipiniana (terno)" for a bride) where they have a list. */
   const say = (p: { style: AttireStyle | null; role?: FigureRole | null }) => (p.style ? (p.role ? designLabel(p.role, p.style) : label(p.style)) : null);
-  const group = role ? roleGroupOfRole(role) : null;
-  const groupRow = source === 'group' && group ? attireRow('groups', group) : null;
+  /* 🪞 The reader's Studio row (`studioRowOf`, 2026-10-17) — whether or not the row's FIRST pick is stored: a ninang
+     whose couple picked only the women's Wear still reads it. */
+  const studioRow = studioRowOf(role);
+  const groupRow = studioRow && studioRow.tier === 'groups' ? studioRow : null;
   if (groupRow && isTwoPick(groupRow)) {
     const picks = picksOf(config, groupRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
     const r = readerPick(groupRow, role, attire);

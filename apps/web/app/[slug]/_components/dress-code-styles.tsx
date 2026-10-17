@@ -77,7 +77,12 @@ export function DressCodePalette({ title, description, palette, rows, dos, donts
   // so every colour is named with who wears it, once.
   const bands = [
     ...(palette.length > 0 ? [{ key: 'ours', who: 'Our colours', swatches: palette.map((p) => ({ hex: p.hex, name: p.name })) }] : []),
-    ...rows.filter((r) => r.hexes.length > 0).map((r) => ({ key: r.key, who: r.label, swatches: r.hexes.map((hex) => ({ hex, name: '' })) })),
+    /* 🏷 A band per PERSON of a row (men · women), each colour named by what it colours (`pickDots`, 2026-10-17). */
+    ...rows.flatMap((r) =>
+      r.picks
+        .filter((p) => p.dots.length > 0)
+        .map((p) => ({ key: `${r.key}:${p.who}`, who: p.label ? `${r.label} — ${p.label.toLowerCase()}` : r.label, swatches: p.dots.map((d) => ({ hex: d.hex, name: d.word })) })),
+    ),
   ];
   return (
     <section className="space-y-5" data-scene-style="palette">
@@ -115,7 +120,8 @@ export function DressCodePalette({ title, description, palette, rows, dos, donts
           {rows.flatMap((r) =>
             r.lines.map((line, i) => (
               <li key={`${r.key}-${i}`}>
-                <span className="text-ink">{r.label}</span> · {line.styleLabel}
+                <span className="text-ink">{r.label}</span>
+                {line.label !== r.label ? <> · {line.label}</> : null} · {line.styleLabel}
                 {line.note ? <> — {line.note}</> : null}
               </li>
             )),
@@ -147,7 +153,7 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
         <p className="mx-auto max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
       ) : null}
       {ribbon.length > 0 ? (
-        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="Our colours" role="img">
+        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="The colours each role wears" role="img">
           {ribbon.map((hex, i) => (
             <span key={`${hex}-${i}`} className="h-full flex-1" style={{ backgroundColor: hex }} />
           ))}
@@ -162,14 +168,22 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
                   {r.label}
                 </th>
                 <td className="py-2 align-top text-ink/65">
-                  {r.hexes.length > 0 ? (
-                    <span className="mr-2 inline-flex gap-1 align-middle" aria-hidden>
-                      {r.hexes.map((hex, i) => (
-                        <span key={`${hex}-${i}`} className={`inline-block h-3.5 w-3.5 ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-                      ))}
+                  {/* 🏷 Per person: their Wear, then each colour with what it colours (`pickDots`, 2026-10-17). */}
+                  {r.picks.map((p) => (
+                    <span key={p.who} className="block" data-dress-code-person={p.who}>
+                      {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
+                      {p.dots.length > 0 ? (
+                        <span className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[12px]">
+                          {p.dots.map((d, i) => (
+                            <span key={`${d.hex}-${i}`} className="inline-flex items-center gap-1">
+                              <span aria-hidden className={`inline-block h-3.5 w-3.5 ${SWATCH_EDGE}`} style={{ backgroundColor: d.hex }} />
+                              {d.word}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                  {r.lines.map((l) => l.styleLabel).join(' · ')}
+                  ))}
                 </td>
               </tr>
             ))}

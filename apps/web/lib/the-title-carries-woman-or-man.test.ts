@@ -20,7 +20,10 @@
  *   4. THE PROMPT LISTS EXACTLY WHO WAITS: `needsWomanOrMan` is true precisely where the resolver, given no attire,
  *      has no word — so the Guests page never asks about someone already told, and never misses someone who isn't.
  *
- * Sabotage (2026-10-17), each seen RED then restored — counts in the PR body.
+ * Sabotage (2026-10-17), each seen RED then restored (fails out of 8): `parseTitleKey` storing "Atty. (Woman)" → 1
+ * (test 1); `parentWordOf` without its two gender lines → 3 (4, 5, 8); the backfill's IN list + 'atty' → 1 (7);
+ * `needsWomanOrMan` reading the title only → 1 (8); `'(Woman)'` in app/[slug]/_lib/types.ts → 1 (3); the legacy
+ * sponsor's column ignoring gender → 1 (6).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -20,6 +20,7 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { pulseBaseline } from '@/lib/event-pulse.server';
 import {
   checkedInClock,
   findSeatMode,
@@ -105,6 +106,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   }
 
   const admin = createAdminClient();
+  // 🧯 When this render BEGAN — the pulse baseline is compared against it (live-day polling).
+  const renderedAt = new Date().toISOString();
   const names = event.display_name?.trim() || words.theHost;
 
   // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
@@ -162,6 +165,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             eventDate={event.event_date as string | null}
             tables={tables}
             entrance={entrance}
+            pulse={await pulseBaseline(slug, null, renderedAt)}
           />
         ) : (
           <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
@@ -298,7 +302,11 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       {/* A reseat on the day shows without a reload (PR 5); and a guest seated
           while the page sits open in a tab sees it when they come back to it —
           "No need to check back — this updates by itself" (A4) is a promise. */}
-      <LiveRefresher eventDate={event.event_date as string | null} />
+      <LiveRefresher
+        eventDate={event.event_date as string | null}
+        slug={slug}
+        pulse={await pulseBaseline(slug, null, renderedAt)}
+      />
       <RefreshOnReturn />
       {/* 🪑 ONE WAITING STATE, FOR EVERY VIEWER (owner 2026-10-11; the tester's walk as a named guest): before seats
           are shown, a guest on the list read "You're on the list… No need to check back — this updates by itself"

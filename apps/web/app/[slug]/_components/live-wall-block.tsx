@@ -4,6 +4,7 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
+import { jittered } from '@/lib/live-day-timing';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
@@ -21,7 +22,7 @@ import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
  *
  * LIVENESS without sockets: the venue projector owns the realtime channel;
  * a phone block only needs "feels live" — so it polls /[slug]/live-wall every
- * 25s WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
+ * 25s (± 20 %, so phones drift apart) WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
  * pocketed phone polls zero). Merge is feedId-deduped via the wall's own pure
  * mergeTiles, so tiles never re-animate on refresh. Request-driven only — no
  * cron (house rule).
@@ -112,7 +113,9 @@ export function LiveWallBlock({
   const [openedId, setOpenedId] = useState<string | null>(null);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    // A chain of timeouts, not one interval: each wait is POLL_MS ± 20 % drawn fresh (`jittered`), so the phones at
+    // one venue drift apart rather than asking in step (lib/live-day-timing.ts).
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let inFlight = false;
     // Consecutive failures. TWO, not one: a single miss on venue wifi is
     // ordinary and must not accuse the network. Two in a row is a pattern, and
@@ -124,9 +127,9 @@ export function LiveWallBlock({
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`, {
-          cache: 'no-store',
-        });
+        // No request cache directive — the feed's own headers keep the browser from reusing a copy, and a
+        // `no-store` ask would skip the shared answer (lib/live-day-cache.ts `liveEdgeHeaders`).
+        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`);
         // 404 IS A REFUSAL, NOT AN OUTAGE — and the two must not be treated
         // alike. The feed answers 404 only when the wall is not on offer to
         // guests: the couple switched the phone mirror off, or the wall was
@@ -191,12 +194,24 @@ export function LiveWallBlock({
       }
     };
 
+    let running = false;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        timer = null;
+        void poll().finally(() => {
+          if (running) schedule();
+        });
+      }, jittered(POLL_MS));
+    };
     const start = () => {
-      if (!timer) timer = setInterval(() => void poll(), POLL_MS);
+      if (running) return;
+      running = true;
+      schedule();
     };
     const stop = () => {
+      running = false;
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
         timer = null;
       }
     };

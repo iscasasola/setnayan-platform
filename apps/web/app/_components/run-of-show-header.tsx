@@ -9,6 +9,8 @@ import {
   type RunOfShowBlock,
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
+import { applyGuestBlockChange, type BlockChange } from '@/lib/run-of-show-live';
+import { herdDelay } from '@/lib/live-day-timing';
 import { useSaveLoader } from '@/components/sd-loader';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
@@ -39,6 +41,9 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * `initial` is computed in the server render so the header shows correct state
  * on first paint before the channel connects.
  */
+/** A guest's re-read (a reconnect, or a change its payload could not settle) lands somewhere in this window. */
+const GUEST_REREAD_SPREAD_MS = 10_000;
+
 export function RunOfShowHeader({
   eventId,
   initial,
@@ -91,6 +96,47 @@ export function RunOfShowHeader({
     if (fresh) setBlocks(fresh);
   }, [eventId, forGuests]);
 
+  /*
+    🧯 A GUEST'S HEADER READS NOTHING ON A CHANGE (2026-10-18, live-day polling · lib/run-of-show-live.ts).
+    Every guest's phone hears every change; answering each with a re-read made one advance by the coordinator into a
+    database read from EVERY phone in the same half second. A guest's header applies the row it was sent, behind the
+    guests' fence. Only a payload that cannot settle it re-reads — and that re-read, like the one after a reconnect
+    (a dropped venue Wi-Fi reconnects every phone at once), waits a random moment first (`herdDelay`). Hosts,
+    suppliers and the coordinator — a handful of screens — re-read at once, as before.
+  */
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
+  const rereadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reread = useCallback(() => {
+    if (!forGuests) {
+      void refetch();
+      return;
+    }
+    if (rereadTimer.current) return;
+    rereadTimer.current = setTimeout(() => {
+      rereadTimer.current = null;
+      void refetch();
+    }, herdDelay(GUEST_REREAD_SPREAD_MS));
+  }, [forGuests, refetch]);
+  useEffect(
+    () => () => {
+      if (rereadTimer.current) clearTimeout(rereadTimer.current);
+    },
+    [],
+  );
+  const onChange = useCallback(
+    (change: BlockChange) => {
+      if (!forGuests) {
+        void refetch();
+        return;
+      }
+      const next = applyGuestBlockChange(blocksRef.current, change);
+      if (next) setBlocks(next);
+      else reread();
+    },
+    [forGuests, refetch, reread],
+  );
+
   const subscribedOnce = useRef(false);
   useEffect(() => {
     const supabase = createClient();
@@ -104,14 +150,14 @@ export function RunOfShowHeader({
           table: 'event_schedule_blocks',
           filter: `event_id=eq.${eventId}`,
         },
-        () => {
-          void refetch();
+        (change) => {
+          onChange(change as BlockChange);
         },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setLive(true);
-          if (subscribedOnce.current) void refetch();
+          if (subscribedOnce.current) reread();
           subscribedOnce.current = true;
         } else {
           setLive(false);
@@ -120,7 +166,7 @@ export function RunOfShowHeader({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [eventId, refetch]);
+  }, [eventId, onChange, reread]);
 
   const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(
     blocks,

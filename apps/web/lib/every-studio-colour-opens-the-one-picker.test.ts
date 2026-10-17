@@ -124,7 +124,7 @@ test('B · the shelves: each colour named; with a ground, what reads on it comes
   assert.deepEqual([...ranked.board.map((r) => r.hex)].sort(), [...mixed].sort(), 'a colour was hidden — the shelf is reordered, never filtered');
   const recentMix = ['#F3DDE3', '#2A3A5E', '#E9C9D3', '#3E3350'];
   const rankedRecent = pickerShelves(mixed, { readsOn: ground, recent: recentMix }).recent.map((r) => r.hex);
-  assert.deepEqual(rankedRecent, ['#2A3A5E', '#3E3350', '#F3DDE3', '#E9C9D3'], 'Recently used does not lead with what reads on the ground');
+  assert.deepEqual(rankedRecent, recentMix, 'a ground reordered Recently used — it stays newest first (owner 2026-10-17)');
   assert.equal(ranked.board[0]?.name, 'Supporting', 'a reordered colour lost the name of the slot it was handed in');
   /* The helper itself: stable, total, and a non-colour ground changes nothing. */
   const rows = FIVE.map((hex) => ({ hex }));

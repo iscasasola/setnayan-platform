@@ -32,7 +32,7 @@ import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind'
  *   Against the background   the AA line, only when the caller hands the ground the colour sits on
  *                            (`readsOn`): how the colour chosen NOW reads there — "Clear to read ·
  *                            7.2:1" AA · "Hard to read — pick a deeper colour · 2.1:1" AA ✗ — and
- *                            the two rows under it then lead with the colours that read on it
+ *                            the Mood Board row then leads with the colours that read on it
  *   Your Mood Board          the five, one row of dots, each with its name under it (its slot's with
  *                            `slots`, else the colour's own); the colour chosen now wears a ring and its code
  *   Recently used            up to five this person last picked HERE, on this event, newest first, never one
@@ -78,7 +78,7 @@ export function ColourPickerSheet({
   extra?: ReactNode;
   /** `palette` IS the five main colours in slot order: each wears its slot's name (Dominant … Accent 2). Else a colour wears its own name. */
   slots?: boolean;
-  /** The ground this colour sits on (words on a background). Draws "Against the background" and leads the rows with what reads on it — reordered, never hidden. */
+  /** The ground this colour sits on (words on a background). Draws "Against the background" and leads the Mood Board row with what reads on it — reordered, never hidden. */
   readsOn?: string | null;
 }) {
   /* Recently used: this signed-in person, this event, this browser. No scope (a page outside an event) → no row. */

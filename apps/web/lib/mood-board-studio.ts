@@ -238,8 +238,9 @@ export type PickerRow = { hex: string; name: string | null };
  *   · `recent` — what this person picked last in the picker (`lib/colour-picker-recent.ts`), newest first,
  *     none of the five, at most five.
  * Each colour with a name: the caller's own for its slot (`names`, by the position the caller listed it —
- * "Dominant"), else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, each
- * row leads with the colours that read on it (`readableFirst`) — reordered, never hidden.
+ * "Dominant"), else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, the Mood
+ * Board row leads with the colours that read on it (`readableFirst`) — reordered, never hidden; Recently used
+ * keeps its newest-first order.
  */
 export function pickerShelves(
   palette: readonly string[],
@@ -255,7 +256,9 @@ export function pickerShelves(
   const row = (hex: string): PickerRow => ({ hex, name: named.get(hex) ?? nearestColorName(hex) });
   return {
     board: readableFirst(five.map(row), opts.readsOn),
-    recent: readableFirst(recentColoursToShow(opts.recent ?? [], five).map(row), opts.readsOn),
+    /* Newest first, always — the owner asked for the colours just used, in the order they were used; a ground marks
+       them (the AA line above) but never reorders them. */
+    recent: recentColoursToShow(opts.recent ?? [], five).map(row),
   };
 }
 

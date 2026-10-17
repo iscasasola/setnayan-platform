@@ -17,4 +17,15 @@ The Apply sheet also named an accent pick "Guest's ticket · QR look"; it now re
 Walked in the Maker lab at 375 px (Chromium, light + dark): before — each pick replaced the last in the draft and a
 reopened Accent ▾ showed the look's default; after — all four lab scenes' picks stay, through ✓ Apply and a reload.
 
+## 2026-10-17 · fix(hub): the countdown's accent draws in every style and on the scene's own background
+
+Owner, 17 Oct, on cale-ice (Countdown › Style: Boxes, Accent ▾ "Narra columns", no columns): *"why narra columns are
+not showing?"*. Measured (prod, SELECT only): the pick WAS live (`scene_accents.countdown = narra-columns`); the
+countdown's canvas has a frosted background of its own, so its card is drawn bare, and both mounts handed the kit over
+only `artKit && !bare` — and `CountdownWidget` drew it in the four tiles only. Now every countdown style (Boxes, Big
+number, Offset, Line, Circle, the calendar) draws it as the card's first child, on its own card or on the scene's own
+background. The Maker lab's guest canvas now draws the countdown's accent and its own-background rule as the real
+mount does. Guarded by `apps/web/lib/every-offered-accent-draws.test.ts` (every style × own/bare × every accent, both
+looks; three sabotages seen red).
+
 SPEC IMPACT: None

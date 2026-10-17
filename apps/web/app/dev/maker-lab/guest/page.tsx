@@ -1,7 +1,8 @@
 import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
 import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
-import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { KitClosing, KitSlot, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { formatEventDate } from '@/lib/events';
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
@@ -538,7 +539,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
          nothing (the walk of 2026-10-11, M11) — the lab's fault alone: the real page has always framed it. */
       <HubCanvasFrame widget={{ ...rowOf('countdown'), widget_id: 'lab-countdown' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
         <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
-          <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
+          {/* 🕯 …with the Countdown's Accent and its own-background rule, as the real mount draws it (`hideable-widget-render.tsx`):
+             a scene with a background of its own draws its card bare, and the accent still stands (owner 17 Oct). */}
+          <CountdownWidget
+            targetIso="2026-12-12"
+            timeZone="Asia/Manila"
+            sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')}
+            bare={sceneWidgetIsBare(rowOf('countdown') as never, LAB_MEDIA, { ownClipPlays: true })}
+            kit={labKitView ? <KitSlot kit={labKitView} slot="countdown" /> : null}
+          />
         </section>
       </HubCanvasFrame>
     ),

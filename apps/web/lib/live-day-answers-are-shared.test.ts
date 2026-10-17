@@ -189,3 +189,32 @@ test('2 · the wall block spaces its polls (± 20 %) and still stops on a refusa
   assert.match(block, /document\.visibilityState !== 'visible'\) return;/, 'a hidden phone must poll nothing');
   assert.doesNotMatch(block, /setInterval\(\(\) => void poll\(\), POLL_MS\)/);
 });
+
+// ── 4 · the watch link's poll ────────────────────────────────────────────────
+
+test('4 · the watch poll answers through the per-event cache, with ONE event read', () => {
+  const route = read('app/api/live/[slug]/watch/route.ts');
+  assert.match(route, /rememberedLiveRead\(`live-watch-v\d+:\$\{key\}`, key, \(\) => watchAnswer\(key\)\)/);
+  const answer = route.slice(route.indexOf('async function watchAnswer'), route.indexOf('export async function GET'));
+  // The slug read carries both links — no second events read on the ordinary path.
+  assert.match(answer, /\.select\('event_id, panood_watch_url, panood_watch_url_facebook'\)/);
+  const ordinary = answer.slice(0, answer.indexOf('} else if (eventError)'));
+  assert.equal((ordinary.match(/\.from\('events'\)/g) ?? []).length, 1, 'the ordinary path reads the event row more than once');
+  // The broadcast row is asked only when no link decides it.
+  assert.match(answer, /const latestBroadcastStatus = watchLive \? null : await getLatestPanoodBroadcastStatus\(eventId\);/);
+});
+
+test('4 · an unreadable status or a missing event is never shared — and never cached at the edge', () => {
+  const route = read('app/api/live/[slug]/watch/route.ts');
+  assert.match(route, /return state === 'unknown' \? notRemembered\(answer\) : answer;/, "'unknown' was remembered for every phone");
+  assert.match(route, /return notRemembered<WatchAnswer>\(\{ status: 404/, 'a missing event was remembered');
+  assert.match(route, /answer\.body\.state !== 'unknown'/);
+  assert.match(route, /'Cache-Control': definite \? EDGE_CACHE : 'no-store'/);
+  assert.match(route, /EDGE_CACHE = 'public, max-age=0, s-maxage=\d+, stale-while-revalidate=\d+'/);
+  assert.doesNotMatch(route, /'public, max-age=15'/, 'the browser-only cache is back — it never reached the CDN');
+});
+
+test('4 · a hidden phone does not poll the watch link', () => {
+  const embed = read('app/[slug]/_components/watch-live-embed.tsx');
+  assert.match(embed, /setInterval\(async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/);
+});

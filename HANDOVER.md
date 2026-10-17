@@ -90,3 +90,9 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       shape guard on the action (server action not runnable in the harness — said in the docblock). Sabotage: CAS
       dropped → 1 red · re-read removed → 1 red · updated_at not read → 1 red. Guard repointed:
       only-the-answer-freezes (column list moved to REPLY_BEFORE_COLUMNS).
+- [x] 7 applyReconcileForEvent — FIXED (no migration). Split into `reconcilePass` (read → plan → write, RETURNS the
+      delete/upsert error) run up to twice by `applyReconcileForEvent`; the 2nd pass re-plans from fresh reads (the
+      winner's chairs are taken); two losses → `insertFaultLog` SUPABASE_SAVE_ERROR "Seat a guest after their reply".
+      Still never throws. Test lib/a-lost-seat-write-is-planned-again.test.ts (4, injected pass/record). Sabotage:
+      upsert error dropped → 1 red · one attempt → 2 red · no record → 1 red. Guard repointed:
+      a-seat-plan-is-never-arranged-from-an-unread-list test 3 (reads now inside reconcilePass, run inside the try).

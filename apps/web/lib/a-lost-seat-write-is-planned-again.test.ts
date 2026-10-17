@@ -11,7 +11,7 @@
  *
  * 🛡 Sabotaged, each red then restored (2026-10-18):
  *   • the upsert's error not returned from the pass              → test 4 red;
- *   • one attempt instead of two                                  → test 1 red;
+ *   • one attempt instead of two                                  → tests 1, 2 red;
  *   • the fault not recorded after the second loss                → test 2 red.
  */
 import { test } from 'node:test';

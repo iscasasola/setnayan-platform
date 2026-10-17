@@ -1,4 +1,14 @@
-import { HUB_EL_FX_ATTRS, hubElementFxAttrs, hubElementPhotoParallax, hubElementWordCut, type HubElementStyle } from '@/lib/element-style';
+import {
+  HUB_EL_FX_ATTRS,
+  HUB_SCENE_ELEMENT_KEYS,
+  HUB_SCENE_ELEMENT_SELECTOR,
+  hubElementFxAttrs,
+  hubElementFxVars,
+  hubElementPhotoParallax,
+  hubElementWordCut,
+  type HubElementStyle,
+  type HubElementStyles,
+} from '@/lib/element-style';
 import { HUB_FX_LETTER_ATTR, HUB_FX_LINE_ATTR, HUB_FX_WORD_ATTR, hubFxCut, hubFxPieces } from '@/lib/part-fx';
 import { keepReactChildren } from './react-children-keep';
 import type { RunsDoc } from './part-runs';
@@ -119,4 +129,39 @@ export function replayPartFx(part: Element): boolean {
     played = true;
   }
   return played;
+}
+
+/** The fx timing a part's spans read (`--el-fx-*`, `hubElementFxVars`) — laid inline, or taken off. */
+const FX_VARS = ['--el-fx-dur', '--el-fx-delay', '--el-fx-gap'] as const;
+
+/**
+ * ✨ A SCENE'S WORD EFFECTS, CUT (owner 2026-10-17, "extend the effects to every text and picture part"): every part of
+ * each key that has Word by word · Spread · Glow — a scene key addresses EVERY heading (every paragraph) of its scene,
+ * and the effect is the key's, so each is cut — with the cover's own hooks (`hubElementFxAttrs`) and timing, so the one
+ * CSS block in globals.css draws them. A key with none is put back to plain words. `late`: the scene was already on the
+ * screen when its words were cut (the page had loaded under it) — the words are drawn at rest, never shown, taken away
+ * and brought in again. Returns how many parts carry a cut now.
+ */
+export function applySceneFx(scene: Element, elements: HubElementStyles | null | undefined, doc: RunsDoc, opts: { late?: boolean } = {}): number {
+  let n = 0;
+  for (const key of HUB_SCENE_ELEMENT_KEYS) {
+    const style = elements?.[key] ?? null;
+    for (const part of Array.from(scene.querySelectorAll(HUB_SCENE_ELEMENT_SELECTOR[key]))) {
+      const el = part as HTMLElement;
+      unwrapPartFx(el, doc);
+      const attrs = hubElementFxAttrs(hubElementWordCut(style) ? style?.motion : null);
+      for (const name of HUB_EL_FX_ATTRS) {
+        const v = attrs[name];
+        if (v === undefined) el.removeAttribute(name);
+        else el.setAttribute(name, v);
+      }
+      for (const v of FX_VARS) el.style?.removeProperty(v);
+      if (!hubElementWordCut(style)) continue;
+      for (const [p, v] of hubElementFxVars(style?.motion)) el.style?.setProperty(p, v);
+      wrapPartFx(el, style, doc);
+      if (opts.late) for (const span of Array.from(el.querySelectorAll('[data-el-w],[data-el-l],[data-el-sl]'))) (span as HTMLElement).style?.setProperty('animation', 'none');
+      n += 1;
+    }
+  }
+  return n;
 }

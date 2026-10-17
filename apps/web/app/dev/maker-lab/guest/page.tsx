@@ -440,7 +440,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      reminders, a guest's own schedule and directions): the page's one answer (`sceneOnStage`), on the lab's rows
      with its draft over them. The lab's Day drew a fixed set — the gallery always, whatever the table said (the walk
      of 2026-10-11, M08: "Our photos × The Day EMPTY but drawn"). */
+  /* 🖼 `lab_pictures=1`: The Day draws the lab's gallery (its pictures' effects are tried there). */
+  const dayGallery = (await cookies()).get('lab_pictures')?.value === '1';
   const dayDraws = (type: WidgetType): boolean =>
+    (dayGallery && type === 'our_photos') ||
     stageTiles.includes(`w:${type}`) || (sceneOnStage({ ...labSeen(labRowsNow), stage: 'event', reader: 'guest' }, type)?.offList ?? null) !== null;
   /* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) — ONE mount for every page of the lab's canvas, wearing
      the hero row's drafted canvas as the real page does (`site-body.tsx` `heroElements`): a typed Title, a part's
@@ -553,16 +556,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
        on its guest page whoever asked (the walk of 2026-10-11, P11). */
     /* 🖼 `lab_pictures=1` (a cookie, so the Maker's canvas reloads keep it): the REAL Love Story with the lab's two
        photos, in the REAL scene frame — where its pictures' Reveal ▾ and Light leak ◆ (owner 2026-10-17) are tried. */
-    our_love_story: labPictures ? (
-      <HubCanvasFrame widget={{ ...rowOf('our_love_story'), widget_id: 'lab-love-story' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+    our_love_story: makerCanvas ? (
+      labPictures ? (
+        <HubCanvasFrame widget={{ ...rowOf('our_love_story'), widget_id: 'lab-love-story' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
         <section data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8 text-left">
           <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={sceneStyleOfRow(rowOf('our_love_story'), stage, 'wedding')} partners={['Maria', 'Jose']} />
         </section>
       </HubCanvasFrame>
-    ) : makerCanvas ? (
-      <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
-        <MakerEmptyScene type="our_love_story" />
-      </div>
+      ) : (
+        <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
+          <MakerEmptyScene type="our_love_story" />
+        </div>
+      )
     ) : null,
     special_message: (
       /* 🌗 The REAL scene frame (`HubCanvasFrame`): its drafted background, Darker ↔ Lighter and Spacing, as guests see them. */
@@ -642,17 +647,19 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ) : null;
   /** A scene the sample has nothing in yet: its place on the Maker's canvas (`MakerEmptyScene`), nothing for a guest. */
   const emptyScene = (type: 'what_to_bring' | 'our_photos') =>
-    /* 🖼 `lab_pictures=1`: the REAL gallery with the lab's own drawn pictures, in the REAL scene frame. */
-    type === 'our_photos' && labPictures ? (
-      <HubCanvasFrame widget={{ ...rowOf('our_photos'), widget_id: 'lab-photos' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+    makerCanvas ? (
+      /* 🖼 `lab_pictures=1`: the REAL gallery with the lab's own drawn pictures, in the REAL scene frame. */
+      type === 'our_photos' && labPictures ? (
+        <HubCanvasFrame widget={{ ...rowOf('our_photos'), widget_id: 'lab-photos' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
         <section data-lab-scene="our_photos" className="border-t border-ink/10 px-4 py-8 text-left">
           <OurPhotosWidget urls={labPhotoUrls(5)} sceneStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')} heading={null} />
         </section>
       </HubCanvasFrame>
-    ) : makerCanvas ? (
-      <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
+      ) : (
+        <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
         <MakerEmptyScene type={type} />
       </div>
+      )
     ) : null;
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {

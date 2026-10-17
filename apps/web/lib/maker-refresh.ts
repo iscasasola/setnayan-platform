@@ -326,8 +326,9 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
     .then((result) => {
       announceDraftBar(result);
       // 👥 Another screen's change reached this save (the note above "the toolbar's count"): said once, pages redrawn.
-      if ((result as { elsewhere?: unknown } | null)?.elsewhere) {
-        announceMakerSave({ state: 'elsewhere' });
+      const note = (result as { elsewhere?: { note?: string } } | null)?.elsewhere?.note;
+      if (note) {
+        announceMakerSave({ state: 'elsewhere', text: note });
         requestCanvasRedraw();
       }
       return result;

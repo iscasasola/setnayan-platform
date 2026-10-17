@@ -102,7 +102,7 @@ import {
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, rebaseOnDraft, updateHubDraft } from '@/lib/hub-draft-store';
 import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebase';
-import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
+import { MERGE_BASE_FIELD, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
 import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
 import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
@@ -288,7 +288,7 @@ export async function hubDraftAction(
       });
       const written = wrote.draft ?? mergeHubDraft(current, patch);
       const bar = await barP;
-      const elsewhere = wrote.said?.moved ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed } } : {};
+      const elsewhere = wrote.said?.moved ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed, note: TWO_SCREENS_NOTE } } : {};
       /* ↺ The stamp of the state this save left — the Maker's journal keeps it beside the step (`lib/hub-draft-stamp.ts`). */
       const stamp = hubDraftStamp(written);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:

@@ -25,6 +25,7 @@ import {
 } from '@/lib/hub-draft';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { rebaseHubDraftPatch } from '@/lib/hub-draft-rebase';
+import { TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
 import { hubDraftProEffects, hubProEffectView } from '@/lib/hub-pro-effects';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
@@ -274,7 +275,7 @@ export function labDraftStep(
     const rebased = rebaseHubDraftPatch(current, patch, base, { events: live.events as Record<string, unknown>, canvas });
     /* ⚡ The bar comes back with the save only when the save asked for it (`HUB_DRAFT_BAR_FIELD`) — as the real one. */
     const step = done(mergeHubDraft(current, rebased.patch), fields.bar === '1');
-    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed } } } : step;
+    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed, note: TWO_SCREENS_NOTE } } } : step;
   }
   if (intent === 'apply') {
     /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a

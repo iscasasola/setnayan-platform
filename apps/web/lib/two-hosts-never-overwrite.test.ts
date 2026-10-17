@@ -17,7 +17,8 @@ import { changedFields, mergeFromBase } from './merge-from-base';
 import { draftLeftAfterApply, rebaseHubDraftPatch } from './hub-draft-rebase';
 import { emptyHubDraft, mergeHubDraft, type HubDraft } from './hub-draft';
 import { guestCardMerge, guestColumnWritten } from './guest-card-merge';
-import { TWO_SCREENS_NOTE, makerSaveStatusText } from './maker-save-status';
+import { TWO_SCREENS_NOTE } from './merge-from-base';
+import { makerSaveStatusText } from './maker-save-status';
 import { dressCodeDraftFields, paletteDraftFields } from './studio-mood-board-saves';
 
 const read = (...p: string[]) => readFileSync(join(__dirname, '..', ...p), 'utf8');
@@ -163,7 +164,7 @@ test('10 · the guest card: both changed the same field — this later save wins
 
 test('11 · the note is one calm line, said through the Maker’s status words', () => {
   assert.equal(TWO_SCREENS_NOTE, 'Changed on another screen a moment ago — showing the newest.');
-  assert.equal(makerSaveStatusText({ state: 'elsewhere' }), TWO_SCREENS_NOTE);
+  assert.equal(makerSaveStatusText({ state: 'elsewhere', text: TWO_SCREENS_NOTE }), TWO_SCREENS_NOTE);
   assert.doesNotMatch(TWO_SCREENS_NOTE, /website|celebration|conflict|error/i);
 });
 
@@ -200,5 +201,5 @@ test('12 · every place the pattern is wired still carries it', () => {
   const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
   assert.match(partLook, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[t\.widgetType\]: \{ canvas: baseCanvasFor\(t\.widgetType, server\) \?\? \{\} \} \} \}\)\);/, 'a part’s look no longer sends what it was based on');
   // One place says the note for every Maker save.
-  assert.match(read('lib', 'maker-refresh.ts'), /if \(\(result as \{ elsewhere\?: unknown \} \| null\)\?\.elsewhere\) \{\s*announceMakerSave\(\{ state: 'elsewhere' \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
+  assert.match(read('lib', 'maker-refresh.ts'), /const note = \(result as \{ elsewhere\?: \{ note\?: string \} \} \| null\)\?\.elsewhere\?\.note;\s*if \(note\) \{\s*announceMakerSave\(\{ state: 'elsewhere', text: note \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
 });

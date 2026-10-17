@@ -21,8 +21,12 @@
  * on its `updated_at` (`updateHubDraft`, lib/hub-draft-store.ts). Pure: no I/O, no React — the client imports it too.
  */
 
-/** The one line a screen shows when another screen's change reached it — kept where the Maker's status words live. */
-export { TWO_SCREENS_NOTE } from './maker-save-status';
+/**
+ * The one line a screen shows when another screen's change reached it: calm, said once, never a modal and never a
+ * choice. No name — nothing records who edited (the draft's migration keeps no `updated_by`). It travels WITH the
+ * save's answer (`elsewhere.note`), so the words never ride in the Maker's first load.
+ */
+export const TWO_SCREENS_NOTE = 'Changed on another screen a moment ago — showing the newest.';
 
 /** The form field a save carries its base in (JSON, the same shape as what it sends). */
 export { MERGE_BASE_FIELD } from './merge-base-field';

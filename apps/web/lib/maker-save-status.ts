@@ -7,14 +7,8 @@
  * happening through one window event; `HubDraftToolbar` shows it beside Apply.
  * An error is never silent: it is shown until the next save succeeds.
  */
-export type MakerSaveStatus = { state: 'saving' } | { state: 'saved' } | { state: 'error'; text: string } | { state: 'elsewhere' };
-
-/**
- * 👥 THE ONE LINE when another screen's change reached a save (owner 2026-10-18, two hosts never overwrite —
- * `lib/merge-from-base.ts`): calm, said once, never a modal and never a choice. No name — nothing records who edited the
- * draft (its migration keeps no `updated_by`).
- */
-export const TWO_SCREENS_NOTE = 'Changed on another screen a moment ago — showing the newest.';
+/** 👥 `elsewhere` — another screen's change reached a save; its words come with the save's answer (`TWO_SCREENS_NOTE`). */
+export type MakerSaveStatus = { state: 'saving' } | { state: 'saved' } | { state: 'error'; text: string } | { state: 'elsewhere'; text: string };
 
 export const MAKER_SAVE_STATUS_EVENT = 'setnayan:maker-save-status';
 
@@ -31,5 +25,5 @@ export function onMakerSave(fn: (status: MakerSaveStatus) => void): () => void {
 
 /** The words the toolbar shows for each state. */
 export function makerSaveStatusText(s: MakerSaveStatus): string {
-  return s.state === 'saving' ? 'Saving…' : s.state === 'saved' ? 'Saved to your draft' : s.state === 'elsewhere' ? TWO_SCREENS_NOTE : s.text;
+  return s.state === 'saving' ? 'Saving…' : s.state === 'saved' ? 'Saved to your draft' : s.text;
 }

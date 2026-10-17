@@ -3012,7 +3012,7 @@ export type HubDraftActionResult =
        * that now differ from what this screen sent — what it must show — and `clashed` the ones both screens changed
        * (this save's value was kept). The screen shows them with one calm line (`TWO_SCREENS_NOTE`).
        */
-      elsewhere?: { merged: HubDraftPatch; clashed: string[] };
+      elsewhere?: { merged: HubDraftPatch; clashed: string[]; note: string };
     }
   | {
       ok: false;

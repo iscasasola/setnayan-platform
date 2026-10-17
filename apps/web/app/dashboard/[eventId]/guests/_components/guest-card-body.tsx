@@ -50,7 +50,7 @@ import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
 import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
-import { AutosaveForm, AutosaveState, type AutosaveElsewhere } from './guest-card-autosave';
+import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
 import { accessTag, accessWordFor } from '@/lib/guest-access';
 import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
@@ -183,7 +183,7 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
  */
 export type GuestCardActions = {
   /** A QUIET save (the autosave's) RETURNS `{ refused }` for a refusal; every other post redirects, as before. */
-  update: (formData: FormData) => void | { refused: string } | { elsewhere: AutosaveElsewhere } | Promise<void | { refused: string } | { elsewhere: AutosaveElsewhere }>;
+  update: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
   release: (formData: FormData) => void | Promise<void>;
   partnerLink: () => void | Promise<void>;
 };

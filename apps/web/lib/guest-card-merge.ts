@@ -9,9 +9,10 @@
  *
  * 🔑 NOW the card posts, beside its fields, the card it started from (`MERGE_BASE_FIELD`: field → posted values, the
  * autosave's own `fieldsOf` spelling). `updateGuest` writes only the columns whose fields this screen changed; every
- * other column keeps what the row holds now. A column both changed: this later save wins (`clashed`). Fields the row
- * holds differently from what this screen started with come back (`fresh`) so the card shows the newest, with one calm
- * line. A post with no base (the standalone route, an older page) is written whole, exactly as before.
+ * other column keeps what the row holds now. A column both changed: this later save wins (`clashed`). `fresh` names
+ * the fields the row holds differently from what this screen started with — measured, not yet drawn on the open card
+ * (the card rides in the Maker's first load, at its ceiling; it shows the newest when it next opens). A post with no
+ * base (the standalone route, an older page) is written whole, exactly as before.
  *
  * Pure — no I/O. The FormData spelling: every value of a field, as JSON (`["Juan"]`); an unticked box posts nothing.
  */

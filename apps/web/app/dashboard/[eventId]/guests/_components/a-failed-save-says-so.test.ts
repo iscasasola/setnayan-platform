@@ -62,7 +62,7 @@ test('(1) the save line is told by the action’s answer — Saved only after it
   const run = AUTO.slice(AUTO.indexOf('const run = useCallback('), AUTO.indexOf('const schedule = () => {'));
   /* RE-AIMED 2026-10-18 (two hosts never overwrite): every post carries the card it started from (`withBase`). */
   assert.match(run, /const why = await send\(withBase\(fd, change \? change\.prev : lastSaved\.current\)\);\s*if \(why !== null\) \{\s*failedLast\.current = true;/);
-  assert.match(run, /setOutcome\(\{ kind: 'failed', why \}\);\s*return;\s*\}\s*setOutcome\(\{ kind: 'saved', n: \+\+landed\.current, \.\.\.\(moved\.current \? \{ moved: true \} : \{\}\) \}\);/, '"saved" is set on a path a failure can take');
+  assert.match(run, /setOutcome\(\{ kind: 'failed', why \}\);\s*return;\s*\}\s*setOutcome\(\{ kind: 'saved', n: \+\+landed\.current \}\);/, '"saved" is set on a path a failure can take');
   assert.ok(run.indexOf("kind: 'saved'") > run.indexOf('await send(withBase(fd'), '"Saved" is set before the action answered');
   /* The Undo is offered only once the save LANDED. */
   assert.ok(run.indexOf('pushUndo(') > run.indexOf("kind: 'saved'"), 'the Undo is offered before the save landed');

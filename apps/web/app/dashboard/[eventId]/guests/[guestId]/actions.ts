@@ -823,8 +823,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // Autosave: the card stays open and the caret stays where it was. The paths
   // that matter were already revalidated above, so there is nothing left to do
   // but stop — and NOT redirect.
-  // 👥 …except to hand back what another screen changed meanwhile, so the card shows the newest (one calm line).
-  if (quiet) return Object.keys(merge.fresh).length > 0 ? { elsewhere: { fresh: merge.fresh, clashed: merge.clashed } } : undefined;
+  if (quiet) return;
 
   // Owner directive 2026-05-22: when information is saved on guest,
   // it needs to return to guest list. The guests list page consumes

@@ -18,8 +18,20 @@ of what the colors control").
 - Guest: /dev/maker-lab/guest?attire=cale (pre-Apply) · ?attire=cale-now (post-Apply)
 - Editor: /dev/details-lab?look=1&studio=1&attire=cale (Studio › Mood Board on fixtures)
 
+## Root causes found
+1. Studio read its config through `normalizeDressCodeConfig`, which dropped `women` and roles.bride/groom/guest/celebrant
+   (`sanitizeRoleAttire` filter = entourage labels only) → editor showed "Not said yet" for saved picks after reload,
+   next save wiped them. Fixed (`isDressableRole`, women kept).
+2. Guest general view built from palette KEYS + per-role tier → rows/lines the Studio doesn't have. Now ATTIRE_ROWS + picksOf.
+3. Older dress-code form (Maker scene › Content) = a second writer (global Wear ▾, Palette). Wear now read-only there, palette removed (carried).
+4. Our colours appended config.palette (6 seeded) to the five → five only.
+
+## Decisions taken (owner questions in the report)
+- dot words: one-zone design → its name ("Long gown"); past zones → "Accent"; no Wear → "Outfit".
+- no figure for a person without a picked Wear (guest page + reader panel).
+- per-role tier read only for celebrant/bride/groom/guest (`studioRowOf`).
+
 ## State
-- [x] fixtures
-- [ ] before shots
-- [ ] fix + guard + sabotage
-- [ ] after shots, PR
+- [x] fixtures · [x] fix + guard (lib/the-dress-code-shows-every-pick.test.ts) · [x] PR #6602 draft, do-not-auto-merge
+- [ ] before shots (walk from wt-dress-code-before) · [ ] targeted tests (heavy lane queued) · [ ] sabotage (scratch walk/sabotage.py)
+- [ ] after shots · [ ] CI green

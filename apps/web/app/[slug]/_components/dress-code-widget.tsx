@@ -14,7 +14,7 @@ import {
 } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf } from '@/lib/attire-rows';
+import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots } from '@/lib/role-figure';
 import { singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
@@ -315,7 +315,7 @@ export function DressCodeWidget({
   /* 🏷 The reader's colours, each said by what it colours (`pickDots`, the Studio's words) — per person when the page
      shows them both (it cannot tell which they are). */
   const mineDots: Array<{ label: string | null; dots: EveryoneDot[] }> = mine
-    ? (mineDress?.picks.length ? mineDress.picks : [{ who: 'f' as const, style: null, colours: null, role: null }]).map((p, _i, all) => ({
+    ? (mineDress?.picks.length ? mineDress.picks : ([{ who: 'f', style: null, colours: null, role: null }] satisfies ReaderPick[])).map((p: ReaderPick, _i: number, all: readonly ReaderPick[]) => ({
         label: all.length > 1 ? PICK_LABEL[p.who] : null,
         dots: pickDots(p.style, p.colours && p.colours.length > 0 ? p.colours : mine.hexes, p.role),
       }))

@@ -117,9 +117,8 @@ test('🌐 a stranger (no role) sees our colours AND every dressed role, each wi
   assert.notEqual(html, '', 'a board with colours is a dress code — the scene shows for guests');
   assert.doesNotMatch(html, /You are/, 'nobody is identified, so nobody is answered for');
 
-  const ours = html.slice(html.indexOf('data-dress-code="ours"'), html.indexOf('data-dress-code="roles"'));
-  assert.match(ours, /Our colours/);
-  assert.deepEqual(chipColours(ours), BOARD.reception!.map((h) => h.toUpperCase()), 'the five main colours, in order');
+  /* No "Our colours" in this scene (owner 2026-10-17: "we must ommit the our colors here"). */
+  assert.doesNotMatch(html, /data-dress-code="ours"|Our colours/);
 
   const rows = rowOrder(html);
   assert.deepEqual([...rows].sort(), [...ROLES_ON_THE_BOARD].sort(), 'one row per role the couple dressed — no more, no fewer');
@@ -213,7 +212,8 @@ async function dispatcher(guestView: boolean, role: GuestRole): Promise<string> 
 test('🛠 the Maker canvas (host = the groom) shows the GENERAL view, not the host’s own row', async () => {
   const canvas = await dispatcher(false, 'groom');
   assert.doesNotMatch(canvas, /You are/, 'the couple sees what their guests read, not a panel about themselves');
-  assert.match(canvas, /data-dress-code="ours"/);
+  assert.match(canvas, /data-dress-code="roles"/);
+  assert.doesNotMatch(canvas, /data-dress-code="ours"/, 'Our colours left the dress code (owner 2026-10-17)');
   assert.equal(rowOrder(canvas).length, ROLES_ON_THE_BOARD.length, 'every dressed role is on the canvas');
 });
 
@@ -287,7 +287,8 @@ test('🚪 the anonymous dispatcher passes the Mood Board — a stranger sees ou
       ourPhotoUrls: [],
     }),
   );
-  assert.match(html, /Our colours/, 'the stranger’s door used to pass no palette at all');
+  assert.match(html, /data-dress-code="roles"/, 'the stranger’s door used to pass no palette at all');
+  assert.doesNotMatch(html, /Our colours/, 'Our colours left the dress code (owner 2026-10-17)');
   assert.equal(rowOrder(html).length, ROLES_ON_THE_BOARD.length);
 });
 
@@ -346,10 +347,9 @@ test('⛓ resolveAttirePaletteColors[0] IS resolveAttirePaletteColor, for every 
   assert.ok(PALETTE_ORDER.length > 0);
 });
 
-/* ══ ONE PALETTE — "Our colours" are the five main colours (2026-10-17) ══════ */
+/* ══ NO "OUR COLOURS" — the dress code is each role's figure and colours (owner 2026-10-17) ══════ */
 
-test('🖋 a palette typed into the older dress-code form is no longer appended to "Our colours"', async () => {
+test('🖋 no palette — neither the Mood Board’s five nor one typed into the older form — is drawn as "Our colours"', async () => {
   const html = await widget({ rolePalette: BOARD, config: { ...CONFIG, palette: [{ name: 'Sage', hex: '#9CAF88' }] } });
-  const ours = html.slice(html.indexOf('data-dress-code="ours"'), html.indexOf('data-dress-code="roles"'));
-  assert.deepEqual(chipColours(ours), BOARD.reception!.map((h) => h.toUpperCase()));
+  assert.doesNotMatch(html, /data-dress-code="ours"|Our colours|#9CAF88/i);
 });

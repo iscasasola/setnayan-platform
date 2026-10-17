@@ -525,7 +525,8 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
   /* ── Dress code — its three layouts; "Colours and roles" wears the palette look ── */
   'dress_code:colours-and-roles': ({ paletteLook }) => (
     <span className="block space-y-4 text-left">
-      <span data-dress-code="ours" data-sample-palette={PALETTE_SAMPLE[paletteLook as PaletteLookId] ? paletteLook : PALETTE_LOOK_DEFAULT} className="block space-y-2">
+      {/* The roles, each in its colours in the palette look picked (no "Our colours" in this scene — owner 2026-10-17). */}
+      <span data-dress-code="roles" data-sample-palette={PALETTE_SAMPLE[paletteLook as PaletteLookId] ? paletteLook : PALETTE_LOOK_DEFAULT} className="block space-y-2">
         <Line w="w-20" className="bg-ink/25" />
         {paletteSample(paletteLook)}
       </span>

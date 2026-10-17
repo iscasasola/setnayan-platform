@@ -20,7 +20,7 @@
  *   2 · no row, and no person, renders with nothing picked (never a bare heading);
  *   3 · every colour a guest sees says what it colours, and the Studio's dots say the same words;
  *   4 · the Studio reads back exactly what the page reads (one fact, one reader);
- *   5 · "Our colours" are the five main colours, nothing appended;
+ *   5 · no "Our colours" in this scene — each role's figure and colours (owner 2026-10-17); a reader keeps theirs;
  *   6 · a reader is dressed by their Studio row — a father is never handed a gown;
  *   7 · at row size every palette look keeps its full-size edge, shading, card and rim.
  *
@@ -256,11 +256,20 @@ test('4 · the Studio reads back exactly what the page reads — the women’s p
   }
 });
 
-test('5 · "Our colours" are the five main colours — nothing typed elsewhere is appended', async () => {
-  const html = await widget({ config: CALE.config, rolePalette: CALE.palette });
-  const ours = html.slice(html.indexOf('data-dress-code="ours"'), html.indexOf('data-dress-code="roles"'));
-  assert.equal((ours.match(/<li\b/g) ?? []).length, 5, 'Our colours drew more (or fewer) than the five picked');
-  for (const hex of ['#351115', '#646B38', '#F3E5B9', '#E6C0B3', '#6B4226']) assert.ok(!ours.includes(hex), `${hex} (typed into the old panel) is in Our colours`);
+test('5 · no "Our colours" in the dress code — it is each role’s figure and colours (owner 2026-10-17)', async () => {
+  for (const look of PALETTE_LOOK_IDS) {
+    for (const sceneStyle of [null, 'palette', 'line']) {
+      const html = await widget({ config: CALE.config, rolePalette: CALE.palette, paletteLook: look, sceneStyle });
+      assert.ok(!/data-dress-code="ours"|>Our colours</.test(html), `${look} · ${sceneStyle}: "Our colours" is back in the dress code`);
+      /* not one of the five main colours is drawn on its own — every colour on the page is a role's */
+      const general = dressCodeForEveryone({ config: CALE.config, stored: sanitizeRolePalette(CALE.palette), board: resolveDisplayPalette(sanitizeRolePalette(CALE.palette)) });
+      const roleHexes = new Set(general.rows.flatMap((r) => r.hexes.map((h) => h.toUpperCase())));
+      for (const hex of CALE.palette.reception!) if (!roleHexes.has(hex.toUpperCase())) assert.ok(!html.toUpperCase().includes(hex.toUpperCase()), `${look} · ${sceneStyle}: the main colour ${hex} is drawn`);
+    }
+  }
+  /* the reader keeps their own colours — that IS their dress code */
+  const mine = await widget({ config: CALE.config, rolePalette: CALE.palette, guestRole: 'principal_sponsor_ninang' });
+  assert.match(mine, /aria-label="Your colours/);
 });
 
 test('6 · a reader is dressed by their Studio row: the groom’s father reads the men’s Wear, never the parents’ gown', async () => {

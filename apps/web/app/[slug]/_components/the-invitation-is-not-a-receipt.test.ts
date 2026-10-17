@@ -175,11 +175,15 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // protected treatment — written ONCE (`MomentWhen` in our-love-story-styles.tsx)
   // for all three looks, so the source gains one line, not three. The treatment
   // is untouched.
+  //
+  // 18 SINCE 2026-10-17 (owner, on the Dress code scene: "we must ommit the our colors here since we are talking
+  // about their dress code") — a REMOVAL: the "Our colours" section head left the scene with its colours. The
+  // treatment is untouched.
   assert.equal(
     gild,
-    19,
+    18,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 19 from 2026-10-17, 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 18 from 2026-10-17 (Our colours left the dress code), 19 earlier on 2026-10-17, 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

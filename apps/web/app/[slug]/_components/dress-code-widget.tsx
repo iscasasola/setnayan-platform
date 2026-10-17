@@ -17,7 +17,6 @@ import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, saniti
 import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
-import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
@@ -41,17 +40,6 @@ const ROW_SWATCH = `pahina-swatch !h-7 !w-5 shrink-0 ${SWATCH_EDGE}`;
 
 /** What a role's colours MEAN (the Mood Board's rule): the guests pick ANY ONE,
  *  everyone else wears one look — main colour + accent. A custom role is a look. */
-/**
- * 🏷 A COLOUR IS SAID BY NAME, NEVER BY HEX (owner 2026-09-30: guests were
- * reading "#FAF7F2"). The name the couple gave it wins; otherwise the Mood
- * Board's own namer (`lib/color-names.ts`, the names its swatches show). A
- * "name" that is itself a hex — the editor stores the hex as the name when the
- * couple typed none — is not a name.
- */
-const HEX_LIKE = /^#?[0-9a-fA-F]{6}$/;
-const colourName = (hex: string, given?: string): string =>
-  given && !HEX_LIKE.test(given.trim()) ? given : (nearestColorName(hex) ?? '');
-
 const meaningOf = (key: string): 'outfit' | 'options' =>
   (PALETTE_LIMITS as Record<string, { meaning: string } | undefined>)[key]?.meaning === 'options' ? 'options' : 'outfit';
 
@@ -267,18 +255,7 @@ export function DressCodeWidget({
   // THE GENERAL VIEW — "our theme and the palettes of each role" — read from the Studio's own rows and people
   // (`dressCodeForEveryone`: `ATTIRE_ROWS` + `picksOf`, 2026-10-17 "ONE FACT").
   const everyone = dressCodeForEveryone({ config, stored, board, ceremonyType, names: roleNames });
-  // 🎨 "Our colours" are the Mood Board's five main colours — the ONE palette (DECISION_LOG 2026-10-06, "Colours = the
-  // five main colours (one palette with Look › Colours)"). The six an older dress-code form typed into
-  // `dress_code_config.palette` are no longer added after them (owner 2026-10-17: eleven colours against the five he
-  // picked); the stored list is kept, unread here.
-  //    A name the couple typed there for one of the five still lends it its name ("Sage") — a word, never a colour.
-  const typedNames = new Map(
-    (Array.isArray(config?.palette) ? config.palette : []).flatMap((p) =>
-      p && typeof p.hex === 'string' && typeof p.name === 'string' && p.name.trim() ? [[p.hex.toUpperCase(), p.name.trim()] as const] : [],
-    ),
-  );
-  const palette = everyone.ourColours.map((hex) => ({ hex, name: typedNames.get(hex.toUpperCase()) ?? '' }));
-  const generalHasContent = palette.length > 0 || everyone.rows.length > 0;
+  const generalHasContent = everyone.rows.length > 0;
   // THE SPECIFIC VIEW — "if there is an account specified to this, show their
   // palette only". A panel that could only name the role stands down for the
   // general view (`speaksToThisReader`).
@@ -498,8 +475,8 @@ export function DressCodeWidget({
   // ("you walk 5th") is theirs alone, and the general styles draw no such line.
   if (!mine && !march && (sceneStyle === 'palette' || sceneStyle === 'line')) {
     /* 🏷 The palette style lists the names under its bands — said by name, never a hex a couple's editor stored as one. */
-    const named = palette.map((p) => ({ hex: p.hex, name: colourName(p.hex, p.name) }));
-    const general = { title: shownTitle, description: shownDescription, palette: named, rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
+    /* No "Our colours" in this scene (owner 2026-10-17) — every layout draws the roles' colours only. */
+    const general = { title: shownTitle, description: shownDescription, palette: [], rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
     return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
   }
 
@@ -602,36 +579,12 @@ export function DressCodeWidget({
           ) : null}
         </div>
       ) : null}
-      {/* The full palette is everyone else's instructions. A reader who has
-          their own line above does not need it (owner 2026-09-20). */}
-      {part !== 'you' && !mine && palette.length > 0 ? (
-        <div className="space-y-2" data-dress-code="ours">
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Our colours</p>
-          {look !== 'tags' ? (
-            <PaletteLookList look={look} items={palette.map((p) => ({ hex: p.hex, name: colourName(p.hex, p.name) || undefined }))} label="Our colours" />
-          ) : (
-            /* gap-2: five full chips (the Mood Board's five main colours) fit
-               one line at 375px; gap-3 wrapped the fifth onto a row alone.
-               🎨 Tags — the default look — is this list exactly as it shipped. */
-            <ul className="flex flex-wrap gap-2">
-              {palette.map((p, i) => (
-                <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={colourName(p.hex, p.name) || undefined}>
-                  <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
-                  {colourName(p.hex, p.name) ? (
-                    <span className={`mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
-                      {colourName(p.hex, p.name)}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-      {/* 🔲 The Maker's canvas, no colours yet: where "Our colours" will go, in the palette look picked — in
-          greys, so each palette look's card is its own picture before a colour exists. Never a guest's. */}
-      {makerSample && part === 'all' && !mine && !march && palette.length === 0 ? (
-        <div aria-hidden className="space-y-2" data-dress-code="ours" data-maker-sample={`palette:${look}`}>
+      {/* 🚫 NO "OUR COLOURS" IN THIS SCENE (owner 2026-10-17: *"we must ommit the our colors here since we are talking
+          about their dress code"*). The event's palette lives on the Mood Board and in Look; this scene is each
+          role's figure and colours. The Maker's canvas with nobody dressed yet shows where the rows go, in the
+          palette look picked — in greys. Never a guest's. */}
+      {makerSample && part === 'all' && !mine && !march && everyone.rows.length === 0 ? (
+        <div aria-hidden className="space-y-2" data-dress-code="roles" data-maker-sample={`palette:${look}`}>
           {paletteSample(look)}
         </div>
       ) : null}

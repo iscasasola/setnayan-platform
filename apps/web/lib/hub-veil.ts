@@ -117,7 +117,7 @@ const VEIL_HOLD_WORDS_CSS = `[${COVER_LINE_ATTR}]{opacity:0 !important}`;
 export const VEIL_STILL_PAGE_CSS =
   'html,body{overflow:hidden !important;overscroll-behavior:none !important}html{scrollbar-gutter:stable}';
 /** The hold's whole rule: everything waits, the cover's words are not drawn, and the page stays still. */
-const VEIL_HOLD_FULL_CSS = VEIL_HOLD_CSS + VEIL_HOLD_WORDS_CSS + VEIL_STILL_PAGE_CSS;
+const VEIL_HOLD_FULL_CSS = VEIL_HOLD_CSS + VEIL_STILL_PAGE_CSS + VEIL_HOLD_WORDS_CSS;
 /**
  * …and AFTER the unveil every line ENTERS. One `<style data-veil-words>` in `<head>`, written beside the hold and
  * NEVER taken off: it says "this page opened under a veil", and `globals.css` gives every line with no Build in of its

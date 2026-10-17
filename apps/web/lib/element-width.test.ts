@@ -40,7 +40,8 @@ import {
 import { stripComments } from './strip-comments';
 
 /** The owner's table, word for word ("Takes Width" · "Does not"). */
-const TAKES: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'venue', 'caption', 'heading', 'body'];
+/* 🕯 + the closing's line (2026-10-17, "allow styles on the see you soon"): the couple's own words, a line that can run long. */
+const TAKES: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'venue', 'caption', 'closing', 'heading', 'body'];
 /* 🔘 + the RSVP button (2026-10-16): a button, its look Look › Buttons' — no width, like the link. */
 /* 🖼 + the cover's photo (2026-10-16, "SIX NEW EFFECTS"): a picture that only moves — no words to cap. */
 const DOES_NOT: readonly HubElementKey[] = ['mark', 'joiner', 'date', 'time', 'link', 'label', 'rsvp', 'photo'];

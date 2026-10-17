@@ -35,8 +35,9 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
-import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canvas';
-import { makerSceneHasRows } from '@/lib/maker-parts';
+import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring, type HubSceneReveal } from '@/lib/hub-canvas';
+import { HUB_EL_REVEALS, HUB_EL_REVEAL_LABEL } from '@/lib/element-style';
+import { makerSceneHasPictures, makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 import { useAnimatePhase } from '../../../launch/_components/stage-panel/store';
@@ -54,6 +55,8 @@ import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, layScen
 
 /** Said on Action where there is nothing for Slow lift to move. */
 export const LIFT_NEEDS_A_PHOTO = 'Slow lift moves a photo behind the scene — this scene has none.';
+/** ✨ Action's line for Light leak on a scene — the approved prototype's words, said of the scene's pictures. */
+export const SCENE_LEAK_NOTE = 'A warm flare drifts across its pictures now and then (every 16 s) — the background Light leak ◆.';
 /** The pages the Maker shows a scene on — the stage canvas on screen, and the old editor's page frame. */
 const MOTION_FRAMES = 'iframe[data-maker-canvas-frame="shown"], iframe[data-maker-page-frame]';
 
@@ -161,6 +164,9 @@ export function SceneAnimateTab({
   /* 🌄 Slow lift is offered where it moves something — or where it is already on, so it can come off. */
   const liftMoves = hubLiftMoves(shown);
   const lift = liftMoves || (shown.during ?? m.during) === 'lift';
+  /* 🖼 Does this scene draw pictures (its photos, its venue picture, a photo behind its words)? Then Reveal ▾ and
+     Light leak ◆ are offered (owner 2026-10-17). */
+  const pictures = makerSceneHasPictures(widgetType) || liftMoves;
   if (ss) {
     return (
       <div data-scene-tab="animate" className="contents">
@@ -210,11 +216,29 @@ export function SceneAnimateTab({
           does={{
             /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's).
                🌄 Slow lift moves the scene's PHOTO only (`hubLiftMoves`): offered only on a scene with one behind its
-               words — or where it is already chosen, so it can be taken off (the 2026-10-15 walk, F11). */
+               words — or where it is already chosen, so it can be taken off (the 2026-10-15 walk, F11).
+               ✨ + Light leak ◆ on a scene that draws pictures (owner 2026-10-17, "extend the effects to every text and
+               picture part") — or where it is already chosen. */
             value: shown.during ?? m.during,
-            options: (lift ? (['still', 'lift'] as const) : (['still'] as const)).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
+            options: ([
+              'still',
+              ...(lift ? (['lift'] as const) : []),
+              ...(pictures || shown.during === 'leak' ? (['leak'] as const) : []),
+            ] as const satisfies readonly HubDuring[]).map((d) => ({ key: d, label: d === 'leak' ? `${HUB_DURING_LABEL[d]} ◆` : HUB_DURING_LABEL[d] })),
             onPick: (d) => save((c) => { c.during = d as HubDuring; }, 'act'),
           }}
+          /* ✨ Reveal ▾ — how the scene's pictures arrive (Plain · Develop ◆ · Curtain ◆), Build in's row 4. */
+          arrive={
+            pictures || shown.reveal
+              ? {
+                  small: 'Reveal',
+                  value: shown.reveal ?? 'plain',
+                  options: HUB_EL_REVEALS.map((r) => ({ key: r, label: r === 'plain' ? HUB_EL_REVEAL_LABEL[r] : `${HUB_EL_REVEAL_LABEL[r]} ◆` })),
+                  onPick: (r) => save((c) => { if (r === 'plain') delete c.reveal; else c.reveal = r as HubSceneReveal; }, 'in'),
+                }
+              : null
+          }
+          actNote={animatePhase === 'act' && (shown.during ?? m.during) === 'leak' ? SCENE_LEAK_NOTE : null}
           note={!liftMoves && animatePhase === 'act' ? LIFT_NEEDS_A_PHOTO : null}
           leaves={isLast ? null : { value: transition, options: leavesOptions(), onPick: (t) => setTransition(t, null) }}
         />

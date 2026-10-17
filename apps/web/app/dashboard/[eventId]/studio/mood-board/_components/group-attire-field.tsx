@@ -1,6 +1,6 @@
 'use client';
 
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
+import { ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import { groupOverrides, type GroupAttireMap } from '@/lib/role-group-dress-code';
 import type { RoleNames } from '@/lib/role-names';
 import type { RoleGroup } from '@/lib/role-groups';
@@ -46,6 +46,7 @@ export function GroupAttireField({
   saved,
   roles,
   compact,
+  wear,
   roleNames,
 }: {
   /** The groups this event's guest list actually produces, in reading order. */
@@ -54,6 +55,8 @@ export function GroupAttireField({
   /** The finer tier, read only — to name who will ignore what is typed here. */
   roles: RoleAttireMap;
   compact?: boolean;
+  /** The Wear as Studio › Mood Board & Dress Code says it (`wearSaid`) — the one place it is picked (2026-10-17). */
+  wear?: Readonly<Record<string, string>>;
   /** The couple's own words for roles (owner 2026-09-30). */
   roleNames?: RoleNames;
 }) {
@@ -86,22 +89,12 @@ export function GroupAttireField({
                   {roleCount > 1 ? ` · ${formatCount(roleCount)} roles` : ''}
                 </span>
               </span>
-              <label htmlFor={`group-style-${group}`} className="sr-only">
-                What {label} wear
-              </label>
-              <select
-                id={`group-style-${group}`}
-                name="group_style"
-                defaultValue={current?.style ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              >
-                <option value="">Not set</option>
-                {ATTIRE_STYLES.map((style) => (
-                  <option key={style} value={style}>
-                    {ATTIRE_STYLE_LABEL[style]}
-                  </option>
-                ))}
-              </select>
+              {/* 👗 The Wear is the Studio's (2026-10-17): said here as the Studio says it, posted back unchanged so the
+                  zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
+              <input type="hidden" name="group_style" value={current?.style ?? ''} />
+              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-group-wear={group}>
+                {wear?.[`groups:${group}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">

@@ -80,6 +80,22 @@ function rulesOf(cssText: string): Rule[] {
   return out;
 }
 const GLOBALS = rulesOf(read('app/globals.css'));
+/** A selector list split at its top-level commas (never inside `:is(…)` · `:has(…)`). */
+function selectors(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let at = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    if (list[i] === '(') depth += 1;
+    else if (list[i] === ')') depth -= 1;
+    else if (list[i] === ',' && depth === 0) {
+      out.push(list.slice(at, i).trim());
+      at = i + 1;
+    }
+  }
+  out.push(list.slice(at).trim());
+  return out;
+}
 const GATE = '@media screen and (prefers-reduced-motion: no-preference)';
 const KEYFRAMES = (name: string) => GLOBALS.filter((r) => r.chain[r.chain.length - 1] === `@keyframes ${name}`);
 const decl = (body: string, prop: string) => new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`).exec(body)?.[1]?.trim() ?? null;
@@ -108,7 +124,7 @@ test('(1a) every animation of the six is behind the reduced-motion gate AND off 
     assert.ok(uses.length > 0, `${fx.name}: no rule plays ${fx.kf}`);
     for (const r of uses) {
       assert.ok(r.chain.includes(GATE), `${fx.name}: "${r.selector}" plays ${fx.kf} outside the reduced-motion gate`);
-      assert.ok(r.selector.split(',').every((s) => s.trim().startsWith(':root:not(.sn-save-data)')), `${fx.name}: "${r.selector}" plays on a Save-Data connection`);
+      assert.ok(selectors(r.selector).every((s) => s.startsWith(':root:not(.sn-save-data)')), `${fx.name}: "${r.selector}" plays on a Save-Data connection`);
     }
   }
   for (const r of moving) assert.ok(r.chain.includes(GATE), `"${r.selector}" plays an effect outside the gate`);

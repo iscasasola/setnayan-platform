@@ -330,7 +330,9 @@ test('dress code · the palette and the line draw the general view: words, colou
     const out = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: id } as never)));
     assertStyled(out, id, id);
     assert.ok(out.includes('Garden formal') && out.includes('Long dresses and barongs or suits.'), `${id}: the words`);
-    for (const hex of BOARD.reception) assert.ok(out.toUpperCase().includes(hex), `${id}: our colour ${hex}`);
+    /* No "Our colours" in the dress code (owner 2026-10-17): every colour drawn is a dressed role's. */
+    assert.ok(!/Our colours/.test(out), `${id}: "Our colours" is back`);
+    for (const row of roleRows) assert.ok(out.includes(`data-role-row="${row}"`) || id === 'palette', `${id}: the ${row} row`);
   }
   const line = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: 'line' } as never)));
   assert.deepEqual([...line.matchAll(/data-role-row="([^"]+)"/g)].map((m) => m[1]), roleRows, 'the line keeps every role row, in order');

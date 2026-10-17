@@ -22,6 +22,8 @@
  *   ?attire=shared        Studio › Attire with a role saved BEFORE the men/women split: Principal Sponsors (6 people) holding ONE
  *                         shared Wear, "Long gown" (the shape cale-ice's live dress code holds) — plus a women-only and a
  *                         men-only row. With `?studio=1`.
+ *   ?attire=cale|cale-now  Studio › Attire on cale-ice's dress code + guest-list rows as production held them 2026-10-17 (before /
+ *                         after the owner's Apply). With `?studio=1`.
  *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
  *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
@@ -45,7 +47,7 @@ import { labMarchSections } from './march-fixture';
 import { labOpenMarchCard } from './lab-march-cards';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
-import { LAB_SAMPLE, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
+import { LAB_SAMPLE, LAB_CALE_ICE_ATTIRE_ROWS, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { LabMoodBoardActions } from './lab-mood-board-actions';
@@ -123,6 +125,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const sharedAttire = one('attire') === 'shared';
   /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`; `&groom=tuxedo` etc. pick a design). */
   const rolesAttire = one('attire') === 'roles';
+  /* 🪞 `?attire=cale|cale-now` — cale-ice's dress code and guest-list rows as production held them 2026-10-17 (`labCaleIceDressConfig`). */
+  const caleIce = one('attire') === 'cale' || one('attire') === 'cale-now';
+  const caleIceAfter = one('attire') === 'cale-now';
   const rolesPick = { groom: one('groom'), bride: one('bride'), men: one('men'), women: one('women'), boys: one('boys'), girls: one('girls'), gm: one('gm'), gw: one('gw') };
   const wishState = labWishState(one('wish'));
   /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
@@ -374,11 +379,11 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   <LabMoodBoardActions refuse={one('refuse') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
-                    palette={(rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
+                    palette={(caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
-                    attire={[
+                    attire={caleIce ? (LAB_CALE_ICE_ATTIRE_ROWS as never) : [
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
                       ...(sharedAttire || rolesAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
@@ -390,7 +395,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                       { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
                     dressConfig={
-                      rolesAttire
+                      caleIce
+                        ? (labCaleIceDressConfig(caleIceAfter) as never)
+                        : rolesAttire
                         ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)
                         : sharedAttire
                         ? { roles: { bride: { style: 'long_gown' } }, groups: { principal_sponsors: { style: 'long_gown' }, bridesmaids: { style: 'long_gown' }, groomsmen: { style: 'suit' } } }

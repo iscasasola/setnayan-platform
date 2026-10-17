@@ -4,7 +4,8 @@ import { SceneClip } from './scene-clip';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { sceneFrameLook } from '@/lib/scene-frame-look';
-import { HUB_ELEMENT_EXCLUDED_WIDGETS, hubElementSceneCss, hubSceneRunsAttr } from '@/lib/element-style';
+import { HUB_ELEMENT_EXCLUDED_WIDGETS, HUB_SCENE_FX_ATTR, hubElementSceneCss, hubSceneFxAttr, hubSceneRunsAttr } from '@/lib/element-style';
+import { HubSceneFx } from './hub-scene-fx';
 
 /**
  * THE CANVAS FRAME — a couple's arrangement, put around one section.
@@ -78,11 +79,21 @@ export function HubCanvasFrame({
   const excluded = HUB_ELEMENT_EXCLUDED_WIDGETS.includes(widget.widget_type);
   const elementCss = excluded ? null : hubElementSceneCss(widget.widget_type, canvas.elements);
   const runsAttr = excluded ? null : hubSceneRunsAttr(canvas.elements);
+  /* ✨ …and its parts' Word by word · Spread · Glow (owner 2026-10-17), cut by `HubSceneFx` as the scene nears the screen. */
+  const fxAttr = excluded ? null : hubSceneFxAttr(canvas.elements);
   const elementStyle =
-    elementCss || runsAttr ? (
-      <style hidden data-hub-els={widget.widget_type} {...(runsAttr ? { 'data-hub-runs': runsAttr } : {})}>
-        {elementCss ?? ''}
-      </style>
+    elementCss || runsAttr || fxAttr ? (
+      <>
+        <style
+          hidden
+          data-hub-els={widget.widget_type}
+          {...(runsAttr ? { 'data-hub-runs': runsAttr } : {})}
+          {...(fxAttr ? { [HUB_SCENE_FX_ATTR]: fxAttr } : {})}
+        >
+          {elementCss ?? ''}
+        </style>
+        {fxAttr ? <HubSceneFx scope={widget.widget_type} /> : null}
+      </>
     ) : null;
   if (!hasHubCanvas(canvas)) {
     /* ↕ Spacing alone is no frame (a frame brings motion nobody chose) — the scene is

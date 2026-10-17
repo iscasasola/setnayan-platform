@@ -38,3 +38,10 @@ RULES: migrations only via `pnpm migration:new` (allocate forward), RLS/grants p
 green (see CLAUDE.md rule 4). PGlite cannot run concurrent sessions — prove idempotency by calling twice with the same id
 and asserting one row / one spend; prove locks by reading the SQL in a guard. `actions.ts` failing closed stays correct.
 No new emails. No UI redesign; any new error copy is plain words. Changelog fragment changelog.d/rd-no-double-records.md.
+
+## PROGRESS (builder, 2026-10-18)
+- [x] 1 nameTheSeats — FIXED. Migration 20271272305444 `guest_plus_one_seat_mint` (service_role): advisory lock on the
+      bringer, allowance re-read inside, same-name live seat returned (no 2nd row), `full` past the count. actions.ts calls
+      the RPC instead of `.from('guests').insert`. Test tests/db/a-plus-one-seat-is-minted-once.db.test.ts (5/5);
+      sabotage: same-name lookup removed → 1 red · full refusal removed → 2 red · lock removed → 1 red.
+      Guard repointed: every-plus-one-is-named.test.ts (insert shape → rpc shape).

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
 import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
+import { RequestKeyInput } from '@/app/_components/request-key-input';
 
 /** 🚪 The stranger's door's words — owner 2026-10-17, verbatim: *"Change the button to 'Confirm your Booking'"*. */
 export const STRANGER_DOOR_WORDS = 'Confirm your Booking';
@@ -86,6 +87,7 @@ export function GetInside({
         </h2>
         <p className="text-sm text-ink/70">Tap once and this event is added to your account. No reply needed.</p>
         <form action={joinAction}>
+          <RequestKeyInput />
           <button type="submit" className="button-primary flex min-h-[52px] w-full items-center justify-center">
             Join as a guest
           </button>

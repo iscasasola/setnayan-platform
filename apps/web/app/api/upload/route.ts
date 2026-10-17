@@ -8,7 +8,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import { pathPrefixIsAcceptable, privateBucketRootIsAllowed } from '@/lib/r2-client-ref';
 import {
@@ -252,18 +252,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Best-effort flood backstop (see lib/rate-limit — in-memory, per-instance,
-  // NOT a hard cross-instance guarantee). Keyed on the caller; a generous
-  // ceiling no legitimate capture/upload session approaches. The real
-  // protection for the seat path is the server-derived prefix + tight byte caps
-  // below; this just blunts a naive presign flood from one identity.
-  const rl = rateLimit(`upload:${user.id}`, 120, 60_000);
+  // Flood backstop, keyed on the caller; a generous ceiling no legitimate
+  // capture/upload session approaches. The real protection for the seat path is
+  // the server-derived prefix + tight byte caps below; this blunts a presign
+  // flood from one identity.
+  // 📶 DURABLE NOW (event-day L1·8): the bare in-memory limiter counted per warm
+  // serverless instance, so on Vercel the same caller spread over N instances
+  // got N × 120. `enforceRateLimit` keeps that in-memory layer as L1 and adds
+  // the Postgres window as L2 (fails open on a database fault). Same number.
+  const rl = await enforceRateLimit('upload', user.id, { limit: 120, windowSecs: 60 });
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Too many uploads — give it a moment and try again.' },
       {
         status: 429,
-        headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
+        headers: { 'Retry-After': String(Math.max(1, rl.retryAfterSecs)) },
       },
     );
   }

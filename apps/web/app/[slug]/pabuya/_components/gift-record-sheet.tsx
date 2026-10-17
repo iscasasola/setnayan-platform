@@ -92,6 +92,9 @@ export default function GiftRecordSheet({
   const [refused, setRefused] = useState<string | null>(null);
   const [kept, setKept] = useState<Kept | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  /* 🔁 ONE id for this sheet's Send, re-sent by every retry — a Send whose answer was lost on bad
+     signal is kept ONCE and counted once toward its wish (event-day L1·4). A new gift is a new sheet. */
+  const sendRef = useRef<string>(typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : '');
   const ownName = (giverName ?? '').trim();
 
   const post = async (body: Record<string, unknown>) => {
@@ -146,7 +149,7 @@ export default function GiftRecordSheet({
     setRefused(null);
     setSending(true);
     try {
-      const res = await post({ purpose: 'gift-record', wishId: wish?.id ?? '', amount, message, name, shotRef: shot?.ref ?? '' });
+      const res = await post({ purpose: 'gift-record', wishId: wish?.id ?? '', amount, message, name, shotRef: shot?.ref ?? '', ref: sendRef.current });
       if (!res.ok || !res.data || typeof res.data.amountPhp !== 'number') {
         setRefused(typeof res.data?.error === 'string' ? res.data.error : GIFT_NOT_KEPT);
         return;

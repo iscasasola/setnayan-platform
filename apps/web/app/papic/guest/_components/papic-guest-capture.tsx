@@ -31,6 +31,7 @@ import {
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
 import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
+import { CLIENT_CAPTURE_ID_FIELD, newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
   compressVideoForWeb,
@@ -536,6 +537,11 @@ export function PapicGuestCapture({
     // under. Never shown to the guest and never asked of them (owner ruling,
     // 2026-09-07) — the camera simply knows.
     const capturedAtMs = Date.now();
+    // 🔁 …and the shutter's own id, minted HERE and sent unchanged by the POST
+    // below, by any retry and by the offline queue — so a shot whose "saved"
+    // answer was lost on bad signal lands ONCE and is paid for once
+    // (lib/papic-client-capture-id.ts).
+    const clientCaptureId = newClientCaptureId();
 
     // FACE auto-tag runs on the CLEAN frame, BEFORE the look is applied — the
     // event style (mono / cross-process / etc.) would otherwise wreck face-api's
@@ -587,6 +593,7 @@ export function PapicGuestCapture({
         sharePublicly,
         faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
         capturedAtMs,
+        clientCaptureId,
         reason: 'low_bandwidth',
       });
       setBusy(false);
@@ -602,6 +609,7 @@ export function PapicGuestCapture({
       const form = new FormData();
       form.append('file', blob, `papic-${Date.now()}.jpg`);
       form.append('captured_at_ms', String(capturedAtMs));
+      form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
       // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
       // the guest opted in; the server sets consent_to_public from it.
       if (sharePublicly) form.append('share_publicly', '1');
@@ -738,6 +746,7 @@ export function PapicGuestCapture({
         // The shot the guest watched themselves take, with the minute they took
         // it. Without this the queue stamps the moment the upload FAILED.
         capturedAtMs,
+        clientCaptureId,
         reason: 'network',
       });
       setSaveError(
@@ -870,6 +879,8 @@ export function PapicGuestCapture({
     async (clip: Blob, durationMs: number, capturedAtMs: number) => {
       setBusy(true);
       setSaveError(null);
+      // 🔁 One id for this clip, live POST and offline queue alike — see the photo path.
+      const clientCaptureId = newClientCaptureId();
       // Link effectively unusable — skip the doomed POST, queue the clip.
       if (getPapicQualityTier() === 'queue_only') {
         const queued = await enqueuePapicGuestCapture({
@@ -883,6 +894,7 @@ export function PapicGuestCapture({
           durationMs: Math.min(durationMs, MAX_CLIP_MS),
           sharePublicly,
           capturedAtMs,
+          clientCaptureId,
           reason: 'low_bandwidth',
         });
         setSaveError(
@@ -902,6 +914,7 @@ export function PapicGuestCapture({
         }
         form.append('duration_ms', String(Math.min(durationMs, MAX_CLIP_MS)));
         form.append('captured_at_ms', String(capturedAtMs));
+        form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
         // Same public-sharing opt-in as photos (Alaala orb gate). Only sent when
         // the guest opted in; the server sets consent_to_public from it.
         if (sharePublicly) form.append('share_publicly', '1');
@@ -1005,6 +1018,7 @@ export function PapicGuestCapture({
           // The moment the clip opened. Without it the queue would stamp the
           // moment the upload gave up.
           capturedAtMs,
+          clientCaptureId,
           reason: 'network',
         });
         setSaveError(

@@ -80,15 +80,20 @@ test('🔒 the entitlement is re-read from the DATABASE, not taken from the form
   );
 });
 
+// (2026-10-18, event-day L1·1: the row is minted by `guest_plus_one_seat_mint`,
+// migration 20271272305444 — one call under a lock on the bringer, which re-reads
+// the allowance itself and writes `plus_one_of_guest_id` / `event_id` from these
+// two arguments. `tests/db/a-plus-one-seat-is-minted-once.db.test.ts` runs it.)
 test('🔒 the row is created ONLY inside that check', () => {
   const gate = WRITE.indexOf('primary?.plus_one_allowed');
-  const insert = WRITE.indexOf(".insert({");
-  assert.ok(gate > -1 && insert > gate, 'the insert is not inside the entitlement check');
+  const mint = WRITE.indexOf("rpc('guest_plus_one_seat_mint'");
+  assert.ok(gate > -1 && mint > gate, 'the seat mint is not inside the entitlement check');
+  assert.doesNotMatch(WRITE, /from\('guests'\)\s*\.insert\(/, 'a seat is inserted outside the locked writer again');
 });
 
 test('the new row is scoped to this event and this primary', () => {
-  assert.match(WRITE, /plus_one_of_guest_id: guestId/, 'the +1 is not linked to the guest');
-  assert.match(WRITE, /event_id: eventId/, 'the +1 is not scoped to the event');
+  assert.match(WRITE, /p_bringer_guest_id: guestId/, 'the +1 is not linked to the guest');
+  assert.match(WRITE, /p_event_id: eventId/, 'the +1 is not scoped to the event');
 });
 
 // ── The rules it shares with the rest of the card ───────────────────────────

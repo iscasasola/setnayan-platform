@@ -29,6 +29,7 @@ import type { OfflineItem, SyncResult } from '../types';
 import { deliverCapture, type PapicSinkDeps } from '../../camera-bridge/papic-sink';
 import type { CapturedFile } from '../../camera-bridge/types';
 import type { PapicGeoInput } from '../../papic-geo';
+import { CLIENT_CAPTURE_ID_FIELD, readClientCaptureId } from '../../papic-client-capture-id';
 
 /**
  * Queue payload contract — written by the seat capture UI's enqueue helper,
@@ -253,6 +254,13 @@ export interface PapicGuestQueuePayload {
   poster_bytes?: Blob | ArrayBuffer | null;
   poster_filename?: string;
   captured_at_ms: number;
+  /**
+   * 🔁 The shutter's own id (lib/papic-client-capture-id.ts), minted at the grab
+   * and put back on the wire by every drain — so a shot whose live POST landed
+   * but whose answer was lost, or that drains twice, is recorded and paid ONCE.
+   * Absent on items queued before it existed (they record as before).
+   */
+  client_capture_id?: string;
 }
 
 /** Guest server states that resolve a queued item WITHOUT a successful land AND
@@ -341,6 +349,7 @@ function parseGuestPayload(payload: Record<string, unknown>): PapicGuestQueuePay
       typeof payload.poster_filename === 'string' ? payload.poster_filename : undefined,
     captured_at_ms:
       typeof payload.captured_at_ms === 'number' ? payload.captured_at_ms : 0,
+    client_capture_id: readClientCaptureId(payload.client_capture_id) ?? undefined,
   };
 }
 
@@ -383,6 +392,8 @@ export async function drainGuestCaptureWith(
   if (parsed.captured_at_ms > 0) {
     form.append('captured_at_ms', String(parsed.captured_at_ms));
   }
+  // 🔁 The SAME id the live POST carried — never a fresh one per drain.
+  if (parsed.client_capture_id) form.append(CLIENT_CAPTURE_ID_FIELD, parsed.client_capture_id);
 
   let res: GuestPostResult;
   try {
@@ -500,6 +511,8 @@ export async function enqueuePapicGuestCapture(input: {
   sharePublicly?: boolean;
   faceVectors?: string;
   capturedAtMs?: number;
+  /** The shutter's id the live POST used — the drain re-sends exactly this. */
+  clientCaptureId?: string;
   reason?: string;
 }): Promise<string | null> {
   if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
@@ -515,6 +528,7 @@ export async function enqueuePapicGuestCapture(input: {
     poster_bytes: input.posterBlob ?? null,
     poster_filename: input.posterFilename,
     captured_at_ms: input.capturedAtMs ?? Date.now(),
+    client_capture_id: readClientCaptureId(input.clientCaptureId) ?? undefined,
   };
   try {
     return await enqueueOfflineItem('papic', {

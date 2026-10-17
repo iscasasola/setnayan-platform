@@ -8,7 +8,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
+import { joinDoorIdent } from '@/lib/join-door-throttle';
 import { mintPapicReferenceCode } from '@/lib/papic-cameras';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
@@ -246,10 +247,11 @@ export async function startPapicGuestPurchase(formData: FormData) {
 
   // Flood backstop keyed on the CREDENTIAL, not on an IP or a form value, so
   // one camera cannot mint orders faster than a person can plausibly buy.
-  // Best-effort by contract (in-memory, per-instance); the one-open-order rule
-  // below is the durable half.
-  const rlKey = buyer!.kind === 'seat' ? `papic-buy:seat:${buyer!.seatId}` : `papic-buy:guest:${buyer!.guestId}`;
-  if (!rateLimit(rlKey, 10, 60_000).ok) backTo(returnTo, 'too_fast');
+  // 📶 DURABLE NOW (event-day L1·8) — `enforceRateLimit` (in-memory L1 +
+  // Postgres L2, fails open on a database fault), same 10 a minute; the
+  // one-open-order rule below is still the other half.
+  const rlKey = buyer!.kind === 'seat' ? `seat:${buyer!.seatId}` : `guest:${buyer!.guestId}`;
+  if (!(await enforceRateLimit('papic_buy', rlKey, { limit: 10, windowSecs: 60 })).ok) backTo(returnTo, 'too_fast');
 
   const admin = createAdminClient();
 
@@ -485,7 +487,9 @@ export async function submitPapicGuestPayment(formData: FormData) {
     redirect(`/papic/order/${encodeURIComponent(token)}?pay_error=${code}`);
 
   if (!papicGuestBuyEnabled()) back('unavailable');
-  if (!rateLimit(`papic-pay:${token}`, 8, 60_000).ok) back('too_fast');
+  // 📶 Durable (event-day L1·8) — same 8 a minute per order link. The link's
+  // token is a credential, so the limiter stores a salted hash of it, never it.
+  if (!(await enforceRateLimit('papic_pay', joinDoorIdent('papic-pay', token), { limit: 8, windowSecs: 60 })).ok) back('too_fast');
 
   const admin = createAdminClient();
   const { data: guestOrder } = await admin

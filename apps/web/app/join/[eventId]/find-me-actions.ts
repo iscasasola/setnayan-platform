@@ -9,9 +9,11 @@ import { GUEST_LIST_ONLY, inviteReplyPath, selfJoinRefusalPath } from '@/lib/inv
 import { readGuestSession } from '@/lib/guest-session';
 import { formalNameFromForm } from '@/lib/formal-name';
 import {
-  FIND_ME_IP_LIMIT,
+  FIND_ME_DIGITS_LIMIT,
   FIND_ME_NAME_LIMIT,
   FIND_ME_ROW_LIMIT,
+  FIND_ME_VENUE_DIGITS_LIMIT,
+  FIND_ME_VENUE_NAME_LIMIT,
   FIND_ME_WINDOW_SECS,
   findOutcome,
   isFindable,
@@ -20,6 +22,7 @@ import {
   readTypedLastFour,
 } from '@/lib/find-me';
 import {
+  findDeviceId,
   forgetFindState,
   loadFindableRows,
   logFindAttempt,
@@ -93,7 +96,13 @@ async function lookUpName(eventId: string, token: string, formData: FormData) {
   // Too many look-ups from this connection → it simply stops looking and shows
   // the ask-to-join form. Never an error: a person is not blocked, a scraper
   // just stops learning names.
-  const mayLook = await spendNameLookup(eventId, await headers(), FIND_ME_NAME_LIMIT, FIND_ME_WINDOW_SECS);
+  // 📶 Per PHONE first, then per connection at a venue's size (lib/find-me.ts) —
+  // a reception's one shared Wi-Fi address no longer closes the door on the room.
+  const mayLook = await spendNameLookup(eventId, await headers(), await findDeviceId(), {
+    device: FIND_ME_NAME_LIMIT,
+    venue: FIND_ME_VENUE_NAME_LIMIT,
+    windowSecs: FIND_ME_WINDOW_SECS,
+  });
   const read = mayLook ? await loadFindableRows(admin, eventId) : null;
   const outcome = read ? findOutcome(parts, read.rows, read.bound) : ({ kind: 'none' } as const);
 
@@ -127,8 +136,9 @@ async function checkLastFour(eventId: string, token: string, formData: FormData)
 
   // The budget is spent BEFORE the digits are looked at, so a right and a
   // wrong answer cost the same try, and no try is free.
-  const allowed = await spendDigitsTry(eventId, guestId, await headers(), {
-    ip: FIND_ME_IP_LIMIT,
+  const allowed = await spendDigitsTry(eventId, guestId, await headers(), await findDeviceId(), {
+    device: FIND_ME_DIGITS_LIMIT,
+    venue: FIND_ME_VENUE_DIGITS_LIMIT,
     row: FIND_ME_ROW_LIMIT,
     windowSecs: FIND_ME_WINDOW_SECS,
   });

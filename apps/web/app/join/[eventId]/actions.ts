@@ -33,6 +33,12 @@ import { forgetFindState } from '@/lib/find-me.server';
 // runaway spam. Generous — weddings rarely exceed it.
 const SELF_JOIN_CEILING = 1000;
 
+/** The form's own `request_key` (a UUID minted when the form was drawn), or null. */
+function readRequestKey(formData: FormData): string | null {
+  const v = String(formData.get('request_key') ?? '').trim().toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v) ? v : null;
+}
+
 // 🛂 NOBODY WITHOUT A KEY GETS INSIDE UNTIL THE COUPLE KEEPS OR LINKS THEM
 // (owner, DECISION_LOG 2026-09-26 — reverses the 2026-06-25 optimistic admit).
 // Both actions below turn a person without a key into a REQUEST: a guest row
@@ -211,6 +217,12 @@ async function createJoinRequest(
     avatarUrl: string | null;
     /** This browser's own open request (its remembered key) — asked again, it is updated, never doubled. */
     rememberedRequestId?: string | null;
+    /**
+     * 🔁 The form's own key (`request_key`, minted when the form was drawn — `readRequestKey`).
+     * The same form sent twice (a double tap, a retry after a lost redirect) carries the
+     * same key and is answered with the request it already wrote: one row, one notice.
+     */
+    requestKey?: string | null;
   },
 ): Promise<string | null> {
   const { eventId, answers, userId } = args;
@@ -314,15 +326,21 @@ async function createJoinRequest(
         ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
         ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
       };
-  const { data: inserted, error } = await admin
-    .from('guests')
-    .insert({
-      event_id: eventId,
+  // 🔒 ONE WRITER, UNDER A LOCK ON THE EVENT (event-day L1·3, migration
+  // 20271273586425). The same form arriving twice is answered with the request
+  // it already wrote (`created: false` — its answers are refreshed, and the
+  // couple is NOT told a second time); the event's live requests are counted
+  // against SELF_JOIN_CEILING inside the same lock, so a rush cannot pass it
+  // together. The row is the shape this door always inserted.
+  const { data: written, error } = await admin.rpc('guest_join_request_create', {
+    p_event_id: eventId,
+    p_request_key: args.requestKey ?? null,
+    p_ceiling: SELF_JOIN_CEILING,
+    p_row: {
       ...nameColumns,
       side: 'both',
       group_category: 'other',
       role: args.role,
-      invited_to_blocks: ['ceremony', 'reception'],
       entry_source: 'self_added_unlisted',
       // The address they gave so Keep/Link can send their key — the ONE email
       // writer on this door. It never binds anything: `emailMayBindRow` refuses
@@ -337,12 +355,20 @@ async function createJoinRequest(
             photo_set_by_user_id: userId,
           }
         : {}),
-    })
-    .select('guest_id')
-    .single();
-  if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.insert', error);
-  if (error || !inserted) return null;
-  const requestId = inserted.guest_id as string;
+    },
+  });
+  const outcome = (written ?? null) as { status?: string; guest_id?: string; created?: boolean } | null;
+  if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · rpc:guest_join_request_create', error);
+  if (error || outcome?.status !== 'ok' || !outcome.guest_id) return null;
+  const requestId = outcome.guest_id;
+
+  // The same form, again: its one request takes these answers and nothing else
+  // happens — no second claim, no second "Someone asked to join".
+  if (outcome.created === false) {
+    const { error: againErr } = await admin.from('guests').update(answerColumns).eq('guest_id', requestId).eq('event_id', eventId);
+    if (againErr) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.update(again)', againErr);
+    return againErr ? null : requestId;
+  }
 
   // 3. A signed-in asker is remembered, so Keep/Link can bind THEIR account.
   if (userId) {
@@ -553,6 +579,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     role,
     userId: user.id,
     avatarUrl,
+    requestKey: readRequestKey(formData),
   });
   if (!requestId) return backToDoor(eventId, token, 'join_failed');
   return requestSent(admin, eventId, token, requestId);
@@ -677,6 +704,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     userId: null,
     avatarUrl: null,
     rememberedRequestId: remembered?.state.kind === 'pending' ? remembered.guestId : null,
+    requestKey: readRequestKey(formData),
   });
   if (!requestId) {
     return refuse('join_failed');

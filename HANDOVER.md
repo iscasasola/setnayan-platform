@@ -104,3 +104,8 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       at a reception + 600/min per venue IP counted across instances would black out galleries) and vendor qr-guard
       (supplier-only, not a guest door). Guard lib/guest-limits-are-durable.test.ts (3) fails on any new bare import
       without a reason. Sabotage: rotate bare → 2 red · raw token → 1 red · buy bare → 2 red.
+
+## STATE
+- Draft PR #6621 (label do-not-auto-merge, autoMergeRequest null). CI watch running. Exposure baseline regenerated
+  (+3 cols, new capture signature); local green: exposure-freeze, anon-rpc-surface, anon-table-grants, ugat-* (3),
+  replay-order-is-honest, migration:check. Nothing left from the 8 items except the two named "left" lines above.

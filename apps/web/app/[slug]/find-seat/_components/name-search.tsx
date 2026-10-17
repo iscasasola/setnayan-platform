@@ -13,6 +13,8 @@ import {
 import type { EventTableRow } from '@/lib/seating';
 import type { EntrancePos } from '@/lib/indoor-blueprint';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
+import { useEventPulse } from '@/lib/use-event-pulse';
+import type { PulseBaseline } from '@/lib/event-pulse';
 import { abortAfter } from '@/lib/abort-after';
 import { Postmark, StepUp } from './seat-frame';
 
@@ -77,6 +79,7 @@ export function NameSearch({
   tables,
   entrance,
   postmark = null,
+  pulse = null,
 }: {
   slug: string;
   /** The couple's names ("Indalecio & Claire") — whose list this is. */
@@ -87,6 +90,9 @@ export function NameSearch({
   entrance: EntrancePos;
   /** The Vintage postmark, drawn only while the head is up (B1). */
   postmark?: string | null;
+  /** 🧯 The event's pulse baseline (live-day polling). With it, a found table is re-asked only when the event's
+   *  shared "has anything changed?" answer moves, not every 45 s. Without it, the 45 s re-ask as before. */
+  pulse?: PulseBaseline | null;
 }) {
   const [q, setQ] = useState('');
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
@@ -144,10 +150,12 @@ export function NameSearch({
     [slug],
   );
 
-  useDayOfLiveTick(eventDate, () => {
+  const requery = () => {
     const clean = lastFoundRef.current;
     if (clean) void runSearch(clean, { quiet: true });
-  });
+  };
+  useEventPulse(slug, eventDate, pulse, requery);
+  useDayOfLiveTick(eventDate && !pulse ? eventDate : null, requery);
 
   const clean = sanitizeSeatLookupQuery(q);
 

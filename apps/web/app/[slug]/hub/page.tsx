@@ -87,6 +87,8 @@ import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { egiftKindMeta } from '@/lib/egift-kinds';
 import { resolveGuestDoorways } from '../_lib/site-nav';
 import { withDayNote } from '../_lib/day-words';
+import { startAhead } from '@/lib/start-ahead';
+import { pulseBaseline } from '@/lib/event-pulse.server';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -118,6 +120,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const admin = createAdminClient();
+  // 🧯 When this render BEGAN — the phone compares a guest's own changes against it (`pulseBaseline`, live-day polling).
+  const renderedAt = new Date().toISOString();
 
   // Focused event read — only the columns the hub panels need (a far smaller
   // select than the full /[slug] page, since the hub has no hero/STD/widget
@@ -290,6 +294,26 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     redirect(`/${slug}/welcome`);
   }
 
+  // ⚡ START TOGETHER (2026-10-18, live-day polling · lib/start-ahead.ts). Each read below is awaited, on every path
+  // from here, at the line that always awaited it — started now, before the schedule read just below, so they stop
+  // queueing behind one another (the hub was ~30 reads in single file, and on the day every phone re-drew it). A failed
+  // read still throws from that same `await`. Only what every path awaits is started; the conditional ones carry
+  // their own condition.
+  const watchUrlsAhead = isLive ? startAhead(readEventWatchUrls(admin, event.event_id)) : null;
+  const papicGuestAhead = startAhead(eventPapicGuestActive(admin, event.event_id));
+  const wallMirrorAhead = isLive ? startAhead(guestWallMirrorActive(admin, event.event_id)) : null;
+  const albumDoorAhead = startAhead(resolveAlbumDoor(event));
+  const seatingSurfaceOn = surfaceEnabled(eventTypeProfile, 'seating');
+  const seatsShownAhead =
+    seatingSurfaceOn && !partsOff.has('seat') ? startAhead(guestsMaySeeSeatsFor(admin, event.event_id)) : null;
+  const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
+  const egiftAhead = pabuyaRouteEnabled
+    ? startAhead(fetchEgiftMethods(admin, event.event_id, { enabledOnly: true }))
+    : null;
+  const pulseAhead = startAhead(
+    pulseBaseline(event.slug, guest ? { eventId: event.event_id, guestId: guest.guest_id } : null, renderedAt),
+  );
+
   // ── Shared data: public schedule (every viewer). fetchPublicScheduleBlocks
   // already returns only is_public rows, so we just split out the top-level
   // blocks for the "happening now" card. ────────────────────────────────────
@@ -330,7 +354,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // nothing instead of reaching the iframe or the href. ──────────────────────
   let watchEmbed: WatchLiveLinks | null = null;
   if (isLive) {
-    watchEmbed = resolveWatchLinks(await readEventWatchUrls(admin, event.event_id));
+    watchEmbed = resolveWatchLinks(await watchUrlsAhead!);
   }
   if (partsOff.has('live')) watchEmbed = null;
 
@@ -339,7 +363,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // whenever the couple owns the pack (matches guest-hub-bar.tsx — the capture
   // window is enforced inside /papic/guest); for a no-guest viewer it's
   // live-only (matches public-event-day-bar.tsx). ───────────────────────────
-  const papicGuestOwned = await eventPapicGuestActive(admin, event.event_id);
+  const papicGuestOwned = await papicGuestAhead;
   const candidActive = !partsOff.has('camera') && (guest ? papicGuestOwned : isLive && papicGuestOwned);
 
   // ── Per-guest day-of reads (skip entirely for a no-guest viewer). ──────────
@@ -355,14 +379,20 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       'https://setnayan-platform-web.vercel.app';
-    const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+    // ⚡ This guest's own reads, started together; each awaited where it always was.
+    const ownerSlugAhead = startAhead(resolveEventOwnerSlug(admin, event.event_id));
+    const qrLookAhead = startAhead(resolveEventQrLook(admin, event.event_id, event));
+    const cameraAhead =
+      guest.rsvp_status !== 'declined' ? startAhead(resolveGuestCamera(admin, event.event_id, guest.guest_id)) : null;
+    const galleryAhead = isLive || isPost ? startAhead(getGuestLiveGallery(event.event_id, guest.guest_id)) : null;
+    const ownerSlug = await ownerSlugAhead;
     qrSvg = await renderInvitationQrSvg({
       appUrl,
       slug,
       qrToken: guest.qr_token,
       // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's
       // own logo · shape · pattern · ink on Event Hub Pro.
-      look: await resolveEventQrLook(admin, event.event_id, event),
+      look: await qrLookAhead,
       ownerSlug,
     });
     invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token, ownerSlug });
@@ -370,7 +400,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     // Paid LIMITED roll camera — only the 'ready' state lights the launch CTA.
     if (guest.rsvp_status !== 'declined') {
       try {
-        const cam = await resolveGuestCamera(admin, event.event_id, guest.guest_id);
+        const cam = await cameraAhead!;
         guestRollCameraReady = cam.status === 'ready';
       } catch {
         guestRollCameraReady = false;
@@ -380,7 +410,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     // "Photos of you" — live + post grace window (Invite/Join v2), same gate as
     // the page's per-guest gallery.
     if (isLive || isPost) {
-      const live = await getGuestLiveGallery(event.event_id, guest.guest_id);
+      const live = await galleryAhead!;
       if (live) {
         galleryPhotos = live.photos.map((p) => ({ id: p.id, url: p.url }));
         galleryTotal = live.total;
@@ -477,7 +507,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     | null = null;
   if (isLive) {
     try {
-      if (await guestWallMirrorActive(admin, event.event_id)) {
+      if (await wallMirrorAhead!) {
         const snap = await getWallSnapshot(event.event_id, null, { limit: 12 });
         liveWall = {
           tiles: snap.tiles,
@@ -503,7 +533,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // tapped "See the recap gallery" and was told "The recap isn't ready yet" —
   // and then vanished forever at T+60h even once the album WAS published.
   // Wrong in both directions. See `albumRoomLink`'s docblock.
-  const recapHref = (await resolveAlbumDoor(event))?.href ?? null;
+  const recapHref = (await albumDoorAhead)?.href ?? null;
   const hasPhotos = Boolean(guest) || Boolean(liveWall) || Boolean(recapHref);
 
   // ── THE TWO DOORS NOTHING IN THE PRODUCT USED TO OPEN. ─────────────────────
@@ -530,21 +560,17 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   //     the reader that will actually stand there, not by a cheaper query that
   //     might be permitted differently. It is skipped entirely while the switch
   //     is off, so a dark flag costs nothing.
-  const seatingSurfaceOn = surfaceEnabled(eventTypeProfile, 'seating');
   const seatingPublished = seatingSurfaceOn && !partsOff.has('seat')
-    ? await guestsMaySeeSeatsFor(admin, event.event_id)
+    ? await seatsShownAhead!
     : false;
   // 🪑 The seat tile names the table only when guests may see their seats —
   // the one rule (`guestsMaySeeSeatsFor`): on the event's day, or earlier by
   // the couple's "Show guests their seats early" switch.
   const seatLabel = seatingPublished ? tableLabel : null;
-  const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
   // ⚠ SAME CALL, SAME READER, SAME FILTER — `finished-pages-need-doorways.test.ts`
   // pins this exact spelling, including `{ enabledOnly: true }`. Only the
   // binding changed: the rows are kept so the doorway can name the RAILS.
-  const enabledEgiftMethods = pabuyaRouteEnabled
-    ? await fetchEgiftMethods(admin, event.event_id, { enabledOnly: true })
-    : [];
+  const enabledEgiftMethods = egiftAhead ? await egiftAhead : [];
   const enabledEgiftCount = enabledEgiftMethods.length;
   /*
     WHICH rails wait behind the door — and nothing else.
@@ -1026,6 +1052,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   return (
     <HubShell
       eventDate={event.event_date ?? null}
+      slug={event.slug ?? slug}
+      pulse={await pulseAhead}
       header={header}
       now={nowPanel}
       watch={watchPanel}

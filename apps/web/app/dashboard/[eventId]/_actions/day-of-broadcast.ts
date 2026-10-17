@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { liveDayTag } from '@/lib/live-day-cache';
 import { createClient } from '@/lib/supabase/server';
 import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -85,6 +86,11 @@ export async function sendCoordinatorBroadcast(
     // user-facing message; no internals leak.
     return { ok: false, error: 'Could not send the broadcast. Try again.' };
   }
+
+  // The guests' read of the latest announcement is remembered per event for a few seconds
+  // (announcement-actions.ts · lib/live-day-cache.ts). Forget it NOW, before the ping below — every phone asks the
+  // moment the ping lands, and they must read these words, not the remembered previous ones.
+  revalidateTag(liveDayTag(eventId));
 
   // Tell the guests' phones, without telling the channel what was said.
   //

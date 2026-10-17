@@ -420,6 +420,7 @@ export const routes = {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,
     findSeat: (slug: string) => `/${slug}/find-seat`,
     home: (slug: string) => `/${slug}`,
+    livePulse: (slug: string) => `/${slug}/live-pulse`,
     liveWall: (slug: string) => `/${slug}/live-wall`,
     recap: (slug: string) => `/${slug}/recap`,
     redeem: (slug: string) => `/${slug}/redeem`,

@@ -8,6 +8,9 @@
  * "Remove this colour"), a background well (its quiet reset) — and, as the ceiling, all of them at once.
  * Run by the spec in a `tsx` child process (Playwright's transform cannot server-render imported JSX).
  */
+/* A module, not a script: every renderer here names its entry `main`, and scripts would share one global scope. */
+export {};
+
 async function main() {
   const React = await import('react');
   /* tsx compiles the app's JSX to React.createElement, so React must be a global here (as the unit tests set it). */
@@ -52,8 +55,8 @@ async function main() {
   const out: Record<string, string> = {};
   for (const [name, s] of Object.entries(shapes)) {
     const body = h(ColourPickerBody, { palette: five, recent, slots: true, onPick: none, ...s.body } as never);
-    out[`maker:${name}`] = renderToStaticMarkup(h(MakerSheet, { label: s.title, onClose: none }, body));
-    out[`popup:${name}`] = renderToStaticMarkup(h(StudioPopup, { label: s.title, onClose: none }, body));
+    out[`maker:${name}`] = renderToStaticMarkup(h(MakerSheet, { label: s.title, onClose: none, children: body }));
+    out[`popup:${name}`] = renderToStaticMarkup(h(StudioPopup, { label: s.title, onClose: none, children: body }));
   }
   process.stdout.write(JSON.stringify({ five, recent, pages: out }));
 }

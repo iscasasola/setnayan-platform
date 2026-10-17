@@ -127,7 +127,7 @@ test('(3) the canvas follows the thumb: the look is laid over every child of the
   const look = coverShadeLook(GROUNDS[0]![1], 60);
   const message = sanitizeCoverShadePreview({ source: 'setnayan-editor', t: 'coverShade', ...look });
   assert.ok(message && message !== 'off', 'the bridge refuses the Maker’s own shade message');
-  const css = coverShadePreviewCss(message, { '--color-ink': '44 42 41' });
+  const css = coverShadePreviewCss(message);
   /* Painted by the ground box's ::after — after every child, so OVER the clip and its still. */
   assert.match(css, /\[data-cover-scene-ground\]>div::after\{content:"";position:absolute;inset:0;[^}]*background-image:linear-gradient\(rgba\(/, 'the preview is not laid over the ground’s children');
   assert.match(css, /\[data-cover-scene-shade\][^{]*\[data-cover-scene-scrim\]\{display:none!important\}/, 'the drawn shade is not stepped aside — two shades would stack');

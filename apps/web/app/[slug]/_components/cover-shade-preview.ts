@@ -10,11 +10,12 @@
  *   parent → frame  { source:'setnayan-editor', t:'coverShade', veil, scrim, tone }   the bar at a position
  *   parent → frame  { source:'setnayan-editor', t:'coverShade', off: true }           take it off (a refused save)
  *
- * 🔑 IT TOUCHES NO NODE REACT DREW. It is ONE `<style>` this file owns: the drawn shade and scrim are hidden and the
- * look is painted by the ground's own box's `::after` — after every child, so ABOVE the clip and its still, exactly
- * where `CoverSceneGround` lays its veil — and the words take the tone through the cover's four ink variables. The
- * bridge takes the style off in the very commit that draws the server's render (`undoLaidPreviews`), so the saved
- * shade replaces the preview without a blink, and React never finds a node it did not put there.
+ * 🔑 IT ADDS NO NODE TO WHAT REACT DREW. The ground is ONE `<style>` this file owns: the drawn shade and scrim are
+ * hidden and the look is painted by the ground's own box's `::after` — after every child, so ABOVE the clip and its
+ * still, exactly where `CoverSceneGround` lays its veil. The words' tone is the cover's own four ink variables on its
+ * header (`COVER_SCENE_CREAM_VARS`), its `style` attribute kept aside first and put back exactly. The bridge undoes
+ * both in the very commit that draws the server's render (`undoLaidPreviews`), so the saved shade replaces the
+ * preview without a blink, and React finds every node as it left it.
  *
  * 🔒 NOTHING FROM THE MESSAGE BECOMES CSS UNCHECKED: a colour is a 6-digit hex, an opacity a number 0–1, the tone one
  * of two words. Tiny and dependency-free: it ships in the guest page's bundle, behind the bridge.
@@ -58,43 +59,48 @@ const rgba = (hex: string, a: number) =>
 const flat = (c: string) => `linear-gradient(${c},${c})`;
 
 /**
- * The style's text: the drawn shade and scrim hidden, the look painted over every child of the ground's box (the
- * scrim on top of the veil — the page's own order), and the words in `ink` (the page's own inks, read by the caller
- * from OUTSIDE the cover) or the paper.
+ * The style's text: the drawn shade and scrim hidden, and the look painted over every child of the ground's box (the
+ * scrim on top of the veil — the page's own order).
  */
-export function coverShadePreviewCss(p: CoverShadePreview, pageInks: Readonly<Record<string, string>>): string {
+export function coverShadePreviewCss(p: CoverShadePreview): string {
   const layers = [p.scrim.opacity > 0 ? flat(rgba(p.scrim.color, p.scrim.opacity)) : null, p.veil && p.veil.opacity > 0 ? flat(rgba(p.veil.color, p.veil.opacity)) : null].filter(Boolean);
   const g = '[data-cover-scene-ground]';
-  const vars = INK_VARS.map((v) => {
-    const value = p.tone === 'cream' ? PAPER_CHANNELS : (pageInks[v] ?? '').replace(/[^0-9 .]/g, '').trim();
-    return value ? `${v}:${value}!important;` : '';
-  }).join('');
   return (
     `${g} [data-cover-scene-shade],${g} [data-cover-scene-scrim]{display:none!important}` +
-    `${g}>div::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:${layers.length ? layers.join(',') : 'none'}}` +
-    (vars ? `header[data-cover-scene]{${vars}}` : '')
+    `${g}>div::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:${layers.length ? layers.join(',') : 'none'}}`
   );
 }
+
+/** Where the header's own `style` attribute is kept while the preview's tone is on it ("" — it had none). */
+const KEPT = 'data-cover-shade-kept';
 
 /** Lay the look on this page's cover (if it has a Cover Scene ground). Returns whether it was laid. */
 export function applyCoverShadePreview(doc: Document, p: CoverShadePreview): boolean {
   const header = doc.querySelector<HTMLElement>('header[data-cover-scene]');
   if (!header || !header.querySelector('[data-cover-scene-ground]')) return false;
-  /* The page's own inks — read OUTSIDE the cover, so a cover drawn cream does not hand back its own paper. */
-  const outside = header.parentElement ? doc.defaultView?.getComputedStyle(header.parentElement) : null;
-  const pageInks: Record<string, string> = {};
-  for (const v of INK_VARS) pageInks[v] = outside?.getPropertyValue(v) ?? '';
+  /* 🖋 The words' tone, as the page sets it: the four ink variables on the header in the paper (cream), or none (ink). */
+  if (!header.hasAttribute(KEPT)) header.setAttribute(KEPT, header.getAttribute('style') ?? '');
+  for (const v of INK_VARS) {
+    if (p.tone === 'cream') header.style.setProperty(v, PAPER_CHANNELS);
+    else header.style.removeProperty(v);
+  }
   let style = doc.head.querySelector<HTMLStyleElement>(`style[${COVER_SHADE_PREVIEW_ATTR}]`);
   if (!style) {
     style = doc.createElement('style');
     style.setAttribute(COVER_SHADE_PREVIEW_ATTR, '');
     doc.head.appendChild(style);
   }
-  style.textContent = coverShadePreviewCss(p, pageInks);
+  style.textContent = coverShadePreviewCss(p);
   return true;
 }
 
 /** Take the look off — the server's render (the saved shade) is about to be on screen, or the save was refused. */
 export function undoCoverShadePreview(doc: Document): void {
   doc.head.querySelector(`style[${COVER_SHADE_PREVIEW_ATTR}]`)?.remove();
+  const header = doc.querySelector<HTMLElement>(`header[${KEPT}]`);
+  if (!header) return;
+  const was = header.getAttribute(KEPT);
+  if (!was) header.removeAttribute('style');
+  else header.setAttribute('style', was);
+  header.removeAttribute(KEPT);
 }

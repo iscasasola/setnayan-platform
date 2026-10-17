@@ -104,14 +104,16 @@ export async function quickAddGuest(
   // means "this caller knows nothing about name parts".
   // 🪪 A typed "(Woman)" / "(Man)" — "Atty. (Woman) Eufemia Cruz" — is the host's mark for the title's gender
   // (owner 2026-10-17), read and taken out: it never lands in a name part.
-  let gender: TitleGender | null = null;
-  const unmark = (v: string | null | undefined) => {
-    if (typeof v !== 'string') return v;
-    const m = takeGenderMark(v);
-    gender = gender ?? m.gender;
-    return m.text;
-  };
-  input = { ...input, first_name: unmark(input.first_name) ?? input.first_name, last_name: unmark(input.last_name) ?? input.last_name, ...(input.name_prefix !== undefined ? { name_prefix: unmark(input.name_prefix) } : {}) };
+  const marks = [input.first_name, input.last_name, input.name_prefix].map((v) => (typeof v === 'string' ? takeGenderMark(v) : null));
+  const gender: TitleGender | null = marks.find((m) => m?.gender)?.gender ?? null;
+  if (gender) {
+    input = {
+      ...input,
+      first_name: marks[0]?.text ?? input.first_name,
+      last_name: marks[1]?.text ?? input.last_name,
+      ...(input.name_prefix !== undefined ? { name_prefix: marks[2]?.text ?? input.name_prefix } : {}),
+    };
+  }
   const callerSuppliedParts =
     input.name_prefix !== undefined ||
     input.middle_name !== undefined ||

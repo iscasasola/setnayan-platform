@@ -55,7 +55,7 @@ export function TitlesWaiting({
       const res = await setGuestTitleGender(eventId, guestId, key);
       if (res.ok) {
         setSaved((s) => ({ ...s, [guestId]: true }));
-        setFailed(({ [guestId]: _gone, ...rest }) => rest);
+        setFailed((f) => Object.fromEntries(Object.entries(f).filter(([id]) => id !== guestId)));
       } else setFailed((f) => ({ ...f, [guestId]: res.error }));
     });
 

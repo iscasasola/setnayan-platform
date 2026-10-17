@@ -131,10 +131,12 @@ test('the guest card is where the couple sets it — never for the couple themse
   const action = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');
   assert.match(
     action,
-    /const passed_away =\s*role !== 'bride' && role !== 'groom' && clean\(formData\.get\('passed_away'\)\) === 'on';/,
+    /* RE-AIMED 2026-10-18 (two hosts never overwrite): `let` — a value this save does not write is read from the row. */
+    /let passed_away =\s*role !== 'bride' && role !== 'groom' && clean\(formData\.get\('passed_away'\)\) === 'on';/,
     'updateGuest no longer reads the toggle, or lets the couple carry it',
   );
-  const update = action.slice(action.indexOf(".from('guests')\n    .update({"));
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): the card's columns are built as `wholeCard`, then written when changed. */
+  const update = action.slice(action.indexOf('const wholeCard: Record<string, unknown> = {'));
   assert.match(update.slice(0, 900), /\bpassed_away,/, 'updateGuest reads the toggle and never writes it');
   // Anchored on the passed-away branch itself — `softDeleteGuest` releases a
   // seat with the same statement, so a file-wide match would stay green.

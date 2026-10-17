@@ -36,6 +36,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { isSafeNext } from '@/lib/safe-next';
+import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -89,11 +90,26 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
  * `addGuestToGroup` keeps). Best-effort per row, like the bulk group actions:
  * the rest of the card's save has already landed.
  */
+/** 👥 The groups the card started with, from its posted base (`group_ids` in the autosave's spelling). */
+function baseGroupIds(rawBase: FormDataEntryValue | null): string[] {
+  try {
+    const base = JSON.parse(typeof rawBase === 'string' ? rawBase : '{}') as Record<string, unknown>;
+    const values = JSON.parse(typeof base.group_ids === 'string' ? base.group_ids : '[]') as unknown;
+    return Array.isArray(values)
+      ? values.flatMap((v) => (typeof v === 'string' ? v.split(',') : [])).map((v) => v.trim()).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 async function syncCardGroups(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   guestId: string,
   pickedIds: string[],
+  /** 👥 The groups the card started with: then only ITS change is made — a group another screen added stays. */
+  baseIds?: string[],
 ): Promise<void> {
   const { data: eventGroups, error: groupsErr } = await supabase
     .from('guest_groups')
@@ -114,6 +130,13 @@ async function syncCardGroups(
     return;
   }
   const have = new Set((rows ?? []).map((r) => r.group_id as string).filter((id) => ours.has(id)));
+  if (baseIds) {
+    const was = new Set(baseIds);
+    const picked = new Set(pickedIds);
+    want.clear();
+    for (const id of have) if (!(was.has(id) && !picked.has(id))) want.add(id);
+    for (const id of picked) if (!was.has(id) && ours.has(id)) want.add(id);
+  }
   const add = [...want].filter((id) => !have.has(id));
   const drop = [...have].filter((id) => !want.has(id));
   if (add.length > 0) {
@@ -258,8 +281,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const name_suffix = clean(formData.get('name_suffix')) || null;
   const display_name = clean(formData.get('display_name')) || null;
   const side = clean(formData.get('side')) as GuestSide;
-  const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
-  const role = (clean(formData.get('role')) || 'guest') as GuestRole;
+  let group_category = clean(formData.get('group_category')) as GuestGroupCategory;
+  let role = (clean(formData.get('role')) || 'guest') as GuestRole;
   // What the guest wears on their 3D seat-plan avatar. Validate against the
   // closed set (DB CHECK enforces the same) rather than blindly casting.
   const attireRaw = clean(formData.get('attire')) || 'neutral';
@@ -281,21 +304,21 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // Pending (owner directive 2026-06-03). Force it regardless of the submitted
   // value; the DB trigger (migration 20260725000000) enforces the same, this
   // keeps the action self-consistent.
-  const effectiveRsvp: RsvpStatus =
+  let effectiveRsvp: RsvpStatus =
     role === 'bride' || role === 'groom' ? 'attending' : rsvp_status;
-  const photo_consent = clean(formData.get('photo_consent')) === 'on';
+  let photo_consent = clean(formData.get('photo_consent')) === 'on';
   // FaceBlock (Salamisim P2) — "blur my face on the Live Photo Wall". The
   // wall's read path reacts to this flag instantly (un-baked tiles hide,
   // fail-closed); the re-bake sweep below restores the newest tiles blurred.
-  const faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
+  let faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
   // Minor safeguard (DPIA BV-8, 2026-07-05) — host marks a guest excluded from
   // face recognition (typically a minor). When ON, the guest is never enrolled
   // for auto-tagging and any existing enrolment is revoked below. Collects no age.
-  const face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
+  let face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
   // 🕯 "Passed away" (owner 2026-09-25) — LISTED, never counted, seated or sent
   // to. The card offers it to everyone but the couple, and the couple can never
   // carry it: they are the event, always attending (see `effectiveRsvp`).
-  const passed_away =
+  let passed_away =
     role !== 'bride' && role !== 'groom' && clean(formData.get('passed_away')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
@@ -438,12 +461,40 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // card. Reading the old value is what lets us tell a real consent change from
     // a host correcting a phone number, so an ordinary edit does not throw four
     // public caches away.
+    // 👥 …and every column the card compares (`GUEST_CARD_COMPARED_COLUMNS`), for the merge below.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, passed_away, name_prefix',
+      [
+        ...new Set([
+          'role', 'group_category', 'rsvp_status', 'rsvp_responded_at', 'faceblock_enabled', 'photo_consent',
+          'face_recognition_excluded', 'passed_away', 'name_prefix', ...GUEST_CARD_COMPARED_COLUMNS,
+        ]),
+      ].join(', '),
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
-    .maybeSingle();
+    .maybeSingle<Record<string, unknown> & {
+      role: GuestRole; group_category: GuestGroupCategory; rsvp_status: RsvpStatus; rsvp_responded_at: string | null;
+      faceblock_enabled: boolean; photo_consent: boolean; face_recognition_excluded: boolean; passed_away: boolean; name_prefix: string | null;
+    }>();
+
+  /**
+   * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/guest-card-merge.ts`). The card posts the card it
+   * started from (`base`); only the columns whose fields THIS screen changed are written, every other column keeps what
+   * the row holds now — another host's edit, or the guest's own answer from their phone. A post without a base (the
+   * standalone route, an older page) is written whole, as before. Everything below that reads a value this save does
+   * NOT write — consent, the blur, the role, the answer — reads the ROW's, never the stale card's.
+   */
+  const merge = guestCardMerge(formData.get(MERGE_BASE_FIELD), formData, prevGuest ?? null);
+  const writes = (column: string) => guestColumnWritten(column, merge);
+  if (merge.based && prevGuest) {
+    if (!writes('role')) role = prevGuest.role;
+    if (!writes('group_category')) group_category = prevGuest.group_category;
+    if (!writes('rsvp_status')) effectiveRsvp = prevGuest.rsvp_status;
+    if (!writes('photo_consent')) photo_consent = prevGuest.photo_consent;
+    if (!writes('faceblock_enabled')) faceblock_enabled = prevGuest.faceblock_enabled;
+    if (!writes('face_recognition_excluded')) face_recognition_excluded = prevGuest.face_recognition_excluded;
+    if (!writes('passed_away')) passed_away = prevGuest.passed_away === true;
+  }
 
   /**
    * 🔴 THE DATE MUST SURVIVE A SAVE THAT DID NOT TOUCH THE ANSWER.
@@ -482,9 +533,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      read-only ("From their account"); this is the refusal behind that
      screen — the name keys are left OUT of the write, so what is stored stays. */
   const nameLocked = await linkedNameLocked(createAdminClient(), eventId, guestId);
-  const { data: updatedRows, error } = await supabase
-    .from('guests')
-    .update({
+  const wholeCard: Record<string, unknown> = {
       ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
       // The gender rides with the title. A linked person's title is theirs, so only its woman / man is written —
       // and only when the posted title IS the stored one (the card narrows their pick to it).
@@ -511,6 +560,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       invited_to_blocks,
       ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
+  };
+  const { data: updatedRows, error } = await supabase
+    .from('guests')
+    .update({
+      // 👥 Only what this screen changed (every column when the post had no base).
+      ...Object.fromEntries(Object.entries(wholeCard).filter(([column]) => writes(column))),
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)
@@ -713,7 +768,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
   // ✓ Groups and Table, as picked on the card (see the `*_posted` note above).
-  if (groupsPosted) {
+  // 👥 With a base: only when this screen changed them, and Groups as ITS change (added / taken off) on today's list.
+  if (groupsPosted && (!merge.based || merge.changed.has('group_ids'))) {
     await syncCardGroups(
       supabase,
       eventId,
@@ -722,9 +778,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
         .split(',')
         .map((v) => v.trim())
         .filter(Boolean),
+      merge.based ? baseGroupIds(formData.get(MERGE_BASE_FIELD)) : undefined,
     );
   }
-  if (tablePosted && !passed_away && effectiveRsvp !== 'declined') {
+  if (tablePosted && (!merge.based || merge.changed.has('table_id')) && !passed_away && effectiveRsvp !== 'declined') {
     const seated = await syncCardTable(supabase, eventId, guestId, postedTableId);
     if (!seated.ok) return refuse(seated.error);
   }
@@ -766,7 +823,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // Autosave: the card stays open and the caret stays where it was. The paths
   // that matter were already revalidated above, so there is nothing left to do
   // but stop — and NOT redirect.
-  if (quiet) return;
+  // 👥 …except to hand back what another screen changed meanwhile, so the card shows the newest (one calm line).
+  if (quiet) return Object.keys(merge.fresh).length > 0 ? { elsewhere: { fresh: merge.fresh, clashed: merge.clashed } } : undefined;
 
   // Owner directive 2026-05-22: when information is saved on guest,
   // it needs to return to guest list. The guests list page consumes

@@ -258,6 +258,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   paletteRef.current = palette;
   /* What the draft holds, as far as this page knows — a failed write goes back to it. */
   const savedPalette = useRef(palette);
+  /* 👥 What this page last SENT — the base its next save is merged from (`lib/merge-from-base.ts`): saves run in order,
+     so by the time the next one lands the draft holds this one. A failed send goes back to `savedPalette`. */
+  const sentPalette = useRef(palette);
   const timer = useRef<number | null>(null);
   const flushPalette = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -268,11 +271,13 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
        Apply, through the Mood Board's own write shape — never live. */
     const wrote = paletteRef.current;
     const fd = new FormData();
-    for (const [k, v] of Object.entries(paletteDraftFields(wrote))) fd.set(k, v);
+    for (const [k, v] of Object.entries(paletteDraftFields(wrote, sentPalette.current))) fd.set(k, v);
+    sentPalette.current = wrote;
     const back = (text: string) => {
       /* The draft does not hold these colours — the board goes back to what it does hold, and says so. */
       setPalette(savedPalette.current);
       paletteRef.current = savedPalette.current;
+      sentPalette.current = savedPalette.current;
       failed(text);
     };
     fd.set(HUB_DRAFT_BAR_FIELD, '1');
@@ -282,6 +287,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       setPalette(p);
       paletteRef.current = p;
       savedPalette.current = p;
+      sentPalette.current = p;
     };
     draftedBoard.set(`${eventId}:palette`, JSON.stringify(wrote));
     makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? was : wrote)) })
@@ -289,6 +295,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         if (r.ok) {
           savedPalette.current = wrote;
           setProblem(null);
+          /* 👥 Another screen's colours reached this save: the draft now holds both — the board shows that (the
+             toolbar says so once, `makerSave`). A pick made since stays on top of it. */
+          const merged = r.elsewhere?.merged.events?.role_palette as RolePalette | undefined;
+          if (merged && paletteRef.current === wrote) put(merged);
         } else {
           draftedBoard.set(`${eventId}:palette`, JSON.stringify(savedPalette.current));
           back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.palette));
@@ -399,7 +409,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     if (!dress) return;
     const before = dress;
     const fd = new FormData();
-    for (const [k, v] of Object.entries(dressCodeDraftFields(next))) fd.set(k, v);
+    for (const [k, v] of Object.entries(dressCodeDraftFields(next, before))) fd.set(k, v);
     fd.set(HUB_DRAFT_BAR_FIELD, '1');
     const put = (d: typeof dress) => {
       draftedBoard.set(`${eventId}:dress`, JSON.stringify(d ?? null));
@@ -413,8 +423,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     };
     makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? before : (next as typeof dress))) })
       .then((r) => {
-        if (r.ok) setProblem(null);
-        else back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.wear));
+        if (r.ok) {
+          setProblem(null);
+          /* 👥 Another screen's outfits reached this save: show the dress code the draft now holds. */
+          const merged = r.elsewhere?.merged.events?.dress_code_config as typeof dress | undefined;
+          if (merged !== undefined) put(merged);
+        } else back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.wear));
       })
       .catch(() => back(MOOD_BOARD_NOT_SAVED.wear));
   };

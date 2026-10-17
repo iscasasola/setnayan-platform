@@ -57,6 +57,7 @@
 
 /** How long after the last save lands the refresh waits for another tap. */
 import { undoJournal, undoJournalIsQuiet, type UndoStep } from './maker-drawn-undo';
+import { announceMakerSave } from './maker-save-status';
 
 export const MAKER_REFRESH_COALESCE_MS = 180;
 
@@ -324,6 +325,7 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
     })
     .then((result) => {
       announceDraftBar(result);
+      announceElsewhere(result);
       return result;
     });
 }
@@ -416,6 +418,25 @@ function announceDraftBar(result: unknown): void {
   const bar = (result as { bar?: unknown }).bar;
   if (!bar || typeof bar !== 'object') return;
   window.dispatchEvent(new CustomEvent(MAKER_DRAFT_BAR_EVENT, { detail: bar }));
+}
+
+/* ── 👥 another screen's change, from the save's own answer ──────────────── */
+
+/**
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18). A save that met another screen's change answers with
+ * `elsewhere` (`hubDraftAction` — `lib/hub-draft-rebase.ts`): the merged values it must now show. Every Maker save
+ * passes here, so it is said ONCE, in one place — the toolbar's status line (`TWO_SCREENS_NOTE`) — and the pages the
+ * Maker shows redraw in place from the draft, which now holds both screens' changes. A panel that keeps its own copy
+ * takes `merged` from the answer itself (the Mood Board's board, the Love Story).
+ */
+export const MAKER_ELSEWHERE_EVENT = 'setnayan:maker-elsewhere';
+function announceElsewhere(result: unknown): void {
+  if (typeof window === 'undefined' || !result || typeof result !== 'object') return;
+  const elsewhere = (result as { elsewhere?: unknown }).elsewhere;
+  if (!elsewhere || typeof elsewhere !== 'object') return;
+  announceMakerSave({ state: 'elsewhere' });
+  window.dispatchEvent(new CustomEvent(MAKER_ELSEWHERE_EVENT, { detail: elsewhere }));
+  requestCanvasRedraw();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

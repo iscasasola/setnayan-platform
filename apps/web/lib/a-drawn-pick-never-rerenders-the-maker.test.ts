@@ -116,9 +116,11 @@ test('2 · every held save asks for the Apply bar; the action answers with the r
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save')"), action.indexOf("if (intent === 'reset')"));
   assert.match(save, /const wantsBar = formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1';/);
-  assert.match(save, /wantsBar \? hubDraftBarAfterSave\(supabase, eventId, mergeHubDraft\(current, patch\)\)/, 'the bar must be read from the draft this save wrote');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch\);[\s\S]{0,400}?if \(wantsBar\) barP = hubDraftBarAfterSave\(supabase, eventId, next\);/, 'the bar must be read from the draft this save wrote');
   /* (2026-10-13, `rd/maker-undo-instant`: every answer also names the state it left — `stamp`, `lib/hub-draft-stamp.ts`.) */
-  assert.match(save, /if \(!bar\) return \{ \.\.\.done\(\), stamp \};\s*return \{ \.\.\.done\(\), bar, stamp \};/);
+  /* RE-AIMED 2026-10-18: …and, when another screen's change reached the save, what the screen must now show (`elsewhere`). */
+  assert.match(save, /if \(!bar\) return \{ \.\.\.done\(\), stamp, \.\.\.elsewhere \};\s*return \{ \.\.\.done\(\), bar, stamp, \.\.\.elsewhere \};/);
   // The same count the render uses — both answers to "owns Pro", and nobody asked (the view switch never reaches a save).
   const store = read('lib/hub-draft-store.ts');
   const after = store.slice(store.indexOf('export async function hubDraftBarAfterSave('));

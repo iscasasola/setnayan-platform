@@ -299,12 +299,31 @@ export default async function GuestsLabPage({
   const labBack = `/dev/guests-lab?part=${sp.part === 'host' ? 'host' : 'card'}${labRefuses ? '&refuse=1' : ''}`;
   const labWords = 'new row violates row-level security policy for table "guests"';
   const labRefusal = `${labBack}&error=${encodeURIComponent(labWords)}`;
+  /* 👥 `?elsewhere=1`: another screen changed this guest's mobile number while the card was open — the card's save is
+     answered as `updateGuest` answers it, by the REAL merge (`guestCardMerge`) against that row. */
+  const labElsewhere = sp.elsewhere === '1';
   async function labUpdate(formData: FormData) {
     'use server';
     // Like the real `updateGuest`: a QUIET post (the autosave's) is RETURNED the refusal; any other post redirects.
     if (labRefuses) {
       if (formData.get('quiet') === '1') return { refused: labWords };
       redirect(labRefusal);
+    }
+    if (labElsewhere && formData.get('quiet') === '1') {
+      const { GUEST_CARD_COMPARED, MERGE_BASE_FIELD, guestCardMerge } = await import('@/lib/guest-card-merge');
+      let base: Record<string, string> = {};
+      try {
+        base = JSON.parse(String(formData.get(MERGE_BASE_FIELD) ?? '{}')) as Record<string, string>;
+      } catch {
+        base = {};
+      }
+      const row: Record<string, unknown> = {};
+      for (const [field, kind] of Object.entries(GUEST_CARD_COMPARED)) {
+        row[field] = kind === 'bool' ? field in base : field in base ? ((JSON.parse(base[field]!) as string[])[0] ?? null) : null;
+      }
+      row.mobile = '0917 555 0199';
+      const m = guestCardMerge(formData.get(MERGE_BASE_FIELD), formData, row);
+      if (Object.keys(m.fresh).length > 0) return { elsewhere: { fresh: m.fresh, clashed: m.clashed } };
     }
   }
   async function labRelease(formData: FormData) {

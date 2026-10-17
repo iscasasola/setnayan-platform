@@ -27,7 +27,8 @@ test('an Apply that asked for the bar answers with it — the count of what is l
 
 test('the server’s Apply answers with the bar when asked, read from the draft it leaves; the bar asks for it', () => {
   const action = fs.readFileSync(path.join(WEB, 'app/dashboard/[eventId]/website/hub-draft-actions.ts'), 'utf8');
-  assert.match(action, /const left: HubDraft = \{ v: 1, \.\.\.remaining, history: \[\] \};\s*await writeHubDraft\(supabase, eventId, left, snapshot\);/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(action, /const trimmed = await updateHubDraft\(\s*supabase,\s*eventId,\s*\(now\) => \(\{ next: draftLeftAfterApply\(current, \{ v: 1, \.\.\.remaining, history: \[\] \}, now\) \}\),\s*snapshot,\s*\);\s*const left: HubDraft = trimmed\.draft \?\? \{ v: 1, \.\.\.remaining, history: \[\] \};/);
   assert.match(action, /const applyBar = formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1' \? await hubDraftBarAfterSave\(supabase, eventId, left\) : null;/);
   assert.match(action, /return applyBar \? \{ \.\.\.applied, bar: applyBar \} : applied;/);
   const bar = fs.readFileSync(path.join(WEB, 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), 'utf8');

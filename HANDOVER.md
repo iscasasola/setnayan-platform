@@ -38,3 +38,29 @@ Never open the owner's cale-ice Maker (it is Pro anyway); use the lab / a seeded
   are still FREE at Apply. Plus any Animate value the explore pass finds un-compared.
 - DELTA: widen the gate's Pro fields (one list) + the style-card facet; name them at Apply with existing words;
   ◆ on the newly-Pro controls the shipped way (label " ◆", `pro: true` on a card); tests incl. grandfather fixture.
+
+### Done so far (server gate — lib/hub-draft.ts · hub-look-pro.ts · scene-style-pro.ts · post-event-draft.ts · hub-pro-effects.ts)
+1. `HUB_ELEMENT_PRO_FIELDS` = motion + font · color · size · weight · italic · underline · align · width · leading ·
+   tracking (free: hidden, word, format). Runs' font/colour/size = a `el:<part>:runs` facet (compared by the letters).
+2. `PRO_SCENE_STYLES` = every style that is not the default on EVERY stage drawing it — generated, test recomputes it
+   from the registry. Cards get ◆ automatically via `sceneStylesOn`.
+3. Dress code `palette` / `dos` looks = 'look' facets. Cover photo Parallax = `groundMotion` facet.
+4. Fixed-part style cards (`fixed-style`) Pro unless default. Post Event scene style card Pro (stored only when not
+   the recommended). Camera look Pro unless Classic. Fixed blocks' motion Pro (backgrounds stay free).
+5. Reply pages: a line's c/f/s/l + i/v, a card's / group's i/v Pro (`rsvpLookGrowing`); grounds, words, order free.
+6. Apply sheet names all of it: "Colour · Size · Schedule", the card's own name, "Camera look · Your brand",
+   "Animation" for blocks, "Style"/"Animation" on RSVP.
+
+### PRODUCT CALLS made (record; flag to owner)
+- Look (the page's own font / colours / buttons) stays FREE — the ruling names Style on a PART; Look is not a part.
+- Love Story Chapters/Essay/Years become Pro too (10-17 named only Timeline + Swipe cards; the 10-16 "everything in
+  Style" answer covers every non-default card).
+- A card that is one stage's default but changes another stage (Gallery: Mosaic/Grid) counts as Pro once stored.
+- Card / block / RSVP backgrounds stay free (Background is its own tool; colour is free, media already Pro).
+- Accents' guest render is already gated on Pro (ART_KIT_IS_PRO, shipped 10-16 with the feature) — nothing published
+  before it to grandfather; left as is.
+
+### NEXT
+- run targeted tests; fix re-aimed old tests (free-vs-pro-redrawn, a-fixed-block-has-its-own-motion, …)
+- ◆ in the Maker: Colour/Size/Width labels, fixed/Post Event/camera/palette cards, RSVP rows, Drift + Ken Burns
+- grandfather test fixture; lab `?pro=1`; 375 px WebKit shots; changelog fragment; PR

@@ -126,7 +126,7 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_KEYS, type HubElementKey, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
+import { HUB_ELEMENT_KEYS, type HubElementKey, type HubElementStyle } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_ELEMENT_PRO_FIELDS,
@@ -1516,13 +1516,13 @@ export type HubDraftItem =
       freePart?: true;
     }
   | {
-      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`). Free. */
+      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`) — 💎 Pro ◆ unless it is the theme's own (2026-10-16). */
       kind: 'fixed-style';
       scene: StyledScene;
       /** The id to store, or null = back to the default. */
       value: string | null;
       change: LookChange;
-      pro: false;
+      pro: boolean;
       freePart?: undefined;
     }
   | {
@@ -1759,15 +1759,17 @@ export function eventItemIsPro(
   // effect is Event Hub Pro; the RSVP's words, switches and going back to None
   // never are — so the WHOLE config is Pro only while it carries a new effect
   // (and Apply still writes its free part — `rsvpAskFreePart`).
-  if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value);
+  // 💎 …and a reply line's own Style (colour · font · size · its picture's look) or Build in, or a card's or a group's
+  // Build in (owner 2026-10-16, "all animate, effects, styles, accents are pro") — `rsvpLookGrowing`.
+  if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value) || rsvpLookGrowing(live, value).length > 0;
   // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
   // going back to the plain code is a removal, which is free. 🎛 The camera's
   // look is a style pick — FREE, like every scene style — so the blob is Pro
   // only while its QR moves.
   // 🕯 …or turns a scene's accent ON (Event Hub Pro while `ART_KIT_IS_PRO`; turning one off is free).
-  if (column === 'style_preferences') {
-    return styleQrMoves(live, value) || (isPlainObject(value) && SCENE_ACCENTS_PREF_KEY in value && accentsTurnOn(sceneAccentsFromPreferences(live), sceneAccentsFromPreferences(value)).length > 0);
-  }
+  // 💎 …or (2026-10-16, "all animate, effects, styles, accents are pro") picks a camera look that is not the classic
+  // one, or gives a fixed block a motion it does not have live. Each part is asked by `stylePreferencesProParts`.
+  if (column === 'style_preferences') return stylePreferencesProParts(live, value).length > 0;
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
     // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
@@ -1827,8 +1829,10 @@ export type CanvasFacetGroup =
   | 'part-motion'
   | 'slot-media'
   | 'playback'
-  /** 💎 A Pro look (Style) — the Love Story's two-lane timeline and swipe cards (`lib/scene-style-pro.ts`). */
-  | 'look';
+  /** 💎 A Pro look (Style) — every style card but the theme's own default (`lib/scene-style-pro.ts`), the Dress code's palette and Do's & Don'ts looks. */
+  | 'look'
+  /** 💎 A part's own Style — colour · size · font · width · spacing … (owner 2026-10-16, `HUB_ELEMENT_PRO_FIELDS`). */
+  | 'part-style';
 
 export type CanvasLookFacet = {
   key: string;
@@ -1852,6 +1856,16 @@ const CANVAS_KEY_GROUP: Record<string, CanvasFacetGroup> = {
 /** A part's Pro field → the group it is named by. */
 const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], CanvasFacetGroup> = {
   motion: 'part-motion',
+  font: 'part-style',
+  color: 'part-style',
+  size: 'part-style',
+  weight: 'part-style',
+  italic: 'part-style',
+  underline: 'part-style',
+  align: 'part-style',
+  width: 'part-style',
+  leading: 'part-style',
+  tracking: 'part-style',
 };
 
 /**
@@ -1888,7 +1902,8 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas,
         change: refChange(asText(live.elements?.[element]?.[field]), asText(next.elements?.[element]?.[field])),
       });
     }
-    /* 🔤 A text run's font is FREE since 2026-10-06 (the part's font too) — no facet. */
+    /* 💎 A text run's font · colour · size — Style, so Pro again since 2026-10-16 (it was free 2026-10-06). */
+    out.push({ key: `el:${element}:runs`, group: 'part-style', element, change: refChange(runStyles(live.elements?.[element]), runStyles(next.elements?.[element])) });
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
@@ -1907,12 +1922,22 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas,
      Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
      and Apply it — the gate would see no look key change at all. */
   out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
+  out.push({ key: 'groundMotion', group: 'motion', change: refChange(coverGroundMotionRef(live), coverGroundMotionRef(next)) });
   /* 💎 A PRO LOOK (owner 2026-10-17, "Timeline and Swipe cards as Pro looks in Style") — the scene's `style` when it
      is one of its type's Pro looks (`lib/scene-style-pro.ts`); every other style, and going back to a free one, is
      free. Asked by scene TYPE (a style id means nothing alone: `cards` is also the Camera cues' free look), so a
      caller that does not name the type sees no change here — every Apply caller names it. */
   out.push({ key: 'style', group: 'look', change: refChange(proLookRef(sceneType, live), proLookRef(sceneType, next)) });
+  /* 💎 …and the Dress code's two other style cards (2026-10-16, "everything in Style is Pro"): its palette look and its
+     Do's & Don'ts look. Absent — or the default named — is the theme's own, free. */
+  out.push({ key: 'palette', group: 'look', change: refChange(notDefault(live.palette, 'tags'), notDefault(next.palette, 'tags')) });
+  out.push({ key: 'dos', group: 'look', change: refChange(notDefault(live.dos, 'notes'), notDefault(next.dos, 'notes')) });
   return out;
+}
+
+/** A stored style-card id, or null when it is absent or the card that is the theme's own. */
+function notDefault(id: string | undefined, def: string): string | null {
+  return id && id !== def ? id : null;
 }
 
 /** The scene's style when it is a Pro look on this scene type — else null (a free style, or no type to ask by). */
@@ -1921,6 +1946,12 @@ function proLookRef(sceneType: string | null | undefined, c: HubSectionCanvas): 
 }
 
 /** The Cover Scene's background as one comparable ref — only its Pro half (a loop, a photo); null for a colour or none. */
+/** ✨ How the Cover's photo moves (Parallax — an effect, Pro since 2026-10-16); Still is its absence, so off is free. */
+function coverGroundMotionRef(c: HubSectionCanvas): string | null {
+  const g = c.ground;
+  return g && (g.kind === 'photo' || g.kind === 'snippet') && g.motion ? g.motion : null;
+}
+
 function coverGroundProRef(c: HubSectionCanvas): string | null {
   const g = c.ground;
   if (!g || !coverGroundIsPro(g)) return null;
@@ -1943,10 +1974,16 @@ function slotMediaRef(c: HubSectionCanvas, i: number): string | null {
   return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
 }
 
-/** The Pro half of a part's text runs — which letters wear which FONT — or null. */
-function runFonts(style: HubElementStyle | undefined): string | null {
-  const runs = (style?.runs ?? []).filter((r) => r.font).map((r) => [r.start, r.end, r.font]);
-  return runs.length > 0 ? JSON.stringify({ of: style?.of ?? null, runs }) : null;
+/**
+ * 💎 The Pro half of a part's text runs — which letters wear which font, colour and size — or null. Compared by the
+ * LETTERS a run styles (`was`, the text it was made on) where the part keeps them, so words typed elsewhere in the
+ * part — which move a run's offsets and its `of` — are no new Style: a grandfathered run stays 'none'.
+ */
+function runStyles(style: HubElementStyle | undefined): string | null {
+  const runs = (style?.runs ?? [])
+    .filter((r) => r.font || r.color || r.size)
+    .map((r) => [style?.was ? style.was.slice(r.start, r.end) : `${r.start}-${r.end}`, r.font ?? null, r.color ?? null, r.size ?? null]);
+  return runs.length > 0 ? JSON.stringify(runs) : null;
 }
 
 const grows = (c: LookChange) => c === 'add' || c === 'change';
@@ -1984,6 +2021,14 @@ export function canvasWithoutFacet(
     put('video', live.video);
   } else if (key === 'ground') {
     put('ground', live.ground);
+  } else if (key === 'groundMotion') {
+    /* ✨ The Cover photo's Parallax taken off: the motion guests see today, on the drafted photo. */
+    const g = next.ground;
+    if (g && (g.kind === 'photo' || g.kind === 'snippet')) {
+      const { motion: _m, ...rest } = g;
+      const liveMotion = coverGroundMotionRef(live);
+      put('ground', liveMotion ? { ...rest, motion: liveMotion } : rest);
+    }
   } else if (key === 'style') {
     /* 💎 A Pro look taken off: the scene wears the style guests see today. */
     put('style', live.style);
@@ -2004,25 +2049,16 @@ export function canvasWithoutFacet(
       const was = live.elements?.[element];
       const el: Record<string, unknown> = { ...style };
       if (field === 'runs') {
-        if (style.runs) {
-          const liveFont = (r: { start: number; end: number }) =>
-            was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
-          const withoutFont = (r: HubElementRun): HubElementRun => {
-            const { font: _font, ...rest } = r;
-            return rest;
-          };
-          let runs: HubElementRun[] = style.runs.map((r) => {
-            const f = liveFont(r);
-            return f ? { ...withoutFont(r), font: f } : withoutFont(r);
-          });
-          // Put back exactly, or not at all: a partial font set would still be a change.
-          if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
-          runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
-          if (runs.length > 0) el.runs = runs;
-          else {
-            delete el.runs;
-            delete el.of;
-          }
+        /* 💎 A run's Style taken off: the runs guests see today (when they were made on the same words), else none. */
+        if (was?.runs && was.of && was.of === style.of) {
+          el.runs = was.runs;
+          el.of = was.of;
+          if (was.was) el.was = was.was;
+          else delete el.was;
+        } else {
+          delete el.runs;
+          delete el.of;
+          delete el.was;
         }
       } else if ((HUB_ELEMENT_PRO_FIELDS as readonly string[]).includes(field)) {
         const f = field as (typeof HUB_ELEMENT_PRO_FIELDS)[number];
@@ -2393,9 +2429,17 @@ export function classifyHubDraft(
     }
   }
   // 🎨 The fixed parts' style picks, last — each compared with what is live.
+  // 💎 A style card that is not the theme's own is Event Hub Pro ◆ (owner 2026-10-16, "everything in Style is Pro …
+  // style cards on a part") — the scene registry's one rule (`sceneStyleIsPro`); back to the default is free, and a
+  // card already live is no change at all (grandfathered).
   for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[StyledScene, string | null]>) {
     const liveId = live.fixedStyles?.[scene] ?? null;
-    if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
+    if ((value ?? null) !== liveId) {
+      const proRef = (id: string | null) => (sceneStyleIsPro(scene, id) ? id : null);
+      const change = refChange(proRef(liveId), proRef(value ?? null));
+      const pro = change === 'add' || change === 'change';
+      items.push({ kind: 'fixed-style', scene, value: value ?? null, change: pro ? change : 'change', pro });
+    }
   }
   // 🚶 The Wedding March's moves, very last: they are not compared with live (a
   // move is a step, not a value) — every drafted move is one Apply makes.
@@ -2422,7 +2466,80 @@ export function rsvpAskFreePart(live: unknown, drafted: unknown): Record<string,
   const liveConfig = sanitizeRsvpAskConfig(live);
   if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
   else delete next.celebration;
+  /* 💎 …and each reply line's / card's NEW Style or Build in put back to live — its words, order, groups and card
+     grounds (free) kept. */
+  const look = rsvpLookFreePart(liveConfig.look, next.look);
+  if (look) next.look = look;
+  else delete next.look;
   return next;
+}
+
+/* ── 💎 THE REPLY PAGES' LOOKS (`events.rsvp_ask_config.look`, read strictly by `lib/rsvp-look.ts`) ──────────────────
+   Asked here on the RAW object, field by field, so the Apply gate (in the Maker's first load) never loads the reader:
+   a line's colour · font · size · picture look (`c` `f` `s` `l`) are its Style, and a line's, a card's and a group's
+   `i` · `v` are its Build in — all Pro since 2026-10-16. A card's or a group's ground (`g`) is a background — free —
+   and the words, the added lines, the order and the groups themselves are the couple's arrangement — free. */
+const RSVP_LINE_PRO_KEYS = ['c', 'f', 's', 'l', 'i', 'v'] as const;
+const RSVP_MOTION_KEYS = ['i', 'v'] as const;
+
+/** Every Pro field the look holds, as `<where>|<field>` → comparable text. */
+function rsvpLookProFields(look: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!isPlainObject(look)) return out;
+  const each = (home: unknown, prefix: string, keys: readonly string[]) => {
+    if (!isPlainObject(home)) return;
+    for (const [id, one] of Object.entries(home)) {
+      if (!isPlainObject(one)) continue;
+      for (const k of keys) if (one[k] !== undefined && one[k] !== null) out.set(`${prefix}:${id}|${k}`, asText(one[k])!);
+    }
+  };
+  each(look.lines, 'lines', RSVP_LINE_PRO_KEYS);
+  each(look.card, 'card', RSVP_MOTION_KEYS);
+  if (isPlainObject(look.groups)) {
+    for (const [card, list] of Object.entries(look.groups)) {
+      if (!Array.isArray(list)) continue;
+      for (const g of list) if (isPlainObject(g) && typeof g.id === 'string') each({ [g.id]: g }, `groups:${card}`, RSVP_MOTION_KEYS);
+    }
+  }
+  return out;
+}
+
+/** The reply look's Pro fields that are new or different from live (taking one off is free). */
+export function rsvpLookGrowing(live: unknown, drafted: unknown): string[] {
+  const was = rsvpLookProFields(sanitizeRsvpAskConfig(live).look);
+  const now = rsvpLookProFields(sanitizeRsvpAskConfig(drafted).look);
+  return [...now.keys()].filter((k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)));
+}
+
+/** The drafted reply look with every growing Pro field put back to live's (absent where live had none). */
+function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown): Record<string, unknown> | undefined {
+  if (!isPlainObject(draftedLook)) return undefined;
+  const was = rsvpLookProFields(liveLook);
+  const now = rsvpLookProFields(draftedLook);
+  const growing = [...now.keys()].filter((k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)));
+  if (growing.length === 0) return draftedLook;
+  const out = JSON.parse(JSON.stringify(draftedLook)) as Record<string, unknown>;
+  const liveRaw = isPlainObject(liveLook) ? liveLook : {};
+  for (const k of growing) {
+    const [where, field] = k.split('|') as [string, string];
+    const [home, a, b] = where.split(':') as [string, string, string | undefined];
+    const find = (root: Record<string, unknown>): Record<string, unknown> | null => {
+      if (home === 'groups') {
+        const list = isPlainObject(root.groups) ? root.groups[a] : null;
+        const g = Array.isArray(list) ? list.find((x) => isPlainObject(x) && x.id === b) : null;
+        return isPlainObject(g) ? g : null;
+      }
+      const h = root[home];
+      return isPlainObject(h) && isPlainObject(h[a]) ? h[a] : null;
+    };
+    const target = find(out);
+    if (!target) continue;
+    const back = find(liveRaw)?.[field];
+    if (back === undefined || back === null) delete target[field];
+    else target[field] = back;
+    if (field === 'i' && target.i === undefined) delete target.v; /* a feel times an effect (`rsvpLookWith`) */
+  }
+  return out;
 }
 
 /** 🎛 The camera look a `style_preferences` value names (live blob or drafted part) — null when none. */
@@ -2438,6 +2555,59 @@ function styleQrMoves(live: unknown, drafted: unknown): boolean {
   /* Back to the plain code is a removal — free. */
   if (Object.keys(next).length === 0) return false;
   return canonicalJson(qrStyleFromPreferences(live)) !== canonicalJson(next);
+}
+
+/** The Pro parts of a drafted `style_preferences` — what Apply holds and the sheet names. Empty = all free. */
+export type StylePreferencesProPart = 'qr' | 'accents' | 'camera' | 'blocks';
+
+/** 🎛 A camera look that is a CHOICE — any but Classic, the camera's own (absent ≡ Classic). */
+function cameraChoice(v: unknown): CameraLook | null {
+  const c = cameraLookOfDraft(v);
+  return c && c !== 'classic' ? c : null;
+}
+
+/** 🧱 One fixed block's motion in a `style_preferences` value, as comparable text — null when it is still. */
+function blockMotionText(v: unknown, block: string): string | null {
+  const looks = isPlainObject(v) && isPlainObject(v.block_looks) ? v.block_looks : null;
+  const look = looks && isPlainObject(looks[block]) ? looks[block] : null;
+  return look && look.motion !== undefined && look.motion !== null ? asText(look.motion) : null;
+}
+
+/** 🧱 The blocks whose drafted motion is new or different from live (turning one still is free). */
+export function blockMotionsGrowing(live: unknown, drafted: unknown): string[] {
+  if (!isPlainObject(drafted) || !isPlainObject(drafted.block_looks)) return [];
+  return Object.keys(drafted.block_looks).filter((b) => grows(refChange(blockMotionText(live, b), blockMotionText(drafted, b))));
+}
+
+export function stylePreferencesProParts(live: unknown, drafted: unknown): StylePreferencesProPart[] {
+  const out: StylePreferencesProPart[] = [];
+  if (styleQrMoves(live, drafted)) out.push('qr');
+  if (isPlainObject(drafted) && SCENE_ACCENTS_PREF_KEY in drafted && accentsTurnOn(sceneAccentsFromPreferences(live), sceneAccentsFromPreferences(drafted)).length > 0) out.push('accents');
+  if (isPlainObject(drafted) && CAMERA_LOOK_PREF_KEY in drafted && grows(refChange(cameraChoice(live), cameraChoice(drafted)))) out.push('camera');
+  if (blockMotionsGrowing(live, drafted).length > 0) out.push('blocks');
+  return out;
+}
+
+/**
+ * 🧱 The drafted `block_looks` with every block's NEW motion put back to live — its background picks kept (a
+ * background is free). Undefined when the draft holds no block looks.
+ */
+export function blockLooksFreePart(live: unknown, drafted: unknown): Record<string, unknown> | undefined {
+  if (!isPlainObject(drafted) || !isPlainObject(drafted.block_looks)) return undefined;
+  const liveLooks = isPlainObject(live) && isPlainObject(live.block_looks) ? live.block_looks : {};
+  const growing = new Set(blockMotionsGrowing(live, drafted));
+  const out: Record<string, unknown> = {};
+  for (const [block, look] of Object.entries(drafted.block_looks)) {
+    if (!growing.has(block) || !isPlainObject(look)) {
+      out[block] = look;
+      continue;
+    }
+    const was = isPlainObject(liveLooks[block]) ? liveLooks[block] : {};
+    const { motion: _m, ...rest } = look;
+    const kept = was.motion !== undefined && was.motion !== null ? { ...rest, motion: was.motion } : rest;
+    if (Object.keys(kept).length > 0) out[block] = kept;
+  }
+  return out;
 }
 
 /** Did anything BESIDES the celebration move between live and the draft? */
@@ -2512,8 +2682,13 @@ export function planHubDraftApply(
        in the draft (below), where it now differs from live only by the QR. */
     if (!allowed && item.kind === 'event' && item.column === 'style_preferences') {
       const cam = cameraLookOfDraft(item.value);
+      const liveBlob = live.events.style_preferences ?? null;
       const free: Record<string, unknown> = {};
-      if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null)) free[CAMERA_LOOK_PREF_KEY] = cam;
+      /* 💎 The camera's look is free only back to Classic (2026-10-16); any other new look waits with the rest. */
+      if (cam && cam !== cameraLookOfDraft(liveBlob) && !grows(refChange(cameraChoice(liveBlob), cameraChoice(item.value)))) free[CAMERA_LOOK_PREF_KEY] = cam;
+      /* 🧱 …and the blocks' backgrounds (free) go live, each block's new motion put back to live's. */
+      const blocks = blockLooksFreePart(liveBlob, item.value);
+      if (blocks && canonicalJson(blocks) !== canonicalJson(isPlainObject(liveBlob) ? (liveBlob.block_looks ?? {}) : {})) free.block_looks = blocks;
       /* 🕯 …and a scene's accent taken OFF is free: the live picks with only the drafted Nones laid on. */
       if (isPlainObject(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
         const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
@@ -2560,7 +2735,7 @@ export function planHubDraftApply(
         remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
       }
     } else if (item.kind === 'fixed-style') {
-      // Never refused (a style pick is free) — kept for completeness.
+      // 💎 A held Pro style card stays drafted, still picked.
       remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
     } else if (item.kind === 'march') {
       // Never refused (a march move is free) — kept for completeness.

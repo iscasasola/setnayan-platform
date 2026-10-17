@@ -493,15 +493,18 @@ const offKeys = (s: PostEventSectionsOff) => Object.keys(s).sort().join(',');
 const grows = (c: LookChange) => c === 'add' || c === 'change';
 
 /**
- * The looks, live → drafted, as the ONE look rule sees them: only a part's own
- * FONT and ANIMATION are inputs (`HUB_ELEMENT_PRO_FIELDS`). A style, the words
- * and every other part field are never inputs — so no direction of them can
- * make the looks Pro.
+ * The looks, live → drafted, as the ONE look rule sees them: a part's own Style
+ * and Animation (`HUB_ELEMENT_PRO_FIELDS`) and — 💎 since 2026-10-16 ("everything
+ * in Style is Pro … style cards") — the scene's style card, which is stored only
+ * when it is NOT the recommended one (`postEventSetStyle`), so a stored style is a
+ * choice and its absence the theme's own. The words and the part's Show are never
+ * inputs — so no direction of them can make the looks Pro.
  */
 export function sceneLooksChange(live: PostEventSceneLooks, next: PostEventSceneLooks): LookChange {
   const changes: LookChange[] = [refChange('same', 'same')];
   const keys = new Set([...Object.keys(live), ...Object.keys(next)]);
   for (const key of keys) {
+    changes.push(refChange(live[key]?.style ?? null, next[key]?.style ?? null));
     for (const part of POST_EVENT_PARTS) {
       for (const field of HUB_ELEMENT_PRO_FIELDS) {
         changes.push(
@@ -535,8 +538,11 @@ export function sceneLooksFreePart(live: PostEventSceneLooks, next: PostEventSce
       }
       if (Object.keys(el).length > 0) elements[part] = el as HubElementStyle;
     }
-    const { elements: _e, ...rest } = look;
-    out[key] = Object.keys(elements).length > 0 ? { ...rest, elements } : rest;
+    const { elements: _e, style: drafted, ...rest } = look;
+    /* 💎 A new style card waits for Pro: the scene keeps the one guests see today (absent = the recommended). */
+    const style = grows(refChange(was?.style ?? null, drafted ?? null)) ? was?.style : drafted;
+    const kept = style ? { ...rest, style } : rest;
+    out[key] = Object.keys(elements).length > 0 ? { ...kept, elements } : kept;
   }
   const free = readSceneLooks(out);
   return grows(sceneLooksChange(live, free)) ? live : free;

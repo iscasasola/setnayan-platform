@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { momentReadLine, momentVoiceLines, type LoveStoryScene, type MomentVoiceSlot } from '@/lib/love-story-moments';
 import { formatCount } from '@/lib/format-number';
 
-import { GlimpseRail } from './glimpse-rail';
+import { GlimpseRail, WHOLE_PHOTO_CLASS } from './glimpse-rail';
 
 /**
  * LOVE STORY · C · THE YEARS (prototype `every_scene_three_styles_2026-09-29.html`
@@ -241,8 +241,25 @@ function MomentGlimpse({
       style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined}
       className={`w-full min-w-0 [container-type:inline-size] ${className}`}
     >
-      <GlimpseRail urls={photos} width={width} label={label} />
+      <GlimpseRail urls={photos} width={width} label={label} whole />
     </div>
+  );
+}
+
+/**
+ * 🖼 A MOMENT'S ONE PHOTO, WHOLE (owner 2026-10-17, on live "The Proposal", a man cut off at the photo's edge: *"there
+ * might be a better way to present instead if it looking cropped"*). The look's place for the photo is reserved as
+ * before (its width and shape, at most 70 % of the screen's height), so the words below never jump while it loads;
+ * the photo is drawn WHOLE inside it at its own shape, centred, never cropped, with the Glimpse cards' corners and
+ * lift — one photo and several read as one family. A moment's photos carry no stored crop or focal point (`media` is
+ * refs only), so there is nothing to honour but the whole picture.
+ */
+function MomentPhoto({ src, place, fx, at }: { src: string; place: string; fx?: 'in' | 'develop'; at?: string }) {
+  return (
+    <span data-love-photo="" className={`relative block ${place}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" loading="lazy" data-love-fx={fx} style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined} className={WHOLE_PHOTO_CLASS} />
+    </span>
   );
 }
 
@@ -297,8 +314,7 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
             {photos.length > 1 ? (
               <MomentGlimpse photos={photos} width={GLIMPSE_IN_CONVERSATION} label={s.title || whenOf(s)} fx="in" />
             ) : photo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photo} alt="" loading="lazy" data-love-fx="in" className="aspect-[4/5] w-[72%] max-w-full justify-self-center rounded-xl object-cover" />
+              <MomentPhoto src={photo} fx="in" place="aspect-[4/5] max-h-[70svh] w-[72%] max-w-full justify-self-center" />
             ) : null}
             {voices.map((v, i) => (
               <div
@@ -372,8 +388,7 @@ export function LoveStoryTimeline({ scenes, partners, mediaUrls, entrance = fals
               {photos.length > 1 ? (
                 <MomentGlimpse photos={photos} width={GLIMPSE_IN_TIMELINE} label={s.title || whenOf(s)} fx="in" at="0.3s" className="mt-2.5" />
               ) : photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="" loading="lazy" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-2.5 aspect-[4/5] w-[150px] max-w-full object-cover" />
+                <MomentPhoto src={photo} fx="in" at="0.3s" place="mt-2.5 aspect-[4/5] max-h-[70svh] w-[150px] max-w-full" />
               ) : null}
               {a || b ? (
                 <div className="relative mt-3.5 grid w-full grid-cols-2 gap-x-[22px]">
@@ -477,8 +492,7 @@ export function LoveStoryCards({ scenes, partners, mediaUrls, entrance = false, 
               {photos.length > 1 ? (
                 <MomentGlimpse photos={photos} width={GLIMPSE_IN_CARD} label={s.title || whenOf(s)} fx={on ? 'develop' : undefined} />
               ) : photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="" loading="lazy" data-love-fx={on ? 'develop' : undefined} className="aspect-[4/3] w-full max-w-full rounded-2xl object-cover" />
+                <MomentPhoto src={photo} fx={on ? 'develop' : undefined} place="aspect-[4/3] max-h-[70svh] w-full max-w-full" />
               ) : null}
               <MomentWhen s={s} fx={on ? 'in' : undefined} />
               {s.title ? (

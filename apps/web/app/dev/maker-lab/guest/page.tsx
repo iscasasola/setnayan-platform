@@ -71,7 +71,8 @@ import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressC
 import { previewRoleOf } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
-import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom, labOwnKind } from '../lab-draft';
+import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind } from '../lab-draft';
+import { siteFontLook } from '@/lib/site-role-look';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
@@ -510,6 +511,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
   /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
   const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
+  /* 🔤 The drafted fonts, worn as the real canvas wears them (`HostDraftLook` → the scope's `data-hub-roles` and its inline
+     bag): the guest page's own `siteFontLook`, so the Names font reaches every `[data-hub-names]` here too. */
+  const fontScopeOf = (value: string | undefined) => {
+    const f = labFontsFrom(value);
+    const look = siteFontLook(f.site_font_key, f.site_roles);
+    return { 'data-guest-look': '', 'data-hub-roles': look.marks ?? undefined, style: Object.keys(look.vars).length > 0 ? look.vars : undefined };
+  };
+  /* The published fonts (the layout's scope, outside) and — only while the draft holds a font — the drafted ones (the
+     canvas's `HostDraftLook`, inside): the real canvas's two layers, so what the inner one leaves unsaid is inherited. */
+  const labFontLive = fontScopeOf((await cookies()).get(LAB_FONTS_LIVE_COOKIE)?.value);
+  const labFontsCookie = (await cookies()).get(LAB_FONTS_COOKIE)?.value;
+  const labFontScope = labFontsCookie ? fontScopeOf(labFontsCookie) : {};
   /* 🕯 The closing's kit — the lab's look (`lab_kit`) and its drafted Accent picks (`lab_accents`), through the page's
      one decision (`artKitView`), tried on as the host's canvas does. Drawn when the look brings a kit or the Closing's
      Accent is on, exactly as `site-body.tsx` decides. */
@@ -835,7 +848,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      for it): one page per tab, the day's own parts on the page the one filing puts them on, the Camera a page. */
   if (phase === 'event' && sp.tabs === '1' && !scrub && !rsvp) {
     return (
-      <main className="min-h-dvh bg-cream text-center text-ink" data-lab-phase={phase}>
+      <div className="contents" {...labFontLive}>
+      <main className="min-h-dvh bg-cream text-center text-ink" data-lab-phase={phase} {...labFontScope}>
         <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />
         <LabDayPages
           tab={typeof sp.tab === 'string' ? sp.tab : undefined}
@@ -865,6 +879,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             March's mark and no style, so a look picked on The Day › Welcome drew nothing here (seen 2026-10-10). */}
         <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
       </main>
+      </div>
     );
   }
   if (rsvp) {
@@ -1024,7 +1039,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] [--cover-scene-pad:1.5rem] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+    <div className="contents" {...labFontLive}>
+    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] [--cover-scene-pad:1.5rem] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase} {...labFontScope}>
       {/* 📐 `--cover-scene-above`: the lab's bar (35px) + its section's pt-6 — the shell's rule (`lib/cover-scene-screen.ts`), lab-sized. */}
       {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
           fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
@@ -1186,5 +1202,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The fixed blocks' own motion, as the real page carries it — redrawn at the tap in the Maker (`editor-bridge.tsx`). */}
       <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
     </main>
+    </div>
   );
 }

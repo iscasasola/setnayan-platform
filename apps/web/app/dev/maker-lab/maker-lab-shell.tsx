@@ -327,7 +327,22 @@ export function MakerLabShell({
      maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
-  const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const formDraft = (fd: FormData) => {
+    /* 🔤 The shipped Maker's Typeface row posts `site_font_key` as a form (`updateSiteColors`' draft door: `''` clears,
+       a key is sanitised), and that door's answer is a Maker render. The lab's door takes patches only, so the form
+       is read the same way and the render asked for — the shipped row can then be walked here (2026-10-17). */
+    const font = fd.get('site_font_key');
+    if (!fd.has('intent') && typeof font === 'string') {
+      const step = new FormData();
+      step.set('intent', 'save');
+      step.set('patch', JSON.stringify({ events: { site_font_key: font === '' ? null : font } }));
+      void labDraft(eventId, step).then((r) => {
+        if (r.ok) requestMakerRefresh();
+      });
+      return;
+    }
+    void labDraft(eventId, fd);
+  };
   const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
     'main-background': {

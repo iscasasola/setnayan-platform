@@ -256,7 +256,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         <p data-look-sample-names="" data-hub-names="" className="font-pahina text-[30px] font-medium leading-[1.05] text-ink">
           {second ? (
             <>
-              {first} <em className="text-[0.85em] font-normal italic text-gild">&amp;</em> {second}
+              {first} <em data-hub-joiner="" className="text-[0.85em] font-normal italic text-gild">&amp;</em> {second}
             </>
           ) : (
             first

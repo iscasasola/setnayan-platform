@@ -242,15 +242,19 @@ test('(4) the names are marked on the three hero surfaces and nowhere else; ONE 
   assert.deepEqual(
     rules,
     [
-      ["[data-hub-roles~='names'] [data-hub-names]", 'font-family: var(--hub-names-face);'],
+      /* 🪆 The nearest scope decides (2026-10-17) and 🔤 the "&" follows the names (owner 2026-10-17) — held, with the
+         selectors EVALUATED, by `app/[slug]/_components/the-names-font-reaches-every-name.test.ts`. */
+      ["[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)", 'font-family: var(--hub-names-face);'],
+      ["[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)", 'font-family: var(--hub-names-face); font-synthesis-style: none;'],
       ['[data-guest-look] [data-hub-names]', 'color: rgb(var(--hub-names-ink, var(--color-ink)));'],
     ],
-    'the names rules are not the font rule (under the mark) and the colour rule — or one of them changed what it sets',
+    'the names rules are not the font rules (under the mark — the names and their "&") and the colour rule — or one of them changed what it sets',
   );
   /* Every rule keyed on the marks: these four, and none that reaches `font-pahina` (the ~100 other texts do not move). */
   const marked = [...css.matchAll(/([^{}]*\[data-hub-roles~='[a-z]+'\][^{}]*)\{([^}]*)\}/g)].map((m) => m[1]!.trim().replace(/\s+/g, ' '));
   assert.deepEqual(marked, [
-    "[data-hub-roles~='names'] [data-hub-names]",
+    "[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
+    "[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
     "[data-hub-roles~='body']",
     "[data-hub-roles~='eyebrow'] .pahina-eyebrow",
     "[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]), [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry",

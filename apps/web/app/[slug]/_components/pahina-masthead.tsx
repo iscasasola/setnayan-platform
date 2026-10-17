@@ -333,7 +333,13 @@ export function PahinaMasthead({
     void _word;
     return { ...rest, ...(el0 !== undefined ? { 'data-el-away': el0 } : {}), ...(person0 !== undefined ? { 'data-el-person-away': person0 } : {}) };
   };
-  const joinerStamp = (forCanvas?: boolean) => (forCanvas ? away(el('joiner')) : el('joiner'));
+  /**
+   * 🔤 THE JOINER WEARS THE NAMES FONT (owner 2026-10-17, on the cover's "&": *"how about the &?"*): every joiner, in every
+   * design, carries `data-hub-joiner` — the hook ONE rule in `globals.css` ("THE COUPLE'S FOUR FONTS") sets the couple's
+   * Names font on, under the scope's names mark only. Its gold and its italic stay (the italic only where the face has
+   * one); a joiner given its own font in Cover Scene › Edit keeps it (inline wins).
+   */
+  const joinerStamp = (forCanvas?: boolean) => ({ 'data-hub-joiner': '', ...(forCanvas ? away(el('joiner')) : el('joiner')) });
   const secondStamp = (forCanvas?: boolean) => (forCanvas ? away(person(1)) : person(1));
   const namesTwo = (pair: (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => ReactNode) =>
     stampElements && twoPeople ? (

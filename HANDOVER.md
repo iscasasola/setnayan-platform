@@ -33,3 +33,32 @@ Pages must look identical (goldens with UPDATE_GOLDEN only if a diff is explaine
 guest page on the next load (test: publish → stamp bumps → next render reads fresh).
 Other builders: rd/two-hosts-never-overwrite (host save paths), #6624 live-day polling (live wall/hub/run-of-show/watch —
 do not touch those files). Changelog fragment changelog.d/rd-guest-page-cache.md.
+
+---
+## BUILDER LOG (Opus 5.5 · 2026-10-18)
+
+### Measured BEFORE (in-repo harness `lib/guest-page-reads.harness.ts`, the pins in `lib/guest-page-reads.test.ts`)
+stranger 13 (14 on the day) · invited guest 17 (21 on the day) · cold 24. Dev harness (counting stub + `next dev`,
+scratch `~/Documents/Claude/Projects/wt-page-cache-scratch/`): stranger 22 / guest 37 — the stub fixture lacks the
+event-row-once extras, so prod-shape numbers are the in-repo ones.
+
+### Design (decided — see why in the PR body)
+- STAMP = its own table `event_public_revs(event_id pk, rev, bumped_xact)` — NOT an `events` column: bumping `events`
+  from a child trigger would fire every `events` trigger + the realtime publication on every guest write. Bumped by
+  DEFERRED constraint triggers (lock taken only at COMMIT, once per transaction per event — no new deadlock path for
+  the event-day writes). `guests` bumps only when an entourage column changes (an RSVP does not invalidate).
+- STAMP READ = `event_public_stamp(p_slug)` RPC inside `loadEventShell` (every caller); the shell row comes from
+  `unstable_cache` keyed (deploy, event, rev, slug). The row is checked to be the stamped event before it is kept.
+- SHARED READS = the admin client's fetch serves a GET from the data cache ONLY when the guest page opened the scope
+  for that event (`openSharedEventReads`, never on the Maker canvas / any host param) and the URL is provably a read
+  of stamped rows of THAT event: table in the stamped list, `event_id=eq.<event>`, no per-viewer filter key, every
+  selected/filtered/ordered column stamped, every embed a stamped table. Key = whole URL + accept/prefer/range + rev.
+- NOT cached, on purpose: money (orders, paparazzi_seats, papic_limited_snapshots), every RPC (comp grants expire by
+  the clock), coordinator_broadcasts (live day), every per-viewer read.
+- ENTITLEMENT FACTS = `event_entitlement_facts(p_event_id)` — one RPC per render for a service-role client (orders +
+  comp skus + internal + founder + every basket line); any failure → the old per-fact reads, unchanged.
+- SESSION CHECK = a ≤ 30 s per-instance memo of a POSITIVE token check, renders only (actions keep the DB check).
+
+### Steps
+- [ ] 1 migration · [ ] 2 shell + shared-read fetch · [ ] 3 facts · [ ] 4 session memo · [ ] 5 guards/tests + sabotage
+- [ ] 6 measure after (both harnesses) · [ ] 7 PR + CI

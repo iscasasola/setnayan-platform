@@ -20,6 +20,16 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { countUnreadMessages } from '@/lib/chat';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { settleBurst } from '@/lib/settle-burst';
+
+/**
+ * A burst of messages (a supplier pasting three replies, a bot answering) used
+ * to fire one count RPC PER message. The count is re-asked once the burst has
+ * been quiet this long instead — the badge ends on the same exact number, it
+ * just stops asking the database the same question five times in a second.
+ * Held by lib/the-unread-badge-asks-once-per-burst.test.ts.
+ */
+const BURST_SETTLE_MS = 1500;
 
 type Props = {
   userId: string;
@@ -57,6 +67,10 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
       }
     };
 
+    const settle = settleBurst(() => {
+      void refresh();
+    }, BURST_SETTLE_MS);
+
     const channel = supabase
       .channel(`msg-unread-${userId}-${instanceId}`)
       .on(
@@ -71,7 +85,8 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
           // INSERT whether it's in one of *this* user's threads or whether
           // it's their own message, so just refetch the accurate count (the
           // RPC scopes to the user + excludes their own messages server-side).
-          void refresh();
+          // A burst of inserts asks once, after the last one.
+          settle.poke();
         },
       )
       .subscribe((status) => {
@@ -82,6 +97,7 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
 
     return () => {
       cancelled = true;
+      settle.cancel();
       void supabase.removeChannel(channel);
     };
   }, [userId, instanceId]);

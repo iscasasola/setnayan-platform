@@ -16,7 +16,7 @@ import type { PulseBaseline } from '@/lib/event-pulse';
  * 🧯 A GUEST PAGE RE-DRAWS ONLY WHEN SOMETHING CHANGED (2026-10-18, live-day
  * polling). A page that hands over `slug` + `pulse` (its baseline from
  * `pulseBaseline`, lib/event-pulse.server.ts) asks the event's small, shared
- * "has anything changed?" answer every ~15 s instead of re-rendering every 45 s
+ * "has anything changed?" answer every ~12 s instead of re-rendering every 45 s
  * ({@link useEventPulse}) — a full render was ~30 database reads per phone per
  * tick, and the answer was "nothing" nearly every time. Without a baseline (the
  * host's check-in desk and souvenirs, or a pulse that could not be read) it

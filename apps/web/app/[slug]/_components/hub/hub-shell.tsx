@@ -221,7 +221,7 @@ function HubStageFrame({
   // wedding day is active + the tab is visible (no push/socket). The active
   // panel is local state, so it survives the server refresh.
   // 🧯 2026-10-18: with a pulse baseline the hub asks "has anything changed?"
-  // (one shared answer per event, every ~15 s) and re-draws only on a change —
+  // (one shared answer per event, every ~12 s) and re-draws only on a change —
   // it used to re-render the whole hub (~32 database reads) every 45 s per phone.
   // No baseline → the 45 s refresh, exactly as before.
   useEventPulse(slug, eventDate, pulse, () => router.refresh());

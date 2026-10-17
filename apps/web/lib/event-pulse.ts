@@ -6,7 +6,15 @@
  */
 
 /** How often a visible phone asks, on the day (± 20 %, `jittered`). Owner's bar: a change reaches guests in ~15 s. */
-export const PULSE_POLL_MS = 15_000;
+export const PULSE_POLL_MS = 12_000;
+
+/**
+ * How long the event's answer is shared before it is read again (seconds). Shorter than the other live answers' 10 s on
+ * purpose: a change waits up to this long to be seen by the server, then up to one poll (± 20 %) to reach a phone, and
+ * the data cache hands one stale answer to the first ask after expiry. Measured in the lab with 6 s / 12 s: ~15 s from a
+ * change to the phone re-drawing. The cost stays per EVENT — at most ~10 reads of the stamp a minute, however many phones.
+ */
+export const PULSE_SHARED_SECONDS = 6;
 
 /** A per-guest change (an arrival, a photo tag) is listed in the answer for this long. */
 export const PULSE_GUEST_WINDOW_MS = 10 * 60_000;

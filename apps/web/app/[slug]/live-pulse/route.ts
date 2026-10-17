@@ -8,7 +8,7 @@ import { liveEdgeHeaders, NOT_HELD } from '@/lib/live-day-cache';
 /**
  * GET /[slug]/live-pulse — "has anything on this event's day-of pages changed?" (2026-10-18, live-day polling).
  *
- * Asked every ~15 s by each visible guest phone on the day (`lib/use-event-pulse.ts`) in place of a full server
+ * Asked every ~12 s by each visible guest phone on the day (`lib/use-event-pulse.ts`) in place of a full server
  * render every 45 s. Answers `{ v, g }` (`lib/event-pulse.ts`): a stamp, and per-guest one-way keys with a time. No
  * name, no id, no content — the phone compares and decides.
  *

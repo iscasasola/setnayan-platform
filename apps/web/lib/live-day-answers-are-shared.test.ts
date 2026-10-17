@@ -121,6 +121,27 @@ test('1 · `notRemembered` answers THIS phone and stores nothing for the others'
   }
 });
 
+test('1 · an answer older than its window is never handed out — the next ask reads, and concurrent asks share that read', async () => {
+  const { rememberedLiveRead } = await cacheModule();
+  const fake = installDataCache();
+  try {
+    let reads = 0;
+    const load = async () => {
+      reads += 1;
+      await new Promise((r) => setTimeout(r, 20));
+      return `answer-${reads}`;
+    };
+    assert.equal(await rememberedLiveRead('test-old-v1', 'e', load, 10), 'answer-1');
+    // Age the stored entry past its window (what the data cache would serve once, "stale while it revalidates").
+    for (const [k, v] of fake.entries) fake.entries.set(k, JSON.parse(JSON.stringify(v).replace(/(\\?"at\\?":)\d+/, `$1${Date.now() - 11_000}`)));
+    const three = await Promise.all([1, 2, 3].map(() => rememberedLiveRead('test-old-v1', 'e', load, 10)));
+    assert.deepEqual(three, ['answer-2', 'answer-2', 'answer-2'], 'an expired answer was handed out, or each phone read on its own');
+    assert.equal(reads, 2);
+  } finally {
+    removeDataCache();
+  }
+});
+
 test('1 · when the data cache cannot run, the read is asked directly (never an outage)', async () => {
   const { rememberedLiveRead, notRemembered } = await cacheModule();
   removeDataCache();
@@ -383,7 +404,7 @@ test('2b · the phone re-draws on a moved stamp or its OWN change after the rend
 
 test('2b · the pulse is one remembered answer per event; a closed event asks the page’s own door', () => {
   const server = read('lib/event-pulse.server.ts');
-  assert.match(server, /rememberedLiveRead\(`event-pulse-v\d+:\$\{key\}`, key, \(\) => readPulse\(key\)\)/);
+  assert.match(server, /rememberedLiveRead\(`event-pulse-v\d+:\$\{key\}`, key, \(\) => readPulse\(key\), PULSE_SHARED_SECONDS\)/);
   assert.match(server, /\.from\('guest_checkins'\)[\s\S]{0,120}\.gte\('checked_in_at', since\)/, 'arrivals are read whole — they must be the recent window only');
   const route = read('app/[slug]/live-pulse/route.ts');
   assert.match(route, /if \(!pulse\.openToStrangers && !\(await holdsThisEventsPass\(pulse\.eventId\)\) && !\(await canViewSlugEvent\(pulse\.eventId, pulse\.visibility\)\)\)/);

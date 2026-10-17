@@ -9,7 +9,7 @@ import { openToStrangers } from '@/lib/event-visibility';
 import { rememberedLiveRead } from '@/lib/live-day-cache';
 import { onlyWhatGuestsMaySee } from '@/lib/schedule';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
-import { PULSE_GUEST_WINDOW_MS, type PulseAnswer } from '@/lib/event-pulse';
+import { PULSE_GUEST_WINDOW_MS, PULSE_SHARED_SECONDS, type PulseAnswer } from '@/lib/event-pulse';
 import { guestPulseKey, pulseFromRows } from '@/lib/event-pulse-stamp';
 
 /**
@@ -32,7 +32,7 @@ import { guestPulseKey, pulseFromRows } from '@/lib/event-pulse-stamp';
  *     `v` they would re-render every phone at every arrival.
  *
  * 🔑 IT IS ONE ANSWER PER EVENT: read with the service client, remembered for `LIVE_DAY_SECONDS`
- * (`rememberedLiveRead`), so 200 phones asking every 15 s are ONE set of these reads per event per 10 s. The pages
+ * (`rememberedLiveRead`), so 200 phones asking every ~12 s are ONE set of these reads per event per `PULSE_SHARED_SECONDS`. The pages
  * also take their starting stamp from here (`pulseBaseline`), from the same remembered answer.
  *
  * ⚠ WHAT IT DOES NOT WATCH, ON PURPOSE (each re-renders at the next change that IS watched, or when the phone comes
@@ -119,7 +119,7 @@ async function readPulse(slug: string): Promise<EventPulse | null> {
 /** The event's pulse, remembered per event (`null` — no event has this address). Throws when it could not be read. */
 export async function eventPulse(slug: string): Promise<EventPulse | null> {
   const key = slug.toLowerCase();
-  return rememberedLiveRead(`event-pulse-v1:${key}`, key, () => readPulse(key));
+  return rememberedLiveRead(`event-pulse-v1:${key}`, key, () => readPulse(key), PULSE_SHARED_SECONDS);
 }
 
 /**

@@ -65,6 +65,24 @@ function isNotRemembered<T>(e: unknown): e is NotRemembered<T> {
   return typeof e === 'object' && e !== null && NOT_REMEMBERED in e;
 }
 
+type Stamped<T> = { at: number; value: T };
+
+/** One direct read per key at a time on this server; a `notRemembered` answer is unwrapped for every sharer. */
+const inFlight = new Map<string, Promise<unknown>>();
+function directOnce<T>(key: string, load: () => Promise<T>): Promise<T> {
+  let p = inFlight.get(key) as Promise<T> | undefined;
+  if (!p) {
+    p = load()
+      .catch((e: unknown) => {
+        if (isNotRemembered<T>(e)) return e.value;
+        throw e;
+      })
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, p);
+  }
+  return p;
+}
+
 /**
  * Read `load` through the data cache under `key`, tagged for `eventKey`.
  *
@@ -82,9 +100,9 @@ export async function rememberedLiveRead<T>(
   // 'no' to the compiler at the checks below.
   const outcome: { settled: 'no' | 'threw' | 'not-remembered'; error: unknown } = { settled: 'no', error: undefined };
   const remembered = unstable_cache(
-    async () => {
+    async (): Promise<Stamped<T>> => {
       try {
-        return await load();
+        return { at: Date.now(), value: await load() };
       } catch (error) {
         outcome.settled = isNotRemembered(error) ? 'not-remembered' : 'threw';
         outcome.error = error;
@@ -95,7 +113,13 @@ export async function rememberedLiveRead<T>(
     { tags: [liveDayTag(eventKey)], revalidate: seconds },
   );
   try {
-    return await remembered();
+    const got = await remembered();
+    // ⏱ NEVER HAND OUT AN ANSWER OLDER THAN THE WINDOW. The data cache serves an expired entry once ("stale while it
+    // revalidates") — measured in the lab, that added a whole poll to how long a change took to reach a phone. An
+    // expired entry is still refreshed in the background by the cache; THIS caller reads directly, and the callers on
+    // this server that arrive while that read is in flight share it (`directOnce`), so expiry is not a herd either.
+    if (Date.now() - got.at > seconds * 1000) return await directOnce(key, load);
+    return got.value;
   } catch (error) {
     if (outcome.settled === 'not-remembered') return (outcome.error as NotRemembered<T>).value;
     if (outcome.settled === 'threw') throw outcome.error;

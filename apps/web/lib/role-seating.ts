@@ -59,7 +59,14 @@ export const ROLE_SEATING_SETS: ReadonlyArray<{ key: RoleSeatingKey; roles: read
   },
   {
     key: 'immediate_family',
-    roles: ['bride_parents', 'groom_parents', 'bride_immediate_family', 'groom_immediate_family'],
+    roles: [
+      'bride_parents',
+      'groom_parents',
+      'bride_grandparents',
+      'groom_grandparents',
+      'bride_immediate_family',
+      'groom_immediate_family',
+    ],
   },
   {
     key: 'wedding_party',

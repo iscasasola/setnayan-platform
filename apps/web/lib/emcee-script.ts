@@ -70,6 +70,8 @@ const ROLE_ORDER: GuestRole[] = [
   'groom',
   'bride_parents',
   'groom_parents',
+  'bride_grandparents',
+  'groom_grandparents',
   // Muslim Nikah principals — billed right after the parents (only present for
   // muslim weddings; absent rosters simply skip them).
   'wali',

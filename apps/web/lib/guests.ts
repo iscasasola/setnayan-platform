@@ -19,6 +19,13 @@ export type GuestRole =
   // migration 20260607040000_guest_role_add_vip_family.sql.
   | 'bride_parents'
   | 'groom_parents'
+  // 👵 GRANDPARENTS — owner 2026-10-17: *"the 2 grandparents should not be named
+  // immediate family on the wedding march list."* Their own roles, standing
+  // beside the parents in every tier (VIP family, seating tier 1, inner-circle
+  // invite blocks, published entourage). Enum values added via migration
+  // 20271271089555 (guest_role_add_grandparents). Not single-instance.
+  | 'bride_grandparents'
+  | 'groom_grandparents'
   | 'bride_immediate_family'
   | 'groom_immediate_family'
   | 'maid_of_honor'
@@ -304,6 +311,8 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'groom',
   'bride_parents',
   'groom_parents',
+  'bride_grandparents',
+  'groom_grandparents',
   'bride_immediate_family',
   'groom_immediate_family',
   'maid_of_honor',
@@ -387,6 +396,8 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   groom: 'Groom',
   bride_parents: "Bride's Parents",
   groom_parents: "Groom's Parents",
+  bride_grandparents: "Bride's Grandparents",
+  groom_grandparents: "Groom's Grandparents",
   bride_immediate_family: "Bride's Immediate Family",
   groom_immediate_family: "Groom's Immediate Family",
   maid_of_honor: 'Maid of Honor',

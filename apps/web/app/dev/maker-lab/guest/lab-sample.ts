@@ -77,12 +77,13 @@ const ROWS: Row[] = [
 const LONE_ROWS: Row[] = [
   ['cn1', 'Mr.', 'Ramon', 'Ilagan', 'coin_sponsor', 18, 0],
   ['bmaid3', 'Ms.', 'Lea', 'Navarro', 'bridesmaid', 19, 0],
-  /* 👵 TWO GRANDPARENTS, IN THE SHAPE A COUPLE RECORDS THEM TODAY (owner 2026-10-17, "the 2 grandparents should not be
-     named immediate family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.",
-     `relation` empty — nothing on the row says grandparent. Stand-in names. The unknown-sex parent is already above:
-     "Dr." Eduardo Santos, whose title says neither father nor mother. */
-  ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_immediate_family', 20, 0],
-  ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_immediate_family', 20, 1],
+  /* 👵 TWO GRANDPARENTS, IN THE OWNER'S SHAPE (owner 2026-10-17, "the 2 grandparents should not be named immediate
+     family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.", `relation` empty.
+     Here they are AFTER the couple re-picks their role on the guest card — `groom_grandparents` (migration
+     20271271089555) — so the lab draws them under "Grandparents", each "Grandmother of the Groom". Stand-in names.
+     The unknown-sex parent is already above: "Dr." Eduardo Santos, whose title says neither father nor mother. */
+  ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_grandparents', 20, 0],
+  ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_grandparents', 20, 1],
   /* A lone Groomsman beside the lone Bridesmaid above — /maria-and-jose's crew as the controller found it live on
      2026-10-17 (two crew members, no pair, so no column words drawn). */
   ['gmen3', 'Mr.', 'Gabriel', 'Castillo', 'groomsman', 21, 0],

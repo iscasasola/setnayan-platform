@@ -629,6 +629,8 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
       return 'groomsmen';
     case 'bride_parents':
     case 'groom_parents':
+    case 'bride_grandparents':
+    case 'groom_grandparents':
     case 'bride_immediate_family':
     case 'groom_immediate_family':
       return 'parents_immediate_family';

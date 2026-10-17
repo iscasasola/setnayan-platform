@@ -156,8 +156,18 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
  * gendered wedding-party role implies it; otherwise 'neutral'. Pure + shared so
  * the 3D lab and any future surface (print, day-of) dress guests identically.
  */
-export function resolveGuestAttire(role: GuestRole, attire: GuestAttire): GuestAttire {
+export function resolveGuestAttire(
+  role: GuestRole,
+  attire: GuestAttire,
+  /**
+   * 👗 Woman or man as picked WITH the title ("Atty. (Woman)", `guests.gender`, owner 2026-10-17) — after the
+   * couple's own Wear pick, BEFORE the role: a man standing as a bridesmaid is dressed as a man.
+   */
+  gender?: 'woman' | 'man' | null,
+): GuestAttire {
   if (attire !== 'neutral') return attire;
+  if (gender === 'woman') return 'gown';
+  if (gender === 'man') return 'suit';
   return ATTIRE_BY_ROLE[role] ?? 'neutral';
 }
 
@@ -270,6 +280,11 @@ export type GuestRow = {
   seating_priority: number | null;
   // What this guest wears on their 3D seat-plan avatar (see resolveGuestAttire).
   attire: GuestAttire;
+  /**
+   * Woman or man, picked WITH the title on the guest card ("Atty. (Woman)") — never printed. NULL = not said.
+   * Mr. / Ms. / Mrs. / Miss keep it by trigger. `lib/guest-title.ts`; migration `a_title_carries_woman_or_man`.
+   */
+  gender?: 'woman' | 'man' | null;
   // Chinese tea-ceremony serving order — within-side serve order (lower serves
   // first; null = unset, falls back to role importance) + a free-text relation
   // label ("Grandparents", "Eldest Uncle"). Both optional · migration
@@ -559,7 +574,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration

@@ -39,6 +39,7 @@ import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
+import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
@@ -64,7 +65,9 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labCaleRoleDressConfig, labCaleRoleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
+import { previewRoleOf } from '@/lib/preview-role';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
 import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom } from '../lab-draft';
 import { siteFontLook } from '@/lib/site-role-look';
@@ -73,10 +76,11 @@ import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
 import { coverSceneLayer } from '@/app/[slug]/_lib/cover-scene-layer';
-import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { hubMovingBackgroundIds, type HubCoverGround } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { marchPlaceOf } from '@/lib/march-place';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
@@ -198,6 +202,22 @@ function labCoverPhoto(g: { kind: string; media?: string } | null | undefined): 
   return (g.media && LAB_SIGNED[g.media]) || LAB_COVER_PHOTO;
 }
 
+/**
+ * 🖼 The Cover Scene's layer as the real page lays it (`coverSceneLayer`) — and, for the couple's own CLIP, its still
+ * and its file from the lab's local stand-ins (`LAB_SIGNED`: the lab has no public media host, so the real resolver
+ * finds neither and the cover would fall back to The theme's own). The veil, scrim and tone are the real resolver's,
+ * worked out for the same ground as a photo (a clip and a photo are measured alike, `coverGroundSamples`).
+ */
+function labCoverLayer(g: HubCoverGround | undefined) {
+  const layer = coverSceneLayer(g, { heroPhotoUrl: labCoverPhoto(g), loopMedia: labLoopMedia });
+  if (g?.kind !== 'snippet') return layer;
+  const still = (g.poster && LAB_SIGNED[g.poster]) || null;
+  const clip = LAB_SIGNED[g.media] ?? null;
+  if (!still && !clip) return layer;
+  const asPhoto = coverSceneLayer({ kind: 'photo', media: g.media, ...(g.shade !== undefined ? { shade: g.shade } : {}) }, { heroPhotoUrl: still ?? clip });
+  return asPhoto ? { ...asPhoto, still, clip, parallax: false } : layer;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const words = await eventWordsFor('wedding').catch(() => null);
   return { title: `${(words?.eventWord ?? 'event').replace(/^./, (c) => c.toUpperCase())} invitation`, robots: { index: false, follow: false } };
@@ -306,8 +326,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   /* 🗣 `?love=<style>` (chapters · essay · years · conversation · timeline · cards) — the REAL `OurLoveStoryWidget` on the
-     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none), partners Maria · Jose, the lab's
-     stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
+     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none; three photos · one photo), partners
+     Maria · Jose, the lab's stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
      `&dark=1` draws it on the dark Look. Invented words and names only. */
   if (typeof sp.love === 'string') {
     const style = sp.love === 'default' ? null : sp.love;
@@ -318,7 +338,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-love={sp.love}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        {/* 🔲 `&empty=1` — this look's SAMPLE SHAPES, the arrangement the Maker's canvas draws for the scene while it is
+            empty (the `data-maker-section` marker is what lets a sample show at all). The shapes alone, not the
+            empty-scene stand-in: that one is mounted only behind `makerCanvas` (P11). */}
+        {sp.empty === '1' ? (
+          <div data-maker-section="our_love_story" data-maker-empty="our_love_story">
+            <SceneSample sceneType="our_love_story" styleId={style} className="py-2" />
+          </div>
+        ) : (
+          <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        )}
         <div className="h-[40vh]" aria-hidden />
       </main>
     );
@@ -326,9 +355,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
      in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
-     (`labEntourage('cale')`). Stand-in names only. */
+     (`labEntourage('cale')`); `&titles=1` the parents' titles picked with woman / man (`labEntourage('titles')`).
+     Stand-in names only. */
+  /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
+     "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
+     (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.titles === '1' ? 'titles' : 'lone');
+    const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
+    const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
       <main
         className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink"
@@ -336,7 +372,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-entourage={sp.entourage}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <EntourageSection groups={labEntourage(sp.cast === 'cale' ? 'cale' : 'lone')} id="site-entourage" sceneStyle={style} />
+        {meRole ? (
+          <div className="mb-10">
+            <DressCodeWidget
+              words={await eventWordsFor('wedding').catch(() => null) as never}
+              config={null}
+              ceremonyType={null}
+              genderSeparation={null}
+              part="role"
+              guestRole={meRole}
+              march={marchPlaceOf(groups, me)}
+              hideWhenEmpty
+            />
+          </div>
+        ) : null}
+        <EntourageSection groups={groups} id="site-entourage" sceneStyle={style} myGuestId={me} />
+        <div className="h-[60vh]" aria-hidden />
       </main>
     );
   }
@@ -509,7 +560,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       design={heroDesignOf(heroCanvas)}
       /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
          loops wear the stand-in files the Maker lab's Look rows use. */
-      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: labCoverPhoto(heroCanvas.ground), loopMedia: labLoopMedia })}
+      ground={labCoverLayer(heroCanvas.ground)}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={
@@ -536,7 +587,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const caleIceAfter = sp.attire === 'cale-now';
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
-  const dressCode = words ? (
+  /* 🎭 See as · Role ▾ (owner 2026-10-17): the canvas drawn as a sample guest in one role — `?as=` + `?asrole=`, read
+     strictly by the page's own reader (`previewRoleOf`). The scene stays the general dress code (as the real page draws
+     it for an identified guest); under it, that role's Me › What to wear. */
+  const labRole = typeof sp.as === 'string' ? previewRoleOf(one('asrole'), WEDDING_ROLE_SET.offeredRoles) : null;
+  const roleWear = words && labRole ? (
+    <div data-lab-scene="me-wear" data-lab-role={labRole.key} className="mt-8 border-t border-ink/10 pt-6">
+      <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">Me · {labRole.name}</p>
+      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="wear" />
+    </div>
+  ) : null;
+  const dressCode = words && labRole ? (
+    <>
+      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} ceremonyType={null} genderSeparation={null} rolePalette={labCaleRoleRolePalette()} guestRole={null} roleNames={null} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      {roleWear}
+    </>
+  ) : words ? (
     <DressCodeWidget
       words={words}
       config={caleIce ? (labCaleIceDressConfig(caleIceAfter) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}

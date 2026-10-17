@@ -47,6 +47,8 @@ export function GuestMeParts({
     genderSeparation: string | null;
     guestRole: GuestRole | null;
     guestAttire?: GuestAttire | null;
+    /** 👪 Title · shown name — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+    guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
     march: MarchPlace | null;
     rolePalette: unknown;
     roleNames?: RoleNames | null;
@@ -94,6 +96,7 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
       genderSeparation={look.genderSeparation}
       guestRole={look.guestRole}
       guestAttire={look.guestAttire ?? null}
+      guestNameParts={look.guestNameParts ?? null}
       march={p === 'role' ? look.march : null}
       rolePalette={look.rolePalette}
       roleNames={look.roleNames ?? null}

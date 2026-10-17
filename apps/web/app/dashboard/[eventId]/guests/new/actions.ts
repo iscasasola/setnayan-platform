@@ -20,6 +20,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { parseTitleKey } from '@/lib/guest-title';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 
@@ -74,7 +75,10 @@ export async function createGuest(eventId: string, formData: FormData) {
   // The three OPTIONAL parts (2026-09-14). The client island pre-fills them by
   // parsing what the host types, but they are plain editable inputs — whatever
   // the host leaves in the box is what is stored, and blank stores NULL.
-  const name_prefix = normalizeGuestName(clean(formData.get('name_prefix'))) || null;
+  // 🪪 The Title dropdown posts "Atty.|woman" (lib/guest-title.ts) — the title that prints, and the gender that never does.
+  const titled = parseTitleKey(formData.has('name_title') ? formData.get('name_title') : formData.get('name_prefix'));
+  const name_prefix = normalizeGuestName(titled.name_prefix ?? '') || null;
+  const gender = titled.gender;
   const middle_name = normalizeGuestName(clean(formData.get('middle_name'))) || null;
   const name_suffix = normalizeGuestName(clean(formData.get('name_suffix'))) || null;
   const submittedSide = clean(formData.get('side'));
@@ -166,6 +170,7 @@ export async function createGuest(eventId: string, formData: FormData) {
       // Optional: omitted entirely when blank, so the row is byte-identical to
       // a pre-2026-09-14 insert when the guest carries no title.
       ...(name_prefix ? { name_prefix } : {}),
+      ...(gender ? { gender } : {}),
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,

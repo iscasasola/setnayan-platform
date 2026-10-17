@@ -104,7 +104,17 @@ const CALE_PARENTS: Row[] = [
 ];
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' = 'sample') {
+/**
+ * 🪪 `titles` — the sample with its parents' titles as cale-ice holds them (owner 2026-10-17): the groom's mother an
+ * "Atty." picked as "Atty. (Woman)", the bride's father a "Dr." picked as "Dr. (Man)" (`guests.gender`). Before the
+ * pick both printed "Parent of the …"; now "Mother of the Groom" / "Father of the Bride". The title alone prints.
+ */
+const TITLE_PICKS: Record<string, { name_prefix: string; gender: 'woman' | 'man' }> = {
+  gp2: { name_prefix: 'Atty.', gender: 'woman' },
+  bp1: { name_prefix: 'Dr.', gender: 'man' },
+};
+
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'titles' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
@@ -118,6 +128,7 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' = 'sam
     role,
     extra_roles: [],
     march: { walk_no: cast === 'lone' ? (LONE_WALKS[id] ?? walk) : walk, place_in_walk: place },
+    ...(cast === 'titles' ? TITLE_PICKS[id] : {}),
   }));
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and
@@ -335,5 +346,40 @@ export function labRolesRolePalette() {
     bearers_flower_girl: [c.olive],
     guest: [c.rosewood, c.pandan, c.olive, c.marigold, c.narra],
     touched_roles: ['bride', 'groom', 'principal_sponsors', 'bridesmaids', 'groomsmen', 'bearers_flower_girl', 'guest'],
+  };
+}
+
+/**
+ * 🎭 `?as=…&asrole=<role>-<f|m>` — See as · Role ▾ on the lab's canvas (owner 2026-10-17, "view it as a father of the
+ * bride"): cale-ice's own dress code (its export, colour for colour), with the VIP family and the principal sponsors as
+ * TWO picks — the men in a barong in the row's colours, the women in a Filipiniana / long gown in THEIR own — so the
+ * Role pick shows the mixed pair. Fixture only; nothing here reaches a guest.
+ */
+export function labCaleRoleDressConfig() {
+  return {
+    title: '',
+    dos: ['Lean into the palette'],
+    donts: ['No white or ivory'],
+    palette: ['#351115', '#646B38', '#F3E5B9', '#E6C0B3', '#803236', '#6B4226'].map((hex) => ({ name: hex, hex })),
+    roles: { best_man: { style: 'suit' }, best_woman: { style: 'long_gown' } },
+    groups: {
+      vip_family: { style: 'barong_tagalog' },
+      principal_sponsors: { style: 'barong_tagalog' },
+      secondary_sponsors: { style: 'long_gown' },
+      bridesmaids: { style: 'long_gown' },
+    },
+    women: { groups: { vip_family: { style: 'filipiniana', colours: ['#E6C0B3', '#F3E5B9'] }, principal_sponsors: { style: 'long_gown' } } },
+    show_figure: true,
+  };
+}
+export function labCaleRoleRolePalette() {
+  return {
+    reception: [...LAB_CALE_BOARD],
+    parents_immediate_family: ['#5C0700', '#669C35', '#B51A00'],
+    principal_sponsors: ['#8B7E74', '#6C6C6C'],
+    secondary_sponsors: ['#646B38'],
+    bridesmaids: ['#646B38', '#B51A00'],
+    guest: ['#6B4226', '#C9A0A0', '#191970', '#5C2542'],
+    touched_roles: ['parents_immediate_family', 'principal_sponsors', 'secondary_sponsors', 'bridesmaids', 'guest'],
   };
 }

@@ -15,6 +15,7 @@
 import { parseCsv, type CsvRow } from './csv';
 import { normalizeGuestName } from './guest-name';
 import { parsePersonName } from './person-name-parse';
+import { takeGenderMark, type TitleGender } from './guest-title';
 import { norm } from './guest-dedupe';
 import { parsePhPhone } from './ph-phone';
 import { formatCount } from './format-number';
@@ -196,6 +197,8 @@ export type GuestImportRecord = {
   first_name: string;
   last_name: string;
   name_prefix: string | null;
+  /** Woman / man from a "(Woman)" / "(Man)" the file wrote with the title ("Atty. (Woman)") — lib/guest-title.ts. */
+  gender?: TitleGender | null;
   middle_name: string | null;
   name_suffix: string | null;
   side: GuestSide;
@@ -215,6 +218,7 @@ export type ExistingGuest = {
   first_name: string;
   last_name: string;
   name_prefix: string | null;
+  gender?: string | null;
   middle_name: string | null;
   name_suffix: string | null;
   side: GuestSide;
@@ -320,8 +324,18 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     let name_prefix: string | null = cell('name_prefix') || null;
     let middle_name: string | null = normalizeGuestName(row.middle_name) || null;
     let name_suffix: string | null = cell('name_suffix') || null;
+    // 🪪 "(Woman)" / "(Man)" with the title — "Atty. (Woman)" — is the file's mark for the title's gender (owner
+    // 2026-10-17), taken out so it never prints: the title cell, or a whole name in the first/last cells.
+    let gender: TitleGender | null = null;
+    if (name_prefix) {
+      const m = takeGenderMark(name_prefix);
+      name_prefix = m.text || null;
+      gender = m.gender;
+    }
     if (!('middle_name' in row) && !('name_prefix' in row) && !('name_suffix' in row)) {
-      const parts = parsePersonName(`${rawFirst} ${rawLast}`.trim());
+      const marked = takeGenderMark(`${rawFirst} ${rawLast}`.trim());
+      gender = gender ?? marked.gender;
+      const parts = parsePersonName(marked.text);
       first_name = parts.firstName || rawFirst;
       last_name = parts.lastName || rawLast;
       name_prefix = parts.prefix || null;
@@ -418,6 +432,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
           first_name,
           last_name,
           name_prefix,
+          ...(gender ? { gender } : {}),
           middle_name,
           name_suffix,
           side,
@@ -449,6 +464,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
       changes.push('name');
     }
     if (name_prefix) diff('name_prefix', name_prefix, match.name_prefix, 'prefix');
+    if (gender) diff('gender', gender, match.gender, 'woman or man');
     if (middle_name) diff('middle_name', middle_name, match.middle_name, 'middle name');
     if (name_suffix) diff('name_suffix', name_suffix, match.name_suffix, 'suffix');
     if (ctx.hasSides && has('side')) diff('side', side, match.side, SIDE_LABEL[side].toLowerCase());

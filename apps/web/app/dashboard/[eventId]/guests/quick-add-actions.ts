@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { takeGenderMark, type TitleGender } from '@/lib/guest-title';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -101,6 +102,18 @@ export async function quickAddGuest(
   // The `undefined` check is load-bearing: an explicit null means "this guest
   // HAS no prefix" and must not be overwritten by a parse, while an absent key
   // means "this caller knows nothing about name parts".
+  // 🪪 A typed "(Woman)" / "(Man)" — "Atty. (Woman) Eufemia Cruz" — is the host's mark for the title's gender
+  // (owner 2026-10-17), read and taken out: it never lands in a name part.
+  const marks = [input.first_name, input.last_name, input.name_prefix].map((v) => (typeof v === 'string' ? takeGenderMark(v) : null));
+  const gender: TitleGender | null = marks.find((m) => m?.gender)?.gender ?? null;
+  if (gender) {
+    input = {
+      ...input,
+      first_name: marks[0]?.text ?? input.first_name,
+      last_name: marks[1]?.text ?? input.last_name,
+      ...(input.name_prefix !== undefined ? { name_prefix: marks[2]?.text ?? input.name_prefix } : {}),
+    };
+  }
   const callerSuppliedParts =
     input.name_prefix !== undefined ||
     input.middle_name !== undefined ||
@@ -153,6 +166,7 @@ export async function quickAddGuest(
       // Omitted when null so a caller that knows nothing about name parts
       // inserts exactly the row it inserted before this field existed.
       ...(name_prefix ? { name_prefix } : {}),
+      ...(gender ? { gender } : {}),
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,

@@ -2,6 +2,7 @@
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
 import { Component, useEffect, useRef, useTransition } from 'react';
+import { applyCoverShadePreview, sanitizeCoverShadePreview, undoCoverShadePreview } from './cover-shade-preview';
 import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -546,6 +547,8 @@ export class BeforeRedrawCommits extends Component<{ pending: boolean; run: () =
 /** What `BeforeRedrawCommits` runs: every hand-laid scene frame goes back to the page's own DOM. */
 const undoLaidPreviews = () => {
   undoSceneBgPreviews(document);
+  /* 🌗 …and the cover's Darker ↔ Lighter laid while the thumb moved: the render about to commit draws the saved shade. */
+  undoCoverShadePreview(document);
   /* ✋ …and whatever the Maker laid ON the page ahead of a save (a scene slid to where it was dropped, a place held for
      a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
      never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
@@ -888,6 +891,14 @@ export function EditorBridge() {
         const preview = sanitizeMainGroundPreview(data, origin);
         if (preview && 'landed' in preview) groundPreview.current?.land(preview.seq);
         else if (preview) groundPreview.current?.lay(preview);
+        return;
+      }
+      /* 🌗 THE COVER SCENE'S Darker ↔ Lighter, WHILE THE THUMB MOVES (`cover-shade-preview.ts`): one style this file
+         owns, checked; taken off by the redraw that draws the saved shade, or at once when the save was refused. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'coverShade') {
+        const look = sanitizeCoverShadePreview(data);
+        if (look === 'off') undoCoverShadePreview(document);
+        else if (look) applyCoverShadePreview(document, look);
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {

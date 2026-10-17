@@ -7,7 +7,7 @@ import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubFontKey } from '@/lib/hub-fonts';
-import type { SeeAs } from '@/lib/see-as';
+import type { SeeAs, SeeAsRoleRow } from '@/lib/see-as';
 import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
 import type { VenueSlot } from './details-your-event';
 
@@ -76,6 +76,15 @@ export type MakerState = {
   seeAs: SeeAs | null;
   /** Pick a See as state — the Preview menu's rows and the desktop's dropdown above the preview. */
   setSeeAs?: (next: SeeAs | null) => void;
+  /**
+   * 🎭 SEE AS · ROLE ▾ (owner 2026-10-17, "view it as a father of the bride"): which wedding role the sample guest
+   * stands in — a key from `seeAsRoles`, or null for any guest. Drawn only while See as is a guest (`seeAsDrawsMe`):
+   * the canvas address gains `?asrole=` beside `?as=`. Draw-time only, like See as — never the draft, never a row.
+   */
+  seeAsRole?: string | null;
+  setSeeAsRole?: (next: string | null) => void;
+  /** Role ▾'s rows — this event's guest-list roles, built on the server (`lib/preview-role.ts`). Empty: no Role ▾. */
+  seeAsRoles?: readonly SeeAsRoleRow[];
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;

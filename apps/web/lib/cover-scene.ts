@@ -136,15 +136,42 @@ export function coverGroundSamples(g: HubCoverGround): string[] {
 }
 
 /**
- * The words' tone over the Cover Scene's ground, and the weakest scrim that holds them at AA over every sample —
- * whichever ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip
- * from cream to ink on their own).
+ * The words' tone over the Cover Scene's ground, and the scrim that holds them at AA over every sample — whichever
+ * ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip from cream to ink
+ * on their own).
+ *
+ * 🌗 THE SCRIM NEVER UNDOES THE BAR (owner 2026-10-17 on cale-ice, Darker ━●━ Lighter moved well toward Lighter over
+ * his sunset clip: *"darker lighter not showing"*). MEASURED: the scrim used to be the WEAKEST that holds AA over the
+ * veiled ground — so as Lighter's white veil grew, the paper scrim the ink words need shrank by exactly as much
+ * (0.50 at the centre → 0.01 at +60) and the cover came out the SAME colour, byte for byte, from 0 to +60 (#bbbab9 ·
+ * #939291 · #eae9e8 → #bbbbbb · #919191 · #ebebeb); Darker's ink scrim did the same from −30 to −60. The bar moved
+ * and nothing on the page did. Now the scrim is never weaker than the ground ITSELF needs for that tone (its own
+ * samples, no veil) — still AA over the veiled ground — so a veil in the words' favour adds to the scrim instead of
+ * replacing it, and every step of the bar shows. Held by `lib/the-cover-shade-reaches-every-ground.test.ts`.
  */
 export function coverSceneLegibility(g: HubCoverGround): { tone: 'ink' | 'cream'; scrim: { color: string; opacity: number } } {
   const samples = coverGroundSamples(g);
   const ink = requiredScrim(COVER_INK, COVER_PAPER, samples);
   const paper = requiredScrim(COVER_PAPER, COVER_INK, samples);
-  return ink <= paper ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: ink } } : { tone: 'cream', scrim: { color: COVER_INK, opacity: paper } };
+  const { shade: _shade, ...bare } = g;
+  const own = coverGroundSamples(bare as HubCoverGround);
+  return ink <= paper
+    ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: Math.max(ink, requiredScrim(COVER_INK, COVER_PAPER, own)) } }
+    : { tone: 'cream', scrim: { color: COVER_INK, opacity: Math.max(paper, requiredScrim(COVER_PAPER, COVER_INK, own)) } };
+}
+
+/**
+ * 🌗 THE COVER AT ONE POSITION OF THE BAR — the veil, the scrim and the words' tone `coverSceneLayer` draws for this
+ * ground at `at` (−100 … 100; the centre stores nothing). The Maker lays it on the canvas WHILE the thumb moves
+ * (`cover-shade-preview.ts`, the prototype's `paintGround` on input), from the very functions the page renders with,
+ * so the preview is what the save's redraw confirms. A glass takes no shade (`sanitizeHubCoverGround`).
+ */
+export function coverShadeLook(g: HubCoverGround, at: number): { veil: { color: string; opacity: number } | null; scrim: { color: string; opacity: number }; tone: 'ink' | 'cream' } {
+  const n = Math.max(-100, Math.min(100, Math.round(at)));
+  const { shade: _was, ...rest } = g;
+  const next = (g.kind === 'glass' || g.kind === 'frost' || n === 0 ? rest : { ...rest, shade: n }) as HubCoverGround;
+  const legible = coverSceneLegibility(next);
+  return { veil: coverShadeVeil(next.shade), scrim: legible.scrim, tone: legible.tone };
 }
 
 /** The CSS a colour or a glass paints with (the prototype's tiles: Plain · Diagonal · Glow · Opaque · Frosted). */
@@ -191,11 +218,62 @@ export function coverSceneUploadLabel(open: boolean = GUEST_COVER_CLIP_PLAYBACK)
 
 /**
  * A clip card's name: "Your video" — or, when the row holds more than one clip, its file name (an upload's key is
- * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards.
+ * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards — and, once its length is known, " · N s"
+ * (the approved prototype's card: "▶ Your video · 12 s"; the ▶ is the tile's own mark for a moving card).
  */
-export function coverClipCardName(ref: string, clipsInRow: number): string {
-  if (clipsInRow <= 1) return 'Your video';
+export function coverClipCardName(ref: string, clipsInRow: number, seconds?: number | null): string {
   const file = ref.split('/').pop() ?? '';
-  const name = file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '');
-  return name || 'Your video';
+  const name = clipsInRow <= 1 ? 'Your video' : file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '') || 'Your video';
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? `${name} · ${Math.round(seconds)} s` : name;
+}
+
+/** One of the couple's uploads, as the editor page hands it (`sceneUploadRefs`, signed). */
+export type CoverUpload = { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null };
+export type CoverPhotoCard = { ref: string; url: string | null };
+export type CoverClipCard = { ref: string; poster: string | null; posterUrl: string | null; url: string | null };
+
+/**
+ * 🖼 THE COVER'S UPLOAD ROW — EVERY ONE OF THE COUPLE'S UPLOADED COVER MEDIA, PHOTOS AND VIDEOS, ONE LIST (owner
+ * 2026-10-17 on cale-ice, verbatim: *"why is the video not showing on the list of uploaded media files?"* — the cover
+ * was PLAYING his sunset clip while its Upload row showed "+ Upload" and one "Your photo"). The clips (the hero clip,
+ * then each uploaded clip) stand before the photos, as the approved prototype draws them.
+ *
+ * 🔑 Whatever the cover is WEARING is always a card in this row — even when no list handed to the row holds it — so the
+ * one in use is always there to be seen, ringed, and switched away from and back to. A clip is only offered while the
+ * cover takes clips (`coverSceneTakesClips`).
+ */
+export function coverUploadCards(input: {
+  uploads: readonly CoverUpload[];
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  ground: HubCoverGround | null;
+  takesClips: boolean;
+}): { photos: CoverPhotoCard[]; clips: CoverClipCard[] } {
+  const { uploads, photoChoices, videoChoice, ground, takesClips } = input;
+  /** A picture ref's shown URL: a photo choice, a photo upload, or a clip's still the page signed. */
+  const stillOf = (ref: string | null | undefined): string | null => {
+    if (!ref) return null;
+    const choice = photoChoices.find((p) => p.ref === ref);
+    if (choice) return choice.url;
+    const photo = uploads.find((u) => u.kind === 'photo' && u.ref === ref);
+    if (photo) return photo.url;
+    return uploads.find((u) => u.poster === ref)?.posterUrl ?? null;
+  };
+  const photos: CoverPhotoCard[] = [
+    ...uploads.filter((u) => u.kind === 'photo' && !photoChoices.some((p) => p.ref === u.ref)).map((u) => ({ ref: u.ref, url: u.url })),
+    ...photoChoices.map((p) => ({ ref: p.ref, url: p.url })),
+  ];
+  const clips: CoverClipCard[] = takesClips
+    ? [
+        ...(videoChoice ? [{ ref: videoChoice.ref, poster: videoChoice.poster ?? null, posterUrl: stillOf(videoChoice.poster), url: videoChoice.url }] : []),
+        ...uploads
+          .filter((u) => u.kind === 'snippet' && u.ref !== videoChoice?.ref)
+          .map((u) => ({ ref: u.ref, poster: u.poster ?? null, posterUrl: u.posterUrl ?? stillOf(u.poster), url: u.url })),
+      ]
+    : [];
+  if (ground?.kind === 'snippet' && takesClips && !clips.some((c) => c.ref === ground.media)) {
+    clips.push({ ref: ground.media, poster: ground.poster ?? null, posterUrl: stillOf(ground.poster), url: null });
+  }
+  if (ground?.kind === 'photo' && !photos.some((p) => p.ref === ground.media)) photos.unshift({ ref: ground.media, url: stillOf(ground.media) });
+  return { photos, clips };
 }

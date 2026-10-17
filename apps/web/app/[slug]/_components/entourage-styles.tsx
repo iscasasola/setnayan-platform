@@ -1,7 +1,9 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import { marchLineWords } from '@/lib/entourage';
+import { MineName, YourPlaceLine, anchorOnce, entourageMeOf } from './entourage-you';
 
 /**
  * THE ENTOURAGE'S MARCH STYLE — C · The march (prototype
@@ -27,7 +29,14 @@ import { marchLineWords } from '@/lib/entourage';
  */
 
 /** One walking line: its names and the roles under them. */
-export type MarchLine = { key: string; names: string; roles: string; ids: string[] };
+export type MarchLine = {
+  key: string;
+  names: string;
+  roles: string;
+  ids: string[];
+  /** The line's people, in name order — so the viewer's own name can be marked and their partner's not. */
+  people: ReadonlyArray<{ id: string | null; name: string }>;
+};
 
 /** The cast as numbered walking lines, in the order the groups arrive. */
 export function marchLines(groups: readonly EntourageGroup[]): MarchLine[] {
@@ -42,19 +51,21 @@ export function marchLines(groups: readonly EntourageGroup[]): MarchLine[] {
         /* 👪 Each parent named per person, in name order (owner 2026-10-17) — `marchLineWords`. */
         roles: marchLineWords(people, g),
         ids: people.map((p) => p.id).filter((x): x is string => Boolean(x)),
+        people: people.map((p) => ({ id: p.id, name: p.name })),
       });
     });
   }
   return out;
 }
 
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-}
-
-/** C · The march — numbered, in walking order, each role under its names; your line lifted. */
+/**
+ * C · The march — numbered, in walking order, each role under its names; your line lifted.
+ *
+ * 🫵 Owner 2026-10-17 (`entourage-you.tsx`): the gold rule still lifts the viewer's LINE (each line they walk in — two
+ * roles, two lines), and their own NAME carries the one mark every look draws, "You" after it — never the partner's.
+ * Where they walk is said under the heading by the shipped `marchPlaceLine` ("You walk 4th, with …") — the same
+ * sentence Me reads, so the page and Me cannot disagree.
+ */
 export function EntourageMarch({
   groups,
   id,
@@ -74,7 +85,8 @@ export function EntourageMarch({
   if (lines.length === 0) return null;
   const shown = previewHref ? lines.slice(0, previewLines) : lines;
   const hidden = lines.length - shown.length;
-  const mine = myGuestId ? lines.findIndex((l) => l.ids.includes(myGuestId)) : -1;
+  const me = entourageMeOf(myGuestId, shown.flatMap((l) => l.people), id);
+  const anchor = anchorOnce(me);
   return (
     <section id={id} className="scroll-mt-6 space-y-5" data-scene-style="march">
       <header className="space-y-2">
@@ -82,26 +94,31 @@ export function EntourageMarch({
           <span>The entourage</span>
         </p>
         <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">The march</h3>
-        <p className="text-sm text-ink/65">
-          In the order you walk.{mine >= 0 ? ' Your line is marked.' : ''}
-        </p>
+        <p className="text-sm text-ink/65">In the order you walk.</p>
+        <YourPlaceLine me={me} groups={groups} />
       </header>
       <ol className="divide-y divide-ink/10 border-y border-ink/10">
         {shown.map((l, i) => {
-          const isMine = i === mine;
+          const isMine = me !== null && l.ids.includes(me.id);
           return (
             <li
               key={l.key}
               data-march-line={isMine ? 'mine' : 'other'}
-              className={`flex items-baseline gap-4 py-3 ${isMine ? 'border-l-2 border-l-gild bg-veil/60 pl-3' : ''}`}
+              className={`flex items-baseline gap-4 py-3 ${isMine ? 'border-l-2 border-l-gild pl-3' : ''}`}
             >
               <span className="w-6 shrink-0 text-right font-mono text-sm tabular-nums text-gild">{i + 1}</span>
               <div className="min-w-0">
-                <p className="font-pahina text-lg leading-snug text-ink">{l.names}</p>
-                <p className="text-sm text-ink/65">
-                  {l.roles}
-                  {isMine ? ` · you walk ${ordinal(i + 1)}` : ''}
+                <p className="font-pahina text-lg leading-snug text-ink">
+                  {isMine
+                    ? l.people.map((p, j) => (
+                        <Fragment key={j}>
+                          {j > 0 ? ' & ' : ''}
+                          {me && p.id === me.id ? <MineName anchor={anchor()}>{p.name}</MineName> : p.name}
+                        </Fragment>
+                      ))
+                    : l.names}
                 </p>
+                <p className="text-sm text-ink/65">{l.roles}</p>
               </div>
             </li>
           );

@@ -75,7 +75,9 @@ test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, t
 
 test('card body: every choice is ONE shipped PickMenu — never a native select, never a pill row', () => {
   assert.doesNotMatch(CARD, /<select\b|type="radio"/, 'a native select or a radio pill row is back on the card');
-  for (const name of ['name_prefix', 'side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
+  // 🪪 The Title is its own leaf since 2026-10-17 — the pick carries woman or man ("Atty. (Woman)"), posting `name_title`.
+  assert.match(CARD, /<K\.Title\s+label="Title"/, 'the Title is not a dropdown on the card');
+  for (const name of ['side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
     assert.match(CARD, new RegExp(`<K\\.Pick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
     // ⤷ 2026-10-09 (4B): the body names the field; the kit draws it — a FormPick in the Maker's card, a Form row on the Guests pages.
   }

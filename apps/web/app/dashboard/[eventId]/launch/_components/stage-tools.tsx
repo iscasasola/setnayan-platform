@@ -92,7 +92,7 @@ import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import { SEE_AS, SEE_AS_EDITING, seeAsDrawingLine, seeAsLabel, type SeeAs } from '@/lib/see-as';
+import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -383,8 +383,8 @@ export function StageTools({
   const previewingRef = useRef(false);
   previewingRef.current = previewing;
   /** 👁 See as, as the Maker holds it (`maker-shell.tsx` seeAs/setSeeAs) — read by Exit preview, declared above it. */
-  const seeAsNow = useRef<{ seeAs: SeeAs | null; set?: (next: SeeAs | null) => void }>({ seeAs: null });
-  seeAsNow.current = { seeAs: maker?.seeAs ?? null, set: maker?.setSeeAs };
+  const seeAsNow = useRef<{ seeAs: SeeAs | null; set?: (next: SeeAs | null) => void; setRole?: (next: string | null) => void }>({ seeAs: null });
+  seeAsNow.current = { seeAs: maker?.seeAs ?? null, set: maker?.setSeeAs, setRole: maker?.setSeeAsRole };
   /** Where they were when the preview began — the page, the part: Exit returns to exactly that. */
   const before = useRef<{ picked: MakerPartKey | null; page: string | null }>({ picked: null, page: null });
   /** Animate's phase (the same store the tool itself reads): ▶ plays the one they are on. */
@@ -990,6 +990,8 @@ export function StageTools({
     setPreviewing(false);
     /* 👁 Back to editing: the page is the couple's own again (the prototype's exitPreview — See as returns to You). */
     if (seeAsNow.current.seeAs !== null) seeAsNow.current.set?.(null);
+    /* 🎭 …and Role ▾ to any guest, so the next See as starts plain. */
+    seeAsNow.current.setRole?.(null);
     /* Back to exactly where they were: the page they left, then the part they held (the tool was never changed). */
     const was = before.current;
     const page = was.page && was.page !== where.current.shownPage ? pagesRef.current.find((p) => p.key === was.page) : null;
@@ -1864,6 +1866,27 @@ export function StageTools({
                     setWhyRef.current(seeAsDrawingLine(next));
                   }}
                   dataAttr="data-stage-see-as"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                />
+              ) : null}
+              {/* 🎭 ROLE ▾ (owner 2026-10-17: "for example i want to view it as a father of the bride") — under See as,
+                  only while it draws a guest: WHICH guest, from this event's own guest-list roles (the man / woman
+                  half where the role needs it). A pick redraws the canvas at `?asrole=`; the sample is named for its
+                  role and nothing is written. */}
+              {maker?.setSeeAsRole && !rsvpOpen && seeAsDrawsMe(maker.seeAs) && (maker.seeAsRoles?.length ?? 0) > 1 ? (
+                <PickMenu
+                  label="Role"
+                  value={maker.seeAsRole ?? SEE_AS_ANY_ROLE}
+                  buttonText={`Role · ${maker.seeAsRoles?.find((r) => r.key === (maker.seeAsRole ?? SEE_AS_ANY_ROLE))?.label ?? 'Any guest'}`}
+                  options={(maker.seeAsRoles ?? []).map((r) => (r.group ? { key: r.key, label: r.label, group: r.group } : { key: r.key, label: r.label }))}
+                  onPick={(key) => {
+                    const next = key === SEE_AS_ANY_ROLE ? null : key;
+                    if (next === (maker.seeAsRole ?? null)) return;
+                    maker.setSeeAsRole?.(next);
+                    setWhyRef.current(seeAsRoleDrawingLine(maker.seeAsRoles?.find((r) => r.key === next)?.label ?? null));
+                  }}
+                  stickyGroups
+                  dataAttr="data-stage-see-as-role"
                   className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
                 />
               ) : null}

@@ -29,9 +29,9 @@
  */
 import { oklchDistance, oklchOfHex, type Oklch } from './color-space';
 import { applyTouch } from './mood-board-board-ops';
-import { candidatesFor, harmonySuggestions, shadeSuggestions } from './palette-recommender';
 import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board';
 import { nearestColorName } from './color-names';
+import { recentColoursToShow } from './colour-picker-recent';
 import { AA_BODY, AA_LARGE, contrastRatio, relativeLuminance } from './hub-legibility';
 
 const HEX = /^#[0-9A-F]{6}$/i;
@@ -184,58 +184,12 @@ export function nextAutoPage(all: readonly AutoSuggestion[], page: number, size:
   return [...best, ...shown];
 }
 
-/* ══ THE PICKER'S SWATCHES ═════════════════════════════════════════════════ */
-
-/**
- * The picker's sixteen (owner 2026-10-06: "Swatches (16 curated)") — the
- * prototype's own sixteen, a ladder of the house's plums, golds, sages, blushes
- * and creams. Display choices only: nothing is written until one is tapped.
- */
-export const PICKER_SWATCHES = [
-  '#5B4A6B', '#6E5A80', '#3E3350', '#2A3A5E', '#2C2A29', '#B5543A', '#A9834B', '#C9A86A',
-  '#F1C27D', '#7A8B6F', '#B9C9B0', '#D9C4CF', '#E9C9D3', '#F3DDE3', '#F7F2EC', '#FFFFFF',
-] as const;
+/* ══ THE PICKER ═══════════════════════════════════════════════════════════ */
 
 /** A typed colour code ("c9a86a", "#C9A86A") as `#RRGGBB`, or null. */
 export function cleanHexInput(raw: string): string | null {
   const v = raw.trim().replace(/^#?/, '#').toUpperCase();
   return HEX.test(v) ? v : null;
-}
-
-/**
- * 🎨 THE PICKER'S SUGGESTIONS, IN THE OWNER'S ORDER (2026-10-08, verbatim *"the color suggestions
- * should rely on the moodboard as well. so the mood board colors, then the complementing colors for
- * them"*): the Mood Board's five first, then the colours that go with them — the Mood Board's OWN
- * harmony (`candidatesFor`, lib/palette-recommender.ts: complement · split · analogous · triadic ·
- * lighter · deeper · muted · richer off every one of the five, kept only where it reads apart from
- * ALL five) — never a second harmony. Each list deduplicated, upper-case `#RRGGBB`; the photos,
- * swatches and Custom follow in the sheet. Display only: nothing is written until one is tapped.
- */
-export function pickerSuggestions(palette: readonly string[], max = 8): { palette: string[]; goesWith: string[] } {
-  const five = [...new Set(palette.map((c) => cleanHexInput(c)).filter((c): c is string => c !== null))].slice(0, 5);
-  if (five.length === 0) return { palette: [], goesWith: [] };
-  /* Each of the five's own candidates (its harmony first), kept only where it reads apart from all
-     five — `candidatesFor` with that colour leading — then taken in turn, one from each colour, so the
-     row answers the whole palette and not only its first colour. */
-  const per = five.map((c, i) => {
-    const own = new Set([...harmonySuggestions(c), ...shadeSuggestions(c)].map((x) => x.hex.toUpperCase()));
-    const lead = [c, ...five.slice(0, i), ...five.slice(i + 1)];
-    return candidatesFor(lead)
-      .map((x) => cleanHexInput(x.hex))
-      .filter((h): h is string => h !== null && own.has(h));
-  });
-  const seen = new Set(five);
-  const goesWith: string[] = [];
-  for (let round = 0; goesWith.length < max && per.some((l) => l.length > round); round++) {
-    for (const list of per) {
-      const hex = list[round];
-      if (!hex || seen.has(hex)) continue;
-      seen.add(hex);
-      goesWith.push(hex);
-      if (goesWith.length >= max) break;
-    }
-  }
-  return { palette: five, goesWith };
 }
 
 /* ══ THE PICKER'S SHELVES ══════════════════════════════════════════════════ */
@@ -276,22 +230,23 @@ export function readableFirst<T extends { hex: string }>(list: readonly T[], gro
   return [...list.filter(reads), ...list.filter((t) => !reads(t))];
 }
 
-/** How many "Goes with your Mood Board" rows the picker draws (the prototype's six). */
-export const PICKER_GOES_WITH = 6;
-
 export type PickerRow = { hex: string; name: string | null };
 /**
- * 🎨 THE PICKER'S TWO SUGGESTION SHELVES, AS ROWS (restudy § 2.2: *Your Mood Board* (the five) ·
- * *Goes with your Mood Board* (complements)) — `pickerSuggestions`' two lists, each colour with a
- * name: the caller's own for its slot (`names`, by the position the caller listed it — "Dominant"),
- * else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, each shelf
- * leads with the colours that read on it (`readableFirst`).
+ * 🎨 THE PICKER'S TWO COLOUR ROWS, AS ROWS (owner 2026-10-17, verbatim *"Just have the Moodboard and
+ * Recently Used 5 colors"* — "Goes with your Mood Board" and the sixteen Swatches left the sheet that day):
+ *   · `board` — the Mood Board's five, each once, as the caller holds them;
+ *   · `recent` — what this person picked last in the picker (`lib/colour-picker-recent.ts`), newest first,
+ *     none of the five, at most five.
+ * Each colour with a name: the caller's own for its slot (`names`, by the position the caller listed it —
+ * "Dominant"), else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, the Mood
+ * Board row leads with the colours that read on it (`readableFirst`) — reordered, never hidden; Recently used
+ * keeps its newest-first order.
  */
 export function pickerShelves(
   palette: readonly string[],
-  opts: { names?: readonly string[]; readsOn?: string | null } = {},
-): { board: PickerRow[]; goesWith: PickerRow[] } {
-  const s = pickerSuggestions(palette, PICKER_GOES_WITH);
+  opts: { names?: readonly string[]; readsOn?: string | null; recent?: readonly string[] } = {},
+): { board: PickerRow[]; recent: PickerRow[] } {
+  const five = [...new Set(palette.map((c) => cleanHexInput(c)).filter((c): c is string => c !== null))].slice(0, 5);
   const named = new Map<string, string>();
   palette.forEach((c, i) => {
     const hex = cleanHexInput(c);
@@ -300,8 +255,10 @@ export function pickerShelves(
   });
   const row = (hex: string): PickerRow => ({ hex, name: named.get(hex) ?? nearestColorName(hex) });
   return {
-    board: readableFirst(s.palette.map(row), opts.readsOn),
-    goesWith: readableFirst(s.goesWith.map(row), opts.readsOn),
+    board: readableFirst(five.map(row), opts.readsOn),
+    /* Newest first, always — the owner asked for the colours just used, in the order they were used; a ground marks
+       them (the AA line above) but never reorders them. */
+    recent: recentColoursToShow(opts.recent ?? [], five).map(row),
   };
 }
 

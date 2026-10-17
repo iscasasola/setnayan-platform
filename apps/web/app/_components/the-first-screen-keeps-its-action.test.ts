@@ -217,10 +217,12 @@ test('(5) the page wears it: the button never floats, the component measures wha
 
   // The door mounts the measuring half — unless it is told not to (the Maker's canvas).
   const door = stripComments(read('app/[slug]/_components/get-inside.tsx'));
-  assert.match(door, /<details className=\{`group mx-auto max-w-md\$\{dock \? ' sn-door-dock' : ''\}`\} data-get-inside="door">/);
-  assert.match(door, /\{dock \? <FirstScreenDoor \/> : null\}/);
+  // (2026-10-17: a door IN the cover's foot is not docked — `inFoot`; the fit is for a door below a cover.)
+  assert.match(door, /<details className=\{`group mx-auto max-w-md\$\{dock && !inFoot \? ' sn-door-dock' : ''\}`\} data-get-inside="door">/);
+  assert.match(door, /\{inFoot \? <FirstScreenDoor fit=\{false\} \/> : dock \? <FirstScreenDoor \/> : null\}/);
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  assert.match(body, /<div className="sn-door-row">[\s\S]{0,1600}<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}/, 'the door’s row changed, or the canvas fits it');
+  assert.match(body, /<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}\s*inFoot=\{inFoot\}/, 'the canvas fits the door, or the foot’s door is fitted');
+  assert.match(body, /<div className="sn-door-row">\{strangerDoor\(false\)\}<\/div>/, 'the door’s own row (no cover drawn) changed');
 
   // The component: three measurements, the rule, and the limit — the bar's top or the banner's, whichever is higher.
   // (RE-AIMED 2026-10-12: the measuring and writing moved, unchanged, to `_lib/first-screen-fit-dom.ts`, so the ONE fit

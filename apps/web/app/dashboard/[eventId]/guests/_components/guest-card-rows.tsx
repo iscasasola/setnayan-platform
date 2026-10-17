@@ -19,11 +19,13 @@ import type {
   CardLockedProps,
   CardPickProps,
   CardSubmitProps,
+  CardTitleProps,
   CardTipProps,
   CardToggleProps,
 } from './guest-card-kit';
 import { useAutosaveOutcome } from './guest-card-autosave';
 import { isPlainSentence } from './plain-refusal';
+import { TitlePicker } from './title-picker';
 
 /**
  * guest-card-rows.tsx — THE GUEST CARD'S LEAF CONTROLS, DRAWN BY THE APP'S TEMPLATES (step 4B, 2026-10-09).
@@ -91,7 +93,7 @@ export function CardFold({ summary, value, emptyValue, open = false, children }:
  * server's old answer — owner's live iPhone test 2026-10-02), `data-form-pick` so the Undo finds it, `sn-restore` so the Undo
  * reaches the screen, and `input` + `change` raised on a pick because a hidden input raises neither by itself.
  */
-export function CardPick({ name, label, value, options, multi = false, emptyText = 'None', about }: CardPickProps) {
+export function CardPick({ name, label, value, options, multi = false, emptyText = 'None', about, unlisted }: CardPickProps) {
   const [current, setCurrent] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
   const width = usePillWidth();
@@ -132,8 +134,18 @@ export function CardPick({ name, label, value, options, multi = false, emptyText
     : undefined;
   return (
     <FormRow name={label} about={about ? { words: about } : null} data={`card-${name}`} attrs={{ 'data-card-field': name }}>
-      <PickMenu label={label} value={multi ? null : current} options={options} onPick={pick} picked={picked} buttonText={multiText} className={`${FORM_PICK_CLASS} ${width}`} />
+      <PickMenu label={label} value={multi ? null : current} options={options} onPick={pick} picked={picked} buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)} className={`${FORM_PICK_CLASS} ${width}`} />
       <input ref={ref} type="hidden" id={name} name={name} value={current} data-form-pick="" />
+    </FormRow>
+  );
+}
+
+/** 🪪 The Title, as a Form row: the house dropdown whose pick carries woman or man, with "Other title…" (`TitlePicker`). */
+export function CardTitle({ label, value, current, unlisted, narrow = false }: CardTitleProps) {
+  const width = usePillWidth();
+  return (
+    <FormRow name={label} data="card-name_title" attrs={{ 'data-card-field': 'name_title' }}>
+      <TitlePicker label={label} value={value} current={current} unlisted={unlisted} narrowTo={narrow ? current : undefined} className={`${FORM_PICK_CLASS} ${width}`} />
     </FormRow>
   );
 }

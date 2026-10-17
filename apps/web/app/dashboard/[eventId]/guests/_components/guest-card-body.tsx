@@ -26,7 +26,7 @@ import {
   guestFullName,
   guestHasTicket,
 } from '@/lib/guests';
-import { prefixChoicesFor } from '@/lib/formal-name';
+import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
 import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
@@ -48,7 +48,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
-import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardToggleProps } from './guest-card-kit';
+import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -291,6 +291,10 @@ export function GuestCardBody({
   const nameLocked = Boolean(profileName) || nameLinked;
   // The five parts as one line — the same formal name the list prints.
   const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
+  // 🪪 The Title's stored pick, and its words while it is not an entry ("Atty." · "Atty. — Woman or Man?").
+  const titleNow = titleKey(guest.name_prefix, guest.gender);
+  const needsTitle = needsWomanOrMan(guest);
+  const titleText = titleButtonText(guest.name_prefix, guest.gender, needsTitle);
   const accessTagLabel = access ? accessTag(access) : null;
 
   const K: CardKit = kit ?? OLD_KIT;
@@ -546,20 +550,27 @@ export function GuestCardBody({
                 <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
                 <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
                 <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+                {/* 🪪 Their name is theirs, but whether "Atty." is a woman or a man is still the host's to say — the
+                    same Title pick, narrowed to their own title's entries; `updateGuest` writes only the gender. */}
+                {needsTitle || (guest.gender && !genderOfTitle(guest.name_prefix)) ? (
+                  <div className="mt-2 max-w-[12rem]">
+                    <K.Title label="Title" value={titleNow} current={guest.name_prefix} options={choicesOfTitle(guest.name_prefix ?? '')} unlisted={{ key: titleNow, text: titleText }} narrow />
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>
-                <K.Cols className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
-                  <K.Pick
-                    name="name_prefix"
-                    label="Prefix"
-                    value={guest.name_prefix ?? ''}
-                    options={[{ key: '', label: '—' }, ...prefixChoicesFor(guest.name_prefix).map((p) => ({ key: p, label: p }))]}
-                  />
+                {/* 🪪 THE TITLE CARRIES WOMAN OR MAN (owner 2026-10-17: "let them choose Atty (Female) or Atty (Male)"
+                    → "so no need to choose"). One dropdown — "Atty. (Woman)" · "Atty. (Man)" — posting `name_title`;
+                    `updateGuest` stores the title that prints and the gender that never does. A stored neutral title
+                    whose printed word waits on it reads "Atty. — Woman or Man?" until it is picked again here.
+                    Wider than the old Prefix box so "Atty. (Woman)" reads whole at 375; Middle moves down a row. */}
+                <K.Cols className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] gap-2">
+                  <K.Title label="Title" value={titleNow} current={guest.name_prefix} options={titleChoices({ current: guest.name_prefix })} unlisted={{ key: titleNow, text: titleText }} />
                   <K.Field id="first_name" label="First" required defaultValue={guest.first_name} />
-                  <K.Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
                 </K.Cols>
-                <K.Cols className="grid grid-cols-[minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
+                <K.Cols className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4.5rem)] gap-2">
+                  <K.Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
                   <K.Field id="last_name" label="Last" required defaultValue={guest.last_name} />
                   <K.Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
                 </K.Cols>
@@ -1031,6 +1042,10 @@ function OldPick({ about, ...pick }: CardPickProps) {
   void about; // the old kit prints the sentence beside the control (the body does), not behind an ⓘ
   return <FormPick {...pick} />;
 }
+/** The Title in the Maker's card: the same entries and the same posted key; no "Other title…" box (no room in its first load). */
+function OldTitle({ label, value, options, unlisted }: CardTitleProps) {
+  return <FormPick name="name_title" label={label} value={value} options={options} unlisted={unlisted} dataAttr="data-title-pick" />;
+}
 function OldInvitedTo({ roleSelectId, initialRole, initialBlocks }: CardInvitedToProps) {
   return (
     <div className="space-y-1">
@@ -1083,6 +1098,7 @@ const OLD_KIT: CardKit = {
   Toggle,
   Fold,
   Pick: OldPick,
+  Title: OldTitle,
   InvitedTo: OldInvitedTo,
   Locked: OldLocked,
   Submit: OldSubmit,

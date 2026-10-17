@@ -315,7 +315,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     )
       ? (g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined')
       : 'pending';
-    const attire = resolveGuestAttire(g.role, g.attire);
+    const attire = resolveGuestAttire(g.role, g.attire, g.gender);
     return {
       id: g.guest_id,
       name: guestDisplayName(g),

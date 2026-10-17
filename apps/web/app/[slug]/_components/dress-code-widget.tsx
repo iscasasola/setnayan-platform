@@ -19,6 +19,7 @@ import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
+import { SeeWhereYouAre } from './see-where-you-are';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 import { DotWords, PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
@@ -100,6 +101,7 @@ export function DressCodeWidget({
   words,
   guestRole = null,
   guestAttire = null,
+  guestNameParts = null,
   march = null,
   rolePalette = null,
   roleNames = null,
@@ -168,6 +170,8 @@ export function DressCodeWidget({
    * their own). Unknown → the reader is shown both picks.
    */
   guestAttire?: GuestAttire | null;
+  /** 👪 The reader's typed title / shown name — with `guestAttire`, what names a parent per person ("You are Father of the Bride", `kinWordOfReader`). */
+  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
@@ -292,6 +296,7 @@ export function DressCodeWidget({
     groups,
     palette: board,
     names: roleNames,
+    person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
   }))), generalHasContent);
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
@@ -350,6 +355,8 @@ export function DressCodeWidget({
         </p>
         <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{named}</p>
         {marchLine}
+        {/* 🫵 Their marked name in the entourage, one tap away (owner 2026-10-17) — drawn only when it is on the page. */}
+        <SeeWhereYouAre />
       </section>
     );
   }
@@ -524,6 +531,8 @@ export function DressCodeWidget({
           {/* 🚶 WHERE YOU WALK (owner 2026-09-29) — under the same "You are" line,
               so a walker whose role has no outfit line still reads it. */}
           {marchLine}
+          {/* 🫵 Their marked name in the entourage, one tap away (owner 2026-10-17) — drawn only when it is on the page. */}
+          <SeeWhereYouAre />
           {mine ? (
           <>
           {/* WHERE THE ANSWER CAME FROM — said only when it came from the group.

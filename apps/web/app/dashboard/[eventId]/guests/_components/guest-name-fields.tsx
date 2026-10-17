@@ -12,7 +12,8 @@ import {
 } from '@/lib/guests';
 import { findDuplicates, TAG } from '@/lib/guest-dedupe';
 import { parsePersonName } from '@/lib/person-name-parse';
-import { PrefixSelect } from '@/app/_components/formal-name-inputs';
+import { TitlePicker } from './title-picker';
+import { genderOfTitle, takeGenderMark, titleKey } from '@/lib/guest-title';
 
 // Slim projection of a guest — only what the matcher needs + what the
 // warning row renders. The server page maps GuestRow down to this so the
@@ -63,7 +64,8 @@ export function GuestNameFields({
   const roleNames = useRoleNames();
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
-  const [prefix, setPrefix] = useState('');
+  // 🪪 The Title pick's key ("Atty.|woman") — the title carries woman or man (owner 2026-10-17).
+  const [title, setTitle] = useState('');
   const [middle, setMiddle] = useState('');
   const [suffix, setSuffix] = useState('');
   const [dismissed, setDismissed] = useState(false);
@@ -78,16 +80,18 @@ export function GuestNameFields({
    * who hand-entered a prefix keeps it.
    */
   const splitNow = () => {
-    const line = `${first} ${last}`.trim();
+    // A pasted "(Woman)" / "(Man)" is the host's own mark for the title's gender, never part of the name.
+    const marked = takeGenderMark(`${first} ${last}`.trim());
+    const line = marked.text;
     if (!line) return;
     const p = parsePersonName(line);
     // Nothing to redistribute — leave the host's typing exactly as it is.
-    if (!p.prefix && !p.middleName && !p.suffix && p.firstName === first.trim()) {
+    if (!p.prefix && !p.middleName && !p.suffix && p.firstName === first.trim() && !marked.gender) {
       return;
     }
     if (p.firstName) setFirst(p.firstName);
     if (p.lastName) setLast(p.lastName);
-    if (p.prefix && !prefix.trim()) setPrefix(p.prefix);
+    if (p.prefix && !title) setTitle(titleKey(p.prefix, marked.gender ?? genderOfTitle(p.prefix)));
     if (p.middleName && !middle.trim()) setMiddle(p.middleName);
     if (p.suffix && !suffix.trim()) setSuffix(p.suffix);
     setDismissed(false);
@@ -102,13 +106,11 @@ export function GuestNameFields({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
-            Prefix
-          </label>
-          {/* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). The
-              splitter still fills it — an unlisted title it finds stays as its
-              own option. */}
-          <PrefixSelect id="name_prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
+          <span className="block text-sm font-medium text-ink">Title</span>
+          {/* 🪪 THE TITLE CARRIES WOMAN OR MAN (owner 2026-10-17) — the house dropdown, "Atty. (Woman)" ·
+              "Atty. (Man)", "Other title…" last. Posts `name_title`; the splitter still fills it — an unlisted
+              title it finds comes back as its own two entries. */}
+          <TitlePicker value={title} current={title.split('|')[0] || null} onPicked={setTitle} className="w-full justify-between border border-ink/15 !bg-white/80 font-medium" />
         </div>
         <div className="space-y-1.5 sm:col-span-3">
           <label className="block text-sm font-medium text-ink" htmlFor="first_name">

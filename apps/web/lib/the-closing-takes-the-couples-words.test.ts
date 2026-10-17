@@ -105,13 +105,17 @@ test('3 · nobody touched it → the sign-off exactly as before (a free event ke
   );
 });
 
-test('4 · stored beside the cover’s words, gated by the same comparison: motion Pro at Apply, words and look free', () => {
+test('4 · stored beside the cover’s words, gated by the same comparison: motion and look Pro at Apply, words free', () => {
   assert.equal(elementCanvasOwner(CLOSING_CANVAS_KEY), 'hero');
   assert.equal(elementCanvasOwner('f:hero'), 'hero');
   assert.equal(elementCanvasOwner('w:countdown'), 'countdown');
   const live = sanitizeHubCanvas({ canvas: {} });
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *everything in Style is Pro*): the closing's words stay free; its colour,
+     size and width are Style — Pro at Apply, exactly as a cover word's are. */
+  const words = sanitizeHubCanvas({ canvas: { elements: { closing: { word: 'Until December!' } } } });
+  assert.equal(canvasLookChange(live, words, 'hero'), 'none', 'the closing’s words are priced — a cover word’s are free');
   const look = sanitizeHubCanvas({ canvas: { elements: { closing: { word: 'Until December!', color: '#1F6F5C', size: 120, width: 'wide' } } } });
-  assert.equal(canvasLookChange(live, look, 'hero'), 'none', 'the closing’s words or look are priced — a cover word’s are free');
+  assert.equal(canvasLookChange(live, look, 'hero'), 'add', 'the closing’s look is not Pro at Apply — a cover word’s is');
   const moving = sanitizeHubCanvas({ canvas: { elements: { closing: { motion: { during: 'glow' } } } } });
   assert.equal(canvasLookChange(live, moving, 'hero'), 'add', 'the closing’s Animate is not Pro at Apply');
   assert.ok(

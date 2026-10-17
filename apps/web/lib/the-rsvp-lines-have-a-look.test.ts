@@ -201,8 +201,14 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   assert.deepEqual(sanitizeRsvpAskConfig(stored).look, look);
   /* The public-listing switch rewrites the object from the sanitised one. */
   assert.deepEqual(rsvpAskConfigOnGoingPublic({ previousVisibility: 'unlisted', nextVisibility: 'public', rawConfig: stored })?.look, look);
-  /* The Pro check splits the draft into its free part — the look is in it. */
-  assert.deepEqual(rsvpAskFreePart({}, stored).look, look);
+  /* The Pro check splits the draft into its free part — the look is in it, whole, when it is already live (🏛 a
+     published look is grandfathered) … */
+  assert.deepEqual(rsvpAskFreePart(stored, stored).look, look);
+  /* … and, when it is new, with only its Style (💎 Pro since 2026-10-16) put back to live: the words, the added lines,
+     the order, the groups and unknown keys still ride. */
+  const { lines: _lines, ...rest } = look;
+  void _lines;
+  assert.deepEqual(rsvpAskFreePart({}, stored).look, rest);
   /* A shape that is not an object is not carried. */
   for (const bad of ['x', 3, null, [1], true]) assert.equal(sanitizeRsvpAskConfig({ look: bad }).look, undefined);
   /* THE OTHER WRITERS build on the sanitised object and spread their own patch over it: the two panels' saves. */
@@ -253,8 +259,9 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   assert.match(text, /<button type="button" aria-pressed="true" aria-label="Colour #6b7a3a — change it"[^>]*data-rsvp-look-colour="#6b7a3a"/);
   /* Font ▾ on its own row, first; then Colour and Size TOGETHER on the next (the cover line's last row). */
   assert.deepEqual(rows(text), ['font', 'size']);
-  assert.match(text, /data-rsvp-line-look-row="font">.*?>Font<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
-  assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour<\/span>.*?data-rsvp-look-colour=.*?>Size<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
+  /* 💎 2026-10-18: each label wears ◆ — a reply line's Style is Event Hub Pro (owner 2026-10-16). */
+  assert.match(text, /data-rsvp-line-look-row="font">.*?>Font ◆<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
+  assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour ◆<\/span>.*?data-rsvp-look-colour=.*?>Size ◆<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
   assert.match(await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: '#AA0011' } } } }), /aria-label="Colour #aa0011 — change it"[^>]*data-rsvp-look-colour="#aa0011"/);
   assert.doesNotMatch(text, /data-rsvp-word-field|data-rsvp-setting=/, 'Style on a line draws the words or the settings too');
   /* No look yet: the page's own colour (the striped circle), the line's font as designed, at 100%. */
@@ -273,7 +280,7 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   for (const [scene, part, line] of [['form', 'rsvp', 'yes'], ['form', 'rsvp', 'no'], ['thanks', 'pass', 'save']] as const) {
     const html = await panel(scene, { tool: 'style', part, line });
     assert.deepEqual(circles(html), [], `${line} offers a colour`);
-    assert.doesNotMatch(html, />Colour<\/span>/, `${line} names a colour`);
+    assert.doesNotMatch(html, />Colour( ◆)?<\/span>/, `${line} names a colour`);
     assert.deepEqual(rows(html), ['font', 'size', 'button-note']);
     assert.match(html, /data-rsvp-look-font=""/, `${line} has no font`);
   }

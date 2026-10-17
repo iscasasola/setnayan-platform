@@ -213,7 +213,7 @@ export function styleCardFit(
  */
 export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1';
 export const SP_PALETTE_PICK =
-  'sn-press flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
+  'sn-press relative flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
   /* The picture fills the button — one frame, not the dropdown thumbnail's small box inside a second one — and its
      marks are drawn a little larger, to be read at a glance. 2026-10-15: eight looks (Arch tabs · Watercolour dots ·
      Paint strokes joined) make each button ~41 px at 375, so the strip draws three colours (`PaletteLookStrip`) at

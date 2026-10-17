@@ -134,6 +134,7 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
   'slot-media': 'Photos',
   playback: 'Clip playback',
   look: 'Look',
+  'part-style': 'Style',
 };
 
 /** Where a scene lives: "Invitation · When & where" when it is on one stage, else just its name. */

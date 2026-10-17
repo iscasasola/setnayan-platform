@@ -152,7 +152,8 @@ test('the palette’s looks are pictures on the Dress code part — one row of f
   assert.equal(bodies.length, PALETTE_LOOK_IDS.length);
   for (const b of bodies) {
     assert.ok((b.match(/background-color:#/gi) ?? []).length >= 3, 'a look is drawn without the couple’s colours');
-    assert.match(b, /aria-label="Palette style: [A-Za-z ]+"/);
+    /* 💎 2026-10-18: a look that is not Tags (the theme's own) says ◆ — Event Hub Pro since 2026-10-16. */
+    assert.match(b, /aria-label="Palette style: [A-Za-z ]+( ◆)?"/);
   }
   assert.doesNotMatch(html, /aria-haspopup|data-palette-look=|<select/, 'a dropdown came back');
   assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 1);

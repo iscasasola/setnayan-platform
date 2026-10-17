@@ -210,6 +210,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       ownWords={ownWords}
       typeHere={typeHere}
       scrub={scrub}
+      ownsPro={sp.pro === '1'}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
       blockLooks={blockLooks}

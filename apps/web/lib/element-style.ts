@@ -756,8 +756,12 @@ export function hubElementDuringOffered(key: HubElementKey): readonly HubElDurin
 export function hubElementDuringDefault(key: HubElementKey): HubElDuring {
   return hubElementIsPicture(key) ? 'parallax' : 'still';
 }
-/** 💎 The Action choices that are new effects — marked ◆ in Action ▾ and named at Apply (Shimmer's pattern). */
-export const HUB_EL_DURING_PRO_NAMED: readonly HubElDuring[] = ['shimmer', 'glow', 'leak'];
+/**
+ * 💎 The Action choices that are effects — marked ◆ in Action ▾ and named at Apply (Shimmer's pattern). Drift and Ken
+ * Burns joined 2026-10-16 (owner: *"all animate, effects, styles, accents are pro"* — the ruling names Ken Burns and
+ * Drift); Still and a picture's Parallax are each part's own default, never a choice to pay for.
+ */
+export const HUB_EL_DURING_PRO_NAMED: readonly HubElDuring[] = ['shimmer', 'glow', 'leak', 'drift', 'kenburns'];
 
 /** The six (and Shimmer) a part's motion wears, by their own names — what the Apply sheet says (`hub-pro-effects.ts`). */
 export function hubElementEffectNames(motion: HubElementMotion | null | undefined): string[] {

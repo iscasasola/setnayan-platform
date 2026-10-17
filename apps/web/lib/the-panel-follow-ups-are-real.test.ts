@@ -180,12 +180,19 @@ test('D · a camera pick never resets a drafted QR, and the QR never resets the 
   assert.deepEqual(d.events.style_preferences, { qr: { pattern: 'dots' }, camera_look: 'brand' }, 'an unknown look is dropped');
 });
 
-test('D · the camera look is free; only a moving QR is Pro — and a held QR still lets the camera through', () => {
-  assert.equal(eventItemIsPro('style_preferences', { camera_look: 'challenges' }, 'change', {}), false);
-  const live: HubLiveState = { events: { style_preferences: {} }, widgets: [] };
-  const draft = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { pattern: 'dots' }, camera_look: 'brand' } } });
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *everything in Style is Pro … style cards*): a camera look is a style card —
+   every look but Classic (the camera's own) is Pro at Apply; going back to Classic is free and is still let through
+   beside a held QR. */
+test('D · a camera look but Classic is Pro, a moving QR is Pro — and a held QR still lets Classic through', () => {
+  assert.equal(eventItemIsPro('style_preferences', { camera_look: 'challenges' }, 'change', {}), true);
+  assert.equal(eventItemIsPro('style_preferences', { camera_look: 'classic' }, 'change', { camera_look: 'brand' }), false, 'back to Classic is Pro');
+  assert.equal(eventItemIsPro('style_preferences', { camera_look: 'brand' }, 'none', { camera_look: 'brand' }), false, 'a published look is no change');
+  const live: HubLiveState = { events: { style_preferences: { camera_look: 'brand' } }, widgets: [] };
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { pattern: 'dots' }, camera_look: 'classic' } } });
   const plan = planHubDraftApply(draft, live, false);
   const free = plan.apply.find((i) => i.kind === 'event' && i.column === 'style_preferences');
-  assert.ok(free, 'the camera look is written though the QR waits for Pro');
-  assert.deepEqual((free as { value: unknown }).value, { camera_look: 'brand' }, 'only the camera look — never the held QR');
+  assert.ok(free, 'going back to Classic is written though the QR waits for Pro');
+  assert.deepEqual((free as { value: unknown }).value, { camera_look: 'classic' }, 'only the camera look — never the held QR');
+  const brand = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { camera_look: 'brand' } } });
+  assert.equal(planHubDraftApply(brand, { events: { style_preferences: {} }, widgets: [] }, false).refused.length, 1, 'Your brand went live for a free couple');
 });

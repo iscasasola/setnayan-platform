@@ -333,22 +333,28 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const counted = (draft: ReturnType<typeof sanitizeHubDraft>) => hubDraftCountedChanges(planHubDraftApply(draft, live, false));
   const moved = counted(part!);
   assert.equal(moved.length, 1, 'a block’s look does not move the Apply count');
-  assert.equal(moved[0]!.held, false, 'a block’s look is held as if it were Pro — it is free');
-  /* …and so is a look for a sample made real (Your seat): one change, free. */
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *"all animate, effects, styles, accents are pro"*): a block's MOTION is
+     Animate — held at Apply for a couple without Pro, written for one with it; its background stays free. */
+  assert.equal(moved[0]!.held, true, 'a block’s new motion went live for a free couple — Animate is Pro');
+  assert.equal(hubDraftCountedChanges(planHubDraftApply(part!, live, true))[0]!.held, false, 'a Pro couple’s block motion was held');
+  const ground = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { later: { g: 'frost' } } } } }));
+  assert.equal(ground.length, 1);
+  assert.equal(ground[0]!.held, false, 'a block’s background is held — a background is free');
+  /* …and so is a look for a sample made real (Your seat): one change, Pro. */
   const seated = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { find_your_seat: { motion: { in: { fade: true } } } } } } }));
   assert.equal(seated.length, 1, 'Your seat’s look does not move the Apply count');
-  assert.equal(seated[0]!.held, false);
+  assert.equal(seated[0]!.held, true);
   const ticketed = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { pass: { motion: { in: { fade: true } } } } } } }));
   assert.equal(ticketed.length, 1, 'the pass’s look does not move the Apply count');
-  assert.equal(ticketed[0]!.held, false);
+  assert.equal(ticketed[0]!.held, true);
   const pictured = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { photos_of_you: { motion: { in: { fade: true } } } } } } }));
   assert.equal(pictured.length, 1, 'Photos of you’s motion does not move the Apply count');
-  assert.equal(pictured[0]!.held, false);
-  /* 📣 …and the three made real 2026-10-12: one change each, free. */
+  assert.equal(pictured[0]!.held, true);
+  /* 📣 …and the three made real 2026-10-12: one change each, Pro. */
   for (const b of ['announcements', 'look', 'live_hub']) {
     const c = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { [b]: { motion: { in: { fade: true } } } } } } }));
     assert.equal(c.length, 1, `${b}’s motion does not move the Apply count`);
-    assert.equal(c[0]!.held, false);
+    assert.equal(c[0]!.held, true);
   }
   /* …and a look put back to nothing (an empty object over none) is not. */
   const still = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: {} } } });

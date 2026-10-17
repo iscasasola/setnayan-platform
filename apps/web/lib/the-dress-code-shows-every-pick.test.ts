@@ -35,6 +35,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ATTIRE_ROWS, PICK_LABEL, picksOf, pickOptions, readerAttire, studioRowOf, type AttireRowDef } from './attire-rows';
 import { designLabel } from './attire-designs';
 import { pickDots, singleWearerOf } from './role-figure';
+import { stripComments } from './strip-comments';
 import { ATTIRE_STYLE_LABEL, type AttireStyle } from './role-dress-code';
 import { resolveDisplayPalette } from './room-palette';
 import { sanitizeRolePalette, type RolePalette } from './mood-board';
@@ -281,7 +282,7 @@ function topLevelRules(css: string): Array<{ selectors: string[]; body: string }
   let depth = 0;
   let start = 0;
   let sel = '';
-  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const clean = stripComments(css);
   for (let i = 0; i < clean.length; i += 1) {
     const ch = clean[i];
     if (ch === '{') {

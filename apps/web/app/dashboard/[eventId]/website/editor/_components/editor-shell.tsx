@@ -297,8 +297,9 @@ export function MakerWork({
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
-    /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
-    sceneUploads?: readonly SceneUpload[];
+    /** The scenes' (and the Cover Scene's) own in-place uploads (their `scene-background` folder), signed. Required:
+     *  the Cover Scene's Upload row lists its clips from it (`every-cover-upload-is-listed.test.ts`). */
+    sceneUploads: readonly SceneUpload[];
     /** 💾 `events.couple_media_bytes`, settled — the plan's media meter beside Upload media. */
     mediaUsedBytes?: number;
     mediaHref: string;
@@ -3448,6 +3449,8 @@ export function MakerWork({
                 themeColours={sceneFormat.colorChoices}
                 board={elementEditing.palette.board}
                 photoChoices={sceneFormat.photoChoices}
+                videoChoice={sceneFormat.videoChoice}
+                sceneUploads={sceneFormat.sceneUploads}
                 mediaUsedBytes={sceneFormat.mediaUsedBytes}
                 loopPosters={sceneFormat.loopPosters}
                 ownsPro={ownsPro}

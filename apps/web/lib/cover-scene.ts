@@ -191,11 +191,62 @@ export function coverSceneUploadLabel(open: boolean = GUEST_COVER_CLIP_PLAYBACK)
 
 /**
  * A clip card's name: "Your video" — or, when the row holds more than one clip, its file name (an upload's key is
- * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards.
+ * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards — and, once its length is known, " · N s"
+ * (the approved prototype's card: "▶ Your video · 12 s"; the ▶ is the tile's own mark for a moving card).
  */
-export function coverClipCardName(ref: string, clipsInRow: number): string {
-  if (clipsInRow <= 1) return 'Your video';
+export function coverClipCardName(ref: string, clipsInRow: number, seconds?: number | null): string {
   const file = ref.split('/').pop() ?? '';
-  const name = file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '');
-  return name || 'Your video';
+  const name = clipsInRow <= 1 ? 'Your video' : file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '') || 'Your video';
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? `${name} · ${Math.round(seconds)} s` : name;
+}
+
+/** One of the couple's uploads, as the editor page hands it (`sceneUploadRefs`, signed). */
+export type CoverUpload = { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null };
+export type CoverPhotoCard = { ref: string; url: string | null };
+export type CoverClipCard = { ref: string; poster: string | null; posterUrl: string | null; url: string | null };
+
+/**
+ * 🖼 THE COVER'S UPLOAD ROW — EVERY ONE OF THE COUPLE'S UPLOADED COVER MEDIA, PHOTOS AND VIDEOS, ONE LIST (owner
+ * 2026-10-17 on cale-ice, verbatim: *"why is the video not showing on the list of uploaded media files?"* — the cover
+ * was PLAYING his sunset clip while its Upload row showed "+ Upload" and one "Your photo"). The clips (the hero clip,
+ * then each uploaded clip) stand before the photos, as the approved prototype draws them.
+ *
+ * 🔑 Whatever the cover is WEARING is always a card in this row — even when no list handed to the row holds it — so the
+ * one in use is always there to be seen, ringed, and switched away from and back to. A clip is only offered while the
+ * cover takes clips (`coverSceneTakesClips`).
+ */
+export function coverUploadCards(input: {
+  uploads: readonly CoverUpload[];
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  ground: HubCoverGround | null;
+  takesClips: boolean;
+}): { photos: CoverPhotoCard[]; clips: CoverClipCard[] } {
+  const { uploads, photoChoices, videoChoice, ground, takesClips } = input;
+  /** A picture ref's shown URL: a photo choice, a photo upload, or a clip's still the page signed. */
+  const stillOf = (ref: string | null | undefined): string | null => {
+    if (!ref) return null;
+    const choice = photoChoices.find((p) => p.ref === ref);
+    if (choice) return choice.url;
+    const photo = uploads.find((u) => u.kind === 'photo' && u.ref === ref);
+    if (photo) return photo.url;
+    return uploads.find((u) => u.poster === ref)?.posterUrl ?? null;
+  };
+  const photos: CoverPhotoCard[] = [
+    ...uploads.filter((u) => u.kind === 'photo' && !photoChoices.some((p) => p.ref === u.ref)).map((u) => ({ ref: u.ref, url: u.url })),
+    ...photoChoices.map((p) => ({ ref: p.ref, url: p.url })),
+  ];
+  const clips: CoverClipCard[] = takesClips
+    ? [
+        ...(videoChoice ? [{ ref: videoChoice.ref, poster: videoChoice.poster ?? null, posterUrl: stillOf(videoChoice.poster), url: videoChoice.url }] : []),
+        ...uploads
+          .filter((u) => u.kind === 'snippet' && u.ref !== videoChoice?.ref)
+          .map((u) => ({ ref: u.ref, poster: u.poster ?? null, posterUrl: u.posterUrl ?? stillOf(u.poster), url: u.url })),
+      ]
+    : [];
+  if (ground?.kind === 'snippet' && takesClips && !clips.some((c) => c.ref === ground.media)) {
+    clips.push({ ref: ground.media, poster: ground.poster ?? null, posterUrl: stillOf(ground.poster), url: null });
+  }
+  if (ground?.kind === 'photo' && !photos.some((p) => p.ref === ground.media)) photos.unshift({ ref: ground.media, url: stillOf(ground.media) });
+  return { photos, clips };
 }

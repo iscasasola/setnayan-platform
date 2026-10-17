@@ -8,6 +8,7 @@ import {
   COVER_SCENE_SOURCE_IS_PRO,
   COVER_SCENE_THEME_LINE,
   coverClipCardName,
+  coverUploadCards,
   coverGroundSource,
   coverSceneTakesClips,
   coverSceneUploadLabel,
@@ -61,8 +62,8 @@ export function CoverSceneGroundRows({
   themeColours,
   board,
   photoChoices = [],
-  videoChoice = null,
-  sceneUploads = [],
+  videoChoice,
+  sceneUploads,
   mediaUsedBytes,
   mediaCapBytes,
   proHref,
@@ -77,10 +78,13 @@ export function CoverSceneGroundRows({
   themeColours: readonly string[];
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
-  /** The event's one video (the hero clip) and its still — offered as a card, as on a stage's Upload. */
-  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
-  /** Photos and clips the event already wears from its own upload folder (a scene's, or this cover's), signed. */
-  sceneUploads?: readonly SceneUpload[];
+  /** The event's one video (the hero clip) and its still — offered as a card, as on a stage's Upload. Null: none. */
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  /**
+   * Photos and clips the event already wears from its own upload folder (a scene's, or this cover's), signed.
+   * 🔒 REQUIRED — a mount that leaves it out lists no video at all (the 2026-10-17 fault; `every-cover-upload-is-listed.test.ts`).
+   */
+  sceneUploads: readonly SceneUpload[];
   mediaUsedBytes?: number;
   /** The PLAN's allowance for this event — `coupleMediaCapBytes(ownsPro)`, worked out by the caller from the real Pro
    *  gate (Free 10 MB · Pro 500 MB). A number, not the Pro flag: this panel draws no Pro control of its own. Required,
@@ -161,15 +165,14 @@ export function CoverSceneGroundRows({
   };
   const loops = hubMovingBackgroundIds();
   const uploads: SceneUpload[] = [...justUploaded.filter((u) => !sceneUploads.some((s) => s.ref === u.ref)), ...sceneUploads];
-  const photos = [...uploads.filter((u) => u.kind === 'photo' && !photoChoices.some((p) => p.ref === u.ref)), ...photoChoices];
-  /* 🎞 The couple's clips — the hero clip and their own uploads — each a card beside "Your photo" (the stage's rule). */
-  const posterOf = (ref: string | null | undefined) => (ref ? (photoChoices.find((p) => p.ref === ref)?.url ?? null) : null);
-  const clips: { ref: string; poster: string | null; posterUrl: string | null }[] = takesClips
-    ? [
-        ...(videoChoice ? [{ ref: videoChoice.ref, poster: videoChoice.poster ?? null, posterUrl: posterOf(videoChoice.poster) }] : []),
-        ...uploads.filter((u) => u.kind === 'snippet' && u.ref !== videoChoice?.ref).map((u) => ({ ref: u.ref, poster: u.poster ?? null, posterUrl: u.posterUrl ?? null })),
-      ]
-    : [];
+  /* 🖼 ONE FACT, ONE LIST (owner 2026-10-17, "why is the video not showing on the list of uploaded media files?"): the
+     row is the couple's uploads — photos AND clips — and whatever the cover is wearing is always one of its cards
+     (`coverUploadCards`), ringed, so it can be seen, re-picked and switched with the others. */
+  const cards = coverUploadCards({ uploads, photoChoices, videoChoice, ground, takesClips });
+  const photos = cards.photos;
+  const clips = cards.clips;
+  /* ⏱ "▶ Your video · 12 s" — each clip's own length, read from the file's header (only while the Upload row is up). */
+  const seconds = useClipSeconds(source === 'own' ? clips.map((c) => c.url) : []);
   const picture = (url: string | null) => (url ? { backgroundImage: `url("${url.replace(/"/g, '%22')}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: '#3a382f' });
   const tiles: StageBgTile[] =
     source === 'colour'
@@ -178,7 +181,7 @@ export function CoverSceneGroundRows({
         ? loops.map((id) => ({ key: id, name: INVITE_THEMES[id].name, moving: true, picture: picture(loopPosters[id] ?? null), ...tileNameOnPhoto(null) }))
         : source === 'own'
           ? [
-              ...clips.map((c) => ({ key: c.ref, name: coverClipCardName(c.ref, clips.length), moving: true, picture: picture(c.posterUrl), ...tileNameOnPhoto(null) })),
+              ...clips.map((c) => ({ key: c.ref, name: coverClipCardName(c.ref, clips.length, c.url ? seconds[c.url] : null), moving: true, picture: picture(c.posterUrl), ...tileNameOnPhoto(null) })),
               ...photos.map((p) => ({ key: p.ref, name: 'Your photo', picture: picture(p.url), ...tileNameOnPhoto(null) })),
             ]
           : [];
@@ -321,4 +324,39 @@ export function CoverSceneGroundRows({
       ) : null}
     </>
   );
+}
+
+/**
+ * ⏱ Each clip's length in whole seconds, keyed by its URL — read from the file's own header (`preload="metadata"`, a
+ * few KB), never stored. A clip whose header cannot be read simply has no "· N s" on its card.
+ */
+function useClipSeconds(urls: readonly (string | null)[]): Readonly<Record<string, number>> {
+  const [out, setOut] = useState<Record<string, number>>({});
+  const key = urls.filter(Boolean).join('\n');
+  useEffect(() => {
+    if (!key || typeof document === 'undefined') return;
+    const live: HTMLVideoElement[] = [];
+    for (const url of key.split('\n')) {
+      if (out[url] !== undefined) continue;
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        const s = Math.round(v.duration);
+        if (Number.isFinite(s) && s > 0) setOut((was) => ({ ...was, [url]: s }));
+        v.removeAttribute('src');
+        v.load();
+      };
+      v.src = url;
+      live.push(v);
+    }
+    return () => {
+      for (const v of live) {
+        v.onloadedmetadata = null;
+        v.removeAttribute('src');
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return out;
 }

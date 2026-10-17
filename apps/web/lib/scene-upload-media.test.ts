@@ -63,6 +63,8 @@ async function paintRow(props: Record<string, unknown>): Promise<string> {
         stageLabel: 'Invitation',
         draftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
         themeColours: ['#1b1a17'],
+        videoChoice: null,
+        sceneUploads: [],
         ...props,
       }),
     ),

@@ -81,7 +81,8 @@ const LONE_ROWS: Row[] = [
      family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.", `relation` empty.
      Here they are AFTER the couple re-picks their role on the guest card — `groom_grandparents` (migration
      20271271089555) — so the lab draws them under "Grandparents", each "Grandmother of the Groom". Stand-in names.
-     The unknown-sex parent is already above: "Dr." Eduardo Santos, whose title says neither father nor mother. */
+     "Dr." Eduardo Santos above says neither father nor mother by title; walking beside "Mrs." Lourdes, the pair names
+     him Father of the Bride (`withThePairInferred`, owner 2026-10-17). */
   ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_grandparents', 20, 0],
   ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_grandparents', 20, 1],
   /* A lone Groomsman beside the lone Bridesmaid above — /maria-and-jose's crew as the controller found it live on
@@ -91,13 +92,25 @@ const LONE_ROWS: Row[] = [
 /** In the lone cast the Maid of Honor and the Best Man do not walk together (the same live state): she walks alone. */
 const LONE_WALKS: Record<string, number> = { moh: 22 };
 
+/**
+ * 👪 `&cast=cale` on `?entourage=` — the groom's parents in the shape live /cale-ice had on 2026-10-17 (owner's
+ * screenshot, "Standing with us · PARENTS"): a father titled "Mr." and a mother titled "Atty.", her attire left at
+ * its default. Before `parentWordOf` paired them she read "Parent of the Groom"; the owner: "mother of the groom".
+ * Stand-in names in the same shape (a middle initial, a hyphenated married surname).
+ */
+const CALE_PARENTS: Row[] = [
+  ['gp1', 'Mr.', 'Manolo C.', 'Dela Cruz', 'groom_parents', 1, 0],
+  ['gp2', 'Atty.', 'Eufemia M.', 'Sacdalan-Dela Cruz', 'groom_parents', 1, 1],
+];
+
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
   if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
-  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : ROWS).map(([id, prefix, first, last, role, walk, place]) => ({
+  const cast0 = cast === 'cale' ? [...CALE_PARENTS, ...ROWS.filter((r) => r[4] !== 'groom_parents')] : ROWS;
+  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : cast0).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
     first_name: first,

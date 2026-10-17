@@ -28,6 +28,8 @@
  * after the Nikah); the Auto Arrange family set without them → 2.
  * Then (out of 10): `marchLineWords` back to one word per person, the plural only for two unknowns → 2 ('Grandmother
  * of the Groom · Grandmother of the Groom').
+ * Then (2026-10-17, the other grandparent): the same three sabotages as the parents guard's note — no pair → the
+ * Mr. + Atty. test RED; a pair that overrides a known word → 5 here (two "Ms." grandmothers). Restored, green.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -224,6 +226,56 @@ test('the march: parents follow the same rule — "Mothers of the Bride", and a 
   assert.equal(said('Mrs. Ana Reyes'), 'Mothers of the Bride');
   assert.equal(said('Mr. Jose Abad'), 'Father of the Groom · Mother of the Groom');
   assert.equal(said('Mr. Ramon Uy'), 'Grandfathers of the Bride');
+});
+
+/**
+ * 👪 THE OTHER GRANDPARENT (owner 2026-10-17, live /cale-ice — the parents' resolver names the other of two, and a
+ * grandparent is read by the same one): exactly two on a side, one told by the entry ("Mr."), the other not ("Atty.",
+ * attire at its default) → Grandfather · Grandmother. Two unknowns stay "Grandparents of the …"; three on a side are
+ * left as each entry says.
+ */
+test('the other grandparent is named: a Mr. with an Atty. → Grandfather · Grandmother; two unknown and three unchanged', async () => {
+  const cast: Row[] = [
+    ['q1', 'Mr.', 'Andres', 'Dela Cruz', 'groom_grandparents', 1, 0],
+    ['q2', 'Atty.', 'Pacita', 'Dela Cruz', 'groom_grandparents', 1, 1],
+    ['q3', 'Dr.', 'Celso', 'Uy', 'bride_grandparents', 2, 0],
+    ['q4', 'Hon.', 'Nena', 'Uy', 'bride_grandparents', 2, 1],
+  ];
+  const three: Row[] = [
+    ['h1', 'Mr.', 'Lucio', 'Tan', 'bride_grandparents', 1, 0],
+    ['h2', 'Atty.', 'Rosario', 'Tan', 'bride_grandparents', 1, 1],
+    ['h3', 'Engr.', 'Pilar', 'Tan', 'bride_grandparents', 2, 0],
+  ];
+  const toRows = (c: Row[]) => c.map(([id, prefix, first, last, role, walk, place, attire]) => ({
+    guest_id: id, name_prefix: prefix, first_name: first, last_name: last, role, extra_roles: [],
+    march: { walk_no: walk, place_in_walk: place }, attire: attire ?? 'neutral',
+  })) as unknown as EntourageGuestRow[];
+  const want: Record<string, string> = {
+    'Mr. Andres Dela Cruz': 'Grandfather of the Groom',
+    'Atty. Pacita Dela Cruz': 'Grandmother of the Groom',
+    'Dr. Celso Uy': 'Grandparent of the Bride',
+    'Hon. Nena Uy': 'Grandparent of the Bride',
+    'Mr. Lucio Tan': 'Grandfather of the Bride',
+    'Atty. Rosario Tan': 'Grandparent of the Bride',
+    'Engr. Pilar Tan': 'Grandparent of the Bride',
+  };
+  let drawn = 0;
+  for (const c of [cast, three]) {
+    for (const style of STYLES) {
+      for (const p of drawnPeople(await render(buildEntourage(toRows(c)), style))) {
+        if (!(p.name in want)) continue;
+        drawn++;
+        assert.equal(p.word, want[p.name], `${style ?? 'no pick'}: ${p.name} is called "${p.word}"`);
+      }
+    }
+  }
+  assert.equal(drawn, Object.keys(want).length * STYLES.length, 'not every grandparent drew on every look');
+  const lines = marchLines(await render(buildEntourage(toRows(cast)), 'march'));
+  const said = (who: string) => lines.find((l) => l.names.includes(who))?.words;
+  assert.equal(said('Mr. Andres Dela Cruz'), 'Grandfather of the Groom · Grandmother of the Groom');
+  assert.equal(said('Dr. Celso Uy'), 'Grandparents of the Bride');
+  const threeLines = marchLines(await render(buildEntourage(toRows(three)), 'march'));
+  assert.equal(threeLines.find((l) => l.names.includes('Mr. Lucio Tan'))?.words, 'Grandfather of the Bride · Grandparent of the Bride');
 });
 
 test("the Maker's march sections: no grandparent sits in Immediate Family", () => {

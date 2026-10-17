@@ -24,3 +24,15 @@ Other builders running now: rd/two-hosts-never-overwrite (host SAVE paths — Mo
 draft save/Apply, guests, seating) and rd/guest-page-cache (app/[slug]/page.tsx, _lib/loaders.ts, lib/entitlements.ts,
 redeem, guest-session). Do NOT touch those files; if an item needs one, leave the item and say so.
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Changelog fragment changelog.d/rd-hub-follow-ups-2026-10-18.md.
+
+---------------------------------------------------------------------------------------------------------------------
+## BUILDER STATE (2026-10-18)
+
+| # | Verified? | State |
+|---|---|---|
+| 1 | traced: Text (body) and Labels & buttons have the same nested-scope gap (button var inherits from the layout's scope; body font-family inherits) | in progress |
+| 2 | named gap in `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` docblock (foot door unfitted, `FirstScreenDoor fit={false}`) | todo — re-enable the fit for the foot door (door = the foot), text cover only |
+| 3 | `lib/print-set.server.ts` `attireLines` reads `cfg.groups`/`cfg.roles` (old); guest page reads `dressCodeForEveryone` (ATTIRE_ROWS + picksOf) | todo |
+| 4 | REPRODUCED: `searchColorNames` listed "Coral"/"Gold"/"Navy"/"Plum"/"Forest Green" twice (wedding + CSS, hex-only dedupe) — 45 queries | FIXED `lib/color-search.ts` `listedOnce` + sweep test (sabotage: main's file → red) |
+| 5 | `DressFiguresRow` not mounted (`<DressFiguresRow` 0 hits); `useBlockLooksDraft` race is a Maker draft save — the lane of rd/two-hosts-never-overwrite (merge-from-base) | SKIP (named in PR body) |
+| 6 | report source not found in notes; measure `/dashboard` + event home at 375 | todo |

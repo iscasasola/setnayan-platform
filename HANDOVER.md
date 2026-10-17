@@ -62,3 +62,15 @@ re-merged on a lost race (bounded). Same shape #6621 item 6 used for `submitRsvp
 The note: one calm line, never a modal, never a choice — "Changed on another screen a moment ago — showing the newest."
 ⚠ No NAME in it: the draft row deliberately has no `updated_by` (its migration: personal data, no reader). Naming
 "Claire" needs a who-edited record — an OWNER decision, listed in the PR.
+
+## STATUS (builder, 2026-10-18)
+- PR #6626 (draft, do-not-auto-merge, auto-merge off). FIXED: rows 1–4 of the table. Shared pattern =
+  `lib/merge-from-base.ts` (+ `lib/hub-draft-rebase.ts`, `lib/guest-card-merge.ts`, `updateHubDraft` in `lib/hub-draft-store.ts`).
+- DECISION (builder): the draft's version is a COUNTER `event_site_drafts.revision` (migration 20271275174284), not
+  `updated_at` — PGlite's clock ticks in ms and a stale write matched (caught by the db anti-vacuity test). Code falls
+  back to `updated_at` if the column is missing (a build ahead of the database).
+- DECISION (builder): the note shows whenever another screen's change reached this screen's save (a superset of
+  "same field"), because that is when what the person sees changes under them. No name in it (no who-edited record).
+- Tests: lib/two-hosts-never-overwrite.test.ts (12) · tests/db/two-hosts-never-overwrite.db.test.ts (5); sabotage S1–S9
+  all red→restored green. 14 source guards re-pointed (same property, new shape).
+- NEXT: lab walk shots (375 WebKit, light+dark) → shots-2026-10-18/6626/; CI loop; PR body.

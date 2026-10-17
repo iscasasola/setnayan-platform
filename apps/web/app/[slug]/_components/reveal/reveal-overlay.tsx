@@ -446,11 +446,11 @@ export function RevealOverlay({
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
           look={looks.veil}
-          autoplay={preview !== null}
           /* 🎭 Off the Save the Date: one unveil per visit — the lifted drape never takes a hand again (2026-10-17). */
           keepsOpen={firstPageOnly && !preview}
           /* …and no frames while the cover (and so the drape) is off screen. */
           paused={drapeMode && !drapeShows({ unveiled, coverInView })}
+          autoplay={preview !== null}
           autoplayAfterMs={preview?.liftAfterMs}
           /* 🎬 ▶ in the Maker: no hand lifts it — the instruction goes the moment it starts to rise by itself, and the
              cover's lines enter on that same moment (`CoverPlayOpening` → `playCover`). */

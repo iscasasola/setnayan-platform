@@ -47,6 +47,7 @@ import {
 } from './guest-title';
 import { buildEntourage, parentWordOf, type EntourageGroup, type EntourageGuestRow } from './entourage';
 import { resolveGuestAttire } from './guests';
+import { stripComments } from './strip-comments';
 import { planGuestImport, readGuestFile } from './guest-import-file';
 import { GENERIC_ROLE_SET } from './role-sets';
 
@@ -121,7 +122,7 @@ test('no file outside the host’s guest screens draws the picker’s words, or 
       else assert.fail(`${rel} imports the Title picker's words — a guest or a print would read "(Woman)"`);
     }
     // Code only — a comment explaining the mark is not a surface that prints it.
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    const code = stripComments(src);
     if (!host) assert.doesNotMatch(code, /['"`]\s*\((?:Woman|Man)\)/, `${rel} holds a "(Woman)" / "(Man)" literal`);
   }
   assert.ok(pickerUsers >= 3, `only ${pickerUsers} host screens use the picker — the scan matches nothing`);

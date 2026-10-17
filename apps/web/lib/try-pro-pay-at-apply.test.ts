@@ -103,7 +103,8 @@ test('1 · a free couple’s draft keeps every Pro pick (the draft door strips n
   // The server's `save` is that merge and nothing else — no Pro read on the way in.
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save')"), action.indexOf("if (intent === 'reset')"));
-  assert.match(save, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, patch\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch\);/);
   assert.doesNotMatch(save, /lookProAllows|eventCoupleWebsiteProActive|planHubDraftApply/, 'the draft save asks Pro');
 
   // …and "+ Add a scene" in the Maker is not refused at the door any more.
@@ -281,7 +282,8 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
   const drop = action.slice(action.indexOf("if (intent === 'drop')"), action.indexOf('const live = await readHubLiveState(supabase, eventId);\n    const storeShell'));
   assert.match(drop, /const id = formData\.get\('effect'\);/);
   assert.match(drop, /hubDraftProEffects\(current, live, false\)\.find\(\(e\) => e\.id === id\)/);
-  assert.match(drop, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, effect\.remove\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(drop, /const remove = hubDraftProEffects\(cur \?\? emptyHubDraft\(\), live, false\)\.find\(\(e\) => e\.id === id\)\?\.remove;\s*return remove \? \{ next: mergeHubDraft\(cur \?\? emptyHubDraft\(\), remove\) \} : null;/);
   assert.doesNotMatch(drop, /formData\.get\('patch'\)/, 'a drop took a patch from the client');
   // The sheet sends only the id.
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');

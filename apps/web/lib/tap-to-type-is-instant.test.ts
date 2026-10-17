@@ -272,7 +272,8 @@ test('6b · typing the names writes the DRAFT’s events.display_name — the on
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
   assert.ok(save.length > 0);
-  assert.match(save, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, patch\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(save, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur\) => \{[\s\S]{0,300}?const next = mergeHubDraft\(c, rebased\.patch\);/);
   // A save may READ (the live date, to ask the supplier clash) — it never writes a table but the draft.
   assert.doesNotMatch(save, /\.update\(|\.insert\(|\.upsert\(|\.delete\(/, 'a save wrote a table other than through the draft store');
 });
@@ -480,7 +481,7 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   // The save asks BEFORE the draft is written — and answers with the reason and who.
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
-  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf('writeHubDraft('), 'the clash is asked before the draft is written');
+  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf('updateHubDraft<'), 'the clash is asked before the draft is written');
   assert.match(save, /if \(asked\) return \{ ok: false, intent, error: asked\.reason, clash: asked\.clash \};/);
   // "Help me choose" lists only fitting days; a clashing pick says who and offers the one action.
   assert.match(read(`${L}details-date-finder.tsx`), /const fit = fittingDates\(rankWithPin\(m\.dates, pinned\)\);/);

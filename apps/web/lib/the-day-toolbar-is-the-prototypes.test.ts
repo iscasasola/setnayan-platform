@@ -170,7 +170,7 @@ test('(2) the Camera has only Style: the three grey tools say the prototype’s 
      and nothing else is drawn in its rows but a save's error. (The cards themselves are rendered and held by
      `every-style-card-is-phone-shaped.test.ts`; this file's own save is a server action no test run can load.) */
   const src = read(`${L}/stage-panel/camera-look.tsx`);
-  assert.match(src, /const CAMERA_LOOK_OPTIONS = CAMERA_LOOKS\.map\(\(look\) => \(\{ id: look as string, name: CAMERA_LOOK_LABEL\[look\] \}\)\);/);
+  assert.match(src, /const CAMERA_LOOK_OPTIONS = CAMERA_LOOKS\.map\(\(look\) => \(\{ id: look as string, name: CAMERA_LOOK_LABEL\[look\], pro: look !== 'classic' \}\)\);/);
   assert.match(src, /<StageStyle\s+rows\s+look=\{\s*<>\s*<StyleCards\s+options=\{CAMERA_LOOK_OPTIONS\}\s+value=\{shown\}/, 'the Camera’s cards are not laid in the toolbar’s rows');
   assert.match(src, /label="Camera look"/);
   const body = src.slice(src.indexOf('<StageStyle'), src.indexOf('</StageStyle>') > 0 ? src.indexOf('</StageStyle>') : src.indexOf('background={null}'));

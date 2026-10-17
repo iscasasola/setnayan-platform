@@ -289,7 +289,7 @@ test('(4) Style on a phone is the scene’s look cards in the toolbar’s rows a
   assert.ok(cards.length >= 3 && cards.filter((c) => c.endsWith('*')).length === 1, `the scene’s looks, one picked (${cards.join(' ')})`);
   /* …and NOTHING of the old panel under them: no "This scene", no "Filled from", no switch, no Order, no "Its parts". */
   assert.doesNotMatch(phone, /data-form-row|role="switch"|post-event-move-|post-event-part-|This scene|Filled from|Its parts/);
-  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => o.name).join(' '), 'something besides the looks’ names is printed under Style');
+  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => (o.isDefault ? o.name : `${o.name} ◆`)).join(' '), 'something besides the looks’ names (and a non-default look’s ◆ — Event Hub Pro since 2026-10-16) is printed under Style');
   /* A read that FAILED is still said, on the panel, in red. */
   assert.match(withToolbar({ arrangement: null }), /<p role="alert" data-post-event-unread="" class="[^"]*text-danger-700">Your story’s scenes could not be read just now — open the Maker again in a moment\.<\/p>/);
   /* THE DESKTOP (no toolbar): every row, as before — the same component, the same saves. */

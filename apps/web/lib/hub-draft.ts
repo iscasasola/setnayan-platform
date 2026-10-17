@@ -169,6 +169,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { sceneStyleIsPro } from '@/lib/scene-style-pro';
 import { ACCENT_NONE, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, sanitizeSceneAccents, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
@@ -1825,7 +1826,9 @@ export type CanvasFacetGroup =
   | 'font'
   | 'part-motion'
   | 'slot-media'
-  | 'playback';
+  | 'playback'
+  /** 💎 A Pro look (Style) — the Love Story's two-lane timeline and swipe cards (`lib/scene-style-pro.ts`). */
+  | 'look';
 
 export type CanvasLookFacet = {
   key: string;
@@ -1858,7 +1861,7 @@ const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], Canva
  * so a colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
-export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas): CanvasLookFacet[] {
+export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): CanvasLookFacet[] {
   const out: CanvasLookFacet[] = [
     { key: 'media', group: 'media', change: refChange(canvasMediaRef(live), canvasMediaRef(next)) },
   ];
@@ -1904,7 +1907,17 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
      Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
      and Apply it — the gate would see no look key change at all. */
   out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
+  /* 💎 A PRO LOOK (owner 2026-10-17, "Timeline and Swipe cards as Pro looks in Style") — the scene's `style` when it
+     is one of its type's Pro looks (`lib/scene-style-pro.ts`); every other style, and going back to a free one, is
+     free. Asked by scene TYPE (a style id means nothing alone: `cards` is also the Camera cues' free look), so a
+     caller that does not name the type sees no change here — every Apply caller names it. */
+  out.push({ key: 'style', group: 'look', change: refChange(proLookRef(sceneType, live), proLookRef(sceneType, next)) });
   return out;
+}
+
+/** The scene's style when it is a Pro look on this scene type — else null (a free style, or no type to ask by). */
+function proLookRef(sceneType: string | null | undefined, c: HubSectionCanvas): string | null {
+  return sceneStyleIsPro(sceneType, c.style) ? (c.style ?? null) : null;
 }
 
 /** The Cover Scene's background as one comparable ref — only its Pro half (a loop, a photo); null for a colour or none. */
@@ -1915,8 +1928,8 @@ function coverGroundProRef(c: HubSectionCanvas): string | null {
 }
 
 /** A section's canvas, live → drafted, as ONE change: the most demanding facet. */
-export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
-  return combineChanges(...canvasLookFacets(live, next).map((f) => f.change));
+export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): LookChange {
+  return combineChanges(...canvasLookFacets(live, next, sceneType).map((f) => f.change));
 }
 
 /** The media behind a scene, as one comparable ref — null for any colour ground. */
@@ -1971,6 +1984,9 @@ export function canvasWithoutFacet(
     put('video', live.video);
   } else if (key === 'ground') {
     put('ground', live.ground);
+  } else if (key === 'style') {
+    /* 💎 A Pro look taken off: the scene wears the style guests see today. */
+    put('style', live.style);
   } else if (key.startsWith('slot:')) {
     const i = Number(key.slice('slot:'.length));
     if (next.slots && Number.isInteger(i) && i >= 0 && i < next.slots.length) {
@@ -2041,12 +2057,12 @@ export function canvasWithoutFacet(
  * then CHECKED against it: if the result would still add or change a look, the
  * live canvas comes back unchanged — nothing Pro can leak through this door.
  */
-export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): HubSectionCanvas {
+export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): HubSectionCanvas {
   let free = sanitizeHubCanvas({ canvas: next });
-  for (const facet of canvasLookFacets(live, next)) {
+  for (const facet of canvasLookFacets(live, next, sceneType)) {
     if (grows(facet.change)) free = canvasWithoutFacet(live, free, facet);
   }
-  return grows(canvasLookChange(live, free)) ? live : free;
+  return grows(canvasLookChange(live, free, sceneType)) ? live : free;
 }
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
@@ -2356,7 +2372,7 @@ export function classifyHubDraft(
       const liveCanvas = liveCanvasOf(row.config_json);
       const nextCanvas = w.canvas ?? {};
       if (JSON.stringify(liveCanvas) !== JSON.stringify(nextCanvas)) {
-        const change = canvasLookChange(liveCanvas, nextCanvas);
+        const change = canvasLookChange(liveCanvas, nextCanvas, type);
         items.push({
           kind: 'widget',
           widgetType: type,
@@ -2465,9 +2481,9 @@ export function planHubDraftApply(
     if (!allowed && item.kind === 'widget' && item.field === 'canvas') {
       const row = live.widgets.find((r) => r.widget_type === item.widgetType);
       const liveCanvas = liveCanvasOf(row?.config_json);
-      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {});
+      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType);
       if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
-        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
+        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free, item.widgetType), pro: false, freePart: true });
       }
     }
     /* ⛪ A held venue bag (a new "Our drawing ◆") still gets its free edits: every

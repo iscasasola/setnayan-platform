@@ -42,7 +42,8 @@ export function StyleCards({
   label?: string;
   /** Which set this carousel is (`data-style-carousel`) — '' for a scene's own styles. */
   data?: string;
-  options: ReadonlyArray<{ id: string; name: string }>;
+  /** `pro` — 💎 an Event Hub Pro ◆ look: its name carries ◆ (tried free, named at ✓ Apply). */
+  options: ReadonlyArray<{ id: string; name: string; pro?: boolean }>;
   value: string | null;
   onPick: (id: string) => void;
   pending: boolean;
@@ -119,7 +120,7 @@ export function StyleCards({
                 />
               )}
             </span>
-            <span className={SP_STYLE_NAME}>{o.name}</span>
+            <span className={SP_STYLE_NAME}>{o.pro ? `${o.name} ◆` : o.name}</span>
           </button>
         );
       })}

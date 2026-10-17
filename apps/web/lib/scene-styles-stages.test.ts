@@ -67,9 +67,15 @@ test('2 · every style registered here is DRAWN — its id is dispatched by the 
   }
 });
 
+/**
+ * 🗣 A DEFAULT THE OWNER RULED, scene by scene — the one exception to "the default is the shipped look". Love Story:
+ * owner 2026-10-17, verbatim, *"Conversation as the default look"* (DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES").
+ */
+const OWNER_DEFAULT: Readonly<Record<string, string>> = { our_love_story: 'conversation' };
+
 test('3 · the DEFAULT is the shipped look (style A) on every stage — a live page does not change on deploy', () => {
   for (const set of STAGE_SCENE_STYLE_SETS) {
-    const shipped = set.styles[0]!.id;
+    const shipped = OWNER_DEFAULT[set.type] ?? set.styles[0]!.id;
     const stages = new Set(set.styles.flatMap((s) => s.stages ?? []));
     for (const stage of stages) {
       for (const eventType of [null, 'wedding', 'debut', 'birthday', 'funeral']) {
@@ -83,7 +89,7 @@ test('3b · the prototype’s Recommended is a HINT, and only ever names a style
   const cases: Array<[string, 'save_the_date' | 'rsvp' | 'event', string | null, string | null]> = [
     ['countdown', 'save_the_date', null, 'big-number'],
     ['countdown', 'rsvp', null, 'four-tiles'],
-    ['our_love_story', 'save_the_date', null, 'years'],
+    ['our_love_story', 'save_the_date', null, null],
     ['event_details', 'rsvp', 'wedding', 'card'],
     ['event_details', 'rsvp', 'birthday', 'plate'],
     ['schedule', 'event', null, 'one-per-screen'],
@@ -95,7 +101,7 @@ test('3b · the prototype’s Recommended is a HINT, and only ever names a style
   for (const [type, stage, eventType, id] of cases) {
     assert.equal(recommendedStageSceneStyle(type, stage, eventType), id, `${type} on ${stage}`);
     if (id) assert.ok(sceneStylesOn(type, stage, eventType).some((s) => s.id === id), `${type}.${id} is drawn on ${stage}`);
-    const shipped = STAGE_SCENE_STYLE_SETS.find((x) => x.type === type)!.styles[0]!.id;
+    const shipped = OWNER_DEFAULT[type] ?? STAGE_SCENE_STYLE_SETS.find((x) => x.type === type)!.styles[0]!.id;
     assert.equal(resolveSceneStyle(type, stage, undefined, eventType), shipped, `${type}: with no pick the shipped look draws, not the recommendation`);
   }
   const row = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'scene-style-row.tsx'), 'utf8');

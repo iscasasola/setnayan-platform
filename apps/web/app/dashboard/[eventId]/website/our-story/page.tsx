@@ -25,8 +25,7 @@ import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { HUB_MOTION_PRESET_LABEL } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
-import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
-import { resolveMoments } from '@/lib/love-story-moments';
+import { loveStoryPartners, resolveMoments } from '@/lib/love-story-moments';
 import { readOurEventsOffer } from './_components/our-events-offer';
 import { photosFromOtherEvents } from './_components/our-events-rule';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -227,8 +226,9 @@ export default async function OurStoryEditorPage({
   const photoFrom: Record<string, string> = {};
   for (const [ref, from] of borrowed) photoFrom[ref] = eventNames.get(from) ?? '';
 
-  const { first, second } = splitCoupleNames(event.display_name ?? '', event.event_type === 'wedding');
-  const partners = [first, second].filter((n): n is string => Boolean(n && n.trim())).map((n) => n.trim());
+  /* 🗣 The ONE reading of the partners — "Added by" and the two voices' slots (a = the first), shared with the
+     guest page (`loveStoryPartners`, owner 2026-10-17). */
+  const partners = loveStoryPartners(event.display_name, event.event_type);
   const years = moments.map((m) => m.date?.y).filter((y): y is number => typeof y === 'number');
 
   const base = `/dashboard/${eventId}`;

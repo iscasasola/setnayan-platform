@@ -1,3 +1,5 @@
+import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
+import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
 import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
 import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
 import { formatEventDate } from '@/lib/events';
@@ -285,6 +287,24 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         <VenueWidget event={event as never} sceneStyle={style} map="none" />
+      </main>
+    );
+  }
+  /* 🗣 `?love=<style>` (chapters · essay · years · conversation · timeline · cards) — the REAL `OurLoveStoryWidget` on the
+     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none), partners Maria · Jose, the lab's
+     stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
+     `&dark=1` draws it on the dark Look. Invented words and names only. */
+  if (typeof sp.love === 'string') {
+    const style = sp.love === 'default' ? null : sp.love;
+    return (
+      <main
+        className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-5 py-10 text-ink"
+        data-art={sp.dark === '1' ? 'candlelight' : undefined}
+        data-lab-love={sp.love}
+      >
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        <div className="h-[40vh]" aria-hidden />
       </main>
     );
   }

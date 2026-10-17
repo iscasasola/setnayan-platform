@@ -556,7 +556,7 @@ test('GUARD: the Our Story poster is never printed blank', () => {
   assert.match(route, /\.filter\(\(k\) => k !== 'story-poster' \|\| hasStory\)/, 'the whole set leaves it out');
   assert.match(route, /\.filter\(\(k\) => k !== 'story-poster' \|\| storyHasMoments\(set\.data\.story\)\)/, 'the sample sheet leaves it out');
   const loader = stripComments(readFileSync(join(WEB, 'lib/print-set.server.ts'), 'utf8'));
-  assert.match(loader, /story: printStoryChapters\(event\.love_story\)/, 'the poster reads the Love Story through its one source');
+  assert.match(loader, /story: printStoryChapters\(event\.love_story, loveStoryPartners\(event\.display_name, event\.event_type\)\)/, 'the poster reads the Love Story through its one source');
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
   assert.match(maker, /\{menuEmpty \|\| storyMissing \? null : \(/, 'the Maker offers no download for an empty story poster');
   const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));

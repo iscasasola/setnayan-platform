@@ -794,6 +794,8 @@ export function parseMenu(raw: unknown): MenuMoment[] {
  * moments (when · the line · where). READ from the one Love Story source
  * (`loveStoryScenes`, `lib/love-story-moments.ts` — hidden moments are not
  * there) by `printStoryChapters` in `lib/love-story-moments.ts`; never typed here.
+ * 🗣 A moment the partners wrote in their own voices prints them in `line`, one per voice, named
+ * ("Maria: … · Jose: …", owner 2026-10-17 — `momentReadLine`); a moment with none prints the line told together.
  */
 export type PrintStoryMoment = { when: string; line: string; place: string | null };
 export type PrintStoryChapter = { label: string; moments: PrintStoryMoment[] };

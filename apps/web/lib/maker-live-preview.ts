@@ -68,7 +68,8 @@ export function markMakerCanvasStale(): void {
 export const LOVE_STORY_PREVIEW = 'loveStory';
 export const SCHEDULE_PREVIEW = 'scheduleMoment';
 
-export type LoveScenePreview = { id: string; when: string; chapterLabel: string; line: string; place: string };
+/** 🗣 `voiceA` / `voiceB` — the partners' own words (owner 2026-10-17), laid on `[data-love-voice-a]` / `-b`. */
+export type LoveScenePreview = { id: string; when: string; chapterLabel: string; line: string; place: string; voiceA?: string; voiceB?: string };
 export type ScheduleMomentPreview = { id: string; label?: string; time?: string; location?: string };
 
 export function loveStoryPreviewMessage(scenes: readonly LoveScenePreview[]) {

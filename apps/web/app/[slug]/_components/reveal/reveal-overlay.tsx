@@ -38,7 +38,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 // Imported, never re-typed: a hand-copied event name drifts silently and the
 // veil simply stops standing down, with nothing failing.
 import { STD_FILM_EXIT_EVENT } from '../save-the-date-film';
@@ -55,7 +55,7 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, tuneRevealLooks, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
-import { landedOnTheFirstPage } from '@/lib/reveal-stages';
+import { COVER_SCENE_SELECTOR, coverOnScreen, drapeShift, drapeShows, landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
 import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
 import { claimVeilHold, ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL_LAYER_ATTR } from '@/lib/hub-veil';
@@ -151,9 +151,13 @@ type Props = {
    *
    *   · a guest who lands part-way down the page (a `#section` link, a restored
    *     scroll) is not met by it at all — it belongs to the first page;
-   *   · once opened it is GONE — the veil does not stay drooped at the top as it
-   *     does over the Save-the-Date film, and scrolling past the first page
-   *     retires anything still standing.
+   *   · scrolling past the first page BEFORE it is opened retires it;
+   *   · 🎭 once opened, the LIFTED veil — the drape at the top — STAYS ON THE
+   *     COVER and leaves and returns with it (owner 2026-10-17, verbatim: *"the
+   *     veil disappears. it shouldn't. it should stay until cover is gone. and
+   *     return when cover scene returns"* — superseding "once opened it is GONE"
+   *     for the drape). It never closes again (`keepsOpen` on the veil): one
+   *     unveil per visit. The rule is `drapeShows` (`lib/reveal-stages.ts`).
    *
    * Absent on the Save the Date, where the opening leads the film and keeps its
    * persistent valance (2026-06-18/19 rulings, unchanged).
@@ -219,6 +223,12 @@ export function RevealOverlay({
   // mounted, so a deferred one goes from nothing to nothing.
   const [alreadySeen, setAlreadySeen] = useState(false);
   const [offTheFirstPage, setOffTheFirstPage] = useState(false);
+  /* 🎭 THE DRAPE STAYS WITH THE COVER (owner 2026-10-17). Off the Save the Date, from the unveil gesture on, the lifted
+     veil is drawn exactly while the Cover Scene is on screen (`drapeShows`) and rides the cover's top edge out. */
+  const unveiled = lifting || open;
+  const drapeMode = firstPageOnly && unveiled && !preview;
+  const [coverInView, setCoverInView] = useState(true);
+  const layerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -271,26 +281,62 @@ export function RevealOverlay({
     !offTheFirstPage &&
     decision !== NO_REVEAL;
 
-  /* 🎭 Off the Save the Date it is the first page's, and gone after it: the
-     first lift retires it (after the lift has played), and so does scrolling
-     past the first screen. */
+  /* 🎭 Off the Save the Date it is the first page's: scrolling past the first screen BEFORE it is opened retires it.
+     Once opened it is never retired — the lifted drape follows the cover instead (the effect below). It used to be
+     retired ~1.8 s after the lift, which is what the owner saw vanish on 2026-10-17. */
   useEffect(() => {
-    if (!firstPageOnly || !active) return;
-    let t: number | null = null;
-    const onDone = () => {
-      if (t === null) t = window.setTimeout(() => setGone(true), 1800);
-    };
+    if (!firstPageOnly || !active || unveiled) return;
     const onScroll = () => {
       if (window.scrollY > window.innerHeight) setGone(true);
     };
-    window.addEventListener('std-reveal-done', onDone);
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      if (t !== null) window.clearTimeout(t);
-      window.removeEventListener('std-reveal-done', onDone);
-      window.removeEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [firstPageOnly, active, unveiled]);
+
+  /* 🎭 THE DRAPE GOES WHERE THE COVER GOES (owner 2026-10-17). ONE IntersectionObserver on the Cover Scene says when
+     any of it is on screen — the bars' own edge (`cover-scene-menu.tsx`), so drape and bars are never up together —
+     and the drape is hidden and its cloth PAUSED while it is not (`paused` on the veil: no frames off screen). While it
+     is, the layer rides the cover's top edge on the scroll (one transform per frame, no React render), so the drape
+     leaves WITH the cover rather than vanishing. A page with no Cover Scene keeps the first screen as its cover; a
+     cover that is not drawn (another tab) is gone. A browser with no IntersectionObserver measures on the scroll. */
+  useEffect(() => {
+    if (!drapeMode) return;
+    const layer = layerRef.current;
+    let raf = 0;
+    const coverBox = (): { top: number; bottom: number } | null => {
+      const h = document.querySelector<HTMLElement>(COVER_SCENE_SELECTOR);
+      if (!h) return { top: -window.scrollY, bottom: window.innerHeight - window.scrollY };
+      return h.offsetParent !== null || getComputedStyle(h).position === 'fixed' ? h.getBoundingClientRect() : null;
     };
-  }, [firstPageOnly, active]);
+    const measure = () => {
+      raf = 0;
+      const box = coverBox();
+      const inView = coverOnScreen(box, window.innerHeight);
+      setCoverInView(inView);
+      if (layer) layer.style.transform = box && inView ? `translate3d(0, ${drapeShift(box.top)}px, 0)` : '';
+    };
+    const schedule = () => {
+      if (!raf) raf = window.requestAnimationFrame(measure);
+    };
+    const later = () => window.setTimeout(schedule, 60);
+    const cover = document.querySelector<HTMLElement>(COVER_SCENE_SELECTOR);
+    const io = cover && typeof IntersectionObserver === 'function' ? new IntersectionObserver(schedule, { threshold: 0 }) : null;
+    if (cover && io) io.observe(cover);
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    window.addEventListener('hashchange', schedule);
+    document.addEventListener('click', later, true);
+    measure();
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      io?.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('hashchange', schedule);
+      document.removeEventListener('click', later, true);
+      if (layer) layer.style.transform = '';
+    };
+  }, [drapeMode]);
 
   // Tell the film (z-50) whether a reveal will actually show, so it knows to WAIT
   // for the lift instead of auto-starting under the veil (owner 2026-06-19
@@ -337,8 +383,9 @@ export function RevealOverlay({
     (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;
     /* 🎭 …and it is said ON THE PAGE (`REVEAL_UP_ATTR`), for what must wait for the opening to go: a cover that
        hands over by Scrub holds from the very top of the page, under this overlay, and the page scrolls beneath it —
-       so the hand-overs wait for this mark to come off (`hub-scrub.tsx`). Nothing is drawn or styled by it. */
-    document.documentElement.toggleAttribute(REVEAL_UP_ATTR, showing);
+       so the hand-overs wait for this mark to come off (`hub-scrub.tsx`). Nothing is drawn or styled by it.
+       The drape that stays with the cover (2026-10-17) is an OPENED veil — the mark comes off at the unveil. */
+    document.documentElement.toggleAttribute(REVEAL_UP_ATTR, showing && !drapeMode);
     /*
       THE MARK IS WRITTEN WHERE THE REVEAL IS MEASURED, NOT WHERE IT IS DRAWN.
       `showing` is the one expression in this file that means "a guest is
@@ -353,7 +400,7 @@ export function RevealOverlay({
       (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = false;
       document.documentElement.removeAttribute(REVEAL_UP_ATTR);
     };
-  }, [active, mounted, gone, oncePerVisit, seenEventId]);
+  }, [active, mounted, gone, oncePerVisit, seenEventId, drapeMode]);
 
   /*
     🙈 NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED (owner 2026-10-15 · `lib/hub-veil.ts`). The server wrote the
@@ -388,12 +435,22 @@ export function RevealOverlay({
     // while covering, top valance band once lifted). So: swipe the top band →
     // grab/re-cover the veil; swipe the body → scrub the film messages.
     return (
-      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" {...{ [REVEAL_LAYER_ATTR]: '' }}>
+      <div
+        ref={layerRef}
+        className={`pointer-events-none fixed inset-0 z-[60] overflow-hidden ${drapeMode && !drapeShows({ unveiled, coverInView }) ? 'invisible' : ''}`}
+        {...{ [REVEAL_LAYER_ATTR]: '' }}
+        /* 🎭 What the drape is doing — read by the walk and the guard, styles nothing: `on` with the cover, `away` without. */
+        data-veil-drape={drapeMode ? (drapeShows({ unveiled, coverInView }) ? 'on' : 'away') : undefined}
+      >
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
           look={looks.veil}
           autoplay={preview !== null}
+          /* 🎭 Off the Save the Date: one unveil per visit — the lifted drape never takes a hand again (2026-10-17). */
+          keepsOpen={firstPageOnly && !preview}
+          /* …and no frames while the cover (and so the drape) is off screen. */
+          paused={drapeMode && !drapeShows({ unveiled, coverInView })}
           autoplayAfterMs={preview?.liftAfterMs}
           /* 🎬 ▶ in the Maker: no hand lifts it — the instruction goes the moment it starts to rise by itself, and the
              cover's lines enter on that same moment (`CoverPlayOpening` → `playCover`). */

@@ -14,4 +14,5 @@ parents' weight; Auto Arrange label "Immediate family (both sides)" unchanged (g
 Corpus: DECISION_LOG row appended but NOT committed (the file holds another session's uncommitted edit).
 
 Done: guard 9/9; sabotage S1 6, S2 2, S3 5, S4 1, S5 2 (of 9) red; 102 touched test files 914/914.
-Next: ugat db-tests, shots at 375, push, draft PR.
+Done: ugat db-tests 6/6; shots in shots-2026-10-17/grandparents; PR #6600 draft, do-not-auto-merge.
+Next: CI green, then delete this file.

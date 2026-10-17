@@ -192,8 +192,13 @@ const APPLY = `SELECT public.apply_colour_change($1,$2,$3,$4,$5::smallint,$6) AS
  * grepping the migration: a later migration could widen it and the original
  * file would still say the right thing.
  */
+// 2026-10-18: `is_admin()` is wrapped as `( SELECT is_admin() AS is_admin)` by
+// 20271274849201_event_day_policies_read_the_caller_once.sql — read once per
+// query instead of once per row. Same rows admitted: proved before/after in
+// event-day-policies-admit-the-same-rows.db.test.ts. The pin moves with it; a
+// WIDENING is still anything that is not exactly this text.
 const EVENTS_UPDATE_QUAL =
-  '((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin())';
+  '((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))';
 
 function squash(s: string): string {
   return s.replace(/\s+/g, ' ').trim();

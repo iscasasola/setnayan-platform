@@ -15,8 +15,7 @@ import {
 import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type ReadPick as ReaderPick } from '@/lib/attire-rows';
-import { pickDots } from '@/lib/role-figure';
-import { singleWearerOf } from '@/lib/role-figure';
+import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';

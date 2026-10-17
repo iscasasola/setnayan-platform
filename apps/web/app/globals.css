@@ -4188,6 +4188,21 @@ html.dark [data-art='candlelight'] {
   }
 }
 
+/* 🧍 A LONE LOOK, CENTRED (`[data-dress-code-lone]`, owner 2026-10-18: "dresscode should also adapt center like wedding
+   march"). The dress code centres a role that holds ONE look, and the reader's own look, as the march centres a lone
+   walker (`dress-code-widget.tsx`). Every look's colours follow it: the wrapping looks centre their swatches and their
+   legend; Paint strokes keep their cascade, each stroke centred and still stepped down. Two looks are untouched.
+   Held by `lib/a-lone-look-in-the-dress-code-is-centred.test.ts`. */
+.sn-editorial [data-dress-code-lone] .sn-pal,
+.sn-editorial [data-dress-code-lone] .sn-pal-legend {
+  justify-content: center;
+}
+.sn-editorial [data-dress-code-lone] .sn-pal-strokes:not(.sn-pal-row) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* 🏷 WHAT EACH COLOUR COLOURS (`DotWords`, 2026-10-17) — one key line under a row's colours: a bullet in the colour,
    then its word ("Coat & pants", "Long gown"). The words are 12 px (the Guest Legibility Floor). */
 .sn-dot-words > span::before {

@@ -65,3 +65,18 @@ Guard `lib/live-day-answers-are-shared.test.ts`; 7 sabotages RED.
 One events read (slug + both links; old 2-step kept as 42703 fallback), broadcast row only when no link, remembered per
 event, `s-maxage=10, swr=20` on a definite answer; 'unknown'/404 not shared, `no-store`. Embed skips polls while hidden.
 6 sabotages RED.
+
+### Step 4 — FIX 3 run-of-show + announcement ✅
+Run-of-show: guests apply the postgres_changes payload (`lib/run-of-show-live.ts` `applyGuestBlockChange`) behind
+`rowGuestsMaySee` (lib/schedule.ts — the fence's 3 conditions on one row; missing fence column → 'unknown' → re-read).
+Re-reads (unsettled payload, reconnect) wait `herdDelay(10 s)`. Hosts/suppliers unchanged.
+Announcement: per-event remembered read; writer `revalidateTag(liveDayTag(eventId))` BEFORE the ping; ping asks spread
+over 3 s; hidden phone does not pull. 10 sabotages RED.
+LEFT (named, not built): Realtime itself still evaluates RLS per subscriber per change (postgres_changes). Moving guests
+to a broadcast-from-trigger channel needs a migration — another lane is adding migrations now; out of this PR.
+
+### Step 5 — FIX 2 pulse (next)
+Plan: `lib/event-pulse.server.ts` (per-event stamp v + per-guest recent changes g, remembered 10 s) · route
+`app/[slug]/live-pulse/route.ts` · `lib/event-pulse.ts` (pure decision) · `lib/use-event-pulse.ts` (hook, 15 s ± 20 %,
+hidden = no poll, back after ≥ 9 min away = refresh, 3 misses = refresh) · HubShell stage frame + LiveRefresher +
+find-seat name search use it when the page passes a baseline; hub/page.tsx startAhead.

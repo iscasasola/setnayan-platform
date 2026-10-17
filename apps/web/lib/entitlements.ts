@@ -153,7 +153,10 @@ export async function eventHostIsInternal(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return askedOnce(supabase, 'host-is-internal', [eventId], () => readHostIsInternal(supabase, eventId));
+  return askedOnce(supabase, 'host-is-internal', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? facts.hostInternal : readHostIsInternal(supabase, eventId);
+  });
 }
 
 async function readHostIsInternal(supabase: SupabaseClient, eventId: string): Promise<boolean> {
@@ -185,7 +188,10 @@ export async function eventHostHoldsFounderSeat(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return askedOnce(supabase, 'host-holds-founder-seat', [eventId], () => readHostHoldsFounderSeat(supabase, eventId));
+  return askedOnce(supabase, 'host-holds-founder-seat', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? facts.founderSeat : readHostHoldsFounderSeat(supabase, eventId);
+  });
 }
 
 async function readHostHoldsFounderSeat(supabase: SupabaseClient, eventId: string): Promise<boolean> {
@@ -213,7 +219,10 @@ export async function eventCompActiveSkus(
 type CompSkusRead = { answered: boolean; skus: string[] };
 
 function compSkusOnce(supabase: SupabaseClient, eventId: string): Promise<CompSkusRead> {
-  return askedOnce(supabase, 'comp-active-skus', [eventId], () => readCompActiveSkus(supabase, eventId));
+  return askedOnce(supabase, 'comp-active-skus', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? { answered: true, skus: facts.compSkus } : readCompActiveSkus(supabase, eventId);
+  });
 }
 
 async function readCompActiveSkus(supabase: SupabaseClient, eventId: string): Promise<CompSkusRead> {
@@ -1120,6 +1129,8 @@ type EventOrdersRead =
 /** Every order row of ONE event — read once per render, per authority. */
 function eventOrdersOnce(supabase: SupabaseClient, eventId: string): Promise<EventOrdersRead> {
   return askedOnce(supabase, 'orders-of-event', [eventId], async (): Promise<EventOrdersRead> => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    if (facts) return { rows: facts.orders, error: null };
     const { data, error } = await supabase
       .from('orders')
       .select('service_key, status')
@@ -1221,10 +1232,97 @@ async function basketGrantsSkuInRender(
   live: (status: string) => boolean,
 ): Promise<boolean> {
   if (isServiceRoleClient(supabase) && orders.length === 0) return false;
+  // Every basket line of the event came with the facts — no request per product.
+  const facts = await entitlementFactsOnce(supabase, eventId);
+  if (facts) return facts.basket.some((r) => r.serviceCode === serviceKey && live(r.status));
   const rows = await askedOnce(supabase, 'basket-orders-granting', [eventId, serviceKey], () =>
     eventBasketOrdersGranting(supabase, eventId, serviceKey),
   );
   return rows.some((r) => live(r.status));
+}
+
+/**
+ * ⚡ EVERY PER-EVENT OWNERSHIP FACT IN ONE REQUEST (event-day load L3, 2026-10-18 —
+ * migration 20271275959355 `event_entitlement_facts`).
+ *
+ * A render asked the order rows, the comp list, "is a host internal?", "does a
+ * host hold a founder seat?" — four requests — and, for an event WITH orders,
+ * one `event_basket_orders_granting` per product on top (3–7 on a guest page).
+ * The facts are per EVENT, not per product, so one function answers them all:
+ * the same four questions, word for word (it calls the same three functions and
+ * reads the same order rows), plus every basket line of the event with its
+ * order's status — the per-product RPC's rows for every service code at once.
+ *
+ * 🔒 Asked only by a SERVICE-ROLE client inside a render (`insideRender`): the
+ * function answers the service role alone (the order rows are the couple's
+ * bill), and a session client's orders are purchaser-scoped by RLS — that path
+ * is untouched. Outside a render nothing here runs (an action's gate re-reads
+ * each fact, exactly as before).
+ *
+ * ⛔ NEVER REMEMBERED ACROSS REQUESTS (it is an RPC — `lib/event-shared-reads.ts`
+ * never files one): a comp grant expires by the clock, and no write says so.
+ *
+ * 🔑 ANY FAILURE → null → each fact asked the old way, with its own failure
+ * contract (a missing function before the migration, a refusal, a shape this
+ * does not recognise). The answers are held equal to the per-fact path by
+ * `lib/entitlement-facts-equal-the-per-fact-answers.test.ts`.
+ */
+type BasketLine = { serviceCode: string; status: string };
+type EntitlementFacts = {
+  orders: OrderRow[];
+  compSkus: string[];
+  hostInternal: boolean;
+  founderSeat: boolean;
+  basket: BasketLine[];
+};
+
+function entitlementFactsOnce(supabase: SupabaseClient, eventId: string): Promise<EntitlementFacts | null> {
+  if (!eventId || !isServiceRoleClient(supabase) || !insideRender()) return Promise.resolve(null);
+  return askedOnce(supabase, 'entitlement-facts', [eventId], async () => {
+    try {
+      const { data, error } = await supabase.rpc('event_entitlement_facts', { p_event_id: eventId });
+      if (error) {
+        // Each fact is then asked the old way — the render loses a request, not an answer.
+        console.error('[supabase-error] entitlements: event_entitlement_facts', error);
+        return null;
+      }
+      return entitlementFactsFrom(data);
+    } catch {
+      return null;
+    }
+  });
+}
+
+/** The function's answer, checked part by part — anything unexpected is "no answer". */
+export function entitlementFactsFrom(data: unknown): EntitlementFacts | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  if (!Array.isArray(d.orders) || !Array.isArray(d.comp_skus) || !Array.isArray(d.basket)) return null;
+  if (typeof d.host_internal !== 'boolean' || typeof d.founder_seat !== 'boolean') return null;
+  const orders: OrderRow[] = [];
+  for (const o of d.orders) {
+    if (!o || typeof o !== 'object') return null;
+    const r = o as { service_key?: unknown; status?: unknown };
+    orders.push({
+      service_key: typeof r.service_key === 'string' ? r.service_key : null,
+      status: typeof r.status === 'string' ? r.status : null,
+    });
+  }
+  const basket: BasketLine[] = [];
+  for (const b of d.basket) {
+    if (!b || typeof b !== 'object') return null;
+    const r = b as { service_code?: unknown; status?: unknown };
+    if (typeof r.service_code !== 'string') continue;
+    // As `eventBasketOrdersGranting` maps a row: a status that is not text reads as ''.
+    basket.push({ serviceCode: r.service_code, status: typeof r.status === 'string' ? r.status : '' });
+  }
+  return {
+    orders,
+    compSkus: d.comp_skus.filter((s): s is string => typeof s === 'string'),
+    hostInternal: d.host_internal,
+    founderSeat: d.founder_seat,
+    basket,
+  };
 }
 
 /** `eventOwnsSku`, in a render — the same chain in the same order (see its docblock). */

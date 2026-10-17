@@ -165,6 +165,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
+import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -276,6 +277,8 @@ async function invitationMetadata({ params, searchParams }: Props) {
   // Bare-root dispatch (PR5): not a renderable event → use the vendor metadata
   // (vendorMetadataBySlug returns a generic title if it isn't a vendor either).
   if (!event) return vendorMetadataBySlug(slug);
+  // 🗂 The same rule as the body below (`openSharedEventReads`).
+  if (!hostAsksForCanvas(search)) openSharedEventReads(event.event_id);
   // Iteration 0053: the public couple website is the 'website' profile surface.
   // Generic (non-wedding) profiles don't enable it → fall through to vendor
   // metadata (config-driven; was a notFound() before PR5).
@@ -503,6 +506,13 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     // notFound()s itself if there's no vendor either.
     return renderVendorBySlug({ slug, searchParams });
   }
+  /* 🗂 WHAT EVERY VIEWER OF THIS EVENT SEES ALIKE IS REMEMBERED UNDER ITS STAMP
+     (event-day load L3 · `lib/event-shared-reads.ts`). Opened here, before any
+     body read, for a guest's or a stranger's view of THIS event only. A host's
+     canvas or preview (`?editor=1`, `?preview=draft`, a theme tile, "See as" —
+     any of `HOST_ONLY_PARAMS`) is never opened: every read of it goes to the
+     database, as before. What is read about the viewer never qualifies. */
+  if (!hostAsksForCanvas(search)) openSharedEventReads(event.event_id);
   // Iteration 0053: the whole public couple website is the 'website' profile
   // surface. Non-wedding (generic) profiles don't enable it → fall through to
   // the vendor check (config-driven; was a notFound() before PR5). The resolved

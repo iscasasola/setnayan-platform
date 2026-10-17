@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
+import { insideRender } from '@/lib/request-once';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -73,8 +74,73 @@ const REFRESH_WINDOW_SECONDS = COOKIE_MAX_AGE_SECONDS / 2; // 30 days
  */
 
 
+/**
+ * ⏱ A RECENT "YES" IS REMEMBERED FOR AT MOST 30 SECONDS — ON ONE SERVER
+ * INSTANCE, IN A RENDER ONLY (event-day load L3, 2026-10-18).
+ *
+ * Every page a guest opened paid this check again: one `guests` read per view,
+ * for a token that had not changed in weeks. Inside a RENDER, a token this
+ * instance found current less than `RECENT_YES_MS` ago is taken as current
+ * without asking.
+ *
+ * 🔑 THE WINDOW, STATED: a rotation or a removal revokes a session on its very
+ * next check — EXCEPT that a render on an instance that saw the old token
+ * current within the last 30 seconds may still draw that guest's page once
+ * more, until those 30 seconds end. Nothing else changes:
+ *   · a SERVER ACTION never uses it (`insideRender()` is false there): every
+ *     write a guest makes is checked against the database, as before — there an
+ *     absence denies;
+ *   · only a COMPLETED lookup that matched is remembered — never a mismatch,
+ *     never a missing row, never the fail-open answer to a lookup that failed;
+ *   · the key is the guest and a SHA-256 of the token (the token itself is not
+ *     kept), so a rotated token is a different key and is always asked;
+ *   · at most `RECENT_YES_MAX` entries; the oldest leaves first.
+ * Held by `lib/guest-session-recent-yes.test.ts`.
+ */
+export const RECENT_YES_MS = 30_000;
+const RECENT_YES_MAX = 5_000;
+const recentYes = new Map<string, number>();
+
+async function recentYesKey(guestId: string, qrToken: string): Promise<string | null> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(qrToken));
+    return `${guestId}:${Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Is this guest's session token still the one on their row? — the chokepoint's
+ * question, exported so its memory can be held by a test
+ * (`lib/guest-session-recent-yes.test.ts`). Every caller in the app goes
+ * through `readGuestSession`.
+ */
+export function guestSessionTokenStillCurrent(guestId: string, qrToken: string): Promise<boolean> {
+  return sessionTokenMatchesDb(guestId, qrToken);
+}
+
+/** TEST ONLY — forget every remembered answer. */
+export function forgetRecentGuestSessionChecksForTest(): void {
+  recentYes.clear();
+}
+
 const sessionTokenMatchesDb = cache(
   async (guestId: string, qrToken: string): Promise<boolean> => {
+    const key = insideRender() ? await recentYesKey(guestId, qrToken) : null;
+    if (key) {
+      const until = recentYes.get(key);
+      if (until !== undefined && until > Date.now()) return true;
+      if (until !== undefined) recentYes.delete(key);
+    }
+    const remember = (answer: boolean, completed: boolean): boolean => {
+      if (key && answer && completed) {
+        recentYes.delete(key);
+        recentYes.set(key, Date.now() + RECENT_YES_MS);
+        if (recentYes.size > RECENT_YES_MAX) recentYes.delete(recentYes.keys().next().value as string);
+      }
+      return answer;
+    };
     try {
       const admin = createAdminClient();
       const { data, error } = await admin
@@ -93,11 +159,14 @@ const sessionTokenMatchesDb = cache(
           lookupFailed: true,
         });
       }
-      return guestSessionSurvivesTokenCheck({
-        cookieToken: qrToken,
-        dbToken: (data?.qr_token as string | null | undefined) ?? null,
-        lookupFailed: false,
-      });
+      return remember(
+        guestSessionSurvivesTokenCheck({
+          cookieToken: qrToken,
+          dbToken: (data?.qr_token as string | null | undefined) ?? null,
+          lookupFailed: false,
+        }),
+        true,
+      );
     } catch {
       // Admin client unavailable (e.g. a CI build with no service key) — the
       // lookup never happened, so this is fail-open territory too.

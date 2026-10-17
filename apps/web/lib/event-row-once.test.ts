@@ -265,11 +265,21 @@ test('6 · every extra column exists in production, and none repeats one of the 
 
 test('6b · the one read falls back to the shell alone ONLY for an unknown column, and holds what it read', () => {
   const start = LOADERS.indexOf('function theOneEventRead(');
-  const one = LOADERS.slice(start, LOADERS.indexOf('export const loadEventShell = cache('));
+  const one = LOADERS.slice(start, LOADERS.indexOf('async function eventStampBySlug(', start));
   assert.ok(start > -1 && one.length > 200, 'theOneEventRead is gone or renamed — update this guard');
-  assert.match(one, /if \(whole\.error\) return whole\.error\.code === '42703' \? await read\(columns\) : whole;/, 'the fallback is gone, or now retries on any failure');
-  assert.match(one, /holdEventRow\(row\.event_id, row, slug\)/, 'the row that was read is no longer left in hand');
-  assert.match(one, /data: withoutOnceExtras\(row\)/, 'the page is handed the extras — its row is no longer the row it always was');
+  // A refusal of an unknown column → the shell alone, holding nothing; any other refusal is handed back as it is.
+  assert.match(
+    one,
+    /if \(whole\.error\) return whole\.error\.code === '42703' \? \{ \.\.\.\(await read\(columns\)\), held: false \} : \{ \.\.\.whole, held: false \};/,
+    'the fallback is gone, or now retries on any failure',
+  );
+  // The hold happens AFTER the read, in `readEventShellRow` (the stamp-aware read `loadEventShell` goes
+  // through, lib/event-shared-reads.ts) — so a row remembered under the stamp is left in hand exactly like one just read.
+  const shell = LOADERS.slice(LOADERS.indexOf('export const loadEventShell = cache('), LOADERS.indexOf('export type EventShellRow'));
+  assert.match(shell, /await readEventShellRow\(admin, slug, \(\) =>\s*theOneEventRead\(admin, slug\)\.select\(/, 'loadEventShell no longer reads through the stamp-aware read — update this guard');
+  const stamped = LOADERS.slice(LOADERS.indexOf('async function readEventShellRow'), LOADERS.indexOf('export const loadEventShell = cache('));
+  assert.match(stamped, /const \{ held, \.\.\.rest \} = read;\s*if \(rest\.data && held\) \{[\s\S]*?holdEventRow\(row\.event_id, row, slug\)/, 'the row that was read is no longer left in hand');
+  assert.match(stamped, /data: withoutOnceExtras\(row\)/, 'the page is handed the extras — its row is no longer the row it always was');
 });
 
 // ── 6c · the two invite doors ───────────────────────────────────────────────

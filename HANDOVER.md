@@ -45,3 +45,16 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       the RPC instead of `.from('guests').insert`. Test tests/db/a-plus-one-seat-is-minted-once.db.test.ts (5/5);
       sabotage: same-name lookup removed → 1 red · full refusal removed → 2 red · lock removed → 1 red.
       Guard repointed: every-plus-one-is-named.test.ts (insert shape → rpc shape).
+- [x] 2 Papic guest capture — FIXED. Migration 20271272777206: `papic_guest_captures.client_capture_id` + UNIQUE
+      (guest_id, client_capture_id); `papic_record_guest_capture` DROP+CREATE as 9-arg (p_client_capture_id last,
+      body = prod md5 c7a223fc… extended by asserted script), repeat answered inside the guest lock BEFORE the meters
+      (`duplicate:true`, no row, no spend); reply carries `capture_id`. Route: early repeat answer before pool booking/R2,
+      R2 key = the id, 9→8 ladder rung, `duplicate` → pool booking released. Camera mints the id at the grab
+      (lib/papic-client-capture-id.ts) and sends it on both live posts + all 4 queue writes; drain re-sends it.
+      Tests: tests/db/a-guest-capture-lands-once-per-shutter.db.test.ts (5), lib/papic-client-capture-id.test.ts (4).
+      Sabotage: branch removed → migration assertion refuses (all red) · branch after meters → 1 red · drain drops id → 1
+      red · key by Date.now → 1 red · duplicate keeps points → 1 red. Guards updated for the new signature:
+      the-minute-is-the-shutter, papic-guest-ceiling-is-wired (ladder [2,9,8,7,6,3,2]), papic-guest-own-credits-are-hers,
+      papic-guest-spend-ceiling.
+      LEFT (name in PR): pool reserve (separate RPC) before the record can leak if the function dies between them —
+      folding it in moves three ledgers + the fn-not-found carve-out; not contained.

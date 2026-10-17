@@ -21,11 +21,13 @@
  *   3. Wherever a tier is computed, a grandparent gets exactly what a parent of the same side gets — nothing about
  *      seating, invitations, attire or the guest list gets worse for them.
  *
- * Sabotage (2026-10-17), each seen RED then restored (fails out of 9): the grandparents folded into Immediate Family's
+ * Sabotage (2026-10-17), each seen RED then restored (fails out of 9, before the plural tests were added): the grandparents folded into Immediate Family's
  * roles with their group deleted → 6 ('sections: parents, immediate_family, honour'); `INNER_CIRCLE_ROLES` without
  * them → 2 (the list scan + the tier check); `KIN_OF_ROLE` without them → 5 ('Ms. Juana Sarmiento is called
  * "Grandparents of the Groom"'); `orderedGroupKeys` appending the missing section → 1 (an arranged event walked them
  * after the Nikah); the Auto Arrange family set without them → 2.
+ * Then (out of 10): `marchLineWords` back to one word per person, the plural only for two unknowns → 2 ('Grandmother
+ * of the Groom · Grandmother of the Groom').
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -11,8 +11,9 @@ Owner 2026-10-17: *"the 2 grandparents should not be named immediate family on t
   Auto Arrange family set, inner-circle invite blocks, mood-board / attire colour, attire figures, emcee order,
   guestbook voice, guest search (lolo / lola / grandmother / grandfather).
 - Entourage: a **Grandparents** section right after Parents and before Immediate Family, groom's side first. Each is
-  named per person by the parents' own resolver — "Grandfather / Grandmother / Grandparent of the Groom"; two
-  unknowns on one march line share "Grandparents of the …". In the march they walk right after "The Groom & his
+  named per person by the parents' own resolver — "Grandfather / Grandmother / Grandparent of the Groom". On the
+  march, people on one line who are the SAME word say it once in the plural — "Grandmothers of the Groom", and for
+  parents too, "Mothers of the Bride" (`kinWordForSeveral`); different words stay "X · Y". In the march they walk right after "The Groom & his
   parents". Same published visibility class as parents (docblock in `lib/entourage.ts`).
 - A couple who arranged their sections before today: Grandparents joins right after THEIR Parents
   (`joinsSavedOrderAfter`), not at the end, so an arranged event does not walk its grandparents last.

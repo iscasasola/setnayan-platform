@@ -28,6 +28,23 @@ import { unstable_cache } from 'next/cache';
  * Held by `lib/live-day-answers-are-shared.test.ts`.
  */
 
+/**
+ * THE EDGE HALF. A shared answer may also be held by Vercel's CDN for a few seconds, so most polls never reach a
+ * function. The policy goes in `Vercel-CDN-Cache-Control` (consumed by Vercel, never forwarded), and the browser is
+ * told `max-age=0, must-revalidate` — a phone must never show itself a stale copy from its own cache. And the phones
+ * ask with no request cache directive (plain `fetch`): `cache: 'no-store'` sends `Cache-Control: no-cache`, which
+ * `next dev` treats as "skip the data cache" (measured: 78 reads for 77 polls in the lab) and which a CDN may honour.
+ */
+export function liveEdgeHeaders(cdnSeconds: number, staleSeconds = 0): Record<string, string> {
+  return {
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Vercel-CDN-Cache-Control': staleSeconds > 0 ? `max-age=${cdnSeconds}, stale-while-revalidate=${staleSeconds}` : `max-age=${cdnSeconds}`,
+  };
+}
+
+/** Never held anywhere — a refusal, an unmeasured answer, a closed event's private answer. */
+export const NOT_HELD: Record<string, string> = { 'Cache-Control': 'private, no-store' };
+
 /** How long one event's live answer may be handed out before it is read again (seconds). */
 export const LIVE_DAY_SECONDS = 10;
 

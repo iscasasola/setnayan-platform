@@ -76,9 +76,8 @@ export function WatchLiveEmbed({
       // (app/api/live/[slug]/watch/route.ts), but a request is still a request; the next visible tick catches up.
       if (document.visibilityState !== 'visible') return;
       try {
-        const res = await fetch(`/api/live/${encodeURIComponent(slug)}/watch`, {
-          cache: 'no-store',
-        });
+        // No request cache directive — see lib/live-day-cache.ts `liveEdgeHeaders`.
+        const res = await fetch(`/api/live/${encodeURIComponent(slug)}/watch`);
         if (!res.ok) return;
         const data = (await res.json()) as { watchUrl: string | null; state: GuestWatchState };
         if (data.state === 'unknown') {

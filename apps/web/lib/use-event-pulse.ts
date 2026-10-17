@@ -68,7 +68,8 @@ export function useEventPulse(
       const base = baselineRef.current;
       if (!base) return;
       try {
-        const res = await fetch(`/${encodeURIComponent(slug)}/live-pulse`, { cache: 'no-store' });
+        // No request cache directive — see lib/live-day-cache.ts `liveEdgeHeaders`.
+        const res = await fetch(`/${encodeURIComponent(slug)}/live-pulse`);
         if (!res.ok) throw new Error(String(res.status));
         const answer = (await res.json()) as PulseAnswer;
         if (typeof answer?.v !== 'string') throw new Error('no stamp');

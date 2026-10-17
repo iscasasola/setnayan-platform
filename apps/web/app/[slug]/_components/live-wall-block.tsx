@@ -127,9 +127,9 @@ export function LiveWallBlock({
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`, {
-          cache: 'no-store',
-        });
+        // No request cache directive — the feed's own headers keep the browser from reusing a copy, and a
+        // `no-store` ask would skip the shared answer (lib/live-day-cache.ts `liveEdgeHeaders`).
+        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`);
         // 404 IS A REFUSAL, NOT AN OUTAGE — and the two must not be treated
         // alike. The feed answers 404 only when the wall is not on offer to
         // guests: the couple switched the phone mirror off, or the wall was

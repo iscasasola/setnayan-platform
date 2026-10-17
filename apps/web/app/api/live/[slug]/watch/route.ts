@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
 import { getLatestPanoodBroadcastStatus } from '@/lib/panood-broadcast';
 import { decideGuestWatchState, type GuestWatchState } from '@/lib/live-watch-state';
-import { notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
+import { liveEdgeHeaders, NOT_HELD, notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
 
 /**
  * GET /api/live/[slug]/watch — W1: the guest-facing poll that keeps
@@ -30,14 +30,15 @@ import { notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
  *     Facebook column);
  *   · the broadcast status is read only when there is no watch link — a staged
  *     link already decides 'live' (`decideGuestWatchState`'s first line);
- *   · a definite answer is handed to the CDN (`s-maxage` + `stale-while-revalidate`).
+ *   · a definite answer is handed to the CDN for a few seconds (`liveEdgeHeaders`:
+ *     max-age + stale-while-revalidate, for Vercel's CDN only — the browser revalidates).
  * ⛔ 'unknown' (the status read was REFUSED) and "no such event" are answered to
  * this phone only — never remembered, never cached at the edge.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const EDGE_CACHE = 'public, max-age=0, s-maxage=10, stale-while-revalidate=20';
+const EDGE = liveEdgeHeaders(10, 20);
 
 type WatchAnswer = {
   status: 200 | 404;
@@ -97,6 +98,6 @@ export async function GET(
   const definite = answer.status === 200 && 'state' in answer.body && answer.body.state !== 'unknown';
   return NextResponse.json(answer.body, {
     status: answer.status,
-    headers: { 'Cache-Control': definite ? EDGE_CACHE : 'no-store' },
+    headers: definite ? EDGE : NOT_HELD,
   });
 }

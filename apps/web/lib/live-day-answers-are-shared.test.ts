@@ -179,8 +179,8 @@ test('2 · only an OPEN wall is remembered or cached at the edge — a closed an
   // A failed event read is an OUTAGE (the block retries), never a refusal (the block stops for good).
   assert.match(body, /if \(error\) return notRemembered<WallAnswer>\(\{ status: 503/);
   // The edge only ever holds an open, fully measured wall.
-  assert.match(route, /answer\.status === 200 && answer\.body\.challengeMeasured !== false \? EDGE_CACHE : 'no-store'/);
-  assert.match(route, /s-maxage=\d+/);
+  assert.match(route, /headers: answer\.status === 200 && answer\.body\.challengeMeasured !== false \? EDGE : NOT_HELD,/);
+  assert.match(route, /const EDGE = liveEdgeHeaders\(\d+, \d+\);/);
 });
 
 test('2 · the wall block spaces its polls (± 20 %) and still stops on a refusal', () => {
@@ -209,8 +209,8 @@ test('4 · an unreadable status or a missing event is never shared — and never
   assert.match(route, /return state === 'unknown' \? notRemembered\(answer\) : answer;/, "'unknown' was remembered for every phone");
   assert.match(route, /return notRemembered<WatchAnswer>\(\{ status: 404/, 'a missing event was remembered');
   assert.match(route, /answer\.body\.state !== 'unknown'/);
-  assert.match(route, /'Cache-Control': definite \? EDGE_CACHE : 'no-store'/);
-  assert.match(route, /EDGE_CACHE = 'public, max-age=0, s-maxage=\d+, stale-while-revalidate=\d+'/);
+  assert.match(route, /headers: definite \? EDGE : NOT_HELD,/);
+  assert.match(route, /const EDGE = liveEdgeHeaders\(\d+, \d+\);/);
   assert.doesNotMatch(route, /'public, max-age=15'/, 'the browser-only cache is back — it never reached the CDN');
 });
 
@@ -386,8 +386,10 @@ test('2b · the pulse is one remembered answer per event; a closed event asks th
   assert.match(server, /rememberedLiveRead\(`event-pulse-v\d+:\$\{key\}`, key, \(\) => readPulse\(key\)\)/);
   assert.match(server, /\.from\('guest_checkins'\)[\s\S]{0,120}\.gte\('checked_in_at', since\)/, 'arrivals are read whole — they must be the recent window only');
   const route = read('app/[slug]/live-pulse/route.ts');
-  assert.match(route, /if \(!pulse\.openToStrangers && !\(await canViewSlugEvent\(pulse\.eventId, pulse\.visibility\)\)\)/);
-  assert.match(route, /pulse\.openToStrangers \? EDGE_CACHE : 'private, no-store'/, 'a closed event’s answer reached the shared edge cache');
+  assert.match(route, /if \(!pulse\.openToStrangers && !\(await holdsThisEventsPass\(pulse\.eventId\)\) && !\(await canViewSlugEvent\(pulse\.eventId, pulse\.visibility\)\)\)/);
+  // The pass is THIS event's, and still in date.
+  assert.match(route, /return verified\?\.payload\.event_id === eventId && verified\.expiresAtSeconds > Date\.now\(\) \/ 1000;/);
+  assert.match(route, /headers: pulse\.openToStrangers \? EDGE : NOT_HELD/, 'a closed event’s answer reached the shared edge cache');
   assert.match(route, /catch \{\s*return NextResponse\.json\(\{ error: 'unavailable' \}, \{ status: 503/, 'a refused pulse must be an outage, never "nothing changed"');
 });
 
@@ -416,4 +418,24 @@ test('2b · the guests’ day-of pages use the pulse; the 45 s re-render runs on
   assert.equal((findSeat.match(/pulseBaseline\(slug, null, renderedAt\)/g) ?? []).length, 2, 'find-seat: both the refresher and the name search take the baseline');
   const search = read('app/[slug]/find-seat/_components/name-search.tsx');
   assert.match(search, /useEventPulse\(slug, eventDate, pulse, requery\);\s*useDayOfLiveTick\(eventDate && !pulse \? eventDate : null, requery\);/);
+});
+
+test('5 · the edge holds a shared answer; the browser never reuses one; a phone asks with no cache directive', async () => {
+  const { liveEdgeHeaders, NOT_HELD } = await cacheModule();
+  const h = liveEdgeHeaders(5, 10);
+  assert.equal(h['Cache-Control'], 'public, max-age=0, must-revalidate', 'a phone could show itself a stale copy');
+  assert.equal(h['Vercel-CDN-Cache-Control'], 'max-age=5, stale-while-revalidate=10');
+  assert.equal(liveEdgeHeaders(5)['Vercel-CDN-Cache-Control'], 'max-age=5');
+  assert.equal(NOT_HELD['Cache-Control'], 'private, no-store');
+  // `cache: 'no-store'` sends `Cache-Control: no-cache`, which skips the shared answer (measured in next dev).
+  for (const [file, url] of [
+    ['app/[slug]/_components/live-wall-block.tsx', '/live-wall`'],
+    ['app/[slug]/_components/watch-live-embed.tsx', '/watch`'],
+    ['lib/use-event-pulse.ts', '/live-pulse`'],
+  ] as const) {
+    const src = read(file);
+    const at = src.indexOf(url);
+    assert.ok(at > 0, `${file}: the poll is gone`);
+    assert.doesNotMatch(src.slice(at, at + 80), /no-store|no-cache|reload/, `${file}: the poll asks past the shared answer again`);
+  }
 });

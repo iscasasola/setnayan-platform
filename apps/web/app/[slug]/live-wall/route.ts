@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { partDoorHidden } from '../_lib/part-door.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
-import { notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
+import { liveEdgeHeaders, NOT_HELD, notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
 
 /**
  * GET /[slug]/live-wall — the freshness feed for the guest-page LiveWallBlock
@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
   who is asking (the snapshot is read with `null` for the viewer). It used to be ~10 database reads PER PHONE PER POLL.
   The whole answer is now remembered for the event for `LIVE_DAY_SECONDS` (`lib/live-day-cache.ts`), so the database
   is asked once per event per window however many guests are watching; and a remembered answer is also handed to the
-  CDN for a few seconds (`s-maxage`), so most polls never reach a function at all.
+  CDN for a few seconds (`liveEdgeHeaders`), so most polls never reach a function at all.
 
   ⛔ ONLY AN OPEN WALL IS REMEMBERED. A "closed" answer (404) is never stored and never cached at the edge: the block
   STOPS POLLING FOR GOOD on a 404 (it is a refusal — see live-wall-block.tsx), and `guestWallMirrorActive` and the
@@ -43,7 +43,7 @@ export const dynamic = 'force-dynamic';
   every phone at the venue, permanently. An event read that FAILED answers 503 (an outage the block retries), not 404.
   A refused challenge read (`challengeMeasured: false`) is honest for this guest and is not handed to the others.
 */
-const EDGE_CACHE = 'public, max-age=0, s-maxage=5, stale-while-revalidate=10';
+const EDGE = liveEdgeHeaders(5, 10);
 
 type WallAnswer = { status: 200 | 404 | 503; body: Record<string, unknown> };
 
@@ -100,8 +100,6 @@ export async function GET(
   const answer = await rememberedLiveRead(`live-wall-v1:${key}`, key, () => wallAnswer(key));
   return NextResponse.json(answer.body, {
     status: answer.status,
-    headers: {
-      'Cache-Control': answer.status === 200 && answer.body.challengeMeasured !== false ? EDGE_CACHE : 'no-store',
-    },
+    headers: answer.status === 200 && answer.body.challengeMeasured !== false ? EDGE : NOT_HELD,
   });
 }

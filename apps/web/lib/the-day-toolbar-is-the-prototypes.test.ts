@@ -78,6 +78,8 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     ['heroline', 'field', true],
     ['date', 'Change it in Suppliers', true],
     ['place', 'Change it in Suppliers', true],
+    /* 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): it only moves — no words, no look. */
+    ['coverphoto', null, false],
     ['herolink', 'field', true],
     ['schedule', 'Open in Studio › Schedule', true],
   ],
@@ -140,7 +142,7 @@ test('(1) the record: every part of The Day — Edit’s first row and Style —
       else assert.equal(styleNow, style, `${k}: Style`);
     }
   }
-  assert.equal(rows, 21, 'anti-vacuity: the record is 21 part placements (22 less the Reveal tile, ruled off 2026-10-16)');
+  assert.equal(rows, 22, 'anti-vacuity: the record is 22 part placements (22 less the Reveal tile, ruled off 2026-10-16, plus the cover’s photo, approved the same day)');
   /* Every difference named is a part of The Day (a stale name would hide a real one). */
   const all = Object.values(RECORD).flatMap((p) => p.map(([k]) => k));
   for (const k of [...NOT_AS_DRAWN.door, ...NOT_AS_DRAWN.style]) assert.ok(all.includes(k), `${k} is not a part of The Day`);
@@ -258,7 +260,7 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
 test('(4) “Happening now” has no look: Style is grey there and says so — and it opens on Edit', () => {
   /* (The rest of the list is Post Event's — `the-post-event-toolbar-is-the-prototypes.test.ts` (5).) */
   assert.ok(MAKER_PARTS_NO_LOOK.includes('spotlight'));
-  assert.deepEqual(MAKER_PARTS_NO_LOOK.filter((k) => Object.values(MAKER_STAGE_PAGES.event!).some((p) => p.includes(k))), ['spotlight'], 'another part of The Day lost its Style');
+  assert.deepEqual(MAKER_PARTS_NO_LOOK.filter((k) => Object.values(MAKER_STAGE_PAGES.event!).some((p) => p.includes(k))), ['spotlight', 'coverphoto'], 'another part of The Day lost its Style');
   assert.equal(makerPartToolWorks('spotlight', 'style'), false);
   assert.equal(makerPartToolWhy('spotlight', 'style'), 'Style has nothing to change on this part.');
   for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('spotlight', t), 'edit');

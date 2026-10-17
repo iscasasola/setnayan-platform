@@ -1472,8 +1472,9 @@ export function StageTools({
       const now = readPresent(frameSel);
       const elements = draftedCanvasOr('hero', (askPartOps()?.canvases?.hero ?? null) as never).elements;
       const next = makerPartsOnPage(stageKey, shownPage)
+        .filter((k) => makerPartParent(k) === MAKER_COVER_SCENE)
         /* 🖼 The cover's photo is no line of the cover (no switch of its own — it shows while there is a cover photo). */
-        .filter((k) => makerPartParent(k) === MAKER_COVER_SCENE && k !== MAKER_COVER_PHOTO)
+        .filter((k) => k !== MAKER_COVER_PHOTO)
         .filter((k) => k === 'logo' || now.has(`f:hero|${MAKER_PARTS[k].el}`))
         .map((k): CoverLine => {
           const el = MAKER_PARTS[k].el!;

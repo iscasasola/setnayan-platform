@@ -987,8 +987,9 @@ export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null 
   const fxIn = readElIn(src.in);
   if (fxIn) out.in = fxIn;
   /* Every Action but Parallax (the photo's own, an absence). Which part may keep which is `sanitizeHubElementStyle`'s
-     (`hubElementDuringOffered`): words drift, shimmer or glow; the photo is still, drifts, Ken Burns or leaks. */
-  if (isIn(HUB_EL_DURING, src.during) && src.during !== 'parallax') out.during = src.during;
+     (`hubElementDuringOffered`): words drift, shimmer or glow; the photo drifts, Ken Burns or leaks — and keeps Still,
+     which `sanitizeHubElementStyle` lays back for the photo alone. */
+  if (isIn(HUB_EL_DURING, src.during) && src.during !== 'parallax' && src.during !== 'still') out.during = src.during;
   /* ✨ Gold is kept only beside a shimmer — the direction rule: a key that could move no pixels is not stored. */
   if (out.during === 'shimmer' && src.band === 'gold') out.band = 'gold';
   /* ✨ Words ▾ and 🖼 Reveal ▾ — absences are All at once and Plain. */
@@ -1073,9 +1074,9 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
           ? sanitizeHubElementMotion(LEGACY_ANIM[src.anim] ?? null)
           : null;
     /* ✨ A shimmer only on a part with words — a drawing (the logo) or a button never takes one. And every Action only
-       where it is offered (`hubElementDuringOffered`): Glow on a cover word, Ken Burns · Light leak · Still on the photo
-       (Still is the absence everywhere else). Words ▾ only on a cover word, Reveal ▾ only on the photo. */
-    if (motion?.during && (motion.during === 'still' ? !hubElementIsPicture(key) : !hubElementDuringOffered(key).includes(motion.during))) {
+       where it is offered (`hubElementDuringOffered`): Glow on a cover word, Ken Burns · Light leak on the photo. Words ▾
+       only on a cover word, Reveal ▾ only on the photo. */
+    if (motion?.during && !hubElementDuringOffered(key).includes(motion.during)) {
       delete motion.during;
       delete motion.band;
     }
@@ -1086,7 +1087,15 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
       delete motion.speed;
       delete motion.delay;
     }
-    if (motion && Object.keys(motion).length > 0) out.motion = motion;
+    /* 🖼 Still is kept on the PHOTO only — its absence there is the plate's own Parallax; everywhere else Still IS the
+       absence (`sanitizeHubElementMotion` drops it, so no shipped stored motion draws differently). */
+    const raw = src.motion && typeof src.motion === 'object' ? (src.motion as Record<string, unknown>) : null;
+    if (hubElementIsPicture(key) && raw?.during === 'still') {
+      const m: HubElementMotion = motion ?? {};
+      delete m.band;
+      m.during = 'still';
+      out.motion = m;
+    } else if (motion && Object.keys(motion).length > 0) out.motion = motion;
   }
   if (HUB_ELEMENT_RUN_KEYS.includes(key) && typeof src.of === 'string' && HASH.test(src.of)) {
     const runs = sanitizeHubElementRuns(src.runs, key);

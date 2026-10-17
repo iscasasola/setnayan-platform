@@ -1,6 +1,6 @@
 import { Fragment, cloneElement, isValidElement, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { HUB_FX_LETTER_ATTR, HUB_FX_LINE_ATTR, HUB_FX_WORD_ATTR, hubFxCut, hubFxPieces, type HubFxCut } from '@/lib/part-fx';
-import { ambientEffectSpec } from '@/lib/ambient-effects';
+import { AMBIENT_PHOTO_LEAK_SPEC } from '@/lib/ambient-effects';
 import { AmbientEffectLayer } from './ambient-effect';
 import { splitCoupleNames } from '@/lib/split-names';
 import { formatEventDate } from '@/lib/events';
@@ -850,14 +850,13 @@ function fxWords(text: string, whole: string, start: number, cut: HubFxCut): Rea
 /**
  * 🖼 LIGHT LEAK INSIDE THE PHOTO — the shipped background Light leak ◆ (`lib/ambient-effects.ts` `leak`, the eight
  * effects' ONE drawing) laid over the cover's photo and clipped to it (owner-approved 2026-10-16, "Light leak reuses the
- * shipped ambient `leak`"): the same spec, on a photo's dark ground, as a miniature (no readable band — a photo has no
- * words to keep clear). Its reduced-motion still is the ambient sheet's own; Save-Data's is `globals.css`'s.
+ * shipped ambient `leak`"): `AMBIENT_PHOTO_LEAK_SPEC`. Its reduced-motion still is the ambient sheet's own; Save-Data's
+ * is `globals.css`'s.
  */
-const PHOTO_LEAK = ambientEffectSpec({ kind: 'leak', intensity: 'standard' }, '#000000', [], true);
 export function PhotoLightLeak() {
   return (
     <span data-el-leak="" aria-hidden className="pointer-events-none absolute inset-0">
-      <AmbientEffectLayer spec={PHOTO_LEAK} className="absolute inset-0" />
+      <AmbientEffectLayer spec={AMBIENT_PHOTO_LEAK_SPEC} className="absolute inset-0" />
     </span>
   );
 }

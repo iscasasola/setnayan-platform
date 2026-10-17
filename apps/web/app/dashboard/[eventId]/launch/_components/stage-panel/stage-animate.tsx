@@ -272,7 +272,10 @@ export function StageAnimate({
               off={feel.off ? () => setWhy((w) => ({ words: feel.off as string, n: (w?.n ?? 0) + 1 })) : undefined}
             />
           ) : null}
-          {end === 'in' && plays ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
+              here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
+              scroll" switch is the way in). */}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
           {end === 'in' && rows ? <Dd stacked small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
           {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
           {end === 'in' && arrive ? <Dd stacked small={arrive.small ?? 'Words'} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}

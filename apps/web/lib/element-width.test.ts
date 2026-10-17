@@ -42,7 +42,8 @@ import { stripComments } from './strip-comments';
 /** The owner's table, word for word ("Takes Width" · "Does not"). */
 const TAKES: readonly HubElementKey[] = ['eyebrow', 'names', 'line', 'venue', 'caption', 'heading', 'body'];
 /* 🔘 + the RSVP button (2026-10-16): a button, its look Look › Buttons' — no width, like the link. */
-const DOES_NOT: readonly HubElementKey[] = ['mark', 'joiner', 'date', 'time', 'link', 'label', 'rsvp'];
+/* 🖼 + the cover's photo (2026-10-16, "SIX NEW EFFECTS"): a picture that only moves — no words to cap. */
+const DOES_NOT: readonly HubElementKey[] = ['mark', 'joiner', 'date', 'time', 'link', 'label', 'rsvp', 'photo'];
 
 test('1 · exactly the approved parts take a width; the others never draw a cap, even from a hand-made value', () => {
   assert.deepEqual([...HUB_ELEMENT_WIDTH_PARTS].sort(), [...TAKES].sort());

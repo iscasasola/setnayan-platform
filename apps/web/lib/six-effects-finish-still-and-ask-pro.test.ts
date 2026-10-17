@@ -60,7 +60,7 @@ const SIX: readonly Fx[] = [
 /* ── a small CSS reader: every leaf rule with the at-rules around it ──────── */
 type Rule = { chain: string[]; selector: string; body: string };
 function rulesOf(cssText: string): Rule[] {
-  const css = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(cssText);
   const out: Rule[] = [];
   const stack: Array<{ prelude: string; at: number; child: boolean }> = [];
   let last = 0;

@@ -79,6 +79,8 @@ import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
+import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
 import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 
@@ -963,9 +965,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <CoverSceneMenuWaits />
       {/* 🎭 `&veil=1` — the REAL opening over the lab's cover (`RevealMount`, the guest page's own: its hold script, then the
           Sheer veil), as an owned Pro page mounts it, so "behind the veil none of the cover's words show" (owner
-          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. */}
+          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. Told the page's own
+          `firstPageOnly` (`site-body.tsx`), so the drape that stays with the cover (owner 2026-10-17) walks here too. */}
       {sp.veil === '1' && !makerCanvas ? (
-        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" />
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>

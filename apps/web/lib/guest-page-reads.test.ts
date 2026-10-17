@@ -197,10 +197,11 @@ test('🎨 THE MAKER’S CANVAS IS NEVER SERVED A REMEMBERED READ — only the s
 });
 
 test('🔀 A ROW IS FILED ONLY UNDER ITS OWN EVENT’S STAMP — an address that moved between the two reads files nothing', () => {
-  const mid = REPORT.addressMovedMidRead;
-  assert.equal(mid.eventsReads, 1, 'the view did not read the row');
+  // (The harness's other loaders still ask about the first event, so only the SHELL read is counted here.)
+  const shellReads = (v: View) => v.steps.filter((st) => st.split('  ←')[0]!.replace(/^\d+ /, '').startsWith('events(event_id,public_id')).length;
+  assert.equal(shellReads(REPORT.addressMovedMidRead), 1, 'the view did not read the row');
   const next = REPORT.addressMovedNextView;
-  assert.equal(next.eventsReads, 1, 'the next view was handed a filed row — one event’s row filed under another’s stamp');
+  assert.equal(shellReads(next), 1, 'the next view was handed a filed row — one event’s row filed under another’s stamp');
   assert.equal(next.shellEventId, '00000000-0000-4000-8000-0000000000e2', 'the next view was shown the other event’s row');
 });
 

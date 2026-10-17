@@ -4188,7 +4188,19 @@ html.dark [data-art='candlelight'] {
   }
 }
 
-/* ROW SIZE — the same look beside a role's figure. No words, no entrance. */
+/* 🏷 WHAT EACH COLOUR COLOURS (`DotWords`, 2026-10-17) — one key line under a row's colours: a bullet in the colour,
+   then its word ("Coat & pants", "Long gown"). The words are 12 px (the Guest Legibility Floor). */
+.sn-dot-words > span::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.25);
+}
+
+/* ROW SIZE — the same look beside a role's figure. No entrance; the words, when given, in one key line under it (`DotWords`). */
 .sn-editorial .sn-pal-row {
   gap: 6px;
 }
@@ -4205,22 +4217,44 @@ html.dark [data-art='candlelight'] {
   box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.22);
 }
 .sn-editorial .sn-pal-row.sn-pal-chips {
-  flex-direction: row;
-  gap: 3px;
-  width: auto;
-  padding: 0;
-  background: none;
-  box-shadow: none;
+  /* 🎨 THE SAME PAINT-CHIP CARD, SMALLER (2026-10-17, owner: "why do they have different palette icon?"): the
+     strips stacked in one paper card with its edge and shadow, a paper line between colours — not loose blocks. */
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 30px;
+  padding: 2px;
+  border-radius: 3px;
+  background: rgb(var(--color-paper));
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08),
+    0 4px 8px -5px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgb(var(--color-ink) / 0.1);
 }
 .sn-editorial .sn-pal-row.sn-pal-chips > li {
   display: block;
   min-height: 0;
-  width: 26px;
-  height: 16px;
+  width: 100%;
+  height: 8px;
   padding: 0;
   border: 0;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+  border-radius: 0;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child {
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:last-child {
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li + li {
+  border-top: 1px solid rgb(var(--color-paper) / 0.55);
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child:nth-last-child(n + 6),
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child:nth-last-child(n + 6) ~ li {
+  min-height: 0;
+  padding: 0;
 }
 .sn-editorial .sn-pal-row.sn-pal-circles {
   gap: 6px 0;
@@ -4234,11 +4268,21 @@ html.dark [data-art='candlelight'] {
   height: 20px;
   box-shadow:
     0 0 0 2px rgb(var(--color-paper)),
-    inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+    0 3px 6px -4px rgb(0 0 0 / 0.55),
+    inset 0 -2px 4px -2px rgb(0 0 0 / 0.28),
+    inset 0 2px 3px -2px rgb(255 255 255 / 0.4);
 }
-.sn-editorial .sn-pal-row.sn-pal-circles > li > i::before,
+/* The button's rim and four thread holes, scaled to the row (they were hidden — the row read as plain dots). */
+.sn-editorial .sn-pal-row.sn-pal-circles > li > i::before {
+  inset: 3px;
+  border-width: 1px;
+}
 .sn-editorial .sn-pal-row.sn-pal-circles > li > i::after {
-  display: none;
+  background:
+    radial-gradient(circle at 42% 42%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 58% 42%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 42% 58%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 58% 58%, var(--k) 0 0.9px, transparent 1.2px);
 }
 .sn-editorial .sn-pal-row.sn-pal-ribbon {
   width: 64px;
@@ -4274,11 +4318,27 @@ html.dark [data-art='candlelight'] {
 .sn-editorial .sn-pal-row.sn-pal-watercolour > li > i {
   width: 20px;
   height: 20px;
+  /* 🎨 THE SAME BLED EDGE, PRE-RENDERED (2026-10-17, owner: "why do they have different palette icon?"). The row
+     used a smooth uneven radius, which read as a different look. Its edge is now the full size's OWN filter
+     (`#sn-pal-wc`), run once per seed and saved as an alpha mask (`scripts/build-palette-row-masks.mjs`):
+     measured 60 row dots at 375 px, DPR 2 — live filter 5.9 ms raster, this mask 0.8 ms (plain dots 0.7 ms).
+     The 60 px dot fills 75 % of each mask, hence 133 %. */
   filter: none;
-  border-radius: 48% 52% 46% 54% / 52% 44% 56% 48%;
+  border-radius: 0;
+  /* The pool's darker rim lands ON the masked edge (closest-side), so a white or cream dot still has an edge. */
+  background:
+    radial-gradient(circle at 38% 36%, rgb(255 255 255 / 0.22), transparent 48%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--c), white 10%) 0 40%, var(--c) 68%, color-mix(in srgb, var(--c), rgb(var(--color-ink)) 32%) 100%);
+  -webkit-mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
+  mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
 }
-.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(2n) > i {
-  border-radius: 54% 46% 52% 48% / 46% 56% 44% 54%;
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(3n + 2) > i {
+  -webkit-mask-image: url(/palette/wc-edge-2.png);
+  mask-image: url(/palette/wc-edge-2.png);
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(3n) > i {
+  -webkit-mask-image: url(/palette/wc-edge-3.png);
+  mask-image: url(/palette/wc-edge-3.png);
 }
 .sn-editorial .sn-pal-row.sn-pal-strokes,
 .sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes {

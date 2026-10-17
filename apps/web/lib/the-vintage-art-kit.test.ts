@@ -169,8 +169,9 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
     assert.match(body, re, `site-body's ${what} mount is no longer gated on the kit`);
   }
   for (const [file, re] of [
-    ['app/[slug]/_components/hideable-widget-render.tsx', /kit=\{artKit && !bare \? <KitSlot kit=\{artKit\} slot="countdown" \/> : null\}/],
-    ['app/[slug]/_components/public-hideable-widget.tsx', /kit=\{artKit && !bare \? <KitSlot kit=\{artKit\} slot="countdown" \/> : null\}/],
+    /* 🕯 …the countdown's on its own card AND on the scene's own background (owner 17 Oct, "why narra columns are not showing?"). */
+    ['app/[slug]/_components/hideable-widget-render.tsx', /kit=\{artKit \? <KitSlot kit=\{artKit\} slot="countdown" \/> : null\}/],
+    ['app/[slug]/_components/public-hideable-widget.tsx', /kit=\{artKit \? <KitSlot kit=\{artKit\} slot="countdown" \/> : null\}/],
     ['app/[slug]/_components/guest-welcome.tsx', /\{artKit \? <KitSlot kit=\{artKit\} slot="gifts-divider" \/> : null\}/],
     ['app/[slug]/_components/guest-welcome.tsx', /kit=\{artKit \? <KitSlot kit=\{artKit\} slot="gifts-card" \/> : null\}/],
     ['app/[slug]/_components/invitation-shell.tsx', /\{kitClosing \? \(/],

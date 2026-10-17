@@ -123,7 +123,7 @@ test('the guest’s own "You are …" line and the dress-code rows say the word'
   assert.equal(mine?.roleLabel, "Bride's Crew");
   assert.equal(resolveGuestDressCode({ role: 'bridesmaid', roles: {}, palette })?.roleLabel, 'Bridesmaid');
   const stored = sanitizeRolePalette({ bridesmaids: ['#aa3355'] });
-  const everyone = dressCodeForEveryone({ stored, board: resolveDisplayPalette(stored), roles: {}, groups: {}, names: CREW });
+  const everyone = dressCodeForEveryone({ config: null, stored, board: resolveDisplayPalette(stored), names: CREW });
   assert.ok(everyone.rows.some((r) => r.label === "Bride's Crew"), JSON.stringify(everyone.rows));
   assert.equal(roleGroupLabel('bridesmaids', CREW), "Bride's Crew");
   assert.equal(roleGroupLabel('bridesmaids', {}), ROLE_GROUP_LABELS.bridesmaids);

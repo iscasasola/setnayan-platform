@@ -65,8 +65,9 @@ export type PaletteLookId = (typeof PALETTE_LOOK_IDS)[number];
  * only, nothing written. Not a registry type — no scene is ever stored under it.
  */
 export const PALETTE_LOOK_PREVIEW_TYPE = 'dress_code_palette';
-/** The block of the Dress code scene a palette look's card is fitted on — "Our colours" (`dress-code-widget.tsx`). */
-export const PALETTE_LOOK_CARD_FOCUS = '[data-dress-code="ours"]';
+/** The block of the Dress code scene a palette look's card is fitted on — the roles' colours (`dress-code-widget.tsx`;
+ *  "Our colours" left this scene 2026-10-17, owner: "we must ommit the our colors here"). */
+export const PALETTE_LOOK_CARD_FOCUS = '[data-dress-code="roles"]';
 
 /** Absent = this. Today's look — a live page that never picked does not change. */
 export const PALETTE_LOOK_DEFAULT: PaletteLookId = 'tags';

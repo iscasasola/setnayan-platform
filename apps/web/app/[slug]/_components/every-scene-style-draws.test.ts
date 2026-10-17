@@ -330,7 +330,9 @@ test('dress code · the palette and the line draw the general view: words, colou
     const out = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: id } as never)));
     assertStyled(out, id, id);
     assert.ok(out.includes('Garden formal') && out.includes('Long dresses and barongs or suits.'), `${id}: the words`);
-    for (const hex of BOARD.reception) assert.ok(out.toUpperCase().includes(hex), `${id}: our colour ${hex}`);
+    /* No "Our colours" in the dress code (owner 2026-10-17): every colour drawn is a dressed role's. */
+    assert.ok(!/Our colours/.test(out), `${id}: "Our colours" is back`);
+    for (const row of roleRows) assert.ok(out.includes(`data-role-row="${row}"`) || id === 'palette', `${id}: the ${row} row`);
   }
   const line = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: 'line' } as never)));
   assert.deepEqual([...line.matchAll(/data-role-row="([^"]+)"/g)].map((m) => m[1]), roleRows, 'the line keeps every role row, in order');
@@ -378,7 +380,8 @@ test('entourage · the march numbers every line in order and lifts only the sign
   assert.doesNotMatch(stranger, /data-march-line="mine"/, 'a stranger sees no mark');
   const joy = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'march', myGuestId: 'g7' } as never)));
   assert.equal((joy.match(/data-march-line="mine"/g) ?? []).length, 1);
-  assert.match(joy, /you walk 4th/);
+  /* 🫵 Owner 2026-10-17: where she walks is said under the heading in Me's own words (`marchPlaceLine`). */
+  assert.match(joy, /Your place is marked\. You walk 4th, with Marco Tan/);
 });
 
 // ── CAMERA CUES ──────────────────────────────────────────────────────────────
@@ -711,7 +714,9 @@ test('🔒 the five fixed parts with no pick render byte-identically to the ship
   };
   const galleryProps = { gallery, eventId: 'e', isLive: true, isPost: false, showClaimAccountCta: false, occasion: 'celebration', eventWord: 'wedding' };
   const parts: Array<[Parameters<typeof fixedSceneStyleOf>[1], 'rsvp' | 'event', (style?: string | null) => React.ReactElement]> = [
-    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s, myGuestId: 'g7' }) } as never)],
+    /* 🫵 The same signed guest on both sides: since 2026-10-17 the default look marks her own name too
+       (`entourage-you.tsx`), so the shipped part is drawn FOR her — what this holds is that no pick means no style. */
+    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, myGuestId: 'g7', ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['entourage', 'event', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['find_your_seat', 'event', (s) => h(YourSeatBlock, { ...SEAT, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['announcements', 'event', (s) => h(DayOfAnnouncement, { body: 'Be seated by 2:45.', ...(s === undefined ? {} : { sceneStyle: s }) })],

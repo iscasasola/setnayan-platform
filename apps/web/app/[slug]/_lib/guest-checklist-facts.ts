@@ -1,10 +1,10 @@
+import { isDressableRole } from '@/lib/attire-rows';
 import { buildChecklist, type ChecklistItem } from '@/lib/guest-checklist';
 import { googleMapsNavUrl, googleMapsSearchByQuery } from '@/lib/geo';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { readerAttire } from '@/lib/attire-rows';
 import { singleWearerOf } from '@/lib/role-figure';
-import { roleLabel } from '@/lib/entourage';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { paletteSwatches } from '@/lib/site-palette';
 import type { GuestRole } from '@/lib/guests';
@@ -53,7 +53,7 @@ export function guestChecklistItems(input: {
   const palette = sanitizeRolePalette(input.rolePalette);
   const resolved = resolveGuestAttireWithGroups({
     role: input.role,
-    roles: sanitizeRoleAttire(config?.roles, (v) => roleLabel(v as GuestRole) !== null),
+    roles: sanitizeRoleAttire(config?.roles, isDressableRole),
     groups: sanitizeGroupAttire(config?.groups),
     palette,
   });

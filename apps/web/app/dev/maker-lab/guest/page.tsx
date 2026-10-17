@@ -1,7 +1,8 @@
 import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
 import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
-import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { KitClosing, KitSlot, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { ClosingLine } from '@/app/[slug]/_components/closing-line';
 import { formatEventDate } from '@/lib/events';
 import { Fragment, type ReactNode } from 'react';
@@ -65,7 +66,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom, labOwnKind } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -77,6 +78,7 @@ import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { marchPlaceOf } from '@/lib/march-place';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
@@ -327,8 +329,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
      in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
      (`labEntourage('cale')`). Stand-in names only. */
+  /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
+     "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
+     (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : 'lone');
+    const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
+    const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
       <main
         className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink"
@@ -336,7 +344,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-entourage={sp.entourage}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <EntourageSection groups={labEntourage(sp.cast === 'cale' ? 'cale' : 'lone')} id="site-entourage" sceneStyle={style} />
+        {meRole ? (
+          <div className="mb-10">
+            <DressCodeWidget
+              words={await eventWordsFor('wedding').catch(() => null) as never}
+              config={null}
+              ceremonyType={null}
+              genderSeparation={null}
+              part="role"
+              guestRole={meRole}
+              march={marchPlaceOf(groups, me)}
+              hideWhenEmpty
+            />
+          </div>
+        ) : null}
+        <EntourageSection groups={groups} id="site-entourage" sceneStyle={style} myGuestId={me} />
+        <div className="h-[60vh]" aria-hidden />
       </main>
     );
   }
@@ -518,17 +541,21 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const sharedAttire = sp.attire === 'shared';
   /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`); `&you=<guest-list role>` reads it as them. */
   const rolesAttire = sp.attire === 'roles';
+  /* 🪞 `?attire=cale` — cale-ice's dress code exactly as production held it 2026-10-17 (`labCaleIceDressConfig`);
+     `?attire=cale-now` — after the owner's Apply. `&you=<guest-list role>` reads it as them. */
+  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now';
+  const caleIceAfter = sp.attire === 'cale-now';
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={caleIce ? (labCaleIceDressConfig(caleIceAfter) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
-      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : rolesAttire && one('you') ? (one('you') as never) : null}
-      roleNames={null}
+      rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : (rolesAttire || caleIce) && one('you') ? (one('you') as never) : null}
+      roleNames={caleIce ? LAB_CALE_ICE_ROLE_NAMES : null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
       dosLook={dosLookOfRow(rowOf('dress_code'))}
@@ -553,7 +580,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
          nothing (the walk of 2026-10-11, M11) — the lab's fault alone: the real page has always framed it. */
       <HubCanvasFrame widget={{ ...rowOf('countdown'), widget_id: 'lab-countdown' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
         <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
-          <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
+          {/* 🕯 …with the Countdown's Accent and its own-background rule, as the real mount draws it (`hideable-widget-render.tsx`):
+             a scene with a background of its own draws its card bare, and the accent still stands (owner 17 Oct). */}
+          <CountdownWidget
+            targetIso="2026-12-12"
+            timeZone="Asia/Manila"
+            sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')}
+            bare={sceneWidgetIsBare(rowOf('countdown') as never, LAB_MEDIA, { ownClipPlays: true })}
+            kit={labKitView ? <KitSlot kit={labKitView} slot="countdown" /> : null}
+          />
         </section>
       </HubCanvasFrame>
     ),

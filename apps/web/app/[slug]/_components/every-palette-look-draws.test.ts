@@ -61,7 +61,9 @@ const DRESS = {
   title: 'Garden formal',
   description: 'Long dresses and barongs or suits.',
   palette: SEVEN,
-  roles: { principal_sponsor_ninang: { style: 'long_gown' } },
+  /* The sponsors' row as the Studio saves it — men and women, each a picked Wear (a person is drawn only in one). */
+  groups: { principal_sponsors: { style: 'barong_tagalog' } },
+  women: { groups: { principal_sponsors: { style: 'long_gown' } } },
 };
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 const LOOKS = ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes'] as const;
@@ -125,11 +127,8 @@ test('1 · absent, `tags` and an unknown id are ONE markup — the shipped tags,
   assert.equal(tags, absent, 'an explicit Tags pick draws exactly what an absent one does');
   assert.equal(unknown, absent, 'an id this version does not draw reads as Tags — never a blank palette');
   assert.equal(noCanvas, absent);
-  const ours = block(absent, 'ours');
-  assert.ok(ours, 'the fixture draws "Our colours"');
-  // The shipped tag, class for class (`.pahina-swatch` + the 1px inner edge, 3.25rem each).
-  const tagsDrawn = [...ours.matchAll(/<li class="w-\[3\.25rem\]"[^>]*><span aria-hidden="true" class="pahina-swatch outline outline-1 outline-ink\/20 \[outline-offset:-1px\]"/g)];
-  assert.equal(tagsDrawn.length, drawn(ours).length, 'every colour is the shipped silk tag');
+  /* No "Our colours" in this scene (owner 2026-10-17) — the roles' rows carry the colours. */
+  assert.equal(block(absent, 'ours'), '', '"Our colours" is back in the dress code');
   assert.doesNotMatch(absent, /sn-pal/, 'no new look class reaches a page that never picked');
   assert.doesNotMatch(absent, /data-pal-look|pahina-in/, 'and no look marker: the default is exactly today\'s');
   // The role rows keep the shipped row-size tag.
@@ -137,30 +136,15 @@ test('1 · absent, `tags` and an unknown id are ONE markup — the shipped tags,
   assert.doesNotMatch(absent, /data-pal-row/);
 });
 
-test('2 · each of the looks draws every colour of "Our colours", in order', async () => {
-  const want = drawn(block(await render({}), 'ours'));
-  // The couple's seven typed colours are all there (the Mood Board's lead, the rest follow).
-  for (const c of SEVEN) assert.ok(want.includes(c.hex.toUpperCase()), `${c.name} is in the palette`);
+test('2 · no look draws "Our colours" — the dress code is each role’s colours (owner 2026-10-17)', async () => {
   for (const look of LOOKS) {
-    const ours = block(await render({ paletteLook: look }), 'ours');
-    // Circles draw the buttons, then the same colours again as the dots of the names under them.
-    const expected = look === 'circles' ? [...want, ...want] : want;
-    assert.deepEqual(drawn(ours), expected, `${look} draws every colour, in order`);
-    if (look !== 'tags') {
-      assert.match(ours, new RegExp(`class="sn-pal sn-pal-${look}"`), `${look} is drawn in its own look`);
-      // Every named colour keeps its name, once (Circles says it in the line under the row).
-      for (const c of SEVEN) assert.ok(ours.includes(`>${c.name}<`), `${look} names ${c.name}`);
+    const out = await render({ paletteLook: look });
+    assert.equal(block(out, 'ours'), '', `${look}: "Our colours" is back`);
+    assert.ok(block(out, 'roles'), `${look}: the roles are drawn`);
+    for (const c of [...SEVEN.map((x) => x.hex), ...BOARD.reception]) {
+      const k = c.toUpperCase();
+      if (!BOARD.principal_sponsors.concat(BOARD.bridesmaids).map((x) => x.toUpperCase()).includes(k)) assert.ok(!drawn(out).includes(k), `${look}: ${c} drawn outside a role`);
     }
-  }
-});
-
-test('2b · with only two colours every look still draws both', async () => {
-  const { DressCodeWidget } = await import('./dress-code-widget');
-  const two = { title: 'Black tie', palette: [SEVEN[0], SEVEN[2]] };
-  for (const look of LOOKS) {
-    const ours = block(html(h(DressCodeWidget, { words: WORDS, config: two, paletteLook: look } as never)), 'ours');
-    const two2 = ['#351115', '#EFE3B8'];
-    assert.deepEqual(drawn(ours), look === 'circles' ? [...two2, ...two2] : two2, `${look} draws two colours`);
   }
 });
 

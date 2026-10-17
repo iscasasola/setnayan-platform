@@ -2315,7 +2315,8 @@ export const loadMarch = cache(
     const [guestRes, trayRes] = await Promise.all([
       admin
         .from('guests')
-        .select(`${ENTOURAGE_COLUMNS}, side`)
+        // + the parent fields: a parent told by the title's woman / man (or the attire) reads "Mother of the Groom" on the march too.
+        .select(`${ENTOURAGE_COLUMNS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
         .eq('event_id', eventId)
         .is('deleted_at', null)
         .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),

@@ -37,6 +37,7 @@ import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
+  ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
   MARCH_ROLES,
   type EntourageGroup,
@@ -2241,7 +2242,7 @@ export const loadEntourage = cache(
         correct while dropping "Atty." from a ninong's name.
       */
       // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.

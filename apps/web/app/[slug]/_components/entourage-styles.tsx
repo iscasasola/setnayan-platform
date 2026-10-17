@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
-import { roleLabel } from '@/lib/entourage';
+import { marchLineWords } from '@/lib/entourage';
 
 /**
  * THE ENTOURAGE'S MARCH STYLE — C · The march (prototype
@@ -36,11 +36,11 @@ export function marchLines(groups: readonly EntourageGroup[]): MarchLine[] {
     g.rows.forEach((row, i) => {
       const people = row.filter((p): p is EntouragePerson => p !== null);
       if (people.length === 0) return;
-      const roles = [...new Set(people.map((p) => roleLabel(p.role, g.names) ?? g.label))];
       out.push({
         key: `${g.key}-${i}`,
         names: people.map((p) => p.name).join(' & '),
-        roles: roles.join(' · '),
+        /* 👪 Each parent named per person, in name order (owner 2026-10-17) — `marchLineWords`. */
+        roles: marchLineWords(people, g),
         ids: people.map((p) => p.id).filter((x): x is string => Boolean(x)),
       });
     });

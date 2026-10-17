@@ -271,7 +271,13 @@ test('a section that MIXES roles the heading cannot name keeps the word beside e
   // The column words ("Maid of Honor | Best Man", owner 2026-10-15) are said once at the head — not per name.
   const honour = visible(section(html, 'Maid of Honor &amp; Best Man').replace(/<p[^>]*data-entourage-sides[^>]*>[\s\S]*?<\/p>/, ''));
   assert.match(honour, /Tess Ong Matron of Honor/);
-  assert.doesNotMatch(honour.replace('Maid of Honor & Best Man', ''), /Maid of Honor|Best Man/);
+  /* 🧍 Nobody here walks with anybody, so no column words are drawn (#6593 draws them only over a pair) and each is
+     centred alone. Controller 2026-10-17, found live: a lone Maid of Honor and Best Man under this two-role heading
+     said nothing about which was which — each now carries their own column's word, once
+     (lib/the-entourage-names-who-each-person-is.test.ts). Under a PAIR the column heads still say it, not the names. */
+  assert.equal(honour.replace('Maid of Honor & Best Man', '').match(/Maid of Honor|Best Man/g)?.length, 2, honour);
+  assert.match(honour, /Mia Uy Maid of Honor/);
+  assert.match(honour, /Ben Sy Best Man/);
 });
 
 test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair in two columns, no role per name', async () => {

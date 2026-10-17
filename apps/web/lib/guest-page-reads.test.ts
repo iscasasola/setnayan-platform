@@ -26,8 +26,31 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-type View = { calls: number; eventsReads: number; shellExtraKeys: string[]; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
-type Report = Record<'coldInvitedOnTheDay' | 'strangerBeforeTheDay' | 'strangerOnTheDay' | 'invitedBeforeTheDay' | 'invitedOnTheDay', View>;
+type View = {
+  calls: number;
+  eventsReads: number;
+  shellExtraKeys: string[];
+  depth: number;
+  byPhase: Record<string, { calls: number; depthAfter: number }>;
+  steps: string[];
+  widgetIds: string[];
+  ownRowReads: number;
+};
+const VIEWS = [
+  'coldInvitedOnTheDay',
+  'strangerBeforeTheDay',
+  'strangerOnTheDay',
+  'invitedBeforeTheDay',
+  'invitedOnTheDay',
+  'hostCanvas',
+  'freshAfterAWrite',
+  'warmAgainAfterTheWrite',
+  'coldWithOrders',
+  'strangerWithOrders',
+  'invitedWithOrders',
+] as const;
+type Report = Record<(typeof VIEWS)[number], View> & { rememberedKeys: string[] };
+
 
 const WEB = join(__dirname, '..');
 
@@ -88,34 +111,101 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   with one unreported visit first); the first visit of a minute is pinned on
   its own as \`coldInvitedOnTheDay\`.
 */
-const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
-  coldInvitedOnTheDay: { calls: 24, depth: 5 },
-  strangerBeforeTheDay: { calls: 13, depth: 3 },
-  strangerOnTheDay: { calls: 14, depth: 4 },
-  invitedBeforeTheDay: { calls: 17, depth: 4 },
-  invitedOnTheDay: { calls: 21, depth: 4 },
+/*
+  THE PAGE READS A STAMP (2026-10-18, event-day load L3 · `lib/event-shared-reads.ts`,
+  migration 20271275959355). What every viewer of the event sees alike is
+  remembered under the event's stamp, and the per-event ownership facts are ONE
+  request. Same stand-in, before → after:
+    a stranger                      13 → 3   (14 → 4 on the day)
+    an invited guest                17 → 6   (21 → 10 on the day)
+    the first view after a change   24 → 22  (one step deeper: the stamp leaves first)
+    an event WITH orders            stranger 19 → 7 · invited 31 → 18 · first view 31 → 26
+      (it asked one basket request per product — 3 here — and now none)
+  What is left on a warm view is the stamp, the facts, the camera pool's state
+  and what is read about the viewer — none of it remembered, on purpose.
+*/
+const PINNED: Record<(typeof VIEWS)[number], { calls: number; depth: number }> = {
+  coldInvitedOnTheDay: { calls: 22, depth: 6 },
+  strangerBeforeTheDay: { calls: 3, depth: 3 },
+  strangerOnTheDay: { calls: 4, depth: 3 },
+  invitedBeforeTheDay: { calls: 6, depth: 4 },
+  invitedOnTheDay: { calls: 10, depth: 4 },
+  hostCanvas: { calls: 10, depth: 3 },
+  freshAfterAWrite: { calls: 11, depth: 4 },
+  warmAgainAfterTheWrite: { calls: 3, depth: 3 },
+  coldWithOrders: { calls: 26, depth: 7 },
+  strangerWithOrders: { calls: 7, depth: 6 },
+  invitedWithOrders: { calls: 18, depth: 6 },
 };
 
-test('the event’s row is read ONCE per view — and the page’s own row carries none of the extras', () => {
-  for (const [name, view] of Object.entries(REPORT)) {
-    assert.equal(
-      view.eventsReads,
-      1,
+const views = () => VIEWS.map((name) => [name, REPORT[name]] as const);
+/** How many times a view asked for `what` (a table, or `rpc/<name>`). */
+const asked = (v: View, what: string) => v.steps.filter((st) => st.replace(/^\d+ /, '').split('  ←')[0] === what).length;
+
+test('the event’s row is read AT MOST ONCE per view — and the page’s own row carries none of the extras', () => {
+  for (const [name, view] of views()) {
+    assert.ok(
+      view.eventsReads <= 1,
       `${name} read the \`events\` row ${view.eventsReads} times: a reader is asking the database for columns of a row the render already holds (\`eventRowOnce\`, lib/event-row-once.ts).\n${summary(view)}`,
     );
     assert.deepEqual(view.shellExtraKeys, [], `${name}: the page's own event row now carries ${view.shellExtraKeys.join(', ')} — it must stay the row it always was`);
   }
 });
 
-test('the harness is looking at the page’s loaders — the shell is read first, alone, once', () => {
-  for (const view of Object.values(REPORT)) {
-    assert.equal(view.steps[0], '1 events(event_id,public_id,…)');
-    assert.equal(view.byPhase.shell?.calls, 1);
-    assert.ok(view.calls >= 10, 'the view sent almost nothing — the loaders are not being run');
+test('the harness is looking at the page’s loaders — the stamp is read first, alone, once; the row only after a change', () => {
+  for (const [name, view] of views()) {
+    assert.equal(view.steps[0]?.split('  ←')[0], '1 rpc/event_public_stamp', `${name}: the view did not begin with the stamp\n${summary(view)}`);
+    assert.equal(asked(view, 'rpc/event_public_stamp'), 1, `${name}: the stamp was read more than once`);
+  }
+  for (const name of ['coldInvitedOnTheDay', 'freshAfterAWrite', 'coldWithOrders'] as const) {
+    assert.equal(REPORT[name].eventsReads, 1, `${name} came after a change and must read the row`);
+  }
+  assert.ok(REPORT.coldInvitedOnTheDay.calls >= 10, 'the first view sent almost nothing — the loaders are not being run');
+});
+
+test('✓ A HOST’S APPLY IS ON THE VERY NEXT VIEW — the stamp moved, so the scenes are read again and the new one is there', () => {
+  const before = REPORT.strangerBeforeTheDay;
+  const fresh = REPORT.freshAfterAWrite;
+  const again = REPORT.warmAgainAfterTheWrite;
+  assert.deepEqual(before.widgetIds, ['w-hero'], 'the stand-in did not start with one scene');
+  assert.equal(asked(before, 'invitation_widgets'), 0, 'a warm view asked for the scenes — nothing is being remembered');
+  assert.equal(asked(fresh, 'invitation_widgets'), 1, 'the view after the write did not read the scenes again — it was handed the old ones');
+  assert.deepEqual(fresh.widgetIds, ['w-hero', 'w-applied'], 'the view after the write does not show what the host applied');
+  assert.equal(asked(again, 'invitation_widgets'), 0, 'the view after that one asked again — the new answer was not remembered');
+  assert.deepEqual(again.widgetIds, ['w-hero', 'w-applied']);
+});
+
+test('🔒 NOTHING ABOUT ONE GUEST IS REMEMBERED — their own row is read on every view, and no remembered key names a guest', () => {
+  for (const name of ['coldInvitedOnTheDay', 'invitedBeforeTheDay', 'invitedOnTheDay', 'coldWithOrders', 'invitedWithOrders'] as const) {
+    assert.equal(REPORT[name].ownRowReads, 1, `${name}: the guest's own row was not read from the database`);
+  }
+  for (const name of ['strangerBeforeTheDay', 'strangerOnTheDay', 'strangerWithOrders'] as const) {
+    assert.equal(REPORT[name].ownRowReads, 0, `${name}: a stranger's view read a guest's row`);
+  }
+  assert.ok(REPORT.rememberedKeys.length > 5, 'the data cache holds nothing — the harness is not seeing the cache');
+  for (const key of REPORT.rememberedKeys) {
+    assert.ok(!/guest_id=eq|00000000-0000-4000-8000-0000000000a1/.test(key), `a remembered read names a guest: ${key.slice(0, 300)}`);
   }
 });
 
-for (const [name, pinned] of Object.entries(PINNED) as Array<[keyof Report, { calls: number; depth: number }]>) {
+test('🎨 THE MAKER’S CANVAS IS NEVER SERVED A REMEMBERED READ — only the shell rides the stamp', () => {
+  const canvas = REPORT.hostCanvas;
+  for (const table of ['invitation_widgets', 'event_vendors', 'guests', 'event_schedule_blocks', 'march_not_walking', 'event_floor_plan']) {
+    assert.equal(asked(canvas, table), 1, `the canvas did not read ${table} from the database\n${summary(canvas)}`);
+  }
+});
+
+test('💳 AN EVENT WITH ORDERS ASKS ITS OWNERSHIP FACTS ONCE — no request per product, no per-fact reads', () => {
+  for (const name of ['coldWithOrders', 'strangerWithOrders', 'invitedWithOrders', 'strangerBeforeTheDay', 'invitedOnTheDay'] as const) {
+    const v = REPORT[name];
+    assert.equal(asked(v, 'rpc/event_entitlement_facts'), 1, `${name}: the facts were not asked exactly once\n${summary(v)}`);
+    for (const per of ['orders', 'rpc/event_basket_orders_granting', 'rpc/event_comp_active_skus', 'rpc/event_host_is_internal', 'rpc/event_host_holds_founder_seat']) {
+      assert.equal(asked(v, per), 0, `${name} still asked ${per} — the facts did not answer it`);
+    }
+  }
+});
+
+for (const [name, pinned] of Object.entries(PINNED) as Array<[(typeof VIEWS)[number], { calls: number; depth: number }]>) {
   test(`${name}: ${pinned.calls} requests, ${pinned.depth} deep`, () => {
     const view = REPORT[name];
     assert.ok(

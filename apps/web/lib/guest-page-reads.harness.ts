@@ -103,6 +103,20 @@ const GUEST_ROW: Record<string, unknown> = {
   is_tba: false,
 };
 
+/**
+ * What the stand-in database holds that a view can change: the event's stamp
+ * (`event_public_stamp`), its order rows and basket lines (an event WITH orders),
+ * and its scene rows — so a write can be made between two views and the second
+ * view shown to read it (the freshness proof, `freshAfterAWrite`).
+ */
+const STATE = {
+  rev: 1,
+  orders: [] as Array<{ service_key: string; status: string }>,
+  basket: [] as Array<{ service_code: string; order_id: string; status: string }>,
+  widgets: [{ widget_id: 'w-hero', event_id: EVENT_ID, widget_type: 'hero', display_order: 0, is_visible: true }] as Row[],
+};
+type Row = Record<string, unknown>;
+
 let sent: Array<{ step: number; what: string }> = [];
 let returned = 0;
 function resetCount() {
@@ -142,11 +156,30 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     body = single ? row : [row];
   }
   else if (table === 'guests') body = single ? GUEST_ROW : [GUEST_ROW];
-  else if (table.startsWith('rpc/')) body = /skus|granting/.test(table) ? [] : false;
+  else if (table === 'invitation_widgets') body = STATE.widgets;
+  else if (table === 'orders') body = STATE.orders;
+  else if (table === 'rpc/event_public_stamp') body = [{ event_id: EVENT_ID, rev: STATE.rev }];
+  else if (table === 'rpc/event_entitlement_facts')
+    body = { orders: STATE.orders, comp_skus: [], host_internal: false, founder_seat: false, basket: STATE.basket };
+  else if (table === 'rpc/event_basket_orders_granting') {
+    const code = (JSON.parse(String(init?.body ?? '{}')) as { p_service_code?: string }).p_service_code;
+    body = STATE.basket.filter((b) => b.service_code === code).map((b) => ({ order_id: b.order_id, status: b.status }));
+  } else if (table.startsWith('rpc/')) body = /skus|granting/.test(table) ? [] : false;
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
 
-type ViewReport = { calls: number; eventsReads: number; shellExtraKeys: string[]; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
+type ViewReport = {
+  calls: number;
+  eventsReads: number;
+  shellExtraKeys: string[];
+  depth: number;
+  byPhase: Record<string, { calls: number; depthAfter: number }>;
+  steps: string[];
+  /** The scene ids the view's `loadWidgets` answered — what a guest would be shown. */
+  widgetIds: string[];
+  /** How many of the view's requests were the viewer's OWN guest row (`guests?guest_id=eq.…`). */
+  ownRowReads: number;
+};
 
 async function main() {
   // Imported only now — after the three stand-ins above are in place.
@@ -156,8 +189,22 @@ async function main() {
   const { startAhead } = await import('@/lib/start-ahead');
   const { isCoordinatorPrepReleaseEnabled } = await import('@/lib/coordinator-prep-release');
   const { EVENT_ROW_ONCE_EXTRA_COLUMNS } = await import('@/lib/event-row-once');
+  const { openSharedEventReads } = await import('@/lib/event-shared-reads');
+  let ownRowReads = 0;
+  const countingFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes('/rest/v1/guests?') && url.includes(`guest_id=eq.${GUEST_ID}`)) ownRowReads += 1;
+    return countingFetch(input, init);
+  }) as typeof fetch;
 
-  async function view(kind: 'stranger' | 'invited', dayOfPhase: 'pre' | 'live'): Promise<ViewReport> {
+  /**
+   * `opened`: the page opens its render to remembered reads (`openSharedEventReads`)
+   * for a guest's or a stranger's view — false stands for the Maker's canvas,
+   * which never opens it.
+   */
+  async function view(kind: 'stranger' | 'invited', dayOfPhase: 'pre' | 'live', opened = true): Promise<ViewReport> {
+    ownRowReads = 0;
     viewMemo = new Map();
     resetCount();
     const byPhase: ViewReport['byPhase'] = {};
@@ -174,6 +221,8 @@ async function main() {
     // The page and the layout both begin here; `cache()` makes it one read.
     const event = (await phase('shell', () => L.loadEventShell(SLUG))) as never;
     if (!event) throw new Error('the stand-in did not answer the shell read');
+    // `publicInvitationPage`: a guest's or a stranger's view opens its shared reads here.
+    if (opened) openSharedEventReads(EVENT_ID);
     // The page's own row must be the row it always was — none of the one read's extras on it.
     const shellExtraKeys = (EVENT_ROW_ONCE_EXTRA_COLUMNS as readonly string[]).filter((c) => c in (event as object));
     // The layout dresses the tree beside the page (`app/[slug]/layout.tsx`).
@@ -185,7 +234,7 @@ async function main() {
     startAhead(L.loadWidgets(admin, EVENT_ID));
     startAhead(isCoordinatorPrepReleaseEnabled());
     await phase('media', () => L.loadMedia(admin, event, null));
-    await phase('widgets', () => L.loadWidgets(admin, EVENT_ID));
+    const widgets = (await phase('widgets', () => L.loadWidgets(admin, EVENT_ID))) as Array<{ widget_id?: string }>;
 
     // The doorway facts and the entourage are started ahead of the live layer.
     startAhead(L.loadDoorwayFacts(admin, EVENT_ID, 'wedding'));
@@ -208,18 +257,40 @@ async function main() {
       depth: Math.max(0, ...sent.map((s) => s.step)),
       byPhase,
       steps: sent.map((s) => `${s.step} ${s.what}`),
+      widgetIds: widgets.map((w) => String(w.widget_id)),
+      ownRowReads,
     };
   }
 
-  // The first visit of the minute — fills the data cache; not reported.
+  // The first visit after the event last changed — fills the data cache.
   const coldInvitedOnTheDay = await view('invited', 'live');
-  const out = {
+  const out: Record<string, ViewReport | string[]> = {
     coldInvitedOnTheDay,
     strangerBeforeTheDay: await view('stranger', 'pre'),
     strangerOnTheDay: await view('stranger', 'live'),
     invitedBeforeTheDay: await view('invited', 'pre'),
     invitedOnTheDay: await view('invited', 'live'),
+    // 🎨 The Maker's canvas: the page never opens its reads — only the shell rides the stamp.
+    hostCanvas: await view('stranger', 'pre', false),
   };
+  // ✓ A HOST'S APPLY: a scene added + the stamp it moves (what the migration's trigger does at COMMIT).
+  STATE.widgets = [...STATE.widgets, { widget_id: 'w-applied', event_id: EVENT_ID, widget_type: 'countdown', display_order: 1, is_visible: true }];
+  STATE.rev += 1;
+  out.freshAfterAWrite = await view('stranger', 'pre');
+  out.warmAgainAfterTheWrite = await view('stranger', 'pre');
+  // 💳 AN EVENT WITH ORDERS (a bought Event Hub Pro, an add-on, and a basket line).
+  STATE.orders = [
+    { service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' },
+    { service_key: 'PAPIC_UNLOCK', status: 'paid' },
+    { service_key: 'ONBOARDING_BASKET', status: 'paid' },
+  ];
+  STATE.basket = [{ service_code: 'SETNAYAN_AI', order_id: 'o-basket', status: 'paid' }];
+  STATE.rev += 1;
+  out.coldWithOrders = await view('invited', 'live');
+  out.strangerWithOrders = await view('stranger', 'live');
+  out.invitedWithOrders = await view('invited', 'live');
+  // What the data cache holds — every key, so the test can show none is about one guest.
+  out.rememberedKeys = [...dataCache.keys()];
   process.stdout.write(`GUEST_PAGE_READS ${JSON.stringify(out)}\n`);
 }
 

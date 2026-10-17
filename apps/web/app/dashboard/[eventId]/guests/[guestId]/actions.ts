@@ -29,6 +29,7 @@ import {
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { parseTitleKey } from '@/lib/guest-title';
 import { FORMAL_NAME_FIELDS, profileFormalName } from '@/lib/formal-name';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -248,7 +249,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // the host leaves in the box is stored, and CLEARING a box stores NULL —
   // this is the screen where a wrong auto-split gets corrected, so it must be
   // able to remove a title the parser added, not just add one.
-  const name_prefix = clean(formData.get('name_prefix')) || null;
+  // 🪪 The card's Title posts ONE key, "Atty.|woman" (lib/guest-title.ts, owner 2026-10-17): the title that prints and
+  // the gender that never does. A form without it (an older page) still posts a bare `name_prefix` and leaves the
+  // stored gender alone — the database keeps a Mr. / Mrs.'s gender by trigger either way.
+  const titled = formData.has('name_title') ? parseTitleKey(formData.get('name_title')) : null;
+  const name_prefix = titled ? titled.name_prefix : clean(formData.get('name_prefix')) || null;
   const middle_name = clean(formData.get('middle_name')) || null;
   const name_suffix = clean(formData.get('name_suffix')) || null;
   const display_name = clean(formData.get('display_name')) || null;
@@ -434,7 +439,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // a host correcting a phone number, so an ordinary edit does not throw four
     // public caches away.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, passed_away',
+      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, passed_away, name_prefix',
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
@@ -481,6 +486,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     .from('guests')
     .update({
       ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
+      // The gender rides with the title. A linked person's title is theirs, so only its woman / man is written —
+      // and only when the posted title IS the stored one (the card narrows their pick to it).
+      ...(titled && (!nameLocked || titled.name_prefix === ((prevGuest?.name_prefix as string | null) ?? null))
+        ? { gender: titled.gender }
+        : {}),
       side: resolvedSide,
       group_category,
       role,
@@ -841,6 +851,8 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
       name_prefix: parsed.prefix || null,
       middle_name: parsed.middleName || null,
       name_suffix: parsed.suffix || null,
+      // The old person's woman / man is not the new person's (a "Mr." / "Mrs." sets it again by trigger).
+      gender: null,
       display_name: null,
       person_id: null,
       email: null,

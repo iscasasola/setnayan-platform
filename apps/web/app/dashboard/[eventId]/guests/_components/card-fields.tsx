@@ -28,6 +28,7 @@ export function FormPick({
   multi = false,
   emptyText = 'None',
   dataAttr,
+  unlisted,
 }: {
   /** The column the hidden input posts (`side`, `role`, `extra_roles` …). */
   name: string;
@@ -41,6 +42,8 @@ export function FormPick({
   /** The button's words when a checkmark dropdown has nothing ticked. */
   emptyText?: string;
   dataAttr?: string;
+  /** The button's words while the value is not one of the options (the Title's stored or pending pick). */
+  unlisted?: { key: string; text: string };
 }) {
   const [current, setCurrent] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
@@ -95,7 +98,7 @@ export function FormPick({
         options={options}
         onPick={pick}
         picked={picked}
-        buttonText={multiText}
+        buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)}
         dataAttr={dataAttr}
         className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
       />

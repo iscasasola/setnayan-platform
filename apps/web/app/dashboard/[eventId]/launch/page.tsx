@@ -21,7 +21,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { isTransientReadError, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, resolveRoleSetForEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { previewRoleOptions } from '@/lib/preview-role';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveHero } from '@/lib/event-hero';
@@ -1926,6 +1928,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
       stagesStudio={stagesStudio}
       studio={studio}
+      /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
+         the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */
+      seeAsRoles={
+        hasWork
+          ? previewRoleOptions(
+              (await resolveRoleSetForEvent(eventId)).offeredRoles,
+              await loadRoleNames(supabase, eventId, 'LaunchPage.roleNames'),
+            )
+          : []
+      }
       /* Who Details is for, in the event type's own words (a coordinator is told
          why it is shut) — `EventWords`, never a typed "couple". */
       theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}

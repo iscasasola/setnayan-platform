@@ -67,7 +67,9 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labCaleRoleDressConfig, labCaleRoleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
+import { previewRoleOf } from '@/lib/preview-role';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom, labOwnKind } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -354,13 +356,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
      in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
-     (`labEntourage('cale')`). Stand-in names only. */
+     (`labEntourage('cale')`); `&titles=1` the parents' titles picked with woman / man (`labEntourage('titles')`).
+     Stand-in names only. */
   /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
      "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
      (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
-    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : 'lone');
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.titles === '1' ? 'titles' : 'lone');
     const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
     const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
@@ -573,7 +576,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const caleIceAfter = sp.attire === 'cale-now';
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
-  const dressCode = words ? (
+  /* 🎭 See as · Role ▾ (owner 2026-10-17): the canvas drawn as a sample guest in one role — `?as=` + `?asrole=`, read
+     strictly by the page's own reader (`previewRoleOf`). The scene stays the general dress code (as the real page draws
+     it for an identified guest); under it, that role's Me › What to wear. */
+  const labRole = typeof sp.as === 'string' ? previewRoleOf(one('asrole'), WEDDING_ROLE_SET.offeredRoles) : null;
+  const roleWear = words && labRole ? (
+    <div data-lab-scene="me-wear" data-lab-role={labRole.key} className="mt-8 border-t border-ink/10 pt-6">
+      <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">Me · {labRole.name}</p>
+      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="wear" />
+    </div>
+  ) : null;
+  const dressCode = words && labRole ? (
+    <>
+      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} ceremonyType={null} genderSeparation={null} rolePalette={labCaleRoleRolePalette()} guestRole={null} roleNames={null} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      {roleWear}
+    </>
+  ) : words ? (
     <DressCodeWidget
       words={words}
       config={caleIce ? (labCaleIceDressConfig(caleIceAfter) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}

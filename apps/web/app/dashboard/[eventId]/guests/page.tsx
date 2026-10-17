@@ -15,6 +15,8 @@ import {
   fetchGuestGroupsByEventMeasured,
   fetchGuestsByEventMeasured,
   guestDisplayName,
+  guestRoleLabel,
+  REQUEST_ENTRY_SOURCE,
   RSVP_LABELS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -60,6 +62,8 @@ import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
+import type { TitleWaitingPerson } from './_components/titles-waiting';
+import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
 import { mapRootLabel } from '@/lib/guest-roster-view';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
@@ -902,6 +906,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     .map(listRowOf);
   // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
   const mapRoot = mapRootLabel(rosterAll, eventWord);
+  // 🪪 Whose printed word waits on Woman or Man (owner 2026-10-17) — the List's one prompt; gone when none are left.
+  const titlesWaiting: TitleWaitingPerson[] = guests
+    .filter((g) => g.entry_source !== REQUEST_ENTRY_SOURCE && needsWomanOrMan(g))
+    .map((g) => ({
+      guestId: g.guest_id,
+      name: guestDisplayName(g),
+      roleWord: guestRoleLabel(
+        [g.role, ...(g.extra_roles ?? [])].find((r) => (ROLES_WHOSE_WORD_NEEDS_GENDER as readonly string[]).includes(r)) ?? g.role,
+        roleNames,
+      ),
+      title: g.name_prefix,
+      key: titleKey(g.name_prefix, g.gender),
+      text: titleButtonText(g.name_prefix, g.gender, true),
+    }));
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
@@ -918,6 +936,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      titlesWaiting={titlesWaiting}
       rootLabel={mapRoot}
       // Setup's "☑ Pick who" (PR 4d) lands here: Select mode over "to invite".
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}

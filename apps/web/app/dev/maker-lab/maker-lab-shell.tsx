@@ -12,6 +12,10 @@ import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
+import { previewRoleOptions } from '@/lib/preview-role';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
+
+const LAB_ROLE_ROWS = previewRoleOptions(WEDDING_ROLE_SET.offeredRoles);
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import type { MakerVenuePictures } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
@@ -422,6 +426,8 @@ export function MakerLabShell({
       stagesStudio={stagesStudio}
       studio={studio}
       venuePictures={venuePictures}
+      /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
+      seeAsRoles={LAB_ROLE_ROWS}
     >
       <MakerWork
         eventId={eventId}

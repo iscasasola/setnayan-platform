@@ -1,6 +1,7 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
+import { genderOfTitleWords, type TitleGender } from '@/lib/guest-title';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -79,6 +80,11 @@ export type EntouragePerson = {
    * `withThePairInferred`. Gender is not stored; nothing is guessed from a first name.
    */
   parentWord?: KinWord | null;
+  /**
+   * Woman / man as the couple entered it — picked WITH the title ("Atty. (Woman)", `guests.gender`), else a title
+   * word that says it. Null when nothing does. Decides a LEGACY principal sponsor's column (`sideOf`). Never printed.
+   */
+  gender?: TitleGender | null;
   /** `guests.side`, when the read asked for it (the march's walk side — `walkSideOf`). */
   side?: string | null;
   /**
@@ -669,6 +675,21 @@ function parentBesideOne(person: EntouragePerson, names: RoleNames | null | unde
 }
 
 /**
+ * 👪 ONE READER'S OWN KIN WORD, by the SAME per-person resolver the entourage prints with (controller 2026-10-17, the
+ * owner's #6598 ruling "each parent named per person"): the Dress code's "You are …" reads "You are Father of the
+ * Bride", never "Parents of the Bride". Title → attire (`parentWordOf`), then the word (`parentBesideOne`) —
+ * "Parent of the Bride" when nothing says which; null for a role that is not a parent / grandparent, or one the couple
+ * renamed (their word wins, as it does beside a name).
+ */
+export function kinWordOfReader(
+  role: GuestRole,
+  person: Pick<EntourageGuestRow, 'name_prefix' | 'display_name' | 'attire'>,
+  names?: RoleNames | null,
+): string | null {
+  return parentBesideOne({ role, parentWord: parentWordOf(person as EntourageGuestRow) } as EntouragePerson, names);
+}
+
+/**
  * 👪 SEVERAL PEOPLE ON ONE LINE WHO ARE THE SAME WORD SAY IT ONCE, IN THE PLURAL (controller 2026-10-17, on #6600: the
  * owner's two grandmothers, both "Ms.", read "Grandmother of the Groom · Grandmother of the Groom"). Two mothers of
  * the bride → "Mothers of the Bride"; two grandfathers → "Grandfathers of the Bride"; two whose entries say neither →
@@ -843,11 +864,12 @@ export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_
 
 /**
  * + what tells a parent's "Mother of the Groom" from "Father of the Groom" when the title cannot (`parentWordOf`):
- * the guest card's attire pick. Asked by the readers that print the entourage, beside the couple fields —
+ * the woman / man picked WITH the title ("Atty. (Woman)", `guests.gender`, owner 2026-10-17), then the guest card's
+ * attire pick. Asked by the readers that print the entourage, beside the couple fields —
  * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}` — never inside `ENTOURAGE_COLUMNS`
  * (its "DO NOT WIDEN" note).
  */
-export const ENTOURAGE_PARENT_FIELDS = 'attire';
+export const ENTOURAGE_PARENT_FIELDS = 'attire, gender';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = PRINTED.flatMap((g) => [...g.roles]);
@@ -891,6 +913,8 @@ export type EntourageGuestRow = {
   invited_to_blocks?: readonly string[] | null;
   /** `guests.attire` ('neutral' · 'gown' · 'suit') — asked by `ENTOURAGE_PARENT_FIELDS`; see `parentWordOf`. */
   attire?: string | null;
+  /** `guests.gender` ('woman' · 'man' · null) — picked with the title; asked by `ENTOURAGE_PARENT_FIELDS`. */
+  gender?: string | null;
   /**
    * `guests.side` ('groom' · 'bride' · 'both') — read by the Wedding MARCH only
    * (its walk side, owner 2026-10-06 "Brides crew should be on right and grooms
@@ -1164,18 +1188,29 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
 
 /**
  * 'father' / 'mother' from what the couple entered for THIS person, else null:
+ *   0. the woman / man picked WITH the title — "Atty. (Woman)" (`guests.gender`, owner 2026-10-17: "let them choose
+ *      Atty (Female) or Atty (Male)") — FIRST, whenever it is set;
  *   1. the typed title — every title word of the prefix, then the display name's leading title words — Mr. → father;
  *      Mrs., Ms., Miss → mother. A professional or honorific title (Atty., Dr., Engr., Hon., Judge, USec., Comm.,
- *      Gen., Ombudsman …) is NOT a gender word: it is stepped over, so "Atty. Mrs. Luz Abad" is still a mother;
+ *      Gen., Ombudsman …) is NOT a gender word: it is stepped over, so "Atty. Mrs. Luz Abad" is still a mother
+ *      (`titleWordsOf`, lib/guest-title.ts — one reading for the resolver and the Guests page's prompt);
  *   2. else the guest card's "Attire · 3D seat plan" pick (`guests.attire`) — Gown → mother, Suit → father.
- * A title that says neither with the attire left at 'neutral' (its default) is null — and then the PAIR may still
- * tell (`withThePairInferred`). There is no gender column; nothing is guessed from a first name.
+ * Nothing of these → null, and then the PAIR may still tell (`withThePairInferred`, in `kinWordsOfHolders`): gender →
+ * title → attire → pair → the neutral word. Nothing is guessed from a first name. `needsWomanOrMan`
+ * (lib/guest-title.ts) lists exactly the people steps 0–1 leave null.
  */
-function parentWordOf(row: EntourageGuestRow): KinWord | null {
-  for (const word of titleWordsOf(row)) {
-    const said = GENDER_TITLE[word];
-    if (said) return said;
-  }
+export function parentWordOf(row: EntourageGuestRow): KinWord | null {
+  return ownKinWordOf(row) ?? attireKinWordOf(row);
+}
+
+/** Steps 0–1: the picked gender, else a title word that says it — what the couple entered about THIS person. */
+function ownKinWordOf(row: EntourageGuestRow): KinWord | null {
+  const said = row.gender === 'woman' || row.gender === 'man' ? row.gender : genderOfTitleWords(row);
+  return said === 'woman' ? 'mother' : said === 'man' ? 'father' : null;
+}
+
+/** The last step before the neutral word: the guest card's "Attire · 3D seat plan" pick (clothing, not a gender). */
+function attireKinWordOf(row: EntourageGuestRow): KinWord | null {
   if (row.attire === 'gown') return 'mother';
   if (row.attire === 'suit') return 'father';
   return null;
@@ -1184,36 +1219,8 @@ function parentWordOf(row: EntourageGuestRow): KinWord | null {
 export type KinWord = 'father' | 'mother';
 const OTHER_KIN: Record<KinWord, KinWord> = { father: 'mother', mother: 'father' };
 
-/** The only title words that say father or mother. */
-const GENDER_TITLE: Readonly<Record<string, KinWord>> = { mr: 'father', mrs: 'mother', ms: 'mother', miss: 'mother' };
-
-/**
- * Title words that say NOTHING about gender — stepped over on the way to one that does. The sort's titles
- * (`LEADING_TITLE`) plus the Philippine government and professional honorifics a real guest list carries (73 of 77
- * guests on one real event held a title, 2026-09-16: Atty., Comm., Associate Dean …).
- */
-const NOT_GENDER_TITLES: ReadonlySet<string> = new Set<string>([
-  ...['dr', 'dra', 'hon', 'atty', 'engr', 'arch', 'archt', 'ar', 'rev', 'fr', 'msgr', 'sr', 'sra', 'srta', 'mx'],
-  ...['gen', 'col', 'capt', 'maj', 'lt', 'ltc', 'sgt', 'cdr', 'adm', 'brig', 'supt', 'insp', 'ret', 'retd'],
-  ...['prof', 'judge', 'justice', 'sen', 'gov', 'mayor', 'rep', 'cong', 'vm', 'vice', 'councilor', 'kgd', 'brgy', 'kap'],
-  ...['sec', 'usec', 'asec', 'comm', 'commissioner', 'ombudsman', 'amb', 'ambassador', 'chairman', 'chair', 'chief'],
-  ...['pres', 'dir', 'director', 'dean', 'assoc', 'associate', 'cpa', 'rn', 'pastor', 'ptr', 'bishop', 'sis', 'bro'],
-]);
-
-/**
- * The title words a person carries, lower-cased, in order: every word of the prefix (it holds titles only), then
- * the display name's LEADING words while they are titles — the first ordinary word ends it, so a first name is
- * never read.
- */
-function titleWordsOf(row: Pick<EntourageGuestRow, 'name_prefix' | 'display_name'>): string[] {
-  const words = (s: string | null | undefined) => (s ?? '').toLowerCase().split(/[\s.,]+/).filter(Boolean);
-  const out = words(row.name_prefix);
-  for (const w of words(row.display_name)) {
-    if (!GENDER_TITLE[w] && !NOT_GENDER_TITLES.has(w)) break;
-    out.push(w);
-  }
-  return out;
-}
+/* The title words that say (and do not say) father or mother, and how a row's are read, live in lib/guest-title.ts
+   (`titleWordsOf`, `genderOfTitleWords`) — ONE reading for this resolver and the Guests page's prompt. */
 
 /**
  * 👪 THE OTHER PARENT IS NAMED (owner 2026-10-17, live /cale-ice: "Mr. … — FATHER OF THE GROOM" beside "Atty. … —
@@ -1242,6 +1249,10 @@ function kinWordsOfHolders(
     const name = personName(row, style);
     return name ? [{ row, name }] : [];
   });
+  /* gender → title → attire → PAIR → the neutral word. The attire is the couple's own entry about THIS person, so
+     the pair (an inference from the other holder) never overrides it — #6611's rule, "nobody whose own entry says
+     something is ever changed", held by grandparents-are-never-immediate-family.test.ts (a Mr. beside an Atty. in a
+     Suit are two grandfathers). */
   const own = holders.map((h) => parentWordOf(h.row));
   const words = KIN_OF_ROLE[role] ? withThePairInferred(own) : own;
   return holders.map((h, i) => ({ ...h, word: words[i] ?? null }));
@@ -1268,6 +1279,7 @@ function peopleForSpec(
         ceremonyOnly: isCeremonyOnly(row),
         sortKey: sortKeyOf(row, name),
         parentWord: word,
+        gender: row.gender === 'woman' || row.gender === 'man' ? row.gender : genderOfTitleWords(row),
         ...(row.side !== undefined ? { side: row.side } : {}),
         ...(row.not_walking ? { notWalking: true as const } : {}),
       });
@@ -1400,10 +1412,17 @@ export function buildEntourage(
 
 /** Which column a person belongs in, or null when the group has one side. */
 function sideOf(
-  person: Pick<EntouragePerson, 'role'>,
+  person: Pick<EntouragePerson, 'role' | 'gender'>,
   sides: GroupSpec['sides'],
 ): 0 | 1 | null {
   if (!sides) return null;
+  /* 👔 A LEGACY principal sponsor (from before the Ninong / Ninang split) whose entry SAYS woman or man — picked with
+     the title ("Atty. (Woman)"), or a Mr. / Mrs. — stands in that column: no longer a guess (owner 2026-10-17). One
+     whose entry says neither keeps the left column, as before. */
+  if (person.role === 'principal_sponsor' && person.gender) {
+    const col = sides.findIndex((s) => s.includes(person.gender === 'woman' ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong'));
+    if (col === 0 || col === 1) return col;
+  }
   if (sides[0].includes(person.role)) return 0;
   if (sides[1].includes(person.role)) return 1;
   /* A role in the group but on neither side. Left column — visible and

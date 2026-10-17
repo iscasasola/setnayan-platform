@@ -101,6 +101,7 @@ export function DressCodeWidget({
   words,
   guestRole = null,
   guestAttire = null,
+  guestNameParts = null,
   march = null,
   rolePalette = null,
   roleNames = null,
@@ -169,6 +170,8 @@ export function DressCodeWidget({
    * their own). Unknown → the reader is shown both picks.
    */
   guestAttire?: GuestAttire | null;
+  /** 👪 The reader's typed title / shown name — with `guestAttire`, what names a parent per person ("You are Father of the Bride", `kinWordOfReader`). */
+  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
@@ -293,6 +296,7 @@ export function DressCodeWidget({
     groups,
     palette: board,
     names: roleNames,
+    person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
   }))), generalHasContent);
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;

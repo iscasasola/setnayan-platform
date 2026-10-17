@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d680f291d4",
+  "generatedFromRef": "d85959f01b",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6563,
+  "blocks": 6569,
   "routes": {
     "/": {
       "files": [
@@ -6262,6 +6262,8 @@
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/title-picker.tsx",
+        "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
@@ -6278,7 +6280,8 @@
         "dashboard/[eventId]/guests/pair-actions.ts",
         "dashboard/[eventId]/guests/people-add-actions.ts",
         "dashboard/[eventId]/guests/quick-add-actions.ts",
-        "dashboard/[eventId]/guests/role-name-actions.ts"
+        "dashboard/[eventId]/guests/role-name-actions.ts",
+        "dashboard/[eventId]/guests/title-gender-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]/guests",
@@ -6317,6 +6320,7 @@
         "CardPickProps",
         "CardSubmitProps",
         "CardTipProps",
+        "CardTitleProps",
         "CardToggleProps",
         "ChangeAccessLink",
         "CoordinatorColourDomains",
@@ -6383,6 +6387,7 @@
         "K.SaveState",
         "K.Submit",
         "K.Tip",
+        "K.Title",
         "K.Toggle",
         "KeptGuestList",
         "LastSeenCapture",
@@ -6407,7 +6412,6 @@
         "PickMenu",
         "PillThumb",
         "Popover",
-        "PrefixSelect",
         "QuickAddResult",
         "QuickAddSheet",
         "QuickGroupResult",
@@ -6421,12 +6425,16 @@
         "SaveFileLink",
         "Scrim",
         "SendInvite",
+        "Sheet",
         "SoftDeleteForUndoResult",
         "SubmitButton",
         "SwitchRow",
         "T",
         "TicketPlaceholder",
         "TicketThumb",
+        "TitleGenderResult",
+        "TitlePicker",
+        "TitlesWaiting",
         "TypedRow",
         "UndoToastHost"
       ]
@@ -10683,6 +10691,7 @@
         "CountdownWidget",
         "CoverPlayOpening",
         "CoverSceneMenuWaits",
+        "CustomSectionWidget",
         "DoorShell",
         "DressCodeWidget",
         "EditorBridge",

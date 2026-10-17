@@ -15,7 +15,7 @@ import { guestStagesOn } from '@/lib/guest-stages-on';
 import { getCurrentUser } from '@/lib/auth';
 import { ServerTimer } from '@/lib/server-timing';
 import { Suspense } from 'react';
-import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfile, resolveRoleSetForEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_lib/event-words';
 import { replyFaceOf, replyRefusedWords, replyWindow } from '@/lib/reply-window';
 import { resolveHero } from '@/lib/event-hero';
@@ -125,9 +125,11 @@ import {
   loadWidgets,
   loadEntourage,
   loadHostPreviewDraft,
+  loadEventRoleNames,
   guestLookFrom,
   type EventShellRow,
 } from './_lib/loaders';
+import { previewRoleOf } from '@/lib/preview-role';
 import {
   HUB_DRAFT_LOOK_COLUMNS,
   overlayHubDraftEvent,
@@ -235,6 +237,9 @@ type Props = {
     // holding a server-verified OwnerCapability; inert for everyone else, so a
     // guest's bytes are unchanged. See lib/simulated-guest-preview.ts.
     as?: string;
+    /** 🎭 See as · Role ▾ — the wedding role the sample guest stands in (`lib/preview-role.ts`). Read only inside the
+     *  `?as=` branch, i.e. for a verified host; inert for everyone else. */
+    asrole?: string;
     /**
      * ⚠ NOT READ HERE — READ BY THE SHOP THIS ROUTE FALLS THROUGH TO.
      *
@@ -1783,12 +1788,24 @@ async function invitationBody({
   }
   if (seeAs) {
     timer.flush();
+    /* 🎭 ROLE ▾ (owner 2026-10-17, "view it as a father of the bride"): the sample stands in one role of THIS event's
+       guest-list vocabulary, checked against its role set — anything else is no role. A role preview is named for
+       its role and reads NO guest row (⚖ 2026-09-14: a generic guest, never a real named one), so the preview
+       person is not loaded for it. */
+    const previewRole = search.asrole
+      ? previewRoleOf(
+          search.asrole,
+          (await resolveRoleSetForEvent(event.event_id)).offeredRoles,
+          await loadEventRoleNames(admin, event.event_id),
+        )
+      : null;
     const sampleIdentity = buildSimulatedGuestIdentity({
       slug: event.slug ?? slug,
       // "Each editor of each event will adapt to their event" (owner
       // 2026-09-27): a real person's name and plus-one allowance, read only.
-      person: await loadPreviewPerson(admin, event.event_id),
+      person: previewRole ? null : await loadPreviewPerson(admin, event.event_id),
       seeAs,
+      role: previewRole,
     });
     const sampleName =
       sampleIdentity.guest.display_name?.trim() ||

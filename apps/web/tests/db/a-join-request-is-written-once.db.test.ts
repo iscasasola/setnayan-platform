@@ -83,13 +83,13 @@ const requests = async (eventId: string) =>
     )
   ).rows[0]!.n;
 
-const KEY_A = '2d8e4c6a-3b5f-4a7c-9d9e-0f1a2b3c4d5e';
-const KEY_B = '3e9f5d7b-4c6a-4b8d-8e0f-1a2b3c4d5e6f';
+const FORM_A = '2d8e4c6a-3b5f-4a7c-9d9e-0f1a2b3c4d5e';
+const FORM_B = '3e9f5d7b-4c6a-4b8d-8e0f-1a2b3c4d5e6f';
 
 test('the same form sent twice is ONE request — the second is told it already exists', async () => {
   const ev = await seedEvent();
-  const a = await ask(ev, KEY_A);
-  const b = await ask(ev, KEY_A);
+  const a = await ask(ev, FORM_A);
+  const b = await ask(ev, FORM_A);
   assert.equal(a.status, 'ok');
   assert.equal(a.created, true);
   assert.equal(b.status, 'ok');
@@ -105,8 +105,8 @@ test('the same form sent twice is ONE request — the second is told it already 
 
 test('two forms are two requests, and a form with no key writes as it always did', async () => {
   const ev = await seedEvent();
-  await ask(ev, KEY_A, 'Ana');
-  await ask(ev, KEY_B, 'Ben');
+  await ask(ev, FORM_A, 'Ana');
+  await ask(ev, FORM_B, 'Ben');
   await ask(ev, null, 'Cy');
   await ask(ev, null, 'Cy');
   assert.equal(await requests(ev), 4);
@@ -114,12 +114,12 @@ test('two forms are two requests, and a form with no key writes as it always did
 
 test('the ceiling is counted inside the writer', async () => {
   const ev = await seedEvent();
-  assert.equal((await ask(ev, KEY_A, 'One', 2)).status, 'ok');
-  assert.equal((await ask(ev, KEY_B, 'Two', 2)).status, 'ok');
+  assert.equal((await ask(ev, FORM_A, 'One', 2)).status, 'ok');
+  assert.equal((await ask(ev, FORM_B, 'Two', 2)).status, 'ok');
   assert.equal((await ask(ev, null, 'Three', 2)).status, 'ceiling');
   assert.equal(await requests(ev), 2);
   // …and the repeat of a form already written is still answered at the ceiling.
-  assert.equal((await ask(ev, KEY_A, 'One', 2)).created, false);
+  assert.equal((await ask(ev, FORM_A, 'One', 2)).created, false);
 });
 
 test('only the server can call it', async () => {

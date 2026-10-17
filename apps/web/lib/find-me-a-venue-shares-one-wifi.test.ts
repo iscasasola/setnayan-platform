@@ -15,7 +15,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

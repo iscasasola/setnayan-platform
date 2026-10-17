@@ -102,3 +102,10 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # credential. Pinned by its introducing commit (the PR range is scanned per commit).
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:40
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:148
+#
+# rd/no-double-records (event-day L1·3): two fixed UUIDs in a db test, the random
+# form keys a join request is deduped by — test data, not credentials. Named
+# KEY_A/KEY_B in their introducing commit (renamed FORM_A/FORM_B after this flag);
+# pinned by that commit because the PR range is scanned per commit.
+de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:86
+de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:87

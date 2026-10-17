@@ -5133,9 +5133,21 @@ html.dark [data-art='candlelight'] {
    · `body`    — Classic has no theme block to point the page's own face at `--font-body` (a painted theme's
                  block already does).
    · `eyebrow` — `.pahina-eyebrow` names its face directly, not `--font-mono`.
-   · `button`  — a button had no face of its own; it inherited the text's. */
-[data-hub-roles~='names'] [data-hub-names] {
+   · `button`  — a button had no face of its own; it inherited the text's.
+   🪆 THE NEAREST SCOPE DECIDES (2026-10-17, measured in the Maker lab): on the Maker's canvas the drafted look is a
+   SECOND scope inside the guest-tree layout's (`HostDraftLook`). A draft that hands the Names font back ("Event Hub
+   font") wears no names mark — but the layout's scope, one level up, still did, and the canvas kept showing the live
+   font until Apply. So a names mark reaches the names only when no worn scope WITHOUT it sits between them; a guest's
+   page (one scope, or two that agree) is unchanged.
+   🔤 THE JOINER (owner 2026-10-17, *"how about the &?"*): the "&" between the names (`data-hub-joiner`, every masthead
+   design and the sample) follows the Names font too — its gold stays, and its italic only where the face has one
+   (`font-synthesis-style: none`: a face with no italic is drawn upright, never slanted by the browser). */
+[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *) {
   font-family: var(--hub-names-face);
+}
+[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *) {
+  font-family: var(--hub-names-face);
+  font-synthesis-style: none;
 }
 /* 🎨 THE NAMES WEAR THE DOMINANT (owner 2026-10-14, Maker test: *"changing colors does not show on preview"* — the
    Mood Board's Dominant is "Headings · the names", and nothing on the page wore it). `--hub-names-ink` is the

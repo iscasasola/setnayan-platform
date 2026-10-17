@@ -293,6 +293,30 @@ export const LAB_BAR_COOKIE = 'lab_bar';
  * here (2026-10-11: "it did not make the secondary font").
  */
 export const LAB_NAMES_COOKIE = 'lab_names';
+/**
+ * 🔤 The fonts (`events.site_font_key` — the Names font — and `events.site_roles`), for the canvas's look, in the real
+ * canvas's two layers: `lab_fonts_live` is what is PUBLISHED (the guest-tree layout's scope), `lab_fonts` the draft laid
+ * over it, written only while the DRAFT holds a font (`HostDraftLook`, nested inside). The lab's canvas wore none of
+ * them, so "the Names font reaches the Event title" could not be walked here (2026-10-17). Both are worn through the
+ * guest page's own `siteFontLook`.
+ */
+export const LAB_FONTS_COOKIE = 'lab_fonts';
+export const LAB_FONTS_LIVE_COOKIE = 'lab_fonts_live';
+const FONT_COLUMNS = ['site_font_key', 'site_roles'] as const;
+const fontsOf = (state: HubDraftState | null | undefined) =>
+  state && FONT_COLUMNS.some((c) => c in state.events)
+    ? json({ site_font_key: state.events.site_font_key ?? null, site_roles: state.events.site_roles ?? null })
+    : null;
+/** The drafted fonts the lab's pages wear — `{}` for none or an unreadable cookie (the sanitisers read the rest). */
+export function labFontsFrom(value: string | undefined): { site_font_key?: unknown; site_roles?: unknown } {
+  if (!value) return {};
+  try {
+    const v = JSON.parse(decodeURIComponent(value)) as unknown;
+    return v && typeof v === 'object' ? (v as { site_font_key?: unknown; site_roles?: unknown }) : {};
+  } catch {
+    return {};
+  }
+}
 /** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
 export const LAB_PASS_COOKIE = 'lab_pass';
 /** The names the lab's cover draws: the drafted line, else the sample's. */
@@ -352,6 +376,8 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_BAR_COOKIE]: bar.hasChanges || bar.canUndo ? json({ n: bar.changeCount, pro: bar.proCount, undo: bar.canUndo }) : null,
     [LAB_NAMES_COOKIE]: typeof draft.events.display_name === 'string' && draft.events.display_name.trim() ? encodeURIComponent(draft.events.display_name) : null,
     [LAB_PASS_COOKIE]: labPassDesignOf(draft.events.print_details),
+    [LAB_FONTS_LIVE_COOKIE]: fontsOf(published),
+    [LAB_FONTS_COOKIE]: FONT_COLUMNS.some((c) => c in draftOnly.events) ? fontsOf(draft) : null,
   };
 }
 

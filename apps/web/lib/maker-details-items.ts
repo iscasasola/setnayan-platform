@@ -104,7 +104,15 @@ const RETIRED_LOOK_ITEM: Readonly<Record<string, LookSectionItemKey>> = { colour
  */
 export type EveryPrintItemKey = 'every-print';
 export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
-export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🎫 THE DIGITAL TICKET (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾…"): the PNG each
+ * guest saves, a row of its own under the Event pass — View as ▾, Download (that guest's ticket, free), All guests ◆ (the zip, Event
+ * Hub Pro). It was "The ticket guests save" block under the pass; its look (Ticket style) moved into Print settings. Present only in
+ * the new Maker's Studio, like "On every print".
+ */
+export type DigitalTicketItemKey = 'digital-ticket';
+export const DIGITAL_TICKET_ITEM: DigitalTicketItemKey = 'digital-ticket';
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | DigitalTicketItemKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -173,7 +181,8 @@ export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
   },
   { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
   /* 🖨 "On every print" heads the set — drawn only in Studio (it is `present` only there). */
-  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS] },
+  /* 🎫 …and the Digital ticket sits under the Event pass — drawn only in Studio too. */
+  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : [k]))] },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
 ];

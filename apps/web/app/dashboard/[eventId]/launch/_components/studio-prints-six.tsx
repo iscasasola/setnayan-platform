@@ -630,12 +630,13 @@ function BoxWithX({
 /**
  * A door to the Event Hub Pro unlock that a FREE couple meets on Prints (the zip of every ticket): the same link, the same words and
  * the same mark (`studio-prints-money-is-unchanged.test.ts`) — but a tap opens the centred note (kind 20: "shown, tappable, never a
- * page jump from a row"; owner's answer (5)): "See Pro" goes to the unlock page, "Keep it" closes. Without script it is the link.
+ * page jump from a row"; owner's answer (5)): "Event Hub Pro" goes to the unlock page, "Not now" closes — the note's words since the 2026-10-17
+ * prints ruling (prototype `prints_settings_and_downloads_2026-10-17.html` `.note-pro`; it was "See Pro" / "Keep it"). Without script it is the link.
  */
 export function StudioProDoor({ href, label, icon, note }: { href: string; label: string; icon: React.ReactElement; note: { title: string; body: string } }) {
   const [open, setOpen] = useState(false);
   const link = useRef<HTMLAnchorElement | null>(null);
-  /* "See Pro" follows the SAME link (Next's own navigation) — the one press that is let through. */
+  /* "Event Hub Pro" follows the SAME link (Next's own navigation) — the one press that is let through. */
   const through = useRef(false);
   return (
     <>
@@ -659,8 +660,8 @@ export function StudioProDoor({ href, label, icon, note }: { href: string; label
         open={open}
         title={note.title}
         body={note.body}
-        confirmLabel="See Pro"
-        cancelLabel="Keep it"
+        confirmLabel="Event Hub Pro"
+        cancelLabel="Not now"
         onConfirm={() => {
           setOpen(false);
           through.current = true;
@@ -713,22 +714,23 @@ export function StudioPosterPhoto({ eventId, saved, thumb }: { eventId: string; 
   return (
     <div ref={root} data-poster-photo={photo ? 'photo' : 'theme'} data-studio-poster-photo="" aria-busy={saving || pct !== null || undefined} className="flex flex-col gap-1">
       <FormRows data="poster-photo">
-        <FormRow name="Background" data="poster-background">
-          <PillSelector
-            label="The poster’s background"
-            value={mode}
-            grow={false}
-            data="poster-photo"
-            options={[
-              { key: 'theme', label: 'Theme’s picture' },
-              { key: 'photo', label: 'My photo' },
-            ]}
-            onPick={(k) => {
-              setMode(k);
-              if (k === 'theme' && photo) post('');
-            }}
-          />
-        </FormRow>
+        {/* ▾ The house dropdown (owner 2026-10-17, prototype `poster_bg` — "any set of choices is a dropdown"): the SAME two choices. */}
+        <ChosenRow
+          name="Background"
+          label="The poster’s background"
+          value={mode}
+          options={[
+            { key: 'theme', label: 'Theme’s picture' },
+            { key: 'photo', label: 'My photo' },
+          ]}
+          onPick={(k) => {
+            const next = k === 'photo' ? 'photo' : 'theme';
+            setMode(next);
+            if (next === 'theme' && photo) post('');
+          }}
+          dataAttr="data-poster-photo-pick"
+          data="poster-background"
+        />
       </FormRows>
       {mode === 'photo' ? (
         <div className="flex items-center gap-3.5 py-2" data-poster-photo-row="">

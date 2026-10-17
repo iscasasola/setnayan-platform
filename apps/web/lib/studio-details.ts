@@ -18,9 +18,10 @@
  * Pure: the groups in, the groups out. Only while the new Maker is on
  * (`MakerDetails`'s `studio`); every couple today keeps the shipped list.
  */
-import { EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
+import { EVERYTHING_HEAD, EVERYTHING_LABEL, PRINT_SETTINGS_LABEL } from '@/lib/studio-prints-settings';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -67,10 +68,12 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
    opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
    the optional rows are the fold "More for guests". */
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
-  /* 🖨 The whole set's own settings, once, at the head of Prints (owner 2026-10-16) — the QR line and the NFC spot. */
-  [EVERY_PRINT_ITEM]: { title: 'On every print', line: 'QR · NFC spot' },
-  invitation: { title: 'Your invitation set' },
+  /* ⚙ The head of Prints is the Print settings row (owner 2026-10-17) — it names itself; "On every print" is the first heading
+     INSIDE its sheet now (`PRINT_SETTINGS_HEADS`). */
+  invitation: { title: 'Your invitation set', line: 'one at a time is free' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
+  /* 🗂 Everything ◆ — one file of every piece (owner 2026-10-17). */
+  download: { title: EVERYTHING_HEAD.title, line: EVERYTHING_HEAD.line },
 };
 
 /**
@@ -94,6 +97,7 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   'rsvp',
   EVERY_PRINT_ITEM,
   ...PRINT_SET_KEYS,
+  DIGITAL_TICKET_ITEM,
   ...FREE_PRINT_KEYS,
   'download',
 ];
@@ -113,9 +117,9 @@ export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey
   const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
   return items.map((i) => {
     const label = i.label.replace(/^the\s+/i, '');
-    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label, caption: 'Prints', hint: STUDIO_FORM_HEADS[EVERY_PRINT_ITEM]!.line };
+    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label: PRINT_SETTINGS_LABEL, caption: 'Prints', hint: 'QR · NFC · words · passes' };
     if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
-    if (i.group === 'download') return { key: i.key, label, group: 'Download the set', caption: 'Download the set' };
+    if (i.group === 'download') return { key: i.key, label: EVERYTHING_LABEL, group: EVERYTHING_HEAD.title, caption: EVERYTHING_HEAD.title };
     return { key: i.key, label, group: set, caption: set };
   });
 }

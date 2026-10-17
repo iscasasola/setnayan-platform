@@ -55,6 +55,11 @@ export function layoutSeatingPack(input: {
    * prints; never a wedding's line on a birthday.
    */
   signLine: string;
+  /**
+   * 👤 ONE GUEST'S PLACE CARD (owner 2026-10-17, "View as ▾ … one guest's file is free"): only the card page — no directory, no
+   * signs. The route hands in the one guest (`/seating/print?guest=<id>`); the card is drawn exactly as the pack draws it.
+   */
+  cardsOnly?: boolean;
 }): PrintDoc[] {
   const seated = input.units.reduce((a, u) => a + u.guests.length, 0);
   const directory = layoutReport({
@@ -78,10 +83,10 @@ export function layoutSeatingPack(input: {
     footnote: 'One table sign per page follows, then the place cards — eight to a page, cut along the dashed lines.',
   });
 
-  const pages: PrintDoc[] = [...directory];
+  const pages: PrintDoc[] = input.cardsOnly ? [] : [...directory];
 
   // ── One sign per unit.
-  for (const u of input.units) {
+  for (const u of input.cardsOnly ? [] : input.units) {
     const { doc, ops } = reportPage('seating-pack');
     const cx = doc.w / 2;
     let y = doc.h * 0.2;

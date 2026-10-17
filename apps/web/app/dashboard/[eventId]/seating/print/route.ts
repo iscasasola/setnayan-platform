@@ -30,11 +30,21 @@ import type { PrintImages } from '@/lib/print-layout';
 import { formatCount } from '@/lib/format-number';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
+import { printOwnsPro } from '@/lib/print-set.server';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { allInOneRefusal } from '@/lib/studio-prints-six';
 
 export const dynamic = 'force-dynamic';
 /* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
    (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
 export const maxDuration = 300;
+
+const GUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The one card's guest, as a file word — `place-card-bea-santillan.pdf`. */
+function placeCardWord(units: SeatingPackUnit[]): string {
+  const name = units.find((u) => u.guests.length)?.guests[0]?.name ?? 'guest';
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';
+}
 
 // ---------------------------------------------------------------------------
 // Seating print pack — a self-contained printable HTML document (NOT a page
@@ -198,13 +208,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // thumbnail Prints & Tickets shows. The HTML below stays for the dialog.
   const format = params.get('format');
   if (format === 'pdf' || format === 'preview') {
+    /* 👤 ONE GUEST'S PLACE CARD, FREE (owner 2026-10-17, "View as ▾"): `guest=<guest id>` draws that guest's card only — their
+       name, their table, their own QR — on the pack's own card page. A guest who is not seated has no card: said, never a blank. */
+    const oneGuest = params.get('guest');
+    if (oneGuest !== null && !GUEST_ID.test(oneGuest)) return new NextResponse('Which guest?', { status: 400 });
+    /* 🗂 …and the whole pack — the directory, every sign and every place card in one file — is Event Hub Pro (owner 2026-10-17,
+       "ALL GUESTS ◆"; `isAllInOnePrint('seating-pack')`): refused before anything is drawn. Its on-screen picture stays free. */
+    if (format === 'pdf' && oneGuest === null) {
+      const [ownsPro, storeShell] = await Promise.all([printOwnsPro(eventId), isStoreShellRequest()]);
+      if (!ownsPro) return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal('seating-pack'), { status: 403 });
+    }
     const packUnits: SeatingPackUnit[] = units.map((u) => ({
       label: u.label,
       joined: u.members.length,
       qrRef: `t-${u.key}`,
-      guests: unitGuests(u).map((g) => ({ name: g.name, qrRef: `g-${g.qr_token}` })),
+      guests: u.guests
+        .filter((g) => oneGuest === null || g.guest_id === oneGuest)
+        .map((g) => ({ name: guestDisplayName(g), qrRef: `g-${g.qr_token}` })),
     }));
-    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub });
+    if (oneGuest !== null && !packUnits.some((u) => u.guests.length > 0)) {
+      return new NextResponse('That guest has no seat yet — a place card prints once a guest is seated in your seat plan.', { status: 404 });
+    }
+    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub, cardsOnly: oneGuest !== null });
     if (format === 'preview') {
       /* 📄 `?page=N` — the preview sheet's page N (Studio › Prints, owner 2026-10-14); its paper in `x-print-paper`. */
       const page = previewPage(params, docs.length);
@@ -220,7 +245,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     }
     const images: PrintImages = {};
     const png = async (text: string) => new Uint8Array(await renderStyledUrlQrPng(text, look, 600));
-    for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
+    if (oneGuest === null) for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
     for (const pu of packUnits) {
       for (const g of pu.guests) images[g.qrRef] = { bytes: await png(`${site}?g=${g.qrRef.slice(2)}`), mime: 'image/png' };
     }
@@ -230,7 +255,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${printFileName(event.slug, 'seating-pack')}"`,
+        'Content-Disposition': `attachment; filename="${printFileName(event.slug, oneGuest === null ? 'seating-pack' : `place-card-${placeCardWord(packUnits)}`)}"`,
         'Cache-Control': 'no-store',
       },
     });

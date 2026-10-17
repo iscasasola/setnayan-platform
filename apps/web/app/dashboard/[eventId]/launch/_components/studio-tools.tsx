@@ -65,10 +65,10 @@ import { Fold } from '@/app/_components/fold';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PrintChoicePicker } from './print-choice-picker';
-import { PrintSaveButton } from './print-save-button';
-import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor } from './studio-prints-six';
-import { PrintPaperHead, StudioChartBody, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
+import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
+import { PrintPaperHead, StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { StudioPrintsBar } from './studio-prints-bar';
+import { StudioEditInPlace, StudioEverything, StudioFileChoice, StudioGuestPiece, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1081,151 +1081,9 @@ export function StudioPrintSave({ form }: { form: string }) {
   );
 }
 
-/** A door that is an action button (the pass zip's door to the Event Hub Pro unlock): a link, drawn by the ONE ActionButton. */
-export function StudioActionDoor({ href, label, icon }: { href: string; label: string; icon: ReactElement }) {
-  return <ActionButton tone="neutral" href={href} label={label} icon={icon} />;
-}
 
-/**
- * 🎫 THE TICKET GUESTS SAVE — its two outputs as Form rows (owner "approved" 2026-10-13): "Digital ticket (PNG)" with the zip of every
- * ticket (a Pro couple: the file; a free couple: the ◆ door that opens the centred note — `StudioProDoor`; the store shell: nothing),
- * its one line under it; "Printed ticket (PDF)" with every guest's ticket. The SAME words, files and door as before, in the same order
- * (`studio-prints-money-is-unchanged.test.ts`).
- */
-export function StudioPassRows({
-  zip,
-  printed,
-  digitalWord,
-  printWord,
-  digitalLine,
-}: {
-  zip:
-    | { kind: 'save'; href: string; file: string; label: string; icon: ReactElement }
-    | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } }
-    | null;
-  /** 🗂 Every guest's ticket in one PDF — ◆ Event Hub Pro since 2026-10-16 (`StudioAllInOne`); null in the store shell without it. */
-  printed: Parameters<typeof StudioAllInOne>[0]['f'];
-  digitalWord: string;
-  printWord: string;
-  digitalLine: string;
-}) {
-  return (
-    <FormRows data="pass-outputs" attrs={STUDIO_PRINT_ROWS}>
-      {/* The button sits UNDER its row's name (the words are long — beside the name they squeezed it to one word a line). */}
-      <FormRow
-        name={digitalWord}
-        data="pass-digital"
-        attrs={{ 'data-pass-cards-digital': '' }}
-        below={
-          <div className="flex flex-col items-start gap-1.5 pb-3">
-            {zip === null ? null : zip.kind === 'save' ? (
-              <PrintSaveButton href={zip.href} file={zip.file} variant="action" icon={zip.icon} label={zip.label} />
-            ) : (
-              <span data-pass-cards-zip-pro="" className="inline-flex">
-                <StudioProDoor href={zip.href} label={zip.label} icon={zip.icon} note={zip.note} />
-              </span>
-            )}
-            <p className="text-[12.5px] text-ink/55">{digitalLine}</p>
-          </div>
-        }
-      />
-      {printed === null ? null : (
-        <FormRow
-          name={printWord}
-          data="pass-print"
-          attrs={{ 'data-pass-cards-print': '' }}
-          below={
-            <div className="pb-3">
-              <StudioAllInOne f={printed} />
-            </div>
-          }
-        />
-      )}
-    </FormRows>
-  );
-}
-
-/**
- * 🗂 AN ALL-IN-ONE FILE (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO" — `allInOneFile` in `maker-prints.tsx`): owned, the
- * file itself (◆ unlocked in the icon's place); a free couple, the ◆ door that opens the centred note (`StudioProDoor`) — the zip's
- * row exactly; nothing in the store shell.
- */
-export function StudioAllInOne({
-  f,
-  main = false,
-  wide = false,
-}: {
-  f: { kind: 'save'; href: string; file: string; label: string; icon: ReactElement } | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } } | null;
-  main?: boolean;
-  wide?: boolean;
-}) {
-  if (f === null) return null;
-  if (f.kind === 'save') return <PrintSaveButton href={f.href} file={f.file} variant="action" main={main} wide={wide} icon={f.icon} label={f.label} />;
-  return (
-    <span data-print-all-in-one-pro="" className="inline-flex">
-      <StudioProDoor href={f.href} label={f.label} icon={f.icon} note={f.note} />
-    </span>
-  );
-}
-
-/**
- * 🎟 ONE GUEST'S PASS, FREE (owner 2026-10-16, verbatim *"each guest's own pass one at a time, stay free"*): "Pass for ▾" — the guests
- * who have a pass, by name, in the printed passes' order (the house dropdown) — and its Save PDF: the Event pass's own file with
- * `pass_guest=<id>`, in the size picked on the row above. Nobody yet, or a list that could not be read, is said in place.
- */
-export function StudioOnePass({
-  guests,
-  href,
-  fileStem,
-}: {
-  /** null: the list could not be read. */
-  guests: ReadonlyArray<{ id: string; name: string }> | null;
-  /** The Event pass's own print file (its size, its theme) — the guest is added to it. */
-  href: string;
-  /** `<slug>-pass[-<theme>]` — the guest's name is added to it. */
-  fileStem: string;
-}) {
-  const [who, setWho] = useState<string | null>(guests?.[0]?.id ?? null);
-  const picked = guests?.find((g) => g.id === who) ?? guests?.[0] ?? null;
-  const slugOf = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';
-  return (
-    <FormRows data="one-pass" attrs={STUDIO_PRINT_ROWS}>
-      {guests !== null && picked ? (
-        /* The house dropdown as the Form row's own (`ChosenRow`) — its Save PDF right under it, in the same row. */
-        <ChosenRow
-          name="Pass for"
-          label="Pass for"
-          value={picked.id}
-          options={guests.map((g) => ({ key: g.id, label: g.name }))}
-          onPick={setWho}
-          dataAttr="data-print-one-pass-pick"
-          data="one-pass"
-          attrs={{ 'data-print-one-pass': '' }}
-          below={
-            <div className="pb-3">
-              <PrintSaveButton href={`${href}&pass_guest=${encodeURIComponent(picked.id)}`} file={`${fileStem}-${slugOf(picked.name)}.pdf`} variant="action" label="Save PDF" />
-            </div>
-          }
-        />
-      ) : (
-        <FormRow
-          name="Pass for"
-          data="one-pass"
-          attrs={{ 'data-print-one-pass': '' }}
-          below={
-            guests === null ? (
-              <p className="pb-3 text-[12.5px] text-ink/60">Your guest list could not be read just now — reopen Prints in a moment.</p>
-            ) : (
-              <p data-print-one-pass-none="" className="pb-3 text-[12.5px] text-ink/60">
-                No guest has a pass yet — a pass appears once a guest is on your list and coming.
-              </p>
-            )
-          }
-        />
-      )}
-    </FormRows>
-  );
-}
+/* 🎫 "The ticket guests save" rows, the all-in-one part and "Pass for ▾" were retired on 2026-10-17 (owner *"ok on prints"*): each guest
+   print's View as ▾ · Download · All guests ◆ is `StudioGuestPiece`, Everything ◆ is `StudioEverything` (`studio-prints-settings.tsx`). */
 
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
@@ -1262,7 +1120,6 @@ export type StudioToolProps =
   | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
   /* 🖨 Studio › Prints (2026-10-09) — one lazy door, no door of its own (the Maker's first load). */
   | ({ part: 'print-head' } & Parameters<typeof StudioPrintHead>[0])
-  | ({ part: 'action-door' } & Parameters<typeof StudioActionDoor>[0])
   | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
   | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
   | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0])
@@ -1273,15 +1130,20 @@ export type StudioToolProps =
   | ({ part: 'kindly-reply' } & Parameters<typeof StudioKindlyReply>[0])
   | ({ part: 'menu' } & Parameters<typeof StudioMenuEditor>[0])
   | ({ part: 'poster-photo' } & Parameters<typeof StudioPosterPhoto>[0])
-  | ({ part: 'pass-rows' } & Parameters<typeof StudioPassRows>[0])
   /* 🪧 The entrance seating chart's own row and, on a computer, its picture (owner 2026-10-14, `print-paper.tsx`). */
   | ({ part: 'chart' } & Parameters<typeof StudioChartPaper>[0])
   | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0])
   /* 🧭 Studio › Prints' piece bar, phone only (owner 2026-10-16, `studio-prints-bar.tsx`) — the same one lazy door. */
   | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0])
   /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
-  | ({ part: 'all-in-one' } & Parameters<typeof StudioAllInOne>[0])
-  | ({ part: 'one-pass' } & Parameters<typeof StudioOnePass>[0]);
+  /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
+  | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
+  | ({ part: 'piece-download' } & Parameters<typeof StudioPieceDownload>[0])
+  | ({ part: 'edit-in-place' } & Parameters<typeof StudioEditInPlace>[0])
+  | ({ part: 'guest-piece' } & Parameters<typeof StudioGuestPiece>[0])
+  | ({ part: 'everything' } & Parameters<typeof StudioEverything>[0])
+  | ({ part: 'file-choice' } & Parameters<typeof StudioFileChoice>[0])
+  | ({ part: 'chart-layout' } & Parameters<typeof StudioChartLayoutSetting>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1311,8 +1173,6 @@ export function StudioTool(props: StudioToolProps) {
       return <OpenInPlace {...props} />;
     case 'print-head':
       return <StudioPrintHead {...props} />;
-    case 'action-door':
-      return <StudioActionDoor {...props} />;
     case 'include-switch':
       return <StudioIncludeSwitch {...props} />;
     case 'seat-kind':
@@ -1329,17 +1189,25 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioMenuEditor {...props} />;
     case 'poster-photo':
       return <StudioPosterPhoto {...props} />;
-    case 'pass-rows':
-      return <StudioPassRows {...props} />;
     case 'chart':
       return <StudioChartPaper {...props} />;
     case 'chart-body':
       return <StudioChartBody {...props} />;
     case 'prints-bar':
       return <StudioPrintsBar {...props} />;
-    case 'all-in-one':
-      return <StudioAllInOne {...props} />;
-    case 'one-pass':
-      return <StudioOnePass {...props} />;
+    case 'print-settings':
+      return <StudioPrintSettings {...props} />;
+    case 'piece-download':
+      return <StudioPieceDownload {...props} />;
+    case 'edit-in-place':
+      return <StudioEditInPlace {...props} />;
+    case 'guest-piece':
+      return <StudioGuestPiece {...props} />;
+    case 'everything':
+      return <StudioEverything {...props} />;
+    case 'file-choice':
+      return <StudioFileChoice {...props} />;
+    case 'chart-layout':
+      return <StudioChartLayoutSetting {...props} />;
   }
 }

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { StudioPrintsDownloadSheet } from './studio-prints-settings';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { studioPrintsBarPieces } from '@/lib/studio-details';
 import type { DetailsItemGroup, DetailsItemKey } from '@/lib/maker-details-items';
@@ -31,6 +33,8 @@ export function raisesKeyboard(el: Element | null): boolean {
  *   · after a press the picked name holds until the person scrolls by hand — a piece near the end cannot reach the top, and
  *     the bar must not then say a different piece than the one just picked.
  *   · while a field is focused (the phone's keyboard is up) the bar steps aside — it never rides over the field.
+ *   · ⬇ (owner 2026-10-17, "ONE DOWNLOAD PER PIECE … EVERYTHING ◆"): the Download sheet — "This piece" (the row's own file, the guest
+ *     picked when it is a guest print) and "Everything ◆" (`StudioPrintsDownloadSheet`, reading what the rows themselves save).
  * On a computer the navigator column already lists the pieces: `lg:hidden`. Mounted by `details-workspace.tsx` only for the
  * new Maker's Studio › Prints form, through the one lazy door (`StudioTool part="prints-bar"`).
  */
@@ -53,6 +57,7 @@ export function StudioPrintsBar({
   const keys = pieces.map((p) => p.key).join(' ');
   const [cur, setCur] = useState<DetailsItemKey>(() => (pieces.some((p) => p.key === at) ? at : pieces[0]!.key));
   const [typing, setTyping] = useState(false);
+  const [saving, setSaving] = useState(false);
   /** A press holds its piece until the person scrolls by hand. */
   const held = useRef(false);
 
@@ -157,6 +162,11 @@ export function StudioPrintsBar({
       <button type="button" aria-label="Next piece" data-prints-bar-step="next" disabled={i === pieces.length - 1} onClick={() => go(pieces[i + 1]!.key)} className={step}>
         <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
       </button>
+      {/* ⬇ The row's one filled forward step — the house ActionButton (its brand fill), never a colour of its own. */}
+      <span data-prints-bar-step="download" className="inline-flex shrink-0">
+        <ActionButton tone="brand" main iconOnly icon={Download} label="Download" onClick={() => setSaving(true)} />
+      </span>
+      {saving ? <StudioPrintsDownloadSheet item={here.key} onClose={() => setSaving(false)} /> : null}
     </div>
   );
 }

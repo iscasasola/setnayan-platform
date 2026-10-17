@@ -212,13 +212,21 @@ export async function renderImposedPdf(
   images: PrintImages,
   opts: { cols: number; rows: number; landscape: boolean; title: string; subject?: string },
 ): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.setTitle(opts.title);
-  pdf.setCreator('Setnayan — Prints & Tickets');
-  pdf.setProducer('Setnayan');
-  if (opts.subject) pdf.setSubject(opts.subject);
+  const pdf = await newPrintPdf(opts);
   const layers = registerLayers(pdf);
   const imgs = await embedImages(pdf, images);
+  drawImposedPages(pdf, layers, imgs, docs, opts);
+  return pdf.save();
+}
+
+/** The ganged A4 pages (the body of `renderImposedPdf`), into a document already holding its layers and images. */
+function drawImposedPages(
+  pdf: PDFDocument,
+  layers: Layers,
+  imgs: Record<string, PDFImage>,
+  docs: PrintDoc[],
+  opts: { cols: number; rows: number; landscape: boolean },
+) {
   const A4: [number, number] = [210 * PT_PER_MM, 297 * PT_PER_MM];
   const [pageW, pageH] = opts.landscape ? [A4[1], A4[0]] : A4;
   const perPage = opts.cols * opts.rows;
@@ -264,7 +272,6 @@ export async function renderImposedPdf(
       }
     }
   }
-  return pdf.save();
 }
 
 /**
@@ -275,22 +282,33 @@ export async function renderPrintPdf(
   images: PrintImages,
   opts: { mode: PdfMode; title: string; subject?: string },
 ): Promise<Uint8Array> {
+  const pdf = await newPrintPdf(opts);
+  const layers = opts.mode === 'print' ? registerLayers(pdf) : {};
+  const imgs = await embedImages(pdf, images);
+  drawDocPages(pdf, layers, imgs, docs, opts.mode);
+  return pdf.save();
+}
+
+/** A new document with the house's title, creator and subject. */
+async function newPrintPdf(opts: { title: string; subject?: string }): Promise<PDFDocument> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(opts.title);
   pdf.setCreator('Setnayan — Prints & Tickets');
   pdf.setProducer('Setnayan');
   if (opts.subject) pdf.setSubject(opts.subject);
-  const layers = opts.mode === 'print' ? registerLayers(pdf) : {};
-  const imgs = await embedImages(pdf, images);
+  return pdf;
+}
 
+/** One piece per page (the body of `renderPrintPdf`), into a document already holding its layers and images. */
+function drawDocPages(pdf: PDFDocument, layers: Layers, imgs: Record<string, PDFImage>, docs: PrintDoc[], mode: PdfMode) {
   for (const doc of docs) {
-    const bleed = opts.mode === 'print' ? doc.bleed || BLEED_MM * PT_PER_MM : 0;
+    const bleed = mode === 'print' ? doc.bleed || BLEED_MM * PT_PER_MM : 0;
     const plainSheet = PRINT_PIECES[doc.piece].kind === 'free';
-    const margin = opts.mode === 'print' && !plainSheet ? bleed + SLUG_PT : 0;
+    const margin = mode === 'print' && !plainSheet ? bleed + SLUG_PT : 0;
     const pageW = doc.w + margin * 2;
     const pageH = doc.h + margin * 2;
     const page = pdf.addPage([pageW, pageH]);
-    if (opts.mode === 'print') bindLayers(page, layers);
+    if (mode === 'print') bindLayers(page, layers);
     const ox = margin;
     const oy = margin;
     if (margin > 0) {
@@ -301,16 +319,34 @@ export async function renderPrintPdf(
     } else {
       page.pushOperators(pushGraphicsState(), rectangle(0, 0, doc.w, doc.h), clip(), endPath());
     }
-    for (const o of doc.ops) drawOp(page, o, ox, oy, pageH, imgs, opts.mode);
+    for (const o of doc.ops) drawOp(page, o, ox, oy, pageH, imgs, mode);
     page.pushOperators(popGraphicsState());
 
-    if (opts.mode === 'print' && !plainSheet) {
+    if (mode === 'print' && !plainSheet) {
       // The die line — its own layer, a thin magenta stroke the cutter follows.
       beginLayer(page, 'die');
       page.drawSvgPath(doc.diePath, { x: ox, y: pageH - oy, borderColor: rgb(1, 0, 1), borderWidth: 0.25 });
       endLayer(page);
       cropMarks(page, ox, oy, doc.w, doc.h, pageH, bleed);
     }
+  }
+}
+
+/**
+ * 🗂 ONE BOOK OF PRINTS (owner 2026-10-17, Everything ◆): pieces one per page AND the ganged pass batch, drawn into ONE document —
+ * every image embedded ONCE (a guest's QR on the QR sheet and on their pass is one picture in the file, not two), one set of
+ * layers. The SAME page drawing as `renderPrintPdf` and `renderImposedPdf`, section after section.
+ */
+export type PrintBookSection =
+  | { kind: 'pages'; docs: PrintDoc[] }
+  | { kind: 'imposed'; docs: PrintDoc[]; cols: number; rows: number; landscape: boolean };
+export async function renderPrintBook(sections: PrintBookSection[], images: PrintImages, opts: { title: string; subject?: string }): Promise<Uint8Array> {
+  const pdf = await newPrintPdf(opts);
+  const layers = registerLayers(pdf);
+  const imgs = await embedImages(pdf, images);
+  for (const s of sections) {
+    if (s.kind === 'pages') drawDocPages(pdf, layers, imgs, s.docs, 'print');
+    else drawImposedPages(pdf, layers, imgs, s.docs, s);
   }
   return pdf.save();
 }

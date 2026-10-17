@@ -14,7 +14,6 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, ChevronLeft, ChevronRight, Download, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
-import { PillSelector } from '@/app/_components/pill-selector';
 import { StatusLine } from '@/app/_components/status-line';
 import { formatCount } from '@/lib/format-number';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -31,6 +30,7 @@ import { DetailsSelectContext } from './details-go';
 import { chartHeadLine } from '@/lib/print-head-line';
 import { PrintPreview } from './print-preview';
 import { PrintSaveButton } from './print-save-button';
+import { useRegisterDownload } from './prints-view-store';
 
 /**
  * 🖨 STUDIO › PRINTS — EVERY PRINT SHOWS WHAT IT LOOKS LIKE (owner 2026-10-14, verbatim: *"i cannot see what the different prints
@@ -706,18 +706,6 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
       data="chart-size"
     />
   );
-  const layoutRow = (
-    <FormRow name="Layout" data="chart-layout">
-      <PillSelector
-        label="Chart layout"
-        value={pick.layout}
-        grow={false}
-        options={chart.layouts.map((l) => ({ key: l.key, label: l.label }))}
-        onPick={(k) => setPick({ ...pick, layout: k })}
-        data="chart-layout"
-      />
-    </FormRow>
-  );
   const fullLine = tooFull ? (
     <StatusLine
       tone="bad"
@@ -728,8 +716,10 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
     </StatusLine>
   ) : null;
   const save = tooFull ? null : (
-    <PrintSaveButton href={at.pdf} file={chart.files[pick.layout]} variant="action" main label={chart.saveLabels[pick.layout]} icon={<Download aria-hidden strokeWidth={1.9} />} />
+    <PrintSaveButton href={at.pdf} file={chart.files[pick.layout]} variant="action" main label="Download" icon={<Download aria-hidden strokeWidth={1.9} />} />
   );
+  /* ⬇ The piece bar's "This piece" saves the same file (owner 2026-10-17). */
+  useRegisterDownload('seating-chart', { name: chart.title, one: tooFull ? null : { href: at.pdf, file: chart.files[pick.layout], label: 'Download' } });
   return (
     <div data-studio-chart="" data-print-studio="" className="flex flex-col gap-1">
       <FormRows data="print-head" width="short" attrs={{ 'data-studio-print-rows': '' }}>
@@ -755,9 +745,7 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
           </div>
         </div>
       </FormRows>
-      <FormRows data="chart-layout" attrs={{ 'data-studio-print-rows': '' }}>
-        {layoutRow}
-      </FormRows>
+      {/* By table | A to Z lives in ⚙ Print settings › Seat plan & the door since 2026-10-17 (`StudioChartLayoutSetting`, the SAME pick). */}
       {fullLine}
       {save ? (
         <div className="flex flex-wrap gap-1.5 pb-2" data-print-piece-saves="seating-chart">
@@ -770,17 +758,34 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
           facts={f}
           onFacts={(x) => setFacts({ src: at.preview, f: x })}
           sheet={{ size: sizeRow, actions: save }}
-          extra={
-            <>
-              {layoutRow}
-              {fullLine ? <div className="py-2">{fullLine}</div> : null}
-            </>
-          }
+          extra={fullLine ? <div className="py-2">{fullLine}</div> : null}
           blocked={tooFull}
           onClose={() => setOpen(false)}
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 🪧 ENTRANCE CHART LAYOUT ▾ — By table · A to Z — in ⚙ Print settings › Seat plan & the door (owner 2026-10-17; prototype `chart_layout`):
+ * the house dropdown over the SAME pick the chart's row draws from (`useChartPick`), so the row's picture and Download follow it. A
+ * view of the file, not a stored setting: nothing posts.
+ */
+export function StudioChartLayoutSetting({ eventId, defaultSize, layouts }: Pick<StudioChartInput, 'eventId' | 'defaultSize' | 'layouts'>) {
+  const [pick, setPick] = useChartPick(eventId, { layout: 'table', size: defaultSize });
+  return (
+    <FormRows data="chart-layout" attrs={{ 'data-studio-print-rows': '' }}>
+      <ChosenRow
+        name="Entrance chart layout"
+        label="Entrance chart layout"
+        value={pick.layout}
+        options={layouts.map((l) => ({ key: l.key, label: l.label }))}
+        onPick={(k) => setPick({ ...pick, layout: k as ChartLayoutKey })}
+        dataAttr="data-chart-layout-picker"
+        data="chart-layout"
+      />
+    </FormRows>
   );
 }
 

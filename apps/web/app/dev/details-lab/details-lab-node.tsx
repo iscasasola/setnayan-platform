@@ -68,6 +68,15 @@ const LAB_PASS_GUESTS = [
   { id: '00000000-0000-4000-8000-000000000106', name: 'Felix Tan', reply: 'pending' as const },
 ];
 
+/** 🔎 `passGuests=many` — a real-sized list (6 coming, 103 not replied: the prototype's shape) for View as ▾'s "Search guests". */
+const LAB_FIRST = ['Bea', 'Joaquin', 'Marisol', 'Teodoro', 'Chesca', 'Ramon', 'Lourdes', 'Nico', 'Patricia', 'Gabriel', 'Isabel', 'Dante', 'Ria', 'Miguel', 'Carmela', 'Ernesto', 'Lia', 'Paolo', 'Tess', 'Vince'];
+const LAB_LAST = ['Santillan', 'Villareal', 'Dizon', 'Lacson', 'Buenaventura', 'Alcantara', 'Pangilinan', 'Esguerra', 'Lim-Yap', 'Montemayor', 'Quiambao', 'Ocampo', 'Fajardo', 'Soriano', 'Reyes', 'Cruz', 'Navarro', 'Salazar', 'Domingo', 'Pascual'];
+const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
+  id: `00000000-0000-4000-8000-${String(200 + i).padStart(12, '0')}`,
+  name: `${LAB_FIRST[i % LAB_FIRST.length]} ${LAB_LAST[(i * 7) % LAB_LAST.length]}`,
+  reply: i < 6 ? ('attending' as const) : ('pending' as const),
+}));
+
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
@@ -221,7 +230,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           passDesign: passCardDesignFrom(one('labPass')),
           /* 🎟 `?studio=1`: who has a pass (Studio › Prints' Event pass, owner 2026-10-16) — stand-in names; `passGuests=0` walks "nobody yet",
              `passGuests=x` the list that could not be read. */
-          ...(studioLab ? { passGuests: one('passGuests') === '0' ? [] : one('passGuests') === 'x' ? null : LAB_PASS_GUESTS } : {}),
+          ...(studioLab ? { passGuests: one('passGuests') === '0' ? [] : one('passGuests') === 'x' ? null : one('passGuests') === 'many' ? LAB_MANY_GUESTS : LAB_PASS_GUESTS } : {}),
           formats: { pass: formatFor('pass', one('pass_format'))!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
         /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments

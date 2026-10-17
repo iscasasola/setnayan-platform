@@ -88,6 +88,7 @@ import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import { CoverPlayOpeningServer } from './reveal/cover-play-opening-server';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import {
@@ -233,6 +234,7 @@ import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
 import { coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
 import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
 import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
@@ -899,7 +901,10 @@ export async function SiteBody({
   // (`_lib/hero-design-of.ts`), so the skeleton loads in this same design.
   const heroCanvas = heroCanvasOf(widgets);
   const heroElements = {
-    elements: heroCanvas.elements ?? null,
+    /* 🎬 THE COVER'S ONE ENTRANCE, resolved here onto every word with no Build in of its own (owner-approved
+       2026-10-16, `lib/cover-entrance.ts`) — a word's own Build in wins; nothing stored: the elements as they are. */
+    elements: resolveCoverEntrance(heroCanvas.entrance, heroCanvas.elements),
+    still: coverEntranceIsStill(heroCanvas.entrance),
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
@@ -4509,6 +4514,15 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {/* 🎬 ▶ on the Cover Scene plays the guests' own veil (`CoverPlayOpening`) — the same dress the overlay above wears. */}
+      {isEditorCanvas && editorBridge && !themeTile ? (
+        <CoverPlayOpeningServer
+          monogram={revealMonogram(event.display_name)}
+          kitSeal={artKit ? <KitSeal kit={artKit} mark={hubLook.monogram} /> : null}
+          veilColor={revealVeilColor(event.role_palette)}
+          eventEffects={resolveRevealEffects(event.std_reveal_effects)}
+        />
+      ) : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
       {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}

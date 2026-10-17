@@ -29,7 +29,13 @@ export function StyleCards({
   label = 'Layout',
   data = '',
   picture,
+  dim = [],
 }: {
+  /**
+   * 🌫 Looks shown but NOT offered yet — drawn faint (the prototype's `.lc.soon`, 45 %); a tap still reaches `onPick`,
+   * which says why (never a dead tap). The Cover Scene's Opening: the openings the house has not switched on.
+   */
+  dim?: readonly string[];
   /**
    * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`): the Camera's — the camera
    * is never opened in the Maker, so its three looks are the camera's own pieces, drawn (`camera-look.tsx`). The
@@ -97,7 +103,9 @@ export function StyleCards({
             aria-checked={on}
             data-style-card={o.id}
             data-wide={wide[o.id] ? '' : undefined}
+            data-soon={dim.includes(o.id) ? '' : undefined}
             className={SP_STYLE_CARD}
+            style={dim.includes(o.id) ? { opacity: 0.45 } : undefined}
             onClick={() => {
               if (!pending && !on) onPick(o.id);
             }}

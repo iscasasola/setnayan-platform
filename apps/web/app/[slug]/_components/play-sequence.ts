@@ -18,6 +18,8 @@
  * ♿ REDUCE MOTION: nothing is played, and the report says that too (a guest who asked for stillness gets none).
  */
 export type SeqPhase = 'in' | 'act' | 'out' | 'rest';
+import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from './cover-play-events';
+
 export type SeqReport = { phase: SeqPhase; skipped: string[] };
 
 export const SEQ_MS = { in: 900, act: 2600, out: 900, hold: 450 } as const;
@@ -196,4 +198,95 @@ export function playSequence(target: HTMLElement, isScene: boolean, report: (r: 
   };
   next();
   return stop;
+}
+
+/**
+ * 🎬 ▶ THE COVER SCENE (owner-approved 2026-10-16, "THE COVER SCENE'S OWN … ANIMATE"; prototype `playTap`): with an
+ * opening, the closed veil over the cover with NONE of its words showing (owner: "behind the veil, none of the cover's
+ * words show"), then the unveil, then every line entering in its beat — each line its own Build in (the cover's
+ * entrance is already laid on it by the page, `resolveCoverEntrance`), a line with none the cover's default (the
+ * shipped Calm fade, one after another — `COVER_DEFAULT_ENTRANCE`). No opening: the entrance alone. Editor canvas only;
+ * nothing is written; reduced motion plays nothing and says so. Returns a stop.
+ */
+export const COVER_PLAY_VEIL_MS = 900;
+export const COVER_PLAY_LIFT_MS = 350;
+/**
+ * 🎭 THE VEIL ▶ PLAYS IS THE GUESTS' OWN (controller 2026-10-17: "the SAME veil guests get on live … reuse the guest
+ * component; don't draw a new one"): `playCover` draws no sheet — it asks the canvas's `CoverPlayOpening` to mount the
+ * shipped `RevealOverlay` (the Sheer veil + "Tap or swipe up to unveil") for this one ▶, lifting by itself after
+ * `liftAfterMs`, and to take it away again (`on: false`) when ▶ rests or is stopped.
+ */
+/** A veil that never rises (no WebGL on this phone) still lets the lines in. */
+export const COVER_PLAY_LIFT_WAIT_MS = 4000;
+const sayOpening = (view: Window | null, on: boolean) =>
+  view?.dispatchEvent(new CustomEvent<CoverPlayOpeningDetail>(COVER_PLAY_OPENING_EVENT, { detail: { on, liftAfterMs: COVER_PLAY_VEIL_MS } }));
+export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqReport) => void): () => void {
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    report({ phase: 'rest', skipped: [SEQ_STILL] });
+    return () => {};
+  }
+  header.scrollIntoView({ behavior: 'auto', block: 'start' });
+  const lines = Array.from(header.querySelectorAll<HTMLElement>('[data-cover-line]'));
+  const timers: number[] = [];
+  let veiled = false;
+  let entered = false;
+  const view = header.ownerDocument.defaultView;
+  const onLift = () => timers.push(window.setTimeout(enterOnce, COVER_PLAY_LIFT_MS));
+  const rest = () => {
+    for (const t of timers) window.clearTimeout(t);
+    timers.length = 0;
+    view?.removeEventListener(COVER_PLAY_LIFT_EVENT, onLift);
+    if (veiled) sayOpening(header.ownerDocument.defaultView, false);
+    veiled = false;
+    for (const n of lines) {
+      n.style.removeProperty('opacity');
+      n.style.removeProperty('visibility');
+      settleAtRest(n);
+    }
+  };
+  const enter = () => {
+    let longest = 0;
+    let at = 0;
+    for (const n of lines) {
+      const own = slotOf(n, /^el-in-/);
+      const kf = kfOf(n, /^el-in-/);
+      const cs = getComputedStyle(n);
+      const names = list(cs.animationName);
+      const i = names.findIndex((x) => /^el-in-/.test(x));
+      const delay = i >= 0 ? Math.round((parseFloat(list(cs.animationDelay)[i] ?? '0') || 0) * 1000) : 0;
+      const ms = own.ms ?? 1100;
+      const animation = kf ? `${kf} ${ms}ms ${SEQ_EASE} ${delay}ms 1 normal both` : `hub-in-fade 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) ${120 * at}ms 1 normal both`;
+      if (!kf) at += 1;
+      n.style.removeProperty('opacity');
+      n.style.removeProperty('visibility');
+      n.style.setProperty('animation', 'none');
+      void n.offsetWidth;
+      n.style.setProperty('animation', animation);
+      longest = Math.max(longest, ms + (kf ? delay : 120 * at));
+    }
+    report({ phase: 'in', skipped: [] });
+    timers.push(window.setTimeout(() => {
+      rest();
+      report({ phase: 'rest', skipped: [] });
+    }, longest + 300));
+  };
+  const enterOnce = () => {
+    if (entered) return;
+    entered = true;
+    enter();
+  };
+  if (!veil) {
+    enter();
+    return rest;
+  }
+  /* The closed veil — the guests' own — with none of the words behind it; it lifts by itself, then every line enters. */
+  for (const n of lines) n.style.setProperty('opacity', '0');
+  /* …and not drawn at all (a line with its own transition or arrival can lift its opacity back while the veil is down). */
+  for (const n of lines) n.style.setProperty('visibility', 'hidden');
+  veiled = true;
+  view?.addEventListener(COVER_PLAY_LIFT_EVENT, onLift, { once: true });
+  sayOpening(header.ownerDocument.defaultView, true);
+  report({ phase: 'in', skipped: [] });
+  timers.push(window.setTimeout(enterOnce, COVER_PLAY_VEIL_MS + COVER_PLAY_LIFT_WAIT_MS));
+  return rest;
 }

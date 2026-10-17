@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -93,6 +95,7 @@ export function StageAnimate({
   does,
   leaves = null,
   band = null,
+  noteDoor = null,
   pending = false,
   error = null,
   only,
@@ -134,6 +137,8 @@ export function StageAnimate({
   leaves?: AnimateDd;
   /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
   band?: AnimateDd;
+  /** 🎬 A door beside the note (a cover word on its own: "Reset to the cover's entrance ›"). */
+  noteDoor?: { label: string; onPress: () => void } | null;
   pending?: boolean;
   error?: string | null;
 }) {
@@ -222,9 +227,20 @@ export function StageAnimate({
           <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
       ) : note ? (
-        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
-          {note}
-        </p>
+        noteDoor ? (
+          <div className={`${SP_ROWS_ROW} row-start-3`}>
+            <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70" data-stage-animate-note="">
+              {note}
+            </p>
+            <span data-stage-note-door="" className="shrink-0">
+              <ActionButton tone="neutral" icon={RotateCcw} label={noteDoor.label} onClick={noteDoor.onPress} />
+            </span>
+          </div>
+        ) : (
+          <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
+            {note}
+          </p>
+        )
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (

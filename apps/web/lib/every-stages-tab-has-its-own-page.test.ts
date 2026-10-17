@@ -266,15 +266,18 @@ test('b · the Stages tools read the page of a part off the canvas — never a s
 
 /* ══ c · THE REVEAL'S STUB IS ON ONE PAGE ════════════════════════════════════ */
 
-test('c · the Reveal leads exactly one page of each stage it opens — the first', () => {
+test('c · the opening belongs to the Cover Scene of exactly one page of each stage it opens — the first; no Reveal tile', () => {
+  /* 🎭 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the Reveal's tile is gone — the opening is
+     the Cover Scene's Style, and the Cover Scene stands on the stage's first page. */
   for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
     const pages = keysOf(stage);
-    const leads = pages.filter((p) => makerPartsOnPage(stage, p)[0] === ('reveal' satisfies MakerPartKey));
-    assert.deepEqual(leads, [pages[0]], `${stage}: the Reveal leads ${leads.join(', ') || 'no page'}`);
+    assert.ok(pages.every((p) => !makerPartsOnPage(stage, p).includes('reveal' satisfies MakerPartKey)), `${stage}: a page still lists the Reveal tile`);
+    const covers = pages.filter((p) => makerPartsOnPage(stage, p).includes('coverscene' satisfies MakerPartKey));
+    assert.deepEqual(covers, [pages[0]], `${stage}: the Cover Scene (and its opening) stands on ${covers.join(', ') || 'no page'}`);
   }
 });
 
-test('c · the stub stands before the first part of ITS page’s own group — never outside every tab', () => {
+test('c · a page’s first marker is its own group’s — never outside every tab (and no stub is drawn now)', () => {
   type M = { key: string; tab: string | null; getAttribute(n: string): string | null; closest(sel: string): { getAttribute(n: string): string | null } | null };
   const m = (key: string, tab: string | null): M => ({
     key,
@@ -288,10 +291,10 @@ test('c · the stub stands before the first part of ITS page’s own group — n
   assert.equal(firstMarkerOnPage(tabbed, 'story'), null, 'a page with no marked part gets no stub — never another page’s');
   // A canvas that is one page (Save the Date): the first marker, as before.
   assert.equal(firstMarkerOnPage({ querySelectorAll: () => [m('f:film', null), m('f:hero', null)] }, 'home')?.key, 'f:film');
-  // SOURCE: the panel asks it for the page on screen, and takes the stub away on a page the Reveal does not lead.
-  assert.match(TOOLS, /const first = firstMarkerOnPage\(doc, shownPage\);/);
-  assert.match(TOOLS, /if \(!revealLeadsHere\) \{\s*part\?\.remove\(\);\s*return;\s*\}/);
-  assert.match(TOOLS, /makerPartsOnPage\(stage, shownPage\)\[0\] === 'reveal'/);
+  // SOURCE (2026-10-16): no stub is drawn any more — the opening is named on the cover of the page on screen, and
+  // taken away where the Cover Scene does not lead (`the-cover-scene-has-its-own-animate.test.ts` (3)).
+  assert.match(TOOLS, /const coverLeadsHere = Boolean\(revealStage && !rsvpOpen && shownPage && makerPartsOnPage\(stage, shownPage\)\.includes\(MAKER_COVER_SCENE\)\);/);
+  assert.match(TOOLS, /if \(!coverLeadsHere \|\| !cover \|\| previewingRef\.current\) \{\s*tag\?\.remove\(\);\s*return;\s*\}/);
 });
 
 /* ══ d · A TAB PICK SWAPS THE PAGE, AND THE CANVAS SAYS WHICH ════════════════ */

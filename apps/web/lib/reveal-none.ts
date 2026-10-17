@@ -48,3 +48,24 @@ export function revealSwitchPatch(stage: RevealStage, now: RevealNow, fallback: 
   if (now.effective === REVEAL_NONE_ID) return fallback ? { std_reveal_template: fallback, reveal_stages: [stage] } : null;
   return { reveal_stages: revealStagesWith(now.stages, stage, !now.stages.includes(stage)) };
 }
+
+/**
+ * 🎭 A tap on a card of the Cover Scene's Style — the Opening ON THIS STAGE'S COVER (owner-approved 2026-10-16,
+ * prototype `cover_scene_edit_animate_2026-10-16.html`: "Per-stage Shown | Hidden becomes picking None on that stage's
+ * Cover Scene — each stage that leads with the cover has its own"). The three switches are not drawn there, so None
+ * is THIS stage's switch off (the others keep theirs), and an opening is that opening ON this stage. The opening
+ * itself is still the event's one (`std_reveal_template`): what one stage picks, every stage that shows one plays.
+ * The card that is picked is `revealCoverPicked` — the same fact, so the card and the corner never disagree.
+ */
+export function revealCoverPicked(now: RevealNow, onStage: RevealStage): string {
+  return revealSwitchOn(now, onStage) ? now.effective : REVEAL_NONE_ID;
+}
+export function revealCoverPickPatch(pick: string, now: RevealNow, onStage: RevealStage): RevealPatch | null {
+  const here = revealSwitchOn(now, onStage);
+  if (pick === REVEAL_NONE_ID) return here ? { reveal_stages: revealStagesWith(now.stages, onStage, false) } : null;
+  const patch: RevealPatch = {
+    ...(pick !== now.effective ? { std_reveal_template: pick } : {}),
+    ...(here ? {} : { reveal_stages: revealStagesWith(now.stages, onStage, true) }),
+  };
+  return Object.keys(patch).length > 0 ? patch : null;
+}

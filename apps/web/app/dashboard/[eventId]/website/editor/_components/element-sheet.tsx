@@ -40,7 +40,8 @@ import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type Element
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
-import { HUB_EL_DURING_LABEL, HUB_SHIMMER_BANDS, HUB_SHIMMER_BAND_LABEL, hubElementTakesShimmer } from '@/lib/element-style';
+import { HUB_EL_DURING_LABEL, HUB_SHIMMER_BANDS, HUB_SHIMMER_BAND_LABEL, hubElementTakesShimmer, type HubHeroElementKey } from '@/lib/element-style';
+import { COVER_ENTRANCES, coverEntranceFor, withoutOwnEntrance } from '@/lib/cover-entrance';
 import { motionFxOn } from '@/lib/motion-effects';
 import type { HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
@@ -375,6 +376,15 @@ export function ElementSheet({
       field,
     );
   const motion: HubElementMotion = style.motion ?? {};
+  /** 🎬 A cover word under the Cover Scene's entrance (`lib/cover-entrance.ts`): what it lays here, and whether this word
+   *  has a Build in of its own. Null off the cover, or with no entrance chosen. */
+  const follow = (() => {
+    if (target.key !== 'f:hero' || !canvas.entrance || canvas.entrance.key === 'still') return null;
+    const laid = coverEntranceFor(canvas.entrance, target.el as HubHeroElementKey);
+    if (!laid) return null;
+    const name = COVER_ENTRANCES.find((e) => e.key === canvas.entrance?.key)?.label ?? '';
+    return { own: Boolean(motion.in), laid, name };
+  })();
   const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
 
@@ -497,6 +507,10 @@ export function ElementSheet({
           <StageAnimate
             pending={pending}
             error={error}
+            /* 🎬 A COVER WORD AND THE COVER'S ENTRANCE (owner-approved 2026-10-16): while it stores no Build in of its
+               own it shows the entrance's and says it follows it; once it has its own, one door puts it back. */
+            note={follow ? (follow.own ? 'On its own.' : `Follows the cover’s entrance — ${follow.name}.`) : null}
+            noteDoor={follow?.own ? { label: 'Reset to the cover’s entrance ›', onPress: () => commit(withoutOwnEntrance(latest.current.elements, [target.el as HubHeroElementKey]), 'motion') } : null}
             /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`): Build in's is the part's `speed`, Build
                out's its `outSpeed` — both shipped, both played. It writes no effect and no drive. */
             move={{
@@ -516,9 +530,19 @@ export function ElementSheet({
               value: motion.timeline === 'scroll' ? 'scroll' : 'arrival',
               onPick: (d) => moveTo('timeline', d === 'scroll' ? 'scroll' : null),
             }}
-            inFx={motion.in ?? null}
+            inFx={motion.in ?? follow?.laid?.in ?? null}
             outFx={motion.out ?? null}
-            onIn={(fx) => moveTo('in', fx)}
+            onIn={(fx) => {
+              /* Following the cover: the first change makes it its own — with the entrance's beat and speed kept. */
+              if (follow && !follow.own && follow.laid) {
+                /* (The In first: a Delay or a speed is kept only beside one.) */
+                let els = withElementMotion(latest.current.elements ?? null, target.el, 'in', fx);
+                if (fx && follow.laid.delay) els = withElementMotion(els, target.el, 'delay', follow.laid.delay);
+                if (fx && follow.laid.speed) els = withElementMotion(els, target.el, 'speed', follow.laid.speed);
+                return commit(els, 'motion');
+              }
+              moveTo('in', fx);
+            }}
             onOut={(fx) => {
               /* A part's Build out plays as guests scroll on — choosing one makes it follow the scroll. */
               if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');

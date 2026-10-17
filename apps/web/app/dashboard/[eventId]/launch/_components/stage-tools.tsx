@@ -80,6 +80,8 @@ import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase,
 import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
 import { CoverLines, type CoverLine } from './stage-panel/cover-lines';
+import { CoverAnimate } from './stage-panel/cover-animate';
+import type { HubHeroElementKey } from '@/lib/element-style';
 import { draftedCanvasOr } from '@/lib/maker-draft-store';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
@@ -89,10 +91,10 @@ import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SEE_AS, SEE_AS_EDITING, seeAsDrawingLine, seeAsLabel, type SeeAs } from '@/lib/see-as';
-import { revealPageInk, revealStubHtml } from './stage-panel/reveal-picture';
+import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
@@ -108,7 +110,7 @@ import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
-import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
+import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -393,6 +395,8 @@ export function StageTools({
   const goToPageRef = useRef<(key: string, option: string) => void>(() => {});
   /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
+  /** 🎬 ▶ is playing the Cover Scene: veil → unveil → entrance has no phases to name, so the status bar stays away. */
+  const [coverPlay, setCoverPlay] = useState(false);
   /* What it had none of stays said a moment after it rests, then goes. */
   useEffect(() => {
     if (playing || !seq) return;
@@ -743,6 +747,15 @@ export function StageTools({
     window.addEventListener(MAKER_STAGE_PICK_EVENT, onPick);
     return () => window.removeEventListener(MAKER_STAGE_PICK_EVENT, onPick);
   }, [pickPart]);
+  /* 💬 A line a body under the toolbar asks it to say (`MAKER_STAGE_SAY_EVENT`). */
+  useEffect(() => {
+    const onSay = (e: Event) => {
+      const words = (e as CustomEvent<unknown>).detail;
+      if (typeof words === 'string' && words) setWhyRef.current(words);
+    };
+    window.addEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+    return () => window.removeEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+  }, []);
   /* 🔑 Which part is picked, on the shell — the work area and the reply pages read it with every tap (the typing
      rule's `picked`; the answer is "select only" now, and the reply pages bring the picked part into view with it). */
   useEffect(() => {
@@ -1045,6 +1058,17 @@ export function StageTools({
     if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
     /* 🎛 The Camera has nothing to play — its look is a still. */
     if (picked === 'camera') return;
+    /* 🎬 ▶ ON THE COVER SCENE (owner-approved 2026-10-16): the closed veil with no words → the unveil → every line
+       entering in its beat (`play-sequence.ts` `playCover`). No opening: the entrance alone. */
+    if (picked === MAKER_COVER_SCENE && !rsvpOpen) {
+      setSeq(null);
+      setCoverPlay(true);
+      /* The guests' own veil is played (`CoverPlayOpening`); a rigid opening opens on its seal, never by itself. */
+      postToCanvas({ source: 'setnayan-editor', t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook.kind === 'veil-sheer' });
+      setPlaying(true);
+      return;
+    }
+    setCoverPlay(false);
     const def = picked ? MAKER_PARTS[picked] : null;
     /* ▶ A picked part plays its WHOLE life on the canvas — Build in · Action · Build out · rest (owner: "i cannot
        see the build out and action"); the canvas tells each phase back (`playSeq`). */
@@ -1085,15 +1109,15 @@ export function StageTools({
   }, [playing, stopPlay]);
 
 
-  /* ── 🎭 THE PAGE IN STAGES: the Reveal drawn as the first part, one outline only ──
-     The Reveal plays over the cover for guests, so the editing page never drew it — in Stages it is drawn
-     where it sits, the first part (prototype `.el[data-el=reveal]`: the chosen opening in the event's
-     colours over "Opens once, over the cover"), and a tap on it picks it. The canvas's own gold `mark()`
-     outline is put away — the panel's outline is the one highlight (DECISION_LOG 2026-10-07 rule 2). */
+  /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
+     Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that
+     floated above the cover ("Opens once, over the cover") is gone; the opening is picked in Cover Scene › Style (the
+     shipped picker, `RevealPartTools`) and the cover's top-right corner names it — "Sheer veil ◆ opens over it", or "No
+     opening". Maker canvas only (a guest's page is never touched); not in the whole-page preview. */
   const revealLook = useStageRevealLook();
   const pickRef = useRef(pickPart);
   pickRef.current = pickPart;
-  const revealLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerPartsOnPage(stage, shownPage)[0] === 'reveal');
+  const coverLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerPartsOnPage(stage, shownPage).includes(MAKER_COVER_SCENE));
   useEffect(() => {
     const paint = () => {
       try {
@@ -1102,44 +1126,33 @@ export function StageTools({
         if (!doc.getElementById('sn-stage-canvas-css')) {
           const css = doc.createElement('style');
           css.id = 'sn-stage-canvas-css';
-          css.textContent = '[data-setnayan-editor-bound],[data-setnayan-editor-bound] *{outline:none!important}[data-maker-reveal-part]{cursor:pointer}';
+          css.textContent = '[data-setnayan-editor-bound],[data-setnayan-editor-bound] *{outline:none!important}';
           doc.head.appendChild(css);
         }
-        /* The event's colours, as the page wears them (the names · the eyebrow · the page). */
+        /* The event's colours, as the page wears them — the Style cards draw the openings in them. */
         const ink = revealPageInk(doc, '[data-el="names"]');
         const accent = revealPageInk(doc, '[data-el="eyebrow"]');
         const bodyBg = getComputedStyle(doc.body).backgroundColor;
         const neutral = !bodyBg || bodyBg === 'rgba(0, 0, 0, 0)' ? '#F7F2EC' : bodyBg;
         setStageRevealColours({ dominant: ink, supporting: `color-mix(in srgb, ${ink} 30%, white)`, accent, neutral });
-        let part = doc.querySelector<HTMLElement>('[data-maker-reveal-part]');
-        if (!revealLeadsHere) {
-          part?.remove();
+        const cover = findMakerSection(doc, 'f:hero')?.querySelector<HTMLElement>('header[data-pahina-first-screen]') ?? null;
+        let tag = doc.querySelector<HTMLElement>(`[${COVER_OPENING_TAG_ATTR}]`);
+        if (!coverLeadsHere || !cover || previewingRef.current) {
+          tag?.remove();
           return;
         }
-        /* 🎭 The Reveal is the FIRST thing on its page (DECISION_LOG 2026-10-06) — before every marked part, the
-           day's "Happening now" card included, and on the tab that is SHOWN (a tabbed canvas hides the others). */
-        const first = firstMarkerOnPage(doc, shownPage);
-        if (part && first && part.nextElementSibling !== first) {
-          part.remove();
-          part = null;
+        if (!tag || tag.parentElement !== cover) {
+          tag?.remove();
+          tag = doc.createElement('span');
+          tag.setAttribute(COVER_OPENING_TAG_ATTR, '');
+          tag.setAttribute('aria-hidden', 'true');
+          tag.style.cssText = COVER_OPENING_TAG_CSS;
+          if (getComputedStyle(cover).position === 'static') cover.style.position = 'relative';
+          cover.appendChild(tag);
         }
-        if (!part) {
-          if (!first?.parentElement) return;
-          part = doc.createElement('section');
-          part.setAttribute('data-maker-reveal-part', '');
-          part.setAttribute('aria-label', 'Reveal');
-          part.style.cssText = 'padding:18px 14px 14px;margin:6px 14px;border-radius:var(--m-r-md,14px);text-align:center';
-          part.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            pickRef.current('reveal');
-          });
-          first.parentElement.insertBefore(part, first);
-        }
-        const mute = getComputedStyle(doc.body).color;
-        part.innerHTML = revealStubHtml(revealLook.kind, revealLook.colours, ink, mute);
+        tag.textContent = coverOpeningTag(revealLook.kind);
       } catch {
-        /* a canvas we cannot reach draws no Reveal part — its tile still picks it */
+        /* a canvas we cannot reach names no opening — Style still picks it */
       }
     };
     paint();
@@ -1150,7 +1163,7 @@ export function StageTools({
     };
     window.addEventListener('message', onReady);
     return () => window.removeEventListener('message', onReady);
-  }, [revealLeadsHere, revealLook.kind, revealLook.colours, shownPage]);
+  }, [coverLeadsHere, revealLook.kind, shownPage, previewing]);
 
   /* 📷 The Camera page's drawing answers a tap too, as the Reveal's does: the canvas's stand-in
      (`data-maker-page-stand-in="camera"`, `MakerPageStandIn`) carries no Maker marker, so a tap on it sent nothing.
@@ -1262,6 +1275,10 @@ export function StageTools({
   const blockRows = open && block !== null && shownTool === 'animate';
   /** 🃏 …or its Background: the three tiles, in the same four rows. */
   const blockGround = open && groundBlock !== null && shownTool === 'bg';
+  /** 🎭 THE COVER SCENE'S STYLE IS THE OPENING and 🎬 ITS ANIMATE IS ONE ENTRANCE (owner-approved 2026-10-16) — both
+   *  this toolbar's own rows: the shipped reveal picker (`RevealPartTools`), and `CoverAnimate`. */
+  const coverStyle = open && picked === MAKER_COVER_SCENE && !rsvpOpen && shownTool === 'style' && revealStage !== null;
+  const coverAnimate = open && picked === MAKER_COVER_SCENE && !rsvpOpen && shownTool === 'animate';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
@@ -1446,6 +1463,7 @@ export function StageTools({
      "Show the logo" answer: on while the page draws the mark. */
   const [coverLines, setCoverLines] = useState<CoverLine[]>([]);
   useEffect(() => {
+    /* (Animate's beats name the same lines.) */
     if (picked !== MAKER_COVER_SCENE || rsvpOpen) return setCoverLines([]);
     const read = () => {
       const doc = document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument ?? null;
@@ -1535,6 +1553,8 @@ export function StageTools({
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
       data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
       data-stage-own-rows={blockRows || blockGround ? '' : undefined}
+      /* 🎭 🎬 …and the Cover Scene's Opening and its one entrance: rows of this toolbar's own too. */
+      data-stage-cover-rows={coverStyle || coverAnimate ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1569,6 +1589,7 @@ export function StageTools({
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          '[data-maker-shell]:has([data-stage-tools][data-stage-cover-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
              a toolbar that had gone, and covered "Exit preview". */
@@ -1630,7 +1651,7 @@ export function StageTools({
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
-      {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {seq && (playing || seq.skipped.length > 0) && !(coverPlay && seq.skipped.length === 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
       {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
           for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,
@@ -1761,8 +1782,8 @@ export function StageTools({
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}
-        {revealStage && (revealOpen || revealLeadsHere) ? (
-          <div data-stage-reveal-tools="" hidden={!(open && revealOpen && !editOn)} className={open && revealOpen && !editOn ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+        {revealStage && (revealOpen || coverLeadsHere) ? (
+          <div data-stage-reveal-tools="" hidden={!((open && revealOpen && !editOn) || coverStyle)} className={(open && revealOpen && !editOn) || coverStyle ? 'flex min-h-0 flex-1 flex-col' : undefined}>
             <RevealPartTools stage={revealStage} />
           </div>
         ) : null}
@@ -1770,6 +1791,14 @@ export function StageTools({
         {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
+        {/* 🎬 The Cover Scene's one entrance — Entrance ▾ · Movement ◆ · the beats · the words on their own. */}
+        {coverAnimate ? (
+          <CoverAnimate
+            key={maker?.renderStamp ?? 0}
+            words={coverLines.length > 0 ? coverLines.flatMap((l) => (MAKER_PARTS[l.part].el ? [{ key: MAKER_PARTS[l.part].el as HubHeroElementKey, label: l.label }] : [])) : []}
+            onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))}
+          />
+        ) : null}
         {/* 🃏 …and its own Background — None · Plain · Frosted, on the same save. */}
         {blockGround && groundBlock ? <BlockGroundRows key={groundBlock} block={groundBlock} /> : null}
       </div>

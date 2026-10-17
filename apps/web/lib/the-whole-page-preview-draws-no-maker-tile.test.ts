@@ -19,17 +19,20 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
 const CSS = read('app', 'globals.css');
 const hiddenInPreview = (mark: string) => new RegExp(`html\\[data-maker-guest\\] \\[${mark}\\] \\{ display: none !important; \\}`).test(CSS);
 
-test('the Reveal’s tile and an empty scene’s placeholder are put away while the page is shown as a guest', () => {
-  assert.equal(hiddenInPreview('data-maker-reveal-part'), true, 'the Reveal’s tile is drawn in the whole-page preview');
+test('the cover’s opening tag and an empty scene’s placeholder are put away while the page is shown as a guest', () => {
+  /* (The Reveal's tile is gone since 2026-10-16 — the cover's corner names the opening instead, Maker only.) */
+  assert.equal(hiddenInPreview('data-maker-opening-tag'), true, 'the cover’s opening tag is drawn in the whole-page preview');
   assert.equal(hiddenInPreview('data-maker-empty'), true, 'an empty scene’s placeholder is drawn in the whole-page preview');
 });
 
 test('those marks are the ones the Maker really writes, and the preview really sets its flag', () => {
-  /* The tile: created by the toolbar, in the canvas's own document, with this attribute and no display of its own. */
+  /* The tag: created by the toolbar, in the canvas's own document, with this attribute and no display of its own. */
   const tools = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-tools.tsx');
-  assert.match(tools, /part = doc\.createElement\('section'\);\s*part\.setAttribute\('data-maker-reveal-part', ''\);/);
-  const style = /part\.style\.cssText = '([^']*)';/.exec(tools)?.[1] ?? '';
-  assert.ok(style.length > 0 && !/display/.test(style), 'the tile sets its own display inline — the rule could not hide it');
+  assert.match(tools, /tag = doc\.createElement\('span'\);\s*tag\.setAttribute\(COVER_OPENING_TAG_ATTR, ''\);/);
+  const picture = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'reveal-picture.tsx');
+  assert.match(picture, /export const COVER_OPENING_TAG_ATTR = 'data-maker-opening-tag';/);
+  const style = /export const COVER_OPENING_TAG_CSS =\s*([\s\S]*?);\n/.exec(picture)?.[1] ?? '';
+  assert.ok(style.length > 0 && !/display/.test(style), 'the tag sets its own display inline — the rule could not hide it');
   assert.match(read('app', '[slug]', '_components', 'maker-empty-scene.tsx'), /<section className="[^"]*" data-maker-empty=\{type\}>/);
   /* The flag: set by the bridge for `{ t: 'guest', on: true }`, which is what ▶ held down sends. */
   const bridge = read('app', '[slug]', '_components', 'editor-bridge.tsx');

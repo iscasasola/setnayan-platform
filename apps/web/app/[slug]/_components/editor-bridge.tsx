@@ -40,7 +40,7 @@ import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField,
 import { createCanvasBringUp } from './canvas-bring-up';
 import { createSectionBinder } from './canvas-section-binder';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
-import { finishArrivals, playSequence } from './play-sequence';
+import { finishArrivals, playCover, playSequence } from './play-sequence';
 import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
 import { startGuestArrivals } from './guest-preview-arrivals';
 import { guestLinkLeaves } from './guest-in-canvas';
@@ -1045,6 +1045,18 @@ export function EditorBridge() {
           /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
           only === 'in' || only === 'act' || only === 'out' ? only : undefined,
         );
+        return;
+      }
+      if (data.t === 'playCover') {
+        /* 🎬 ▶ THE COVER SCENE: veil → unveil → every line in its beat (`playCover`). Told back like any ▶. */
+        seqStop?.();
+        const sel = 'header[data-pahina-first-screen]';
+        const header = (el as HTMLElement).matches?.(sel) ? (el as HTMLElement) : (el.querySelector<HTMLElement>(sel) ?? null);
+        if (!header) return;
+        seqStop = playCover(header, (data as { veil?: unknown }).veil === true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+        });
         return;
       }
       if (data.t === 'sceneMotion') {

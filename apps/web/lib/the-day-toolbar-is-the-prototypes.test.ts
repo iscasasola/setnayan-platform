@@ -65,13 +65,13 @@ const L = 'app/dashboard/[eventId]/launch/_components';
  */
 const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, string | null, boolean]>>> = {
   live: [
-    ['reveal', 'Open in Studio › Look', true],
+    /* (The Reveal's tile led here until 2026-10-16 — the opening is the Cover Scene's Style now, owner-approved.) */
     ['spotlight', 'Open in Studio › Look', false],
     ['announce', null, true],
     ['livehub', null, true],
     /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
-    /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT") its Edit is the cover's lines. */
-    ['coverscene', 'lines', false],
+    /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING)") its Edit is the cover's lines and its Style the Opening. */
+    ['coverscene', 'lines', true],
     ['logo', 'Open in Studio › Logo', true],
     ['ename', 'field', true],
     ['names', 'field', true],
@@ -106,7 +106,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
  *          three are the same on Save the Date and the Invitation, which ship them without a door.
  *   style  the pass's Style is LIVE in the app (its ticket cards) where the prototype greys it.
  */
-const NOT_AS_DRAWN: { door: readonly MakerPartKey[]; style: readonly MakerPartKey[] } = { door: ['reveal', 'spotlight', 'pass'], style: ['pass'] };
+const NOT_AS_DRAWN: { door: readonly MakerPartKey[]; style: readonly MakerPartKey[] } = { door: ['spotlight', 'pass'], style: ['pass'] };
 
 /** The parts whose words the page draws are TYPED in Edit (`stage-panel/part-words.ts`) — a line of the cover that takes a caret. */
 const TYPED: readonly MakerPartKey[] = ['ename', 'names', 'heroline', 'herolink'];
@@ -140,7 +140,7 @@ test('(1) the record: every part of The Day — Edit’s first row and Style —
       else assert.equal(styleNow, style, `${k}: Style`);
     }
   }
-  assert.equal(rows, 22, 'anti-vacuity: the record is 22 part placements');
+  assert.equal(rows, 21, 'anti-vacuity: the record is 21 part placements (22 less the Reveal tile, ruled off 2026-10-16)');
   /* Every difference named is a part of The Day (a stale name would hide a real one). */
   const all = Object.values(RECORD).flatMap((p) => p.map(([k]) => k));
   for (const k of [...NOT_AS_DRAWN.door, ...NOT_AS_DRAWN.style]) assert.ok(all.includes(k), `${k} is not a part of The Day`);

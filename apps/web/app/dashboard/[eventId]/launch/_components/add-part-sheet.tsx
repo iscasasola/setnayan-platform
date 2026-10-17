@@ -477,7 +477,8 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   /* 🎭 THE REVEAL IS LOCKED FIRST (owner 2026-10-07: *"the move feature or add a slide above on reveal must be
      removed (for reveal only) because that should be its limitation"*): no grip, no ＋ above, no 🗑 — it hides per
      stage through Arrange › On this stage. Its ＋ below stays. `makerRevealEdges`. */
-  const edgesOf = makerRevealEdges(isReveal);
+  /* 🖼 …and the Cover Scene, which the opening now belongs to (owner-approved 2026-10-16): nothing above it, no grip. */
+  const edgesOf = makerRevealEdges(isReveal || picked === 'coverscene');
   /* 🗳 …and the RSVP stage's three screens are FIXED pages (`makerStageIsFixedPages`): a part there has its frame,
      its name and ↑ ↓ ✕ — never ＋, a grip or 🗑 (nothing can be added to a reply page, and the ＋ sheet would offer
      the stage mounted underneath's hidden scenes). */

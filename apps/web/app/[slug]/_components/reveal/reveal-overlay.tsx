@@ -166,6 +166,13 @@ type Props = {
    * your seat (`/slug#site-details`) replayed the whole film before this.
    */
   firstPageOnly?: boolean;
+  /**
+   * 🎬 ▶ ON THE MAKER'S COVER SCENE (owner-approved 2026-10-16; controller 2026-10-17: "the SAME veil guests get") —
+   * this very overlay, played once in the Maker's canvas: the closed veil and its one instruction, then it lifts by
+   * itself after `liftAfterMs` (`VeilReveal` `autoplay`). It touches nothing of the page's: no hold on what plays
+   * behind, no "seen" mark, no film signal, no page flag — `CoverPlayOpening` mounts it for one ▶ and takes it away.
+   */
+  preview?: { liftAfterMs: number; onLift?: () => void } | null;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -194,6 +201,7 @@ export function RevealOverlay({
   materials = null,
   firstPageOnly = false,
   kitSeal = null,
+  preview = null,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reveal, setReveal] = useState('');
@@ -224,7 +232,7 @@ export function RevealOverlay({
       // `firstPageOnly` prop). Read HERE, in the effect that sets `mounted`, so
       // a stood-down opening never draws a frame — not left to the film
       // handoff's lift event, which this overlay may mount after.
-      if (!landedOnTheFirstPage({ hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight })) {
+      if (!landedOnTheFirstPage({ hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight }) && !preview) {
         setOffTheFirstPage(true);
       }
     } catch {
@@ -324,6 +332,7 @@ export function RevealOverlay({
   }, []);
 
   useEffect(() => {
+    if (preview) return;
     const showing = active && mounted && !gone;
     (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = showing;
     /* 🎭 …and it is said ON THE PAGE (`REVEAL_UP_ATTR`), for what must wait for the opening to go: a cover that
@@ -354,7 +363,7 @@ export function RevealOverlay({
     lets the page play. Waits for `mounted`: the very first render knows none of the reasons yet.
   */
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || preview) return;
     if (!active || gone) {
       releaseVeilHold();
       return;
@@ -384,6 +393,18 @@ export function RevealOverlay({
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
           look={looks.veil}
+          autoplay={preview !== null}
+          autoplayAfterMs={preview?.liftAfterMs}
+          /* 🎬 ▶ in the Maker: no hand lifts it — the instruction goes the moment it starts to rise by itself, and the
+             cover's lines enter on that same moment (`CoverPlayOpening` → `playCover`). */
+          onAutoLift={
+            preview
+              ? () => {
+                  setLifting(true);
+                  preview.onLift?.();
+                }
+              : undefined
+          }
           features={{
             petals: eventEffects?.petals ?? config?.features?.petals ?? true,
             logo: config?.features?.logo ?? true,
@@ -396,6 +417,7 @@ export function RevealOverlay({
             setLifting(true);
           }}
           onRevealed={() => {
+            if (preview) return setOpen(true);
             // Start the film once, on the first lift; keep the veil on top.
             if (!open) window.dispatchEvent(new CustomEvent('std-reveal-done'));
             setOpen(true);

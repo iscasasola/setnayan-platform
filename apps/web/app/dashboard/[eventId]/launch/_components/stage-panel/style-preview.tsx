@@ -41,7 +41,7 @@ export function styleCardInSight(el: Element, view: Pick<Window, 'getComputedSty
 }
 /** What `visibility`-hides the look body (`stage-tools.tsx`'s rules read these on `[data-stage-tools]`) — a change is
  *  when a waiting card looks again. A `display:none` that lifts gives the card a box, which its observer is told of. */
-const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'aria-hidden'];
+const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'data-stage-cover-rows', 'aria-hidden'];
 
 /** The canvas's own address → the same page, one part, one style. Null: no canvas to read yet. */
 export function stylePreviewSrc(canvasSrc: string, canvasKey: string, sceneType: string, styleId: string, origin: string): string | null {
@@ -161,7 +161,18 @@ export function StylePreview({
   current,
   focus = null,
   onDrawn,
+  screen = false,
+  hide = null,
 }: {
+  /**
+   * 📱 The part IS the first screen (the Cover Scene's `100svh` cover — the Opening's cards, 2026-10-17): it is as tall as
+   * any frame it is drawn in, so growing the frame for it would grow it again, for ever (the card said "Drawing…" and
+   * never drew). It is fitted in the frame it stands in, which is a phone's screen.
+   */
+  screen?: boolean;
+  /** 🙈 What the miniature does NOT draw (a selector) — the words behind the Sheer veil's card ("behind the veil, none
+   *  of the cover's words show", owner 2026-10-16). */
+  hide?: string | null;
   canvasKey: string | null;
   sceneType: string;
   styleId: string;
@@ -270,6 +281,12 @@ export function StylePreview({
           css.textContent = TILE_FREEZE_CSS;
           d.head.appendChild(css);
         }
+        if (hide && !d.querySelector('style[data-sn-mini-hide]')) {
+          const off = d.createElement('style');
+          off.setAttribute('data-sn-mini-hide', '');
+          off.textContent = `${hide}{visibility:hidden!important}`;
+          d.head.appendChild(off);
+        }
         const [key, el] = canvasKey.split('.');
         const section = findMakerSection(d, key!);
         const part = miniaturePart(section, el, focus);
@@ -293,7 +310,7 @@ export function StylePreview({
         /* 📐 A part ending below the frame: the frame grows, and the part is measured AGAIN at that height (a Cover
            Scene's words move when its screen does) — never fitted on where it stood in a frame of another size. */
         const grow = miniatureFrameGrow(at.top + at.height, frameHRef.current);
-        if (grow !== null) {
+        if (grow !== null && !screen) {
           frameHRef.current = grow;
           setFrameH(grow);
           return;
@@ -314,7 +331,7 @@ export function StylePreview({
       }
     }, 60);
     return () => window.clearInterval(id);
-  }, [src, canvasKey, loads, focus]);
+  }, [src, canvasKey, loads, focus, screen, hide]);
   /* 📐 …and once fitted, watched for a few seconds: a face or a picture that arrives late moves the part, and the card
      is fitted again on where it now stands (a card never shows the slice its part has left). */
   useEffect(() => {
@@ -332,7 +349,7 @@ export function StylePreview({
         if (r.width >= 1 && r.height >= 1 && miniatureMoved(was, now)) {
           drawnRef.current = now;
           const grow = miniatureFrameGrow(now.top + now.height, frameHRef.current);
-          if (grow !== null) {
+          if (grow !== null && !screen) {
             frameHRef.current = grow;
             setFrameH(grow);
           }

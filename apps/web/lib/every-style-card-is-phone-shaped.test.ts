@@ -68,7 +68,8 @@ const PICKERS: ReadonlyArray<{ what: string; file: string; anchor: RegExp; cards
     cards: 1,
     frame: /className=\{SP_STYLE_CARD\}/,
   },
-  { what: 'Reveal openings (None + each opening)', file: `${LAUNCH}/maker-reveal.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 2, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
+  /* (The Reveal's openings left this list 2026-10-17: they are Cover Scene › Style's cards now — the toolbar's Style
+     card above, `StyleCards` — so they draw no card of their own. `the-stages-panel-is-the-prototypes.test.ts`.) */
   { what: 'Digital pass ticket styles', file: `${LAUNCH}/pass-card-design-picker.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   /* The theme's picture is the element that holds its still / live frame / poster. */
   { what: 'Themes', file: `${LAUNCH}/maker-theme-picker.tsx`, anchor: /<span\s+className="[^"]*"\s+style=\{\{ \['--phone-card-w' as string\]: `\$\{TILE_W\}px` \}\}\s*>/g, cards: 1, frame: /className="sn-phone-card / },
@@ -134,14 +135,15 @@ test('what the couple sees: every look card of a part, of the palette and of the
 });
 
 test('no audited picker sizes a card as a share of the row or by its part’s shape — but for ONE long line in the toolbar’s Style', () => {
-  for (const p of PICKERS.slice(0, 3)) {
+  /* (The first TWO since 2026-10-17 — the Reveal's openings, the old third, are drawn by the toolbar's Style cards.) */
+  for (const p of PICKERS.slice(0, 2)) {
     const src = read(p.file);
     assert.doesNotMatch(src, /SP_LAYOUT_CARD|spCardWidth\(/, `${p.file}: the 62 % / follow-the-part card is back`);
     const card = p.file.endsWith('style-carousel.tsx') ? 'SP_STYLE_CARD' : 'SP_LOOK_CARD';
     assert.match(src, new RegExp(`className=\\{${card}\\}`), `${p.file}: its cards are not the frame`);
     assert.equal(src.split(`className={${card}}`).length - 1, p.cards);
   }
-  /* The Reveal and the pass keep the 2026-10-08 card: as wide as its fixed frame. */
+  /* The pass keeps the 2026-10-08 card: as wide as its fixed frame. */
   assert.ok(SP_LOOK_CARD.split(' ').includes('w-min') && SP_LOOK_CARD.split(' ').includes('shrink-0'));
   /* THE ONE EXCEPTION (owner 2026-10-09: long one-line text up to 60 % width): a look whose part is drawn at least
      four times wider than tall — the Title, the Date, the Names in a row — gets a card 60 % of the toolbar's inner
@@ -217,7 +219,8 @@ test('a picker that draws look cards and is not in the audit fails — it joins 
   walk('app/dashboard/[eventId]');
   const unaudited = found.filter((f) => !audited.has(f));
   assert.deepEqual(unaudited, [], `a look-card picker is not in the phone-shaped audit:\n${unaudited.join('\n')}`);
-  assert.ok(found.length >= 3, `the look-card pickers were found (${found.length})`);
+  /* (2 since 2026-10-17: the Reveal's openings are drawn by the toolbar's Style cards, not a picker of their own.) */
+  assert.ok(found.length >= 2, `the look-card pickers were found (${found.length})`);
 });
 
 test('the frame is ONE rule in ONE stylesheet — 3 : 4, a fixed width — and nobody draws a second one', () => {
@@ -300,5 +303,14 @@ test('the Reveal’s card is the same drawing at the frame’s shape — never n
     assert.equal(pieces(fill), pieces(own), `${kind}: the card draws other pieces than the page`);
   }
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
-  assert.match(reveal, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/);
+  assert.match(reveal, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/);
+  /* Over the couple's real cover (2026-10-17): a rigid opening is the very same pieces; None draws nothing; the Sheer
+     veil is its cloth and stripes, see-through, filling the frame. */
+  for (const kind of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors']) {
+    assert.equal(revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true, true), revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true), `${kind}: over the cover it is other artwork`);
+  }
+  assert.equal(revealPictureHtml('none', c, 150, 96, true, true), '');
+  const veil = revealPictureHtml('veil-sheer', c, 150, 96, true, true);
+  assert.match(veil, /^<span data-reveal-picture="veil-sheer" data-reveal-over="" style="position:absolute;inset:0;[^"]*rgba\(255,252,247,\.82\)/, 'the veil over the cover is not see-through');
+  assert.match(veil, /repeating-linear-gradient\(100deg,transparent 0 10px,rgba\(255,255,255,\.4\) 10px 12px\)/, 'the veil over the cover has no stripes');
 });

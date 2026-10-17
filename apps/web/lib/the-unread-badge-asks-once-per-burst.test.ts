@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { settleBurst } from './settle-burst';
+import { stripComments } from './strip-comments';
 
 test('a burst of pokes runs the call once, after the burst goes quiet', () => {
   mock.timers.enable({ apis: ['setTimeout'] });
@@ -46,13 +47,12 @@ test('a burst of pokes runs the call once, after the burst goes quiet', () => {
 });
 
 test('the badge pokes the settler on INSERT and cancels it on cleanup', () => {
-  const src = fs.readFileSync(
-    path.join(__dirname, '..', 'app', '_components', 'unread-messages-badge.tsx'),
-    'utf8',
+  const src = stripComments(
+    fs.readFileSync(path.join(__dirname, '..', 'app', '_components', 'unread-messages-badge.tsx'), 'utf8'),
   );
   const handler = /event:\s*'INSERT'[\s\S]*?\}\s*,\s*\(\)\s*=>\s*\{([\s\S]*?)\n\s{8}\},/.exec(src);
   assert.ok(handler, 'could not find the INSERT handler in unread-messages-badge.tsx');
-  const body = handler[1]!.replace(/\/\/.*$/gm, '');
+  const body = handler[1]!;
   assert.match(body, /settle\.poke\(\)/, 'the INSERT handler no longer goes through the settler');
   assert.doesNotMatch(body, /refresh\(\)/, 'the INSERT handler calls refresh() directly again — one RPC per message');
   assert.match(src, /return \(\) => \{[\s\S]*?settle\.cancel\(\)/, 'the effect cleanup no longer cancels a pending count');

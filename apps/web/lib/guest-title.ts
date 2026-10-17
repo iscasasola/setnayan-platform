@@ -181,14 +181,43 @@ type TitleRow = {
   passed_away?: boolean | null;
 };
 
-/** The title the resolver reads: the prefix, else the first word of a typed "Shown as" name. */
-export function titleOfRow(row: TitleRow): string | null {
-  return cleanTitle(row.name_prefix) ?? cleanTitle(row.display_name?.trim().split(/\s+/)[0] ?? null);
+/**
+ * Title words that say NOTHING about gender — stepped over on the way to one that does (moved here from
+ * lib/entourage.ts on 2026-10-17 so the resolver and the Guests page's prompt read titles ONE way). The sort's titles
+ * plus the Philippine government and professional honorifics a real guest list carries (73 of 77 guests on one real
+ * event held a title, 2026-09-16: Atty., Comm., Associate Dean …).
+ */
+export const NOT_GENDER_TITLES: ReadonlySet<string> = new Set<string>([
+  ...['dr', 'dra', 'hon', 'atty', 'engr', 'arch', 'archt', 'ar', 'rev', 'fr', 'msgr', 'sr', 'sra', 'srta', 'mx'],
+  ...['gen', 'col', 'capt', 'maj', 'lt', 'ltc', 'sgt', 'cdr', 'adm', 'brig', 'supt', 'insp', 'ret', 'retd'],
+  ...['prof', 'judge', 'justice', 'sen', 'gov', 'mayor', 'rep', 'cong', 'vm', 'vice', 'councilor', 'kgd', 'brgy', 'kap'],
+  ...['sec', 'usec', 'asec', 'comm', 'commissioner', 'ombudsman', 'amb', 'ambassador', 'chairman', 'chair', 'chief'],
+  ...['pres', 'dir', 'director', 'dean', 'assoc', 'associate', 'cpa', 'rn', 'pastor', 'ptr', 'bishop', 'sis', 'bro'],
+]);
+
+/**
+ * The title words a person carries, lower-cased, in order: every word of the prefix (it holds titles only), then the
+ * display name's LEADING words while they are titles — the first ordinary word ends it, so a first name is never read.
+ */
+export function titleWordsOf(row: Pick<TitleRow, 'name_prefix' | 'display_name'>): string[] {
+  const words = (v: string | null | undefined) => (v ?? '').toLowerCase().split(/[\s.,]+/).filter(Boolean);
+  const out = words(row.name_prefix);
+  for (const w of words(row.display_name)) {
+    if (!GENDERED_TITLES[w] && !NOT_GENDER_TITLES.has(w)) break;
+    out.push(w);
+  }
+  return out;
 }
 
-/** Woman / man as the couple entered it: the picked gender first, else a title that says it. Null when nothing does. */
+/** Woman / man from the first title WORD that says it ("Atty. Mrs." → woman), else null. */
+export function genderOfTitleWords(row: Pick<TitleRow, 'name_prefix' | 'display_name'>): TitleGender | null {
+  for (const w of titleWordsOf(row)) if (GENDERED_TITLES[w]) return GENDERED_TITLES[w]!;
+  return null;
+}
+
+/** Woman / man as the couple entered it: the picked gender first, else a title word that says it. Null when nothing does. */
 export function genderOfRow(row: TitleRow): TitleGender | null {
-  return asGender(row.gender) ?? genderOfTitle(titleOfRow(row));
+  return asGender(row.gender) ?? genderOfTitleWords(row);
 }
 
 /**

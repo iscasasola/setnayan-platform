@@ -40,6 +40,7 @@ import {
   ROLES_WHOSE_WORD_NEEDS_GENDER,
   choicesOfTitle,
   genderOfTitle,
+  genderOfTitleWords,
   needsWomanOrMan,
   parseTitleKey,
   takeGenderMark,
@@ -226,7 +227,7 @@ test('needsWomanOrMan is true exactly where the resolver, with no attire, has no
       for (const gender of [null, 'woman', 'man'] as const) {
         const row = { guest_id: 'x', first_name: 'A', last_name: 'B', name_prefix: title, gender, role, attire: 'neutral' };
         if (role === 'principal_sponsor') {
-          assert.equal(needsWomanOrMan(row), gender === null && genderOfTitle(title) === null, `${role} "${title}"`);
+          assert.equal(needsWomanOrMan(row), gender === null && genderOfTitleWords({ name_prefix: title }) === null, `${role} "${title}"`);
         } else {
           assert.equal(needsWomanOrMan(row), parentWordOf(row) === null, `${role} "${title ?? '—'}" (${gender})`);
         }

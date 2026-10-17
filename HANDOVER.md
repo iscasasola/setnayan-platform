@@ -15,7 +15,12 @@ Decisions made here (no record covered them):
 - The Maker's hand-drawn kit has the same entries but no "Other title…" box (first-load budget).
 - A linked (name-locked) person: the card shows the Title narrowed to their own title; only gender is written.
 
-Coordination: the pair-inference work (rd/the-other-parent-is-named, wt-other-parent) was UNCOMMITTED and unpushed when
+Merged origin/main 2026-10-17 (#6611 pair inference, #6607). Resolver order now: gender → title words (moved to
+lib/guest-title.ts `titleWordsOf`, one reading for resolver + prompt) → attire → pair → neutral. The controller asked
+for pair BEFORE attire; kept attire first because #6611's merged guard (grandparents-are-never-immediate-family: a Mr.
+beside an Atty. in a Suit are two grandfathers) and its rule "nobody whose own entry says something is ever changed".
+
+Old coordination note: the pair-inference work (rd/the-other-parent-is-named, wt-other-parent) was UNCOMMITTED and unpushed when
 this started; both edit `parentWordOf` and `loadMarch`'s select. Expect a small conflict; keep gender as step 0.
 
 Done since: corpus DECISION_LOG row pushed (Setnayan-specs 07437fd9) · exposure + port baselines regenerated · card

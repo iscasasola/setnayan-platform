@@ -70,7 +70,7 @@ import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 import type { PostEventDraft } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
-import { hubElementSceneCss } from '@/lib/element-style';
+import { hubElementSceneCss, hubSceneFxAttr } from '@/lib/element-style';
 import { filmTimecode, mastheadEdition } from '@/lib/story-spine';
 import { guestLayerAdmits } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { loadEntourage } from '../../_lib/loaders';
@@ -593,6 +593,8 @@ export async function EditorialContent({
     return resolvePostEventStyle(scene, home ? sharedStyles?.[home] : lookOf(scene).style, data?.eventType ?? null);
   };
   const cssOf = (scene: string) => hubElementSceneCss(postEventElementScope(scene), lookOf(scene).elements ?? null);
+  /* ✨ …and its parts' Word by word · Spread · Glow (`hubSceneFxAttr`, cut by `HubSceneFx`). */
+  const fxOf = (scene: string) => hubSceneFxAttr(lookOf(scene).elements ?? null);
   const wordsOf = (scene: string) => lookOf(scene).words ?? {};
   /* 🕰 Has the day happened? Compared by Manila calendar date — the scenes that
      wait for the day say so to the couple only (`hostPreview`). */
@@ -608,7 +610,7 @@ export async function EditorialContent({
     const line = placeholderOf(scene);
     if (!shown || !style || !line) return null;
     return (
-      <PostEventSceneFrame key={key} scene={scene} style={style} css={cssOf(scene)}>
+      <PostEventSceneFrame key={key} scene={scene} style={style} css={cssOf(scene)} fx={fxOf(scene)}>
         <div className="py-8">
           <p className="pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700">
             {wordsOf(scene).label ?? label}
@@ -646,7 +648,7 @@ export async function EditorialContent({
     roadStyle && (roadEntries.length > 0 || placeholderOf('before')) ? (
       <>
         {marker('before')}
-        <PostEventSceneFrame scene="before" style={roadStyle} css={cssOf('before')}>
+        <PostEventSceneFrame scene="before" style={roadStyle} css={cssOf('before')} fx={fxOf('before')}>
           <RoadScene style={roadStyle} entries={roadEntries} dayMs={dayMs} words={wordsOf('before')} placeholder={placeholderOf('before')} />
         </PostEventSceneFrame>
       </>
@@ -656,7 +658,7 @@ export async function EditorialContent({
   const coverScene = coverStyle ? (
     <>
       {marker('cover')}
-      <PostEventSceneFrame scene="cover" style={coverStyle} css={cssOf('cover')} className="mt-4">
+      <PostEventSceneFrame scene="cover" style={coverStyle} css={cssOf('cover')} fx={fxOf('cover')} className="mt-4">
         <FrontPageScene
           style={coverStyle}
           words={wordsOf('cover')}
@@ -903,7 +905,7 @@ export async function EditorialContent({
             Drawn when there is a count to show; the couple alone sees it wait. */}
         {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) ? marker('numbers') : null}
         {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) && styleOf('numbers') ? (
-          <PostEventSceneFrame scene="numbers" style={styleOf('numbers')!} css={cssOf('numbers')}>
+          <PostEventSceneFrame scene="numbers" style={styleOf('numbers')!} css={cssOf('numbers')} fx={fxOf('numbers')}>
             <StatisticsScene
               style={styleOf('numbers')!}
               words={wordsOf('numbers')}
@@ -947,13 +949,13 @@ export async function EditorialContent({
                   key="chapters"
                   scene="chapters"
                   style={styleOf('chapters')!}
-                  css={cssOf('chapters')}
+                  css={cssOf('chapters')} fx={fxOf('chapters')}
                   id={anchorProps('chapters').id}
                 >
                   <ScheduleScene style={styleOf('chapters')!} chapters={data.dayChapters} words={wordsOf('chapters')} placeholder={null} />
                 </PostEventSceneFrame>
               ) : photo.chapters === null && placeholderOf('chapters') && isOn('gallery') && styleOf('chapters') ? (
-                <PostEventSceneFrame key="chapters" scene="chapters" style={styleOf('chapters')!} css={cssOf('chapters')}>
+                <PostEventSceneFrame key="chapters" scene="chapters" style={styleOf('chapters')!} css={cssOf('chapters')} fx={fxOf('chapters')}>
                   <ScheduleScene style={styleOf('chapters')!} chapters={[]} words={wordsOf('chapters')} placeholder={placeholderOf('chapters')} />
                 </PostEventSceneFrame>
               ) : photo.chapters === 'essay' ? (
@@ -966,7 +968,7 @@ export async function EditorialContent({
             // style; the whole wall still opens full screen.
             kwento:
               isOn('kwento') && data.kwentoQuotes.length && styleOf('wishes') ? (
-                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')}>
+                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')} fx={fxOf('wishes')}>
                   <OpenUpScene
                     kind="wishes"
                     title={PHOTO_NOTES_LABEL}
@@ -993,7 +995,7 @@ export async function EditorialContent({
             // here it has been agreed to. [] hides the scene entirely.
             challengeAnswers:
               isOn('challengeAnswers') && data.challengeAnswers.length && styleOf('asked') ? (
-                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')}>
+                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')} fx={fxOf('asked')}>
                   <ChallengeScene style={styleOf('asked')!} answers={data.challengeAnswers} words={wordsOf('asked')} />
                 </PostEventSceneFrame>
               ) : (
@@ -1003,7 +1005,7 @@ export async function EditorialContent({
             // data.guestColumns is absent/[] when off), approved by the organiser.
             guestColumns:
               isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 && styleOf('letters') ? (
-                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')}>
+                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')} fx={fxOf('letters')}>
                   <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} names={roleNames} />
                 </PostEventSceneFrame>
               ) : (
@@ -1012,7 +1014,7 @@ export async function EditorialContent({
             // Shared photos from the day ("From the Day").
             // 🖼 GALLERY — the preview in its style; the whole gallery opens up.
             gallery: photo.gallery && styleOf('gallery') ? (
-              <PostEventSceneFrame key="gallery" scene="gallery" style={styleOf('gallery')!} css={cssOf('gallery')} id={anchorProps('gallery').id}>
+              <PostEventSceneFrame key="gallery" scene="gallery" style={styleOf('gallery')!} css={cssOf('gallery')} fx={fxOf('gallery')} id={anchorProps('gallery').id}>
                 {/* 🔓 OPEN-UP (Maker Phase 8): a collage of five or six in the
                     flow (template 21); the gallery opens full screen, and its
                     tabs follow the reader — Yours / Everyone's for a guest,
@@ -1047,7 +1049,7 @@ export async function EditorialContent({
                 key="fromVendors"
                 scene="vendors"
                 style={styleOf('vendors')!}
-                css={cssOf('vendors')}
+                css={cssOf('vendors')} fx={fxOf('vendors')}
                 id={suppliersId('fromVendors').id}
               >
                 <SupplierStoriesScene
@@ -1081,7 +1083,7 @@ export async function EditorialContent({
                   {watchFilmShown && data.watchFilmEmbedUrl && styleOf('film') ? (
                     <>
                       {marker('film')}
-                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')}>
+                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')} fx={fxOf('film')}>
                         <OpenUpScene
                           kind="film"
                           id={WATCH_FILM_ANCHOR_ID}
@@ -1108,7 +1110,7 @@ export async function EditorialContent({
                   {data.films?.length && styleOf('videos') ? (
                     <>
                       {marker('videos')}
-                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')}>
+                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')} fx={fxOf('videos')}>
                         {watchFilmShown ? (
                           <VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} />
                         ) : (
@@ -1164,7 +1166,7 @@ export async function EditorialContent({
             // 🪑 WHERE EVERYONE SAT — the seat plan; the reader's own table in gold.
             seating:
               isOn('seating') && spineFacts.room.tables.length > 0 && styleOf('seating') ? (
-                <PostEventSceneFrame key="seating" scene="seating" style={styleOf('seating')!} css={cssOf('seating')}>
+                <PostEventSceneFrame key="seating" scene="seating" style={styleOf('seating')!} css={cssOf('seating')} fx={fxOf('seating')}>
                   <SeatingScene style={styleOf('seating')!} room={spineFacts.room} ownTable={ownTable} words={wordsOf('seating')} />
                 </PostEventSceneFrame>
               ) : (
@@ -1173,7 +1175,7 @@ export async function EditorialContent({
             // 👥 ENTOURAGE — the roles the couple gave.
             entourage:
               isOn('entourage') && entourage.length > 0 && styleOf('entourage') ? (
-                <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')}>
+                <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')} fx={fxOf('entourage')}>
                   <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} />
                 </PostEventSceneFrame>
               ) : (
@@ -1183,7 +1185,7 @@ export async function EditorialContent({
             // only when the couple chose a new cover (one style).
             beforeAfter:
               isOn('beforeAfter') && data.coverChosen && data.eventHeroUrl && data.heroPhotoUrl ? (
-                <PostEventSceneFrame key="beforeAfter" scene="beforeAfter" style="two-up" css={cssOf('beforeAfter')}>
+                <PostEventSceneFrame key="beforeAfter" scene="beforeAfter" style="two-up" css={cssOf('beforeAfter')} fx={fxOf('beforeAfter')}>
                   <BeforeAfterScene before={data.eventHeroUrl} after={data.heroPhotoUrl} names={data.firstNames} words={wordsOf('beforeAfter')} />
                 </PostEventSceneFrame>
               ) : null,
@@ -1240,7 +1242,7 @@ export async function EditorialContent({
         {isOn('fromTheCouple') && (data.specialMessage || wordsOf('couple').body || placeholderOf('couple')) && styleOf('couple') ? (
           <>
             {marker('couple')}
-            <PostEventSceneFrame scene="couple" style={styleOf('couple')!} css={cssOf('couple')}>
+            <PostEventSceneFrame scene="couple" style={styleOf('couple')!} css={cssOf('couple')} fx={fxOf('couple')}>
               <ThankYouScene
                 style={styleOf('couple')!}
                 words={wordsOf('couple')}

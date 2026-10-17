@@ -296,8 +296,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   /* 🗣 `?love=<style>` (chapters · essay · years · conversation · timeline · cards) — the REAL `OurLoveStoryWidget` on the
-     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none), partners Maria · Jose, the lab's
-     stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
+     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none; three photos · one photo), partners
+     Maria · Jose, the lab's stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
      `&dark=1` draws it on the dark Look. Invented words and names only. */
   if (typeof sp.love === 'string') {
     const style = sp.love === 'default' ? null : sp.love;
@@ -308,7 +308,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-love={sp.love}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        {/* 🔲 `&empty=1` — the scene EMPTY, as the Maker's canvas draws it in this look (its sample shapes; the
+            `data-maker-section` marker is what lets a sample show at all). */}
+        {sp.empty === '1' ? (
+          <div data-maker-section="our_love_story">
+            <MakerEmptyScene type="our_love_story" styleId={style} />
+          </div>
+        ) : (
+          <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        )}
         <div className="h-[40vh]" aria-hidden />
       </main>
     );

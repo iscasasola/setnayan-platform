@@ -44,6 +44,7 @@
  */
 import type { AccentScene, SceneAccents } from './art-kit-accents';
 import type { HubSectionCanvas } from './hub-canvas';
+import { MERGE_BASE_FIELD } from './merge-base-field';
 import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerUnheldSavesInFlight, makerWritesPending } from './maker-refresh';
 
 /** One canvas in one spelling — keys sorted, `undefined` dropped (absent = empty). */
@@ -162,6 +163,28 @@ export function hearDraftedCanvas(hear: (type: string) => void): () => void {
 /** The scene canvas to build the next pick on — the Maker's own while it is newer than `server`. */
 export function draftedCanvasOr(type: string, server: HubSectionCanvas | null | undefined): HubSectionCanvas {
   return shared.read(type, server);
+}
+
+/**
+ * 👥 THE CANVAS THIS SCREEN LAST SENT, per scene — the base its next canvas save is merged from (`lib/merge-from-base.ts`,
+ * owner 2026-10-18: two hosts never overwrite). A canvas goes in WHOLE, so a screen holding a copy from before another
+ * host's pick on the same scene wiped that pick. ONE map for every canvas writer (a part's look, the part sheet, the
+ * hero's design, the cover's rows, a scene's tabs): they share the scene's write queue, so each builds on what the
+ * others last SENT. Dropped when the page brings a newer canvas (`server` moved past it), or by `forgetCanvasSent` when a
+ * send was refused. Called at SEND time (inside `makerLatestWrite`'s write): a pick a later one replaced was never sent.
+ * `built`: a writer that sends every pick on its own (no burst) and builds on its OWN copy says what it built on — that,
+ * exactly, is its base.
+ */
+const sentCanvas = new Map<string, { server: string; canvas: HubSectionCanvas }>();
+export function sendCanvasBase(fd: FormData, type: string, server: HubSectionCanvas | null | undefined, next: HubSectionCanvas, built?: HubSectionCanvas): void {
+  const fp = canvasFingerprint(server);
+  const kept = sentCanvas.get(type);
+  const base = built ?? (kept && kept.server === fp ? kept.canvas : (server ?? {}));
+  sentCanvas.set(type, { server: fp, canvas: next });
+  fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { [type]: { canvas: base } } }));
+}
+export function forgetCanvasSent(type: string): void {
+  sentCanvas.delete(type);
 }
 
 /**

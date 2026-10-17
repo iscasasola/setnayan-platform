@@ -19,3 +19,9 @@ Stop after what fits cleanly; name the rest as left in the PR body. Keep the Mak
 Migrations only via pnpm migration:new; Ugat/exposure guards green. Never open the owner's cale-ice Maker.
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/ (use your OWN walk folder, e.g. scratchpad/two-hosts-2-walk/ —
 another builder's serve.sh in a shared folder killed a server today). Changelog fragment changelog.d/rd-two-hosts-round-2.md.
+
+## Progress (builder, 2026-10-18)
+- [x] 1. Canvas panels: one shared base map `sendCanvasBase`/`forgetCanvasSent` in lib/maker-draft-store.ts (part-look's map moved there);
+      element-sheet · maker-hero-design · cover-animate · cover-lines · cover-words-background wired. Tests lib/two-hosts-every-writer-sends-its-base.test.ts 1a–1c;
+      sabotage S1–S4 each red, restored green. Round-1 guard 12 re-pointed (part-look now calls sendCanvasBase).
+      LEFT (not in the list): part-words · type-in-place · details-bound-field · scene-background-row · main-background-panel · post-event-scene-panel · editor-shell canvas writes.

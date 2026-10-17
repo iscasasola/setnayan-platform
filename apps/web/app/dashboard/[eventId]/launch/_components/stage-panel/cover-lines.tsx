@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { withElementChoice, type HubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -84,6 +84,8 @@ async function keepShown(el: HubElementKey, shown: boolean): Promise<boolean> {
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: next } } }));
+          // 👥 …with the canvas this screen last sent: another host's pick on the cover meanwhile is kept.
+          sendCanvasBase(fd, 'hero', server, next);
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return o.draftAction!(o.eventId, fd);
         }),
@@ -94,6 +96,7 @@ async function keepShown(el: HubElementKey, shown: boolean): Promise<boolean> {
     res = { ok: false, intent: 'save', error: '' };
   }
   if (res === SUPERSEDED || res.ok) return true;
+  forgetCanvasSent('hero');
   if (canvasFingerprint(draftedCanvasOr('hero', server)) === canvasFingerprint(next)) {
     show(elementPreview('f:hero', el, next, before, false));
     noteDraftedCanvas('hero', before, server);

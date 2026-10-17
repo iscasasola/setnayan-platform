@@ -199,7 +199,8 @@ test('12 · every place the pattern is wired still carries it', () => {
   const sceneCanvas = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'use-scene-canvas.ts');
   assert.match(sceneCanvas, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[widgetType\]: \{ canvas: base \} \} \}\)\);/, 'a scene’s canvas no longer sends what it was based on');
   const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
-  assert.match(partLook, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[t\.widgetType\]: \{ canvas: baseCanvasFor\(t\.widgetType, server\) \?\? \{\} \} \} \}\)\);/, 'a part’s look no longer sends what it was based on');
+  // Round 2: the base is the one shared map every canvas panel uses (`sendCanvasBase`, lib/maker-draft-store.ts).
+  assert.match(partLook, /sendCanvasBase\(fd, t\.widgetType, server, next\);/, 'a part’s look no longer sends what it was based on');
   // One place says the note for every Maker save.
   assert.match(read('lib', 'maker-refresh.ts'), /const note = \(result as \{ elsewhere\?: \{ note\?: string \} \} \| null\)\?\.elsewhere\?\.note;\s*if \(note\) \{\s*announceMakerSave\(\{ state: 'elsewhere', text: note \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
 });

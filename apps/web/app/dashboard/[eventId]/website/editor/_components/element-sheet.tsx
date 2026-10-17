@@ -7,7 +7,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave } from '@/lib/maker-refresh';
-import { canvasWriteKey, draftedCanvasOr, hearDraftedCanvas, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasWriteKey, draftedCanvasOr, forgetCanvasSent, hearDraftedCanvas, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
@@ -161,10 +161,13 @@ async function saveCanvas(
   eventId: string,
   widgetType: string,
   canvas: HubSectionCanvas,
+  server: HubSectionCanvas | null | undefined,
 ) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas } } }));
+  /* 👥 …with the canvas this screen last sent (`sendCanvasBase`): another host's pick on this scene meanwhile is kept. */
+  sendCanvasBase(fd, widgetType, server, canvas);
   /* ⚡ The Apply bar's count comes back with the save — no Maker render for it. */
   fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
@@ -337,7 +340,7 @@ export function ElementSheet({
            write: the latest canvas waits a beat, then goes; a pick made while
            it waits replaces it (`makerLatestWrite`). A fixed part's Style row
            hands its own writer (`saveCanvasWith`) — same queue, same key. */
-        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next));
+        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next, serverCanvas));
         res = await makerSave(
           () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
           () => router.refresh(),
@@ -353,6 +356,7 @@ export function ElementSheet({
       /* A later pick carried this one — its answer decides for both. */
       if (res === SUPERSEDED) return;
       if (!res.ok) {
+        forgetCanvasSent(target.widgetType);
         /* ↩ Refused: the canvas and the sheet go back to the last saved look,
            and the sheet says WHAT did not save. */
         const back = revertAfterFailedSave(next, latest.current, saved.current);

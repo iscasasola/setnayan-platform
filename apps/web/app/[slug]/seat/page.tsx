@@ -472,7 +472,7 @@ async function PersonalPass({
   }
 
   return (
-    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} pulseGuest={{ eventId: event.event_id, guestId: guest.guest_id }}>
       <div className="space-y-6">
         <ArrivalBloom
           firstName={firstName}
@@ -610,7 +610,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null} pulseGuest={{ eventId: event.event_id, guestId: guest.guest_id }}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge

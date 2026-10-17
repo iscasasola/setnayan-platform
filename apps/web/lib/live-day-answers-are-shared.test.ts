@@ -324,10 +324,11 @@ test('3 · the guests’ header applies the change; only hosts re-read on every 
 
 test('3 · the announcement: one read per event, the writer forgets it BEFORE the ping, phones spread their asks', () => {
   const action = read('app/[slug]/announcement-actions.ts');
-  assert.match(action, /rememberedLiveRead\(`announcement-v\d+:\$\{eventId\}`, eventId,/);
+  assert.match(action, /rememberedLiveRead(<[^(]*>)?\(`announcement-v\d+:\$\{eventId\}`, eventId,/);
   assert.match(action, /latest === BROADCASTS_UNREADABLE \? notRemembered\(latest\) : latest/, 'a refused read became every guest’s answer');
   // The per-guest gate stays per request, outside the shared answer.
-  assert.ok(action.indexOf('readGuestSession()') < action.indexOf('rememberedLiveRead('), 'the cookie check must come first');
+  const shared = action.search(/rememberedLiveRead[<(]/);
+  assert.ok(shared > 0 && action.indexOf('readGuestSession()') < shared, 'the cookie check must come first');
   const writer = read('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
   const forget = writer.indexOf('revalidateTag(liveDayTag(eventId))');
   const ping = writer.indexOf('.channel(`announce:${eventId}`)');

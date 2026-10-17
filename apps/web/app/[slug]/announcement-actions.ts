@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { BROADCASTS_UNREADABLE, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
 import { notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
+import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 
 /**
  * The guest's authorized read of the latest day-of announcement.
@@ -43,7 +44,7 @@ export async function latestAnnouncementForGuest(
   // guest of the event, so it is remembered per event for a few seconds (lib/live-day-cache.ts); the guest's own
   // cookie check above stays per request. The writer (day-of-broadcast.ts) clears the event's tag BEFORE it pings,
   // so the asks a ping sets off read the new words, never the remembered old ones.
-  const items = await rememberedLiveRead(`announcement-v1:${eventId}`, eventId, async () => {
+  const items = await rememberedLiveRead<CoordinatorBroadcastItem[] | typeof BROADCASTS_UNREADABLE>(`announcement-v1:${eventId}`, eventId, async () => {
     const latest = await fetchLatestBroadcasts(createAdminClient(), eventId, 1);
     // A refused read is answered to this phone only — never handed to the others as the event's answer.
     return latest === BROADCASTS_UNREADABLE ? notRemembered(latest) : latest;

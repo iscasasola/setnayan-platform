@@ -79,7 +79,7 @@ export function TitlesWaiting({
               Woman or Man?
             </h2>
             <p className="mt-1 text-sm text-ink/60">
-              {left === 0 ? 'All done — every title says it now.' : `Pick each title again with Woman or Man. ${count(left)}.`}
+              {left === 0 ? 'All done — every title says it now.' : `Pick each title again — “Atty. (Woman)” or “Atty. (Man)”. ${left} left.`}
             </p>
           </div>
           <ul className="min-h-0 flex-1 divide-y divide-ink/10 overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -97,7 +97,8 @@ export function TitlesWaiting({
                     value={p.key}
                     current={p.title}
                     narrowTo={p.title}
-                    unlisted={{ key: p.key, text: p.text }}
+                    /* The sheet's heading already asks; the row's button names only the title to re-pick. */
+                    unlisted={{ key: p.key, text: `${p.title ?? 'No title'} — pick` }}
                     onPicked={(key) => save(p.guestId, key)}
                     className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
                   />

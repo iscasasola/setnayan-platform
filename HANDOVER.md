@@ -17,6 +17,6 @@ Owner ask (17 Oct): "allow styles on the see you soon and customization. so we c
 ## State
 - [x] code
 - [x] guard + 6 sabotages (all caught)
-- [ ] guard + sabotage
 - [ ] walk at 375 (Maker lab) + shots
-- [ ] PR draft + CI
+- [x] PR #6608 draft, do-not-auto-merge
+- [ ] CI green

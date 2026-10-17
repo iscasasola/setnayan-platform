@@ -60,7 +60,13 @@ Never open the owner's cale-ice Maker (it is Pro anyway); use the lab / a seeded
 - Accents' guest render is already gated on Pro (ART_KIT_IS_PRO, shipped 10-16 with the feature) — nothing published
   before it to grandfather; left as is.
 
+### Done (2)
+- 22 old tests re-aimed to the ruling (each marked "RE-AIMED 2026-10-18"); grandfather proof
+  `lib/free-events-keep-what-they-published.test.ts`; ◆ on Colour/Size/Width, RSVP Font/Colour/Size/Look, camera
+  cards, Post Event cards, palette tiles, Drift + Ken Burns; lab `?pro=1`; changelog fragment.
+- Not marked ◆ (named at Apply anyway): the older part sheet's Font ▾ (`free-vs-pro-redrawn` §5 pins "no mark");
+  scene Animate rows other than Movement/Leaves.
+
 ### NEXT
-- run targeted tests; fix re-aimed old tests (free-vs-pro-redrawn, a-fixed-block-has-its-own-motion, …)
-- ◆ in the Maker: Colour/Size/Width labels, fixed/Post Event/camera/palette cards, RSVP rows, Drift + Ken Burns
-- grandfather test fixture; lab `?pro=1`; 375 px WebKit shots; changelog fragment; PR
+- widened targeted test rerun → sabotage (grandfather + rsvp) → WebKit walk (scripts in
+  ~/Documents/Claude/Projects/shots-2026-10-18/pro-regate-walk/scripts) → draft PR → CI loop

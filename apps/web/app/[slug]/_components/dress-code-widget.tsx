@@ -613,34 +613,52 @@ export function DressCodeWidget({
       {part !== 'you' && !mine && everyone.rows.length > 0 ? (
         /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
            part after another" scene — the run of show's mechanism, not its own. */
-        <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles" data-hub-rows="">
-          {everyone.rows.map((row) => (
-            /* 👗 THE ROW AS THE STUDIO DRAWS IT (2026-10-17, "ONE FACT"): its people from `picksOf` — men · women,
-               boys · girls, or one — each said in their own word, drawn in their own Wear (none drawn while the Wear is
-               not picked: nothing is assumed), and every colour said by what it colours (`pickDots`). A person with
-               nothing picked is not here; a row with nobody is not here (`dressCodeForEveryone`). */
-            <li key={row.key} className="space-y-2 py-3" data-role-row={row.key}>
-              <p className="text-sm font-medium leading-snug text-ink">{row.label}</p>
-              {row.note ? <p className="text-xs leading-relaxed text-ink/65">{row.note}</p> : null}
-              <div className="flex flex-wrap gap-x-6 gap-y-3" data-dress-code-people={row.picks.length}>
-                {row.picks.map((p) => (
-                  <div key={p.who} className="flex min-w-0 items-end gap-2.5" data-dress-code-person={p.who}>
-                    {showFigure && p.style && p.colours.length > 0 ? (
-                      <RoleFigure roleKey={row.key} hexes={p.colours} meaning={row.meaning} picks={[{ who: p.who, style: p.style, colours: p.colours, role: p.role }]} />
-                    ) : null}
-                    <div className="min-w-0 space-y-1.5">
-                      {p.label || p.styleLabel ? (
-                        <p className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
-                          {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
-                        </p>
-                      ) : null}
-                      <RowDots dots={p.dots} look={look} label={`${row.label}${p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </li>
-          ))}
+        /* 👗 EACH ROLE, PRESENTED BY ITS FIGURE AND ITS COLOURS (owner 2026-10-17: *"dress code must present a better
+           way using the image their role and the colors"*). One block per role: its name, then each of its people —
+           the role's own drawing (#6589) dressed in their colours, ~144 px tall, their Wear in their own word, and every
+           colour in the scene's palette look, each said by what it colours. A role that holds men and women shows both,
+           side by side. Nothing picked → not here (`dressCodeForEveryone`). No frames (nothing here is pressed): a
+           hairline above each block. One per row on a phone; two across from `sm`, three from `lg`. */
+        <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3" data-dress-code="roles" data-hub-rows="">
+          {everyone.rows.map((row) => {
+            const options = row.meaning === 'options';
+            const pair = row.picks.length > 1 && !options;
+            return (
+              <li key={row.key} className={`space-y-3 border-t border-ink/10 py-5 ${options ? 'sm:col-span-2 lg:col-span-3' : ''}`} data-role-row={row.key}>
+                <p className="text-base font-medium leading-snug text-ink">{row.label}</p>
+                {row.note ? <p className="text-xs leading-relaxed text-ink/65">{row.note}</p> : null}
+                <div className={pair ? 'grid grid-cols-2 gap-x-4 gap-y-4' : options ? 'grid grid-cols-1 gap-4 lg:grid-cols-2' : 'flex flex-col gap-4'} data-dress-code-people={row.picks.length}>
+                  {row.picks.map((p) => {
+                    const drawn = showFigure && p.style && p.colours.length > 0;
+                    const words = (
+                      <div className="min-w-0 space-y-1.5">
+                        {p.label || p.styleLabel ? (
+                          <p className="text-sm leading-snug text-ink/75" data-dress-code-pick="">
+                            {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
+                          </p>
+                        ) : null}
+                        <RowDots dots={p.dots} look={look} label={`${row.label}${p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
+                      </div>
+                    );
+                    return (
+                      <div key={p.who} className={`flex min-w-0 gap-3 ${pair || options ? 'flex-col items-start' : 'items-end'}`} data-dress-code-person={p.who}>
+                        {drawn ? (
+                          <RoleFigure
+                            roleKey={row.key}
+                            hexes={p.colours}
+                            meaning={row.meaning}
+                            picks={[{ who: p.who, style: p.style, colours: p.colours, role: p.role }]}
+                            className={options ? 'h-28' : 'h-36'}
+                          />
+                        ) : null}
+                        {words}
+                      </div>
+                    );
+                  })}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {/* 🔲 The Maker's canvas, no list yet: where the Do's & Don'ts will go, in the look picked — in greys. */}

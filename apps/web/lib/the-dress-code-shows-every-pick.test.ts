@@ -392,3 +392,38 @@ test('7 · the row-size bled edge is the full size’s own filter, pre-rendered 
     assert.ok(png.length < 4096, `wc-edge-${n}.png is ${png.length} bytes`);
   }
 });
+
+/* ── 8 · each role is presented by its figure and its colours (owner 2026-10-17: "dress code must present a better
+   way using the image their role and the colors") ───────────────────────────────────────────────────────────────── */
+const TAILWIND_PX: Record<string, number> = { 'h-16': 64, 'h-20': 80, 'h-24': 96, 'h-28': 112, 'h-32': 128, 'h-36': 144, 'h-40': 160 };
+test('8 · every dressed person leads with their figure, large enough to read at 375 (≥ 112 px), then their words and colours', async () => {
+  for (const { config, palette } of [...CASES.slice(0, 20), CALE]) {
+    const html = await widget({ config, rolePalette: palette, ceremonyType: 'catholic' });
+    const general = dressCodeForEveryone({ config, stored: sanitizeRolePalette(palette), board: resolveDisplayPalette(sanitizeRolePalette(palette)), ceremonyType: 'catholic' });
+    for (const row of general.rows) {
+      const parts = rowHtml(html, row.key).split(/data-dress-code-person="/).slice(1);
+      for (const p of row.picks) {
+        const part = parts.find((x) => x.startsWith(`${p.who}"`))!;
+        const fig = /data-role-figure="[^"]*" class="([^"]*)"/.exec(part);
+        if (!p.style || p.colours.length === 0) {
+          assert.equal(fig, null, `${row.key}/${p.who}: drawn in a Wear nobody picked`);
+          continue;
+        }
+        assert.ok(fig, `${row.key}/${p.who}: a dressed person without their figure`);
+        const h = Math.max(...fig![1]!.split(/\s+/).map((c) => TAILWIND_PX[c] ?? 0));
+        assert.ok(h >= 112, `${row.key}/${p.who}: the figure is ${h}px tall — too small to read at 375`);
+        assert.ok(part.indexOf('data-role-figure') < part.indexOf('data-dress-code-pick') || part.indexOf('data-dress-code-pick') < 0, `${row.key}/${p.who}: the words lead, not the figure`);
+      }
+    }
+  }
+});
+
+test('8 · the roles are blocks, never framed boxes (nothing in them is pressed): a hairline above each, one per row on a phone', async () => {
+  const html = await widget({ config: CALE.config, rolePalette: CALE.palette });
+  const list = /<ul class="([^"]*)" data-dress-code="roles"/.exec(html);
+  assert.ok(list && /\bgrid-cols-1\b/.test(list[1]!) && /\bsm:grid-cols-2\b/.test(list[1]!), 'one role per row on a phone, more across on wider screens');
+  for (const [, cls] of html.matchAll(/<li class="([^"]*)" data-role-row=/g)) {
+    assert.ok(!/\b(rounded|shadow|ring-|border )\b|\bborder-(?!t\b|ink\/)/.test(cls!), `a role is a framed box: "${cls}"`);
+    assert.match(cls!, /\bborder-t\b/, 'a role block without its hairline');
+  }
+});

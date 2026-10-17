@@ -25,6 +25,12 @@
  *   3 · THE COUNT — an event that owns nothing sends exactly the requests it
  *       sent before; the others send the five facts, once each.
  *
+ * 2026-10-18 (event-day load L3): in a render a service-role client first asks
+ * every fact in ONE request (`event_entitlement_facts`, 4 · below). This file's
+ * stand-in has no such function — the refusal a deploy before its migration
+ * would meet — so 1–3 exercise the path that refusal falls back to: the five
+ * facts, asked together, exactly as before, after the one refused ask.
+ *
  * ⚠ The promo window is the third question, and it is OFF here
  * (`PROMO_FREE_WINDOWS_ENABLED` unset), as it is in every unit test — its read
  * needs a database. With it on, an event inside a live window also asks comp and
@@ -92,13 +98,13 @@ test('1 · every per-event fact has left before any is answered', async () => {
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(
     [...sent].sort(),
-    ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
+    ['bundle_components', 'event_comp_active_skus', 'event_entitlement_facts', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
     'a per-event fact waited for another answer — the render is a round trip deeper again',
   );
   releaseComp({ data: [], error: null });
   releaseInternal({ data: false, error: null });
   assert.equal(await asked, false);
-  assert.equal(sent.length, 5, 'a fact was asked twice');
+  assert.equal(sent.length, 6, 'a fact was asked twice');
 });
 
 test('2 · a comp grant still decides first — even when the internal-host read is refused, and nothing is left unhandled', async () => {
@@ -148,7 +154,7 @@ test('2c · an order still decides first — the other facts left beside it, onc
   // 2026-10-13: every per-event fact leaves with the orders read (one round trip).
   assert.deepEqual(
     [...sent].sort(),
-    ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
+    ['bundle_components', 'event_comp_active_skus', 'event_entitlement_facts', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
   );
 });
 
@@ -168,7 +174,7 @@ test('3 · an event that owns nothing sends the five requests it always sent', a
   assert.deepEqual(result, [false, false, false]);
   assert.deepEqual(
     [...sent].sort(),
-    ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
+    ['bundle_components', 'event_comp_active_skus', 'event_entitlement_facts', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
   );
 });
 
@@ -177,7 +183,7 @@ test('3b · an internally hosted event sends the five facts once — one more th
     rpc: { event_comp_active_skus: answers([]), event_host_is_internal: answers(true), event_host_holds_founder_seat: answers(false) },
   });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
+  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_entitlement_facts', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
 });
 
 test('3c · a comped event sends the five facts once', async () => {
@@ -185,7 +191,7 @@ test('3c · a comped event sends the five facts once', async () => {
     rpc: { event_comp_active_skus: answers([SKU]), event_host_is_internal: answers(false), event_host_holds_founder_seat: answers(false) },
   });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
+  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_entitlement_facts', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
 });
 
 test('outside a render nothing changed: the questions are still asked one at a time, and stop at the first yes', async () => {
@@ -197,4 +203,32 @@ test('outside a render nothing changed: the questions are still asked one at a t
   });
   assert.equal(await eventSkuActive(db, EVENT, SKU), true);
   assert.ok(!sent.includes('event_host_is_internal'), 'an action’s gate asked a question past its first yes');
+});
+
+test('4 · with the facts answering: ONE request carries them all, and the answers are still read in order', async () => {
+  const facts = (over: Record<string, unknown>) =>
+    answers({ orders: [], comp_skus: [], host_internal: false, founder_seat: false, basket: [], ...over });
+  // Nothing owned: one request, no.
+  let s1 = standIn({ rpc: { event_entitlement_facts: facts({}) } });
+  assert.equal(await withRenderScopeForTest(() => eventSkuActive(s1.db, EVENT, SKU)), false);
+  assert.deepEqual([...s1.sent].sort(), ['bundle_components', 'event_entitlement_facts']);
+  // A paid order, a comp, an internal host, a founder seat, a paid basket line — each one a yes on its own.
+  for (const [what, over, sku] of [
+    ['a paid order', { orders: [{ service_key: SKU, status: 'paid' }] }, SKU],
+    ['a comp', { comp_skus: [SKU] }, SKU],
+    ['an internal host', { host_internal: true }, SKU],
+    ['a founder seat', { founder_seat: true }, SKU],
+    ['a paid basket line', { orders: [{ service_key: 'ONBOARDING_SERVICES', status: 'paid' }], basket: [{ service_code: 'SETNAYAN_AI', order_id: 'o-1', status: 'paid' }] }, 'SETNAYAN_AI'],
+  ] as const) {
+    s1 = standIn({ rpc: { event_entitlement_facts: facts(over) } });
+    assert.equal(await withRenderScopeForTest(() => eventSkuActive(s1.db, EVENT, sku)), true, `${what} no longer unlocks`);
+    assert.deepEqual([...s1.sent].sort(), ['bundle_components', 'event_entitlement_facts'], `${what}: a per-fact request was sent`);
+  }
+  // A pending basket line grants nothing active — the line's own status decides, as the per-product RPC's did.
+  s1 = standIn({ rpc: { event_entitlement_facts: facts({ orders: [{ service_key: 'ONBOARDING_SERVICES', status: 'submitted' }], basket: [{ service_code: 'SETNAYAN_AI', order_id: 'o-1', status: 'submitted' }] }) } });
+  assert.equal(await withRenderScopeForTest(() => eventSkuActive(s1.db, EVENT, 'SETNAYAN_AI')), false);
+  // A shape it does not recognise is no answer — every fact is asked the old way.
+  s1 = standIn({ rpc: { event_entitlement_facts: answers({ orders: 'not a list' }), event_comp_active_skus: answers([]), event_host_is_internal: answers(false), event_host_holds_founder_seat: answers(false) } });
+  assert.equal(await withRenderScopeForTest(() => eventSkuActive(s1.db, EVENT, SKU)), false);
+  assert.equal(s1.sent.length, 6, `the malformed facts were trusted: ${s1.sent.join(', ')}`);
 });

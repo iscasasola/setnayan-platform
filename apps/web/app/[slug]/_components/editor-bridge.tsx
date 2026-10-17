@@ -35,6 +35,7 @@ import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
+import { applyPartFxAttrs, replayPartFx, unwrapPartFx, wrapPartFx } from './part-fx-cut';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
@@ -323,6 +324,8 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   const band = hubElementShimmer(style?.motion);
   if (band) part.setAttribute(HUB_SHIMMER_ATTR, band);
   else part.removeAttribute(HUB_SHIMMER_ATTR);
+  /* ✨ …and the six new effects' hooks (Words ▾ · Glow · Reveal ▾ · the photo's Action), as the server lays them. */
+  applyPartFxAttrs(part, style);
 }
 
 /**
@@ -411,8 +414,11 @@ export function applyElementPreview(
     }
     for (const part of parts) {
       applyHeroPartStyle(part, elements?.[el], motion);
+      /* ✂ The words' cut (Word by word · Spread · Glow) off first, laid again last — over the words and runs drawn now. */
+      unwrapPartFx(part, doc);
       if (HUB_ELEMENT_FIELDS[el].includes('word')) applyPartWords(part, elements?.[el]?.word);
       if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
+      wrapPartFx(part, elements?.[el], doc);
     }
     return parts;
   }
@@ -438,9 +444,14 @@ export function applyElementPreview(
  * on the clock for this one replay. False when the part has no In to play.
  */
 export function replayElementIn(part: HTMLElement, scroll = true): boolean {
+  /* ✨ The words' and the reveal's own arrival (Word by word · Spread · Develop · Curtain) play again too. */
+  const fx = replayPartFx(part);
   const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
   const i = names.findIndex((n) => n.startsWith('el-in-'));
-  if (i < 0) return false;
+  if (i < 0) {
+    if (fx && scroll) part.scrollIntoView({ behavior: 'auto', block: 'center' });
+    return fx;
+  }
   names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
   const prevOutline = part.style.outline;
   part.style.outline = 'none';

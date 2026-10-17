@@ -33,6 +33,7 @@ import {
   hubElementMotionDeclarations,
   hubTextHash,
   sanitizeHubElementMotion,
+  sanitizeHubElementStyle,
   sanitizeHubElements,
   withElementChoice,
   withElementMotion,
@@ -186,8 +187,9 @@ test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out r
 
 test('M3 · a hostile motion value is dropped — only closed-set keys ever reach CSS', () => {
   assert.equal(sanitizeHubElementMotion({ in: 'bounce', during: 'spin', timeline: 'sideways', out: 'explode' }), null);
-  // Ken Burns / Parallax are for a photo; no element here is one.
-  assert.equal(sanitizeHubElementMotion({ during: 'kenburns' }), null);
+  // Ken Burns is for a photo (since 2026-10-16 the cover's `photo` part, "SIX NEW EFFECTS"): a part with words drops it.
+  assert.equal(sanitizeHubElementStyle({ motion: { during: 'kenburns' } }, 'heading'), null);
+  assert.deepEqual(sanitizeHubElementStyle({ motion: { during: 'kenburns' } }, 'photo')?.motion, { during: 'kenburns' });
   const els = sanitizeHubElements({ heading: { motion: { in: 'rise; } body { display:none' } } });
   assert.equal(els, null);
 });

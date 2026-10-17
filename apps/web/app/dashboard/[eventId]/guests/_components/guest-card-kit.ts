@@ -46,6 +46,27 @@ export type CardPickProps = {
   multi?: boolean;
   emptyText?: string;
   about?: string;
+  /** What the button says while the value is not one of the options (see `CardTitleProps`). */
+  unlisted?: { key: string; text: string };
+};
+/**
+ * 🪪 THE TITLE — one dropdown whose pick carries woman or man ("Atty. (Woman)" · "Atty. (Man)", owner 2026-10-17;
+ * `lib/guest-title.ts`). Posts ONE hidden input, `name_title`, holding the pick's key ("Atty.|woman"); `updateGuest`
+ * splits it into `name_prefix` (what prints) and `gender` (never printed). `unlisted` is what the button says while the
+ * stored value is not one of the entries — the title alone, or the pending pick "Atty. — Woman or Man?".
+ * The template kit adds "Other title…" (type your own; it comes back as two entries); the Maker's hand-drawn kit lists
+ * a stored typed title as its two entries but has no box to type a new one (its first load has no room for one).
+ */
+export type CardTitleProps = {
+  label: string;
+  /** The stored pick's key — `titleKey(name_prefix, gender)`. */
+  value: string;
+  /** The stored title, so a typed one stays offered as its two entries. */
+  current: string | null;
+  options: readonly PickOption[];
+  unlisted?: { key: string; text: string };
+  /** Only the stored title's own entries — a linked person's name is theirs, so only its woman / man is picked here. */
+  narrow?: boolean;
 };
 export type CardInvitedToProps = { roleSelectId: string; initialRole: string; initialBlocks?: string[] };
 export type CardLockedProps = { label: string; value: string; note: string };
@@ -60,6 +81,8 @@ export type CardKit = {
   Toggle: ComponentType<CardToggleProps>;
   Fold: ComponentType<CardFoldProps>;
   Pick: ComponentType<CardPickProps>;
+  /** The name's Title — the pick carries woman or man (`CardTitleProps`). */
+  Title: ComponentType<CardTitleProps>;
   InvitedTo: ComponentType<CardInvitedToProps>;
   /** A fact the host cannot change here (the couple's role). */
   Locked: ComponentType<CardLockedProps>;

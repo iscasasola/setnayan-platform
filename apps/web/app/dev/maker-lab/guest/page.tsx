@@ -354,13 +354,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
      in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
-     (`labEntourage('cale')`). Stand-in names only. */
+     (`labEntourage('cale')`); `&titles=1` the parents' titles picked with woman / man (`labEntourage('titles')`).
+     Stand-in names only. */
   /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
      "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
      (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
-    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : 'lone');
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.titles === '1' ? 'titles' : 'lone');
     const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
     const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (

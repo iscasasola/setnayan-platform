@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
 import { formatCount } from '@/lib/format-number';
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
 
 /**
  * 🎞 GLIMPSE — THE RAIL (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED" + "GLIMPSE'S MOTION IS A SLOW
@@ -32,6 +33,8 @@ export const DOTS_MAX = 8;
 /** A neighbour one card away is drawn at this scale and opacity (the prototype's .92 / .72). */
 export const GLIMPSE_SIDE_SCALE = 0.92;
 export const GLIMPSE_SIDE_OPACITY = 0.72;
+/** The centre card's width in the Photos scene — the full-width rail's `--g-w`. */
+export const GLIMPSE_CARD_WIDTH = 'min(62vw, 380px)';
 
 /** How many times the photos are drawn while the loop runs — the middle copy is the one the guest is in. */
 const COPIES = 3;
@@ -48,6 +51,8 @@ export function GlimpseRail({
   urls,
   label = 'Our photos',
   preview = false,
+  width = GLIMPSE_CARD_WIDTH,
+  whole = false,
 }: {
   urls: readonly string[];
   label?: string;
@@ -58,6 +63,20 @@ export function GlimpseRail({
    * line, and the region is not a tab stop — a tap anywhere is the parent's, which opens the whole gallery.
    */
   preview?: boolean;
+  /**
+   * 📐 The centre card's width (the rail's `--g-w`) — absent = the Photos scene's own `min(62vw, 380px)`. A rail that
+   * sits INSIDE a part narrower than the screen (a Love Story moment's photo slot, owner 2026-10-17 "Use the Glimpse
+   * swipe for a moment's photos") passes a width in its own container's units (`cqw`), so the card and the peeks
+   * are sized from that part and not from the window. Same rail, same drift — only its size.
+   */
+  width?: string;
+  /**
+   * 🖼 THE WHOLE PHOTO (owner 2026-10-17, on a Love Story photo that cut the man off at its edge: *"there might be a
+   * better way to present instead if it looking cropped"*). Each card keeps its 3:4 place — so the rail, the drift
+   * and the page never move as photos arrive — but the photo inside is drawn WHOLE at its own shape, centred, with
+   * the card's corners and lift on the photo itself; nothing is cut. Absent = the Photos scene's filled 3:4 cards.
+   */
+  whole?: boolean;
 }) {
   const n = urls.length;
   const railRef = useRef<HTMLDivElement>(null);
@@ -308,7 +327,7 @@ export function GlimpseRail({
       <div
         ref={railRef}
         className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-7 pt-3 outline-none sm:gap-[18px] [&::-webkit-scrollbar]:hidden"
-        style={{ scrollbarWidth: 'none', paddingInline: 'calc((100% - var(--g-w)) / 2)', ['--g-w' as string]: 'min(62vw, 380px)' }}
+        style={{ scrollbarWidth: 'none', paddingInline: 'calc((100% - var(--g-w)) / 2)', ['--g-w' as string]: width }}
         {...(preview ? { 'aria-hidden': true } : { role: 'region', 'aria-roledescription': 'carousel', 'aria-label': label, tabIndex: 0 })}
         data-glimpse-snap="on"
         onPointerDown={() => {
@@ -348,10 +367,16 @@ export function GlimpseRail({
         }}
       >
         {drawn.flat().map(({ url, i, copy }, k) => {
-          const cardClass =
-            'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-card bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200';
-          /* eslint-disable-next-line @next/next/no-img-element */
-          const img = <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />;
+          const cardClass = whole
+            ? 'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center bg-transparent p-0 [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200'
+            : 'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-card bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200';
+          const img = whole ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className={WHOLE_PHOTO_CLASS} />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+          );
           if (preview) {
             return (
               <span key={`${copy}-${i}-${url.slice(0, 24)}`} data-glimpse-card="" data-glimpse-photo={i} aria-hidden className={cardClass}>

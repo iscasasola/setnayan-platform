@@ -39,6 +39,7 @@ import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
+import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
@@ -306,8 +307,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   /* 🗣 `?love=<style>` (chapters · essay · years · conversation · timeline · cards) — the REAL `OurLoveStoryWidget` on the
-     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none), partners Maria · Jose, the lab's
-     stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
+     lab's own Love Story (`love-story-fixture.ts`: both voices · one voice · none; three photos · one photo), partners
+     Maria · Jose, the lab's stand-in photos. `&entrance=1` gives the scene an Animate entrance (◆ Pro), so the look's choreography plays;
      `&dark=1` draws it on the dark Look. Invented words and names only. */
   if (typeof sp.love === 'string') {
     const style = sp.love === 'default' ? null : sp.love;
@@ -318,7 +319,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-love={sp.love}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        {/* 🔲 `&empty=1` — this look's SAMPLE SHAPES, the arrangement the Maker's canvas draws for the scene while it is
+            empty (the `data-maker-section` marker is what lets a sample show at all). The shapes alone, not the
+            empty-scene stand-in: that one is mounted only behind `makerCanvas` (P11). */}
+        {sp.empty === '1' ? (
+          <div data-maker-section="our_love_story" data-maker-empty="our_love_story">
+            <SceneSample sceneType="our_love_story" styleId={style} className="py-2" />
+          </div>
+        ) : (
+          <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
+        )}
         <div className="h-[40vh]" aria-hidden />
       </main>
     );

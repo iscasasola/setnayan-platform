@@ -42,6 +42,27 @@ const Head = ({ w = 'w-1/2', className = '' }: { w?: string; className?: string 
 /** A hairline. */
 const Rule = ({ className = '' }: { className?: string }) => <span aria-hidden className={`block h-px w-full bg-ink/15 ${className}`} />;
 
+/**
+ * 🎞 A Love Story moment's photo slot (owner 2026-10-17, "Use the Glimpse swipe for a moment's photos"): the Photos
+ * scene's Glimpse shape at the moment's own size — one 3:4 card centred, the neighbours peeking, three dots — because
+ * a moment's photos are drawn as that same rail (`MomentGlimpse`, our-love-story-styles.tsx). `w` is the centre
+ * card's width as a full class literal (so the stylesheet has it).
+ */
+const MomentPhotosSample = ({ w, className = '' }: { w: string; className?: string }) => (
+  <span className={`block space-y-2 ${className}`}>
+    <span className="flex items-center justify-center gap-2 overflow-hidden">
+      <Box className={`aspect-[3/4] ${w} shrink-0 scale-[.92] rounded-lg opacity-70`} />
+      <Box className={`aspect-[3/4] ${w} shrink-0 rounded-lg`} />
+      <Box className={`aspect-[3/4] ${w} shrink-0 scale-[.92] rounded-lg opacity-70`} />
+    </span>
+    <span className="flex justify-center gap-1.5">
+      {[0, 1, 2].map((i) => (
+        <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 w-1.5 rounded-full ${i === 0 ? 'bg-ink/40' : 'bg-ink/15'}`} />
+      ))}
+    </span>
+  </span>
+);
+
 /** Four greys, light to dark — a sample palette is never a colour a couple could take for theirs. */
 const GREYS = ['bg-ink/10', 'bg-ink/20', 'bg-ink/30', 'bg-ink/15'] as const;
 
@@ -437,7 +458,7 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
     <span className="block space-y-3">
       <Line w="w-1/3" className="mx-auto bg-ink/25" />
       <Head w="w-1/2" className="mx-auto" />
-      <Box className="mx-auto aspect-[4/5] w-2/3" />
+      <MomentPhotosSample w="w-[72%]" />
       <span aria-hidden data-sample-box="" className="block w-4/5 rounded-2xl rounded-bl-sm bg-ink/15 px-3 py-2.5">
         <Line w="w-11/12" className="bg-ink/25" />
       </span>
@@ -450,7 +471,7 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
     <span className="relative block space-y-3">
       <span aria-hidden className="absolute bottom-0 left-1/2 top-0 block w-px -translate-x-1/2 bg-ink/15" />
       <Line w="w-1/3" className="relative mx-auto bg-ink/25" />
-      <Box className="relative mx-auto aspect-[4/5] w-2/5" />
+      <MomentPhotosSample w="w-[46%]" className="relative" />
       <span className="relative grid grid-cols-2 gap-x-4">
         <span className="block space-y-2 border-r-2 border-ink/25 pr-2">
           <Line w="w-full" />
@@ -467,7 +488,7 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
     <span className="block space-y-3 text-left">
       <span className="flex gap-2 overflow-hidden">
         <span className="block w-5/6 shrink-0 space-y-2">
-          <Box className="aspect-[4/3] w-full" />
+          <MomentPhotosSample w="w-[56%]" />
           <Line w="w-1/3" className="bg-ink/25" />
           <Head w="w-1/2" />
           <span className="block border-l-2 border-ink/25 pl-2">

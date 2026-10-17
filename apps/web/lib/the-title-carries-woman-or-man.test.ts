@@ -116,7 +116,9 @@ test('no file outside the host’s guest screens draws the picker’s words, or 
       if (host) pickerUsers++;
       else assert.fail(`${rel} imports the Title picker's words — a guest or a print would read "(Woman)"`);
     }
-    if (!host) assert.doesNotMatch(src, /['"`]\s*\((?:Woman|Man)\)/, `${rel} holds a "(Woman)" / "(Man)" literal`);
+    // Code only — a comment explaining the mark is not a surface that prints it.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+    if (!host) assert.doesNotMatch(code, /['"`]\s*\((?:Woman|Man)\)/, `${rel} holds a "(Woman)" / "(Man)" literal`);
   }
   assert.ok(pickerUsers >= 3, `only ${pickerUsers} host screens use the picker — the scan matches nothing`);
 });

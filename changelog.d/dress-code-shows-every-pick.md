@@ -13,7 +13,8 @@ saved picks, and its next save wrote the config back without them.
 
 - `dressCodeForEveryone` builds the general view from the Studio's rows and people (`ATTIRE_ROWS` + `picksOf`);
   a person shows only with a picked Wear or picked colours, a row only with a person; nobody is drawn in an unpicked
-  Wear; "Our colours" are the Mood Board's five main colours only.
+  Wear; "Our colours" are the Mood Board's five main colours only (a name typed in the older form for one of those
+  five still lends it its word).
 - `resolveAttireFor` / `readerAttire`: a reader is dressed by their Studio row (`studioRowOf`); the per-role tier is
   read only for the celebrant, the bride, the groom and the guests.
 - `normalizeDressCodeConfig` keeps `women` and the couple's/guests' Wear (`isDressableRole`); so do the reader panel,

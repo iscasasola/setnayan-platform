@@ -32,6 +32,8 @@ of what the colors control").
 - per-role tier read only for celebrant/bride/groom/guest (`studioRowOf`).
 
 ## State
-- [x] fixtures · [x] fix + guard (lib/the-dress-code-shows-every-pick.test.ts) · [x] PR #6602 draft, do-not-auto-merge
-- [ ] before shots (walk from wt-dress-code-before) · [ ] targeted tests (heavy lane queued) · [ ] sabotage (scratch walk/sabotage.py)
-- [ ] after shots · [ ] CI green
+- [x] fixtures · [x] fix + guard · [x] PR #6602 draft, do-not-auto-merge
+- [x] targeted tests green locally (14 files) · [x] sabotage: 9/9 red on their intended test
+- [x] before/after shots at 375 → ~/Documents/Claude/Projects/shots-2026-10-17/dress-code/ (and /6602/)
+- [ ] CI green (watch: one loop)
+- Walk lesson: this scratchpad is SHARED with sibling builders — use a private subdir + port (dc6602, 3671).

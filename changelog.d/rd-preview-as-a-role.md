@@ -12,7 +12,7 @@ to wear, the figure and the palette draw exactly what that role's guest reads.
 - `lib/preview-role.ts` — the rows (`previewRoleOptions`) and the strict reader (`previewRoleOf`).
 - `app/[slug]/page.tsx` — read only inside the See as branch (a verified host). ⚖ 2026-09-14 holds: a role preview
   is named for its role ("A father of the bride") and the preview person (`loadPreviewPerson`) is NOT read for it.
-- `hideable-widget-render.tsx` — on the Maker canvas the Dress Code scene answers for the sample seat-holder (its id
+- `hideable-widget-render.tsx` (wrapper) — on the Maker canvas the Dress Code scene answers for the sample seat-holder (its id
   matches no row) instead of the host.
 - Nothing is written: draw-time Maker state only; the sample's id, inert canvas and refused reply are unchanged.
 

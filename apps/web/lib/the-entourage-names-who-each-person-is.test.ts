@@ -12,8 +12,10 @@
  *
  * THE PROPERTIES, on every entourage look (On the axis, Lines, The march, and no pick):
  *   1. every parent carries a parent word of THEIR OWN side; where the couple's entry says father or mother
- *      (title, else the guest card's attire) the word agrees with it; with nothing to tell, it says "Parent" — it
- *      never guesses. On the march a line of N parents says N parent words in name order, except two parents whose
+ *      (title — every title word, so "Atty. Mrs." is a mother and "Atty." alone is nothing — else the guest card's
+ *      attire) the word agrees with it; where a side has exactly TWO parents and only one is told, the other is the
+ *      other word (owner 2026-10-17, live /cale-ice: "mother of the groom"); with nothing to tell — one person, two
+ *      unknowns, or three or more — it says "Parent". It never guesses. On the march a line of N parents says N parent words in name order, except two parents whose
  *      entries say neither, who share the plural (a singular beside two names is the older defect).
  *   2. no person centred alone in a group whose heading names TWO roles (the heading holds " & ") is drawn
  *      without a word under their name; and under a CATEGORY heading (Principal Sponsors) a lone Ninang still gets
@@ -25,6 +27,10 @@
  * ("the march: 2 parents, 1 parent word(s)"); the axis solo back to `roleBesideName` → 2 ("a lone person under
  * 'Maid of Honor & Best Man' has no word"); `parentWordOf` without the attire step → 4 ("Atty. Luz Abad: said
  * Parent, the couple's entry says mother").
+ * Then (2026-10-17, out of 34 with the grandparents guard): `withThePairInferred` returning the words unchanged → 5
+ * ("Atty. Eufemia M. Sacdalan-Dela Cruz: said Parent, … mother"); the prefix read as its first word only, the
+ * display name's titles not read → 4 ("Atty. Mrs. Lorna Diaz"); the pair overriding a word the entry already says
+ * → 5 (two "Ms." grandmothers became Grandmother · Grandfather). Each restored, green 51/51 with the neighbours.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

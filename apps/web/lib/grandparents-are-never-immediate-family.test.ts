@@ -28,6 +28,8 @@
  * after the Nikah); the Auto Arrange family set without them → 2.
  * Then (out of 10): `marchLineWords` back to one word per person, the plural only for two unknowns → 2 ('Grandmother
  * of the Groom · Grandmother of the Groom').
+ * Then (2026-10-17, the other grandparent): the same three sabotages as the parents guard's note — no pair → the
+ * Mr. + Atty. test RED; a pair that overrides a known word → 5 here (two "Ms." grandmothers). Restored, green.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -483,6 +483,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/the-map-waits-until-it-is-near.test.ts',
     /* …and (2026-10-17, cale-ice) the cover-foot guard: every viewer's first screen ends in its foot. A test. */
     'app/[slug]/_components/the-cover-always-has-a-way-on.test.ts',
+    /* …and (2026-10-17, cale-ice) the cover's RSVP button reaches its action: the RSVP part, for a guest and the host. A test. */
+    'app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

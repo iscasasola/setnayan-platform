@@ -84,9 +84,9 @@ test('4 · on the day and after, there is no card — the action keeps its own w
 test('5 · mounted under the names and at the top of Me, behind the switch; the Welcome action stays one mount', () => {
   const body = stripComments(readFileSync(join(__dirname, '_components/site-body.tsx'), 'utf8'));
   assert.match(body, /guestStages && pageStage === 'rsvp' && plan\.rsvpShouldRender && !isMakerCanvas\s*\?\s*replyCardOf\(/, 'the card is not behind the guest-side switch and the sheet’s own gate');
-  /* 🔘 …unless the cover's RSVP button holds the doorway (owner 2026-10-16, "Confirm Attendance is RSVP"): then the card
-     is not drawn a second time under it (`the-cover-has-its-rsvp-button.test.ts` (5)). */
-  assert.match(body, /\{coverHoldsReply \? null : replyCard \? \(\s*<ReplyCardRow card=\{replyCard\}[^]*?\) : \(\s*<ArrivalActionRow/, 'the card does not stand in the Welcome action’s place');
+  /* 🧭 …and it is the page's RSVP part: the cover's button takes the guest to it (owner 2026-10-17,
+     `the-cover-has-its-rsvp-button.test.ts` (5)). */
+  assert.match(body, /\{replyCard \? \(\s*<ReplyCardRow card=\{replyCard\}[^]*?\) : \(\s*<ArrivalActionRow/, 'the card does not stand in the Welcome action’s place');
   assert.equal(body.split('<ArrivalActionRow').length - 1, 1, 'the Welcome action is mounted more than once');
   const me = body.slice(body.lastIndexOf('data-me-stage'));
   const card = me.search(/\{replyCard && replyCard\.kind !== 'ask' \? <ReplyCardRow card=\{replyCard\} \/> : null\}/);

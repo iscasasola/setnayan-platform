@@ -8,6 +8,7 @@ import { scenePictureUndo, shownSectionPicture, styleTap } from '@/lib/maker-sce
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { hubDraftAnswer } from '@/lib/hub-draft';
 import type { ElementDraftAction } from './element-sheet';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
 /*
  * 💾 ONE SCENE'S CANVAS → THE DRAFT. Used by the scene inspector's tabs
@@ -40,10 +41,14 @@ export function useSceneCanvas(
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(canvas);
+  /* 👥 The canvas this panel last SENT — the base its next save is merged from (`lib/merge-from-base.ts`; saves run in
+     order), so a facet another host changed on this scene meanwhile is kept, not overwritten by this panel's copy. */
+  const sent = useRef(canvas);
   const [shown, setShown] = useState(canvas);
   const json = JSON.stringify(canvas);
   useEffect(() => {
     latest.current = canvas;
+    sent.current = canvas;
     setShown(canvas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [json, widgetType]);
@@ -72,6 +77,9 @@ export function useSceneCanvas(
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
+    const base = sent.current;
+    fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { [widgetType]: { canvas: base } } }));
+    sent.current = next;
     /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
     if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     const send = () => draftAction(eventId, fd);
@@ -90,7 +98,21 @@ export function useSceneCanvas(
             ? await styleTap({ canvasKey: key, sceneType: null, styleId: styled, send, refresh, canvas: own, onUndone, save: makerRedrawSave }).saved
             : await makerRedrawSave(send, refresh, { undo: scenePictureUndo(key, shownSectionPicture(key), own, onUndone) }),
       );
-      if (!res.ok) setError(res.error);
+      if (!res.ok) {
+        sent.current = base;
+        setError(res.error);
+        return;
+      }
+      /* 👥 Another screen changed this scene meanwhile: the draft holds both — the panel shows that (said once by
+         `makerSave`), unless a newer pick is already on its way (it is merged on top of it). */
+      const merged = res.elsewhere?.merged.widgets?.[widgetType as keyof NonNullable<typeof res.elsewhere.merged.widgets>]?.canvas;
+      if (merged && latest.current === next) {
+        latest.current = merged;
+        sent.current = merged;
+        setShown(merged);
+        if (onWrote) onWrote(merged);
+        else if (opts.redraw) noteDraftedCanvas(widgetType, merged, canvas);
+      }
     });
   };
   return { shown, save, pending, error };

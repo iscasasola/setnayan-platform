@@ -49,13 +49,14 @@ import { useFormStatus } from 'react-dom';
 import { Check } from 'lucide-react';
 import { pushUndo } from './undo-store';
 import { TWO_SCREENS_NOTE } from '@/lib/maker-save-status';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
 /** Pause after the last change before the form posts. Long enough that typing a
  *  name is one write, short enough that it feels immediate. */
 const DEBOUNCE_MS = 700;
 
 /** Plumbing, not columns — never diffed, never restored. `base` is the card a save started from (👥 below). */
-const NOT_A_FIELD = new Set(['quiet', 'return_to', 'base']);
+const NOT_A_FIELD = new Set(['quiet', 'return_to', MERGE_BASE_FIELD]);
 
 /**
  * WHAT THE LAST SAVE DID — said within the press (step 4C, 2026-10-09). A save that FAILED must never read as one that landed: the
@@ -268,8 +269,8 @@ export function AutosaveForm({
   /* Every post carries the card it started from: the last card this form SENT (saves run in order). */
   const withBase = useCallback((fd: FormData, from: FormData | null) => {
     const out = new FormData();
-    for (const [k, v] of fd.entries()) if (k !== 'base') out.append(k, v);
-    if (from) out.set('base', JSON.stringify(Object.fromEntries(fieldsOf(from))));
+    for (const [k, v] of fd.entries()) if (k !== MERGE_BASE_FIELD) out.append(k, v);
+    if (from) out.set(MERGE_BASE_FIELD, JSON.stringify(Object.fromEntries(fieldsOf(from))));
     return out;
   }, []);
   const send = useCallback((fd: FormData) => hearSave(action, fd, takeElsewhere), [action, takeElsewhere]);

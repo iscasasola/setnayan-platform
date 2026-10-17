@@ -25,7 +25,7 @@
 export { TWO_SCREENS_NOTE } from './maker-save-status';
 
 /** The form field a save carries its base in (JSON, the same shape as what it sends). */
-export const MERGE_BASE_FIELD = 'base';
+export { MERGE_BASE_FIELD } from './merge-base-field';
 
 export type MergeOptions = {
   /** Keys whose value is a list of plain strings that means a SET (order and duplicates mean nothing) — e.g. `touched_roles`. */

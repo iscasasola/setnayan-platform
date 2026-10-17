@@ -11,7 +11,7 @@ import { MomentNotKept } from './moment-sheet';
 import { patchStoryWord, storyStr, STORY_SHORT_MAX } from '@/lib/love-story-words';
 import { loveStoryPreviewMessage, markMakerCanvasStale, postToMakerCanvas } from '@/lib/maker-live-preview';
 import { hubDraftAction } from '../../hub-draft-actions';
-import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { LoveStoryBook, type LoveStoryBookProps } from './love-story-book';
 import { LoveStoryChaptersPanel } from './love-story-chapters-panel';
 import type { LoveStoryBlob } from './story-fields';

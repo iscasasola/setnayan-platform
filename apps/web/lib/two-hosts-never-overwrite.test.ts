@@ -194,6 +194,11 @@ test('12 · every place the pattern is wired still carries it', () => {
   assert.match(store, /if \(expect\) q = q\.eq\(expect\.column, expect\.value\);/, 'the draft write no longer asks whether the row is still the one read');
   assert.match(store, /\.select\('draft_json, revision'\)/, 'the draft is no longer read with its version');
   assert.match(store, /await writeHubDraft\(supabase, eventId, built\.next, appliedSnapshot, row\.stamp\);/, 'updateHubDraft no longer writes against the version it read');
+  // The Maker's two whole-canvas writers (a scene's tabs and Style rows; a part's Colour · Size · Width) carry their base.
+  const sceneCanvas = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'use-scene-canvas.ts');
+  assert.match(sceneCanvas, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[widgetType\]: \{ canvas: base \} \} \}\)\);/, 'a scene’s canvas no longer sends what it was based on');
+  const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
+  assert.match(partLook, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[t\.widgetType\]: \{ canvas: baseCanvasFor\(t\.widgetType, server\) \?\? \{\} \} \} \}\)\);/, 'a part’s look no longer sends what it was based on');
   // One place says the note for every Maker save.
   assert.match(read('lib', 'maker-refresh.ts'), /announceElsewhere\(result\);/, 'a Maker save no longer says another screen’s change reached it');
 });

@@ -164,17 +164,9 @@ export async function keepPartLook(t: PartLookTarget, field: PartLookField, valu
     res = { ok: false, intent: 'save', error: '' };
   }
   /* A later pick carried this one — its answer decides for both. */
-  if (res === SUPERSEDED) return { ok: true };
-  if (res.ok) {
-    /* 👥 Another screen changed this scene meanwhile: the draft holds both — the Maker's copy takes that (the pages
-       redraw in place and the toolbar says so once, `makerSave`), unless a newer pick is already on its way. */
-    const merged = res.elsewhere?.merged.widgets?.[t.widgetType as keyof NonNullable<typeof res.elsewhere.merged.widgets>]?.canvas;
-    if (merged && canvasFingerprint(draftedCanvasOr(t.widgetType, server)) === canvasFingerprint(next)) {
-      noteDraftedCanvas(t.widgetType, merged, server);
-      sentCanvas.set(t.widgetType, { server: canvasFingerprint(server), canvas: merged });
-    }
-    return { ok: true };
-  }
+  /* 👥 Another screen's change merged into this save: the pages redraw in place from the draft, which holds both, and
+     the toolbar says so once (`makerSave`); the next pick here is merged from what this one sent. */
+  if (res === SUPERSEDED || res.ok) return { ok: true };
   sentCanvas.delete(t.widgetType);
   /* ↩ Refused, and nothing newer is on the Maker's copy: the page and the copy go back. */
   if (canvasFingerprint(draftedCanvasOr(t.widgetType, server)) === canvasFingerprint(next)) {

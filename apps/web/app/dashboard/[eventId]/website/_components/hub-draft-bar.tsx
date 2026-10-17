@@ -541,12 +541,7 @@ export function HubDraftToolbar({
           role={status.state === 'error' ? 'alert' : 'status'}
           data-maker-save-status={status.state}
           className={`max-w-[9rem] text-[11px] font-semibold ${PHONE_TOAST} ${
-            status.state === 'error'
-              ? 'line-clamp-3 leading-tight text-terracotta-700'
-              : /* 👥 the two-screens note is a sentence: two lines, never cut, and it fades like any quiet word */
-                status.state === 'elsewhere'
-                ? 'line-clamp-2 leading-tight text-ink/70 max-md:sn-toast-fades'
-                : 'truncate text-ink/60 max-md:sn-toast-fades'
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60 max-md:sn-toast-fades'
           }`}
           title={makerSaveStatusText(status)}
         >

@@ -200,5 +200,5 @@ test('12 · every place the pattern is wired still carries it', () => {
   const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
   assert.match(partLook, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[t\.widgetType\]: \{ canvas: baseCanvasFor\(t\.widgetType, server\) \?\? \{\} \} \} \}\)\);/, 'a part’s look no longer sends what it was based on');
   // One place says the note for every Maker save.
-  assert.match(read('lib', 'maker-refresh.ts'), /announceElsewhere\(result\);/, 'a Maker save no longer says another screen’s change reached it');
+  assert.match(read('lib', 'maker-refresh.ts'), /if \(\(result as \{ elsewhere\?: unknown \} \| null\)\?\.elsewhere\) \{\s*announceMakerSave\(\{ state: 'elsewhere' \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
 });

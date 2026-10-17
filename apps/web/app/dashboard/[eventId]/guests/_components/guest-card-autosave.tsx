@@ -74,9 +74,6 @@ export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number; mov
  * (`fresh`): it is put on the card, and the save line says so once (`TWO_SCREENS_NOTE`).
  */
 export type AutosaveElsewhere = { fresh: Record<string, string[]>; clashed: string[] };
-/** How long the save line holds a word: "Saved", or the longer two-screens sentence. */
-export const SAVED_SHOWN_MS = 2200;
-export const ELSEWHERE_SHOWN_MS = 6000;
 export { TWO_SCREENS_NOTE };
 export const OutcomeContext = createContext<{ outcome: AutosaveOutcome; retry: () => void }>({ outcome: { kind: 'idle' }, retry: () => {} });
 /** The save line's way to read the outcome (the templated card draws its own line with the same facts). */
@@ -249,22 +246,19 @@ export function AutosaveForm({
      not touched), and becomes part of what the next save starts from. */
   const moved = useRef(false);
   const takeElsewhere = useCallback((e: AutosaveElsewhere) => {
-    const form = formRef.current;
-    if (!form || Object.keys(e.fresh).length === 0) return;
-    restoring.current = true;
-    try {
-      putFields(form, e.fresh);
-    } finally {
-      restoring.current = false;
-    }
-    const prev = lastSaved.current;
-    if (prev) {
-      const next = new FormData();
-      for (const [k, v] of prev.entries()) if (!(k in e.fresh)) next.append(k, v);
-      for (const [k, vs] of Object.entries(e.fresh)) for (const v of vs) next.append(k, v);
-      lastSaved.current = next;
-    }
+    if (Object.keys(e.fresh).length === 0) return;
     moved.current = true;
+    // ⚡ Its own small chunk, loaded the first time another screen's change comes back (never in the Maker's first load).
+    void import('./guest-card-elsewhere').then(({ putElsewhere }) => {
+      const form = formRef.current;
+      if (!form) return;
+      restoring.current = true;
+      try {
+        lastSaved.current = putElsewhere(form, e.fresh, lastSaved.current);
+      } finally {
+        restoring.current = false;
+      }
+    });
   }, []);
   /* Every post carries the card it started from: the last card this form SENT (saves run in order). */
   const withBase = useCallback((fd: FormData, from: FormData | null) => {
@@ -395,7 +389,8 @@ export function AutosaveState() {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
     setShown(true);
-    const t = setTimeout(() => setShown(false), outcome.moved ? ELSEWHERE_SHOWN_MS : SAVED_SHOWN_MS);
+    // The two-screens sentence is held longer than "Saved" — it is read, not glanced at.
+    const t = setTimeout(() => setShown(false), outcome.moved ? 6000 : 2200);
     return () => clearTimeout(t);
   }, [outcome]);
 
@@ -426,21 +421,4 @@ export function AutosaveState() {
       ) : null}
     </span>
   );
-}
-
-/** 👥 Put another screen's values on the card — only the fields named, by the same routes `restoreInputs` uses. */
-function putFields(form: HTMLFormElement, fresh: Record<string, string[]>): void {
-  for (const el of Array.from(form.elements)) {
-    const name = (el as HTMLInputElement).name;
-    if (!name || !(name in fresh)) continue;
-    const values = fresh[name]!;
-    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-      if (el.checked !== values.length > 0) el.click();
-    } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-      if (values[0] === el.value && !el.checked) el.click();
-    } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
-      el.value = values[0] ?? '';
-      if (el instanceof HTMLInputElement && el.dataset.formPick !== undefined) el.dispatchEvent(new Event('sn-restore'));
-    }
-  }
 }

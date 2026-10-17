@@ -325,7 +325,11 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
     })
     .then((result) => {
       announceDraftBar(result);
-      announceElsewhere(result);
+      // 👥 Another screen's change reached this save (the note above "the toolbar's count"): said once, pages redrawn.
+      if ((result as { elsewhere?: unknown } | null)?.elsewhere) {
+        announceMakerSave({ state: 'elsewhere' });
+        requestCanvasRedraw();
+      }
       return result;
     });
 }
@@ -429,15 +433,6 @@ function announceDraftBar(result: unknown): void {
  * Maker shows redraw in place from the draft, which now holds both screens' changes. A panel that keeps its own copy
  * takes `merged` from the answer itself (the Mood Board's board, the Love Story).
  */
-export const MAKER_ELSEWHERE_EVENT = 'setnayan:maker-elsewhere';
-function announceElsewhere(result: unknown): void {
-  if (typeof window === 'undefined' || !result || typeof result !== 'object') return;
-  const elsewhere = (result as { elsewhere?: unknown }).elsewhere;
-  if (!elsewhere || typeof elsewhere !== 'object') return;
-  announceMakerSave({ state: 'elsewhere' });
-  window.dispatchEvent(new CustomEvent(MAKER_ELSEWHERE_EVENT, { detail: elsewhere }));
-  requestCanvasRedraw();
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    🖼 A PICK THE BRIDGE CANNOT DRAW IS REDRAWN IN PLACE — never by a whole-Maker render

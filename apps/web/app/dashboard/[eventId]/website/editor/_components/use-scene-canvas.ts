@@ -98,20 +98,11 @@ export function useSceneCanvas(
             ? await styleTap({ canvasKey: key, sceneType: null, styleId: styled, send, refresh, canvas: own, onUndone, save: makerRedrawSave }).saved
             : await makerRedrawSave(send, refresh, { undo: scenePictureUndo(key, shownSectionPicture(key), own, onUndone) }),
       );
+      /* 👥 Another screen's change merged into this save: the pages redraw in place from the draft (which holds both)
+         and the toolbar says so once (`makerSave`); this panel's next pick is merged from what this one sent. */
       if (!res.ok) {
         sent.current = base;
         setError(res.error);
-        return;
-      }
-      /* 👥 Another screen changed this scene meanwhile: the draft holds both — the panel shows that (said once by
-         `makerSave`), unless a newer pick is already on its way (it is merged on top of it). */
-      const merged = res.elsewhere?.merged.widgets?.[widgetType as keyof NonNullable<typeof res.elsewhere.merged.widgets>]?.canvas;
-      if (merged && latest.current === next) {
-        latest.current = merged;
-        sent.current = merged;
-        setShown(merged);
-        if (onWrote) onWrote(merged);
-        else if (opts.redraw) noteDraftedCanvas(widgetType, merged, canvas);
       }
     });
   };

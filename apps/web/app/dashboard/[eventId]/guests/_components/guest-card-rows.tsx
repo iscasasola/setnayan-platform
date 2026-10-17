@@ -23,7 +23,7 @@ import type {
   CardTipProps,
   CardToggleProps,
 } from './guest-card-kit';
-import { ELSEWHERE_SHOWN_MS, SAVED_SHOWN_MS, TWO_SCREENS_NOTE, useAutosaveOutcome } from './guest-card-autosave';
+import { TWO_SCREENS_NOTE, useAutosaveOutcome } from './guest-card-autosave';
 import { isPlainSentence } from './plain-refusal';
 import { TitlePicker } from './title-picker';
 
@@ -240,7 +240,7 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
     setShown(true);
-    const t = setTimeout(() => setShown(false), outcome.moved ? ELSEWHERE_SHOWN_MS : SAVED_SHOWN_MS);
+    const t = setTimeout(() => setShown(false), outcome.moved ? 6000 : 2200);
     return () => clearTimeout(t);
   }, [outcome]);
   return (

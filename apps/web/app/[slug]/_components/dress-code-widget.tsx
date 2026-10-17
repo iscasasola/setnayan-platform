@@ -265,27 +265,35 @@ export function DressCodeWidget({
   const readerRowHexes = readerRowKey ? (board[readerRowKey] ?? []).filter((h) => typeof h === 'string' && h.length > 0) : [];
   const withRowColours = <T extends { panel: { hexes: string[]; hex: string | null } | null }>(r: T): T =>
     r.panel && readerRowHexes.length > 0 ? { ...r, panel: { ...r.panel, hexes: [...readerRowHexes], hex: readerRowHexes[0] ?? null } } : r;
-  const resolved = speaksToThisReader(withRowColours(resolveGuestAttireWithGroups({
+  /* 👗 THE READER'S OWN PICK (owner 2026-10-14): from a group with two picks (men · women, boys · girls), theirs — or
+     both, named, when the page cannot tell which they are. Their colours and their person follow the same pick.
+     🪞 Read BEFORE the panel may stand down (2026-10-17): a ninang whose couple picked only the women's Wear has a
+     Wear to be told, though her row's first column says nothing. */
+  type Resolved = ReturnType<typeof resolveGuestAttireWithGroups>;
+  const readerDress = (panel: NonNullable<Resolved['panel']>, source: Resolved['source']) =>
+    readerAttire({
+      role: guestRole,
+      attire: guestAttire,
+      source,
+      config: config as Record<string, unknown> | null,
+      style: panel.style,
+      hexes: panel.hexes,
+      label: (st) => ATTIRE_STYLE_LABEL[st],
+      single: singleWearerOf,
+    });
+  const withOwnStyle = (r: Resolved): Resolved => {
+    if (!r.panel || r.panel.style) return r;
+    const own = readerDress(r.panel, r.source).picks.find((p) => p.style)?.style ?? null;
+    return own ? { ...r, panel: { ...r.panel, style: own } } : r;
+  };
+  const resolved = speaksToThisReader(withOwnStyle(withRowColours(resolveGuestAttireWithGroups({
     role: guestRole,
     roles,
     groups,
     palette: board,
     names: roleNames,
-  })), generalHasContent);
-  /* 👗 THE READER'S OWN PICK (owner 2026-10-14): from a group with two picks (men · women, boys · girls), theirs — or
-     both, named, when the page cannot tell which they are. Their colours and their person follow the same pick. */
-  const mineDress = resolved.panel
-    ? readerAttire({
-        role: guestRole,
-        attire: guestAttire,
-        source: resolved.source,
-        config: config as Record<string, unknown> | null,
-        style: resolved.panel.style,
-        hexes: resolved.panel.hexes,
-        label: (st) => ATTIRE_STYLE_LABEL[st],
-        single: singleWearerOf,
-      })
-    : null;
+  }))), generalHasContent);
+  const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
   /* 👗 A person is drawn only in a Wear that was picked (owner 2026-10-17: "if … nothing is picked, then nothing should
      show") — never a plain gown or suit assumed for them; their colours still show, each said by what it colours. */

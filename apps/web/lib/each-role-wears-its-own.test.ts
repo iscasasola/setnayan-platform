@@ -108,7 +108,9 @@ test('stored config is data, not a promise about shape', () => {
 test('the invitation shows a role-holder THEIR line instead of the whole palette', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'), 'utf8');
   // (The Welcome page's `part="you"` also stands the general palette down — 2026-09-30.)
-  assert.match(src, /\{(?:part !== 'you' && )?!mine && palette\.length > 0 \?/, 'the general palette stands down for a role-holder');
+  /* Re-anchored 2026-10-17: "Our colours" left the dress code (owner: "we must ommit the our colors here"); the general
+     view is every role's row, and it is what stands down for a role-holder. */
+  assert.match(src, /\{part !== 'you' && !mine && everyone\.rows\.length > 0 \?/, 'everyone’s rows stand down for a role-holder');
   assert.match(src, /You are \{mine\?\.roleLabel/, 'and their role is named (the one line — a walker with no outfit reads it too)');
   assert.match(src, /STYLE_UNSET_LINE/, 'an unset style says so rather than showing nothing');
 });

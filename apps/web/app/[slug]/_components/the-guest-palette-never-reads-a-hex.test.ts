@@ -91,16 +91,18 @@ test('the dress code reads no hex — every look, every layout, with and without
   assert.equal(rendered, LOOKS.length * LAYOUTS.length * 2);
 });
 
-test('the live page’s words: "Rosewood" is said once to a screen reader, and never with its hex', async () => {
+test('the reader’s own colours are said by what they colour — once to a screen reader, never with a hex (2026-10-17)', async () => {
   const { DressCodeWidget } = await import('./dress-code-widget');
-  const markup = renderToStaticMarkup(h(DressCodeWidget, { words: WORDS, config: DRESS, rolePalette: BOARD, paletteLook: 'circles' } as never));
-  assert.doesNotMatch(markup, /Rosewood\s*#|Rosewood<small/i);
-  /* The Circles' legend repeats the names for the eye; it is aria-hidden, so the list's own words are the ONE
-     accessible name per colour. */
+  /* No "Our colours" in this scene any more (owner 2026-10-17); a ninang's own panel carries her colours, each named
+     by what it colours ("Long gown"). */
+  const dressed = { ...DRESS, groups: { principal_sponsors: { style: 'barong_tagalog' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } };
+  const markup = renderToStaticMarkup(h(DressCodeWidget, { words: WORDS, config: dressed, rolePalette: BOARD, paletteLook: 'circles', guestRole: 'principal_sponsor_ninang' } as never));
+  assert.doesNotMatch(markup, /Long gown\s*#|Long gown<small/i);
   const legend = /<p aria-hidden="true" class="sn-pal-legend[^"]*">([\s\S]*?)<\/p>/.exec(markup);
   assert.ok(legend, 'the Circles legend is drawn, hidden from a screen reader');
-  assert.match(legend![1]!, />Rosewood</);
-  assert.equal((markup.match(/<span class="sr-only">Rosewood<\/span>/g) ?? []).length, 1, 'Rosewood has one screen-reader name');
+  assert.match(legend![1]!, />Long gown</);
+  assert.equal((markup.match(/<span class="sr-only">Long gown<\/span>/g) ?? []).length, 1, 'the gown colour has one screen-reader name');
+  assert.doesNotMatch(markup, /Our colours/);
 });
 
 test('PaletteLookList: a colour with no name says nothing rather than its hex — every look, full and row', async () => {

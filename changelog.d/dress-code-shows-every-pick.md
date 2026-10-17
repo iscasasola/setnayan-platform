@@ -15,6 +15,11 @@ saved picks, and its next save wrote the config back without them.
   a person shows only with a picked Wear or picked colours, a row only with a person; nobody is drawn in an unpicked
   Wear; "Our colours" are the Mood Board's five main colours only (a name typed in the older form for one of those
   five still lends it its word).
+- No "Our colours" in the Dress code scene (owner 2026-10-17: *"we must ommit the our colors here since we are
+  talking about their dress code"*) — guest page and Maker canvas, every layout and palette look; a reader keeps their
+  own "Your colours". The palette look's card is fitted on the roles' colours.
+- The Studio's loader passes every stored dress-code key through (its save writes the whole config back): measured on
+  cale-ice, the women's colours of VIP · Family and Secondary Sponsors were lost between 06:32Z and 09:32Z this way.
 - `resolveAttireFor` / `readerAttire`: a reader is dressed by their Studio row (`studioRowOf`); the per-role tier is
   read only for the celebrant, the bride, the groom and the guests.
 - `normalizeDressCodeConfig` keeps `women` and the couple's/guests' Wear (`isDressableRole`); so do the reader panel,

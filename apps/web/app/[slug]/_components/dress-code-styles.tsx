@@ -153,7 +153,7 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
         <p className="mx-auto max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
       ) : null}
       {ribbon.length > 0 ? (
-        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="Our colours" role="img">
+        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="The colours each role wears" role="img">
           {ribbon.map((hex, i) => (
             <span key={`${hex}-${i}`} className="h-full flex-1" style={{ backgroundColor: hex }} />
           ))}

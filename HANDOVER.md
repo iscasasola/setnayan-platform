@@ -77,3 +77,9 @@ The note: one calm line, never a modal, never a choice — "Changed on another s
 - 2026-10-18 later: also wired the Maker's two whole-canvas writers (`use-scene-canvas.ts`, `part-look.ts`) — row 5
   partly FIXED. Labs: maker lab's draft door rebases (two tabs = two screens); guests lab `?elsewhere=1`. Shots in
   ~/Documents/Claude/Projects/shots-2026-10-18/6626/. PR body complete. NEXT: CI loop to green; then delete this file.
+- Bundle round (controller asked): Maker first load was +0.5 KB over. Fixed by measuring builds (main 519025 B, 143 B
+  headroom): note words travel with the answer; the card no longer redraws other screens' values in place (left);
+  the card's Undo words load lazily (`guest-card-change-words.ts`). Merged-with-main build: 518828 B (340 B headroom).
+- ⚠ Shared scratch dir trap: `scratchpad/walk/` is also used by the wt-follow-ups builder (its serve.sh overwrote mine);
+  I ran their serve.sh once by mistake (their dev died at once, their `.next` was removed by their script) and touched
+  STOP there for ~1 min. Removed it. My walks now use `scratchpad/two-hosts-walk/`.

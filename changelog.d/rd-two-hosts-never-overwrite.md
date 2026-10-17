@@ -14,10 +14,14 @@ wins and the screen says so in one calm line — "Changed on another screen a mo
    outfit by outfit (`lib/hub-draft-rebase.ts`); the board shows the merged colours.
 3. **Love Story** — the whole story carries its base; moments merge by id, words key by key.
 4. **The guest card** — writes only the columns this screen changed (`lib/guest-card-merge.ts`): another host's edit
-   and the guest's own reply / consent from their phone stay; the card shows the newest values; Groups are written as
-   this screen's change; its Undo puts back only what it changed.
+   and the guest's own reply / consent from their phone stay; Groups are written as this screen's change; its Undo
+   puts back only what it changed. (An open card does not redraw the other screen's values — it shows them when it
+   next opens: the card rides in the Maker's first load, which is at its ceiling.)
+5. **The Maker's two whole-canvas writers** (a scene's tabs and Style rows; a part's Colour · Size · Width) carry
+   their base too.
 
-The Maker's toolbar and the guest card's save line say the note; no modal, no choice, no email.
+The Maker's toolbar says the note; no modal, no choice, no email. The Maker's first load stays in budget: the guest
+card's Undo words now load once a save lands (`guest-card-change-words.ts`).
 
 SPEC IMPACT: None — no product rule changed; a persistence fix under existing rulings. (The note names no person:
 the draft keeps no record of who edited — naming one is an owner decision, raised in the PR.)

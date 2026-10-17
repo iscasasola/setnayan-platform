@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
+import { joinDoorIdent, readJoinDoorIp } from '@/lib/join-door-throttle';
 import { emitNotification } from '@/lib/notification-emit';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -60,15 +61,19 @@ export async function rotateMyGuestQr(slug: string): Promise<SelfRotateResult> {
   const session = await readGuestSession();
   if (!session) return { ok: false, reason: 'not_signed_in' };
 
-  // In-memory backstops (per warm instance) — the durable limit is in the RPC.
+  // 📶 DURABLE BACKSTOPS (event-day L1·8) — the bare in-memory limiter counted
+  // per warm serverless instance only. The guest's own 3 a day is unchanged.
+  // The CONNECTION's was 10 an hour for one address; counted for real across
+  // instances that would refuse the 11th guest at a venue sharing one Wi-Fi, so
+  // it is sized for a room (100 an hour, per event) and keyed on a salted hash
+  // of the address (`joinDoorIdent`), never the raw IP. The RPC keeps its own
+  // durable limit as well.
   const hdrs = await headers();
-  const ip = (hdrs.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown';
-  const ipGate = rateLimit(`guest-qr-rotate:ip:${ip}`, 10, 60 * 60 * 1000);
-  const guestGate = rateLimit(
-    `guest-qr-rotate:guest:${session.guest_id}`,
-    3,
-    24 * 60 * 60 * 1000,
-  );
+  const ip = readJoinDoorIp(hdrs);
+  const [ipGate, guestGate] = await Promise.all([
+    enforceRateLimit('guest_qr_rotate_ip', joinDoorIdent(session.event_id, ip), { limit: 100, windowSecs: 60 * 60 }),
+    enforceRateLimit('guest_qr_rotate_guest', session.guest_id, { limit: 3, windowSecs: 24 * 60 * 60 }),
+  ]);
   if (!ipGate.ok || !guestGate.ok) return { ok: false, reason: 'rate_limited' };
 
   const admin = createAdminClient();

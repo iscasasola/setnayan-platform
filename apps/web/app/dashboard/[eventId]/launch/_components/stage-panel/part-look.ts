@@ -43,6 +43,7 @@ import {
 import { elementPreview, refusedChoiceWords } from '../../../website/editor/_components/element-preview';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
+import { CLOSING_CANVAS_KEY, CLOSING_EL, CLOSING_STORED_ON } from '@/lib/closing-line';
 
 export type PartLookTarget = { key: string; widgetType: string; el: HubElementKey };
 /** The three fields Style's last row sets — one write each, the part sheet's own. */
@@ -51,6 +52,8 @@ export type PartLookField = 'color' | 'size' | 'width';
 /** The words whose colour and size Style's last row sets for a part — null: the part has none. */
 export function partLookTarget(canvasKey: string | null | undefined, el: string | null | undefined): PartLookTarget | null {
   if (!canvasKey) return null;
+  /* 🕯 The closing's line is stored beside the cover's words (`lib/closing-line.ts`) — drawn in the footer. */
+  if (el === CLOSING_EL && canvasKey === CLOSING_CANVAS_KEY) return { key: canvasKey, widgetType: CLOSING_STORED_ON, el: CLOSING_EL };
   if (el) return canvasKey === 'f:hero' && isHubElementKey(el) ? { key: canvasKey, widgetType: 'hero', el } : null;
   if (!canvasKey.startsWith('w:')) return null;
   const type = canvasKey.slice(2);

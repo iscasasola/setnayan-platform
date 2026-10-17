@@ -42,6 +42,7 @@
  * `createDraftedCanvases` is the pure core (`maker-draft-store.test.ts`);
  * `noteDraftedCanvas` / `draftedCanvasOr` are the one shared instance.
  */
+import type { AccentScene, SceneAccents } from './art-kit-accents';
 import type { HubSectionCanvas } from './hub-canvas';
 import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerUnheldSavesInFlight, makerWritesPending } from './maker-refresh';
 
@@ -203,12 +204,45 @@ export function draftedPassLookOr(server: string): string {
   return passLookShared.read('pass', { design: server }).design ?? server;
 }
 
+/**
+ * 🕯 …AND EVERY SCENE'S ACCENT PICK (owner 17 Oct, verbatim: *"the accents are not saving"*). The accents are ONE map
+ * (`style_preferences.scene_accents`, every scene's pick) and the draft takes it WHOLE, like a canvas — so the next pick
+ * must be built on the map as the Maker last wrote it, never on the render's. A pick is a held save (no Maker render),
+ * so the render's map stayed as it was: the Countdown's Narra columns, then the E-Gifts' spray — and the spray's map,
+ * built on the render, carried no columns, and the draft lost them. Measured on cale-ice: live held only the last
+ * scenes picked. The same rule, the same core, one more copy. Keyed by the one map there is (`accents`).
+ */
+const accentsShared = createDraftedCanvases<SceneAccents>(
+  () => makerSavesInFlight() > 0,
+  () => makerUnheldSavesInFlight() > 0,
+);
+/** An Accent pick was drawn: `picks` is the WHOLE map it saves (its draft save may still be on its way). */
+export function noteDraftedAccents(picks: SceneAccents, server: SceneAccents): void {
+  accentsShared.note('accents', picks, server);
+}
+/** The map to show and to build the next pick on: the Maker's own while it is newer than the render's, else the render's. */
+export function draftedAccentsOr(server: SceneAccents): SceneAccents {
+  return accentsShared.read('accents', server);
+}
+/**
+ * ONE Accent pick, as every scene's row makes it: the WHOLE map it saves — every scene's pick as the Maker last wrote it,
+ * with this scene's laid on — noted at once, so the next row (another scene, or this one opened again) builds on it.
+ * `before` is what a refused save puts back.
+ */
+export function noteAccentPick(scene: AccentScene, id: string, server: SceneAccents): { before: SceneAccents; next: SceneAccents } {
+  const before = draftedAccentsOr(server);
+  const next: SceneAccents = { ...before, [scene]: id };
+  noteDraftedAccents(next, server);
+  return { before, next };
+}
+
 /* ↺ THE ORDER OF THINGS (the docblock): an unheld write owes every copy kept now the truth… */
 if (typeof window !== 'undefined') {
   window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
     shared.unheld();
     ownWordsShared.unheld();
     passLookShared.unheld();
+    accentsShared.unheld();
   });
 }
 
@@ -220,4 +254,5 @@ export function makerRendered(stamp: string): void {
   shared.rendered(stamp);
   ownWordsShared.rendered(stamp);
   passLookShared.rendered(stamp);
+  accentsShared.rendered(stamp);
 }

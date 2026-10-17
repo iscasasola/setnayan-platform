@@ -28,7 +28,7 @@
  */
 
 import { FIGURE_ART, designOfArt, garmentFor, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
-import { GUEST_OPTIONS_MAX, roleArtKey, type FigureRole } from './attire-designs';
+import { GUEST_OPTIONS_MAX, designLabel, roleArtKey, type FigureRole } from './attire-designs';
 import type { AttireStyle } from './role-dress-code';
 
 export const SKIN = '#E7C8A2';
@@ -179,6 +179,47 @@ export function zoneColours(style: AttireStyle | null | undefined, colours: read
   const own = colours.filter((h) => HEX.test(h));
   const first = own[0] ?? '#9B9B9B';
   return zonesOf(style).map((z, i) => own[i] ?? (z.fallback === 'first' ? first : z.fallback === 'deeper' ? deeper(first) : z.fallback));
+}
+
+/**
+ * 🏷 WHAT EACH COLOUR DOT COLOURS — one word under every dot, the SAME on Studio › Mood Board & Dress Code and on the
+ * guest's dress code (owner 2026-10-17: *"for the dress code of women, there are palettes but no indication of what
+ * the colors control"*).
+ *
+ * The approved zones prototype (`prototypes/attire_colour_zones_2026-10-16.md`, "How the editor says it") put a word
+ * only under a ZONED garment's dots ("Coat & pants · Tie · Shirt") and "nothing under a one-zone garment's dots" — so
+ * a gown's colours, and every colour past a design's zones, said nothing. The words now:
+ *   · a zone's own word (`DESIGN_ZONES`, the record's) — Coat & pants · Tie · Shirt · Vest · Jacket · Bow tie · Barong · Pants;
+ *   · a ONE-colour design (a gown, a terno, a dress) — the design's own name for the person ("Long gown", "Filipiniana
+ *     (terno)", "Tulle dress"): the colour IS that garment;
+ *   · a colour past the design's zones — `DOT_WORD_ACCENT`, the record's word for every colour after the garment
+ *     ("Dot 2 is the accent", DECISION_LOG 2026-10-16) — it paints nothing on the drawing, and is still the couple's;
+ *   · no Wear said yet — `DOT_WORD_OUTFIT` for the first colour (the word the guest's own panel already says,
+ *     "Outfit to be confirmed"), accents after.
+ *   · guests (`options`) — every colour is its own outfit, so each says the first zone's word.
+ * 🔑 The one-zone word, "Accent" and "Outfit" are build calls (no word existed in the record) — named in the PR for
+ * the owner.
+ *
+ * The colours are the ones the figure WEARS (`zoneColours`): a zone with no colour of its own shows the colour it is
+ * drawn in (a white shirt), exactly as the Studio's dot does.
+ */
+export const DOT_WORD_OUTFIT = 'Outfit';
+export const DOT_WORD_ACCENT = 'Accent';
+export type PickDot = { hex: string; word: string };
+export function pickDots(
+  style: AttireStyle | null | undefined,
+  colours: readonly string[],
+  role: FigureRole | null | undefined,
+  options = false,
+): PickDot[] {
+  const own = colours.filter((h) => HEX.test(h));
+  if (own.length === 0) return [];
+  if (!style) return own.map((hex, i) => ({ hex, word: options || i === 0 ? DOT_WORD_OUTFIT : DOT_WORD_ACCENT }));
+  const zones = zonesOf(style);
+  const zoneWord = (i: number) => zones[i]?.label ?? designLabel(role ?? null, style);
+  if (options) return own.map((hex) => ({ hex, word: zoneWord(0) }));
+  const worn = zoneColours(style, own);
+  return [...zones.map((_, i) => ({ hex: worn[i]!, word: zoneWord(i) })), ...own.slice(zones.length).map((hex) => ({ hex, word: DOT_WORD_ACCENT }))];
 }
 
 /**

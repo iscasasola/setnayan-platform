@@ -288,13 +288,15 @@ test('What to wear in Me: the mark rides with the `wear` part alone, right befor
   const { GuestMeParts } = await import('../app/[slug]/_components/guest-me-parts');
   const span = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
   const markEl = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'look' });
-  const look = (roles: unknown) => ({ config: { roles } as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
-  const draw = (roles: unknown, wearMark: unknown, partLooks: unknown = null) =>
+  /* Her outfit is her row's women's Wear — the Studio dresses a ninang by the Principal Sponsors row (2026-10-17);
+     `{}` = nothing picked for her. */
+  const look = (women: Record<string, unknown>) => ({ config: (Object.keys(women).length ? { women: { groups: { principal_sponsors: women } } } : {}) as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
+  const draw = (roles: Record<string, unknown>, wearMark: unknown, partLooks: unknown = null) =>
     renderToStaticMarkup(React.createElement(GuestMeParts as unknown as React.FC<Record<string, unknown>>, { parts: ['role', 'wear'], words: eventWordsFromProfile(WEDDING_PROFILE), look: look(roles), comingWith: [], wearMark, partLooks }));
   for (const partLooks of [null, { wear: 'card' }]) {
-    const plain = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, null, partLooks);
+    const plain = draw({ style: 'filipiniana' }, null, partLooks);
     assert.ok(plain.includes('data-me-part="role"') && plain.includes('data-me-part="wear"'), 'anti-vacuity: both parts drawn');
-    const withMark = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, markEl, partLooks);
+    const withMark = draw({ style: 'filipiniana' }, markEl, partLooks);
     assert.equal(withMark, plain.replace('<section class="space-y-3" data-me-part="wear">', `${span}<section class="space-y-3" data-me-part="wear">`), `${JSON.stringify(partLooks)}: not exactly the mark before the wear part`);
   }
   /* Nothing to wear (the role is named, no outfit): the role part draws, the wear part does not — and no mark. */

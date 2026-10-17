@@ -20,7 +20,7 @@
  */
 
 /** A class this lays: the scene's motion classes, and nothing else on the frame. */
-export const SCENE_MOTION_CLASS = /^hub-(?:seq|in|out|during|tl)-[a-z0-9_]{1,40}$/;
+export const SCENE_MOTION_CLASS = /^hub-(?:seq|in|out|during|tl|reveal)-[a-z0-9_]{1,40}$/;
 /** A custom property this lays: the motion's own (`hubCanvasVars`), never the photo's or the colour's. */
 export const SCENE_MOTION_VAR = /^--hub-(?:in|out)(?:-[a-z]{1,8})?$|^--hub-(?:duration|stagger|ease)$/;
 /** …with a value made of a closed character set: keyframe names, numbers, `translate3d(…)`, `blur(…)`, `entry min(…)`. */

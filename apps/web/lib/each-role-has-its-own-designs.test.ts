@@ -280,7 +280,10 @@ test('4 · an entourage role wears one labelled dot per zone and offers no "+"; 
   const bride = section(html, 'bride');
   assert.match(bride, /data-garment="bride-mermaid"/);
   assert.match(bride, /data-mood-board-zones="1"/);
-  assert.doesNotMatch(bride, /<small[^>]*>/, 'a gown’s one dot carries a label');
+  /* Re-anchored 2026-10-17 (owner: "for the dress code of women, there are palettes but no indication of what the
+     colors control"): a one-colour design's dot is labelled with the design itself — the prototype's "nothing under a
+     one-zone garment" is superseded. */
+  assert.ok(bride.includes('>Mermaid</small>'), 'a gown’s one dot does not say what it colours');
   assert.doesNotMatch(bride, /Add a colour/);
   assert.match(section(html, 'bearers_flower_girl'), /data-garment="ring_bearer-vest_and_bow_tie"[\s\S]*data-garment="flower_girl-tulle_dress"/);
   /* The Wear ▾ names the design in the role's own words. */

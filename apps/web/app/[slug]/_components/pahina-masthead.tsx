@@ -844,7 +844,7 @@ function partPlaceWords(look: string | null, name: string): ReactNode | null {
  * letter with its start (`--el-fx-x`). The spaces stay text. What CSS does with them is `globals.css` "THE SIX NEW
  * EFFECTS", behind the reduced-motion gate; outside it the spans are plain inline text, the words at rest.
  */
-function fxWords(text: string, whole: string, start: number, cut: HubFxCut): ReactNode[] {
+export function fxWords(text: string, whole: string, start: number, cut: HubFxCut): ReactNode[] {
   return hubFxPieces(text, whole, start, cut).map((p, k) =>
     'space' in p ? (
       p.space

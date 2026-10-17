@@ -81,7 +81,8 @@ const LONE_ROWS: Row[] = [
      family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.", `relation` empty.
      Here they are AFTER the couple re-picks their role on the guest card — `groom_grandparents` (migration
      20271271089555) — so the lab draws them under "Grandparents", each "Grandmother of the Groom". Stand-in names.
-     The unknown-sex parent is already above: "Dr." Eduardo Santos, whose title says neither father nor mother. */
+     "Dr." Eduardo Santos above says neither father nor mother by title; walking beside "Mrs." Lourdes, the pair names
+     him Father of the Bride (`withThePairInferred`, owner 2026-10-17). */
   ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_grandparents', 20, 0],
   ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_grandparents', 20, 1],
   /* A lone Groomsman beside the lone Bridesmaid above — /maria-and-jose's crew as the controller found it live on
@@ -91,13 +92,25 @@ const LONE_ROWS: Row[] = [
 /** In the lone cast the Maid of Honor and the Best Man do not walk together (the same live state): she walks alone. */
 const LONE_WALKS: Record<string, number> = { moh: 22 };
 
+/**
+ * 👪 `&cast=cale` on `?entourage=` — the groom's parents in the shape live /cale-ice had on 2026-10-17 (owner's
+ * screenshot, "Standing with us · PARENTS"): a father titled "Mr." and a mother titled "Atty.", her attire left at
+ * its default. Before `parentWordOf` paired them she read "Parent of the Groom"; the owner: "mother of the groom".
+ * Stand-in names in the same shape (a middle initial, a hyphenated married surname).
+ */
+const CALE_PARENTS: Row[] = [
+  ['gp1', 'Mr.', 'Manolo C.', 'Dela Cruz', 'groom_parents', 1, 0],
+  ['gp2', 'Atty.', 'Eufemia M.', 'Sacdalan-Dela Cruz', 'groom_parents', 1, 1],
+];
+
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
   if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
-  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : ROWS).map(([id, prefix, first, last, role, walk, place]) => ({
+  const cast0 = cast === 'cale' ? [...CALE_PARENTS, ...ROWS.filter((r) => r[4] !== 'groom_parents')] : ROWS;
+  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : cast0).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
     first_name: first,
@@ -182,6 +195,109 @@ export function labCaleRolePalette() {
     touched_roles: ['parents_immediate_family', 'principal_sponsors'],
   };
 }
+
+/**
+ * 🪞 `?attire=cale` — cale-ice's dress code EXACTLY as production held it on 2026-10-17 (read SELECT-only by the
+ * controller, before the owner's 06:32Z Apply): the men of VIP · Family saved as the old word "formal", three per-ROLE
+ * picks the Studio has no row for (best man · best woman · the groom's parents — one "Long gown" for a mixed pair), six
+ * colours typed into the old dress-code panel beside the Mood Board's five, and no Wear yet for the bride, the groom,
+ * the groomsmen or the guests. `?attire=cale-now` is the same event after that Apply (every Studio row picked).
+ * Fixture only; nothing here reaches a guest.
+ */
+export function labCaleIceDressConfig(after = false) {
+  const before = {
+    dos: ['Lean into the palette'],
+    donts: ['No white or ivory'],
+    roles: { best_man: { style: 'suit' }, best_woman: { style: 'long_gown' }, groom_parents: { style: 'long_gown' } } as Record<string, { style: string }>,
+    title: '',
+    women: { groups: { vip_family: { style: 'long_gown' }, principal_sponsors: { style: 'long_gown' } } } as Record<string, unknown>,
+    groups: { vip_family: { style: 'formal' }, bridesmaids: { style: 'long_gown' }, principal_sponsors: { style: 'suit' }, secondary_sponsors: { style: 'suit' } } as Record<string, { style: string }>,
+    palette: ['#351115', '#646B38', '#F3E5B9', '#E6C0B3', '#803236', '#6B4226'].map((hex) => ({ hex, name: hex })),
+    description: '',
+    show_figure: true,
+  };
+  if (!after) return before;
+  return {
+    ...before,
+    roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: 'suit' } },
+    women: {
+      roles: { guest: { style: 'long_gown' } },
+      groups: {
+        vip_family: { style: 'long_gown', colours: ['#5C0700', '#248191', '#3E3350'] },
+        principal_sponsors: { style: 'long_gown', colours: ['#8B7E74', '#6C6C6C'] },
+        secondary_sponsors: { style: 'long_gown', colours: ['#5C0700', '#5C0700', '#5C0700'] },
+        bearers_flower_girl: { style: 'tulle_dress' },
+      },
+    },
+    groups: {
+      groomsmen: { style: 'suit' },
+      vip_family: { style: 'suit' },
+      bridesmaids: { style: 'long_gown' },
+      principal_sponsors: { style: 'suit' },
+      secondary_sponsors: { style: 'suit' },
+      bearers_flower_girl: { style: 'vest_and_bow_tie' },
+    },
+  };
+}
+/** cale-ice's `role_palette` beside `labCaleIceDressConfig` (the same two reads). */
+export function labCaleIceRolePalette(after = false) {
+  const shared = {
+    guest: ['#6B4226', '#C9A0A0', '#191970', '#5C2542'],
+    best_man: ['#803236'],
+    reception: ['#5C0700', '#669C35', '#B51A00', '#F7F2EC', '#CFAFAF'],
+    bridesmaids: ['#646B38', '#B51A00'],
+    maid_of_honor: ['#803236'],
+    palette_style: 'simple',
+    wedding_party: ['#6B4226', '#C9A0A0', '#191970', '#5C2542'],
+  };
+  if (!after) {
+    return {
+      ...shared,
+      bride: ['#FFFFFF', '#FFFFFF'],
+      groom: ['#FFFFFF', '#FFFFFF'],
+      groomsmen: ['#646B38'],
+      principal_sponsors: ['#8B7E74', '#6C6C6C'],
+      secondary_sponsors: ['#7A8B6F'],
+      parents_immediate_family: ['#5C0700', '#669C35', '#B51A00'],
+      touched_roles: ['best_man', 'bride', 'bridesmaids', 'groom', 'groomsmen', 'guest', 'maid_of_honor', 'parents_immediate_family', 'principal_sponsors', 'secondary_sponsors', 'wedding_party'],
+    };
+  }
+  return {
+    ...shared,
+    guest: ['#5C2542', '#191970', '#C9A0A0', '#6B4226'],
+    bride: ['#F7F2EC', '#F3DDE3'],
+    groom: ['#F7F2EC', '#FFFFFF', '#FFFFFF'],
+    groomsmen: ['#2C2A29', '#006400', '#669C35'],
+    principal_sponsors: ['#2C2A29', '#808080', '#8B7E74'],
+    secondary_sponsors: ['#2C2A29', '#006400', '#669C35'],
+    bearers_flower_girl: ['#5C0700', '#5C0700'],
+    parents_immediate_family: ['#2C2A29', '#2C2A29', '#5C0700'],
+    touched_roles: ['bearers_flower_girl', 'best_man', 'bride', 'bridesmaids', 'groom', 'groomsmen', 'guest', 'maid_of_honor', 'parents_immediate_family', 'principal_sponsors', 'secondary_sponsors', 'wedding_party'],
+  };
+}
+/** cale-ice's role names (`events.role_names`, same read). */
+export const LAB_CALE_ICE_ROLE_NAMES = {
+  groomsman: { one: "Groom's Crew" },
+  bridesmaid: { one: "Bride's Crew" },
+  principal_sponsor_ninang: { one: 'Ninang' },
+  principal_sponsor_ninong: { one: 'Ninong' },
+};
+/**
+ * cale-ice's Studio › Attire rows — what `studioAttireRows` builds from its guest list (read SELECT-only 2026-10-17:
+ * bride · groom · parents and immediate family · principal, candle, cord and veil sponsors · bridesmaids and maids of
+ * honor · groomsmen, best men and a best woman · bearers and flower girls · 20 guests).
+ */
+export const LAB_CALE_ICE_ATTIRE_ROWS = [
+  { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
+  { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
+  { tier: 'groups', key: 'vip_family', label: 'VIP · Immediate Family', paletteKey: 'parents_immediate_family', arrives: null, people: 6 },
+  { tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: null, people: 40 },
+  { tier: 'groups', key: 'secondary_sponsors', label: 'Secondary Sponsors', paletteKey: 'secondary_sponsors', arrives: null, people: 6 },
+  { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: null, people: 14 },
+  { tier: 'groups', key: 'groomsmen', label: 'Groomsmen', paletteKey: 'groomsmen', arrives: null, people: 16 },
+  { tier: 'groups', key: 'bearers_flower_girl', label: 'Bearers & Flower Girl', paletteKey: 'bearers_flower_girl', arrives: null, people: 5 },
+  { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null, people: 20 },
+] as const;
 
 /**
  * 👔 `?attire=roles` — THE PER-ROLE ATTIRE WALK (owner 2026-10-16, "APPROVED — ALL 45 ROLE × DESIGN DRAWINGS"), in

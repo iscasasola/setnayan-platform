@@ -36,7 +36,8 @@ import React from 'react';
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 const BOARD = { principal_sponsors: ['#C9A24B', '#F4E9DC'], touched_roles: ['principal_sponsors'] };
 /** A ninang the couple dressed and gave a call time. */
-const DRESSED = { roles: { principal_sponsor_ninang: { style: 'long_gown', callTime: '14:00' } } };
+/* The sponsors' row as the Studio stores it — her Wear is the women's, her call time the row's (2026-10-17). */
+const DRESSED = { groups: { principal_sponsors: { style: 'barong_tagalog', callTime: '14:00' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } };
 
 type Reader = { label: string; getIn: 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_approve'; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' }; on?: boolean };
 const LISTED: Reader = { label: 'a listed guest', getIn: 'list', reader: { kind: 'guest', entrySource: 'host_seeded' } };
@@ -109,7 +110,7 @@ test('What to wear — the outfit the couple set for that role; never a default 
 });
 
 test('Arrive by — the call time the couple set for that role', async () => {
-  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { roles: { principal_sponsor_ninang: { style: 'long_gown' } } } });
+  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { groups: { principal_sponsors: { style: 'barong_tagalog' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } } });
 });
 
 test('Coming with you — the named companions on their seats', async () => {

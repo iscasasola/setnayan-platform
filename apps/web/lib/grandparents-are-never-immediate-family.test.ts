@@ -10,8 +10,9 @@
  *   1. On every entourage look (On the axis, Lines, The march, no pick) and in the Maker's march sections, no
  *      grandparent is drawn under the Immediate Family heading, and none carries an immediate-family word. Each
  *      carries a grandparent word of THEIR OWN side, agreeing with the couple's entry where it says which (title,
- *      else attire — the parents' resolver), "Grandparent" where nothing does; two unknowns on one march line share
- *      "Grandparents of the …". The Grandparents section stands after Parents (the groom's side in the march) and
+ *      else attire — the parents' resolver), "Grandparent" where nothing does. On the march, people on one line who
+ *      are the SAME word say it once in the plural ("Grandmothers of the Groom", "Mothers of the Bride" — controller
+ *      2026-10-17 on #6600); different words stay one per person. The Grandparents section stands after Parents (the groom's side in the march) and
  *      before Immediate Family — also for a couple who arranged their sections before this group existed.
  *   2. Every role LIST in the app that names a parent role names the same side's grandparent role beside it — the
  *      memory "a re-listed vocabulary drops a later value" (the Ninong/Ninang split dropped two roles from the
@@ -163,24 +164,64 @@ for (const style of STYLES) {
   });
 }
 
-test('the march: no grandparent line says immediate family; each says its own word, two unknowns share the plural', async () => {
-  const html = await render(buildEntourage(rows), 'march');
-  let seen = 0;
-  for (const m of html.matchAll(/<li[^>]*data-march-line[^>]*>([\s\S]*?)<\/li>/g)) {
+/** The plural each same-word line must read — the test's own answer key (controller 2026-10-17 on #6600). */
+const PLURAL: Record<string, string> = {
+  'Grandmother of the Groom': 'Grandmothers of the Groom',
+  'Grandfather of the Bride': 'Grandfathers of the Bride',
+  'Grandparent of the Bride': 'Grandparents of the Bride',
+  'Mother of the Bride': 'Mothers of the Bride',
+  'Father of the Groom': 'Fathers of the Groom',
+};
+
+/** Each march line: its names and the words under them. */
+function marchLines(html: string): Array<{ names: string[]; words: string }> {
+  return [...html.matchAll(/<li[^>]*data-march-line[^>]*>([\s\S]*?)<\/li>/g)].map((m) => {
     const ps = [...m[1]!.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((x) => text(x[1]!));
-    const names = (ps[0] ?? '').split(' & ');
-    const words = (ps[1] ?? '').replace(/ · you walk .*$/, '');
+    return { names: (ps[0] ?? '').split(' & '), words: (ps[1] ?? '').replace(/ · you walk .*$/, '') };
+  });
+}
+
+/** What a line of kin must read: one shared word said once in the plural, else one word per person in name order. */
+function expectedKinWords(perPerson: readonly string[]): string {
+  if (perPerson.length > 1 && new Set(perPerson).size === 1) return PLURAL[perPerson[0]!] ?? `(no plural for ${perPerson[0]})`;
+  return perPerson.join(' · ');
+}
+
+test('the march: no grandparent line says immediate family; one word per person, the same word once in the plural', async () => {
+  let seen = 0;
+  let plural = 0;
+  for (const { names, words } of marchLines(await render(buildEntourage(rows), 'march'))) {
     const grands = names.filter((n) => GRANDS.has(n));
     if (grands.length === 0) continue;
     seen += grands.length;
     assert.doesNotMatch(words, IMMEDIATE, `the march: ${names.join(' & ')} — "${words}"`);
-    if (grands.every((n) => KNOWN[n]!.startsWith('Grandparent ')) && grands.length > 1) {
-      assert.equal(words, 'Grandparents of the Bride', `two unknown grandparents — "${words}"`);
-      continue;
-    }
-    assert.deepEqual(words.split(' · '), grands.map((n) => KNOWN[n]), `the march: ${names.join(' & ')}`);
+    const want = expectedKinWords(grands.map((n) => KNOWN[n]!));
+    if (!want.includes(' · ') && grands.length > 1) plural++;
+    assert.equal(words, want, `the march: ${names.join(' & ')}`);
   }
   assert.equal(seen, GRANDS.size, 'not every grandparent walked on the march — the guard sees too little');
+  /* The owner's two "Ms." grandmothers and the two unknowns: both lines must exercise the plural. */
+  assert.equal(plural, 2, 'expected two same-word grandparent lines');
+});
+
+test('the march: parents follow the same rule — "Mothers of the Bride", and a father with a mother stays two words', async () => {
+  const cast: Row[] = [
+    ['p1', 'Mrs.', 'Ana', 'Reyes', 'bride_parents', 1, 0],
+    ['p2', 'Mrs.', 'Lita', 'Reyes', 'bride_parents', 1, 1], // two mothers (a mother and a stepmother)
+    ['p3', 'Mr.', 'Jose', 'Abad', 'groom_parents', 2, 0],
+    ['p4', 'Mrs.', 'Luz', 'Abad', 'groom_parents', 2, 1],
+    ['p5', 'Mr.', 'Ramon', 'Uy', 'bride_grandparents', 3, 0],
+    ['p6', 'Atty.', 'Celso', 'Uy', 'bride_grandparents', 3, 1, 'suit'], // two grandfathers, one told by attire
+  ];
+  const r = cast.map(([id, prefix, first, last, role, walk, place, attire]) => ({
+    guest_id: id, name_prefix: prefix, first_name: first, last_name: last, role, extra_roles: [],
+    march: { walk_no: walk, place_in_walk: place }, attire: attire ?? 'neutral',
+  })) as unknown as EntourageGuestRow[];
+  const lines = marchLines(await render(buildEntourage(r), 'march'));
+  const said = (who: string) => lines.find((l) => l.names.includes(who))?.words;
+  assert.equal(said('Mrs. Ana Reyes'), 'Mothers of the Bride');
+  assert.equal(said('Mr. Jose Abad'), 'Father of the Groom · Mother of the Groom');
+  assert.equal(said('Mr. Ramon Uy'), 'Grandfathers of the Bride');
 });
 
 test("the Maker's march sections: no grandparent sits in Immediate Family", () => {

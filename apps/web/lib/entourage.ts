@@ -616,21 +616,16 @@ export function loneRoleWord(group: EntourageGroup, person: EntouragePerson): st
  * THE WORDS UNDER ONE MARCH LINE, in name order — e.g. "Father of the Groom · Mother of the Groom", "Ninong · Ninang".
  *
  * Each parent — and each grandparent — is named per person (owner 2026-10-17); any other word is said once
- * ("Bridesmaid", not twice). Two parents (or grandparents) of one side whose entries say neither father nor mother
- * keep the plural "Parents of the Groom" / "Grandparents of the Groom": a
+ * ("Bridesmaid", not twice). People on one line who are the SAME word share it in the plural (`kinWordForSeveral`):
+ * "Grandmothers of the Groom", "Mothers of the Bride", and two whose entries say neither father nor mother
+ * "Parents of the Groom" / "Grandparents of the Groom": a
  * singular beside two names is the defect "ONE NAME IS ONE PARENT" was written against, and repeating it twice
  * says nothing more.
  */
 export function marchLineWords(people: readonly EntouragePerson[], group: Pick<EntourageGroup, 'names' | 'label'>): string {
   const parentWords = people.map((p) => parentBesideOne(p, group.names));
-  if (
-    people.length > 1 &&
-    parentWords.every(Boolean) &&
-    people.every((p) => !p.parentWord) &&
-    new Set(people.map((p) => p.role)).size === 1
-  ) {
-    return roleLabel(people[0]!.role, group.names) ?? group.label;
-  }
+  const shared = kinWordForSeveral(parentWords);
+  if (shared) return shared;
   const words: string[] = [];
   people.forEach((p, i) => {
     const w = parentWords[i] ?? roleLabel(p.role, group.names) ?? group.label;
@@ -669,6 +664,18 @@ function parentBesideOne(person: EntouragePerson, names: RoleNames | null | unde
   const who = person.parentWord === 'father' ? 'father' : person.parentWord === 'mother' ? 'mother' : 'parent';
   const word = kin.grand ? `Grand${who}` : who.charAt(0).toUpperCase() + who.slice(1);
   return `${word} of the ${kin.side}`;
+}
+
+/**
+ * 👪 SEVERAL PEOPLE ON ONE LINE WHO ARE THE SAME WORD SAY IT ONCE, IN THE PLURAL (controller 2026-10-17, on #6600: the
+ * owner's two grandmothers, both "Ms.", read "Grandmother of the Groom · Grandmother of the Groom"). Two mothers of
+ * the bride → "Mothers of the Bride"; two grandfathers → "Grandfathers of the Bride"; two whose entries say neither →
+ * "Parents / Grandparents of the …" (the older plural, now the same rule). Null when any person has no kin word, or
+ * the words differ — those stay "X · Y", one per person.
+ */
+function kinWordForSeveral(words: readonly (string | null)[]): string | null {
+  if (words.length < 2 || !words.every(Boolean) || new Set(words).size !== 1) return null;
+  return words[0]!.replace(/^(\S+) of the /, '$1s of the ');
 }
 
 /**

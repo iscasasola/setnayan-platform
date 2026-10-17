@@ -256,6 +256,14 @@ test('4 · the Studio reads back exactly what the page reads — the women’s p
   }
 });
 
+test('4 · the Studio’s loader keeps every stored key — what it does not show, its whole-config save cannot delete', () => {
+  const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'mood-board-editor.tsx'), 'utf8');
+  const at = src.indexOf('dressConfig = ');
+  assert.ok(at > 0, 'precondition: the Studio’s dress code is bound');
+  const rhs = src.slice(at, src.indexOf(';', at));
+  assert.match(rhs, /\.\.\.\(stored/, 'the Studio is handed only the parsed config — a key it drops, its next save deletes');
+});
+
 test('5 · no "Our colours" in the dress code — it is each role’s figure and colours (owner 2026-10-17)', async () => {
   for (const look of PALETTE_LOOK_IDS) {
     for (const sceneStyle of [null, 'palette', 'line']) {

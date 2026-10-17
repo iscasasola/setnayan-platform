@@ -1,4 +1,3 @@
-import { isDressableRole } from '@/lib/attire-rows';
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -10,7 +9,7 @@ import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
-import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_PARENT_FIELDS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
+import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_PARENT_FIELDS, ENTOURAGE_ROLES, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
@@ -18,9 +17,8 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
-import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
-import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
-import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
+import { dressCodeForEveryone, dressCodeLines } from '@/lib/dress-code-for-everyone';
+import { resolveDisplayPalette } from '@/lib/room-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
@@ -31,7 +29,6 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import type { GuestRole } from '@/lib/guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
 import type { PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
@@ -77,7 +74,7 @@ import { isPlaceholderSeat } from '@/lib/extra-seats';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, ceremony_type, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -101,6 +98,8 @@ export type PrintEventRow = {
   std_film_venue_name: string | null;
   dress_code_config: unknown;
   role_palette: unknown;
+  /** The ceremony (`muslim` adds the Nikah principals' row) — the dress code's rows are the guest page's. */
+  ceremony_type?: string | null;
   print_details: unknown;
   pabuya_message: string | null;
   special_message: string | null;
@@ -227,19 +226,10 @@ async function readEntourage(
   return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
 }
 
-function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; line: string }> {
-  const cfg = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const say = (r: RoleAttireRule) => (r.note ? `${ATTIRE_STYLE_LABEL[r.style]}, ${r.note}` : ATTIRE_STYLE_LABEL[r.style]);
-  const out: Array<{ label: string; line: string }> = [];
-  for (const [group, rule] of Object.entries(sanitizeGroupAttire(cfg.groups))) {
-    if (rule) out.push({ label: roleGroupLabel(group as keyof typeof ROLE_GROUP_LABELS, names), line: say(rule) });
-  }
-  const roles = sanitizeRoleAttire(cfg.roles, isDressableRole);
-  for (const [role, rule] of Object.entries(roles)) {
-    const label = roleLabel(role as GuestRole, names) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
-    if (rule && label) out.push({ label, line: say(rule) });
-  }
-  return out;
+/** 👗 The print's dress code — the guest page's, read once (`dressCodeLines`, `lib/dress-code-for-everyone.ts`). */
+function attireLines(raw: unknown, palette: unknown, ceremonyType: string | null | undefined, names?: RoleNames): Array<{ label: string; line: string }> {
+  const stored = sanitizeRolePalette(palette);
+  return dressCodeLines(dressCodeForEveryone({ config: raw, stored, board: resolveDisplayPalette(stored), ceremonyType: ceremonyType ?? null, names: names ?? null }));
 }
 
 function swatchesFrom(raw: unknown): string[] {
@@ -731,7 +721,7 @@ export async function loadPrintSet(
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
-    attire: attireLines(event.dress_code_config, readRoleNames(event.role_names)),
+    attire: attireLines(event.dress_code_config, event.role_palette, event.ceremony_type, readRoleNames(event.role_names)),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,

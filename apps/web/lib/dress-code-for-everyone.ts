@@ -185,6 +185,26 @@ export function dressCodeForEveryone(input: {
 }
 
 /**
+ * 👗 THE DRESS CODE IN LINES, FOR PAPER (2026-10-18) — the general view above, one line per row that has a Wear picked:
+ * `{ label: "Principal Sponsors", line: "For men: Barong · For women: Filipiniana, <the couple's note>" }`.
+ *
+ * The prints (`lib/print-set.server.ts`) read the OLD stores (`dress_code_config.groups` / `.roles`, one Wear per group
+ * or entourage role) after the guest page moved to the Studio's rows (2026-10-17), so a card could say what the page
+ * no longer said — "Maid of Honor — Long gown", or nothing for a Wear picked for the women only. Paper now reads the
+ * page's rows, so the two cannot disagree. A row with colours only prints no line (the card's swatches carry them).
+ */
+export function dressCodeLines(everyone: EveryoneDressCode): Array<{ label: string; line: string }> {
+  const out: Array<{ label: string; line: string }> = [];
+  for (const row of everyone.rows) {
+    const worn = row.picks.filter((p) => p.styleLabel);
+    if (worn.length === 0) continue;
+    const wear = worn.map((p) => (p.label ? `${p.label}: ${p.styleLabel}` : p.styleLabel)).join(' · ');
+    out.push({ label: row.label, line: row.note ? `${wear}, ${row.note}` : wear });
+  }
+  return out;
+}
+
+/**
  * WHEN THE READER'S OWN ANSWER STANDS DOWN FOR EVERYONE'S.
  *
  * Owner, 2026-09-28: *"if there is an account specified to this, show their

@@ -56,7 +56,7 @@ export function GroupAttireField({
   roles: RoleAttireMap;
   compact?: boolean;
   /** The Wear as Studio › Mood Board & Dress Code says it (`wearSaid`) — the one place it is picked (2026-10-17). */
-  wear?: (tier: 'roles' | 'groups', key: string) => string | null;
+  wear?: Readonly<Record<string, string>>;
   /** The couple's own words for roles (owner 2026-09-30). */
   roleNames?: RoleNames;
 }) {
@@ -93,7 +93,7 @@ export function GroupAttireField({
                   zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
               <input type="hidden" name="group_style" value={current?.style ?? ''} />
               <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-group-wear={group}>
-                {wear?.('groups', group) ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
+                {wear?.[`groups:${group}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
               </span>
             </div>
 

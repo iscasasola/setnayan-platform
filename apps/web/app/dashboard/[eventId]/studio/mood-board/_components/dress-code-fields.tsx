@@ -1,4 +1,4 @@
-import { attireRow, isDressableRole, sanitizeSecondPicks, wearSaid } from '@/lib/attire-rows';
+import { ATTIRE_ROWS, attireRow, isDressableRole, sanitizeSecondPicks, wearSaid } from '@/lib/attire-rows';
 import { RoleAttireField } from './role-attire-field';
 import { GroupAttireField } from './group-attire-field';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
@@ -82,10 +82,10 @@ export function DressCodeFields({
      person, from that person's own designs; this form shows it as the Studio says it and keeps only the call time and
      the note. Its old Wear ▾ listed one global list for a whole group (a "Formal" for parents, a "Long gown" for a
      father) — a second way to write the same fact that the Studio and the guest page then read as "Not said yet". */
-  const wearOf = (tier: 'roles' | 'groups', key: string): string | null => {
-    const row = attireRow(tier, key);
-    return row ? wearSaid(config as unknown as Record<string, unknown>, row) : null;
-  };
+  /* A plain map (`tier:key` → words), never a function: the fields are client components (2026-10-17). */
+  const wearOf: Record<string, string> = Object.fromEntries(
+    ATTIRE_ROWS.map((row) => [`${row.tier}:${row.key}`, wearSaid(config as unknown as Record<string, unknown>, row)]),
+  );
   /* Only the people the Studio dresses by their OWN row (the celebrant, the bride, the groom) are listed by role. */
   const ownRowRoles = eventRoles.filter((r) => attireRow('roles', r.role) !== null);
 

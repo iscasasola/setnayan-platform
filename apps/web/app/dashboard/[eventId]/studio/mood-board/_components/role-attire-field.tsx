@@ -30,7 +30,7 @@ export function RoleAttireField({
   saved: RoleAttireMap;
   compact?: boolean;
   /** The Wear as Studio › Mood Board & Dress Code says it (`wearSaid`) — the one place it is picked (2026-10-17). */
-  wear?: (tier: 'roles' | 'groups', key: string) => string | null;
+  wear?: Readonly<Record<string, string>>;
 }) {
   if (roles.length === 0) {
     return (
@@ -63,7 +63,7 @@ export function RoleAttireField({
                   zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
               <input type="hidden" name="role_style" value={current?.style ?? ''} />
               <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-role-wear={role}>
-                {wear?.('roles', role) ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
+                {wear?.[`roles:${role}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
               </span>
             </div>
             {/* ⏰ CALL TIME (owner 2026-09-23: “what she needs most is her call

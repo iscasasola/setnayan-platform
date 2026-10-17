@@ -41,7 +41,7 @@ import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board'
    ⛔ NOTHING PICKED, NOTHING SHOWN. A person shows when their Wear is picked or the couple picked the row's colours
    (a key in `touched_roles`); a row shows when one of its people does. Never a bare heading, never a default.
    ⚠ What the Studio has no row for is not drawn: the old per-role lines (`dress_code_config.roles` for anyone but the
-   bride, the groom, the celebrant and the guests), the old palette keys (`maid_of_honor`, `best_man`, `wedding_party`)
+   bride, the groom, the celebrant and the guests), the old palette keys (`maid_of_honor`, `best_man` — the best man's and the best woman's, `best_woman` — and `wedding_party`)
    and couple-named roles. Nothing is deleted — the stored values stay where they are. */
 
 /** One line of instruction under a row: "For men · Suit and tie" (a two-pick row) or the row's own Wear. */

@@ -992,25 +992,38 @@ async function nameTheSeats(
         } else {
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
-          const { error } = await admin.from('guests').insert({
-            ...seatAnswers,
-            event_id: eventId,
-            first_name: first,
-            last_name: last,
-            ...seatNamePartColumns(op),
-            side: primary.side,
-            group_category: primary.group_category,
-            role: 'guest',
-            rsvp_status: 'pending',
-            photo_consent: true,
-            plus_one_of_guest_id: guestId,
-            plus_one_mode: primary.plus_one_mode,
-            plus_one_name_confirmed_at: stamp,
+          //
+          // 🔒 ONE SEAT PER NAME, NEVER PAST THE COUPLE'S COUNT — EVEN TWICE AT
+          // ONCE (event-day L1·1, migration 20271272305444). The plan above was
+          // made from a read; two submits of this reply (a double tap, a retry
+          // after a lost answer, two tabs) each planned this same create. So the
+          // mint is ONE database call under a lock on THIS bringer: the allowance
+          // is re-read there, a live seat already carrying this name is returned
+          // instead of a second one, and a bringer at their count gets `full` —
+          // the name is then not saved, exactly as `planSeatNames` drops a name
+          // past the count. The row's side, group and +1 mode are the bringer's,
+          // read inside the same lock.
+          const { data: minted, error } = await admin.rpc('guest_plus_one_seat_mint', {
+            p_event_id: eventId,
+            p_bringer_guest_id: guestId,
+            p_seat: {
+              ...seatAnswers,
+              first_name: first,
+              last_name: last,
+              ...seatNamePartColumns(op),
+              plus_one_name_confirmed_at: stamp,
+            },
           });
-          if (error) {
-            logQueryError('submitRsvp.mintSeat', error, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+          const mintStatus = (minted as { status?: string } | null)?.status;
+          if (error || (mintStatus !== 'ok' && mintStatus !== 'full')) {
+            logQueryError(
+              'submitRsvp.mintSeat',
+              error ?? { message: `guest_plus_one_seat_mint answered ${mintStatus ?? 'nothing'}` },
+              { event_id: eventId, bringer_guest_id: guestId },
+              'graceful_degrade',
+            );
             failed = true;
-          } else namedCount += 1;
+          } else if (mintStatus === 'ok') namedCount += 1;
         }
       }
 

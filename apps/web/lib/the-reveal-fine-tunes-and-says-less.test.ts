@@ -94,8 +94,10 @@ test('the opening on the guest page reads the tuned look, never the raw house lo
 test('each opening offers only the knobs its engine reads', () => {
   const on = { petals: true, butterflies: true };
   const keys = (opening: string, fx = on) => revealTuneKnobsFor(opening, fx).map((k) => k.key);
-  assert.deepEqual(keys('veil-sheer'), ['feather', 'wind', 'petalsDensity']);
-  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['feather', 'wind']);
+  /* 2026-10-17: the veil's wind is Wind ▾ (Still · Breeze · Gusty, `lib/veil-style.ts`) on Cover Scene › Style — onto the
+     same `tune.wind` — so the Sway slider is no longer offered beside it (one control per fact). */
+  assert.deepEqual(keys('veil-sheer'), ['feather', 'petalsDensity']);
+  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['feather']);
   assert.deepEqual(keys('church-doors'), ['petalDensity', 'petalSize', 'petalFall']);
   for (const env of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal']) {
     assert.deepEqual(keys(env), ['butterflyCount', 'butterflySpeed', 'butterflySize'], env);

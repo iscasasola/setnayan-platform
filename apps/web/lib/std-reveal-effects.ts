@@ -149,7 +149,9 @@ const ENVELOPE_OPENINGS = new Set(['four-flap', 'two-flap-vertical', 'two-flap-h
 /** The knobs THIS opening's engine reads, given what the couple has switched on. */
 export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
   const K = REVEAL_TUNE_KNOBS;
-  if (opening === 'veil-sheer') return effects.petals ? [K.feather, K.wind, K.petalsDensity] : [K.feather, K.wind];
+  /* 🌬 The veil's wind is Wind ▾ on Cover Scene › Style now (owner 2026-10-17, `lib/veil-style.ts` — Still · Breeze ·
+     Gusty onto this same `tune.wind`): one control for it, so the old Sway slider is not offered beside it. */
+  if (opening === 'veil-sheer') return effects.petals ? [K.feather, K.petalsDensity] : [K.feather];
   if (opening === 'church-doors') return effects.petals ? [K.petalDensity, K.petalSize, K.petalFall] : [];
   if (ENVELOPE_OPENINGS.has(opening)) {
     return effects.butterflies ? [K.butterflyCount, K.butterflySpeed, K.butterflySize] : [];

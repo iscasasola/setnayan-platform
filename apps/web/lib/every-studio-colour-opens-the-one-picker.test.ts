@@ -279,7 +279,7 @@ const PAINTED = /style=\{\{\s*background(?:Color)?:\s*[A-Za-z_][\w.]*(?:\s*\?\?\
 const PAINTS: Record<string, [number, string]> = {
   'launch/_components/hub-stage.tsx': [4, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
-  'launch/_components/maker-reveal.tsx': [1, 'the Reveal colour row’s trigger — opens ColourSheet'],
+  'launch/_components/maker-reveal.tsx': [2, 'the Reveal colour row’s trigger, and (2026-10-17) the Sheer veil’s ONE colour circle on Cover Scene › Style — each opens ColourSheet on the same `veilColor`'],
   /* 2026-10-10 (first seen by this guard a week of commits late: the sweep reads the folder, and the file's own guard
      did not run it). 🔁 RE-AIMED the same day: it was six circles — the page's own + the event's five as slots, no
      picker — and was flagged here as built. Owner, looking at it: "i thought our plan for colour is just 1 colour

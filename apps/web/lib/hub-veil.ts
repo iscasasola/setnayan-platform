@@ -31,6 +31,7 @@
  *   · JS clocks — the few that tick on their own read `useVeilHeld()` (`lib/use-veil-held.ts`; the countdown).
  *   · The cover's WORDS — not drawn at all while held (`COVER_LINE_ATTR`), and every line enters after the unveil
  *     (`VEIL_WORDS_ATTR`, owner 2026-10-16). See `COVER_LINE_ATTR` below.
+ *   · THE PAGE ITSELF — it does not scroll (`VEIL_STILL_PAGE_CSS` + the script's `touchmove`), owner 2026-10-17. See below.
  *
  * 🪤 NO REACT IN THIS FILE: `RevealMount` (a server component) imports the script from here, and a hook in
  * the same module breaks the server build ("useSyncExternalStore … only works in a Client Component").
@@ -93,8 +94,30 @@ export const COVER_LINE_ATTR = 'data-cover-line';
 /** `COVER_LINE_ATTR`'s value on a line with a Build in of its own — it keeps it; every other line is `""`. */
 export const COVER_LINE_OWN = 'own';
 const VEIL_HOLD_WORDS_CSS = `[${COVER_LINE_ATTR}]{opacity:0 !important}`;
-/** The hold's whole rule: everything waits, and the cover's words are not drawn. */
-const VEIL_HOLD_FULL_CSS = VEIL_HOLD_CSS + VEIL_HOLD_WORDS_CSS;
+/**
+ * 🧱 THE PAGE STAYS STILL UNTIL THE UNVEIL (owner 2026-10-17, verbatim, on live `/cale-ice` with the veil closed:
+ * *"website will not scroll until reveal starts/opens/ etc. i notice i can already scroll"* — the 2026-10-15 ruling
+ * "NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED" covers the page's own scroll).
+ *
+ * MEASURED BEFORE (controller, live, veil closed): `scrollY` 0 of a 9,259 px document in a 1,092 px screen; `<html>`
+ * and `<body>` `overflow: clip visible` (y free); `data-reveal-up` present. Nothing ever locked the document: that mark
+ * is read only by the scrub hand-overs (`hub-scrub.tsx`), and the only barrier was the veil's own hit-zone
+ * (`touch-action: none`), which stops a touch pan that STARTS on the armed veil and nothing else — never a wheel, a
+ * trackpad, the keys, or a touch before the WebGL veil has loaded and armed.
+ *
+ * So, while held, the document is not a user scroller: `overflow: hidden` on `<html>` and `<body>` (wheel, trackpad,
+ * keys, touch on iOS 16+), `overscroll-behavior: none` (no rubber band), the gutter kept so nothing jumps when it
+ * lets go — and, in the script, a non-passive `touchmove` that cancels any pan outside the opening's own box (older
+ * iOS Safari scrolls a hidden body by touch). The veil's swipe up is pointer events on its own box, untouched.
+ * It comes off with the hold — the moment the unveil STARTS (`unveilInGesture`), not when the cloth has risen — so
+ * the drape and the cover's entrance play while the guest can already move. Where the hold is never written (no
+ * opening, reduced motion, the Maker's canvas, the ▶ preview) the page was never locked; after the unveil the hold is
+ * gone for the visit (`__veilRelease` runs once), so a returning cover and its drape never lock it again.
+ */
+export const VEIL_STILL_PAGE_CSS =
+  'html,body{overflow:hidden !important;overscroll-behavior:none !important}html{scrollbar-gutter:stable}';
+/** The hold's whole rule: everything waits, the cover's words are not drawn, and the page stays still. */
+const VEIL_HOLD_FULL_CSS = VEIL_HOLD_CSS + VEIL_HOLD_WORDS_CSS + VEIL_STILL_PAGE_CSS;
 /**
  * …and AFTER the unveil every line ENTERS. One `<style data-veil-words>` in `<head>`, written beside the hold and
  * NEVER taken off: it says "this page opened under a veil", and `globals.css` gives every line with no Build in of its
@@ -140,6 +163,8 @@ var free=function(el){return !el||!el.closest||el.closest('[${REVEAL_LAYER_ATTR}
 var hold=function(m){if(free(m))return;try{m.pause()}catch(e){}if(held.indexOf(m)<0)held.push(m)};
 var onPlay=function(e){var m=e.target;if(!on())return;if(m&&(m.tagName==='VIDEO'||m.tagName==='AUDIO'))hold(m)};
 document.addEventListener('play',onPlay,true);
+var still=function(e){if(on()&&e.cancelable&&!free(e.target))e.preventDefault()};
+document.addEventListener('touchmove',still,{passive:false});
 var ms=document.querySelectorAll('video,audio');for(var i=0;i<ms.length;i++){if(!ms[i].paused)hold(ms[i])}
 var scan=function(){raf=0;if(!on())return;
 if(document.getAnimations){var as=document.getAnimations();for(var j=0;j<as.length;j++){var a=as[j];
@@ -154,6 +179,7 @@ if(!on())return;
 try{var ls=document.querySelectorAll('[${COVER_LINE_ATTR}]');for(var c=0;c<ls.length;c++){ls[c].style.setProperty('--cover-at',String(c))}}catch(e){}
 if(st.parentNode)st.parentNode.removeChild(st);
 document.removeEventListener('play',onPlay,true);
+document.removeEventListener('touchmove',still,{passive:false});
 if(raf&&w.cancelAnimationFrame)w.cancelAnimationFrame(raf);
 var hs=held;held=[];for(var k=0;k<hs.length;k++){var m=hs[k];if(m.isConnected){var p=m.play();if(p&&p.catch)p.catch(function(){})}}
 var an=anims;anims=[];for(var n=0;n<an.length;n++){try{an[n].play()}catch(e){}}

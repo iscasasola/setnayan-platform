@@ -28,7 +28,8 @@
  * weight, valance, petal density, colours, feature toggles) update instantly;
  * structural knobs (folds, fullness, reaches, logo size/opacity) trigger a
  * geometry/texture rebuild. On the live couple site the props are static, so the
- * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`.
+ * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`, and (owner 2026-10-17) the Sheer
+ * veil's Fold · Weave · Wind presets (`lib/veil-style.ts`), which arrive as the look's `drape` · `weave` · `wind`+`gust`.
  */
 
 import { useEffect, useRef } from 'react';
@@ -37,6 +38,7 @@ import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold } from '@/lib/hub-veil';
+import { liftedValance, weaveOf } from '@/lib/veil-style';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -106,9 +108,10 @@ const DRAPE_HANG_FRAMES = 60;
 const DRAPE_HANG_FROM = 0.02;
 /**
  * 🎭 How deep the kept drape hangs — the look's `topValance` for the Event Hub's drape. Measured (walk 2 probe, WebKit
- * 375): the locked 30 hangs the settled fold over ~30 % of the cover; the owner's live reference is ~15–20 %.
+ * 375): the locked 30 hangs the settled fold over ~30 % of the cover; the owner's live reference is ~15–20 %. It is the
+ * look's house `drape` (2026-10-17), so the couple's Fold ▾ reaches the cloth through the same tuned look.
  */
-const DRAPE_VALANCE = 15;
+const DRAPE_VALANCE = DEFAULT_VEIL_LOOK.drape;
 /**
  * 🎭 …and it comes to rest without overshooting. The locked `bounce` (83) leaves the cloth nearly undamped, so the
  * rising fold sailed past its hanging pose to ~9 % of the cover and sank back (probe B). The kept drape is damped to
@@ -190,7 +193,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   // Structural knobs need a geometry/texture rebuild; the main effect wires this.
   const restructureRef = useRef<() => void>(() => {});
   const firstRestructure = useRef(true);
-  const structuralKey = `${L.tilePx}|${L.logoSize}|${L.logoOpacity}|${L.folds}|${L.fullness}|${L.reaches}|${feats.logo}`;
+  const structuralKey = `${L.tilePx}|${L.logoSize}|${L.logoOpacity}|${L.folds}|${L.fullness}|${L.reaches}|${L.weave}|${feats.logo}`;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -268,11 +271,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const S = TEX;
       const aC = cvs();
       const a = aC.getContext('2d')!;
-      a.fillStyle = '#242424';
+      // 🧵 The couple's Weave ▾ (`weave`, 50 = the locked weave EXACTLY: a #242424 ground, 12 px threads at 5.5 %).
+      const wv = weaveOf(cfgRef.current.weave);
+      a.fillStyle = wv.ground;
       a.fillRect(0, 0, S, S);
-      a.strokeStyle = 'rgba(255,255,255,0.055)';
+      a.strokeStyle = wv.thread;
       a.lineWidth = 2;
-      for (let d = -S; d < S * 2; d += 12) {
+      for (let d = -S; d < S * 2; d += wv.pitch) {
         a.beginPath();
         a.moveTo(d, 0);
         a.lineTo(d + S, S);
@@ -820,6 +825,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const pz0 = pinchZ();
       const BUNCH = 0.3;
       const wind = settling ? 0 : (cfg.wind / 100) * 5;
+      // 🌬 The couple's Wind ▾ randomness (`gust`, 0 = the locked even sway EXACTLY — `tw` is then `t`, no gust term).
+      const gs = cfg.gust / 100;
+      const tw = gs > 0 ? t * (1 + 0.9 * gs) : t;
+      const burst = gs > 0 ? 1 + gs * (2.2 * Math.pow(Math.max(0, Math.sin(t * 0.83 + 1.7 * Math.sin(t * 0.29))), 2) - 0.35) : 1;
       for (let k = 0; k < N; k++) {
         if (k < cols) {
           px[k] = pinX[k]!;
@@ -834,8 +843,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const iy = (k / cols) | 0;
         const rf = iy / (rows - 1);
         const we = rf * rf * (0.35 + 0.65 * rf);
-        const aw = wind * we * (Math.sin(t * 0.6 + iy * 0.24 + ix * 0.13) + 0.35 * Math.sin(t * 1.1 + ix * 0.3));
-        const az = wind * 0.55 * we * Math.cos(t * 0.5 + ix * 0.12 + iy * 0.1);
+        const aw =
+          wind * we * burst * (Math.sin(tw * 0.6 + iy * 0.24 + ix * 0.13) + 0.35 * Math.sin(tw * 1.1 + ix * 0.3)) +
+          (gs > 0 ? wind * we * gs * 0.6 * Math.sin(tw * 2.3 + ix * 0.41 + iy * 0.17 + 3 * Math.sin(t * 0.13 + ix * 0.05)) : 0);
+        const az = wind * 0.55 * we * burst * Math.cos(tw * 0.5 + ix * 0.12 + iy * 0.1);
         const nx = px[k]! + (px[k]! - qx[k]!) * drag + aw * dt * dt;
         const ny = py[k]! + (py[k]! - qy[k]!) * drag + g * dt * dt;
         const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + az * dt * dt;
@@ -850,7 +861,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (lift > 0.015) {
         const pull0 = (0.05 + (cfg.trail / 100) * 0.32) * ss(0.02, 0.42, lift);
         const clothHvh = clothH / vh;
-        const hemUp = Math.max(0.2, clothHvh - 4 * ((keepsOpenRef.current ? DRAPE_VALANCE : cfg.topValance) / 100));
+        const hemUp = Math.max(0.2, clothHvh - 4 * (liftedValance(cfg, keepsOpenRef.current, DRAPE_VALANCE) / 100));
         const hy = topPin + vh * hemUp * ss(0.02, 1, lift);
         const hz = frontZ - 0.25;
         for (let ix2 = 0; ix2 < cols; ix2++) {

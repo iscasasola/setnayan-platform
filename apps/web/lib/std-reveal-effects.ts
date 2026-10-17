@@ -107,7 +107,13 @@ export type RevealTuneKey =
   | 'petalFall'
   | 'butterflyCount'
   | 'butterflySpeed'
-  | 'butterflySize';
+  | 'butterflySize'
+  /* 🧵 The Sheer veil's Style choices (owner 2026-10-17 — Fold ▾ · Weave ▾ · Wind ▾, `lib/veil-style.ts`): three
+     presets each, stored as these house-look overrides, so the guest's veil plays them through the SAME
+     `tuneRevealLooks` every surface already reads. No slider offers them (`revealTuneKnobsFor` leaves them out). */
+  | 'drape'
+  | 'weave'
+  | 'gust';
 export type RevealTune = Partial<Record<RevealTuneKey, number>>;
 
 export type RevealTuneKnob = {
@@ -133,6 +139,9 @@ export const REVEAL_TUNE_KNOBS: Record<RevealTuneKey, RevealTuneKnob> = {
   butterflyCount: { key: 'butterflyCount', look: 'effects', label: 'Butterflies', lo: 'Few', hi: 'Many', min: 0, max: 100, step: 1 },
   butterflySpeed: { key: 'butterflySpeed', look: 'effects', label: 'Butterfly speed', lo: 'Slow', hi: 'Fast', min: 0, max: 100, step: 1 },
   butterflySize: { key: 'butterflySize', look: 'effects', label: 'Butterfly size', lo: 'Small', hi: 'Large', min: 0, max: 100, step: 1 },
+  drape: { key: 'drape', look: 'veil', label: 'Fold', lo: 'Light', hi: 'Full', min: 0, max: 70, step: 1 },
+  weave: { key: 'weave', look: 'veil', label: 'Weave', lo: 'Fine', hi: 'Dense', min: 0, max: 100, step: 1 },
+  gust: { key: 'gust', look: 'veil', label: 'Gusts', lo: 'Even', hi: 'Gusty', min: 0, max: 100, step: 1 },
 };
 
 const ENVELOPE_OPENINGS = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
@@ -140,7 +149,9 @@ const ENVELOPE_OPENINGS = new Set(['four-flap', 'two-flap-vertical', 'two-flap-h
 /** The knobs THIS opening's engine reads, given what the couple has switched on. */
 export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
   const K = REVEAL_TUNE_KNOBS;
-  if (opening === 'veil-sheer') return effects.petals ? [K.feather, K.wind, K.petalsDensity] : [K.feather, K.wind];
+  /* 🌬 The veil's wind is Wind ▾ on Cover Scene › Style now (owner 2026-10-17, `lib/veil-style.ts` — Still · Breeze ·
+     Gusty onto this same `tune.wind`): one control for it, so the old Sway slider is not offered beside it. */
+  if (opening === 'veil-sheer') return effects.petals ? [K.feather, K.petalsDensity] : [K.feather];
   if (opening === 'church-doors') return effects.petals ? [K.petalDensity, K.petalSize, K.petalFall] : [];
   if (ENVELOPE_OPENINGS.has(opening)) {
     return effects.butterflies ? [K.butterflyCount, K.butterflySpeed, K.butterflySize] : [];

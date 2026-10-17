@@ -5,6 +5,7 @@ import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
+import { bytesStream } from '@/lib/stream-file';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
@@ -94,7 +95,9 @@ import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '
  */
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -148,8 +151,9 @@ function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
   return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
+/** 📤 Every print PDF leaves as a STREAM — the same bytes, no Content-Length (`lib/stream-file.ts`: a buffered body stops at 4.5 MB on Vercel). */
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: string | null = null): NextResponse {
-  return new NextResponse(Buffer.from(bytes), {
+  return new NextResponse(bytesStream(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/pdf',

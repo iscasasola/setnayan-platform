@@ -2104,8 +2104,8 @@ export async function SiteBody({
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
         {/* 🎬 THE STRANGER'S PHOTO COVER HANDS OVER (hand-over zero, as the guest tree's does — `HubCoverHold`). It is
-            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page —
-            the door, in the next group — found by the engine, and because the door is the page's action row the
+            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page
+            (its door rides in its own foot since 2026-10-17, `footDoor`) — found by the engine, and because the door is the page's action row the
             block after it arrives with it (owner 2026-10-10: *"Together."*). The cover's marker goes in WITH it, so
             the Maker still finds the cover right after its marker.
             🔒 A cover that does not leave — every page today — is not wrapped: the marker and the masthead AS GIVEN. */}

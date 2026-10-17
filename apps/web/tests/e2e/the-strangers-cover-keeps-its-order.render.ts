@@ -35,11 +35,12 @@ async function main() {
         import { createElement } from 'react';
         import { createRoot } from 'react-dom/client';
         import { FirstScreenDoor } from './app/[slug]/_components/first-screen-door';
-        for (const door of document.querySelectorAll('details[data-get-inside].sn-door-dock')) {
+        for (const door of document.querySelectorAll('details[data-get-inside]')) {
           for (const old of door.querySelectorAll(':scope > span[hidden]')) old.remove();
           const host = document.createElement('span');
           door.appendChild(host);
-          createRoot(host).render(createElement(FirstScreenDoor));
+          /* As the page mounts it: a door in the cover's foot is not fitted around (owner 2026-10-17); a docked one is. */
+          createRoot(host).render(createElement(FirstScreenDoor, { fit: !door.closest('[data-cover-foot]') }));
         }`,
       resolveDir: WEB,
       loader: 'tsx',

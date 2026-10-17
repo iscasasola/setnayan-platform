@@ -74,3 +74,6 @@ The note: one calm line, never a modal, never a choice — "Changed on another s
 - Tests: lib/two-hosts-never-overwrite.test.ts (12) · tests/db/two-hosts-never-overwrite.db.test.ts (5); sabotage S1–S9
   all red→restored green. 14 source guards re-pointed (same property, new shape).
 - NEXT: lab walk shots (375 WebKit, light+dark) → shots-2026-10-18/6626/; CI loop; PR body.
+- 2026-10-18 later: also wired the Maker's two whole-canvas writers (`use-scene-canvas.ts`, `part-look.ts`) — row 5
+  partly FIXED. Labs: maker lab's draft door rebases (two tabs = two screens); guests lab `?elsewhere=1`. Shots in
+  ~/Documents/Claude/Projects/shots-2026-10-18/6626/. PR body complete. NEXT: CI loop to green; then delete this file.

@@ -12,8 +12,10 @@
  *
  * THE PROPERTIES, on every entourage look (On the axis, Lines, The march, and no pick):
  *   1. every parent carries a parent word of THEIR OWN side; where the couple's entry says father or mother
- *      (title, else the guest card's attire) the word agrees with it; with nothing to tell, it says "Parent" — it
- *      never guesses. On the march a line of N parents says N parent words in name order, except two parents whose
+ *      (title — every title word, so "Atty. Mrs." is a mother and "Atty." alone is nothing — else the guest card's
+ *      attire) the word agrees with it; where a side has exactly TWO parents and only one is told, the other is the
+ *      other word (owner 2026-10-17, live /cale-ice: "mother of the groom"); with nothing to tell — one person, two
+ *      unknowns, or three or more — it says "Parent". It never guesses. On the march a line of N parents says N parent words in name order, except two parents whose
  *      entries say neither, who share the plural (a singular beside two names is the older defect).
  *   2. no person centred alone in a group whose heading names TWO roles (the heading holds " & ") is drawn
  *      without a word under their name; and under a CATEGORY heading (Principal Sponsors) a lone Ninang still gets
@@ -25,6 +27,10 @@
  * ("the march: 2 parents, 1 parent word(s)"); the axis solo back to `roleBesideName` → 2 ("a lone person under
  * 'Maid of Honor & Best Man' has no word"); `parentWordOf` without the attire step → 4 ("Atty. Luz Abad: said
  * Parent, the couple's entry says mother").
+ * Then (2026-10-17, out of 34 with the grandparents guard): `withThePairInferred` returning the words unchanged → 5
+ * ("Atty. Eufemia M. Sacdalan-Dela Cruz: said Parent, … mother"); the prefix read as its first word only, the
+ * display name's titles not read → 4 ("Atty. Mrs. Lorna Diaz"); the pair overriding a word the entry already says
+ * → 5 (two "Ms." grandmothers became Grandmother · Grandfather). Each restored, green 51/51 with the neighbours.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,7 +42,7 @@ import { STAGE_SCENE_STYLE_SETS } from './scene-styles-stages';
 /* 🪤 The components are `"jsx": "preserve"` — React must be global before their dynamic import. */
 (globalThis as unknown as { React: unknown }).React = React;
 
-type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk: number, place: number, attire?: string];
+type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk: number, place: number, attire?: string, display?: string];
 /** What the couple's entry says about each parent — the test's own answer key, never read from the module. */
 const KNOWN: Record<string, 'Father' | 'Mother' | 'Parent'> = {};
 
@@ -59,6 +65,44 @@ const GROOM_ONLY: Row[] = [
   ['g1', 'Mr.', 'Pedro', 'Abad', 'groom_parents', 1, 0],
   ['g2', 'Mrs.', 'Luz', 'Abad', 'groom_parents', 1, 1],
 ];
+/**
+ * 👪 THE OTHER PARENT (owner 2026-10-17, live /cale-ice: "Mr. … — Father of the Groom" beside "Atty. … — Parent of the
+ * Groom"; his word: "mother of the groom"). Exactly two on a side, one told by the entry, the other not → the other
+ * word. Here both directions: a "Mr." with an "Atty." (attire at its default), and a "Mrs." with an "Engr.".
+ */
+const CALE: Row[] = [
+  ['c1', 'Mr.', 'Manolo C.', 'Dela Cruz', 'groom_parents', 1, 0],
+  ['c2', 'Atty.', 'Eufemia M.', 'Sacdalan-Dela Cruz', 'groom_parents', 1, 1],
+  ['c3', 'Mrs.', 'Ana', 'Uy', 'bride_parents', 2, 0],
+  ['c4', 'Engr.', 'Benjamin', 'Uy', 'bride_parents', 2, 1],
+];
+/** Three on one side: nobody is inferred — the "Mr." stays Father, the two whose entries say neither stay Parent. */
+const THREE: Row[] = [
+  ['t1', 'Mr.', 'Tomas', 'Reyes', 'groom_parents', 1, 0],
+  ['t2', 'Atty.', 'Tess', 'Reyes', 'groom_parents', 1, 1],
+  ['t3', 'Dr.', 'Tina', 'Reyes', 'groom_parents', 2, 0],
+];
+/**
+ * A gendered title AFTER a professional one is still read, in the prefix and in a typed "Shown as" name; and an
+ * "Atty." alone on a side (no pair to tell) stays Parent — a professional title is never a gender word.
+ */
+const TITLES: Row[] = [
+  ['a1', 'Atty. Mrs.', 'Lorna', 'Diaz', 'bride_parents', 1, 0],
+  ['a2', null, 'Carmen', 'Diaz', 'groom_parents', 2, 0, undefined, 'USec. Mrs. Carmen Diaz'],
+];
+const LONE_ATTY: Row[] = [['l1', 'Atty.', 'Rex', 'Diaz', 'groom_parents', 1, 0]];
+Object.assign(KNOWN, {
+  'Mr. Manolo C. Dela Cruz': 'Father',
+  'Atty. Eufemia M. Sacdalan-Dela Cruz': 'Mother',
+  'Mrs. Ana Uy': 'Mother',
+  'Engr. Benjamin Uy': 'Father',
+  'Mr. Tomas Reyes': 'Father',
+  'Atty. Tess Reyes': 'Parent',
+  'Dr. Tina Reyes': 'Parent',
+  'Atty. Mrs. Lorna Diaz': 'Mother',
+  'USec. Mrs. Carmen Diaz': 'Mother',
+  'Atty. Rex Diaz': 'Parent',
+});
 Object.assign(KNOWN, {
   'Mr. Pedro Abad': 'Father',
   'Atty. Luz Abad': 'Mother',
@@ -68,8 +112,9 @@ Object.assign(KNOWN, {
 });
 
 const toRows = (rows: Row[]): EntourageGuestRow[] =>
-  rows.map(([id, prefix, first, last, role, walk, place, attire]) => ({
+  rows.map(([id, prefix, first, last, role, walk, place, attire, display]) => ({
     guest_id: id,
+    display_name: display ?? null,
     name_prefix: prefix,
     first_name: first,
     last_name: last,
@@ -82,12 +127,21 @@ const toRows = (rows: Row[]): EntourageGuestRow[] =>
 const CASTS: Array<[string, EntourageGroup[]]> = [
   ['the full cast', buildEntourage(toRows(FULL))],
   ["only the groom's parents", buildEntourage(toRows(GROOM_ONLY))],
+  ["cale-ice's shape — a Mr. with an Atty., a Mrs. with an Engr.", buildEntourage(toRows(CALE))],
+  ['three parents on one side', buildEntourage(toRows(THREE))],
+  ['a gendered title after a professional one', buildEntourage(toRows(TITLES))],
+  ['an Atty. alone on a side', buildEntourage(toRows(LONE_ATTY))],
 ];
 const SIDE_OF: Record<string, 'Bride' | 'Groom'> = { g1: 'Groom', g2: 'Groom', b1: 'Bride', b2: 'Bride' };
 const ID_OF: Record<string, string> = Object.fromEntries(
   FULL.filter((r) => r[4].endsWith('_parents')).map((r) => [`${r[1]} ${r[2]} ${r[3]}`, r[0]]),
 );
 ID_OF['Mrs. Luz Abad'] = 'g2';
+for (const [id, prefix, first, last, role, , , , display] of [...CALE, ...THREE, ...TITLES, ...LONE_ATTY]) {
+  if (!role.endsWith('_parents')) continue;
+  ID_OF[display ?? `${prefix} ${first} ${last}`] = id;
+  SIDE_OF[id] = role.startsWith('groom') ? 'Groom' : 'Bride';
+}
 
 const decode = (s: string) =>
   s.replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');

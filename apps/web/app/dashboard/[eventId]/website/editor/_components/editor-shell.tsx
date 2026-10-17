@@ -3033,8 +3033,8 @@ export function MakerWork({
              behind the page the couple is looking at and swaps in when ready —
              no blank screen, no reload from the top, after any Maker write. */}
           <BufferedCanvasFrame
-            frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}${roleQuery}`}
-            group={`${stage}:${maker.seeAs ?? ''}${roleQuery}`}
+            frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}`}
+            group={`${stage}:${maker.seeAs ?? ''}`}
             src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
             frameRef={frameRef}
@@ -3067,8 +3067,8 @@ export function MakerWork({
               style={bothFit ? { width: bothFit.phone.boxWidth, height: bothFit.phone.boxHeight } : undefined}
             >
               <BufferedCanvasFrame
-                frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}${roleQuery}`}
-                group={`${stage}:${maker.seeAs ?? ''}${roleQuery}`}
+                frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}`}
+                group={`${stage}:${maker.seeAs ?? ''}`}
                 src={canvasSrc}
                 title={`Your Event Hub on a phone — ${PUBLIC_STAGE_LABELS[stage]}`}
                 frameRef={bothFrameRef}

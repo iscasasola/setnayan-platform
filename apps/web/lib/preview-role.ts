@@ -22,7 +22,6 @@
 import { guestRoleLabel, type GuestAttire, type GuestRole } from './guests';
 import { roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
 import type { RoleNames } from './role-names';
-import { SEE_AS_ANY_ROLE, type SeeAsRoleRow } from './see-as';
 
 /** Which half of a two-person row the sample reader is. `f` wears the gown, `m` the suit. */
 export type PreviewWho = 'f' | 'm';
@@ -39,7 +38,7 @@ export type PreviewRolePick = {
 };
 
 /** One row of Role ▾, as the Maker draws it (plain data — it crosses to the client). */
-export type PreviewRoleOption = SeeAsRoleRow;
+export type PreviewRoleOption = { key: string; label: string; group: string };
 
 /** Roles that are not a GUEST's eyes: the couple / the celebrant / a host see their own page. */
 const NOT_A_GUEST_VIEW: ReadonlySet<GuestRole> = new Set<GuestRole>(['bride', 'groom', 'celebrant', 'host', 'principal_sponsor']);
@@ -87,7 +86,8 @@ const GROUP_ORDER: readonly (RoleGroup | 'guest')[] = [
 
 const WHO_WORD: Record<PreviewWho, string> = { f: 'woman', m: 'man' };
 
-export const PREVIEW_ROLE_NONE = SEE_AS_ANY_ROLE;
+/** The row that is no role at all — the same key the Maker's `SEE_AS_ANY_ROLE` (lib/see-as.ts) sends back. */
+export const PREVIEW_ROLE_NONE = 'any';
 
 function keyOf(role: GuestRole, who: PreviewWho): string {
   return `${role}-${who}`;

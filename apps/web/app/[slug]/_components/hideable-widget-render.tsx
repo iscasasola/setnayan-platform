@@ -265,14 +265,8 @@ function HideableWidgetBody({
          (`site-body.tsx` passes `!isMakerCanvas`), where `guest` is the HOST
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
-         guests will read. So the role is withheld on the canvas, not passed.
-         🎭 …UNLESS THE CANVAS IS DRAWN FOR THE SAMPLE GUEST (See as ▾ · Role ▾, owner 2026-10-17): then `guest` is no
-         host — it is the fabricated seat-holder, id `SIMULATED_GUEST_ID`, which matches no row — and the scene is
-         read exactly as that role's guest reads it. */
-      {
-        const reader = guestView || guest?.guest_id === SIMULATED_GUEST_ID;
-        return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={reader && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={reader && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} march={reader && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={reader} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!reader} />;
-      }
+         guests will read. So the role is withheld on the canvas, not passed. */
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
@@ -377,5 +371,10 @@ function Detail({
  * here — lives in `hub-canvas-frame.tsx`.
  */
 export function HideableWidgetRender(props: HideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>{HideableWidgetBody(props)}</HubCanvasFrame>;
+  /* 🎭 THE DRESS CODE READS THE SAMPLE GUEST AS A GUEST (See as ▾ · Role ▾, owner 2026-10-17): on the Maker canvas
+     `guestView` is false because `guest` is the HOST editing the hub — but when the canvas is drawn for the fabricated
+     seat-holder (id `SIMULATED_GUEST_ID`, which matches no row), `guest` is no host, and the scene is read exactly as
+     that role's guest reads it. */
+  const sampleReads = props.widget.widget_type === 'dress_code' && props.guest?.guest_id === SIMULATED_GUEST_ID;
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>{HideableWidgetBody(sampleReads ? { ...props, guestView: true } : props)}</HubCanvasFrame>;
 }

@@ -12,6 +12,8 @@
   first-visit notice too). The foot is fitted by the shipped first-screen rule — air, then the mark, then whole parts
   below the whole foot — with the door's bottom 16 px clear of the edge (8 px above the notice). 375 × 812 / 390 × 844
   with no notice and desktop (≥ 1280 px) are drawn as before. E2E re-aimed: door on the first screen at every size.
+  The fit now reads where a part RESTS (`first-screen-fit-dom.ts` takes the entrance's translate off): read mid-slide,
+  a part that gave way was laid up to 8 px too close to the next (CI, 320 × 568 + notice: 1.7 px).
 - **Prints say the guest page's dress code** (`lib/print-set.server.ts` → `dressCodeLines`, `lib/dress-code-for-everyone.ts`).
   Paper read the old `groups` / `roles` stores; it now reads the Studio's rows (`dressCodeForEveryone`), both picks of a
   row of two, the couple's note. Guard: `lib/the-print-says-the-pages-dress-code.test.ts`.

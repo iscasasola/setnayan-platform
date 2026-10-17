@@ -8,6 +8,7 @@ import {
   COVER_SCENE_SOURCE_IS_PRO,
   COVER_SCENE_THEME_LINE,
   coverClipCardName,
+  coverShadeLook,
   coverUploadCards,
   coverGroundSource,
   coverSceneTakesClips,
@@ -30,6 +31,17 @@ import { tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameO
 import { ColourSheet } from '../../../website/editor/_components/colour-well';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 import { StageBackground, type StageBgSource, type StageBgTile } from './stage-background';
+
+/**
+ * 🌗 Lay the cover's Darker ↔ Lighter on every Maker canvas now (`app/[slug]/_components/cover-shade-preview.ts`, the
+ * bridge lays it); null takes it off. Nothing is saved by this — the release's one write is.
+ */
+function showCoverShade(look: ReturnType<typeof coverShadeLook> | null): void {
+  const message = look ? { source: 'setnayan-editor', t: 'coverShade', ...look } : { source: 'setnayan-editor', t: 'coverShade', off: true };
+  document.querySelectorAll<HTMLIFrameElement>('iframe[data-maker-canvas-frame]').forEach((frame) => {
+    frame.contentWindow?.postMessage(message, window.location.origin);
+  });
+}
 
 /** The toolbar's source keys ↔ the Cover Scene's (`lib/cover-scene.ts`): the first source is The theme's own. */
 const TO_BG: Readonly<Record<CoverSceneSource, StageBgSource>> = { theme: 'hub', colour: 'colour', scene: 'scene', own: 'own' };
@@ -143,6 +155,8 @@ export function CoverSceneGroundRows({
         error: 'That change could not be saved. Please try again.',
       }));
       if (!res.ok) {
+        /* A shade laid ahead of this refused save comes off the canvas with it. */
+        showCoverShade(null);
         if (latest.current === canvasNext) {
           latest.current = before;
           setShown(before);
@@ -281,7 +295,9 @@ export function CoverSceneGroundRows({
             return id ? put({ kind: 'loop', loop: id }) : undefined;
           }
           const clip = clips.find((c) => c.ref === key);
-          put(clip ? { kind: 'snippet', media: key, ...(clip.poster ? { poster: clip.poster } : {}) } : { kind: 'photo', media: key });
+          /* 🌗 Switching between the couple's own clip and photo keeps the bar where it is — it is the cover's one shade. */
+          const keep = ground && (ground.kind === 'photo' || ground.kind === 'snippet') && ground.shade !== undefined ? { shade: ground.shade } : {};
+          put(clip ? { kind: 'snippet', media: key, ...(clip.poster ? { poster: clip.poster } : {}), ...keep } : { kind: 'photo', media: key, ...keep });
         }}
         onUpload={source === 'own'}
         upload={upload}
@@ -309,7 +325,8 @@ export function CoverSceneGroundRows({
               }
             : null
         }
-        shade={shaded ? { at: sceneShadeAt(ground!.shade), onMove: () => {}, onKeep: (n) => putKeys({ shade: sceneShadeOf(n) as HubCoverGround['shade'] }) } : null}
+        /* 🌗 The canvas follows the thumb (`showCoverShade` — the prototype's `paintGround` on input); ONE write on release. */
+        shade={shaded ? { at: sceneShadeAt(ground!.shade), onMove: (n) => showCoverShade(coverShadeLook(ground!, n)), onKeep: (n) => putKeys({ shade: sceneShadeOf(n) as HubCoverGround['shade'] }) } : null}
         /* No Framed | Full width: the Cover Scene is ALWAYS full screen, edge to edge (owner 2026-10-16, DECISION_LOG
            "THE COVER SCENE IS ALWAYS FULL SCREEN" — superseding 2026-10-15). A stored shape is ignored (`coverGroundShape`). */
         shape={null}

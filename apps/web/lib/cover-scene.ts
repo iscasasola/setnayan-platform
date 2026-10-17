@@ -136,15 +136,42 @@ export function coverGroundSamples(g: HubCoverGround): string[] {
 }
 
 /**
- * The words' tone over the Cover Scene's ground, and the weakest scrim that holds them at AA over every sample —
- * whichever ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip
- * from cream to ink on their own).
+ * The words' tone over the Cover Scene's ground, and the scrim that holds them at AA over every sample — whichever
+ * ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip from cream to ink
+ * on their own).
+ *
+ * 🌗 THE SCRIM NEVER UNDOES THE BAR (owner 2026-10-17 on cale-ice, Darker ━●━ Lighter moved well toward Lighter over
+ * his sunset clip: *"darker lighter not showing"*). MEASURED: the scrim used to be the WEAKEST that holds AA over the
+ * veiled ground — so as Lighter's white veil grew, the paper scrim the ink words need shrank by exactly as much
+ * (0.50 at the centre → 0.01 at +60) and the cover came out the SAME colour, byte for byte, from 0 to +60 (#bbbab9 ·
+ * #939291 · #eae9e8 → #bbbbbb · #919191 · #ebebeb); Darker's ink scrim did the same from −30 to −60. The bar moved
+ * and nothing on the page did. Now the scrim is never weaker than the ground ITSELF needs for that tone (its own
+ * samples, no veil) — still AA over the veiled ground — so a veil in the words' favour adds to the scrim instead of
+ * replacing it, and every step of the bar shows. Held by `lib/the-cover-shade-reaches-every-ground.test.ts`.
  */
 export function coverSceneLegibility(g: HubCoverGround): { tone: 'ink' | 'cream'; scrim: { color: string; opacity: number } } {
   const samples = coverGroundSamples(g);
   const ink = requiredScrim(COVER_INK, COVER_PAPER, samples);
   const paper = requiredScrim(COVER_PAPER, COVER_INK, samples);
-  return ink <= paper ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: ink } } : { tone: 'cream', scrim: { color: COVER_INK, opacity: paper } };
+  const { shade: _shade, ...bare } = g;
+  const own = coverGroundSamples(bare as HubCoverGround);
+  return ink <= paper
+    ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: Math.max(ink, requiredScrim(COVER_INK, COVER_PAPER, own)) } }
+    : { tone: 'cream', scrim: { color: COVER_INK, opacity: Math.max(paper, requiredScrim(COVER_PAPER, COVER_INK, own)) } };
+}
+
+/**
+ * 🌗 THE COVER AT ONE POSITION OF THE BAR — the veil, the scrim and the words' tone `coverSceneLayer` draws for this
+ * ground at `at` (−100 … 100; the centre stores nothing). The Maker lays it on the canvas WHILE the thumb moves
+ * (`cover-shade-preview.ts`, the prototype's `paintGround` on input), from the very functions the page renders with,
+ * so the preview is what the save's redraw confirms. A glass takes no shade (`sanitizeHubCoverGround`).
+ */
+export function coverShadeLook(g: HubCoverGround, at: number): { veil: { color: string; opacity: number } | null; scrim: { color: string; opacity: number }; tone: 'ink' | 'cream' } {
+  const n = Math.max(-100, Math.min(100, Math.round(at)));
+  const { shade: _was, ...rest } = g;
+  const next = (g.kind === 'glass' || g.kind === 'frost' || n === 0 ? rest : { ...rest, shade: n }) as HubCoverGround;
+  const legible = coverSceneLegibility(next);
+  return { veil: coverShadeVeil(next.shade), scrim: legible.scrim, tone: legible.tone };
 }
 
 /** The CSS a colour or a glass paints with (the prototype's tiles: Plain · Diagonal · Glow · Opaque · Frosted). */

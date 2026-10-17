@@ -74,6 +74,7 @@ import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { marchPlaceOf } from '@/lib/march-place';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
@@ -322,8 +323,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
      in a phone column; `&art=candlelight` draws it on the dark Look; `&cast=cale` swaps in cale-ice's parents' shape
      (`labEntourage('cale')`). Stand-in names only. */
+  /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
+     "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
+     (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : 'lone');
+    const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
+    const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
       <main
         className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink"
@@ -331,7 +338,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-entourage={sp.entourage}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <EntourageSection groups={labEntourage(sp.cast === 'cale' ? 'cale' : 'lone')} id="site-entourage" sceneStyle={style} />
+        {meRole ? (
+          <div className="mb-10">
+            <DressCodeWidget
+              words={await eventWordsFor('wedding').catch(() => null) as never}
+              config={null}
+              ceremonyType={null}
+              genderSeparation={null}
+              part="role"
+              guestRole={meRole}
+              march={marchPlaceOf(groups, me)}
+              hideWhenEmpty
+            />
+          </div>
+        ) : null}
+        <EntourageSection groups={groups} id="site-entourage" sceneStyle={style} myGuestId={me} />
+        <div className="h-[60vh]" aria-hidden />
       </main>
     );
   }

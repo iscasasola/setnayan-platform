@@ -378,7 +378,8 @@ test('entourage · the march numbers every line in order and lifts only the sign
   assert.doesNotMatch(stranger, /data-march-line="mine"/, 'a stranger sees no mark');
   const joy = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'march', myGuestId: 'g7' } as never)));
   assert.equal((joy.match(/data-march-line="mine"/g) ?? []).length, 1);
-  assert.match(joy, /you walk 4th/);
+  /* 🫵 Owner 2026-10-17: where she walks is said under the heading in Me's own words (`marchPlaceLine`). */
+  assert.match(joy, /Your place is marked\. You walk 4th, with Marco Tan/);
 });
 
 // ── CAMERA CUES ──────────────────────────────────────────────────────────────

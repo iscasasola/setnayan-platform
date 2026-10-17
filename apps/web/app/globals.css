@@ -4325,6 +4325,10 @@ html.dark [data-art='candlelight'] {
      The 60 px dot fills 75 % of each mask, hence 133 %. */
   filter: none;
   border-radius: 0;
+  /* The pool's darker rim lands ON the masked edge (closest-side), so a white or cream dot still has an edge. */
+  background:
+    radial-gradient(circle at 38% 36%, rgb(255 255 255 / 0.22), transparent 48%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--c), white 10%) 0 40%, var(--c) 68%, color-mix(in srgb, var(--c), rgb(var(--color-ink)) 32%) 100%);
   -webkit-mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
   mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
 }

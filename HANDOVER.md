@@ -61,7 +61,7 @@ event-row-once extras, so prod-shape numbers are the in-repo ones.
 
 ### Steps
 - [x] 1 migration `20271275959355` · [x] 2 shell + shared-read fetch · [x] 3 facts · [x] 4 session memo
-- [x] 5 guards/tests + 27 sabotages (all red) · [x] 6 measured after (both harnesses) · [ ] 7 PR + CI
+- [x] 5 guards/tests + 27 sabotages (all red) · [x] 6 measured after (both harnesses) · [~] 7 PR #6627 open (draft, do-not-auto-merge, auto-merge off) — CI watch
 
 ### Measured AFTER
 In-repo harness: stranger 13→3 (14→4 day) · guest 17→6 (21→10 day) · cold 24→22 · orders: stranger 19→7,

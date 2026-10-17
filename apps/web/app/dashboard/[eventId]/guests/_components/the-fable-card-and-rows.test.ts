@@ -127,9 +127,10 @@ test('card: Groups, Also serves as and Table are written ONLY when the card post
     assert.match(CARD, new RegExp(`name="${marker}" value="1"`), `the card no longer marks ${marker}`);
     assert.match(ACTIONS, new RegExp(`formData\\.get\\('${marker}'\\)\\) === '1'`), `updateGuest no longer reads ${marker}`);
   }
-  assert.match(ACTIONS, /if \(groupsPosted\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): …and, with a base, only when THIS card changed them. */
+  assert.match(ACTIONS, /if \(groupsPosted && \(!merge\.based \|\| merge\.changed\.has\('group_ids'\)\)\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
   assert.match(ACTIONS, /\.\.\.\(extraRolesPosted \? \{ extra_roles \} : \{\}\)/, 'extra roles are written without the marker');
-  assert.match(ACTIONS, /if \(tablePosted && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
+  assert.match(ACTIONS, /if \(tablePosted && \(!merge\.based \|\| merge\.changed\.has\('table_id'\)\) && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
   // A seat is written only when the table CHANGED (autosave must not reset the chair).
   const seat = ACTIONS.slice(ACTIONS.indexOf('async function syncCardTable('));
   assert.match(seat, /if \(now === tableId\) return \{ ok: true \};/);

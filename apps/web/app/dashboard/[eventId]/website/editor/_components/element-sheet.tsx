@@ -569,9 +569,8 @@ export function ElementSheet({
               if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');
               moveTo('out', fx);
             }}
-            /* 🕯 No Delay on the closing's line: its Build in plays as a guest reaches it (`lib/closing-line.ts`). */
             delay={
-              target.key !== 'f:closing' && (motionFxOn(motion.in) || motion.words || motion.reveal) && motion.timeline !== 'scroll'
+              (motionFxOn(motion.in) || motion.words || motion.reveal) && motion.timeline !== 'scroll'
                 ? {
                     value: PART_DELAY_S[motion.delay ?? 'none'],
                     steps: Object.values(PART_DELAY_S),
@@ -623,10 +622,9 @@ export function ElementSheet({
                   }
                 : null
             }
-            leaves={target.key === 'f:closing' ? null : {
+            leaves={{
               /* Leaves ◆ — the part's SCENE's hand-off to the next scene (a part has none of its own), named as the
-                 scene's so it is never read as this part's own. 🕯 Not on the closing's line: it is stored on the hero
-                 row, but it ends the page — there is no next scene, and the hero's own hand-off is not its to set. */
+                 scene's so it is never read as this part's own. */
               small: SCENE_LEAVES_NAME,
               value: offeredTransition(canvas.transition ?? 'scroll'),
               options: leavesOptions(),
@@ -637,6 +635,10 @@ export function ElementSheet({
                   if (t !== 'scroll') c.transition = t as HubTransition;
                 }),
             }}
+            /* 🕯 THE CLOSING'S LINE (`lib/closing-line.ts`): no Delay — its Build in plays as a guest reaches the page's foot —
+               and no Leaves — it is stored on the hero row, but it ends the page: there is no next scene, and the hero's
+               own hand-off is not its to set. */
+            {...(target.key === 'f:closing' ? { delay: null, leaves: null } : {})}
           />
         ) : (
           <StageText

@@ -141,6 +141,12 @@ test('5 · the Maker’s doors: Edit types it, Style’s last row sets its look,
   assert.deepEqual((w.patch as { widgets: { hero: { canvas: { elements: unknown } } } }).widgets.hero.canvas.elements, { closing: { word: 'Until December!' } });
   /* Animate opens the part's sheet on the hero row — never on a 'closing' widget that does not exist. */
   assert.match(code('app/dashboard/[eventId]/launch/_components/stage-tools.tsx'), /widgetType: elementCanvasOwner\(def\.canvas\)/);
+  /* …and on its sheet no Delay and no Leaves (no next scene; the hero's hand-off is not its to set). */
+  assert.match(
+    code('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'),
+    /\{\.\.\.\(target\.key === 'f:closing' \? \{ delay: null, leaves: null \} : \{\}\)\}\s*\/>/,
+    'the closing’s Animate offers a Delay or the hero’s Leaves',
+  );
   /* Its Action ▾ is a word's, with Glow — not Words ▾ (a clock at the foot plays out of sight). */
   assert.deepEqual([...hubElementDuringOffered('closing')], ['still', 'drift', 'shimmer', 'glow']);
   assert.equal(sanitizeHubElementStyle({ motion: { words: 'word' } }, 'closing'), null, 'Words ▾ was kept on the closing');

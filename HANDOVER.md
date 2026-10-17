@@ -32,3 +32,17 @@ guards green; regenerate baselines with their generators):
    say so in the PR.
 Skip anything whose equivalence you cannot prove; name it in the PR. No UI change. Changelog fragment
 changelog.d/rd-event-day-database.md (SPEC IMPACT: None unless a ruling changes).
+
+## BUILDER STATE (updated as I go)
+- Prod measured (SELECT-only): replay's 60 policies on the 15 hot tables are byte-identical to prod (md5 of the
+  exposure-baseline lines == md5 of the same lines built from prod pg_policy).
+- Item 1: migration 20271274849201_event_day_policies_read_the_caller_once.sql — 37 ALTER POLICY (auth.uid/jwt/role +
+  is_admin wrapped) + count_unread_message_threads wrap + in-migration self-check. Test: TODO.
+- Item 2/3: migration 20271275124348_event_day_indexes_and_duplicate_drops.sql — event_moderators(user_id),
+  chat_messages(thread_id, created_at desc); drop guests_event_guest_key + comp_grants_public_id_unique.
+- Item 4: claim_periodic_job is ALREADY pre-throttled per instance (lib/periodic-jobs.ts CHECK_THROTTLE_MS) and fires
+  only from app/page.tsx, explore, admin layout (not guest event routes). pg_stat_statements reset 2026-05-12, so 281k
+  calls = ~1.8k/day. Skip. Unread RPC: 47 ms is a cold-connection cost (warm call <1 ms measured); plan = wrap auth.uid
+  in RPC + debounce badge refresh bursts (no 30 s cache: a stale badge after reading would lie).
+- Item 5: app_telemetry_logs HAS a live reader — app/admin/connection-logs/connection-logs-client.tsx (postgres_changes
+  INSERT/UPDATE), mounted by /admin/connection-logs and /admin/app-performance. Left in the publication.

@@ -80,3 +80,18 @@ Plan: `lib/event-pulse.server.ts` (per-event stamp v + per-guest recent changes 
 `app/[slug]/live-pulse/route.ts` · `lib/event-pulse.ts` (pure decision) · `lib/use-event-pulse.ts` (hook, 15 s ± 20 %,
 hidden = no poll, back after ≥ 9 min away = refresh, 3 misses = refresh) · HubShell stage frame + LiveRefresher +
 find-seat name search use it when the page passes a baseline; hub/page.tsx startAhead.
+
+### Step 5 — FIX 2 pulse ✅ (b49a6ea05f) + edge fix (bd10c37720)
+`/[slug]/live-pulse` (lib/event-pulse.server.ts · event-pulse-stamp.ts · event-pulse.ts · use-event-pulse.ts ·
+app/_components/pulsed-live-refresher.tsx). Hub stage frame, LiveRefresher (seat, find-my-table, find-seat) and the
+find-seat name search use it when the page passes a baseline; otherwise the 45 s refresh as before (host check-in /
+souvenirs untouched). Hub: independent reads started together (startAhead), pinned spellings kept.
+Schedule read in the stamp goes through onlyWhatGuestsMaySee (roster entry added); seats through guestsMaySeeSeatsFor.
+17 sabotages RED. Related suites: 158 files / 1,713 tests green. `next lint` on changed files clean.
+LAB FINDING: `fetch(…, {cache:'no-store'})` sends `Cache-Control: no-cache` → `next dev` skips the data cache
+(incremental-cache/index.js `this.dev && requestHeaders['cache-control'] === 'no-cache'`) — 10 phones = 78 computes for
+77 polls. Polls now send no directive; browser gets `max-age=0, must-revalidate`; CDN window in
+`Vercel-CDN-Cache-Control` (`liveEdgeHeaders`). Closed events: pulse door = signature-checked guest pass, else
+canViewSlugEvent.
+Known narrower freshness (documented in event-pulse.server.ts): a purchase on the day, a new e-gift destination or venue
+booking, a published album → shown at the next watched change or on return after 9+ min away.

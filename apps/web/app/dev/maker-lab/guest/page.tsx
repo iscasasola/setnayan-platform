@@ -37,6 +37,7 @@ import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
 import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
+import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
@@ -308,11 +309,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-love={sp.love}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        {/* 🔲 `&empty=1` — the scene EMPTY, as the Maker's canvas draws it in this look (its sample shapes; the
-            `data-maker-section` marker is what lets a sample show at all). */}
+        {/* 🔲 `&empty=1` — this look's SAMPLE SHAPES, the arrangement the Maker's canvas draws for the scene while it is
+            empty (the `data-maker-section` marker is what lets a sample show at all). The shapes alone, not the
+            empty-scene stand-in: that one is mounted only behind `makerCanvas` (P11). */}
         {sp.empty === '1' ? (
-          <div data-maker-section="our_love_story">
-            <MakerEmptyScene type="our_love_story" styleId={style} />
+          <div data-maker-section="our_love_story" data-maker-empty="our_love_story">
+            <SceneSample sceneType="our_love_story" styleId={style} className="py-2" />
           </div>
         ) : (
           <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />

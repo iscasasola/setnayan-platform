@@ -39,6 +39,7 @@
  *                   same fixture, so the two doors can be compared side by side
  */
 import { notFound } from 'next/navigation';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
@@ -152,7 +153,9 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     guest: g,
     isCouple,
     hasSides: true,
-    availableRoles: [],
+    /* The wedding's real role picker (what `guest-card-data.ts` offers a non-couple guest), so the card's
+       Details › Role in wedding opens on the shipped list rather than an empty menu. */
+    availableRoles: WEDDING_ROLE_SET.offeredRoles.filter((r) => !WEDDING_ROLE_SET.coupleRoles.has(r)),
     groupOptions: ['family', 'friends'],
     isIncWedding: false,
     showTeaCeremony: false,

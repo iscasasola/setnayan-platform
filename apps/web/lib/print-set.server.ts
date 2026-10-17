@@ -1,3 +1,4 @@
+import { isDressableRole } from '@/lib/attire-rows';
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -233,7 +234,7 @@ function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; li
   for (const [group, rule] of Object.entries(sanitizeGroupAttire(cfg.groups))) {
     if (rule) out.push({ label: roleGroupLabel(group as keyof typeof ROLE_GROUP_LABELS, names), line: say(rule) });
   }
-  const roles = sanitizeRoleAttire(cfg.roles, (v) => roleLabel(v as GuestRole) !== null || v === 'bride' || v === 'groom');
+  const roles = sanitizeRoleAttire(cfg.roles, isDressableRole);
   for (const [role, rule] of Object.entries(roles)) {
     const label = roleLabel(role as GuestRole, names) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
     if (rule && label) out.push({ label, line: say(rule) });

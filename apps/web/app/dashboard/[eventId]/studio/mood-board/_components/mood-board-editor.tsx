@@ -386,14 +386,14 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
     /* 👗 An INC event's EMPTY dress code starts from the modest guidance
        (owner 2026-10-04) — form defaults only; nothing is written until Save. */
-    const { config: cfg, started } = incDressCodeStarter(
-      event,
-      normalizeDressCodeConfig(
-        drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
-      ),
-    );
+    const stored = drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config;
+    const { config: cfg, started } = incDressCodeStarter(event, normalizeDressCodeConfig(stored));
     dressLists = { dos: cfg.dos, donts: cfg.donts, incStarter: started };
-    dressConfig = cfg;
+    /* 🪞 NOTHING STORED IS DROPPED ON THE WAY IN (2026-10-17, owner: "why did the attire not have the information we
+       already edited?"). The Studio saves the WHOLE dress code back (`dressCodeDraftFields`), so whatever its reader
+       drops, its next save deletes: the parser dropped the women's picks and the couple's own Wear, and a save after a
+       reload wrote the config back without them. Every stored key rides through; the parsed parts lay on top. */
+    dressConfig = { ...(stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {}), ...cfg } as DressCodeConfig;
   } catch (err) {
     console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }

@@ -60,11 +60,11 @@ const WEB = join(__dirname, '..');
 
 /** The people a rendered figure draws, in order: who, the garment, the colour it is dyed. */
 type Drawn = { who: string; garment: string; colour: string | null };
+/* Every person every figure in `html` draws — a row draws one figure PER PERSON beside their words (2026-10-17). */
 function figureIn(html: string): Drawn[] | null {
   const at = html.indexOf('data-role-figure="');
   if (at < 0) return null;
-  const end = html.indexOf('data-role-figure="', at + 10);
-  const pic = end < 0 ? html.slice(at) : html.slice(at, end);
+  const pic = html.slice(at);
   return [...pic.matchAll(/data-person="([a-z]+)" data-garment="([a-z_-]+)"(?: data-colour="(#[0-9A-Fa-f]{6})")?/g)].map((m) => ({ who: m[1]!, garment: m[2]!, colour: m[3]?.toUpperCase() ?? null }));
 }
 const people = (d: Drawn[]) => d.map((p) => p.who);
@@ -164,8 +164,17 @@ function rowHtml(html: string, key: string): string {
   return end < 0 ? html.slice(at) : html.slice(at, end);
 }
 
-test('📜 the dress-code scene: every role row carries its person, in that row’s colours', async () => {
-  const html = await scene({});
+/* Each row's Wear picked — a person is drawn only in a picked Wear (owner 2026-10-17). */
+const WORN = {
+  roles: { bride: { style: 'ball_gown' }, groom: { style: 'suit' }, guest: { style: 'smart_casual' } },
+  groups: { principal_sponsors: { style: 'barong_tagalog' } },
+  women: { groups: { principal_sponsors: { style: 'long_gown' } }, roles: { guest: { style: 'cocktail_dress' } } },
+};
+
+test('📜 the dress-code scene: every role row carries its person, in that row’s colours — and nobody in an unpicked Wear', async () => {
+  const bare = await scene({});
+  assert.equal(figureIn(rowHtml(bare, 'bride')), null, 'the bride is drawn in a garment nobody picked');
+  const html = await scene({ config: WORN });
   for (const key of ['bride', 'groom', 'principal_sponsors'] as const) {
     const pic = figureIn(rowHtml(html, key));
     assert.ok(pic, `${key}: the row draws its person`);
@@ -183,7 +192,7 @@ test('📜 the dress-code scene: every role row carries its person, in that row�
 });
 
 test('📜 the reader’s own panel: a ninang sees a woman in her colours', async () => {
-  const html = await scene({ guestRole: 'principal_sponsor_ninang' });
+  const html = await scene({ guestRole: 'principal_sponsor_ninang', config: WORN });
   const you = html.slice(html.indexOf('data-dress-code="you"'));
   const pic = figureIn(you);
   assert.ok(pic, 'her panel draws her');

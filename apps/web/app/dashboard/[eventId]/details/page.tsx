@@ -34,7 +34,7 @@ import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
-import { computeGuestStats, fetchGuestsByEventMeasured, type GuestRole } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEventMeasured } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney } from '@/lib/budget-truth';
 import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
@@ -52,10 +52,7 @@ import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { HUB_BUTTON_FILL_LABEL, HUB_BUTTON_SHAPE_LABEL, parseHubButtonStyle } from '@/lib/hub-buttons';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
-import { roleLabel } from '@/lib/entourage';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { readGuestsReply, resolveReplyBy } from '@/lib/rsvp-ask';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -325,10 +322,9 @@ export default async function EventDetailsPage({
     .filter(Boolean)
     .join(' · ');
   const dress = dressCodeForEveryone({
+    config: e.dress_code_config,
     stored: storedPalette,
     board,
-    roles: sanitizeRoleAttire((e.dress_code_config as { roles?: unknown } | null)?.roles, (v) => roleLabel(v as GuestRole) !== null),
-    groups: sanitizeGroupAttire((e.dress_code_config as { groups?: unknown } | null)?.groups),
     ceremonyType: str('ceremony_type'),
   });
   const moments = resolveMoments(shown.love_story).filter((m) => !m.hidden);
@@ -822,7 +818,7 @@ export default async function EventDetailsPage({
                   tool={`${base}/studio/mood-board`}
                   value={
                     r.lines.length > 0
-                      ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
+                      ? r.lines.map((l) => (l.label !== r.label ? `${l.label}: ${l.styleLabel}` : l.styleLabel)).join(' · ')
                       : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
                   }
                 />

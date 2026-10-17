@@ -101,3 +101,8 @@ Fixed-window cache (d0829ebb5c) after two measured mistakes (no-store bypass; st
 body. WebKit 375 px walk: table rename 10.6 s, own check-in 10.6 s, no reload; quiet minute 0 re-renders. Shots
 ~/Documents/Claude/Projects/shots-2026-10-18/6624/. 47 sabotages RED total. Draft PR #6624, label do-not-auto-merge,
 auto-merge null. NEXT: watch CI to green.
+
+### Step 7 — CI rounds
+Round 1 (48b3190c6): typecheck (announcement type, seat-pass guest scope) · port baseline (<LiveRefresher> → <PulsedLiveRefresher>) ·
+ugat screens stale → fixed in fb573fb1d. Round 2 (fb573fb1d): DB replay 6/6 `ugat-both-ends` — the watch route branched on
+an events read error without saying it → logged. Local: that db test 4/4 green; guards job's 25 node steps green.

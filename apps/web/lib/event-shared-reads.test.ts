@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { stripComments } from './strip-comments';
 
@@ -55,9 +55,9 @@ const ENTOURAGE_ROLES = ['principal_sponsor', 'best_man', 'maid_of_honor'];
 type Sent = { method: string; url: string; headers: Headers };
 
 /** The requests the installed supabase-js really sends for `ask` — captured, answered `[]`. */
-async function requestsOf(ask: (db: ReturnType<typeof createClient>) => PromiseLike<unknown>): Promise<Sent[]> {
+async function requestsOf(ask: (db: SupabaseClient) => PromiseLike<unknown>): Promise<Sent[]> {
   const sent: Sent[] = [];
-  const db = createClient('http://db.test', 'test-key', {
+  const db: SupabaseClient = createClient('http://db.test', 'test-key', {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
       fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -152,7 +152,7 @@ test('1e · another event, no event, money, the live day, a write or an RPC is n
 /* ═══ 2 · THE KEY ═══════════════════════════════════════════════════════ */
 
 test('2 · the key is the whole question and nothing about who asked', async () => {
-  const ask = (db: ReturnType<typeof createClient>) => db.from('invitation_widgets').select('widget_id').eq('event_id', E);
+  const ask = (db: SupabaseClient) => db.from('invitation_widgets').select('widget_id').eq('event_id', E);
   const a = sharedReadFor(await one(ask), E, 7)!;
   const b = sharedReadFor(await one(ask), E, 7)!;
   assert.equal(a.key, b.key, 'two viewers asking the identical question must share it');

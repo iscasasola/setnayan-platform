@@ -155,7 +155,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   let body: unknown = single ? null : [];
   if (table === 'events') {
     // Like PostgREST: exactly the columns that were asked for, null where the stand-in holds none.
-    const whole = { ...EVENT_ROW, event_id: STATE.rowEventId };
+    const whole: Record<string, unknown> = { ...EVENT_ROW, event_id: STATE.rowEventId };
     const row = Object.fromEntries(select.split(',').map((c) => c.trim()).filter(Boolean).map((c) => [c, whole[c] ?? null]));
     body = single ? row : [row];
   }

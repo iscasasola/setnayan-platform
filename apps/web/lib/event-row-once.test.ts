@@ -246,8 +246,7 @@ test('5 · every call site names the columns it would have read, of the same eve
 // ── 6 · the extras ──────────────────────────────────────────────────────────
 
 const LOADERS = readFileSync(join(WEB, 'app', '[slug]', '_lib', 'loaders.ts'), 'utf8');
-// The shell's own columns — handed to `readEventShellRow` (the stamp-aware read, 2026-10-18).
-const SHELL_COLUMNS = (/loadEventShell = cache[\s\S]*?readEventShellRow\(\s*admin,\s*slug,\s*'([^']+)'/.exec(LOADERS)?.[1] ?? '').split(',').map((c) => c.trim());
+const SHELL_COLUMNS = (/loadEventShell = cache[\s\S]*?\.select\(\s*'([^']+)'/.exec(LOADERS)?.[1] ?? '').split(',').map((c) => c.trim());
 
 test('6 · every extra column exists in production, and none repeats one of the shell’s', () => {
   assert.ok(SHELL_COLUMNS.length > 40, 'the shell’s own select was not found — update this guard');
@@ -274,12 +273,13 @@ test('6b · the one read falls back to the shell alone ONLY for an unknown colum
     /if \(whole\.error\) return whole\.error\.code === '42703' \? \{ \.\.\.\(await read\(columns\)\), held: false \} : \{ \.\.\.whole, held: false \};/,
     'the fallback is gone, or now retries on any failure',
   );
-  // The hold happens in `loadEventShell`, AFTER the read — so a row remembered under the stamp
-  // (`readEventShellRow`, lib/event-shared-reads.ts) is left in hand exactly like one just read.
+  // The hold happens AFTER the read, in `readEventShellRow` (the stamp-aware read `loadEventShell` goes
+  // through, lib/event-shared-reads.ts) — so a row remembered under the stamp is left in hand exactly like one just read.
   const shell = LOADERS.slice(LOADERS.indexOf('export const loadEventShell = cache('), LOADERS.indexOf('export type EventShellRow'));
-  assert.match(shell, /await readEventShellRow\(/, 'loadEventShell no longer reads through the stamp-aware read — update this guard');
-  assert.match(shell, /if \(whole && held\) \{[\s\S]*?holdEventRow\(row\.event_id, row, slug\)/, 'the row that was read is no longer left in hand');
-  assert.match(shell, /data = withoutOnceExtras\(row\)/, 'the page is handed the extras — its row is no longer the row it always was');
+  assert.match(shell, /await readEventShellRow\(admin, slug, \(\) =>\s*theOneEventRead\(admin, slug\)\.select\(/, 'loadEventShell no longer reads through the stamp-aware read — update this guard');
+  const stamped = LOADERS.slice(LOADERS.indexOf('async function readEventShellRow'), LOADERS.indexOf('export const loadEventShell = cache('));
+  assert.match(stamped, /const \{ held, \.\.\.rest \} = read;\s*if \(rest\.data && held\) \{[\s\S]*?holdEventRow\(row\.event_id, row, slug\)/, 'the row that was read is no longer left in hand');
+  assert.match(stamped, /data: withoutOnceExtras\(row\)/, 'the page is handed the extras — its row is no longer the row it always was');
 });
 
 // ── 6c · the two invite doors ───────────────────────────────────────────────

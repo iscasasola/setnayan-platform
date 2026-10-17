@@ -230,41 +230,45 @@ async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eve
   }
 }
 
-async function readEventShellRow<S extends string>(admin: AdminClient, slug: string, columns: S) {
-  const direct = () => theOneEventRead(admin, slug).select(columns);
-  type Read = Awaited<ReturnType<typeof direct>>;
+async function readEventShellRow<R extends { data: unknown; error: { message: string } | null; held: boolean }>(
+  admin: AdminClient,
+  slug: string,
+  direct: () => Promise<R>,
+): Promise<Omit<R, 'held'>> {
   const stamp = await eventStampBySlug(admin, slug);
-  if (!stamp) return direct();
-  noteEventStamp(stamp.eventId, stamp.rev);
-  return rememberedEventRead<Read>(
-    { eventId: stamp.eventId, rev: stamp.rev, key: `shell-v1:${slug}:${columns}` },
-    direct,
-    (read) =>
-      !read.error &&
-      read.held &&
-      (read.data as unknown as { event_id?: unknown } | null)?.event_id === stamp.eventId,
-    (read) => read.data,
-    (row) => ({ data: row, error: null, count: null, status: 200, statusText: 'OK', held: true }) as unknown as Read,
-  );
+  let read: R;
+  if (!stamp) read = await direct();
+  else {
+    noteEventStamp(stamp.eventId, stamp.rev);
+    read = await rememberedEventRead<R>(
+      // The deployment is part of the key (`rememberedEventRead`), so a changed column list is a new key.
+      { eventId: stamp.eventId, rev: stamp.rev, key: `shell-v1:${slug}` },
+      direct,
+      (r) => !r.error && r.held && (r.data as { event_id?: unknown } | null)?.event_id === stamp.eventId,
+      (r) => r.data,
+      (row) => ({ data: row, error: null, count: null, status: 200, statusText: 'OK', held: true }) as unknown as R,
+    );
+  }
+  // The one read leaves the whole row in hand for the rest of the render (`holdEventRow`) — a
+  // remembered row exactly like one just read — and gives the page back the shell's own columns only.
+  const { held, ...rest } = read;
+  if (rest.data && held) {
+    const row = rest.data as Record<string, unknown>;
+    if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
+    return { ...rest, data: withoutOnceExtras(row) as R['data'] };
+  }
+  return rest;
 }
 
 export const loadEventShell = cache(async (slug: string) => {
   // Every guest-tree render begins here: the data-privacy controls it asks about are read in one request.
   readDataPrivacyControlsTogether();
   const admin = createAdminClient();
-  const { data: whole, error, held } = await readEventShellRow(
-    admin,
-    slug,
+  const { data, error } = await readEventShellRow(admin, slug, () =>
+    theOneEventRead(admin, slug).select(
       'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, logo_wanted, gifts_on, date_candidates',
+    ),
   );
-  // The one read leaves the whole row in hand for the rest of the render (`holdEventRow`)
-  // and gives the page back the shell's own columns only — exactly as before.
-  let data = whole;
-  if (whole && held) {
-    const row = whole as unknown as Record<string, unknown>;
-    if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
-    data = withoutOnceExtras(row) as unknown as typeof whole;
-  }
   // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
   //
   // The error used to be discarded, so a database hiccup returned `data = null`

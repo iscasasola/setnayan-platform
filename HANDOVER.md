@@ -32,3 +32,23 @@ app/[slug]/_lib/loaders.ts or lib/entitlements.ts (another lane takes those next
 the join/gift/find-me/papic capture files (the no-double-records lane is editing them now).
 Proof: a 375 px WebKit (iPhone 13) walk of the hub in the lab showing an update arrives after a change, picture in
 ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Changelog fragment changelog.d/rd-live-day-polling.md.
+
+---
+## BUILDER STATE (Opus 5.5, 2026-10-18)
+
+### Step 1 — MEASURED BEFORE (origin/main cb673a22f4) ✅
+Lab: counting stand-in (copy of wt-perf2-scratch/harness → ~/Documents/Claude/Projects/wt-live-day-polling-scratch/harness,
+plus make-fixtures.mjs / drive.mjs / window.mjs / serve.sh), `next dev` on the LAB env (no prod), one guest with a signed
+cookie, WebKit iPhone 13, Asia/Manila, a wedding pinned to The Day with a wall (LIVE_WALL + Papic), a YouTube watch link,
+a live run-of-show and one announcement. Each page sat visible 120 s; DB stand-in requests counted in that window.
+Lab artefacts excluded (CSP report rpc + client-fault rate-limit rpc — the stub's realtime socket is refused in the lab).
+
+| page (one guest, visible) | first render | per minute while open |
+|---|---|---|
+| /<slug>/hub (Now tab) | 33 | 34.5 |
+| /<slug>/hub?tab=photos (wall) | 33 | 50.5 |
+| /<slug>/hub?tab=watch | 36 | 40.5 |
+| /<slug> | 80 | 29.0 |
+| /<slug>/seat | 27 | 23.0 |
+Cause, per minute: hub/seat router.refresh every 45 s (~32 reads each) · wall poll every 25 s (~9 reads) · watch poll every
+30 s (3 reads) · announcement pull every 45 s (2 reads, also while hidden). All of it × every guest.

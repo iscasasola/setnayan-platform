@@ -134,6 +134,8 @@ const EVENT = {
     { role: 'reception', name: 'The Manila Hotel', address: 'One Rizal Park, Manila', latitude: 14.5832, longitude: 120.9747 },
   ],
   dress_code_config: { title: 'Garden formal', description: 'Soft colours, comfortable shoes.', dos: ['Barong or suit'], donts: ['White gowns'], palette: [{ name: 'Sage', hex: '#9caf88' }] },
+  /* "Our colours" are the Mood Board's main colours (2026-10-17); the name typed for one of them lends it its word. */
+  role_palette: { reception: ['#9caf88'] },
   special_message: 'Thank you for being part of our story.',
   what_to_bring: 'An umbrella, and your dancing shoes.',
   love_story: { moments: [{ id: 'm-1', line: 'We met at a friend’s wedding.', date: { y: 2019, m: 3 }, place: 'Tagaytay' }] },

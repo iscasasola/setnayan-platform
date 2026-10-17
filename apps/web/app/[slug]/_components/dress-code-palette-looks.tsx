@@ -49,6 +49,7 @@ export function PaletteLookList({
   items,
   size = 'full',
   label,
+  words = false,
 }: {
   /** One of the looks drawn here — never `tags` (the widget draws that itself). */
   look: Exclude<PaletteLookId, 'tags'>;

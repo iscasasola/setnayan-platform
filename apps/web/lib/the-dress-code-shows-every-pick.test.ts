@@ -71,8 +71,10 @@ function people(row: string): Array<{ who: string; swatches: number; words: stri
   const parts = row.split(/data-dress-code-person="/).slice(1);
   return parts.map((p) => {
     const who = p.slice(0, p.indexOf('"'));
-    const list = p.slice(0, p.indexOf('data-dot-words') >= 0 ? p.indexOf('data-dot-words') : p.length);
-    const swatches = (list.match(/<li\b/g) ?? []).length;
+    /* The person's swatch list is the first <ul> in their block (a person with no colours has none — and must not
+       borrow the next row's <li>). */
+    const list = /<ul[^>]*aria-label="[^"]*colours"[^>]*>([\s\S]*?)<\/ul>/.exec(p.slice(0, p.search(/data-dress-code-person="|data-role-row="/) >>> 0 || p.length));
+    const swatches = list ? (list[1]!.match(/<li\b/g) ?? []).length : 0;
     const words = [...p.matchAll(/data-dot-word="([^"]*)"/g)].map((m) => unescape(m[1]!));
     return { who, swatches, words };
   });
@@ -270,6 +272,9 @@ test('6 · a reader is dressed by their Studio row: the groom’s father reads t
   const html = await widget({ config, rolePalette: CALE.palette, guestRole: 'groom_parents', guestAttire: 'suit' });
   assert.ok(!/Long gown/.test(html.slice(html.indexOf('data-dress-code="you"'))), 'the father was told "Long gown"');
   assert.ok(/Suit and tie/.test(html), 'the father was not told his row’s Wear');
+  /* a best woman is dressed by the Groomsmen row — never by the per-role "Long gown" the older form stored */
+  const bestWoman = await widget({ config: { ...config, groups: { ...config.groups, groomsmen: { style: 'suit' } } }, rolePalette: CALE.palette, guestRole: 'best_woman' });
+  assert.ok(!/Long gown/.test(bestWoman.slice(bestWoman.indexOf('data-dress-code="you"'))), 'the best woman read the per-role line the Studio does not show');
   /* and the general view draws no per-role line the Studio does not show */
   const general = await widget({ config: CALE.config, rolePalette: CALE.palette });
   assert.ok(!/Best Woman|Parents of the Groom|Maid \/ Matron|Wedding Party/.test(unescape(general)), 'a row or line the Studio has no row for is drawn');
@@ -311,16 +316,20 @@ function decls(body: string): Decls {
   return d;
 }
 /** The effective declarations on one part of a look's swatch, full size or row size (rules applied in source order). */
-function effective(rules: ReturnType<typeof topLevelRules>, look: string, part: 'ul' | 'li' | 'i' | 'i::before' | 'i::after', row: boolean): Decls {
+/* `plain` — a swatch with no structural pseudo-class (the middle of a row); `first` — the first one (some looks cut
+   their ends: the ribbon's notch). A rule on `:nth-child(…)` applies to neither — so a look's edge must be on its plain
+   swatch, not only on every second or third. */
+function effective(rules: ReturnType<typeof topLevelRules>, look: string, part: 'ul' | 'li' | 'i' | 'i::before' | 'i::after', row: boolean, variant: 'plain' | 'first' = 'plain'): Decls {
   const tail = { ul: '', li: ' > li', i: ' > li > i', 'i::before': ' > li > i::before', 'i::after': ' > li > i::after' }[part];
   const base = `.sn-editorial .sn-pal-${look}`;
   const rowSel = `.sn-editorial .sn-pal-row.sn-pal-${look}`;
   const rowAlt = `.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-${look}`;
-  const strip = (s: string) => s.replace(/:(first|last|only)-child|:nth-child\([^)]*\)|:first-child:nth-last-child\([^)]*\)(?: ~ li)?/g, '');
   const out: Decls = {};
   for (const r of rules) {
     for (const s0 of r.selectors) {
-      const s = strip(s0);
+      if (/:nth-|:last-child|:only-child/.test(s0)) continue;
+      if (variant === 'plain' && /:first-child/.test(s0)) continue;
+      const s = s0.replace(/:first-child/g, '');
       const fullHit = s === base + tail;
       const rowHit = row && (s === rowSel + tail || s === rowAlt + tail);
       if (fullHit || rowHit) Object.assign(out, decls(r.body));
@@ -328,10 +337,10 @@ function effective(rules: ReturnType<typeof topLevelRules>, look: string, part: 
   }
   return out;
 }
-function features(rules: ReturnType<typeof topLevelRules>, look: string, row: boolean): Set<string> {
-  const ul = effective(rules, look, 'ul', row);
-  const li = effective(rules, look, 'li', row);
-  const i = effective(rules, look, 'i', row);
+function features(rules: ReturnType<typeof topLevelRules>, look: string, row: boolean, variant: 'plain' | 'first'): Set<string> {
+  const ul = effective(rules, look, 'ul', row, variant);
+  const li = effective(rules, look, 'li', row, variant);
+  const i = effective(rules, look, 'i', row, variant);
   const f = new Set<string>();
   const paints = (d: Decls) => [d.background, d['background-image']].filter(Boolean).join(' ');
   if (/url\(/.test(i.filter ?? '') || /url\(/.test(i.mask ?? '') || /url\(/.test(i['mask-image'] ?? '')) f.add('bled edge');
@@ -340,7 +349,7 @@ function features(rules: ReturnType<typeof topLevelRules>, look: string, row: bo
   if (i['box-shadow'] && /inset/.test(i['box-shadow']) && i['box-shadow'] !== 'none') f.add('relief');
   if (ul.background && ul.background !== 'none' && ul['box-shadow'] && ul['box-shadow'] !== 'none') f.add('card');
   for (const pseudo of ['i::before', 'i::after'] as const) {
-    const d = effective(rules, look, pseudo, row);
+    const d = effective(rules, look, pseudo, row, variant);
     if (d.content !== undefined && d.display !== 'none') f.add(`rim ${pseudo}`);
   }
   return f;
@@ -350,10 +359,12 @@ test('7 · at row size every palette look keeps its edge, shading, card and rim 
   const rules = topLevelRules(readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8'));
   for (const look of PALETTE_LOOK_IDS) {
     if (look === 'tags') continue; // the shipped chips, one class at both sizes
-    const full = features(rules, look, false);
-    const row = features(rules, look, true);
-    assert.ok(full.size > 0, `${look}: no look found at full size — the reader of globals.css is blind`);
-    for (const f of full) assert.ok(row.has(f), `${look}: the row-size swatch loses its "${f}" (full: ${[...full]}, row: ${[...row]})`);
+    for (const variant of ['plain', 'first'] as const) {
+      const full = features(rules, look, false, variant);
+      const row = features(rules, look, true, variant);
+      assert.ok(full.size > 0, `${look}: no look found at full size — the reader of globals.css is blind`);
+      for (const f of full) assert.ok(row.has(f), `${look} (${variant} swatch): the row size loses its "${f}" (full: ${[...full]}, row: ${[...row]})`);
+    }
   }
 });
 

@@ -76,3 +76,9 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       Test tests/db/a-gift-record-is-kept-once.db.test.ts (5) + existing a-gift-record-is-a-guests-own (12) green.
       Sabotage: early read + 23505 branch removed → 1 red · client_ref not written → 3 red · sheet drops ref → 1 red ·
       early read alone removed → green by design (the index + 23505 branch answer).
+- [x] 5 find-me limits — FIXED (no migration). Each budget now spent per PHONE (signed httpOnly `sn_find_device`
+      cookie, random id, HMAC with the guest-session secret, 1 day) AND per connection at a venue's size: names 20/phone
+      + 500/IP, digits 10/phone + 250/IP, per-guest digits 5 unchanged, 15-min window. No phone id (no secret) → the IP
+      is held to the old per-phone numbers. Numbers + reasons in lib/find-me.ts docblock. Limiter injectable for tests.
+      Test lib/find-me-a-venue-shares-one-wifi.test.ts (4) + find-me.test.ts (guard updated). Sabotage: IP held at
+      phone number → 2 red · phone budget dropped → 1 red · per-guest digits dropped → 1 red.

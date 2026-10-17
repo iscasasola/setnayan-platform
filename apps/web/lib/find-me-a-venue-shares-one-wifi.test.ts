@@ -8,7 +8,7 @@
  * a whole venue. Run against an in-memory limiter with the real numbers.
  *
  * 🛡 Sabotaged, each red then restored (2026-10-18):
- *   • the per-IP name budget held at the phone's number again  → test 1 red;
+ *   • the per-IP name budget held at the phone’s number again  → tests 1, 2 red;
  *   • the per-phone name budget dropped                        → test 2 red;
  *   • the per-guest digits budget dropped                      → test 3 red.
  */

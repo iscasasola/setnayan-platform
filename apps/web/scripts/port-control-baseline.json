@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d85959f01b",
+  "generatedFromRef": "ecb0d9620",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6569,
+  "blocks": 6568,
   "routes": {
     "/": {
       "files": [
@@ -10691,7 +10691,6 @@
         "CountdownWidget",
         "CoverPlayOpening",
         "CoverSceneMenuWaits",
-        "CustomSectionWidget",
         "DoorShell",
         "DressCodeWidget",
         "EditorBridge",

@@ -5,6 +5,9 @@ import { sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { SceneSample } from './maker-scene-samples';
 import { SpecialMessageWidget } from './special-message-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
+import { renderCustomSection } from './custom-section-widget';
+import { NO_SCENE_FACTS } from './scene-template';
+import { isCustomSectionType } from '@/lib/custom-sections';
 
 /**
  * 🧩 AN EMPTY SCENE, AS THE MAKER DRAWS IT — never as a guest sees it.
@@ -72,8 +75,15 @@ export function MakerEmptyScene({
  * the canvas replaces with the couple's words (`previewSceneWords`). Null for a
  * scene whose content is not one text.
  */
-export function makerWordsLook(type: string): ReactNode {
+export function makerWordsLook(type: string, config?: unknown): ReactNode {
   if (type === 'special_message') return <SpecialMessageWidget text={'\u2026'} />;
   if (type === 'what_to_bring') return <WhatToBringWidget text={'\u2026'} />;
+  /* ✍ A scene of their own (owner 2026-10-17, *"i cannot edit this"*): its Heading and Words drawn by the guest's own
+     renderer — the template's, when the scene was made from one (`renderCustomSection`) — for Edit's two rows to type
+     into before the scene has any (`type-in-place-canvas.ts` `ownLookPart`). */
+  if (isCustomSectionType(type)) {
+    const canvas = config && typeof config === 'object' ? (config as { canvas?: unknown }).canvas : undefined;
+    return renderCustomSection({ config: { canvas, title: '\u2026', body: '\u2026' }, facts: NO_SCENE_FACTS });
+  }
   return null;
 }

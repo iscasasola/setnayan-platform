@@ -208,7 +208,8 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   /* The toolbar reads them off the SHOWN canvas, for the picked part, and never for a reply page. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /if \(!picked \|\| rsvpOpen\) return setFields\(\[\]\);/);
-  assert.match(tools, /readPartWords\(doc, makerPartCanvasOn\(stageKey, picked\), MAKER_PARTS\[picked\]\.el \?\? null, makerPartLabelOn\(stageKey, picked\)\)/);
+  /* (…and, for a scene of their own, the Maker's own words — its fields the page does not draw yet: `own-scenes-are-parts.test.ts`.) */
+  assert.match(tools, /readPartWords\(doc, makerPartCanvasOn\(stageKey, picked\), MAKER_PARTS\[picked\]\.el \?\? null, makerPartLabelOn\(stageKey, picked\), own\)/);
   /* AS TYPED: on the page only (the bridge's own `typeText`) — never a save. */
   assert.match(tools, /<StageEdit key=\{picked\} fields=\{fields\} tapped=\{tapped\} onType=\{showPartWords\} onKeep=\{keepWords\}/);
   /* The field opens as the app's typed row opens everywhere (its words selected — the template's own behaviour,
@@ -221,7 +222,9 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   const keep = words.slice(words.indexOf('export async function keepPartWords('));
   assert.equal((keep.match(/door\.draftAction\(/g) ?? []).length, 1, 'keeping is more than one write');
   /* (2026-10-13: …and its ↺ is drawn at the press — the same put-back, `partWordsUndo`, noted with the save.) */
-  assert.match(keep, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, \.\.\.\(redo \? \{ undo: partWordsUndo\(f, w\.writeKey, w\.undo, redo, w\.words\) \} : \{\}\) \}/);
+  /* (2026-10-17: held wherever the page draws the words — a scene of their own's first Heading or Words, not drawn yet
+     (`drawn: false`), asks for the render that draws them: `own-scenes-are-parts.test.ts` P3.) */
+  assert.match(keep, /\{ held: f\.drawn !== false, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, \.\.\.\(redo \? \{ undo: partWordsUndo\(f, w\.writeKey, w\.undo, redo, w\.words\) \} : \{\}\) \}/);
   assert.doesNotMatch(keep, /router\.refresh|requestMakerRefresh\(\)/);
   /* A refused or failed keep puts the page's words back and answers the row — never the look of success. */
   assert.match(keep, /if \(!w\.ok\) \{\s*showPartWords\(f, f\.text\);\s*return \{ ok: false, error: w\.reason \};\s*\}/);

@@ -19,7 +19,9 @@ import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { PahinaMotionObserver, PahinaMotionRootFlag } from '@/app/[slug]/_components/pahina-motion';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
-import { CustomSectionWidget } from '@/app/[slug]/_components/custom-section-widget';
+import { renderCustomSection } from '@/app/[slug]/_components/custom-section-widget';
+import { customSectionHasContent } from '@/lib/custom-sections';
+import { NO_SCENE_FACTS } from '@/app/[slug]/_components/scene-template';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerGuestScenes, MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
@@ -38,7 +40,7 @@ import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
-import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
+import { MakerEmptyScene, makerWordsLook } from '@/app/[slug]/_components/maker-empty-scene';
 import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
@@ -69,7 +71,7 @@ import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressC
 import { previewRoleOf } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
-import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom } from '../lab-draft';
+import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind } from '../lab-draft';
 import { siteFontLook } from '@/lib/site-role-look';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
@@ -491,7 +493,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      rows with the lab's draft over them): a stage draws what the Maker lists for it and nothing else, a scene moved
      Earlier · Later is drawn where it now stands, and one taken off is not drawn (P02 · P12). */
   const stageNow: HubStage = stage ?? 'rsvp';
-  const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, (await cookies()).get(LAB_OWN_COOKIE)?.value === '1');
+  const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, labOwnKind((await cookies()).get(LAB_OWN_COOKIE)?.value));
   const stageTiles = labStageTiles(labRowsNow, stageNow, labStory);
   /* 🗓 DOES THE DAY DRAW THIS SCENE? — its own list, or one of the two places off it (the Welcome's dress code and
      reminders, a guest's own schedule and directions): the page's one answer (`sceneOnStage`), on the lab's rows
@@ -757,6 +759,29 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </div>
       )
     ) : null;
+  /* ✍ A SCENE OF THEIR OWN, drawn as the real page draws it (`public-hideable-widget.tsx`): its row with the lab's draft
+     over it (its words — `custom` — and its canvas), the guest's renderer once it has something in it
+     (`customSectionHasContent` → `renderCustomSection`), else — on the Maker's canvas only — its placeholder with the
+     look Edit types into (`MakerEmptyScene` + `makerWordsLook`). A guest never sees an empty one. It was a fixed
+     widget on fixed words, so nothing typed in the lab could ever reach it. */
+  const ownSceneNode = (type: string) => {
+    const row = labRowsNow.find((r) => r.widget_type === type);
+    if (!row) return null;
+    const base = (row.config_json ?? {}) as Record<string, unknown>;
+    const config = drafted[type] !== undefined ? { ...base, canvas: drafted[type] } : base;
+    if (customSectionHasContent(config)) {
+      return (
+        <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8 text-left">
+          {renderCustomSection({ config, facts: NO_SCENE_FACTS, mediaUrls: LAB_MEDIA, ownClipPlays: makerCanvas })}
+        </div>
+      );
+    }
+    return makerCanvas ? (
+      <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
+        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} />
+      </div>
+    ) : null;
+  };
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {
     'f:hero': <section data-page-column="" className="px-4 pb-10 pt-6">{masthead}</section>,
@@ -775,11 +800,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     'w:our_photos': emptyScene('our_photos'),
     /* ✍ The lab's one scene of the couple's own (`LAB_OWN_COOKIE`) — the guest page's own widget for it. Listed by
        the Maker only when the walk asked for it, so it is drawn only then (a stage draws what its list names). */
-    [`w:${LAB_OWN_SCENE.type}`]: (
-      <div data-lab-scene={LAB_OWN_SCENE.type} className="border-t border-ink/10 px-4 py-8 text-left">
-        <CustomSectionWidget config={LAB_OWN_SCENE.config} />
-      </div>
-    ),
+    [`w:${LAB_OWN_SCENE.type}`]: ownSceneNode(LAB_OWN_SCENE.type),
     'f:entourage': marchBlock,
   };
   /* 🎚 THE CHAIN'S CARDS (`?scrub=1`). Each scene of the chain is drawn as the prototype drew it, so a hold can be

@@ -117,6 +117,9 @@ export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP
 
 /* 🎞 Post Event's scenes with no part till 2026-10-10 (a tap named none: an empty Edit) — key = shipped scene key. */
 const PE = ['cover', 'videos', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered', 'you'] as const;
+/** ✍ The couple's own six scenes as parts — `own<N>` is `custom_<N>` (`makerOwnSceneType`). */
+export const MAKER_OWN_SCENE_PARTS = ['own1', 'own2', 'own3', 'own4', 'own5', 'own6'] as const;
+const OWN = MAKER_OWN_SCENE_PARTS;
 export const MAKER_PART_KEYS = [
   'reveal',
   /* 🖼 THE COVER SCENE (owner-approved 2026-10-15, prototype `maker_cover_group_background_2026-10-14_fable.html`):
@@ -185,6 +188,11 @@ export const MAKER_PART_KEYS = [
   ...PE,
   'chapters',
   'pegallery',
+  /* ✍ THE COUPLE'S OWN SIX SCENES (`lib/custom-sections.ts` `custom_1`…`custom_6`, added by ＋ "A scene of your own").
+     Owner 2026-10-17 on his own Maker, a "Your own section" just added: *"i cannot edit this"*. Measured: a tap on it
+     named `w:custom_1`, no part had that canvas key, so `makerPartOfTap` answered null — the toolbar stayed on the
+     stage and Edit drew nothing, empty or written. Each slot is a part now (`MAKER_OWN_SCENE_PARTS`). */
+  ...OWN,
 ] as const;
 export type MakerPartKey = (typeof MAKER_PART_KEYS)[number];
 
@@ -380,7 +388,16 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The day's chapters share one marker (`p:ch-1`) and the Schedule's name; the story's Gallery is not `gallery`. */
   chapters: pe('ch-1'),
   pegallery: pe('gallery'),
+  /* ✍ A scene of their own: tapped, it is picked like any scene; Edit is its Heading and Words (`stage-panel/part-words.ts`
+     lists both even while the scene is still empty); Background and Animate are a `w:` scene's. Its name is the
+     editor row's (`customSectionEditorLabel`, held equal by `own-scenes-are-parts.test.ts`). */
+  ...(Object.fromEntries(OWN.map((k, i) => [k, { label: i === 0 ? 'Your own section' : `Your own section ${i + 1}`, source: 'tool', canvas: `w:custom_${i + 1}`, layouts: NONE }])) as Record<(typeof OWN)[number], MakerPartDef>),
 };
+
+/** ✍ The part a scene of the couple's own is (`own1` ↔ `custom_1` …) — null for any other part. */
+export function makerOwnSceneType(key: MakerPartKey | null | undefined): string | null {
+  return key && (OWN as readonly string[]).includes(key) ? `custom_${key.slice(3)}` : null;
+}
 
 /** A part's source, read. Throws on a string no part may carry — the test walks every part through it. */
 export function makerPartSource(key: MakerPartKey): MakerPartSource {

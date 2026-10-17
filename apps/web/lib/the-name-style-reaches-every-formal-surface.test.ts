@@ -22,9 +22,10 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
+import { parseTitleKey, titleChoices } from './guest-title';
 import { middleInitials, nameStyleOfPrintDetails, styledName, ticketName, type NameStyle } from '@/lib/name-style';
 import { guestFullName } from '@/lib/guests';
-import { placeCardName } from '@/lib/formal-name';
+import { NAME_PREFIX_CHOICES, placeCardName } from '@/lib/formal-name';
 import { buildEntourage, lineNames, plainGuestNames, type EntourageGuestRow } from '@/lib/entourage';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 
@@ -282,6 +283,9 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
       if (ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) {
         const tag = n.tagName.getText(sf);
         if (tag === 'PrefixSelect') selects += 1;
+        /* ⤷ 2026-10-17: the host's Title carries woman or man ("Atty. (Woman)", lib/guest-title.ts) — `K.Title` on the
+           card, `TitlePicker` in /guests/new — the same titles as NAME_PREFIX_CHOICES, each with its gender (held below). */
+        if (tag === 'K.Title' || tag === 'TitlePicker') selects += 1;
         /* The Fable guest card (#6192) draws every choice as ONE shipped
            PickMenu (`FormPick`, owner 2026-09-28 "any set of choices is a
            dropdown") — the same list as PrefixSelect when it is built from
@@ -307,4 +311,7 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
     assert.ok(selects >= 1, `${rel} draws no Prefix dropdown`);
     assert.deepEqual(typed, [], `${rel} still has a free-text Prefix box`);
   }
+  // The Title list offers every title the guest side's Prefix list does (with its woman / man).
+  const titles = new Set(titleChoices().map((c) => parseTitleKey(c.key).name_prefix));
+  for (const p of NAME_PREFIX_CHOICES) assert.ok(titles.has(p), `the host's Title list lacks "${p}"`);
 });

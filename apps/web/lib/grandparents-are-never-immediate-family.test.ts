@@ -201,9 +201,9 @@ const REPO = join(WEB, '..', '..');
  * match exactly one literal, so an exception cannot outlive its list.
  */
 const PARENTS_ALONE: ReadonlyArray<{ file: string; holds: string; why: string }> = [
-  { file: 'apps/web/lib/entourage.ts', holds: "key: 'groom_side'", why: 'the march-only "The Groom & his parents": a parent walks with their own child; grandparents walk as their own section' },
-  { file: 'apps/web/lib/entourage.ts', holds: "key: 'bride_side'", why: 'the march-only "The Bride & her parents" — as above' },
-  { file: 'apps/web/lib/entourage.ts', holds: "key: 'parents'", why: 'the Parents group itself; Grandparents is its twin, one group below' },
+  { file: 'apps/web/lib/entourage.ts', holds: "['groom_parents', 'groom']", why: 'the march-only "The Groom & his parents": a parent walks with their own child; grandparents walk as their own section' },
+  { file: 'apps/web/lib/entourage.ts', holds: "['bride_parents', 'bride']", why: 'the march-only "The Bride & her parents" — as above' },
+  { file: 'apps/web/lib/entourage.ts', holds: "['groom_parents', 'bride_parents']", why: 'the Parents group itself; Grandparents is its twin, one group below' },
   { file: 'apps/web/app/dashboard/[eventId]/launch/_components/parent-cards.tsx', holds: 'roleHint', why: "the Maker's Parents card adds a PARENT; a grandparent is added on the guest card" },
   { file: 'apps/web/app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx', holds: 'roleHint', why: 'the Prints Parents field adds a PARENT, as above' },
   { file: 'apps/web/lib/print-set.server.ts', holds: "side: p.role === 'bride_parents'", why: "the printed card's parents block; grandparents print in the entourage list on the same card" },

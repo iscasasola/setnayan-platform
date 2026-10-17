@@ -124,8 +124,10 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // 🎨 2026-10-08 (one picker): the well's own panel is retired — its theme colours are the sheet's "Your Mood
   // Board" shelf, then what goes with them, the sixteen swatches and Custom. The device's "Saved colours" went
   // with the panel (the owner's one picker has no such shelf) — `every-studio-colour-opens-the-one-picker.test.ts`.
-  ['Theme colours → the one picker (Your Mood Board · Goes with your Mood Board · Swatches · Custom)', 'colour', ['<ColourPickerSheet', 'palette={palette}', 'readsOn={readsOn}']],
-  ['…its shelves', 'picker', ['>Your Mood Board<', '>Goes with your Mood Board<', '>Swatches<', '>Custom<']],
+  // 📱 2026-10-17 (owner, verbatim: "Just have the Moodboard and Recently Used 5 colors"): the sheet fits one phone
+  // screen — "Goes with your Mood Board" and the sixteen swatches left it; the colours just picked there are "Recently used".
+  ['Theme colours → the one picker (Your Mood Board · Recently used · Custom)', 'colour', ['<ColourPickerSheet', 'palette={palette}', 'readsOn={readsOn}']],
+  ['…its shelves', 'picker', ['>Your Mood Board<', '>Recently used<', '>Custom<']],
   // 💎 2026-09-28: the Pro mark moved off the title onto the only Pro rows.
   ['Title: the part’s name', 'sheet', ['<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
   ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],

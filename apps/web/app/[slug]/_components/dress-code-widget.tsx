@@ -317,6 +317,39 @@ export function DressCodeWidget({
   // A host reading their own page (the couple, or a debut's celebrant): the
   // unset outfit is theirs to add, not something someone else owes them.
   const readerIsHost = guestRole !== null && ['couple', 'honoree'].includes(roleGroupOf(guestRole));
+  /* 👗 THE READER'S OWN LOOK — their figure, then their colours: one drawing for the Welcome's "you" panel and Me's
+     "What to wear".
+     🎨 THEIR PALETTE, ALL OF IT (owner 2026-09-28: "show their palette only"). It used to be `mine.hex` — the role's
+     FIRST colour — so a bridesmaid whose board holds three was shown one.
+     👗 THE PERSON IN YOUR COLOURS (owner 2026-09-27, "an illustrated person in the exact role colours"): a ninang sees
+     a woman in her colours, a groomsman a man — drawn from the same hexes as the chips.
+     🧍 ONE LOOK, CENTRED (owner 2026-10-18, *"dresscode should also adapt center like wedding march"*): a reader with
+     one look — not both of a role's picks — has their figure centred and their colours centred under it, as a lone
+     row of the general view is. Two looks keep the shipped drawing. */
+  const mineFigure =
+    mine && showFigure && mine.hexes.length > 0 && guestRole && mineWears ? (
+      <RoleFigure
+        roleKey={guestRole}
+        hexes={mine.hexes}
+        meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
+        picks={mineDress?.picks.filter((p) => p.style) ?? null}
+        className="h-28 w-auto"
+      />
+    ) : null;
+  const mineColours = mine && mine.hexes.length > 0;
+  const mineLone = mineDots.length === 1;
+  const mineLook =
+    mineLone && (mineFigure || mineColours) ? (
+      <div className="flex flex-col items-center gap-3 text-center" data-dress-code-lone="">
+        {mineFigure}
+        {mineColours ? <YourColours groups={mineDots} look={look} centre /> : null}
+      </div>
+    ) : (
+      <>
+        {mineFigure}
+        {mineColours ? <YourColours groups={mineDots} look={look} /> : null}
+      </>
+    );
 
   const hasAnything =
     title.length > 0 ||
@@ -387,16 +420,7 @@ export function DressCodeWidget({
           <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{mine.styleLabel}</p>
         ) : null}
         {mine.note ? <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p> : null}
-        {showFigure && mine.hexes.length > 0 && guestRole && mineWears ? (
-          <RoleFigure
-            roleKey={guestRole}
-            hexes={mine.hexes}
-            meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-            picks={mineDress?.picks.filter((p) => p.style) ?? null}
-            className="h-28 w-auto"
-          />
-        ) : null}
-        {mine.hexes.length > 0 ? <YourColours groups={mineDots} look={look} /> : null}
+        {mineLook}
       </section>
       </>
     );
@@ -576,22 +600,8 @@ export function DressCodeWidget({
               <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p>
             ) : null}
           </div>
-          {/* 🎨 THEIR PALETTE, ALL OF IT (owner 2026-09-28: "show their palette
-              only"). It used to be `mine.hex` — the role's FIRST colour — so a
-              bridesmaid whose board holds three was shown one. */}
-          {/* 👗 THE PERSON IN YOUR COLOURS (owner 2026-09-27, "an illustrated
-              person in the exact role colours"): a ninang sees a woman in her
-              colours, a groomsman a man — drawn from the same hexes as the chips. */}
-          {showFigure && mine.hexes.length > 0 && guestRole && mineWears ? (
-            <RoleFigure
-              roleKey={guestRole}
-              hexes={mine.hexes}
-              meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-              picks={mineDress?.picks.filter((p) => p.style) ?? null}
-              className="h-28 w-auto"
-            />
-          ) : null}
-          {mine.hexes.length > 0 ? <YourColours groups={mineDots} look={look} /> : null}
+          {/* 🎨 THEIR PALETTE, ALL OF IT, and THE PERSON IN THEIR COLOURS — `mineLook`, above. */}
+          {mineLook}
           </>
           ) : null}
         </div>
@@ -622,26 +632,34 @@ export function DressCodeWidget({
         <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3" data-dress-code="roles" data-hub-rows="">
           {everyone.rows.map((row) => {
             const options = row.meaning === 'options';
+            /* 🧍 ONE LOOK, CENTRED — like a lone person in the wedding march (owner 2026-10-18: *"dresscode should also
+               adapt center like wedding march"*; `entourage-section.tsx` `PairRow`, held by
+               `lib/a-lone-person-is-centred.test.ts`). A row holding ONE look (a bride, a groom, a crew dressed alike —
+               or a guests' row with one option) draws its figure centred, its words and colours stacked under it and
+               centred, at the size a pair's column draws them; its heading is centred over it, as the march's default
+               look centres a group's heading over a lone walker. Two looks keep their two columns, exactly as before.
+               Held by `lib/a-lone-look-in-the-dress-code-is-centred.test.ts`. */
+            const lone = row.picks.length === 1;
             const pair = row.picks.length > 1 && !options;
             return (
-              <li key={row.key} className={`space-y-3 border-t border-ink/10 py-5 ${options ? 'sm:col-span-2 lg:col-span-3' : ''}`} data-role-row={row.key}>
+              <li key={row.key} className={`space-y-3 border-t border-ink/10 py-5 ${lone ? 'text-center' : ''} ${options ? 'sm:col-span-2 lg:col-span-3' : ''}`} data-role-row={row.key}>
                 <p className="text-base font-medium leading-snug text-ink">{row.label}</p>
                 {row.note ? <p className="text-xs leading-relaxed text-ink/65">{row.note}</p> : null}
-                <div className={pair ? 'grid grid-cols-2 gap-x-4 gap-y-4' : options ? 'grid grid-cols-1 gap-4 lg:grid-cols-2' : 'flex flex-col gap-4'} data-dress-code-people={row.picks.length}>
+                <div className={lone ? 'flex flex-col items-center' : pair ? 'grid grid-cols-2 gap-x-4 gap-y-4' : options ? 'grid grid-cols-1 gap-4 lg:grid-cols-2' : 'flex flex-col gap-4'} data-dress-code-people={row.picks.length}>
                   {row.picks.map((p) => {
                     const drawn = showFigure && p.style && p.colours.length > 0;
                     const words = (
-                      <div className="min-w-0 space-y-1.5">
+                      <div className={`min-w-0 space-y-1.5 ${lone ? 'flex flex-col items-center' : ''}`}>
                         {p.label || p.styleLabel ? (
                           <p className="text-sm leading-snug text-ink/75" data-dress-code-pick="">
                             {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
                           </p>
                         ) : null}
-                        <RowDots dots={p.dots} look={look} label={`${row.label}${p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
+                        <RowDots dots={p.dots} look={look} centre={lone} label={`${row.label}${p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
                       </div>
                     );
                     return (
-                      <div key={p.who} className={`flex min-w-0 gap-3 ${pair || options ? 'flex-col items-start' : 'items-end'}`} data-dress-code-person={p.who}>
+                      <div key={p.who} className={`flex min-w-0 gap-3 ${lone ? 'flex-col items-center text-center' : pair || options ? 'flex-col items-start' : 'items-end'}`} data-dress-code-person={p.who} {...(lone ? { 'data-dress-code-lone': '' } : {})}>
                         {drawn ? (
                           <RoleFigure
                             roleKey={row.key}
@@ -703,13 +721,14 @@ export function DressCodeWidget({
 
 /** 🏷 A PERSON'S COLOURS AT ROW SIZE, each said by what it colours — the scene's palette look (Tags = the shipped
  *  chips), the words in one key line under them (`DotWords`). */
-function RowDots({ dots, look, label }: { dots: readonly EveryoneDot[]; look: PaletteLookId; label: string }) {
+function RowDots({ dots, look, label, centre = false }: { dots: readonly EveryoneDot[]; look: PaletteLookId; label: string; centre?: boolean }) {
   if (dots.length === 0) return null;
   const items = dots.map((d) => ({ hex: d.hex, name: d.word }));
-  if (look !== 'tags') return <PaletteLookList look={look} size="row" items={items} label={label} words />;
+  /* `centre`: a lone look — its colours and their words centred under its figure. */
+  if (look !== 'tags') return <PaletteLookList look={look} size="row" items={items} label={label} words centre={centre} />;
   return (
-    <span className="inline-flex flex-col items-start gap-1">
-      <ul className="flex flex-wrap gap-1.5" aria-label={label}>
+    <span className={`inline-flex flex-col gap-1 ${centre ? 'items-center' : 'items-start'}`}>
+      <ul className={`flex flex-wrap gap-1.5 ${centre ? 'justify-center' : ''}`} aria-label={label}>
         {items.map((it, i) => (
           <li key={`${it.hex}-${i}`} title={it.name}>
             <span aria-hidden className={ROW_SWATCH} style={{ backgroundColor: it.hex }} />
@@ -717,7 +736,7 @@ function RowDots({ dots, look, label }: { dots: readonly EveryoneDot[]; look: Pa
           </li>
         ))}
       </ul>
-      <DotWords items={items} />
+      <DotWords items={items} centre={centre} />
     </span>
   );
 }
@@ -725,9 +744,9 @@ function RowDots({ dots, look, label }: { dots: readonly EveryoneDot[]; look: Pa
 /** 🎨 THE READER'S OWN COLOURS — every colour their role wears, in the scene's palette look (Tags = the shipped
  *  chips), each said by WHAT IT COLOURS (owner 2026-10-17) — per person when both are shown. One drawing for the
  *  Welcome's "you" panel and Me's "What to wear". */
-function YourColours({ groups, look }: { groups: ReadonlyArray<{ label: string | null; dots: readonly EveryoneDot[] }>; look: PaletteLookId }) {
+function YourColours({ groups, look, centre = false }: { groups: ReadonlyArray<{ label: string | null; dots: readonly EveryoneDot[] }>; look: PaletteLookId; centre?: boolean }) {
   return (
-    <div className="space-y-3" data-your-colours="">
+    <div className={centre ? 'w-full space-y-3' : 'space-y-3'} data-your-colours="">
       {groups.map((g, gi) =>
         g.dots.length === 0 ? null : (
           <div key={gi} className="space-y-1.5">
@@ -735,7 +754,7 @@ function YourColours({ groups, look }: { groups: ReadonlyArray<{ label: string |
             {look !== 'tags' ? (
               <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: d.word }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
             ) : (
-              <ul className="flex flex-wrap gap-2" aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
+              <ul className={`flex flex-wrap gap-2 ${centre ? 'justify-center' : ''}`} aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
                 {g.dots.map((d, i) => (
                   <li key={`${d.hex}-${i}`} className="w-[3.25rem]">
                     <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: d.hex }} />

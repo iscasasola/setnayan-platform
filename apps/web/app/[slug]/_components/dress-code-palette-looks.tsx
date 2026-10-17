@@ -50,6 +50,7 @@ export function PaletteLookList({
   size = 'full',
   label,
   words = false,
+  centre = false,
 }: {
   /** One of the looks drawn here — never `tags` (the widget draws that itself). */
   look: Exclude<PaletteLookId, 'tags'>;
@@ -64,11 +65,13 @@ export function PaletteLookList({
    * palettes but no indication of what the colors control"*).
    */
   words?: boolean;
+  /** Row size only: a lone look (`dress-code-widget.tsx`) — the swatches and their words centred under its figure. */
+  centre?: boolean;
 }) {
   if (items.length === 0) return null;
   if (size === 'row') {
     return (
-      <span className="inline-flex flex-col items-start gap-1">
+      <span className={`inline-flex flex-col gap-1 ${centre ? 'items-center' : 'items-start'}`}>
         <ul className={`sn-pal sn-pal-row sn-pal-${look}`} data-pal-row={look} aria-label={label}>
           {items.map((it, i) => (
             <li key={`${it.hex}-${i}`} title={it.name || undefined} {...swatchAttrs(it.hex, i)}>
@@ -77,7 +80,7 @@ export function PaletteLookList({
             </li>
           ))}
         </ul>
-        {words ? <DotWords items={items} /> : null}
+        {words ? <DotWords items={items} centre={centre} /> : null}
       </span>
     );
   }
@@ -133,10 +136,10 @@ export function PaletteLookList({
  * Drawn for every look the same way (Tags too — `dress-code-widget.tsx` passes its chips' words here), so a word is
  * never a look's own decision. Hidden from a screen reader: each swatch already carries its word.
  */
-export function DotWords({ items }: { items: readonly PaletteLookItem[] }) {
+export function DotWords({ items, centre = false }: { items: readonly PaletteLookItem[]; centre?: boolean }) {
   if (!items.some((it) => it.name)) return null;
   return (
-    <p aria-hidden className="sn-dot-words flex flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-snug text-ink/70" data-dot-words="">
+    <p aria-hidden className={`sn-dot-words flex flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-snug text-ink/70 ${centre ? 'justify-center' : ''}`} data-dot-words="">
       {items.map((it, i) =>
         it.name ? (
           <span key={`${it.hex}-${i}`} className="inline-flex items-center gap-1" style={swatchVars(it.hex)} data-dot-word={it.name}>

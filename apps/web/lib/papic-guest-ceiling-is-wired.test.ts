@@ -71,10 +71,14 @@ test('🪤 the deploy-window rung exists — the migration and Vercel race, and 
     // 🪤 `[a-z0-9_]`, not `[a-z_]` — `p_r2_object_key` and `p_poster_r2_key`
     // carry a DIGIT, so the obvious character class silently counted 5 and 4.
     .map((m) => ((m[1] ?? '').match(/p_[a-z0-9_]+:/g) ?? []).length);
+  // 🔁 AND A 9-ARG TOP RUNG (20271272777206, `p_client_capture_id` — event-day
+  // L1·2), same rule: it descends 9 → 8 first. The leading 2 is NOT a rung: it
+  // is the early answer to a shutter that already landed (`p_guest_id` +
+  // `p_client_capture_id`), asked before any pool booking.
   assert.deepEqual(
     rungs,
-    [8, 7, 6, 3, 2],
-    'the ladder must descend one argument-shape at a time, 8 → 7 → 6 → 3 → 2',
+    [2, 9, 8, 7, 6, 3, 2],
+    'the ladder must descend one argument-shape at a time, 9 → 8 → 7 → 6 → 3 → 2',
   );
 });
 

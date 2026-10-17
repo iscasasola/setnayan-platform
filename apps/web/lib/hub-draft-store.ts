@@ -15,6 +15,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
 import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/lib/hub-pro-effects';
+import { hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
   HUB_DRAFT_FIELD,
@@ -25,6 +26,7 @@ import {
   hubDraftSaveFailure,
   mergeHubDraft,
   sanitizeHubDraft,
+  sanitizeHubDraftPatch,
   summarizeHubDraft,
   type HubDraft,
   type HubDraftEventColumn,
@@ -74,6 +76,31 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
 }
 
 /**
+ * 👥 THE DRAFT ROW AS READ, WITH ITS VERSION — `updated_at`, bumped by the row's own trigger on every UPDATE
+ * (`touch_event_site_drafts`, 20271246169682). `stamp: null` = there was no row. A failed read THROWS, as `readHubDraft`.
+ */
+export type HubDraftRow = { draft: HubDraft | null; stamp: string | null };
+export async function readHubDraftRow(supabase: SessionClient, eventId: string): Promise<HubDraftRow> {
+  const { data, error } = await supabase
+    .from('event_site_drafts')
+    .select('draft_json, updated_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read the Event Hub draft: ${error.message}`);
+  if (!data) return { draft: null, stamp: null };
+  const row = data as { draft_json: unknown; updated_at: string };
+  return { draft: sanitizeHubDraft(row.draft_json), stamp: row.updated_at };
+}
+
+/** Another screen wrote the draft between this writer's read and its write — the write was NOT made. */
+export class HubDraftMovedError extends Error {
+  constructor() {
+    super('The Event Hub draft changed on another screen while this save was on its way.');
+    this.name = 'HubDraftMovedError';
+  }
+}
+
+/**
  * Write a whole draft. UPDATE first, INSERT only when there is no row yet.
  *
  * NOT an upsert: PostgREST's `upsert(…, { onConflict: 'event_id' })` compiles to
@@ -86,6 +113,11 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
  * Hide). Keep the grant tight; write the columns the grant allows.
  *
  * Asks for the row back each time: zero rows is a refusal, never a success.
+ *
+ * 👥 `expect` — THE COMPARE-AND-SET (owner 2026-10-18, two hosts never overwrite). Given the `stamp` the writer READ
+ * (`readHubDraftRow`), the UPDATE only lands while the row still carries it, and `null` (there was no row) only
+ * INSERTS. Either one missing its mark throws `HubDraftMovedError` — nothing was written — and `updateHubDraft`
+ * re-reads and builds again on the newer draft. Absent: the unconditional write it always was.
  *
  * 📏 THE ONE DOOR EVERY DRAFT WRITE PASSES, so the size rule lives here too:
  * the oldest Undo states are dropped until the draft fits
@@ -100,29 +132,34 @@ export async function writeHubDraft(
   eventId: string,
   draftIn: HubDraft,
   appliedSnapshot?: Record<string, unknown>,
+  expect?: string | null,
 ): Promise<void> {
   const draft = hubDraftForWrite(draftIn);
   const fields = {
     draft_json: draft,
     ...(appliedSnapshot ? { applied_snapshot: appliedSnapshot } : {}),
   };
-  const updated = await supabase
-    .from('event_site_drafts')
-    .update(fields)
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (updated.error) {
-    throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
+  if (expect !== null) {
+    let q = supabase.from('event_site_drafts').update(fields).eq('event_id', eventId);
+    if (typeof expect === 'string') q = q.eq('updated_at', expect);
+    const updated = await q.select('event_id');
+    if (updated.error) {
+      throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
+    }
+    if (Array.isArray(updated.data) && updated.data.length > 0) return;
+    // 👥 The row it read is gone or has moved on: nothing was written — build again on what is there now.
+    if (typeof expect === 'string') throw new HubDraftMovedError();
   }
-  if (Array.isArray(updated.data) && updated.data.length > 0) return;
 
   const inserted = await supabase
     .from('event_site_drafts')
     .insert({ event_id: eventId, ...fields })
     .select('event_id');
   if (inserted.error) {
-    // Two first saves raced and the other one created the row: update it.
+    // Two first saves raced and the other one created the row.
     if (inserted.error.code === '23505') {
+      // 👥 A writer that read "no draft" builds again on the one the other screen just made.
+      if (expect === null) throw new HubDraftMovedError();
       const retry = await supabase
         .from('event_site_drafts')
         .update(fields)
@@ -139,6 +176,39 @@ export async function writeHubDraft(
   }
 }
 
+/** How many times a draft write re-reads and builds again before it gives up (each lost round is another screen's save landing). */
+export const HUB_DRAFT_WRITE_ATTEMPTS = 5;
+
+/**
+ * 👥 EVERY READ → CHANGE → WRITE OF THE DRAFT, AS ONE STEP (owner 2026-10-18: two hosts on one event, or one host on two
+ * phones, save at once; the Maker saves every pick). Before this each writer read the draft, merged its change and wrote
+ * the WHOLE row back — and a save that landed in between was silently gone, with an Undo step. Now: read the row and its
+ * version, `build` the next draft from it, and write only if the row is still that version (`writeHubDraft`'s `expect`);
+ * otherwise read again and build again on the newer draft — the other save is kept, this one goes on top of it.
+ *
+ * `build` returns the draft to write (and anything it wants handed back), or `null` to write nothing. It may run more
+ * than once, so it must be a function of the draft it is given. Gives up after `HUB_DRAFT_WRITE_ATTEMPTS` rounds — a
+ * failed save the caller already tells in words, never a silent overwrite.
+ */
+export async function updateHubDraft<R = undefined>(
+  supabase: SessionClient,
+  eventId: string,
+  build: (current: HubDraft | null) => Promise<{ next: HubDraft; said?: R } | null> | { next: HubDraft; said?: R } | null,
+  appliedSnapshot?: Record<string, unknown>,
+): Promise<{ written: boolean; draft: HubDraft | null; said?: R }> {
+  for (let attempt = 1; ; attempt += 1) {
+    const row = await readHubDraftRow(supabase, eventId);
+    const built = await build(row.draft);
+    if (!built) return { written: false, draft: row.draft };
+    try {
+      await writeHubDraft(supabase, eventId, built.next, appliedSnapshot, row.stamp);
+      return { written: true, draft: built.next, said: built.said };
+    } catch (e) {
+      if (!(e instanceof HubDraftMovedError) || attempt >= HUB_DRAFT_WRITE_ATTEMPTS) throw e;
+    }
+  }
+}
+
 /**
  * 🧹 A LIVE WRITE SUPERSEDES THE SAME FACT DRAFTED EARLIER (review 2026-10-05:
  * "Same as theme" drafted on the Theme step, then a background picked in the
@@ -150,14 +220,58 @@ export async function writeHubDraft(
  */
 export async function forgetDraftedEventColumn(supabase: SessionClient, eventId: string, column: HubDraftEventColumn): Promise<void> {
   try {
-    const draft = await readHubDraft(supabase, eventId);
-    if (!draft || !(column in draft.events)) return;
-    const events = { ...draft.events } as Record<string, unknown>;
-    delete events[column];
-    await writeHubDraft(supabase, eventId, { ...draft, events: events as HubDraft['events'] });
+    await updateHubDraft(supabase, eventId, (draft) => {
+      if (!draft || !(column in draft.events)) return null;
+      const events = { ...draft.events } as Record<string, unknown>;
+      delete events[column];
+      return { next: { ...draft, events: events as HubDraft['events'] } };
+    });
   } catch (e) {
     console.error(`[hub-draft] could not forget the drafted ${column}:`, e instanceof Error ? e.message : e);
   }
+}
+
+/**
+ * 👥 The LIVE values a based save compares with (`lib/hub-draft-rebase.ts`) for what the draft does not hold — only the
+ * columns and sections it names, through the couple's own session. A failed read THROWS: merging against a guessed
+ * "live" could put the screen's stale copy back over the other host's change.
+ */
+export async function readHubDraftRebaseLive(
+  supabase: SessionClient,
+  eventId: string,
+  needs: { columns: string[]; canvases: string[] },
+): Promise<HubDraftRebaseLive> {
+  const columns = needs.columns.filter((c) => (HUB_DRAFT_EVENT_READ_COLUMNS as readonly string[]).includes(c));
+  const [ev, rows] = await Promise.all([
+    columns.length > 0
+      ? supabase.from('events').select(columns.join(', ')).eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: {}, error: null }),
+    needs.canvases.length > 0
+      ? supabase.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', needs.canvases)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (ev.error) throw new Error(`Could not read the live Event Hub: ${ev.error.message}`);
+  if (rows.error) throw new Error(`Could not read the live sections: ${rows.error.message}`);
+  const canvas: Record<string, unknown> = {};
+  for (const r of (rows.data ?? []) as Array<{ widget_type: string; config_json: unknown }>) {
+    const c = (r.config_json as { canvas?: unknown } | null)?.canvas;
+    if (c !== undefined) canvas[r.widget_type] = c;
+  }
+  return { events: (ev.data ?? {}) as Record<string, unknown>, canvas };
+}
+
+/** One save, merged from its `base` onto the draft as it is NOW (`rebaseHubDraftPatch`), with the live values it needs. */
+export async function rebaseOnDraft(
+  supabase: SessionClient,
+  eventId: string,
+  current: HubDraft,
+  patch: HubDraftPatch,
+  base: unknown,
+): Promise<HubDraftRebased> {
+  if (base === undefined || base === null) return rebaseHubDraftPatch(current, patch, undefined, { events: {}, canvas: {} });
+  const needs = hubDraftRebaseNeeds(current, patch, sanitizeHubDraftPatch(base));
+  const live = needs.columns.length + needs.canvases.length > 0 ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
+  return rebaseHubDraftPatch(current, patch, base, live);
 }
 
 /** Where a form's draft save goes back to when it did NOT land. */
@@ -173,11 +287,16 @@ export type HubDraftBounce = { formData: FormData; fallback: string };
  * (prod, 2026-09-27, digest 1691351420). Without `back` (a caller that RETURNS
  * a result, `updatePhotoMoments`) it throws, for that caller's own catch.
  */
-export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, back?: HubDraftBounce): Promise<void> {
+export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, back?: HubDraftBounce, base?: HubDraftPatch): Promise<void> {
   try {
     const supabase = await createClient();
-    const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
-    await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+    /* 👥 `base` — what the writer built its whole value on (a canvas it read from the draft): merged from it onto the
+       draft as it is NOW, so a save that landed between the writer's read and this write is kept. */
+    await updateHubDraft(supabase, eventId, async (cur) => {
+      const current = cur ?? emptyHubDraft();
+      const rebased = await rebaseOnDraft(supabase, eventId, current, patch, base);
+      return { next: mergeHubDraft(current, rebased.patch) };
+    });
   } catch (e) {
     if (!back) throw e;
     console.error('[hub-draft] save failed:', e instanceof Error ? e.message : e);

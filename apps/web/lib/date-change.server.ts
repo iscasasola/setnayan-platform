@@ -5,7 +5,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { datePickClash } from '@/lib/date-clash.server';
 import { eventDatePrecisionOf, type EventDatePrecision } from '@/lib/events';
 import { emptyHubDraft, mergeHubDraft } from '@/lib/hub-draft';
-import { readHubDraft, writeHubDraft } from '@/lib/hub-draft-store';
+import { updateHubDraft, writeHubDraft } from '@/lib/hub-draft-store';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -165,25 +165,22 @@ export async function enterReadyDateIntoDraft(
   date: { date: string; precision: EventDatePrecision },
 ): Promise<void> {
   const draftClient = client as unknown as DraftClient;
-  const current = (await readHubDraft(draftClient, eventId)) ?? emptyHubDraft();
-  await writeHubDraft(
-    draftClient,
-    eventId,
-    mergeHubDraft(current, { events: { event_date: date.date, event_date_precision: date.precision } }),
-  );
+  // 👥 Built on the draft as it is when the write lands — a host's save made meanwhile is kept (`updateHubDraft`).
+  await updateHubDraft(draftClient, eventId, (current) => ({
+    next: mergeHubDraft(current ?? emptyHubDraft(), { events: { event_date: date.date, event_date_precision: date.precision } }),
+  }));
 }
 
 /** Withdraw puts the drafted date back to live — only if the draft holds the asked date. */
 async function takeAskedDateOutOfDraft(client: Client, eventId: string, asked: string): Promise<void> {
   const draftClient = client as unknown as DraftClient;
-  const current = await readHubDraft(draftClient, eventId);
-  if (!current || current.events.event_date !== asked) return;
   const { data: live } = await client.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
   const row = (live ?? {}) as { event_date?: string | null; event_date_precision?: string | null };
-  await writeHubDraft(
-    draftClient,
-    eventId,
-    mergeHubDraft(current, { events: { event_date: row.event_date ?? null, event_date_precision: row.event_date_precision ?? null } }),
+  // 👥 Built on the draft as it is when the write lands (`updateHubDraft`).
+  await updateHubDraft(draftClient, eventId, (current) =>
+    !current || current.events.event_date !== asked
+      ? null
+      : { next: mergeHubDraft(current, { events: { event_date: row.event_date ?? null, event_date_precision: row.event_date_precision ?? null } }) },
   );
 }
 

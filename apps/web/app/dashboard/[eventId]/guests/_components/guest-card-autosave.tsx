@@ -48,13 +48,14 @@ import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { Check } from 'lucide-react';
 import { pushUndo } from './undo-store';
+import { TWO_SCREENS_NOTE } from '@/lib/maker-save-status';
 
 /** Pause after the last change before the form posts. Long enough that typing a
  *  name is one write, short enough that it feels immediate. */
 const DEBOUNCE_MS = 700;
 
-/** Plumbing, not columns — never diffed, never restored. */
-const NOT_A_FIELD = new Set(['quiet', 'return_to']);
+/** Plumbing, not columns — never diffed, never restored. `base` is the card a save started from (👥 below). */
+const NOT_A_FIELD = new Set(['quiet', 'return_to', 'base']);
 
 /**
  * WHAT THE LAST SAVE DID — said within the press (step 4C, 2026-10-09). A save that FAILED must never read as one that landed: the
@@ -63,7 +64,19 @@ const NOT_A_FIELD = new Set(['quiet', 'return_to']);
  * take back), and a save is in flight (`useFormStatus`). A redirect (the action's own way of sending an error to be SEEN) and
  * not-found are the framework's and pass through untouched.
  */
-export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number } | { kind: 'failed'; why?: string };
+export type AutosaveOutcome = { kind: 'idle' } | { kind: 'saved'; n: number; moved?: boolean } | { kind: 'failed'; why?: string };
+
+/**
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/guest-card-merge.ts`). Every save carries the card it
+ * started from (`base`, the last card this form sent), so `updateGuest` writes only what THIS screen changed and keeps
+ * whatever another host — or the guest from their phone — changed meanwhile. What the row holds differently comes back
+ * (`fresh`): it is put on the card, and the save line says so once (`TWO_SCREENS_NOTE`).
+ */
+export type AutosaveElsewhere = { fresh: Record<string, string[]>; clashed: string[] };
+/** How long the save line holds a word: "Saved", or the longer two-screens sentence. */
+export const SAVED_SHOWN_MS = 2200;
+export const ELSEWHERE_SHOWN_MS = 6000;
+export { TWO_SCREENS_NOTE };
 export const OutcomeContext = createContext<{ outcome: AutosaveOutcome; retry: () => void }>({ outcome: { kind: 'idle' }, retry: () => {} });
 /** The save line's way to read the outcome (the templated card draws its own line with the same facts). */
 export function useAutosaveOutcome() {
@@ -182,9 +195,11 @@ function restoreInputs(form: HTMLFormElement, snap: FormData): void {
 /* One post, heard both ways: a save that THREW and a save that was REFUSED. A quiet `updateGuest` RETURNS `{ refused }` instead of
    redirecting (a redirect navigates the card away — blank for a second, the app-wide error toast, the typed words gone); the
    framework's own redirect / not-found still pass through. null = it landed; otherwise the reason ('' when the action gave none). */
-export async function hearSave(action: (fd: FormData) => unknown, fd: FormData): Promise<string | null> {
+export async function hearSave(action: (fd: FormData) => unknown, fd: FormData, onElsewhere?: (e: AutosaveElsewhere) => void): Promise<string | null> {
   try {
-    return ((await action(fd)) as { refused?: string } | undefined)?.refused ?? null;
+    const answer = (await action(fd)) as { refused?: string; elsewhere?: AutosaveElsewhere } | undefined;
+    if (answer?.elsewhere && onElsewhere) onElsewhere(answer.elsewhere);
+    return answer?.refused ?? null;
   } catch (e) {
     if (isFrameworkSignal(e)) throw e;
     return '';
@@ -197,7 +212,7 @@ export function AutosaveForm({
   className,
   children,
 }: {
-  action: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
+  action: (formData: FormData) => void | { refused: string } | { elsewhere: AutosaveElsewhere } | Promise<void | { refused: string } | { elsewhere: AutosaveElsewhere }>;
   /** Where `updateGuest` should send an ERROR back to — the surface the card is
    *  open on, so a failed save lands on the card and not on some other page.
    *  The action validates it stays inside this event's guest routes. */
@@ -229,14 +244,43 @@ export function AutosaveForm({
     };
   }, []);
 
-  const send = useCallback((fd: FormData) => hearSave(action, fd), [action]);
+  /* 👥 Another screen's change came back with a save: it goes on the card (only those fields — what this screen typed is
+     not touched), and becomes part of what the next save starts from. */
+  const moved = useRef(false);
+  const takeElsewhere = useCallback((e: AutosaveElsewhere) => {
+    const form = formRef.current;
+    if (!form || Object.keys(e.fresh).length === 0) return;
+    restoring.current = true;
+    try {
+      putFields(form, e.fresh);
+    } finally {
+      restoring.current = false;
+    }
+    const prev = lastSaved.current;
+    if (prev) {
+      const next = new FormData();
+      for (const [k, v] of prev.entries()) if (!(k in e.fresh)) next.append(k, v);
+      for (const [k, vs] of Object.entries(e.fresh)) for (const v of vs) next.append(k, v);
+      lastSaved.current = next;
+    }
+    moved.current = true;
+  }, []);
+  /* Every post carries the card it started from: the last card this form SENT (saves run in order). */
+  const withBase = useCallback((fd: FormData, from: FormData | null) => {
+    const out = new FormData();
+    for (const [k, v] of fd.entries()) if (k !== 'base') out.append(k, v);
+    if (from) out.set('base', JSON.stringify(Object.fromEntries(fieldsOf(from))));
+    return out;
+  }, []);
+  const send = useCallback((fd: FormData) => hearSave(action, fd, takeElsewhere), [action, takeElsewhere]);
 
   const undoTo = useCallback(
     async (snap: FormData) => {
       const form = formRef.current;
       restoring.current = true;
       try {
-        const why = await send(snap);
+        // 👥 The undo is a change FROM the card as last sent — only what it puts back is written.
+        const why = await send(withBase(snap, lastSaved.current));
         if (why !== null) {
           // The Undo did not land: the row still holds what it held, so the controls stay where they are — and it says so.
           setOutcome({ kind: 'failed', why });
@@ -251,7 +295,7 @@ export function AutosaveForm({
       // — the roster row behind the panel, the tags, the status line.
       router.refresh();
     },
-    [send, router],
+    [send, router, withBase],
   );
 
   /* React 19 resets a form after its action returns — and a save that FAILED returns too (the failure is caught below, so the form is not
@@ -274,7 +318,9 @@ export function AutosaveForm({
       const change = carried.current;
       carried.current = null;
       failedLast.current = false;
-      const why = await send(fd);
+      moved.current = false;
+      // A Try again carries no change of its own: it starts from the card as last sent.
+      const why = await send(withBase(fd, change ? change.prev : lastSaved.current));
       if (why !== null) {
         failedLast.current = true;
         // Nothing landed: the last saved payload is still the one before this change, and no Undo is offered for it.
@@ -282,7 +328,9 @@ export function AutosaveForm({
         setOutcome({ kind: 'failed', why });
         return;
       }
-      setOutcome({ kind: 'saved', n: ++landed.current });
+      setOutcome({ kind: 'saved', n: ++landed.current, ...(moved.current ? { moved: true } : {}) });
+      // 👥 The rest of the page (the roster row behind the card) catches up with the other screen's change too.
+      if (moved.current) router.refresh();
       if (change?.prev) {
         const prev = change.prev;
         const label = describeChange(prev, change.next);
@@ -290,7 +338,7 @@ export function AutosaveForm({
         if (label) pushUndo({ label, undo: () => undoTo(prev) });
       }
     },
-    [send, undoTo],
+    [send, undoTo, withBase, router],
   );
 
   const schedule = () => {
@@ -346,7 +394,7 @@ export function AutosaveState() {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
     setShown(true);
-    const t = setTimeout(() => setShown(false), 2200);
+    const t = setTimeout(() => setShown(false), outcome.moved ? ELSEWHERE_SHOWN_MS : SAVED_SHOWN_MS);
     return () => clearTimeout(t);
   }, [outcome]);
 
@@ -366,11 +414,32 @@ export function AutosaveState() {
           </button>
         </>
       ) : outcome.kind === 'saved' && shown ? (
-        <>
-          <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
-          <span className="text-success-800">Saved</span>
-        </>
+        outcome.moved ? (
+          <span data-two-screens-note="" className="text-ink/70">{TWO_SCREENS_NOTE}</span>
+        ) : (
+          <>
+            <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
+            <span className="text-success-800">Saved</span>
+          </>
+        )
       ) : null}
     </span>
   );
+}
+
+/** 👥 Put another screen's values on the card — only the fields named, by the same routes `restoreInputs` uses. */
+function putFields(form: HTMLFormElement, fresh: Record<string, string[]>): void {
+  for (const el of Array.from(form.elements)) {
+    const name = (el as HTMLInputElement).name;
+    if (!name || !(name in fresh)) continue;
+    const values = fresh[name]!;
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+      if (el.checked !== values.length > 0) el.click();
+    } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+      if (values[0] === el.value && !el.checked) el.click();
+    } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+      el.value = values[0] ?? '';
+      if (el instanceof HTMLInputElement && el.dataset.formPick !== undefined) el.dispatchEvent(new Event('sn-restore'));
+    }
+  }
 }

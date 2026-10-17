@@ -23,7 +23,7 @@ import type {
   CardTipProps,
   CardToggleProps,
 } from './guest-card-kit';
-import { useAutosaveOutcome } from './guest-card-autosave';
+import { ELSEWHERE_SHOWN_MS, SAVED_SHOWN_MS, TWO_SCREENS_NOTE, useAutosaveOutcome } from './guest-card-autosave';
 import { isPlainSentence } from './plain-refusal';
 import { TitlePicker } from './title-picker';
 
@@ -240,7 +240,7 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
     setShown(true);
-    const t = setTimeout(() => setShown(false), 2200);
+    const t = setTimeout(() => setShown(false), outcome.moved ? ELSEWHERE_SHOWN_MS : SAVED_SHOWN_MS);
     return () => clearTimeout(t);
   }, [outcome]);
   return (
@@ -254,10 +254,15 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
           <ActionButton tone="danger" label="Try again" icon={Check} onClick={retry} data-testid="autosave-retry" />
         </>
       ) : outcome.kind === 'saved' && shown ? (
-        <>
-          <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
-          <span className="text-success-800">Saved</span>
-        </>
+        /* 👥 another screen's change came back with this save and is now on the card — said once, calmly */
+        outcome.moved ? (
+          <span data-two-screens-note="" className="text-ink/70">{TWO_SCREENS_NOTE}</span>
+        ) : (
+          <>
+            <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
+            <span className="text-success-800">Saved</span>
+          </>
+        )
       ) : null}
     </span>
   );

@@ -100,7 +100,9 @@ import {
   type HubDraftRefusal,
   type HubDraftState,
 } from '@/lib/hub-draft';
-import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, rebaseOnDraft, updateHubDraft } from '@/lib/hub-draft-store';
+import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
 import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
 import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
@@ -194,11 +196,21 @@ export async function hubDraftAction(
        Reset bring a whole render of the Maker, and until it landed the toolbar still read the count from BEFORE the
        press. Asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back with the write — read beside it, from the same
        draft, by the reader a save's answer uses — so ✓ and ↺ show the step the moment the action answers. */
-    const answerWithBar = async (next: HubDraft, matched?: boolean): Promise<HubDraftActionResult> => {
-      const [, bar] = await Promise.all([
-        writeHubDraft(supabase, eventId, next),
-        formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? hubDraftBarAfterSave(supabase, eventId, next) : Promise.resolve(null),
-      ]);
+    /* 👥 Built on the draft AS IT IS when the write lands (`updateHubDraft`: compare-and-set, built again if another
+       screen saved in between) — never on the copy read at the top, which a second host's save may already have passed. */
+    const answerWithBar = async (build: (cur: HubDraft) => HubDraft, matchedOf?: (cur: HubDraft) => boolean | undefined): Promise<HubDraftActionResult> => {
+      let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
+      let matched: boolean | undefined;
+      const wrote = await updateHubDraft(supabase, eventId, (cur) => {
+        const c = cur ?? emptyHubDraft();
+        const next = build(c);
+        matched = matchedOf?.(c);
+        // ⚡ The bar is read BESIDE the write, for the draft this round builds (a lost round reads it again).
+        if (formData.get(HUB_DRAFT_BAR_FIELD) === '1') barP = hubDraftBarAfterSave(supabase, eventId, next);
+        return { next };
+      });
+      const next = wrote.draft ?? emptyHubDraft();
+      const bar = await barP;
       /* ↺ …and the STAMP of the state it left (`lib/hub-draft-stamp.ts`): the Maker's ↺ proves with it that the step it
          draws backwards is the server's newest. */
       const stamp = hubDraftStamp(next);
@@ -252,12 +264,33 @@ export async function hubDraftAction(
       if (Array.isArray(patch.march) && (current.march?.length ?? 0) + patch.march.length > MARCH_DRAFT_MAX_MOVES) {
         return { ok: false, intent, error: MARCH_DRAFT_FULL_MESSAGE };
       }
-      const [, bar] = await Promise.all([
-        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
-        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
-      ]);
+      /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18). The merge is built on the draft as it is when the
+         write lands (`updateHubDraft`, a compare-and-set on the row's version — built again if another screen saved in
+         between, so that save is kept). A save that sends a WHOLE value it built from its own copy also sends the value
+         it was based on (`MERGE_BASE_FIELD`): merged three ways (`rebaseOnDraft`) — what it did not change keeps the
+         other host's value; what both changed, this later save wins. The screen is told what it must now show. */
+      let base: unknown;
+      try {
+        const rawBase = formData.get(MERGE_BASE_FIELD);
+        base = typeof rawBase === 'string' && rawBase ? (JSON.parse(rawBase) as unknown) : undefined;
+      } catch {
+        base = undefined;
+      }
+      let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
+      const wrote = await updateHubDraft<HubDraftRebased>(supabase, eventId, async (cur) => {
+        const c = cur ?? emptyHubDraft();
+        const rebased = await rebaseOnDraft(supabase, eventId, c, patch, base);
+        const next = mergeHubDraft(c, rebased.patch);
+        /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure), so asking for it adds no round trip
+           after the save; a round lost to another screen reads it again for the draft that round builds. */
+        if (wantsBar) barP = hubDraftBarAfterSave(supabase, eventId, next);
+        return { next, said: rebased };
+      });
+      const written = wrote.draft ?? mergeHubDraft(current, patch);
+      const bar = await barP;
+      const elsewhere = wrote.said?.moved ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed } } : {};
       /* ↺ The stamp of the state this save left — the Maker's journal keeps it beside the step (`lib/hub-draft-stamp.ts`). */
-      const stamp = hubDraftStamp(mergeHubDraft(current, patch));
+      const stamp = hubDraftStamp(written);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -276,20 +309,20 @@ export async function hubDraftAction(
          in this same answer — the SAME summary the render counts with, for both
          answers to "owns Pro" (this action never asks — the view switch must
          not reach a save; the toolbar picks). */
-      if (!bar) return { ...done(), stamp };
-      return { ...done(), bar, stamp };
+      if (!bar) return { ...done(), stamp, ...elsewhere };
+      return { ...done(), bar, stamp, ...elsewhere };
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');
       if (!isHubResetScope(scope)) return { ok: false, intent, error: 'Choose which stage to reset.' };
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return answerWithBar(mergeHubDraft(current, hubResetPatch(scope)));
+      return answerWithBar((cur) => mergeHubDraft(cur, hubResetPatch(scope)));
     }
     if (intent === 'undo') {
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       /* ↺ A DRAWN UNDO says which state it expects to step back from (`HUB_DRAFT_EXPECT_FIELD`): the undo ALWAYS runs —
          one press is one step — and the answer says whether it was that one (`matched`; `lib/hub-draft-stamp.ts`). */
-      return answerWithBar(undoHubDraft(current), hubDraftUndoMatched(current, formData.get(HUB_DRAFT_EXPECT_FIELD)));
+      return answerWithBar((cur) => undoHubDraft(cur), (cur) => hubDraftUndoMatched(cur, formData.get(HUB_DRAFT_EXPECT_FIELD)));
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the
@@ -302,7 +335,11 @@ export async function hubDraftAction(
       const live = await readHubLiveState(supabase, eventId);
       const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
       if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, effect.remove));
+      // 👥 Recomputed on the draft as it is when the write lands (another screen may have saved since the read above).
+      await updateHubDraft(supabase, eventId, (cur) => {
+        const remove = hubDraftProEffects(cur ?? emptyHubDraft(), live, false).find((e) => e.id === id)?.remove;
+        return remove ? { next: mergeHubDraft(cur ?? emptyHubDraft(), remove) } : null;
+      });
       return done();
     }
 
@@ -984,7 +1021,8 @@ export async function hubDraftAction(
       if (item.kind !== 'march') continue;
       const replay = await runDraftedMarch(item.value, (step) => callMarchStep(eventId, step));
       if (replay.failed) {
-        await writeHubDraft(supabase, eventId, { ...current, march: replay.left, history: [] });
+        // 👥 A save another screen made while Apply ran stays drafted (`draftLeftAfterApply`).
+        await updateHubDraft(supabase, eventId, (now) => ({ next: draftLeftAfterApply(current, { ...current, march: replay.left, history: [] }, now) }));
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
       if (replay.stopped) {
@@ -1025,8 +1063,15 @@ export async function hubDraftAction(
         (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;
       }
     }
-    const left: HubDraft = { v: 1, ...remaining, history: [] };
-    await writeHubDraft(supabase, eventId, left, snapshot);
+    /* 👥 What another screen saved while Apply ran is NOT live yet: it stays drafted, built on the draft as it is when
+       this write lands (`draftLeftAfterApply` inside `updateHubDraft`) — never Apply's own trim of the copy it read. */
+    const trimmed = await updateHubDraft(
+      supabase,
+      eventId,
+      (now) => ({ next: draftLeftAfterApply(current, { v: 1, ...remaining, history: [] }, now) }),
+      snapshot,
+    );
+    const left: HubDraft = trimmed.draft ?? { v: 1, ...remaining, history: [] };
     /* ✓ (2026-10-15) asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back WITH the apply — the ✓ count shows what is
        left the moment the write answers, never only after the Maker's render (`hub-draft-bar.tsx` `applyHeld`). */
     const applyBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? await hubDraftBarAfterSave(supabase, eventId, left) : null;

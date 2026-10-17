@@ -61,11 +61,14 @@ async function watchAnswer(slug: string): Promise<WatchAnswer> {
     eventId = row.event_id;
     watchUrls = { youtubeWatchUrl: row.panood_watch_url ?? null, facebookWatchUrl: row.panood_watch_url_facebook ?? null };
   } else if (eventError) {
+    // Said, not swallowed: the one-read path failed (a schema without the Facebook column is the expected case).
+    console.error('[supabase-error] app/api/live/[slug]/watch/route.ts · from:events.select', eventError);
     const { data: idRow, error: idError } = await admin
       .from('events')
       .select('event_id')
       .ilike('slug', slug)
       .maybeSingle();
+    if (idError) console.error('[supabase-error] app/api/live/[slug]/watch/route.ts · from:events.select (fallback)', idError);
     if (!idError && idRow) {
       eventId = (idRow as { event_id: string }).event_id;
       watchUrls = await readEventWatchUrls(admin, eventId);

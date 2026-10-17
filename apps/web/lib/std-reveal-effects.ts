@@ -107,7 +107,13 @@ export type RevealTuneKey =
   | 'petalFall'
   | 'butterflyCount'
   | 'butterflySpeed'
-  | 'butterflySize';
+  | 'butterflySize'
+  /* 🧵 The Sheer veil's Style choices (owner 2026-10-17 — Fold ▾ · Weave ▾ · Wind ▾, `lib/veil-style.ts`): three
+     presets each, stored as these house-look overrides, so the guest's veil plays them through the SAME
+     `tuneRevealLooks` every surface already reads. No slider offers them (`revealTuneKnobsFor` leaves them out). */
+  | 'drape'
+  | 'weave'
+  | 'gust';
 export type RevealTune = Partial<Record<RevealTuneKey, number>>;
 
 export type RevealTuneKnob = {
@@ -133,6 +139,9 @@ export const REVEAL_TUNE_KNOBS: Record<RevealTuneKey, RevealTuneKnob> = {
   butterflyCount: { key: 'butterflyCount', look: 'effects', label: 'Butterflies', lo: 'Few', hi: 'Many', min: 0, max: 100, step: 1 },
   butterflySpeed: { key: 'butterflySpeed', look: 'effects', label: 'Butterfly speed', lo: 'Slow', hi: 'Fast', min: 0, max: 100, step: 1 },
   butterflySize: { key: 'butterflySize', look: 'effects', label: 'Butterfly size', lo: 'Small', hi: 'Large', min: 0, max: 100, step: 1 },
+  drape: { key: 'drape', look: 'veil', label: 'Fold', lo: 'Light', hi: 'Full', min: 0, max: 70, step: 1 },
+  weave: { key: 'weave', look: 'veil', label: 'Weave', lo: 'Fine', hi: 'Dense', min: 0, max: 100, step: 1 },
+  gust: { key: 'gust', look: 'veil', label: 'Gusts', lo: 'Even', hi: 'Gusty', min: 0, max: 100, step: 1 },
 };
 
 const ENVELOPE_OPENINGS = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);

@@ -18,6 +18,7 @@ import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invit
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { veilColorFromPalette } from '@/lib/site-palette';
 import { mainColoursOf } from '@/lib/main-colours';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
@@ -347,6 +348,8 @@ export async function MakerRevealPanel({
       tuneHouse={revealTuneHouse(config)}
       /* 🎨 The veil's colour rows open the one picker on the five main colours (owner 2026-10-08). */
       mainColours={mainColoursOf(m.drafted.role_palette, theme)}
+      /* 🧵 The veil's colour while none is chosen — the guest page's own (`revealVeilColor`: the Mood Board's, else ivory). */
+      veilShown={veilColorFromPalette(sanitizeRolePalette(m.drafted.role_palette))}
       part={part}
     />
   );

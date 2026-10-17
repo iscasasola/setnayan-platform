@@ -25,7 +25,24 @@ import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_componen
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
-import { Dd } from './stage-panel/kit';
+import { About, Dd, Swatch } from './stage-panel/kit';
+import {
+  VEIL_FOLDS,
+  VEIL_FOLD_ORDER,
+  VEIL_WEAVES,
+  VEIL_WEAVE_ORDER,
+  VEIL_WINDS,
+  VEIL_WIND_ORDER,
+  veilFoldOf,
+  veilWeaveOf,
+  veilWindOf,
+  withVeilFold,
+  withVeilWeave,
+  withVeilWind,
+  type VeilFold,
+  type VeilWeave,
+  type VeilWind,
+} from '@/lib/veil-style';
 import { RevealPicture } from './stage-panel/reveal-picture';
 import { REVEAL_NONE_ID, revealCoverPickPatch, revealCoverPicked, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
@@ -108,8 +125,11 @@ export function MakerRevealPicker({
   storeShell,
   stdWindowDays,
   mainColours = NO_COLOURS,
+  veilShown = VEIL_IVORY,
   part = 'all',
 }: {
+  /** 🧵 The veil's colour while the couple has chosen none — what guests see today (the Mood Board's, else ivory). */
+  veilShown?: string;
   /** 🎨 The five main colours in slot order (`mainColoursOf`) — the veil's colour rows open the one picker on them. */
   mainColours?: readonly string[];
   /**
@@ -359,7 +379,7 @@ export function MakerRevealPicker({
   /* 🎭 The Stages panel's Opening — Cover Scene › Style (owner-approved 2026-10-16): the openings as cards over the
      couple's own cover, then Extras ◆ ▾ (`RevealStagePart`). No Background: the opening plays over the cover. */
   if (onStage) {
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} mainColours={mainColours} veilShown={veilShown} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -435,6 +455,8 @@ export function MakerRevealPicker({
 }
 
 const NO_COLOURS: readonly string[] = [];
+/** Today's veil with no Mood Board colour to lighten (`veilColorFromPalette`'s own fallback). */
+const VEIL_IVORY = '#f3ece1';
 const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
 
 /**
@@ -661,6 +683,12 @@ function ColourRow({
   );
 }
 
+/** The opening's one sentence — on the row, or behind ⓘ when the veil's own choices take the row. */
+const OPENING_SAYS = 'Opens once, over this cover. Behind it, nothing shows or plays.';
+const FOLD_OPTIONS = VEIL_FOLD_ORDER.map((k) => ({ key: k, label: VEIL_FOLDS[k].label, hint: VEIL_FOLDS[k].hint }));
+const WEAVE_OPTIONS = VEIL_WEAVE_ORDER.map((k) => ({ key: k, label: VEIL_WEAVES[k].label, hint: VEIL_WEAVES[k].hint }));
+const WIND_OPTIONS = VEIL_WIND_ORDER.map((k) => ({ key: k, label: VEIL_WINDS[k].label, hint: VEIL_WINDS[k].hint }));
+
 function RevealStagePart({
   onStage,
   openings,
@@ -672,7 +700,13 @@ function RevealStagePart({
   ownsPro,
   storeShell,
   failed,
+  mainColours,
+  veilShown,
 }: {
+  /** 🎨 The five main colours — the veil's Colour opens the one picker on them. */
+  mainColours: readonly string[];
+  /** 🧵 What the veil is painted while no colour is chosen (today's). */
+  veilShown: string;
   /** 🚫 One patch for the opening and where it plays (`lib/reveal-none.ts` `revealCoverPickPatch`). */
   savePick: (patch: RevealPatch | null) => void;
   /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted). */
@@ -697,6 +731,8 @@ function RevealStagePart({
     setStageRevealKind(picked);
   }, [picked]);
   const extras = picked !== REVEAL_NONE_ID ? revealExtrasFor(picked) : [];
+  const veil = picked === 'veil-sheer';
+  const [pickingColour, setPickingColour] = useState(false);
   const mark = makerProMark({ owns: ownsPro, storeShell });
   /* 🌫 The prototype's cards after the Sheer veil — the envelope and the doors exist (`REVEAL_LIBRARY`), but an opening
      the house has not switched on is drawn faint and says why (prototype `.lc.soon`: "After the envelope proof — not
@@ -762,10 +798,48 @@ function RevealStagePart({
                       stacked
                     />
                   ) : null}
-                  <span className="min-w-0 flex-[1.4] px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">Opens once, over this cover. Behind it, nothing shows or plays.</span>
+                  {veil ? (
+                    <>
+                      {/* 🌬 Wind ▾ (owner 2026-10-17: *"wind speed/randomness"*) — beside Extras, two stacked pills to a row. */}
+                      <Dd small="Wind ◆" label="Veil wind" data="veil-wind" value={veilWindOf(effects)} options={WIND_OPTIONS} onPick={(k) => setEffects(withVeilWind(effects, k as VeilWind))} stacked />
+                      {/* The opening's sentence, behind ⓘ — the row now holds the veil's own choices (helper words never take a row). */}
+                      <About label="Opening">{OPENING_SAYS}</About>
+                    </>
+                  ) : (
+                    <span className="min-w-0 flex-[1.4] px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">{OPENING_SAYS}</span>
+                  )}
                 </>
               )}
             </div>
+            {veil ? (
+              /* 🧵 THE VEIL IS THE COUPLE'S TO TUNE (owner 2026-10-17: *"fold coverage, veil thread count, veil color"*):
+                 Fold ▾ · Weave ▾ and the veil's colour circle — the one colour sheet. Each middle choice is today's veil,
+                 stored as nothing (`lib/veil-style.ts`); all Pro ◆, tried here, named at Apply. */
+              <div data-look-row="veil" className={`${SP_ROWS_ROW} h-[var(--sp-rh)] shrink-0`}>
+                <Dd small="Fold ◆" label="Veil fold" data="veil-fold" value={veilFoldOf(effects)} options={FOLD_OPTIONS} onPick={(k) => setEffects(withVeilFold(effects, k as VeilFold))} stacked />
+                <Dd small="Weave ◆" label="Veil weave" data="veil-weave" value={veilWeaveOf(effects)} options={WEAVE_OPTIONS} onPick={(k) => setEffects(withVeilWeave(effects, k as VeilWeave))} stacked />
+                <Swatch
+                  on
+                  label={effects.veilColor ? `Veil colour ◆ ${effects.veilColor.toUpperCase()} — change it` : 'Veil colour ◆ — change it'}
+                  face={<span className="absolute inset-0" style={{ background: effects.veilColor ?? veilShown }} />}
+                  onPick={() => setPickingColour(true)}
+                  data={{ 'data-veil-colour': effects.veilColor ?? 'house' }}
+                />
+                {pickingColour ? (
+                  <ColourSheet
+                    title="Veil colour"
+                    what="the veil"
+                    value={effects.veilColor}
+                    shown={veilShown}
+                    palette={mainColours}
+                    slots={mainColours.length > 0}
+                    onPick={(hex) => setEffects({ ...effects, veilColor: hex })}
+                    onUnset={() => setEffects({ ...effects, veilColor: null })}
+                    onClose={() => setPickingColour(false)}
+                  />
+                ) : null}
+              </div>
+            ) : null}
             {failed}
           </>
         }

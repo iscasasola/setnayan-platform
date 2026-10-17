@@ -21,6 +21,10 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { COVER_SCENE_ATTR } from '@/lib/cover-scene';
 import { COVER_SCENE_SELECTOR, coverOnScreen, drapeShift, drapeShows } from '@/lib/reveal-stages';
+import { DEFAULT_VEIL_LOOK } from '@/lib/reveal-config-pure';
+import { liftedValance } from '@/lib/veil-style';
+
+const DRAPE_HOUSE = DEFAULT_VEIL_LOOK.drape;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OVERLAY = stripComments(readFileSync(join(HERE, 'reveal-overlay.tsx'), 'utf8'));
@@ -157,7 +161,12 @@ test('🎭 the kept drape eases straight into a hang of ~15–20 % of the cover 
   assert.match(VEIL, /const drag = keepsOpenRef\.current && lift > 0\.5 \? DRAPE_DRAG : /, 'the kept drape is undamped again — it overshoots its hang');
   const drag = Number(/const DRAPE_DRAG = ([\d.]+);/.exec(VEIL)?.[1] ?? NaN);
   assert.ok(drag > 0.8 && drag < 0.95, `DRAPE_DRAG ${drag} — outside the damped range the probe measured`);
-  const valance = Number(/const DRAPE_VALANCE = ([\d.]+);/.exec(VEIL)?.[1] ?? NaN);
+  /* 🧵 2026-10-17 (owner: *"fold coverage"* — the couple's Fold ▾): the house valance moved into the look as `drape`, so a
+     couple's Light / Full reach the cloth through the same tuned look; untouched, it is the measured 15. */
+  assert.match(VEIL, /const DRAPE_VALANCE = DEFAULT_VEIL_LOOK\.drape;/, 'the kept drape’s house valance is not the look’s own');
+  const valance = DEFAULT_VEIL_LOOK.drape;
   assert.ok(valance >= 12 && valance <= 19, `DRAPE_VALANCE ${valance} — measured: 15 hangs ~18 %, 19 ~21 %, the locked 30 ~30 %`);
-  assert.match(VEIL, /clothHvh - 4 \* \(\(keepsOpenRef\.current \? DRAPE_VALANCE : cfg\.topValance\) \/ 100\)/, 'the kept drape no longer hangs at its own valance');
+  assert.match(VEIL, /clothHvh - 4 \* \(liftedValance\(cfg, keepsOpenRef\.current, DRAPE_VALANCE\) \/ 100\)/, 'the kept drape no longer hangs at its own valance');
+  assert.equal(liftedValance({ drape: DRAPE_HOUSE, topValance: 30 }, true, DRAPE_HOUSE), DRAPE_HOUSE, 'the kept drape no longer hangs at the house valance');
+  assert.equal(liftedValance({ drape: DRAPE_HOUSE, topValance: 30 }, false, DRAPE_HOUSE), 30, 'the Save the Date’s untouched valance moved');
 });

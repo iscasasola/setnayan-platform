@@ -85,6 +85,8 @@ import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
 import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
+import { DEFAULT_REVEAL_EFFECTS, type RevealEffects } from '@/lib/std-reveal-effects';
+import { withVeilFold, withVeilWeave, withVeilWind } from '@/lib/veil-style';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -229,9 +231,26 @@ const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
  * here because the real guest page needs the database the lab does not have.
  * DEV-ONLY: production builds 404 it.
  */
+function labVeil(sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
+  const fold = sp.fold === 'light' || sp.fold === 'full' ? sp.fold : null;
+  const weave = sp.weave === 'fine' || sp.weave === 'dense' ? sp.weave : null;
+  const wind = sp.wind === 'still' || sp.wind === 'gusty' ? sp.wind : null;
+  const colour = typeof sp.veilcolour === 'string' && /^[0-9a-fA-F]{6}$/.test(sp.veilcolour) ? `#${sp.veilcolour}` : null;
+  if (!fold && !weave && !wind && !colour) return undefined;
+  let e: RevealEffects = { ...DEFAULT_REVEAL_EFFECTS, veilColor: colour };
+  if (fold) e = withVeilFold(e, fold);
+  if (weave) e = withVeilWeave(e, weave);
+  if (wind) e = withVeilWind(e, wind);
+  return e;
+}
+
 export default async function MakerLabGuestPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  /* 🧵 `&fold=light|full · &weave=fine|dense · &wind=still|gusty · &veilcolour=RRGGBB` — the couple's Sheer veil choices
+     (Cover Scene › Style, `lib/veil-style.ts`) laid into the effects the veil plays, exactly as the event's
+     `std_reveal_effects` carries them, so each can be walked without a database. None given → today's veil. */
+  const labVeilEffects = labVeil(sp);
   /* 🎁 `?wish=…` — the guest's wish list on fixtures (`wish-lab.tsx`), instead of the canvas. */
   if (typeof sp.wish === 'string') {
     return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} blocked={sp.blocked === '1'} />;
@@ -813,7 +832,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
-        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
+        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
             scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
             showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
@@ -1009,7 +1028,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. Told the page's own
           `firstPageOnly` (`site-body.tsx`), so the drape that stays with the cover (owner 2026-10-17) walks here too. */}
       {sp.veil === '1' && !makerCanvas ? (
-        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
@@ -1132,7 +1151,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
-        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
+        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
             scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
             showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken

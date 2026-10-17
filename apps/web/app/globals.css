@@ -7827,7 +7827,7 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 /* Save-Data: the flare held where reduced motion holds it (the ambient sheet's own still, `AMBIENT_EFFECT_CSS`). */
 :root.sn-save-data [data-el-leak] [data-ambient-effect='leak'] i {
   animation-name: none;
-  opacity: calc(var(--o) * 0.7);
+  opacity: calc(var(--o) * .7);
   transform: rotate(-18deg) translateX(calc(44% * var(--p) - 22%));
 }
 @media screen and (prefers-reduced-motion: no-preference) {

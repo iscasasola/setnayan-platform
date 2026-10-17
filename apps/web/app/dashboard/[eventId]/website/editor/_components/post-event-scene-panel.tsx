@@ -186,7 +186,9 @@ export function PostEventScenePanel({
   /* 🎨 Style — the shared row (a strip of miniatures in the new Maker), free. */
   const styleRow = (
     <SceneStyleRow
-      options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
+      /* 💎 ◆ on a card that is not the theme's own (2026-10-16) — a scene's own card is stored only when it is not the
+         recommended one; a shared one (Schedule, Gallery) is Pro as the registry says (`sceneStyleIsPro`). */
+      options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault, pro: home ? Boolean(o.pro) : !o.isDefault }))}
       value={drawn?.style ?? style}
       pending={pending}
       onPick={pickStyle}

@@ -2538,6 +2538,12 @@ function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown): Record<strin
     if (back === undefined || back === null) delete target[field];
     else target[field] = back;
     if (field === 'i' && target.i === undefined) delete target.v; /* a feel times an effect (`rsvpLookWith`) */
+    /* A line or a card left with nothing is no look at all (`rsvpLookWith` stores none) — a group keeps its members. */
+    if (home !== 'groups' && Object.keys(target).length === 0) {
+      const h = out[home] as Record<string, unknown>;
+      delete h[a];
+      if (Object.keys(h).length === 0) delete out[home];
+    }
   }
   return out;
 }

@@ -90,8 +90,9 @@ export function StageLookRow({
     <div className={SP_LOOK_ROW} data-stage-look-row={target.el}>
       {can.colour ? (
         <>
+          {/* 💎 ◆ — a part's Style is Event Hub Pro (owner 2026-10-16): tried here, named at ✓ Apply. */}
           <span className={`${SP_LOOK_ROW_LABEL} hidden sm:inline`} aria-hidden>
-            Colour
+            Colour ◆
           </span>
           <Swatch
             on
@@ -123,7 +124,7 @@ export function StageLookRow({
       ) : null}
       {can.size ? (
         <>
-          <span className={SP_LOOK_ROW_LABEL}>Size</span>
+          <span className={SP_LOOK_ROW_LABEL}>Size ◆</span>
           <span className="relative flex h-11 min-w-0 flex-1 items-center px-1" data-stage-look-size="">
             <Slider label="Text size" data="look-size" min={0} max={sizes.length - 1} step={1} value={at} valueText={`${now.size}%`} onChange={(i) => keep('size', sizes[i] ?? 100)} />
           </span>
@@ -134,7 +135,7 @@ export function StageLookRow({
         /* 🤫 `Dd` saves nothing for the width already worn — no write, no ↺ step. */
         <Dd
           stacked
-          small="Width"
+          small="Width ◆"
           label={`Width of the ${what}`}
           data="look-width"
           value={now.width ?? 'normal'}

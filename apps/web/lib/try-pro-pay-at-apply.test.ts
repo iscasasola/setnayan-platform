@@ -72,10 +72,10 @@ function triedDraft(): HubDraft {
   let d = emptyHubDraft();
   // Pro: a theme, the Event Hub typeface. Free: the background colour.
   d = mergeHubDraft(d, { events: { invite_theme: 'velvet', site_font_key: 'cormorant', site_bg_color: '#112233' } });
-  // Pro: an animation on the hero's names — beside a FREE colour and a FREE font
-  // (a part's font is free since 2026-10-06) on the same part.
+  // Pro: an animation on the hero's names, and — 💎 since 2026-10-16 ("everything in Style is Pro") — its own font and
+  // colour; beside them, on the same canvas, a FREE change: the joiner's own word.
   d = mergeHubDraft(d, {
-    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344', motion: { in: 'rise' } } } } as HubSectionCanvas } },
+    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344', motion: { in: 'rise' } }, joiner: { word: '+' } } } as HubSectionCanvas } },
   });
   // Pro: how the Schedule moves (a preset + a hand-over into the next scene).
   d = mergeHubDraft(d, { widgets: { schedule: { canvas: { preset: 'cinematic', transition: 'scrub' } as HubSectionCanvas } } });
@@ -126,7 +126,7 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       continue;
     }
     if (item.kind === 'fixed-style') {
-      assert.equal(item.pro, false, 'a fixed part\'s Style pick is free');
+      assert.equal(item.pro, false, 'a fixed part\'s Pro card went live');
       continue;
     }
     // 🚶 A Wedding March move is free (owner 2026-10-06, "Wait for apply").
@@ -144,13 +144,14 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.ok(!(item.widgetType === 'custom_1' && item.field === 'is_visible' && item.value === true), 'a scene of their own went live');
     }
   }
-  // The free colour AND the free font on the SAME part as the Pro animation still go live (#6075's split).
+  // The free word on the SAME canvas as the Pro animation and Style still goes live (#6075's split).
   const hero = plan.apply.find((i) => i.kind === 'widget' && i.widgetType === 'hero' && i.field === 'canvas');
   assert.ok(hero, 'the free half of the hero canvas is not applied');
-  const names = (hero!.value as HubSectionCanvas).elements?.names;
-  assert.equal(names?.color, '#aa3344', 'the free colour was held with the Pro animation');
-  assert.equal(names?.font, 'cormorant', 'the free font was held as Pro (it is free since 2026-10-06)');
-  assert.equal(names?.motion, undefined, 'the Pro animation leaked through the free half');
+  const els = (hero!.value as HubSectionCanvas).elements;
+  assert.equal(els?.joiner?.word, '+', 'the free word was held with the Pro animation');
+  assert.equal(els?.names?.color, undefined, 'the Pro colour leaked through the free half (Pro since 2026-10-16)');
+  assert.equal(els?.names?.font, undefined, 'the Pro font leaked through the free half (Pro since 2026-10-16)');
+  assert.equal(els?.names?.motion, undefined, 'the Pro animation leaked through the free half');
   // The background colour is free and goes live.
   assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'site_bg_color'));
 
@@ -172,20 +173,22 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
     'Added scene · Photo left, words right',
     'Animation · Event title on the Hero',
     'Animation · Schedule',
+    // 💎 2026-10-16: a part's own Style is Pro — named by the Maker's own words.
+    'Font · Colour · Event title on the Hero',
     'Photo background · Countdown',
     'Theme · Luxe',
     'Transition · Schedule',
     // 🆓 'Typeface · Whole Event Hub' left this list 2026-10-05 — the font is free
     // ("Colors, and Fonts are all free"); the draft still holds it, Apply writes it.
   ]);
-  // Never a free change: the background colour and the part's colour are not named.
-  assert.ok(!lines.some((l) => /colour|color/i.test(l)), 'a free colour is named as Pro');
+  // Never a free change: the page's background colour is not named.
+  assert.ok(!lines.some((l) => /background colour|Whole Event Hub/i.test(l)), 'a free colour is named as Pro');
   // Each row can be taken to, and (except a Love Story) taken off.
   for (const e of effects) {
     assert.ok(e.jump, `${hubProEffectLine(e)} cannot be jumped to`);
     assert.ok(e.remove, `${hubProEffectLine(e)} cannot be removed`);
   }
-  assert.ok(!effects.some((e) => e.what === 'Font'), 'a part’s font is named as Pro (it is free since 2026-10-06)');
+
   const anim = effects.find((e) => e.what === 'Animation' && /Event title/.test(e.where))!;
   assert.deepEqual(anim.jump, {
     kind: 'scene',
@@ -227,7 +230,7 @@ test('3 · one source: no Pro effect named for an owning couple, and none once t
   const plan = planHubDraftApply(triedDraft(), LIVE, false);
   const effects = hubDraftProEffects(triedDraft(), LIVE, false);
   for (const item of plan.refused) {
-    if (item.kind === 'fixed-style') continue; // free — never refused
+    if (item.kind === 'fixed-style') continue; // none drafted here
     if (item.kind === 'march') continue; // free — never refused
     const key = item.kind === 'event' ? `event:${item.column}` : item.kind === 'editorial' ? 'pe:' : item.widgetType;
     assert.ok(
@@ -267,7 +270,8 @@ test('4 · removing one effect from the sheet takes exactly it off the draft', (
   assert.deepEqual(hubDraftProEffects(clean, LIVE, false), []);
   assert.equal(planHubDraftApply(clean, LIVE, false).refused.length, 0);
   assert.equal(clean.events.site_bg_color, '#112233', 'a free colour was removed with the Pro effects');
-  assert.equal(clean.widgets.hero?.canvas?.elements?.names?.color, '#aa3344', 'the part’s free colour was removed');
+  assert.equal(clean.widgets.hero?.canvas?.elements?.joiner?.word, '+', 'the part’s free word was removed');
+  assert.equal(clean.widgets.hero?.canvas?.elements?.names?.color, undefined, 'the part’s Pro colour was not removed');
   // Undo can take a removal back (every drop is one merge on the history).
   assert.ok(clean.history.length > d.history.length);
 });

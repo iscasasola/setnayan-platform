@@ -20,7 +20,7 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react';
-import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
+import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_DEFAULT, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
 import { DOS_LOOKS, DOS_LOOK_CARD_FOCUS, DOS_LOOK_PREVIEW_TYPE, type DosLookId } from '@/lib/dress-code-looks';
 import { SP_DD_LABEL, SP_PALETTE_PICK, SP_PALETTE_ROW } from '@/lib/maker-stage-room';
 import { IRow } from './inspector-kit';
@@ -78,8 +78,8 @@ export function PaletteLookStrip({ value, colours, onPick, pending = false }: { 
           type="button"
           role="radio"
           aria-checked={o.id === value}
-          aria-label={`Palette style: ${o.name}`}
-          title={o.name}
+          aria-label={`Palette style: ${o.name}${o.id === PALETTE_LOOK_DEFAULT ? '' : ' ◆'}`}
+          title={o.id === PALETTE_LOOK_DEFAULT ? o.name : `${o.name} ◆`}
           data-palette-pick={o.id}
           onClick={() => {
             if (!pending && o.id !== value) onPick(o.id);
@@ -87,6 +87,12 @@ export function PaletteLookStrip({ value, colours, onPick, pending = false }: { 
           className={SP_PALETTE_PICK}
         >
           <PaletteLookThumb look={o.id} colours={shown} />
+          {/* 💎 ◆ on every look but Tags (the theme's own) — Event Hub Pro since 2026-10-16, named at ✓ Apply. */}
+          {o.id === PALETTE_LOOK_DEFAULT ? null : (
+            <span aria-hidden className="pointer-events-none absolute right-0.5 top-0 text-[9px] leading-none text-[var(--sp-ink,#2C2A29)]">
+              ◆
+            </span>
+          )}
         </button>
       ))}
     </div>

@@ -47,7 +47,8 @@ function draftDoor(): ElementDraftAction {
   return (got as MakerPartRaw | null)?.elementEditing?.draftAction ?? hubDraftAction;
 }
 
-const CAMERA_LOOK_OPTIONS = CAMERA_LOOKS.map((look) => ({ id: look as string, name: CAMERA_LOOK_LABEL[look] }));
+/* 💎 Every look but Classic (the camera's own) is a style card — Event Hub Pro ◆ since 2026-10-16. */
+const CAMERA_LOOK_OPTIONS = CAMERA_LOOKS.map((look) => ({ id: look as string, name: CAMERA_LOOK_LABEL[look], pro: look !== 'classic' }));
 
 export function CameraPartTools() {
   const maker = useMaker();

@@ -172,7 +172,8 @@ test('(2) row 4 is Colour + Size side by side: ONE circle and one slider, no Fon
   const row = draw('names', { elements: { names: { color: '#a9834b', size: 120 } } });
   assert.match(row, new RegExp(`^<div class="${SP_LOOK_ROW}" data-stage-look-row="names">`));
   assert.ok(has(SP_LOOK_ROW, 'flex') && has(SP_LOOK_ROW, 'items-center') && !has(SP_LOOK_ROW, 'flex-col') && !has(SP_LOOK_ROW, 'flex-wrap'), 'Colour and Size do not share ONE row');
-  const marks = [...row.matchAll(/>(Colour|Size)<|data-stage-look-colour="([^"]+)"|type="range"|>(\d+%)<|data-stage-dd="(look-width)"/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? 'slider');
+  /* 💎 2026-10-18: Colour and Size wear ◆ — a part's Style is Event Hub Pro (owner 2026-10-16). */
+  const marks = [...row.matchAll(/>(Colour|Size) ◆<|data-stage-look-colour="([^"]+)"|type="range"|>(\d+%)<|data-stage-dd="(look-width)"/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? 'slider');
   assert.deepEqual(marks, ['Colour', '#a9834b', 'Size', 'slider', '120%', 'look-width']);
   assert.equal((row.match(/data-stage-look-colour=/g) ?? []).length, 1, 'Colour is more than ONE circle — "Color just 1 circle…"');
   assert.equal((row.match(/<button/g) ?? []).length, 2, 'the row holds a control beside the circle, the slider and Width ▾');
@@ -181,7 +182,7 @@ test('(2) row 4 is Colour + Size side by side: ONE circle and one slider, no Fon
   assert.match(row, /background:#a9834b/);
   assert.doesNotMatch(row, /Font|data-element-font/, 'a Font control is back in the toolbar');
   /* "Colour" in words from `sm` only (owner 2026-10-14, Q1) — the circle stands alone on a phone, still named. */
-  assert.match(row, /<span class="[^"]*\bhidden sm:inline\b[^"]*" aria-hidden="true">Colour<\/span>/);
+  assert.match(row, /<span class="[^"]*\bhidden sm:inline\b[^"]*" aria-hidden="true">Colour ◆<\/span>/);
   /* Nothing chosen: the circle is the theme's own (striped), the slider at 100 %. */
   const plain = draw('eyebrow', {});
   assert.match(plain, /data-stage-look-colour="theme"/);

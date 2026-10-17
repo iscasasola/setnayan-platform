@@ -221,6 +221,8 @@ export function labDraftStep(
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
+  /** 💎 `?pro=1` — the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
+  ownsPro = false,
 ): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } {
   const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
   if (!intent) return { draft: current, published, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
@@ -262,7 +264,7 @@ export function labDraftStep(
        couple without Event Hub Pro is held on. What went is folded into the lab's published state by the real merge;
        the draft keeps only what was held, and no Undo history — as the real action leaves it. (A held scene's FREE
        part is not split out here: the whole scene waits. The lab's one shortcut.) */
-    const plan = planHubDraftApply(current, labLive(scrub, published), false);
+    const plan = planHubDraftApply(current, labLive(scrub, published), ownsPro);
     const went = withoutHeld(stateOf(current), plan.remaining);
     const next = layState(published, went);
     const some = Object.keys(next.events).length + Object.keys(next.widgets).length + Object.keys(next.editorial ?? {}).length + Object.keys(next.fixedStyles ?? {}).length > 0;

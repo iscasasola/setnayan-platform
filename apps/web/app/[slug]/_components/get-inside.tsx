@@ -3,6 +3,9 @@ import { UploadYourQr } from './upload-your-qr';
 import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 
+/** 🚪 The stranger's door's words — owner 2026-10-17, verbatim: *"Change the button to 'Confirm your Booking'"*. */
+export const STRANGER_DOOR_WORDS = 'Confirm your Booking';
+
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
  * your QR, Tap NFC or sign in … with the general link shows the general
@@ -10,7 +13,8 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *
  * Two states, one button each:
  *
- *   · not signed in → **"Get inside"** · "Upload your QR · Sign in" — the two
+ *   · not signed in → **"Confirm your Booking"** (owner 2026-10-17, verbatim: *"Change the button to 'Confirm
+ *     your Booking'"* — it read "Get inside") · "Upload your QR · Sign in" — the two
  *     things it actually opens (it once said "Scan your QR · Tap NFC", which
  *     nothing behind it does).
  *     Pressing it opens exactly two things (owner 2026-09-27, the poster QR:
@@ -50,9 +54,15 @@ export function GetInside({
   mayAskToJoin = false,
   joinAction,
   dock = true,
+  inFoot = false,
 }: {
   /** Fit the first screen around the signed-out door (see above). */
   dock?: boolean;
+  /**
+   * 🦶 Drawn IN the cover's foot (`PahinaMasthead` `door`, owner 2026-10-17): the foot is already the bottom of the
+   * first screen, so nothing is fitted around it — an opened door is only brought into view.
+   */
+  inFoot?: boolean;
   /**
    * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
    * join door's own action, bound to this event by the page
@@ -111,9 +121,9 @@ export function GetInside({
   }
   const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
   const door = (
-    <details className={`group mx-auto max-w-md${dock ? ' sn-door-dock' : ''}`} data-get-inside="door">
+    <details className={`group mx-auto max-w-md${dock && !inFoot ? ' sn-door-dock' : ''}`} data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
-        <span className="text-base">Get inside</span>
+        <span className="text-base">{STRANGER_DOOR_WORDS}</span>
         {/* Names only what opens underneath (guest text audit 2026-09-30): the
             button promised "Scan · Tap NFC", and neither is behind it. */}
         <span className="text-xs font-normal opacity-80">{slug ? 'Upload your QR · Sign in' : 'Sign in'}</span>
@@ -121,7 +131,7 @@ export function GetInside({
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the
           phone, or their account. */}
-      {dock ? <FirstScreenDoor /> : null}
+      {inFoot ? <FirstScreenDoor fit={false} /> : dock ? <FirstScreenDoor /> : null}
       <div className="mt-4 space-y-4">
         {slug ? <UploadYourQr slug={slug} /> : null}
         <Link

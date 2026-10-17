@@ -95,3 +95,9 @@ LAB FINDING: `fetch(…, {cache:'no-store'})` sends `Cache-Control: no-cache` �
 canViewSlugEvent.
 Known narrower freshness (documented in event-pulse.server.ts): a purchase on the day, a new e-gift destination or venue
 booking, a published album → shown at the next watched change or on return after 9+ min away.
+
+### Step 6 — MEASURED AFTER + walk + PR ✅
+Fixed-window cache (d0829ebb5c) after two measured mistakes (no-store bypass; stale-then-double-read). Table in PR #6624
+body. WebKit 375 px walk: table rename 10.6 s, own check-in 10.6 s, no reload; quiet minute 0 re-renders. Shots
+~/Documents/Claude/Projects/shots-2026-10-18/6624/. 47 sabotages RED total. Draft PR #6624, label do-not-auto-merge,
+auto-merge null. NEXT: watch CI to green.

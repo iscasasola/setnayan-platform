@@ -14,8 +14,8 @@
  *   3 · ONE photo is one `<img>`, no rail, in the look's own reserved place;
  *   4 · the Maker's empty samples of those three looks draw the Glimpse shape at the photo slot;
  *   5 · NOTHING IS CROPPED (owner 2026-10-17, on live "The Proposal" — a man cut off at the photo's edge: *"there might
- *       be a better way to present instead if it looking cropped"*): in the two-voices looks every photo — the one
- *       photo and every Glimpse frame — is drawn WHOLE (`object-contain`, never `object-cover`) with the Glimpse
+ *       be a better way to present instead if it looking cropped"*): in the two-voices looks and Chapters every photo —
+ *       the one photo, every Glimpse frame, every photo of Chapters' grid — is drawn WHOLE (`object-contain`, never `object-cover`) with the Glimpse
  *       corners and lift, inside a place reserved by its box so the words never jump while it loads.
  *
  * 🪤 Same harness as the neighbouring render tests: `globalThis.React` before the DYNAMIC imports.
@@ -73,7 +73,7 @@ const ONE_PHOTO_PLACE: Record<string, RegExp> = {
   conversation: /<span data-love-photo="" class="relative block aspect-\[4\/5\] max-h-\[70svh\] w-\[72%\][^"]*">/,
   timeline: /<span data-love-photo="" class="relative block mt-2\.5 aspect-\[4\/5\] max-h-\[70svh\] w-\[150px\][^"]*">/,
   cards: /<span data-love-photo="" class="relative block aspect-\[4\/3\] max-h-\[70svh\] w-full[^"]*">/,
-  chapters: /<img src="[^"]+" alt="" loading="lazy" class="aspect-\[4\/5\] w-full object-cover"\/>/,
+  chapters: /<span data-love-photo="" class="relative block aspect-\[4\/5\] max-h-\[70svh\] w-full">/,
 };
 
 /** Each `<article data-love-scene="id">`'s own markup. */
@@ -88,6 +88,9 @@ async function render(style: string): Promise<string> {
   const { OurLoveStoryWidget } = await import('../app/[slug]/_components/our-love-story-widget');
   return renderToStaticMarkup(React.createElement(OurLoveStoryWidget, { config: STORY, mediaUrls: MEDIA_URLS, sceneStyle: style, partners: ['Maria', 'Jose'] }));
 }
+
+/** The looks whose every photo is drawn whole — the three two-voices looks and Chapters' grid (owner, "it looks cropped"). */
+const WHOLE_LOOKS = [...GLIMPSE_LOOKS, 'chapters'] as const;
 
 const LOOKS = STAGE_SCENE_STYLE_SETS.find((x) => x.type === 'our_love_story')!.styles.map((s) => s.id);
 
@@ -145,8 +148,8 @@ test('4 · the Maker’s empty samples of the two-voices looks draw the Glimpse 
   }
 });
 
-test('5 · nothing is cropped — every photo in the two-voices looks is drawn whole, with the Glimpse corners and lift', async () => {
-  const { WHOLE_PHOTO_CLASS } = await import('../app/[slug]/_components/glimpse-rail');
+test('5 · nothing is cropped — every photo in the two-voices looks and Chapters is drawn whole, with the Glimpse corners and lift', async () => {
+  const { WHOLE_PHOTO_CLASS } = await import('./whole-photo');
   assert.match(WHOLE_PHOTO_CLASS, /\bobject-contain\b/, 'the whole-photo class no longer contains the photo');
   assert.doesNotMatch(WHOLE_PHOTO_CLASS, /\bobject-cover\b/, 'the whole-photo class crops');
   assert.match(WHOLE_PHOTO_CLASS, /\bmax-h-full\b/, 'the whole photo is not held inside its place');
@@ -154,7 +157,7 @@ test('5 · nothing is cropped — every photo in the two-voices looks is drawn w
   assert.match(WHOLE_PHOTO_CLASS, /\brounded-card\b/, 'the whole photo lost the Glimpse corners');
   assert.match(WHOLE_PHOTO_CLASS, /shadow-\[0_6px_16px_rgb\(var\(--color-ink\)\/0\.14\)\]/, 'the whole photo lost the Glimpse lift');
   let seen = 0;
-  for (const style of GLIMPSE_LOOKS) {
+  for (const style of WHOLE_LOOKS) {
     const arts = articles(await render(style));
     for (const [id, want] of Object.entries(HOLDS)) {
       const tags = arts[id]!.match(/<img[^>]*>/g) ?? [];
@@ -166,5 +169,5 @@ test('5 · nothing is cropped — every photo in the two-voices looks is drawn w
       }
     }
   }
-  assert.equal(seen, 3 * 6, `only ${seen} photos checked — the render read nothing`);
+  assert.equal(seen, WHOLE_LOOKS.length * 6, `only ${seen} photos checked — the render read nothing`);
 });

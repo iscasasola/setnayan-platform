@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { momentReadLine, momentVoiceLines, type LoveStoryScene, type MomentVoiceSlot } from '@/lib/love-story-moments';
 import { formatCount } from '@/lib/format-number';
 
-import { GlimpseRail, WHOLE_PHOTO_CLASS } from './glimpse-rail';
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
+
+import { GlimpseRail } from './glimpse-rail';
 
 /**
  * LOVE STORY · C · THE YEARS (prototype `every_scene_three_styles_2026-09-29.html`

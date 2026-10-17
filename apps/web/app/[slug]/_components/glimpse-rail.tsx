@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
 import { formatCount } from '@/lib/format-number';
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
 
 /**
  * 🎞 GLIMPSE — THE RAIL (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED" + "GLIMPSE'S MOTION IS A SLOW
@@ -32,13 +33,6 @@ export const DOTS_MAX = 8;
 /** A neighbour one card away is drawn at this scale and opacity (the prototype's .92 / .72). */
 export const GLIMPSE_SIDE_SCALE = 0.92;
 export const GLIMPSE_SIDE_OPACITY = 0.72;
-/**
- * 🖼 A photo drawn WHOLE inside a fixed place (`whole`, and a Love Story moment's one photo): centred at its own
- * shape, as large as the place allows, never cropped — the Glimpse card's corners and soft lift on the photo itself.
- * The place is reserved by its box, so the words below never move while the photo loads.
- */
-export const WHOLE_PHOTO_CLASS =
-  'absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full rounded-card object-contain shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)]';
 /** The centre card's width in the Photos scene — the full-width rail's `--g-w`. */
 export const GLIMPSE_CARD_WIDTH = 'min(62vw, 380px)';
 

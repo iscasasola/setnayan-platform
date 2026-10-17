@@ -198,6 +198,12 @@ type GroupSpec = {
   roleFirst?: true;
   /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
   headingIsRole?: boolean;
+  /**
+   * 👵 A group added AFTER couples could arrange their sections (owner 2026-09-21): where it goes in a saved
+   * `events.entourage_section_order` that predates it — right after this group — instead of the end. Every save
+   * writes the full list, so the only keys a saved order ever lacks are groups added since. See `orderedGroupKeys`.
+   */
+  joinsSavedOrderAfter?: string;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
@@ -255,6 +261,9 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     label: 'Grandparents',
     roles: ['groom_grandparents', 'bride_grandparents'],
     roleFirst: true,
+    /* A couple who arranged their sections before today has no "grandparents" in that list: it joins after THEIR
+       Parents, wherever they put Parents — never after the Nikah. */
+    joinsSavedOrderAfter: 'parents',
   },
   /*
     ⚖ OWNER 2026-09-20. Immediate family PUBLISHES for the first time. These two
@@ -1239,16 +1248,10 @@ function isCeremonyOnly(row: EntourageGuestRow): boolean {
  *
  * 🔑 FORGIVING BY DESIGN. A saved list is a snapshot of the groups that existed
  * when the couple arranged them. Keys this build no longer knows are dropped;
- * a group the list lacks (added since) takes its BUILT-IN place — right after
- * the nearest group that precedes it in the built-in order (else first). So a
- * stale value can never hide a section, duplicate one, or print a heading for
- * nothing — and there is no SQL copy of the key set to drift.
- *
- * 👵 Why "its place" and not "the end" (2026-10-17): every save writes the FULL
- * list, so the only keys ever missing are groups added after a couple arranged
- * theirs. Grandparents is one; the owner placed it right after Parents, and an
- * arranged event appending it after the Nikah would have walked a couple's
- * grandparents last.
+ * groups the list lacks (added since) are appended in the built-in order — or,
+ * for a group that names one (`joinsSavedOrderAfter`), placed right after that
+ * group. So a stale value can never hide a section, duplicate one, or print a
+ * heading for nothing — and there is no SQL copy of the key set to drift.
  */
 export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
   const known = new Set(ENTOURAGE_GROUP_KEYS);
@@ -1256,12 +1259,12 @@ export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
   for (const key of saved ?? []) {
     if (known.has(key) && !out.includes(key)) out.push(key);
   }
-  ENTOURAGE_GROUP_KEYS.forEach((key, i) => {
-    if (out.includes(key)) return;
-    let after = -1;
-    for (let j = i - 1; j >= 0 && after === -1; j--) after = out.indexOf(ENTOURAGE_GROUP_KEYS[j]!);
-    out.splice(after + 1, 0, key);
-  });
+  for (const key of ENTOURAGE_GROUP_KEYS) {
+    if (out.includes(key)) continue;
+    const after = saved ? out.indexOf(PRINTED.find((g) => g.key === key)?.joinsSavedOrderAfter ?? '') : -1;
+    if (after === -1) out.push(key);
+    else out.splice(after + 1, 0, key);
+  }
   return out;
 }
 

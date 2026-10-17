@@ -14,8 +14,8 @@ Owner 2026-10-17: *"the 2 grandparents should not be named immediate family on t
   named per person by the parents' own resolver — "Grandfather / Grandmother / Grandparent of the Groom"; two
   unknowns on one march line share "Grandparents of the …". In the march they walk right after "The Groom & his
   parents". Same published visibility class as parents (docblock in `lib/entourage.ts`).
-- `orderedGroupKeys`: a section missing from a couple's saved order now takes its built-in place (after its
-  built-in predecessor) instead of the end, so an arranged event does not walk its grandparents last.
+- A couple who arranged their sections before today: Grandparents joins right after THEIR Parents
+  (`joinsSavedOrderAfter`), not at the end, so an arranged event does not walk its grandparents last.
 - Guard `lib/grandparents-are-never-immediate-family.test.ts`: no grandparent under Immediate Family on any look;
   every role list naming a parent names the grandparent beside it (source scan, reasoned exceptions); every tier
   gives a grandparent what a parent gets.

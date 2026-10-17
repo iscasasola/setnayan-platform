@@ -96,7 +96,7 @@ test('a group with ONE side lets anyone swap with anyone on another line', () =>
 import { ENTOURAGE_GROUP_KEYS, buildEntourage, orderedGroupKeys, sectionsAreArranged } from '@/lib/entourage';
 import { nextSectionOrder } from '@/lib/march-moves';
 
-test('a saved order is forgiving: unknown keys drop, missing sections take their built-in place, nothing doubles', () => {
+test('a saved order is forgiving: unknown keys drop, missing sections append, nothing doubles', () => {
   const out = orderedGroupKeys(['honour', 'retired_group', 'parents', 'honour']);
   assert.deepEqual(out.slice(0, 2), ['honour', 'parents']);
   assert.deepEqual([...out].sort(), [...ENTOURAGE_GROUP_KEYS].sort(), 'a section went missing or doubled');

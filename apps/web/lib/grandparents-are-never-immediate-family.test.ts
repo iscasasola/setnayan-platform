@@ -20,7 +20,11 @@
  *   3. Wherever a tier is computed, a grandparent gets exactly what a parent of the same side gets — nothing about
  *      seating, invitations, attire or the guest list gets worse for them.
  *
- * Sabotage (2026-10-17), each seen RED then restored — see the PR body for the counts.
+ * Sabotage (2026-10-17), each seen RED then restored (fails out of 9): the grandparents folded into Immediate Family's
+ * roles with their group deleted → 6 ('sections: parents, immediate_family, honour'); `INNER_CIRCLE_ROLES` without
+ * them → 2 (the list scan + the tier check); `KIN_OF_ROLE` without them → 5 ('Ms. Juana Sarmiento is called
+ * "Grandparents of the Groom"'); `orderedGroupKeys` appending the missing section → 1 (an arranged event walked them
+ * after the Nikah); the Auto Arrange family set without them → 2.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -132,7 +136,10 @@ test('the guard sees what it guards: the cast prints a Grandparents and an Immed
 });
 
 test('the Grandparents section stands after Parents and before Immediate Family — also for an arranged event', () => {
-  for (const saved of [null, ENTOURAGE_GROUP_KEYS.filter((k) => k !== 'grandparents').reverse()]) {
+  /* A couple who arranged their sections before this group existed: their list lacks it — in the built-in order,
+     and reversed (Parents last). Either way it must stand right after their Parents, never at the end. */
+  const before = ENTOURAGE_GROUP_KEYS.filter((k) => k !== 'grandparents');
+  for (const saved of [null, before, [...before].reverse()]) {
     const order = orderedGroupKeys(saved);
     const at = (k: string) => order.indexOf(k);
     assert.ok(at('grandparents') === at('parents') + 1, `saved ${JSON.stringify(saved)}: grandparents at ${at('grandparents')}, parents at ${at('parents')} — ${order.join(', ')}`);

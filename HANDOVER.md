@@ -60,5 +60,12 @@ event-row-once extras, so prod-shape numbers are the in-repo ones.
 - SESSION CHECK = a ≤ 30 s per-instance memo of a POSITIVE token check, renders only (actions keep the DB check).
 
 ### Steps
-- [ ] 1 migration · [ ] 2 shell + shared-read fetch · [ ] 3 facts · [ ] 4 session memo · [ ] 5 guards/tests + sabotage
-- [ ] 6 measure after (both harnesses) · [ ] 7 PR + CI
+- [x] 1 migration `20271275959355` · [x] 2 shell + shared-read fetch · [x] 3 facts · [x] 4 session memo
+- [x] 5 guards/tests + 27 sabotages (all red) · [x] 6 measured after (both harnesses) · [ ] 7 PR + CI
+
+### Measured AFTER
+In-repo harness: stranger 13→3 (14→4 day) · guest 17→6 (21→10 day) · cold 24→22 · orders: stranger 19→7,
+guest 31→18, cold 31→26. Dev harness (real page, `next dev` + counting stub): stranger 14→3 · guest 22→7 ·
+orders 17→3 / 25→7 · cold 14→12. Visible HTML identical before/after (stranger + guest; cold differs only in
+streaming order). Freshness: a change WITHOUT a stamp move is not seen (cached); the Apply (change + stamp) is
+seen on the very next load. Scratch: ~/Documents/Claude/Projects/wt-page-cache-scratch/ (summary-*.txt).

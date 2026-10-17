@@ -76,20 +76,26 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
 }
 
 /**
- * 👥 THE DRAFT ROW AS READ, WITH ITS VERSION — `updated_at`, bumped by the row's own trigger on every UPDATE
- * (`touch_event_site_drafts`, 20271246169682). `stamp: null` = there was no row. A failed read THROWS, as `readHubDraft`.
+ * 👥 THE DRAFT ROW AS READ, WITH ITS VERSION — `revision`, raised by one by the row's own trigger on every UPDATE
+ * (`touch_event_site_drafts`, 20271275174284): a counter, so it can never repeat the way a clock can.
+ * `stamp: null` = there was no row. A failed read THROWS, as `readHubDraft`.
+ * ⏳ Before that migration is applied (a build that runs ahead of the database) the version is `updated_at` — the
+ * same compare-and-set, on the trigger's clock.
  */
-export type HubDraftRow = { draft: HubDraft | null; stamp: string | null };
+export type HubDraftStampValue = { column: 'revision' | 'updated_at'; value: string };
+export type HubDraftRow = { draft: HubDraft | null; stamp: HubDraftStampValue | null };
 export async function readHubDraftRow(supabase: SessionClient, eventId: string): Promise<HubDraftRow> {
-  const { data, error } = await supabase
-    .from('event_site_drafts')
-    .select('draft_json, updated_at')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  let column: HubDraftStampValue['column'] = 'revision';
+  let res = await supabase.from('event_site_drafts').select('draft_json, revision').eq('event_id', eventId).maybeSingle();
+  if (res.error && (res.error as { code?: string }).code === '42703') {
+    column = 'updated_at';
+    res = await supabase.from('event_site_drafts').select('draft_json, updated_at').eq('event_id', eventId).maybeSingle();
+  }
+  const { data, error } = res;
   if (error) throw new Error(`Could not read the Event Hub draft: ${error.message}`);
   if (!data) return { draft: null, stamp: null };
-  const row = data as { draft_json: unknown; updated_at: string };
-  return { draft: sanitizeHubDraft(row.draft_json), stamp: row.updated_at };
+  const row = data as Record<string, unknown> & { draft_json: unknown };
+  return { draft: sanitizeHubDraft(row.draft_json), stamp: { column, value: String(row[column]) } };
 }
 
 /** Another screen wrote the draft between this writer's read and its write — the write was NOT made. */
@@ -132,7 +138,7 @@ export async function writeHubDraft(
   eventId: string,
   draftIn: HubDraft,
   appliedSnapshot?: Record<string, unknown>,
-  expect?: string | null,
+  expect?: HubDraftStampValue | null,
 ): Promise<void> {
   const draft = hubDraftForWrite(draftIn);
   const fields = {
@@ -141,14 +147,14 @@ export async function writeHubDraft(
   };
   if (expect !== null) {
     let q = supabase.from('event_site_drafts').update(fields).eq('event_id', eventId);
-    if (typeof expect === 'string') q = q.eq('updated_at', expect);
+    if (expect) q = q.eq(expect.column, expect.value);
     const updated = await q.select('event_id');
     if (updated.error) {
       throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
     }
     if (Array.isArray(updated.data) && updated.data.length > 0) return;
     // 👥 The row it read is gone or has moved on: nothing was written — build again on what is there now.
-    if (typeof expect === 'string') throw new HubDraftMovedError();
+    if (expect) throw new HubDraftMovedError();
   }
 
   const inserted = await supabase

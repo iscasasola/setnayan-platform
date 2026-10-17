@@ -120,7 +120,11 @@ test('3 · the hold-▶ preview’s row: Exit preview, and exactly ONE See as �
   console.log(`  hold-▶ row: ${menus} PickMenu, ${seeAs} labelled See as`);
   assert.match(row, /label="Exit preview" onClick=\{exitPreview\}/, '"Exit preview" left the row');
   assert.equal(seeAs, 1, 'the row does not hold exactly one See as ▾');
-  assert.equal(menus, 1, 'the row holds a second dropdown — the stage is picked before ▶ is held, never in the preview');
+  // 🎭 …plus, under it, the one Role ▾ (owner 2026-10-17, "view it as a father of the bride") — WHICH guest See as
+  // draws, not a stage. Any other dropdown is still refused.
+  const role = row.match(/<PickMenu\s+label="Role"/g)?.length ?? 0;
+  assert.ok(role <= 1, 'Role ▾ is drawn twice in the row');
+  assert.equal(menus - role, 1, 'the row holds a second dropdown — the stage is picked before ▶ is held, never in the preview');
   assert.doesNotMatch(row, /makerPagePick|onPickPage|MAKER_PAGE_STAGES/, 'a stage control is in the preview');
   // Phone only, like the row itself: a desktop has its one dropdown above the preview.
   // (2026-10-16: off the cover's foot — the RSVP button and the "Swipe up" hint live there now — so on a stage's pages

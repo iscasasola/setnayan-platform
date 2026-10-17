@@ -5,7 +5,7 @@ Owner 17 Oct: "i want to see how the palette changes depending on the guest?" / 
 State: built, guard green locally (6/6, sabotaged 5 ways), real-page render walked (WebKit iPhone 13, 375) —
 shots in ~/Documents/Claude/Projects/shots-2026-10-17/preview-role/. Draft PR, do-not-auto-merge.
 
-Left: CI green; Maker-lab walk of the hold-▶ Role ▾ (walk lane); neighbour tests (queued on heavy lane).
+Maker-lab walk 12/12 done. Left: CI green. PR body lives in ~/Documents/Claude/Projects/preview-role-pr-body.md (NOT the shared scratchpad — another builder overwrote scratchpad/pr-body.md once).
 
 Decisions made here (no record covered them):
 - Role ▾ shows only while See as draws a guest (pending / replied / declined); "Any guest" = the sample as before.

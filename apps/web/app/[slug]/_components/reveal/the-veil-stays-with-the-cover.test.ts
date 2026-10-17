@@ -124,8 +124,9 @@ test('🎭 off screen the cloth draws no frames; Save-Data and reduced motion dr
   const loop = /const loop = \(now: number\) => \{[\s\S]*?\n {4}\};/.exec(VEIL)?.[0] ?? '';
   assert.ok(loop, 'the veil’s loop moved — re-anchor this guard');
   assert.match(loop, /^const loop = \(now: number\) => \{\s*if \(pausedRef\.current\) \{\s*raf = 0;\s*return;\s*\}/, 'the paused loop still draws');
-  // Still = the HUNG drape's frame (after `hang` reached 1), on a fixed count — never a frame of the cloth mid-lift.
-  assert.match(loop, /hang >= 1 && \(saveData \|\| reducedMotionRef\.current\) && --stillIn <= 0\) \{[\s\S]*?renderer\.render\(scene, camera\);\s*still = true;[\s\S]*?raf = 0;\s*return;/);
+  // Still = the SETTLED hung drape's frame — never a frame of the cloth mid-lift or mid-sink (walk 2: frozen at 7 %).
+  assert.match(loop, /if \(settled && \(saveData \|\| reducedMotionRef\.current\)\) \{[\s\S]*?renderer\.render\(scene, camera\);\s*still = true;[\s\S]*?raf = 0;\s*return;/);
+  assert.match(loop, /if \(keepsOpenRef\.current && revealedRef\.current && hang >= 1 && !settled\) \{/, 'settled is said before the drape has hung');
   assert.match(VEIL, /wakeRef\.current = \(\) => \{\s*if \(raf \|\| still \|\| pausedRef\.current\) return;/);
   assert.match(VEIL, /useEffect\(\(\) => \{\s*if \(!paused\) wakeRef\.current\(\);\s*\}, \[paused\]\);/, 'a returning cover does not wake the drape');
 });
@@ -138,10 +139,25 @@ test('🎭 the kept drape HANGS where it can be seen — the lift’s float lets
   assert.ok(Number(hangAt[1]) >= 0.5, `the drape lets go of only ${hangAt[1]} of the float — it drifts off the screen`);
   assert.match(
     VEIL,
-    /const g = -\(2\.5 \+ \(cfg\.weight \/ 100\) \* 7\) \* \(fth \? 0\.5 : 1\) \* \(1 - \(cfg\.floatUp \/ 100\) \* 0\.92 \* le \* \(1 - hang \* DRAPE_HANG\)\);/,
+    /const g = -\(2\.5 \+ \(cfg\.weight \/ 100\) \* 7\) \* \(fth && !keepsOpenRef\.current \? 0\.5 : 1\) \* \(1 - \(cfg\.floatUp \/ 100\) \* 0\.92 \* le \* \(1 - hang \* DRAPE_HANG\)\);/,
     'gravity no longer lets the kept drape hang',
   );
   // …only the Event Hub's kept drape, only once lifted: the Save the Date's valance and the lift itself are as tuned.
-  assert.match(VEIL, /if \(keepsOpenRef\.current && revealedRef\.current && hang < 1\) hang = Math\.min\(1, hang \+ 1 \/ DRAPE_HANG_FRAMES\);/);
+  // Released WHILE the lift rises (walk 2: released on landing, the fold flew off the screen for ~4 s, then sank back).
+  assert.match(VEIL, /if \(keepsOpenRef\.current && lift > DRAPE_HANG_FROM && hang < 1\) hang = Math\.min\(1, hang \+ 1 \/ DRAPE_HANG_FRAMES\);/);
+  const from = Number(/const DRAPE_HANG_FROM = ([\d.]+);/.exec(VEIL)?.[1] ?? NaN);
+  assert.ok(from > 0 && from < 0.9, `the float is let go at lift ${from} — after the fold has already flown off the screen`);
   assert.equal((VEIL.match(/\bhang = /g) ?? []).length, 2, 'something else moves the drape’s hang');
+});
+
+test('🎭 the kept drape eases straight into a hang of ~15–20 % of the cover — no fly-off and return (walk 2 probe)', () => {
+  // Measured on WebKit 375 (probe E): the cloth falls monotonically from the closed veil to ~18 % and stays — no dip
+  // off the screen. Three pieces make it: no feather-halved gravity, damping past half-lift, and its own valance.
+  assert.match(VEIL, /\(fth && !keepsOpenRef\.current \? 0\.5 : 1\)/, 'the feather halves the kept drape’s weight again — the fold floats off, then sinks back');
+  assert.match(VEIL, /const drag = keepsOpenRef\.current && lift > 0\.5 \? DRAPE_DRAG : /, 'the kept drape is undamped again — it overshoots its hang');
+  const drag = Number(/const DRAPE_DRAG = ([\d.]+);/.exec(VEIL)?.[1] ?? NaN);
+  assert.ok(drag > 0.8 && drag < 0.95, `DRAPE_DRAG ${drag} — outside the damped range the probe measured`);
+  const valance = Number(/const DRAPE_VALANCE = ([\d.]+);/.exec(VEIL)?.[1] ?? NaN);
+  assert.ok(valance >= 12 && valance <= 19, `DRAPE_VALANCE ${valance} — measured: 15 hangs ~18 %, 19 ~21 %, the locked 30 ~30 %`);
+  assert.match(VEIL, /clothHvh - 4 \* \(\(keepsOpenRef\.current \? DRAPE_VALANCE : cfg\.topValance\) \/ 100\)/, 'the kept drape no longer hangs at its own valance');
 });

@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PALETTE_LOOK_IDS } from './palette-looks';
+import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -179,7 +180,7 @@ for (const look of PALETTE_LOOK_IDS) {
 }
 
 test('the stylesheet centres every look inside a lone look, and keeps Paint strokes a cascade', () => {
-  const css = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8'));
   const rule = (sel: RegExp) => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => sel.test(m[1]!)).map((m) => m[2]!).join(';');
   assert.match(rule(/\[data-dress-code-lone\]\s+\.sn-pal\s*(,|$)/), /justify-content:\s*center/, 'a lone look\'s swatches are not centred');
   assert.match(rule(/\[data-dress-code-lone\]\s+\.sn-pal-legend/), /justify-content:\s*center/, 'a lone look\'s Circles legend is not centred');

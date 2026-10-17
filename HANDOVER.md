@@ -22,8 +22,8 @@ Proof: 375 px WebKit iPhone 13 shots before/after (lab sample with lone + paired
 - [x] Code: `dress-code-widget.tsx` (`lone` rows: li text-center, people flex-col items-center, person flex-col items-center
   text-center + `data-dress-code-lone`; `RowDots`/`PaletteLookList`/`DotWords` take `centre`; the reader's own look is
   `mineLook` — centred block when `mineDots.length === 1`), `dress-code-palette-looks.tsx`, `globals.css` (lone rule).
-- [x] Guard `lib/a-lone-look-in-the-dress-code-is-centred.test.ts` — 17/17 green.
-- [ ] Sabotage · shots (lab `?attire=cale-now`, palette look via `lab_widgets` cookie) · lints · PR · CI.
+- [x] Guard `lib/a-lone-look-in-the-dress-code-is-centred.test.ts` — 17/17 green; sabotage: lone row `items-end` → 8 red; reader `mineLone=false` → red; restored green. Related tests 90/90; preflight guards+lint green.
+- [ ] Shots (lab `?attire=cale-now`, palette look via `lab_widgets` cookie) · lints · PR · CI.
 DECISIONS: the lone row's HEADING (and note) is centred too — the march's default look (On the axis) centres a group's
 heading over a lone walker; pair rows keep their left heading (unchanged, per spec). The reader's own panel keeps its
 text lines (You are · call time · Wear) where they were; only its figure + colours are centred (a redraw otherwise).

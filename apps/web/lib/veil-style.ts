@@ -14,8 +14,8 @@
  *   Weave  the thread count: how sheer the tulle reads     `weave`   Fine · Medium (today) · Dense
  *   Wind   speed and randomness together                    `wind` + `gust`   Still · Breeze (today) · Gusty
  *
- * The Fold's valances are measured on the cloth (`veil-reveal.tsx` — 15 hangs the drape over ~18 % of the cover, 19
- * ~21 %, 30 ~30 %; the walk re-measures each preset). Reduced motion and Save-Data keep the veil still, as shipped.
+ * The Fold's valances are measured on the cloth, settled, at 375 (WebKit iPhone 13, 2026-10-17 walk): drape 9 hangs
+ * over 12.7 % of the cover, 15 over 18.4 %, 26 over 28.5 %. Reduced motion and Save-Data keep the veil still, as shipped.
  */
 import type { VeilLook } from './reveal-config-pure';
 import type { RevealEffects, RevealTune, RevealTuneKey } from './std-reveal-effects';
@@ -28,9 +28,9 @@ type Preset<K extends string> = Record<K, { label: string; hint: string; tune: R
 
 /** The Fold: the lifted drape's valance (the look's `drape`). Medium is the house value — nothing stored. */
 export const VEIL_FOLDS: Preset<VeilFold> = {
-  light: { label: 'Light', hint: 'A slim fold at the top', tune: { drape: 7 } },
+  light: { label: 'Light', hint: 'A slim fold at the top', tune: { drape: 9 } },
   medium: { label: 'Medium', hint: 'As it hangs now', tune: {} },
-  full: { label: 'Full', hint: 'A deep fold over the cover', tune: { drape: 28 } },
+  full: { label: 'Full', hint: 'A deep fold over the cover', tune: { drape: 26 } },
 };
 
 /** The Weave (thread count): the tulle's density and opacity (the look's `weave`, 50 = the locked weave). */

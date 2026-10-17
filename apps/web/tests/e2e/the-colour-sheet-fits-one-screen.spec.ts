@@ -25,9 +25,10 @@ import { join } from 'node:path';
  * and the list is brought into view, `scrollIntoView`); a caller whose own quiet row is tall (the Mood Board's swatch,
  * `swatch-popover.tsx`, still adds its search-by-name block); WebKit (this suite is Chromium).
  *
- * 🛡 Sabotaged (2026-10-17), each red alone: the sixteen swatches put back under Recently used → the scroll box
- * scrolls in the Maker sheet; the Mood Board drawn as a column of rows again → scrolls + "not one row"; a sixth recent
- * colour let through (`RECENT_SHOWN` 6) → "not five".
+ * 🛡 Sabotaged (2026-10-17, against `next dev`), each red alone: the sixteen swatches put back above Custom → 6 of 16
+ * red, "the sheet scrolls" in the Maker sheet (443–515 px of content in a 435/455 px box); the Mood Board drawn as a
+ * column again → 16 of 16 red ("not one row", "the sheet scrolls"). Recently used's count is held by
+ * `lib/colour-picker-recent.test.ts` (this renders exactly five).
  */
 
 const WEB = join(__dirname, '..', '..');

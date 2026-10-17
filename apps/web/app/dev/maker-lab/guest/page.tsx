@@ -62,7 +62,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -504,17 +504,21 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const sharedAttire = sp.attire === 'shared';
   /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`); `&you=<guest-list role>` reads it as them. */
   const rolesAttire = sp.attire === 'roles';
+  /* 🪞 `?attire=cale` — cale-ice's dress code exactly as production held it 2026-10-17 (`labCaleIceDressConfig`);
+     `?attire=cale-now` — after the owner's Apply. `&you=<guest-list role>` reads it as them. */
+  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now';
+  const caleIceAfter = sp.attire === 'cale-now';
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={caleIce ? (labCaleIceDressConfig(caleIceAfter) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
-      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : rolesAttire && one('you') ? (one('you') as never) : null}
-      roleNames={null}
+      rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : (rolesAttire || caleIce) && one('you') ? (one('you') as never) : null}
+      roleNames={caleIce ? LAB_CALE_ICE_ROLE_NAMES : null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
       dosLook={dosLookOfRow(rowOf('dress_code'))}

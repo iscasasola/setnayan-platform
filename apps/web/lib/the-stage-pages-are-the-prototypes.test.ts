@@ -47,14 +47,15 @@ const ADDED: Record<string, readonly string[]> = {
   /* "every visible piece of the page must be a pickable part" (owner 2026-10-07): the cover's invite line and link. */
   /* 🖼 …and the Cover Scene, the group of every word on the cover (owner-approved 2026-10-15,
      `maker_cover_group_background_2026-10-14_fable.html`), first among them on every page the cover leads. */
-  'save_the_date/home': ['coverscene', 'heroline', 'herolink'],
+  /* 🖼 + the cover's photo, a part that moves (owner-approved 2026-10-16, "SIX NEW EFFECTS"). */
+  'save_the_date/home': ['coverscene', 'heroline', 'coverphoto', 'herolink'],
   /* 🔘 + the cover's RSVP button (owner 2026-10-16, "THE COVER: … AN RSVP BUTTON … AT THE FOOT"). */
-  'rsvp/home': ['coverscene', 'heroline', 'herolink', 'rsvpbutton'],
-  'editorial/home': ['coverscene'],
+  'rsvp/home': ['coverscene', 'heroline', 'coverphoto', 'herolink', 'rsvpbutton'],
+  'editorial/home': ['coverscene', 'coverphoto'],
   /* …the Details page's "THE DETAILS · WHEN · WHERE" block. */
   'rsvp/details': ['details'],
   /* …the day's "Happening now" card, and the day's cover draws its Title too. */
-  'event/live': ['spotlight', 'livehub', 'coverscene', 'ename', 'heroline', 'herolink'],
+  'event/live': ['spotlight', 'livehub', 'coverscene', 'ename', 'heroline', 'coverphoto', 'herolink'],
   /* …and the RSVP stage's two after-screens draw the couple's mark, their names and their invitation line over the
      note (`invite/enter`'s masthead) — each a part there (`lib/the-rsvp-stage-is-parts.test.ts`). */
   'rsvp_stage/thanks': ['logo', 'names', 'heroline'],

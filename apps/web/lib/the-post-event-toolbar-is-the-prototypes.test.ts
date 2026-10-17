@@ -326,7 +326,7 @@ test('(5) a scene with no look to pick has a grey Style that says so — exactly
   }
   /* (…and Were you there?, a part of its own since 2026-10-10 — (7).) */
   assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall', 'you']);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'next', 'song', 'spotlight', 'wall', 'you']);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'song', 'spotlight', 'wall', 'you']);
 });
 
 /* ── (6) the ⓘ ────────────────────────────────────────────────────────── */

@@ -23,7 +23,9 @@ import {
   HUB_SHIMMER_GOLD,
   HUB_SHIMMER_KEYFRAME,
   HUB_SHIMMER_PERIOD_S,
+  HUB_EL_DURING_PRO_NAMED,
   hubElementArrivalOnly,
+  hubElementDuringOffered,
   hubElementMotionAttr,
   hubElementMotionDeclarations,
   hubElementSceneCss,
@@ -33,7 +35,12 @@ import {
   type HubElementKey,
 } from './element-style';
 
+import { emptyHubDraft, mergeHubDraft } from './hub-draft';
+import { hubDraftProEffects } from './hub-pro-effects';
+
 const WEB = join(__dirname, '..');
+/** The live hero row the Apply sheet compares the draft to — nothing chosen on it. */
+const HERO_ROW = { widget_id: 'w-hero', widget_type: 'hero', is_always_on: true, display_order: 0, config_json: {}, mode: 'auto' } as never;
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const TEXT: readonly HubElementKey[] = ['eyebrow', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'label', 'heading', 'body'];
 
@@ -95,12 +102,18 @@ test('(3) the paint is drawn only where motion is allowed and there is no Save-D
 
 test('(4) the Maker offers it as one dropdown with Band ▾, and Apply names it "Shimmer"', () => {
   const sheet = stripComments(read('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'));
-  assert.match(sheet, /hubElementTakesShimmer\(target\.el\) \? \(\['still', 'drift', 'shimmer'\] as const\)/, 'the part’s Action does not offer Shimmer on a text part');
-  assert.match(sheet, /v === 'shimmer' \? `\$\{HUB_EL_DURING_LABEL\[v\]\} ◆`/, 'Shimmer is not marked ◆ (Pro at Apply)');
+  /* (2026-10-16, "SIX NEW EFFECTS": the offer and the ◆ moved into the closed sets — `hubElementDuringOffered`,
+     `HUB_EL_DURING_PRO_NAMED` — so the same property is held on them, and the sheet is held to reading them.) */
+  for (const key of TEXT) assert.ok(hubElementDuringOffered(key).includes('shimmer'), `${key}: the part’s Action does not offer Shimmer`);
+  assert.ok(HUB_EL_DURING_PRO_NAMED.includes('shimmer'), 'Shimmer is not one of the Actions marked ◆');
+  assert.match(sheet, /options: hubElementDuringOffered\(target\.el\)\.map\(/, 'the part’s Action does not read the offered set');
+  assert.match(sheet, /HUB_EL_DURING_PRO_NAMED\.includes\(v\) \? `\$\{HUB_EL_DURING_LABEL\[v\]\} ◆`/, 'Shimmer is not marked ◆ (Pro at Apply)');
   assert.match(sheet, /band=\{\s*motion\.during === 'shimmer'/, 'no Band ▾ while it shimmers');
   const animate = stripComments(read('app/dashboard/[eventId]/launch/_components/stage-panel/stage-animate.tsx'));
   assert.match(animate, /does\.options\.length >= 3 \? \(\s*<Dd small="While on screen"/, 'three Action choices are not ONE dropdown');
   assert.match(animate, /at === 'act' && band \? \(/, 'Band ▾ is not drawn on Action');
-  const apply = stripComments(read('lib/hub-pro-effects.ts'));
-  assert.match(apply, /motion\?\.during === 'shimmer'\s*\?\s*'Shimmer'/, 'the Apply sheet does not name the Shimmer');
+  /* The Apply sheet names it — asked of the sheet itself, for a couple without Pro. */
+  const draft = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { during: 'shimmer' } } } } } } });
+  const named = hubDraftProEffects(draft, { events: {}, widgets: [HERO_ROW] }, false).map((e) => e.what);
+  assert.deepEqual(named, ['Shimmer'], 'the Apply sheet does not name the Shimmer');
 });

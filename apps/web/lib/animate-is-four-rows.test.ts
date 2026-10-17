@@ -152,6 +152,11 @@ test('(2) row 4 by phase — Build in: Movement ◆ · Plays · Rows / Delay; Ac
   assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Plays', 'Rows', 'Delay']);
   assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Plays', 'Delay'], 'a part: Movement ◆ · Plays · Delay');
   assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Plays', 'Rows'], 'a scene of rows: Movement ◆ · Plays · Rows');
+  /* ✨ A cover part's Words ▾ / Reveal ▾ (owner-approved 2026-10-16, prototype "Movement ◆ · Words ▾ · Delay"): Plays
+     stands beside it only while it is the way back from the scroll. */
+  const arrive = { small: 'Words', value: 'word', options: [{ key: 'all', label: 'All at once' }, { key: 'word', label: 'Word by word ◆' }], onPick: noop };
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive, plays: { value: 'arrival', onPick: noop } }), 4)), ['Movement ◆', 'Words', 'Delay'], 'a cover word: Movement ◆ · Words · Delay');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive }), 4)), ['Movement ◆', 'Plays', 'Words', 'Delay'], 'on the scroll Plays is the way back');
   assert.equal(rowOf(await draw('act', ALL), 4), '', 'Action has a row 4');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL), 4)), ['Movement ◆', 'Leaves ◆'], 'Build out has NO Delay (decision 8)');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL, { leaves: null }), 4)), ['Movement ◆'], 'the stage’s last scene has no next one');
@@ -256,6 +261,7 @@ test('(6) a part’s Build out follows the scroll — and Plays is the way back'
      On scroll), so that hidden second write is gone — the couple says which, in one place. */
   assert.doesNotMatch(body, /moveTo\('timeline', null\)/, 'switching the last Build out off still changes the drive behind the couple’s back');
   assert.match(sheet, /plays=\{\{\s*value: motion\.timeline === 'scroll' \? 'scroll' : 'arrival',\s*onPick: \(d\) => moveTo\('timeline', d === 'scroll' \? 'scroll' : null\),/, 'Plays does not write the part’s drive');
-  /* Delay is offered only where it plays: a Build in that is on, and not following the scroll. */
-  assert.match(sheet, /delay=\{\s*motionFxOn\(motion\.in\) && motion\.timeline !== 'scroll'/);
+  /* Delay is offered only where it plays: a Build in that is on (the chips, or ✨ Words ▾ / Reveal ▾ — owner-approved
+     2026-10-16), and not following the scroll. */
+  assert.match(sheet, /delay=\{\s*\(motionFxOn\(motion\.in\) \|\| motion\.words \|\| motion\.reveal\) && motion\.timeline !== 'scroll'/);
 });

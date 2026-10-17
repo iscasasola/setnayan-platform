@@ -1,10 +1,15 @@
-import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { Fragment, cloneElement, isValidElement, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { HUB_FX_LETTER_ATTR, HUB_FX_LINE_ATTR, HUB_FX_WORD_ATTR, hubFxCut, hubFxPieces, type HubFxCut } from '@/lib/part-fx';
+import { AMBIENT_PHOTO_LEAK_SPEC } from '@/lib/ambient-effects';
+import { AmbientEffectLayer } from './ambient-effect';
 import { splitCoupleNames } from '@/lib/split-names';
 import { formatEventDate } from '@/lib/events';
 import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
 import {
   hubElementInlineStyle,
   hubElementMotionAttr,
+  hubElementPhotoParallax,
+  hubElementWordCut,
   hubRunInlineStyle,
   hubTextSegments,
   sanitizeHubElementMotion,
@@ -254,6 +259,25 @@ export function PahinaMasthead({
    */
   const txt = (key: HubHeroElementKey, text: string, whole: string = text, segmentStart = 0) => {
     const parts = hubTextSegments(text, elements?.[key], { text: whole, segmentStart });
+    /* ✨ WORD BY WORD · SPREAD · GLOW (owner-approved 2026-10-16, "SIX NEW EFFECTS"): the words cut into spans HERE,
+       server-side, so a guest's first frame is already the cut one — the one cutter `lib/part-fx.ts`, inside each run. */
+    const fx = hubElementWordCut(elements?.[key]);
+    if (fx) {
+      const cut = hubFxCut(fx.words, whole);
+      let at = segmentStart;
+      const drawn = parts.map((p, i) => {
+        const pieces = fxWords(p.text, whole, at, cut);
+        at += p.text.length;
+        return p.run ? (
+          <span key={i} data-el-run="" style={hubRunInlineStyle(p.run)}>
+            {pieces}
+          </span>
+        ) : (
+          <Fragment key={i}>{pieces}</Fragment>
+        );
+      });
+      return cut.line ? <span {...{ [HUB_FX_LINE_ATTR]: '' }}>{drawn}</span> : drawn;
+    }
     if (parts.length === 1 && !parts[0]!.run) return text;
     return parts.map((p, i) =>
       p.run ? (
@@ -412,7 +436,17 @@ export function PahinaMasthead({
           below a box to translate inside. Portrait on a phone (it reads as
           a cover), 3:2 from `sm` up so a 720px column doesn't become a
           900px-tall photo. */}
-      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 sm:aspect-[3/2]">
+      {/* 🖼 THE PHOTO IS A PART (owner-approved 2026-10-16, "SIX NEW EFFECTS"): its key in the Maker's canvas, and its
+          own motion — Reveal ▾ (Develop · Curtain on the picture), its Action (Drift on the box; Ken Burns on the
+          picture; Light leak over it; Still) — through the SAME hooks every cover part wears (`hubElementMotionAttr`).
+          NOT a cover line (`line()`): the plate keeps its place under the veil exactly as before. A photo that stores
+          nothing draws byte for byte as before. */}
+      <div
+        {...(stampElements ? { 'data-el': 'photo' } : {})}
+        {...hubElementMotionAttr(elements?.photo)}
+        style={hubElementInlineStyle(elements?.photo)}
+        className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 sm:aspect-[3/2]"
+      >
         {/* Parallax layer (design §6 — "±6%, rAF-throttled transform on the
             media wrapper"). This div carries the transform; the media keeps
             filling it via its own `absolute inset-0` (an absolutely
@@ -428,9 +462,16 @@ export function PahinaMasthead({
             There is no state in which JS has moved the image and CSS cannot
             take it back. See pahina-motion.tsx + globals.css §6 for the
             scale/translate geometry that keeps the box always covered. */}
-        <div data-pahina-parallax className="absolute inset-0">
+        <div
+          {...(hubElementPhotoParallax(elements?.photo) ? { 'data-pahina-parallax': '' } : {})}
+          {...(stampElements || elements?.photo?.motion ? { 'data-el-pic': '' } : {})}
+          className="absolute inset-0"
+        >
           {mediaSlot}
         </div>
+        {/* 🖼 Light leak — drawn where it is chosen; on the Maker's canvas always, shown only while it is (a pick then
+            needs no redraw — `globals.css` hides it on a photo that does not leak). */}
+        {stampElements || elements?.photo?.motion?.during === 'leak' ? <PhotoLightLeak /> : null}
       </div>
       {captionWords ? (
         <figcaption
@@ -779,5 +820,43 @@ function partPlaceWords(look: string | null, name: string): ReactNode | null {
       <span data-place-piece="name">{place}</span>
       {city ? <span data-place-piece="city">{city}</span> : null}
     </>
+  );
+}
+
+/**
+ * ✨ ONE PIECE OF A PART'S TEXT, CUT FOR WORD BY WORD · SPREAD · GLOW (`lib/part-fx.ts`): a span per word — its place in
+ * the stagger (`--el-fx-i`) and the copy Glow blurs under it (`data-t`) — and, for Spread on a short part, a span per
+ * letter with its start (`--el-fx-x`). The spaces stay text. What CSS does with them is `globals.css` "THE SIX NEW
+ * EFFECTS", behind the reduced-motion gate; outside it the spans are plain inline text, the words at rest.
+ */
+function fxWords(text: string, whole: string, start: number, cut: HubFxCut): ReactNode[] {
+  return hubFxPieces(text, whole, start, cut).map((p, k) =>
+    'space' in p ? (
+      p.space
+    ) : (
+      <span key={k} {...{ [HUB_FX_WORD_ATTR]: '' }} data-t={p.word} style={{ '--el-fx-i': p.i } as CSSProperties}>
+        {p.letters
+          ? p.letters.map((l, j) => (
+              <span key={j} {...{ [HUB_FX_LETTER_ATTR]: '' }} style={{ '--el-fx-x': l.x } as CSSProperties}>
+                {l.c}
+              </span>
+            ))
+          : p.word}
+      </span>
+    ),
+  );
+}
+
+/**
+ * 🖼 LIGHT LEAK INSIDE THE PHOTO — the shipped background Light leak ◆ (`lib/ambient-effects.ts` `leak`, the eight
+ * effects' ONE drawing) laid over the cover's photo and clipped to it (owner-approved 2026-10-16, "Light leak reuses the
+ * shipped ambient `leak`"): `AMBIENT_PHOTO_LEAK_SPEC`. Its reduced-motion still is the ambient sheet's own; Save-Data's
+ * is `globals.css`'s.
+ */
+export function PhotoLightLeak() {
+  return (
+    <span data-el-leak="" aria-hidden className="pointer-events-none absolute inset-0">
+      <AmbientEffectLayer spec={AMBIENT_PHOTO_LEAK_SPEC} className="absolute inset-0" />
+    </span>
   );
 }

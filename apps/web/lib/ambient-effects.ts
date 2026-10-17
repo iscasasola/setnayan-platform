@@ -442,3 +442,11 @@ export const AMBIENT_EFFECT_CSS =
   `${A}[data-ambient-effect="grain"] svg:nth-of-type(1){opacity:1}` +
   `${NAMES},${NAMES_ON_LIGHT}{background-image:none;-webkit-text-fill-color:currentColor}` +
   '}';
+
+/**
+ * 🖼 LIGHT LEAK INSIDE THE COVER'S PHOTO (owner-approved 2026-10-16, DECISION_LOG "APPROVED — SIX NEW EFFECTS": *"Light
+ * leak reuses the shipped ambient `leak`"*) — the same engine, the same drawing: the effect's own colours on a photo's
+ * dark ground, as a miniature (no readable band — a photo has no words to keep clear). One spec for every photo; drawn by
+ * `PhotoLightLeak` (`pahina-masthead.tsx`) through the one layer, `AmbientEffectLayer`.
+ */
+export const AMBIENT_PHOTO_LEAK_SPEC: AmbientEffectSpec = ambientEffectSpec({ kind: 'leak', intensity: 'standard' }, '#000000', [], true);

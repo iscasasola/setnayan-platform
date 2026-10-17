@@ -40,7 +40,27 @@ import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type Element
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
-import { HUB_EL_DURING_LABEL, HUB_SHIMMER_BANDS, HUB_SHIMMER_BAND_LABEL, hubElementTakesShimmer, type HubHeroElementKey } from '@/lib/element-style';
+import {
+  HUB_EL_DURING_LABEL,
+  HUB_EL_DURING_PRO_NAMED,
+  HUB_EL_REVEALS,
+  HUB_EL_REVEAL_LABEL,
+  HUB_EL_WORDS,
+  HUB_EL_WORDS_LABEL,
+  HUB_SHIMMER_BANDS,
+  HUB_SHIMMER_BAND_LABEL,
+  hubElementDuringDefault,
+  hubElementDuringOffered,
+  hubElementIsPicture,
+  hubElementTakesWordFx,
+  type HubHeroElementKey,
+} from '@/lib/element-style';
+
+/** ✨ Action's row-3 line for the two new Actions — the approved prototype's own words. */
+const FX_ACT_NOTE = {
+  glow: 'A soft halo in the part’s own colour, breathing every 4 s.',
+  leak: 'A warm flare drifts across now and then (every 16 s) — the background Light leak ◆, inside the photo.',
+} as const;
 import { COVER_ENTRANCES, coverEntranceFor, withoutOwnEntrance } from '@/lib/cover-entrance';
 import { motionFxOn } from '@/lib/motion-effects';
 import type { HubTransition } from '@/lib/hub-scenes';
@@ -517,7 +537,8 @@ export function ElementSheet({
               in: {
                 value: partFeel(motion.speed),
                 onPick: (f) => moveTo('speed', partSpeedOf(f)),
-                off: motionFxOn(motion.in) ? null : FEEL_OFF.noEffect,
+                /* ✨ Words ▾ and Reveal ▾ arrive too — Movement times them (owner-approved 2026-10-16). */
+                off: motionFxOn(motion.in) || motion.words || motion.reveal ? null : FEEL_OFF.noEffect,
               },
               out: {
                 value: partFeel(motion.outSpeed),
@@ -549,7 +570,7 @@ export function ElementSheet({
               moveTo('out', fx);
             }}
             delay={
-              motionFxOn(motion.in) && motion.timeline !== 'scroll'
+              (motionFxOn(motion.in) || motion.words || motion.reveal) && motion.timeline !== 'scroll'
                 ? {
                     value: PART_DELAY_S[motion.delay ?? 'none'],
                     steps: Object.values(PART_DELAY_S),
@@ -563,11 +584,34 @@ export function ElementSheet({
             does={{
               /* Still | Drift, in the owner's order — and ✨ Shimmer on every part with words (owner 2026-10-16: *"text
                  animate shimmer is on any text they want. it is an effect."*), which makes the three ONE dropdown. A
-                 stored word that is neither (an older one) presses nothing. */
-              value: motion.during ?? 'still',
-              options: (hubElementTakesShimmer(target.el) ? (['still', 'drift', 'shimmer'] as const) : (['still', 'drift'] as const)).map((v) => ({ key: v, label: v === 'shimmer' ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
-              onPick: (v) => moveTo('during', v === 'still' ? null : v),
+                 stored word that is neither (an older one) presses nothing.
+                 ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16): a cover word adds Glow ◆; the cover's photo is Still ·
+                 Drift · Ken Burns · Parallax · Light leak ◆ (Parallax its own, an absence). Each new effect is marked ◆
+                 exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT HUB PRO ◆"). */
+              value: motion.during ?? hubElementDuringDefault(target.el),
+              options: hubElementDuringOffered(target.el).map((v) => ({ key: v, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
+              onPick: (v) => moveTo('during', v === hubElementDuringDefault(target.el) ? null : v),
             }}
+            /* ✨ Words ▾ (a cover word) · Reveal ▾ (the cover's photo) — Build in's row 4, beside Movement and Delay. The
+               new two of each are ◆, as Shimmer is. */
+            arrive={
+              hubElementTakesWordFx(target.el)
+                ? {
+                    small: 'Words',
+                    value: motion.words ?? 'all',
+                    options: HUB_EL_WORDS.map((w) => ({ key: w, label: w === 'all' ? HUB_EL_WORDS_LABEL[w] : `${HUB_EL_WORDS_LABEL[w]} ◆` })),
+                    onPick: (w) => moveTo('words', w === 'all' ? null : w),
+                  }
+                : hubElementIsPicture(target.el)
+                  ? {
+                      small: 'Reveal',
+                      value: motion.reveal ?? 'plain',
+                      options: HUB_EL_REVEALS.map((r) => ({ key: r, label: r === 'plain' ? HUB_EL_REVEAL_LABEL[r] : `${HUB_EL_REVEAL_LABEL[r]} ◆` })),
+                      onPick: (r) => moveTo('reveal', r === 'plain' ? null : r),
+                    }
+                  : null
+            }
+            actNote={motion.during === 'glow' ? FX_ACT_NOTE.glow : motion.during === 'leak' ? FX_ACT_NOTE.leak : null}
             /* ✨ Band ▾ while it shimmers — its own colour, lighter (an absence) · Gold. */
             band={
               motion.during === 'shimmer'

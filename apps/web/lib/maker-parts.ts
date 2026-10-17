@@ -163,6 +163,8 @@ export const MAKER_PART_KEYS = [
   'herolink',
   /* 🔘 THE RSVP BUTTON at the cover's foot (owner 2026-10-16) — a cover word of its own (hero el `rsvp`). */
   'rsvpbutton',
+  /* 🖼 THE COVER'S PHOTO (owner-approved 2026-10-16, "SIX NEW EFFECTS") — the plate under the words (hero el `photo`). */
+  'coverphoto',
   'details',
   'spotlight',
   'livehub',
@@ -346,6 +348,9 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* 🔘 Its OWN part, not the Reply card's (`rsvpcard` is also Me's card — one key cannot be two places): the cover's
      foot button, its words the couple's ("Confirm attendance"), its look Look › Buttons'. */
   rsvpbutton: { label: 'RSVP button', source: 'tool', canvas: 'f:hero', el: 'rsvp', layouts: NONE },
+  /* 🖼 The cover's photo — drawn where the cover has a hero photo and no Cover Scene background (the plate). Its
+     picture is Details' "Cover photo"; here it takes Animate only — Reveal ▾ and the picture's Action ▾. */
+  coverphoto: { label: 'Photo', source: 'tool', canvas: 'f:hero', el: 'photo', layouts: NONE },
   /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`) — its date and place come from the
      booked venue, so its door is Suppliers'; its looks are the shipped event_details styles. */
   details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
@@ -411,7 +416,9 @@ export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { stu
  * prototype: *"Style has nothing to change on this part."*). Listed, never worked out: a part's Style may be drawn
  * by its own tools (the Reveal, the pass, the reply pages), which no rule here can see.
  */
-export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you'];
+/* 🖼 + the cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): a picture with no colour, size or style cards of
+   its own — it only moves. */
+export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto'];
 
 /**
  * 🚫 DOES A TOOL HAVE ANYTHING TO SET ON THIS PART? (owner rule: a failure never renders as success — a pill that
@@ -436,6 +443,8 @@ export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): bool
      ANIMATE"): Edit = its lines, each with the house switch · Style = the Opening (the shipped reveal picker) ·
      Background · Animate = ONE entrance (`lib/cover-entrance.ts`). Its words each keep their own four as well. */
   if (key === MAKER_COVER_SCENE) return true;
+  /* 🖼 The cover's photo has no words — its picture is Details' — so its Edit is grey and says where (`MAKER_COVER_PHOTO_EDIT_WHY`). */
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return false;
   if (tool === 'style') return !MAKER_PARTS_NO_LOOK.includes(key);
   if (key === 'camera') return false;
   if (tool === 'edit') return true;
@@ -454,6 +463,10 @@ export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): bool
  * its place first among the cover's words on every page that leads with the cover (`MAKER_STAGE_PAGES`).
  */
 export const MAKER_COVER_SCENE = 'coverscene' as const satisfies MakerPartKey;
+/** 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS") — a part with no look of its own (`MAKER_PARTS_NO_LOOK`):
+ *  it moves (Animate); its picture is Details' "Cover photo"; it sits on the Cover Scene's background like every cover word. */
+export const MAKER_COVER_PHOTO = 'coverphoto' as const satisfies MakerPartKey;
+export const MAKER_COVER_PHOTO_EDIT_WHY = 'Change the cover photo in Details.';
 /** A cover word's Background line — the prototype's own words; the door's label is `MAKER_COVER_SCENE_DOOR`. */
 export const MAKER_COVER_WORD_BG_WHY = 'This sits on the Cover Scene.';
 export const MAKER_COVER_SCENE_DOOR = 'Select the Cover Scene ›';
@@ -481,6 +494,7 @@ export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'styl
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
   /* 🎛 The Camera's own three lines (the approved prototype's words, 2026-10-09: it is the whole screen). */
   if (key === 'camera' && tool !== 'style') return MAKER_CAMERA_TOOL_WHY[tool];
+  if (key === MAKER_COVER_PHOTO && tool === 'edit') return MAKER_COVER_PHOTO_EDIT_WHY;
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
@@ -511,7 +525,7 @@ export function makerPartToolFor(key: MakerPartKey | null, remembered: MakerPart
    are their own routes with no closing. */
 export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<string, readonly MakerPartKey[]>>>> = {
   save_the_date: {
-    home: ['coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message', 'closing'],
+    home: ['coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'coverphoto', 'herolink', 'countdown', 'message', 'closing'],
     story: ['story', 'closing'],
     me: ['pass', 'closing'],
   },
@@ -524,20 +538,20 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
   },
   rsvp: {
     /* 🎭 No Reveal tile on a page the Cover Scene leads (owner-approved 2026-10-16): the opening is the group's Style. */
-    home: ['coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpbutton', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts', 'closing'],
+    home: ['coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'coverphoto', 'herolink', 'rsvpbutton', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts', 'closing'],
     details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring', 'closing'],
     story: ['story', 'closing'],
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats', 'closing'],
   },
   event: {
-    live: ['spotlight', 'announce', 'livehub', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule', 'closing'],
+    live: ['spotlight', 'announce', 'livehub', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'coverphoto', 'herolink', 'schedule', 'closing'],
     home: ['venue', 'dress', 'march', 'bring', 'closing'],
     camera: ['camera', 'closing'],
     gallery: ['gallery', 'myphotos', 'closing'],
     me: ['seats', 'pass', 'closing'],
   },
   editorial: {
-    home: ['coverscene', 'logo', 'ename', 'names', 'date', 'numbers', 'message', 'wishes', 'story', 'suppliers', 'closing'],
+    home: ['coverscene', 'logo', 'ename', 'names', 'date', 'coverphoto', 'numbers', 'message', 'wishes', 'story', 'suppliers', 'closing'],
     film: ['film', 'closing'],
     suppliers: ['suppliers', 'closing'],
     gallery: ['film', 'gallery', 'myphotos', 'closing'],

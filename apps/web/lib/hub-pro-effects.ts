@@ -36,7 +36,7 @@ import { STAGE_SHOW_KEY, configWithStageShow } from '@/lib/stage-scenes';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sceneStyleSet, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
-import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
+import { HUB_ELEMENT_LABEL, hubElementEffectNames, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS } from '@/lib/art-kit-pro';
 import { QR_STYLE_PREF_KEY } from '@/lib/qr-look';
@@ -452,9 +452,10 @@ function canvasEffects(
         ? 'Video background'
         : first.group === 'slot-media' && facets.some((f) => drafted.slots?.[f.slot ?? -1]?.kind === 'snippet')
           ? 'Clip in the scene'
-          : /* ✨ A part's Shimmer is named as itself (owner 2026-10-16: "all animate, effects, styles, accents are pro"). */
-            first.group === 'part-motion' && first.element && drafted.elements?.[first.element]?.motion?.during === 'shimmer'
-            ? 'Shimmer'
+          : /* ✨ A part's new effects are named as themselves — Shimmer, and the six (Word by word · Spread · Glow · Develop ·
+               Curtain · Light leak), owner 2026-10-16: "all animate, effects, styles, accents are pro". */
+            first.group === 'part-motion' && first.element && hubElementEffectNames(drafted.elements?.[first.element]?.motion).length > 0
+            ? hubElementEffectNames(drafted.elements?.[first.element]?.motion).join(' · ')
             : name.what;
     const where = first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
     let without = drafted;

@@ -25,6 +25,7 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  *           makes it follow the scroll. It never looks live and does nothing.)
  *   row 3   only what the ON ones need: From / To ▾ (Move) · Grow | Shrink (Size), a half each
  *   row 4   Build in  — Movement ◆ · Plays (On arrival | On scroll) · Delay (a part) or Rows (a scene of rows)
+ *                       · ✨ Words ▾ (a cover word) or Reveal ▾ (the cover's photo) — owner-approved 2026-10-16
  *           Action    — nothing (it has no feel and no drive of its own)
  *           Build out — Movement ◆ · Leaves ◆ (As it scrolls away | Scrub out | Auto scroll)
  *
@@ -95,6 +96,8 @@ export function StageAnimate({
   does,
   leaves = null,
   band = null,
+  arrive = null,
+  actNote = null,
   noteDoor = null,
   pending = false,
   error = null,
@@ -137,6 +140,14 @@ export function StageAnimate({
   leaves?: AnimateDd;
   /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
   band?: AnimateDd;
+  /**
+   * ✨ HOW IT ARRIVES (owner-approved 2026-10-16, "SIX NEW EFFECTS"): Words ▾ on a cover word (All at once · Word by word ·
+   * Spread) or Reveal ▾ on the photo (Plain · Develop · Curtain) — ONE stacked dropdown in Build in's row 4, the slot
+   * Rows ▾ has on a scene; it plays together with the chips. `small` is its name ("Words" · "Reveal").
+   */
+  arrive?: AnimateDd;
+  /** ✨ Action's row-3 line for what the picked Action does (Glow, Light leak — the prototype's words). */
+  actNote?: string | null;
   /** 🎬 A door beside the note (a cover word on its own: "Reset to the cover's entrance ›"). */
   noteDoor?: { label: string; onPress: () => void } | null;
   pending?: boolean;
@@ -226,6 +237,10 @@ export function StageAnimate({
         <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-band="">
           <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
+      ) : at === 'act' && actNote ? (
+        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-act-note="">
+          {actNote}
+        </p>
       ) : note ? (
         noteDoor ? (
           <div className={`${SP_ROWS_ROW} row-start-3`}>
@@ -257,8 +272,13 @@ export function StageAnimate({
               off={feel.off ? () => setWhy((w) => ({ words: feel.off as string, n: (w?.n ?? 0) + 1 })) : undefined}
             />
           ) : null}
-          {end === 'in' && plays ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
+              here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
+              scroll" switch is the way in). */}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
           {end === 'in' && rows ? <Dd stacked small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
+          {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
+          {end === 'in' && arrive ? <Dd stacked small={arrive.small ?? 'Words'} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}
           {end === 'in' && delay ? (
             <Dd
               stacked

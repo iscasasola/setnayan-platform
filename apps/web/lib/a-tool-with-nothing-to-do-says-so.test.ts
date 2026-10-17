@@ -52,7 +52,8 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     }
     assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09: its Edit is grey too.) */
-    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
+    /* (🖼 The cover's photo has no words — its Edit is grey and says where it is changed, 2026-10-16.) */
+    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera' && k !== 'coverphoto', `${k}: Edit`);
     const def = MAKER_PARTS[k];
     const want = Boolean(def.canvas) && (Boolean(def.el) || (def.canvas ?? '').startsWith('w:'));
     assert.equal(makerPartToolWorks(k, 'animate'), want, `${k} · animate`);
@@ -69,7 +70,7 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     assert.ok(yes.includes(k), `${k}: Animate worked on the lab and is now greyed`);
   }
   assert.ok(yes.length >= 12 && no.length >= 12, `anti-vacuity: ${yes.length} yes · ${no.length} no`);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you'], 'a part lost its Style — only a part with no look at all may');
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto'], 'a part lost its Style — only a part with no look at all may');
 });
 
 test('(2) the predicate is the work area’s own rule: a part’s sheet needs `canvas && el`; a scene’s heading and motion need a scene', () => {

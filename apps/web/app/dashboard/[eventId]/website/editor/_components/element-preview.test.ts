@@ -327,6 +327,8 @@ test('the preview clears exactly the properties the declarations can write', () 
     { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' },
     { in: 'fade', duration: 'quick', delay: 'long' },
     { during: 'drift' },
+    /* ✨ The six new effects' timing (owner-approved 2026-10-16). */
+    { in: 'fade', words: 'word', speed: 'gentle', delay: 'short' },
   ];
   for (const motion of motions) {
     const style = { font: FONT, color: '#000000', size: 120, weight: 600, italic: true, underline: true, align: 'left', leading: 1.2, tracking: 8, hidden: true, motion } as never;
@@ -608,4 +610,33 @@ test('the photo caption’s words are on the canvas at once, and clearing them p
   const live = plate(null);
   bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', 'caption', { caption: { word: 'Hi' } }, false, doc);
   assert.equal(serialize(live.find('data-el', 'caption')), serialize(plate({ caption: { word: 'Hi' } }).find('data-el', 'caption')), 'canvas = guest page');
+});
+
+test('✨ WORD BY WORD · SPREAD · GLOW: the canvas cuts the words exactly as the guest page draws them, and taking it off puts the plain words back', () => {
+  /* Owner-approved 2026-10-16 ("SIX NEW EFFECTS"). The eyebrow and the date cut letters (≤ 24); the line (37) opens as
+     ONE piece (`data-el-sl`) — the approved 24-letter call. */
+  const motions = [{ words: 'word' }, { words: 'spread' }, { during: 'glow' }, { words: 'spread', during: 'glow' }, { in: FADE, words: 'word', speed: 'gentle', delay: 'long' }];
+  for (const motion of motions) {
+    for (const el of ['eyebrow', 'line', 'date'] as const) {
+      const style = es.sanitizeHubElementStyle({ motion }, el);
+      assert.ok(style?.motion, `${el}: ${JSON.stringify(motion)} was dropped`);
+      const server = masthead({ [el]: style! } as Styles).find('data-el', el);
+      assert.ok(server.querySelectorAll('[data-el-w]').length > 0, `${el}: the server did not cut the words`);
+      const live = masthead(null);
+      bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', el, { [el]: style! } as Styles, true, doc);
+      const got = live.find('data-el', el);
+      /* (Attributes compared as a set — the bridge appends what React spelled before `class`; the words compared whole.) */
+      /* (`data-cover-line` is the veil's, laid by the server's next draw — never by the preview, before this change too.) */
+      const hooks = (n: FakeEl) => [...n.attrs].filter(([k]) => k !== 'data-cover-line').sort();
+      assert.deepEqual(hooks(got), hooks(server), `${el} · ${JSON.stringify(motion)}: the hooks differ`);
+      assert.deepEqual(styleOf(got), styleOf(server), `${el} · ${JSON.stringify(motion)}: the timing differs`);
+      assert.equal(got.childNodes.map(serialize).join(''), server.childNodes.map(serialize).join(''), `${el} · ${JSON.stringify(motion)}: canvas ≠ guest page`);
+      // ↺ Off again: the plain words, as a page with nothing chosen draws them — the same text throughout.
+      bridge.applyElementPreview(live as unknown as HTMLElement, 'f:hero', el, null, true, doc);
+      assert.equal(live.find('data-el', el).querySelectorAll('[data-el-w]').length, 0, `${el}: the cut stayed on the canvas`);
+      assert.equal(live.find('data-el', el).textContent, masthead(null).find('data-el', el).textContent, `${el}: the words changed`);
+    }
+  }
+  assert.equal(masthead({ line: es.sanitizeHubElementStyle({ motion: { words: 'spread' } }, 'line')! }).find('data-el', 'line').querySelectorAll('[data-el-sl]').length, 1, 'a long line does not open as one piece');
+  assert.equal(masthead({ date: es.sanitizeHubElementStyle({ motion: { words: 'spread' } }, 'date')! }).find('data-el', 'date').querySelectorAll('[data-el-l]').length > 0, true, 'a short part is not cut into letters');
 });

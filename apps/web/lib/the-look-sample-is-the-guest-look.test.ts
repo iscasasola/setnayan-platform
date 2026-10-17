@@ -647,8 +647,9 @@ test('(7c) ONE engine call for the page, ONE layer for everyone — and nothing 
   assert.deepEqual(using(/\bambientEffectSpec\(/), [`${E}/background-effects.tsx`, 'lib/ambient-effects.ts', 'lib/look-sample.ts']);
   /* The marked element is drawn by the one layer. */
   assert.deepEqual(using(/data-ambient-effect=\{/), ['app/[slug]/_components/ambient-effect.tsx']);
-  /* The layer is mounted by the guest page, the sample screen and the cards — nobody else. */
-  assert.deepEqual(using(/<AmbientEffectLayer\b/), ['app/[slug]/_lib/main-ground-layer.tsx', `${L}/look-sample.tsx`, `${E}/background-effects.tsx`].sort());
+  /* The layer is mounted by the guest page, the sample screen and the cards — and (owner-approved 2026-10-16, "SIX NEW
+     EFFECTS": "Light leak reuses the shipped ambient `leak`") the cover's photo, its Light leak — nobody else. */
+  assert.deepEqual(using(/<AmbientEffectLayer\b/), ['app/[slug]/_lib/main-ground-layer.tsx', 'app/[slug]/_components/pahina-masthead.tsx', `${L}/look-sample.tsx`, `${E}/background-effects.tsx`].sort());
   /* The couple's page wears the couple's colours: the engine and the layer name none of the app's. */
   for (const f of ['lib/ambient-effects.ts', 'app/[slug]/_components/ambient-effect.tsx']) {
     assert.doesNotMatch(read(f), /sn-accent|--sn-|mulberry|terracotta|PILL_ON_CLASS/, `${f} names the app’s own colour — it would leak into a guest’s Event Hub`);

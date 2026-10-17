@@ -80,7 +80,11 @@ import { motionFxVars, sameMotionFx, sanitizeMotionFx, type MotionFx, type Motio
    RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT" · "'CONFIRM ATTENDANCE' IS THE RSVP"): its words are the couple's
    (default `HUB_RSVP_DEFAULT_WORDS`), its look is Look › Buttons' (`.button-primary`), so it takes words, a switch and
    motion — never a colour or size of its own. Drawn on every cover shape where the reply exists (`pahina-masthead.tsx`). */
-export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'rsvp'] as const;
+/* 🖼 `photo` — THE COVER'S PHOTO (owner-approved 2026-10-16, DECISION_LOG "APPROVED — SIX NEW EFFECTS", prototype
+   `text_image_effects_2026-10-16.html` "Photo"): the hero photo the plain masthead draws as a plate under the words
+   (`pahina-masthead.tsx` `coverPlate`). A picture, not words: it takes motion only — Reveal ▾ and the picture's Action ▾
+   (`HUB_EL_DURING_PICTURE`). Its picture is set where it always was (Details › Hero / the Cover Scene's Background). */
+export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'rsvp', 'photo'] as const;
 /**
  * Which hero parts the masthead can draw, by its shape: the invitation CARD
  * draws its line, time and link; the PLAIN masthead (a hero photo, or the
@@ -89,9 +93,9 @@ export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'lin
  * moves no pixels.
  */
 export const HUB_HERO_CARD_ONLY_KEYS: readonly HubHeroElementKey[] = ['line', 'time', 'link'];
-export const HUB_HERO_PLAIN_ONLY_KEYS: readonly HubHeroElementKey[] = ['venue', 'caption'];
-/** The parts drawn only under a hero photo/video (the cover plate). */
-export const HUB_HERO_PHOTO_ONLY_KEYS: readonly HubHeroElementKey[] = ['caption'];
+export const HUB_HERO_PLAIN_ONLY_KEYS: readonly HubHeroElementKey[] = ['venue', 'caption', 'photo'];
+/** The parts drawn only under a hero photo/video (the cover plate) — and the plate itself. */
+export const HUB_HERO_PHOTO_ONLY_KEYS: readonly HubHeroElementKey[] = ['caption', 'photo'];
 export function heroPartsFor(
   card: boolean | null | undefined,
   twoPeople: boolean | null | undefined,
@@ -123,6 +127,7 @@ export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
   venue: 'Venue',
   caption: 'Photo caption',
   rsvp: 'RSVP button',
+  photo: 'Photo',
   label: 'Label',
   heading: 'Heading',
   body: 'Words',
@@ -209,6 +214,8 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   caption: ['word', ...TEXT_FIELDS, 'width'],
   // 🔘 The RSVP button: its words, its switch, its motion — its look is Look › Buttons'.
   rsvp: ['word', 'motion', 'hidden'],
+  // 🖼 The cover's photo: its motion only (Reveal ▾ · Action ▾) — the picture itself is the hero photo.
+  photo: ['motion'],
   label: TEXT_FIELDS,
   heading: [...TEXT_FIELDS, 'width'],
   body: [...TEXT_FIELDS, 'width'],
@@ -308,6 +315,8 @@ export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubE
   caption: { min: 85, max: 160 },
   /* (The RSVP button takes no size of its own — Look › Buttons' — the bounds are the line's, never offered.) */
   rsvp: { min: 85, max: 145 },
+  /* (The photo takes no size — the plate's box is the masthead's — the bounds are the line's, never offered.) */
+  photo: { min: 85, max: 145 },
   label: { min: 85, max: 145 },
   heading: { min: 70, max: 145 },
   body: { min: 85, max: 145 },
@@ -556,8 +565,32 @@ export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string
 export const HUB_EL_IN = ['rise', 'fade', 'none'] as const;
 /* ✨ `shimmer` (owner 2026-10-16, DECISION_LOG "SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT"): an Action — a lighter band of
    the word's own ink (or Gold) passing across it every 5 s. Only on a part with words (`hubElementTakesShimmer`). */
-export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax', 'shimmer'] as const;
-export const HUB_EL_DURING_WORDS = ['drift', 'still', 'shimmer'] as const;
+/* ✨ `glow` (words) and `leak` (a picture) — two of the SIX NEW EFFECTS (owner-approved 2026-10-16, DECISION_LOG "APPROVED —
+   SIX NEW EFFECTS", prototype `text_image_effects_2026-10-16.html`): Glow, a soft halo in the accent breathing every
+   4.4 s (a blurred copy of each word, only its opacity moves — never `text-shadow`); Light leak, the shipped
+   background Light leak ◆ (`lib/ambient-effects.ts` `leak`) drawn inside the photo. Both Pro ◆ ("ALL ANIMATE, EFFECTS,
+   STYLES AND ACCENTS ARE EVENT HUB PRO ◆"), asked at Apply as Shimmer is. */
+export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax', 'shimmer', 'glow', 'leak'] as const;
+export const HUB_EL_DURING_WORDS = ['drift', 'still', 'shimmer', 'glow'] as const;
+/** 🖼 A picture's Action ▾, in the prototype's order. Parallax is the photo's own (the plate has always moved so) — an absence. */
+export const HUB_EL_DURING_PICTURE = ['still', 'drift', 'kenburns', 'parallax', 'leak'] as const;
+/**
+ * ✨ HOW THE WORDS ARRIVE — Words ▾, Build in's row 4 on a cover text part (the prototype's "Words ▾"): All at once
+ * (an absence) · Word by word (each word rises in turn, the gap set by Movement) · Spread (the letters open out to
+ * their tracking; a line over `HUB_SPREAD_LETTERS_MAX` opens as one piece). Plays together with the chips.
+ */
+export const HUB_EL_WORDS = ['all', 'word', 'spread'] as const;
+export type HubElWords = Exclude<(typeof HUB_EL_WORDS)[number], 'all'>;
+export const HUB_EL_WORDS_LABEL: Readonly<Record<(typeof HUB_EL_WORDS)[number], string>> = { all: 'All at once', word: 'Word by word', spread: 'Spread' };
+/** ✂ Spread draws one span per letter only up to this many (the approved call); a longer line opens as one piece. */
+export const HUB_SPREAD_LETTERS_MAX = 24;
+/**
+ * 🖼 HOW THE PICTURE ARRIVES — Reveal ▾, Build in's row 4 on the photo: Plain (an absence) · Develop (sepia warming
+ * to full colour, `filter`) · Curtain (revealed from the centre outwards, `clip-path`).
+ */
+export const HUB_EL_REVEALS = ['plain', 'develop', 'curtain'] as const;
+export type HubElReveal = Exclude<(typeof HUB_EL_REVEALS)[number], 'plain'>;
+export const HUB_EL_REVEAL_LABEL: Readonly<Record<(typeof HUB_EL_REVEALS)[number], string>> = { plain: 'Plain', develop: 'Develop', curtain: 'Curtain' };
 export const HUB_EL_OUT = ['fade', 'lift', 'settle', 'stay'] as const;
 export const HUB_EL_TIMELINE = ['once', 'scroll'] as const;
 export const HUB_EL_DURATION = ['quick', 'normal', 'slow'] as const;
@@ -576,6 +609,8 @@ export const HUB_EL_DURING_LABEL: Record<HubElDuring, string> = {
   kenburns: 'Ken Burns',
   parallax: 'Parallax',
   shimmer: 'Shimmer',
+  glow: 'Glow',
+  leak: 'Light leak',
 };
 export const HUB_EL_OUT_LABEL: Record<HubElOut, string> = {
   fade: 'Fade away',
@@ -599,7 +634,12 @@ export type HubElSpeed = Exclude<MotionSpeed, 'regular'>;
  */
 export type HubElementMotion = {
   in?: MotionFx;
-  during?: Exclude<HubElDuring, 'still'>;
+  /** 🖼 `still` is stored on the PHOTO only (its absence is Parallax, the plate's own); a part with words never keeps it. */
+  during?: Exclude<HubElDuring, 'parallax'>;
+  /** ✨ Words ▾ — a cover text part's arrival, word by word or spread (absent = all at once). */
+  words?: HubElWords;
+  /** 🖼 Reveal ▾ — the photo's arrival, Develop or Curtain (absent = plain). */
+  reveal?: HubElReveal;
   /** Only beside `timeline: 'scroll'` — a timed element has no Out. */
   out?: MotionFx;
   timeline?: 'scroll';
@@ -651,6 +691,81 @@ export function hubShimmerPaint(band: HubShimmerBand): Array<[string, string]> {
 /** A part's shimmer band, or null when it does not shimmer. */
 export function hubElementShimmer(motion: HubElementMotion | null | undefined): HubShimmerBand | null {
   return motion?.during === 'shimmer' ? (motion.band === 'gold' ? 'gold' : 'hue') : null;
+}
+
+/* ── ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16, DECISION_LOG "APPROVED — SIX NEW EFFECTS: WORD BY WORD · SPREAD ·
+   GLOW (TEXT), DEVELOP · CURTAIN · LIGHT LEAK (PICTURES)"; prototype `text_image_effects_2026-10-16.html`) ────────────
+   Pure CSS on transform · opacity · filter · clip-path, each behind the reduced-motion gate AND off Save-Data
+   (`HUB_SHIMMER_ROOT`) — anywhere else the part is drawn FINISHED: every word at rest, the halo held at its middle
+   strength, the photo in full colour and whole, the flare held faint in one corner. Never hidden, never a start frame.
+   The cover draws them (`pahina-masthead.tsx`: the words cut into spans server-side, `lib/part-fx.ts`); the Maker's
+   canvas re-cuts them on a pick (`app/[slug]/_components/part-fx-cut.ts`). Pro ◆ at Apply, named by
+   `hubElementEffectNames`. Held by `lib/six-effects-finish-still-and-ask-pro.test.ts`. */
+
+/** Does this part take Words ▾ and Glow? A COVER part with words (it is cut server-side) — never the joiner (one word inside the title). */
+export function hubElementTakesWordFx(key: HubElementKey): boolean {
+  return (HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(key) && key !== 'joiner' && hubElementTakesShimmer(key);
+}
+/** Is this part a picture (Reveal ▾ and the picture's Action ▾)? */
+export function hubElementIsPicture(key: HubElementKey): boolean {
+  return key === 'photo';
+}
+/** The Action ▾ a part offers, in the owner's order: a picture's five · a cover word's four · any word's three · the rest two. */
+export function hubElementDuringOffered(key: HubElementKey): readonly HubElDuring[] {
+  if (hubElementIsPicture(key)) return HUB_EL_DURING_PICTURE;
+  if (hubElementTakesWordFx(key)) return ['still', 'drift', 'shimmer', 'glow'];
+  if (hubElementTakesShimmer(key)) return ['still', 'drift', 'shimmer'];
+  return ['still', 'drift'];
+}
+/** The Action a part shows when it stores none — the photo's own Parallax; Still for every other. */
+export function hubElementDuringDefault(key: HubElementKey): HubElDuring {
+  return hubElementIsPicture(key) ? 'parallax' : 'still';
+}
+/** 💎 The Action choices that are new effects — marked ◆ in Action ▾ and named at Apply (Shimmer's pattern). */
+export const HUB_EL_DURING_PRO_NAMED: readonly HubElDuring[] = ['shimmer', 'glow', 'leak'];
+
+/** The six (and Shimmer) a part's motion wears, by their own names — what the Apply sheet says (`hub-pro-effects.ts`). */
+export function hubElementEffectNames(motion: HubElementMotion | null | undefined): string[] {
+  if (!motion) return [];
+  const out: string[] = [];
+  if (motion.words) out.push(HUB_EL_WORDS_LABEL[motion.words]);
+  if (motion.reveal) out.push(HUB_EL_REVEAL_LABEL[motion.reveal]);
+  if (motion.during && HUB_EL_DURING_PRO_NAMED.includes(motion.during)) out.push(HUB_EL_DURING_LABEL[motion.during]);
+  return out;
+}
+
+/** The Build in timing the words and the reveal play on: the feel's seconds, its gap, and the part's Delay. */
+const FX_GAP_S: Record<MotionSpeed, number> = { fast: 0.12, regular: 0.12, gentle: 0.25 };
+export function hubElementFxVars(motion: HubElementMotion | null | undefined): Array<[string, string]> {
+  if (!motion || (!motion.words && !motion.reveal)) return [];
+  const speed = motion.speed ?? 'regular';
+  return [
+    ['--el-fx-dur', `${DURATION_S[SPEED_DURATION[speed]]}s`],
+    ['--el-fx-delay', `${DELAY_S[motion.delay ?? 'none']}s`],
+    ['--el-fx-gap', `${FX_GAP_S[speed]}s`],
+  ];
+}
+
+/** The attributes the effects' one CSS block reads on a part (`globals.css` "THE SIX NEW EFFECTS"). */
+export const HUB_EL_FX_ATTRS = ['data-el-words', 'data-el-glow', 'data-el-reveal', 'data-el-act'] as const;
+export function hubElementFxAttrs(motion: HubElementMotion | null | undefined): Partial<Record<(typeof HUB_EL_FX_ATTRS)[number], string>> {
+  if (!motion) return {};
+  const out: Partial<Record<(typeof HUB_EL_FX_ATTRS)[number], string>> = {};
+  if (motion.words) out['data-el-words'] = motion.words;
+  if (motion.during === 'glow') out['data-el-glow'] = '';
+  if (motion.reveal) out['data-el-reveal'] = motion.reveal;
+  if (motion.during === 'kenburns' || motion.during === 'leak' || motion.during === 'still') out['data-el-act'] = motion.during;
+  return out;
+}
+/** Does the photo keep its own Parallax? Only while it stores no Action of its own. */
+export function hubElementPhotoParallax(style: HubElementStyle | null | undefined): boolean {
+  return !style?.motion?.during;
+}
+/** Does the part's text need cutting into word spans (Word by word, Spread, Glow)? */
+export function hubElementWordCut(style: HubElementStyle | null | undefined): { words: HubElWords | null; glow: boolean } | null {
+  const m = style?.motion;
+  if (!m || (!m.words && m.during !== 'glow')) return null;
+  return { words: m.words ?? null, glow: m.during === 'glow' };
 }
 
 /** The shipped single In / Out choices, as the four effects (`sanitizeHubElementMotion`). */
@@ -871,19 +986,26 @@ export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null 
   const scroll = src.timeline === 'scroll';
   const fxIn = readElIn(src.in);
   if (fxIn) out.in = fxIn;
-  // Words drift or stay still; Ken Burns and Parallax are for a photo.
-  if (isIn(HUB_EL_DURING_WORDS, src.during) && src.during !== 'still') out.during = src.during;
+  /* Every Action but Parallax (the photo's own, an absence). Which part may keep which is `sanitizeHubElementStyle`'s
+     (`hubElementDuringOffered`): words drift, shimmer or glow; the photo drifts, Ken Burns or leaks — and keeps Still,
+     which `sanitizeHubElementStyle` lays back for the photo alone. */
+  if (isIn(HUB_EL_DURING, src.during) && src.during !== 'parallax' && src.during !== 'still') out.during = src.during;
   /* ✨ Gold is kept only beside a shimmer — the direction rule: a key that could move no pixels is not stored. */
   if (out.during === 'shimmer' && src.band === 'gold') out.band = 'gold';
+  /* ✨ Words ▾ and 🖼 Reveal ▾ — absences are All at once and Plain. */
+  if (src.words === 'word' || src.words === 'spread') out.words = src.words;
+  if (src.reveal === 'develop' || src.reveal === 'curtain') out.reveal = src.reveal;
   if (scroll) out.timeline = 'scroll';
   const fxOut = scroll ? readElOut(src.out) : null;
   if (fxOut) out.out = fxOut;
-  /* The shipped Duration only ever lived beside a timed In. */
-  const speed = out.in ? readElSpeed(src.speed, scroll ? undefined : src.duration) : null;
+  /* The shipped Duration only ever lived beside a timed In. Words ▾ and Reveal ▾ are a Build in too: Movement times
+     them and Delay holds them. */
+  const arrives = Boolean(out.in || out.words || out.reveal);
+  const speed = arrives ? readElSpeed(src.speed, scroll || !out.in ? undefined : src.duration) : null;
   if (speed) out.speed = speed;
   const outSpeed = out.out ? readElSpeed(src.outSpeed) : null;
   if (outSpeed) out.outSpeed = outSpeed;
-  if (!scroll && out.in && isIn(HUB_EL_DELAY, src.delay) && src.delay !== 'none') out.delay = src.delay;
+  if (!scroll && arrives && isIn(HUB_EL_DELAY, src.delay) && src.delay !== 'none') out.delay = src.delay;
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -951,12 +1073,29 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
         : typeof src.anim === 'string'
           ? sanitizeHubElementMotion(LEGACY_ANIM[src.anim] ?? null)
           : null;
-    /* ✨ A shimmer only on a part with words — a drawing (the logo) or a button never takes one. */
-    if (motion?.during === 'shimmer' && !hubElementTakesShimmer(key)) {
+    /* ✨ A shimmer only on a part with words — a drawing (the logo) or a button never takes one. And every Action only
+       where it is offered (`hubElementDuringOffered`): Glow on a cover word, Ken Burns · Light leak on the photo. Words ▾
+       only on a cover word, Reveal ▾ only on the photo. */
+    if (motion?.during && !hubElementDuringOffered(key).includes(motion.during)) {
       delete motion.during;
       delete motion.band;
     }
-    if (motion && Object.keys(motion).length > 0) out.motion = motion;
+    if (motion?.words && !hubElementTakesWordFx(key)) delete motion.words;
+    if (motion?.reveal && !hubElementIsPicture(key)) delete motion.reveal;
+    /* A Movement or a Delay that times nothing any more is not kept (the sanitizer's own rule). */
+    if (motion && !motion.in && !motion.words && !motion.reveal) {
+      delete motion.speed;
+      delete motion.delay;
+    }
+    /* 🖼 Still is kept on the PHOTO only — its absence there is the plate's own Parallax; everywhere else Still IS the
+       absence (`sanitizeHubElementMotion` drops it, so no shipped stored motion draws differently). */
+    const raw = src.motion && typeof src.motion === 'object' ? (src.motion as Record<string, unknown>) : null;
+    if (hubElementIsPicture(key) && raw?.during === 'still') {
+      const m: HubElementMotion = motion ?? {};
+      delete m.band;
+      m.during = 'still';
+      out.motion = m;
+    } else if (motion && Object.keys(motion).length > 0) out.motion = motion;
   }
   if (HUB_ELEMENT_RUN_KEYS.includes(key) && typeof src.of === 'string' && HASH.test(src.of)) {
     const runs = sanitizeHubElementRuns(src.runs, key);
@@ -1523,6 +1662,8 @@ export function hubElementHeroMotionVars(style: HubElementStyle | null | undefin
   const arrival = hubElementArrivalOnly(style?.motion);
   return [
     ...decl.filter(([p]) => p.startsWith('--el-')),
+    /* ✨ …and the words' and the reveal's timing (`hubElementFxVars`), read by their own gated rules. */
+    ...hubElementFxVars(style?.motion),
     ['--el-anim', motion.animation],
     ['--el-tl', motion['animation-timeline'] ?? 'auto'],
     ['--el-range', motion['animation-range'] ?? 'normal'],
@@ -1531,10 +1672,14 @@ export function hubElementHeroMotionVars(style: HubElementStyle | null | undefin
 }
 
 /** `data-el-motion` on a hero part that moves on its own — the hook the one gated rule reads. */
-export function hubElementMotionAttr(style: HubElementStyle | null | undefined): { 'data-el-motion'?: ''; 'data-el-shimmer'?: HubShimmerBand } {
+export function hubElementMotionAttr(
+  style: HubElementStyle | null | undefined,
+): { 'data-el-motion'?: ''; 'data-el-shimmer'?: HubShimmerBand } & ReturnType<typeof hubElementFxAttrs> {
   if (!style?.motion) return {};
   const band = hubElementShimmer(style.motion);
-  return band ? { 'data-el-motion': '', [HUB_SHIMMER_ATTR]: band } : { 'data-el-motion': '' };
+  /* ✨ The six new effects' hooks (`hubElementFxAttrs`) ride beside it. */
+  const fx = hubElementFxAttrs(style.motion);
+  return band ? { 'data-el-motion': '', [HUB_SHIMMER_ATTR]: band, ...fx } : { 'data-el-motion': '', ...fx };
 }
 
 /**
@@ -1600,6 +1745,10 @@ export const HUB_ELEMENT_MOTION_PROPS = [
   '--el-out-o',
   '--el-out-t',
   '--el-out-f',
+  /* ✨ The words' and the reveal's timing (`hubElementFxVars`). */
+  '--el-fx-dur',
+  '--el-fx-delay',
+  '--el-fx-gap',
   'animation',
   'animation-timeline',
   'animation-range',

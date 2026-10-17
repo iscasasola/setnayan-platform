@@ -28,3 +28,8 @@ another builder's serve.sh in a shared folder killed a server today). Changelog 
 - [x] 2. Event Details form: lib/event-details-merge.ts (row shape, like guest-card-merge); details-form posts its base, updateEventMatchCriteria
       writes only changed fields (region/feel now absent⇒untouched for a based post; names and birth data go as groups; a based no-change save writes nothing).
       Tests 2a–2c; sabotage S5–S8 red→restored. LEFT: the open form does not redraw the other host's values (it shows them next open).
+- [x] 3. saveReceptionDesign: new shared server half lib/update-json-column.ts (`updateJsonColumn`: compare-and-set on the jsonb VALUE, rebuild
+      on a lost round, a refusal said at once). Editor sends base (defaults laid in), server mergeFromBase + CAS, editor shows merged + the note.
+      Tests 3a–3c + tests/db/two-hosts-every-writer-sends-its-base.db.test.ts (3); sabotage S9–S12 red→restored. Prod sizes measured
+      (largest jsonb on the target columns: style_preferences 763 chars; editorial draft_json 4965 > the 3000 compare cap).
+- [ ] 4. Seating floor plan/booths/signs — LEFT (whole-row upsert of ~30 columns + replace-all lists; its own PR).

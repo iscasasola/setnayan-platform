@@ -15,6 +15,7 @@ import { rebaseHubDraftPatch } from './hub-draft-rebase';
 import { emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { MERGE_BASE_FIELD } from './merge-base-field';
 import { eventDetailsToWrite, formFieldsOf } from './event-details-merge';
+import { JSON_COLUMN_WRITE_ATTEMPTS, JsonColumnMovedError, updateJsonColumn, type JsonColumnClient } from './update-json-column';
 import type { HubSectionCanvas } from './hub-canvas';
 
 const code = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
@@ -130,4 +131,77 @@ test('2c · the form sends what it started from, and the writer leaves out what 
   assert.match(action, /!based \|\| formData\.has\('region'\) \? \{ region \}/, 'the region is written even when this screen did not change it');
   assert.match(action, /!based \|\| formData\.has\('mood_feel_key'\) \? \{ mood_feel_key: moodFeelKey \}/, 'the feel is written even when this screen did not change it');
   assert.match(action, /\(!based \|\| formData\.has\('bazi_birthdata_consent'\)\) &&/, 'an unchanged birth-data section is purged by a based save');
+});
+
+/* ── the compare-and-set on a live JSON column (`lib/update-json-column.ts`; the db half is
+      tests/db/two-hosts-every-writer-sends-its-base.db.test.ts) ─────────────────────────── */
+
+/** A fake client: one row, whose update lands only when its compare matches — or never (`refuse`). */
+function fakeRow(start: unknown, refuse = false) {
+  const row = { value: start as unknown, reads: 0, writes: 0 };
+  const client: JsonColumnClient = {
+    from: () => ({
+      select: () => {
+        const r = { eq: () => r, maybeSingle: async () => (row.reads++, { data: { c: row.value } as Record<string, unknown>, error: null }) };
+        return r;
+      },
+      update: (values: Record<string, unknown>) => {
+        let same = true;
+        const w = {
+          eq: (col: string, v: unknown) => {
+            if (col === 'c') same &&= JSON.stringify(row.value) === v;
+            return w;
+          },
+          is: () => w,
+          select: async () => {
+            if (refuse || !same) return { data: [], error: null };
+            row.writes++;
+            row.value = values.c;
+            return { data: [{ k: 1 }], error: null };
+          },
+        };
+        return w;
+      },
+    }),
+  };
+  return { row, client };
+}
+
+test('3a · a write the database refuses is said at once — never taken for a race and retried five times', async () => {
+  const { row, client } = fakeRow({ a: 1 }, true);
+  await assert.rejects(updateJsonColumn(client, { table: 't', row: { k: '1' }, column: 'c', what: 'Your menu' }, (cur) => ({ next: { ...(cur as object), b: 2 } })), /Your menu could not be saved\./);
+  assert.equal(row.reads, 2, 'a refusal was retried as if another screen kept saving');
+});
+
+test('3b · a lost round builds again on the newer value; it gives up — out loud — only after five', async () => {
+  const { row, client } = fakeRow({ a: 1 });
+  let rounds = 0;
+  const r = await updateJsonColumn(client, { table: 't', row: { k: '1' }, column: 'c' }, (cur) => {
+    rounds += 1;
+    if (rounds === 1) row.value = { a: 1, other: 'screen' };
+    return { next: { ...(cur as object), mine: true } };
+  });
+  assert.equal(r.written, true);
+  assert.deepEqual(row.value, { a: 1, other: 'screen', mine: true }, 'the other screen’s save was wiped');
+  const busy = fakeRow({ n: 0 });
+  await assert.rejects(
+    updateJsonColumn(busy.client, { table: 't', row: { k: '1' }, column: 'c' }, (cur) => {
+      busy.row.value = { n: Math.random() };
+      return { next: cur };
+    }),
+    (e: unknown) => e instanceof JsonColumnMovedError,
+  );
+  assert.equal(busy.row.reads, JSON_COLUMN_WRITE_ATTEMPTS);
+});
+
+/* ── 3 · the room design (`saveReceptionDesign`) ──────────────────────────── */
+
+test('3c · the room design sends what each pick was built on, and is merged onto the design as it is now', () => {
+  const editor = code('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'reception-design-editor.tsx');
+  assert.match(editor, /const base: ReceptionDesign = \{ \.\.\.design, \[part\]: \{ \.\.\.DEFAULT_DESIGN\[part\], \.\.\.cur \} \};/, 'the pick’s base no longer carries the part’s defaults — a default would read as this screen’s change');
+  assert.match(editor, /saveReceptionDesign\(eventId, next, base\)/, 'the room design no longer sends what it was based on');
+  assert.match(editor, /onChange\(res\.elsewhere\.design\)/, 'the editor no longer shows the merged design');
+  const action = code('app', 'dashboard', '[eventId]', 'seating', 'actions.ts');
+  assert.match(action, /column: 'reception_design'/, 'saveReceptionDesign writes the design without the compare again');
+  assert.match(action, /const m = mergeFromBase\(baseClean, clean, stored \?\? \{\}\);/, 'the design is no longer merged from its base');
 });

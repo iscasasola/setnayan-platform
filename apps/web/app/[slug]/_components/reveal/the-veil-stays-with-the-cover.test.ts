@@ -124,7 +124,24 @@ test('🎭 off screen the cloth draws no frames; Save-Data and reduced motion dr
   const loop = /const loop = \(now: number\) => \{[\s\S]*?\n {4}\};/.exec(VEIL)?.[0] ?? '';
   assert.ok(loop, 'the veil’s loop moved — re-anchor this guard');
   assert.match(loop, /^const loop = \(now: number\) => \{\s*if \(pausedRef\.current\) \{\s*raf = 0;\s*return;\s*\}/, 'the paused loop still draws');
-  assert.match(loop, /\(saveData \|\| reducedMotionRef\.current\) && \+\+settledFrames > 90\) \{[\s\S]*?renderer\.render\(scene, camera\);\s*still = true;\s*raf = 0;\s*return;/);
+  // Still = the HUNG drape's frame (after `hang` reached 1), on a fixed count — never a frame of the cloth mid-lift.
+  assert.match(loop, /hang >= 1 && \(saveData \|\| reducedMotionRef\.current\) && --stillIn <= 0\) \{[\s\S]*?renderer\.render\(scene, camera\);\s*still = true;[\s\S]*?raf = 0;\s*return;/);
   assert.match(VEIL, /wakeRef\.current = \(\) => \{\s*if \(raf \|\| still \|\| pausedRef\.current\) return;/);
   assert.match(VEIL, /useEffect\(\(\) => \{\s*if \(!paused\) wakeRef\.current\(\);\s*\}, \[paused\]\);/, 'a returning cover does not wake the drape');
+});
+
+test('🎭 the kept drape HANGS where it can be seen — the lift’s float lets go once it has landed (walk 1: a sliver, then nothing)', () => {
+  // The float that keeps the fold high during the lift all but cancels gravity; left on, the kept fold drifts up off the
+  // screen. A `keepsOpen` drape lets it go after the lift lands, so it sinks to its tuned valance and stays there.
+  const hangAt = /const DRAPE_HANG = ([\d.]+);/.exec(VEIL);
+  assert.ok(hangAt, 'the drape’s hang constant is gone — re-anchor this guard');
+  assert.ok(Number(hangAt[1]) >= 0.5, `the drape lets go of only ${hangAt[1]} of the float — it drifts off the screen`);
+  assert.match(
+    VEIL,
+    /const g = -\(2\.5 \+ \(cfg\.weight \/ 100\) \* 7\) \* \(fth \? 0\.5 : 1\) \* \(1 - \(cfg\.floatUp \/ 100\) \* 0\.92 \* le \* \(1 - hang \* DRAPE_HANG\)\);/,
+    'gravity no longer lets the kept drape hang',
+  );
+  // …only the Event Hub's kept drape, only once lifted: the Save the Date's valance and the lift itself are as tuned.
+  assert.match(VEIL, /if \(keepsOpenRef\.current && revealedRef\.current && hang < 1\) hang = Math\.min\(1, hang \+ 1 \/ DRAPE_HANG_FRAMES\);/);
+  assert.equal((VEIL.match(/\bhang = /g) ?? []).length, 2, 'something else moves the drape’s hang');
 });

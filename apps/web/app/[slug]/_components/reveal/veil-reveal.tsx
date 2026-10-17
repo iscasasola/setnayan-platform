@@ -88,6 +88,18 @@ type Props = {
 };
 
 const TEX = 1024; // texture resolution
+/**
+ * 🎭 THE DRAPE HANGS (owner 2026-10-17 — "the veil disappears. it shouldn't"; controller, on the first walk: the kept
+ * drape showed as a sliver, then nothing). `floatUp` (locked 100) all but cancels gravity once the veil is lifted — it
+ * "keeps the fold high during reveal" — and with the overlay unmounting ~1.8 s later nobody ever saw what it does after:
+ * the fold floats up and off the screen. A drape that STAYS lets that float go, over `DRAPE_HANG_FRAMES` after the lift
+ * lands, by `DRAPE_HANG` of it — so the fold sinks back to the valance the look was tuned to (`topValance`) and hangs
+ * there. Only with `keepsOpen` (the Event Hub's drape); the Save the Date's valance is untouched.
+ */
+const DRAPE_HANG = 1;
+const DRAPE_HANG_FRAMES = 60;
+/** 🎭 Save-Data / reduced motion: frames after the drape has hung before it is drawn still. */
+const DRAPE_STILL_AFTER = 75;
 const DEFAULT_FEATURES: RevealFeatures = { petals: true, logo: true, music: false };
 
 type PP = {
@@ -335,6 +347,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let autoT = 0;
     let featherFrames = 0;
     let shakeFrames = 0;
+    /* 🎭 0 → 1 over `DRAPE_HANG_FRAMES` once a `keepsOpen` veil has lifted: how much of the lift's float it has let go. */
+    let hang = 0;
 
     const veil = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
     veil.renderOrder = 1;
@@ -783,7 +797,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const fth = featherFrames > 0;
       const le = ss(0, 0.7, lift);
       const drag = 0.952 + (cfg.bounce / 100) * 0.03 + (fth ? 0.012 : 0);
-      const g = -(2.5 + (cfg.weight / 100) * 7) * (fth ? 0.5 : 1) * (1 - (cfg.floatUp / 100) * 0.92 * le);
+      const g = -(2.5 + (cfg.weight / 100) * 7) * (fth ? 0.5 : 1) * (1 - (cfg.floatUp / 100) * 0.92 * le * (1 - hang * DRAPE_HANG));
       const pz0 = pinchZ();
       const BUNCH = 0.3;
       const wind = settling ? 0 : (cfg.wind / 100) * 5;
@@ -939,7 +953,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     /* 🎭 STILL DRAPE (Save-Data · reduced motion, `keepsOpen` only): once the lifted drape has settled, the loop draws
        its last frame and stops for good — the drape stays, it just does not move. */
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
-    let settledFrames = 0;
+    let stillIn = DRAPE_STILL_AFTER;
     let still = false;
     const loop = (now: number) => {
       // 🎭 Off screen (the cover scrolled away): no frame is drawn and none is asked for until `wakeRef` runs.
@@ -1006,11 +1020,14 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         if (keepsOpenRef.current && grabRef.current) grabRef.current.style.pointerEvents = 'none';
         onRevealedRef.current();
       }
-      if (keepsOpenRef.current && revealedRef.current && (saveData || reducedMotionRef.current) && ++settledFrames > 90) {
-        // The drape, still: petals put away, its last frame drawn, the loop ended.
+      // 🎭 The kept drape lets the lift's float go and HANGS (see `DRAPE_HANG`).
+      if (keepsOpenRef.current && revealedRef.current && hang < 1) hang = Math.min(1, hang + 1 / DRAPE_HANG_FRAMES);
+      if (keepsOpenRef.current && revealedRef.current && hang >= 1 && (saveData || reducedMotionRef.current) && --stillIn <= 0) {
+        // The drape, still: petals put away, its last (hanging) frame drawn, the loop ended.
         parkAll();
         renderer.render(scene, camera);
         still = true;
+        mount.setAttribute('data-veil-still', '');
         raf = 0;
         return;
       }

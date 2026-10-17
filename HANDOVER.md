@@ -82,3 +82,11 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       is held to the old per-phone numbers. Numbers + reasons in lib/find-me.ts docblock. Limiter injectable for tests.
       Test lib/find-me-a-venue-shares-one-wifi.test.ts (4) + find-me.test.ts (guard updated). Sabotage: IP held at
       phone number → 2 red · phone budget dropped → 1 red · per-guest digits dropped → 1 red.
+- [x] 6 submitRsvp double notice — FIXED (no migration). The reply write is a compare-and-set on `updated_at` AS READ
+      (`REPLY_BEFORE_COLUMNS` now includes it); a save whose compare is lost (another save landed in between — the double
+      tap) re-reads the row, compares against THAT, then writes unconditionally (the answer always lands). A failed
+      `before` read writes unconditionally as before. Test tests/db/two-saves-tell-the-couple-once.db.test.ts (2):
+      the same write shape through the replayed schema with two interleaved saves + the real guestDetailsChanged, and a
+      shape guard on the action (server action not runnable in the harness — said in the docblock). Sabotage: CAS
+      dropped → 1 red · re-read removed → 1 red · updated_at not read → 1 red. Guard repointed:
+      only-the-answer-freezes (column list moved to REPLY_BEFORE_COLUMNS).

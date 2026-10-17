@@ -18,5 +18,13 @@ Owner ruling 17 Oct: "the veil disappears. it shouldn't. it should stay until co
 - Reduced-motion guests still get no veil at all (existing rule); "still" applies to Save-Data and mid-visit reduced motion.
 - Page with no Cover Scene header: the first screen is the cover. A hidden cover (another tab) = gone.
 
+## State
+- Draft PR #6604 (label do-not-auto-merge, auto-merge null). Targeted tests 177/177 after re-anchoring
+  `lib/the-lab-plays-the-scrub-chain.test.ts` (4) and keeping the ▶ autoplay props adjacent (cover-animate (4)).
+- Sabotage 8/8 caught (script: scratchpad veil-stays-walk/sabotage.py; NOTE a single bracketed test path runs 0 tests —
+  use `app/*/_components/...`).
+- Lab: `app/dev/maker-lab/guest/page.tsx` passes `firstPageOnly` so `?phase=rsvp&veil=1` walks the hub drape.
+
 ## Next
-- targeted tests (heavy lock queue was long) · sabotage · walk 375 WebKit + 1280 · draft PR · CI.
+- walk (queued on walk:veil-stays, port 3741): 375 WebKit iPhone 13, 1280 Chromium, Save-Data Chromium, ▶ preview.
+- fill PR body tables, CI green, delete this file when nothing is left.

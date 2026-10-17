@@ -42,4 +42,4 @@ changelog.d/rd-event-day-database.md (SPEC IMPACT: None unless a ruling changes)
   explore / admin layout only; pg_stat_statements reset 2026-05-12 so 281k = ~1.8k/day. Skipped. Unread RPC 47 ms
   = cold-connection cost (warm <1 ms measured); wrapped auth.uid in the RPC + badge burst debounce. No 30 s cache.
 - Item 5: app_telemetry_logs has a live reader (admin/connection-logs-client.tsx postgres_changes). Left as is.
-- NEXT: targeted db test set running (scratchpad dbset.sh) → open draft PR → CI loop.
+- PR #6625 open (draft, do-not-auto-merge, autoMerge null). Related db tests green locally (47 files). NEXT: CI loop.

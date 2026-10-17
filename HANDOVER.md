@@ -25,3 +25,6 @@ another builder's serve.sh in a shared folder killed a server today). Changelog 
       element-sheet · maker-hero-design · cover-animate · cover-lines · cover-words-background wired. Tests lib/two-hosts-every-writer-sends-its-base.test.ts 1a–1c;
       sabotage S1–S4 each red, restored green. Round-1 guard 12 re-pointed (part-look now calls sendCanvasBase).
       LEFT (not in the list): part-words · type-in-place · details-bound-field · scene-background-row · main-background-panel · post-event-scene-panel · editor-shell canvas writes.
+- [x] 2. Event Details form: lib/event-details-merge.ts (row shape, like guest-card-merge); details-form posts its base, updateEventMatchCriteria
+      writes only changed fields (region/feel now absent⇒untouched for a based post; names and birth data go as groups; a based no-change save writes nothing).
+      Tests 2a–2c; sabotage S5–S8 red→restored. LEFT: the open form does not redraw the other host's values (it shows them next open).

@@ -14,6 +14,7 @@ import { forgetCanvasSent, sendCanvasBase } from './maker-draft-store';
 import { rebaseHubDraftPatch } from './hub-draft-rebase';
 import { emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { MERGE_BASE_FIELD } from './merge-base-field';
+import { eventDetailsToWrite, formFieldsOf } from './event-details-merge';
 import type { HubSectionCanvas } from './hub-canvas';
 
 const code = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
@@ -85,4 +86,48 @@ test('1c · every canvas panel named in round 1 as LEFT now sends its base, and 
   }
   // The element sheet's own writer is the one its picks go through.
   assert.match(code('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'element-sheet.tsx'), /saveCanvas\(draftAction, eventId, target\.widgetType, next, serverCanvas\)/);
+});
+
+/* ── 2 · the Event Details form (Event settings) ──────────────────────────── */
+
+function form(fields: Record<string, string>): FormData {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  return fd;
+}
+
+test('2a · Event settings writes only what THIS screen changed — the other host’s region and feel stand', () => {
+  const opened = { event_id: 'E1', region: 'ncr', mood_feel_key: 'romantic', budget_pesos: '500000', bride_first: 'Claire', bride_last: 'Cruz', groom_first: 'Indalecio', groom_last: 'Reyes' };
+  // This phone changes the budget only; meanwhile the other host moved the region and the feel.
+  const posted = form({ ...opened, budget_pesos: '650000' });
+  posted.set(MERGE_BASE_FIELD, JSON.stringify(formFieldsOf(form(opened))));
+  const w = eventDetailsToWrite(posted);
+  assert.equal(w.based, true);
+  assert.equal(w.fd.get('budget_pesos'), '650000', 'this screen’s change was not written');
+  assert.equal(w.fd.get('event_id'), 'E1', 'the event was dropped');
+  for (const f of ['region', 'mood_feel_key', 'bride_first', 'groom_last']) assert.equal(w.fd.has(f), false, `${f} was written back from a stale form`);
+  assert.equal(w.fd.has(MERGE_BASE_FIELD), false, 'the base reached the writer as a field');
+});
+
+test('2b · fields that are one fact go together; no base = the whole form, as before', () => {
+  const opened = { event_id: 'E1', bride_first: 'Claire', bride_last: 'Cruz', groom_first: 'Indalecio', groom_last: 'Reyes', bazi_birthdata_consent: '1', partner_a_birth_date: '1995-01-02', partner_a_birth_time: '', partner_b_birth_date: '', partner_b_birth_time: '' };
+  const posted = form({ ...opened, bride_last: 'Cruz-Reyes', partner_b_birth_date: '1994-03-04' });
+  posted.set(MERGE_BASE_FIELD, JSON.stringify(formFieldsOf(form(opened))));
+  const w = eventDetailsToWrite(posted);
+  for (const f of ['bride_first', 'bride_last', 'groom_first', 'groom_last']) assert.equal(w.fd.has(f), true, `a name is composed from all four boxes — ${f} was left out`);
+  for (const f of ['bazi_birthdata_consent', 'partner_a_birth_date', 'partner_b_birth_date']) assert.equal(w.fd.has(f), true, `the birth data goes with its consent — ${f} was left out`);
+  const whole = eventDetailsToWrite(form({ ...opened, region: 'ncr' }));
+  assert.equal(whole.based, false);
+  assert.equal(whole.fd.get('region'), 'ncr', 'a post without a base must still write the whole form');
+});
+
+test('2c · the form sends what it started from, and the writer leaves out what it did not change', () => {
+  const formSrc = code('app', 'dashboard', '[eventId]', 'details', '_components', 'details-form.tsx');
+  assert.match(formSrc, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(savedFields\.current\)\)/, 'Event settings no longer sends what it started from');
+  assert.match(formSrc, /savedFields\.current = sending;/, 'the next save is based on the form as first opened, not as last saved');
+  const action = code('app', 'dashboard', '[eventId]', 'actions.ts');
+  assert.match(action, /const toWrite = eventDetailsToWrite\(posted\);\s*const formData = toWrite\.fd;/, 'updateEventMatchCriteria reads the whole posted form again');
+  assert.match(action, /!based \|\| formData\.has\('region'\) \? \{ region \}/, 'the region is written even when this screen did not change it');
+  assert.match(action, /!based \|\| formData\.has\('mood_feel_key'\) \? \{ mood_feel_key: moodFeelKey \}/, 'the feel is written even when this screen did not change it');
+  assert.match(action, /\(!based \|\| formData\.has\('bazi_birthdata_consent'\)\) &&/, 'an unchanged birth-data section is purged by a based save');
 });

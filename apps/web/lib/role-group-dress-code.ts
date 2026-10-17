@@ -232,6 +232,8 @@ export function resolveGuestAttireWithGroups(input: {
   sideColor?: string | null;
   /** The couple's words for roles (owner 2026-09-30). */
   names?: RoleNames | null;
+  /** 👪 The reader's own title · attire — a parent is named per person (`resolveGuestDressCode` `person`). */
+  person?: Parameters<typeof resolveGuestDressCode>[0]['person'];
 }): { panel: ReturnType<typeof resolveGuestDressCode>; source: 'role' | 'group' | null } {
   const won = resolveAttireFor(input.role, input.roles, input.groups);
   const effective: RoleAttireMap = won && input.role ? { [input.role]: won.rule } : {};
@@ -242,6 +244,7 @@ export function resolveGuestAttireWithGroups(input: {
       palette: input.palette,
       sideColor: input.sideColor ?? null,
       names: input.names ?? null,
+      person: input.person ?? null,
     }),
     source: won?.source ?? null,
   };

@@ -2757,6 +2757,7 @@ export async function SiteBody({
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
       guestAttire: guestAttireOf(guest),
+      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
@@ -3855,6 +3856,7 @@ export async function SiteBody({
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     guestAttire: guestAttireOf(guest),
+      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}

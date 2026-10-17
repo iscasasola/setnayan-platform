@@ -133,6 +133,41 @@ test('3 · a role preview renders THAT role’s own dress code — Father vs Mot
   assert.ok(colours(await whatToWear('bridesmaid-f')).has('#B51A00'));
 });
 
+/* 👪 Each parent named per person (owner 17 Oct, #6598) — by the entourage's own resolver: title → attire. */
+async function youAre(role: string, person: Record<string, unknown> | null, attire: string | null, names: unknown = null): Promise<string | null> {
+  const { DressCodeWidget } = await import('../app/[slug]/_components/dress-code-widget');
+  const html = renderToStaticMarkup(
+    React.createElement(DressCodeWidget as never, { words, config: CONFIG, rolePalette: BOARD, guestRole: role, guestAttire: attire, guestNameParts: person, roleNames: names, part: 'you' }),
+  );
+  return html.replace(/<!-- -->/g, '').match(/You are ([^<]+)</)?.[1]?.trim() ?? null;
+}
+
+test('3 · "You are Father of the Bride" — the preview by the half picked, a real guest by their own row', async () => {
+  const said = async (key: string) => {
+    const g = sampleAs(key);
+    return youAre(g.role, { name_prefix: g.name_prefix ?? null, display_name: g.display_name }, guestAttireOf(g));
+  };
+  assert.equal(await said('bride_parents-m'), 'Father of the Bride');
+  assert.equal(await said('bride_parents-f'), 'Mother of the Bride');
+  assert.equal(await said('groom_parents-m'), 'Father of the Groom');
+  assert.equal(await said('bride_grandparents-f'), 'Grandmother of the Bride');
+  assert.equal(await said('groom_grandparents-m'), 'Grandfather of the Groom');
+  /* A real guest: the typed title first, then the attire, then "Parent" — the entourage's own order. */
+  assert.equal(await youAre('bride_parents', { name_prefix: 'Mr.', display_name: 'Jose Cruz' }, 'neutral'), 'Father of the Bride');
+  assert.equal(await youAre('bride_parents', { name_prefix: null, display_name: 'Mrs. Ana Cruz' }, null), 'Mother of the Bride');
+  assert.equal(await youAre('groom_parents', { name_prefix: 'Mrs.', display_name: 'Ana Cruz' }, 'suit'), 'Mother of the Groom', 'the attire overrode the title');
+  assert.equal(await youAre('bride_parents', { name_prefix: 'Atty.', display_name: 'Lee Cruz' }, 'neutral'), 'Parent of the Bride');
+  /* The couple's own word still wins; a role that is not kin keeps its word. */
+  assert.equal(await youAre('bride_parents', { name_prefix: 'Mr.', display_name: 'Jose' }, 'suit', { bride_parents: { one: 'Tatay ni Claire' } }), 'Tatay ni Claire');
+  assert.equal(await youAre('principal_sponsor_ninang', { name_prefix: 'Mrs.', display_name: 'Ana' }, 'gown'), 'Ninang');
+  /* …and the guest page hands every "you" panel the reader's own title and name (Welcome, Me, the scene). */
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.equal(body.match(/guestNameParts: \{ name_prefix: guest\.name_prefix \?\? null, display_name: guest\.display_name \}/g)?.length ?? 0, 2, 'a "you" look lost the reader’s name parts');
+  for (const f of ['guest-me-parts.tsx', 'guest-welcome.tsx', 'hideable-widget-render.tsx']) {
+    assert.match(read(`app/[slug]/_components/${f}`), /guestNameParts=\{/, `${f} drops the reader’s name parts`);
+  }
+});
+
 async function dressScene(guest: Record<string, unknown>): Promise<string> {
   const { HideableWidgetRender } = await import('../app/[slug]/_components/hideable-widget-render');
   const Render = HideableWidgetRender as unknown as React.FunctionComponent<Record<string, unknown>>;

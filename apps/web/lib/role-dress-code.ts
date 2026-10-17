@@ -34,7 +34,7 @@
  */
 
 import type { GuestRole } from '@/lib/guests';
-import { roleLabel } from '@/lib/entourage';
+import { kinWordOfReader, roleLabel } from '@/lib/entourage';
 import type { RoleNames } from '@/lib/role-names';
 import { resolveAttirePaletteColors, type RolePalette } from '@/lib/mood-board';
 
@@ -208,11 +208,16 @@ export function resolveGuestDressCode(input: {
   sideColor?: string | null;
   /** The couple's words for roles (owner 2026-09-30) — "You are in the Bride's Crew". */
   names?: RoleNames | null;
+  /**
+   * 👪 WHO THIS READER IS, from their own row (title · attire) — a parent or grandparent is named per person, by the
+   * entourage's own resolver (`kinWordOfReader`): "You are Father of the Bride". Absent: the role's word, as before.
+   */
+  person?: { name_prefix?: string | null; display_name?: string | null; attire?: string | null } | null;
 }): GuestDressCode | null {
   const role = input.role;
   if (!role || role === 'guest') return null;
 
-  const label = roleLabel(role, input.names);
+  const label = (input.person ? kinWordOfReader(role, input.person, input.names) : null) ?? roleLabel(role, input.names);
   const rule = input.roles[role] ?? null;
   const hexes = input.palette
     ? resolveAttirePaletteColors(role, input.palette, input.sideColor ?? null)

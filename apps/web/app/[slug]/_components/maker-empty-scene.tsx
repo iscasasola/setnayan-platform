@@ -5,6 +5,8 @@ import { sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { SceneSample } from './maker-scene-samples';
 import { SpecialMessageWidget } from './special-message-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
+import { CustomSectionWidget } from './custom-section-widget';
+import { isCustomSectionType } from '@/lib/custom-sections';
 
 /**
  * 🧩 AN EMPTY SCENE, AS THE MAKER DRAWS IT — never as a guest sees it.
@@ -75,5 +77,8 @@ export function MakerEmptyScene({
 export function makerWordsLook(type: string): ReactNode {
   if (type === 'special_message') return <SpecialMessageWidget text={'\u2026'} />;
   if (type === 'what_to_bring') return <WhatToBringWidget text={'\u2026'} />;
+  /* ✍ A scene of their own (owner 2026-10-17, *"i cannot edit this"*): its Heading and Words, as the guest widget draws
+     them, for Edit's two rows to type into before the scene has any (`type-in-place-canvas.ts` `ownLookPart`). */
+  if (isCustomSectionType(type)) return <CustomSectionWidget config={{ title: '\u2026', body: '\u2026' }} />;
   return null;
 }

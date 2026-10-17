@@ -4,6 +4,8 @@ import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { isCustomSectionType, sanitizeCustomSection } from '@/lib/custom-sections';
+import { sceneTypeWords } from '@/lib/scene-type-words';
 import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
@@ -14,7 +16,7 @@ import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
-import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
+import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows, labOwnKind } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES } from '@/lib/invite-themes';
@@ -67,7 +69,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   /* 🧾 The sample's rows WITH THE LAB'S DRAFT LAID OVER THEM — a scene's place on a stage, its eye, its Auto · Hidden
      (`./lab-draft.ts`, the real `overlayHubDraftWidgets`). They were a constant: Earlier · Later · Remove saved a
      real patch and the Maker and its canvas were drawn from rows that never moved (the walk of 2026-10-11, P02). */
-  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, (await cookies()).get(LAB_OWN_COOKIE)?.value === '1');
+  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, labOwnKind((await cookies()).get(LAB_OWN_COOKIE)?.value));
   /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
      (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
   const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));
@@ -128,8 +130,13 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   }
   const labKitTheme = (await cookies()).get('lab_kit')?.value === 'vintage' ? ('vintage' as const) : null;
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
-    rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
+    /* (A row that holds a canvas of its own — the owner's template scene, `lab_own=tpl20` — wears it until the draft has one.) */
+    rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? (r.config_json as { canvas?: unknown } | null)?.canvas ?? {} })]),
   );
+  /* ✍ Each scene of their own's words, drafted over the sample — what Edit's Heading and Words read (`ownWords`), and the
+     words the canvas is told to find (`typeHere`), as the real Maker hands both (`website/editor/page.tsx`). */
+  const ownWords = Object.fromEntries(rows.filter((r) => isCustomSectionType(r.widget_type)).map((r) => [r.widget_type, sanitizeCustomSection(r.config_json)]));
+  const typeHere = sceneTypeWords({ types: rows.map((r) => r.widget_type), canvases, message: null, reminders: null, own: ownWords });
   const scenes = rows.map((r) => ({
     id: r.widget_id,
     type: r.widget_type,
@@ -196,6 +203,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
+      ownWords={ownWords}
+      typeHere={typeHere}
       scrub={scrub}
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}

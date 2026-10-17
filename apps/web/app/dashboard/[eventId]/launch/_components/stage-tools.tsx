@@ -57,7 +57,7 @@ import {
   partPickScroll,
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import {
@@ -83,7 +83,7 @@ import { StageEdit } from './stage-panel/stage-edit';
 import { CoverLines, type CoverLine } from './stage-panel/cover-lines';
 import { CoverAnimate } from './stage-panel/cover-animate';
 import type { HubHeroElementKey } from '@/lib/element-style';
-import { draftedCanvasOr } from '@/lib/maker-draft-store';
+import { draftedCanvasOr, draftedOwnWordsOr } from '@/lib/maker-draft-store';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
 import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn, type PartLookField } from './stage-panel/part-look';
@@ -1404,7 +1404,10 @@ export function StageTools({
   const readFields = useCallback(() => {
     if (!picked || rsvpOpen) return setFields([]);
     const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
-    const next = readPartWords(doc, makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null, makerPartLabelOn(stageKey, picked));
+    /* ✍ A scene of their own: its words as the Maker has them, so Edit lists the Heading and Words the page does not draw yet. */
+    const ownType = makerOwnSceneType(picked);
+    const own = ownType ? draftedOwnWordsOr(ownType, askPartOps()?.ownWords?.[ownType] ?? null) : null;
+    const next = readPartWords(doc, makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null, makerPartLabelOn(stageKey, picked), own);
     setFields((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
   }, [picked, rsvpOpen, stageKey]);
   useEffect(() => {

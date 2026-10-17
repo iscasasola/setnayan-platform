@@ -58,7 +58,18 @@ export type PartWordsField = {
   maxLength: number;
   /** The names of two people ("Ana & Ben" — a name on each side). */
   twoPeople: boolean;
+  /**
+   * ✍ False: the page does NOT draw these words yet — a scene of their own's Heading or Words before it has any
+   * (`OWN_SCENE_FIELDS`). Keeping them is then a write the page must redraw for (never held). Absent: drawn.
+   */
+  drawn?: false;
 };
+
+/** ✍ A scene of their own's two fields, in the page's order — Edit lists BOTH, drawn or not (owner 2026-10-17). */
+export const OWN_SCENE_FIELDS = ['title', 'body'] as const satisfies readonly SceneTypeField[];
+/** The part each is drawn as on the page (`HUB_SCENE_ELEMENT_SELECTOR`: the eyebrow · the words). */
+const OWN_SCENE_EL: Readonly<Record<(typeof OWN_SCENE_FIELDS)[number], string>> = { title: 'label', body: 'body' };
+const OWN_SCENE_KEY = /^w:custom_[1-6]$/;
 
 /** A stable name for a field — what "the text last tapped" is matched by. */
 export const partWordsId = (f: Pick<PartWordsField, 'el' | 'field'>): string => f.field ?? f.el;
@@ -67,7 +78,14 @@ export const partWordsId = (f: Pick<PartWordsField, 'el' | 'field'>): string => 
  * The texts the page draws for a part: `el` names one line of the cover; without it, every field the section marks.
  * `partLabel` names a part's ONE text ("Names", "Invite line"); a part of several is named by its fields.
  */
-export function readPartWords(doc: Document | null | undefined, key: string | null, el: string | null, partLabel: string): PartWordsField[] {
+export function readPartWords(
+  doc: Document | null | undefined,
+  key: string | null,
+  el: string | null,
+  partLabel: string,
+  /** ✍ A scene of their own's words as the Maker has them (drafted over the last render) — its fields the page does not draw yet. */
+  own?: SceneOwnWords | null,
+): PartWordsField[] {
   if (!doc || !key) return [];
   const section = findMakerSection(doc, key);
   if (!section) return [];
@@ -100,7 +118,32 @@ export function readPartWords(doc: Document | null | undefined, key: string | nu
     if (!field || !partEl || out.some((f) => f.field === field)) continue;
     out.push({ key, el: partEl, field, label: SCENE_FIELD_LABEL[field], text: partWords(part), auto: null, long: SCENE_TYPE_MULTILINE.includes(field), maxLength: sceneFieldMax(field), twoPeople: false });
   }
+  if (OWN_SCENE_KEY.test(key)) return ownSceneFields(key, out, own ?? null);
   return out.slice(0, PART_WORDS_MAX);
+}
+
+/**
+ * ✍ A SCENE OF THEIR OWN'S EDIT: its Heading and its Words, ALWAYS — the ones the page draws (marked, typed as on every
+ * scene) and, for one it does not draw yet, a row of its own holding what the Maker has (owner 2026-10-17, on a
+ * "Your own section" he had just added: *"i cannot edit this"* — its placeholder drew no words, so Edit had no row and
+ * the scene could never be written). Pure.
+ */
+export function ownSceneFields(key: string, marked: readonly PartWordsField[], own: SceneOwnWords | null): PartWordsField[] {
+  return OWN_SCENE_FIELDS.map(
+    (field): PartWordsField =>
+      marked.find((f) => f.field === field) ?? {
+        key,
+        el: OWN_SCENE_EL[field],
+        field,
+        label: SCENE_FIELD_LABEL[field],
+        text: own?.[field] ?? '',
+        auto: null,
+        long: SCENE_TYPE_MULTILINE.includes(field),
+        maxLength: sceneFieldMax(field),
+        twoPeople: false,
+        drawn: false,
+      },
+  );
 }
 
 /** *"it can both adapt to whichever is edited"*: the text last tapped on the page comes first; the rest keep the page's order. */
@@ -223,7 +266,9 @@ export async function keepPartWords(f: PartWordsField, typed: string, door: Part
         }),
       // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
       requestMakerRefresh,
-      { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(redo ? { undo: partWordsUndo(f, w.writeKey, w.undo, redo, w.words) } : {}) },
+      /* ✍ Words the page did not draw (a scene of their own's first heading or words) are not held: the page is
+         redrawn with them, so the placeholder gives way to the scene as guests will see it. */
+      { held: f.drawn !== false, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(redo ? { undo: partWordsUndo(f, w.writeKey, w.undo, redo, w.words) } : {}) },
     );
   } catch {
     res = { ok: false, intent: 'save', error: '' };

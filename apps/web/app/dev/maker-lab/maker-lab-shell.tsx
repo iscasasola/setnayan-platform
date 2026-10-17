@@ -1,5 +1,6 @@
 'use client';
 
+import type { SceneTypeWords } from '@/lib/hub-part-words';
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
 import type { SceneAccents } from '@/lib/art-kit-accents';
@@ -173,6 +174,8 @@ export function MakerLabShell({
   pageColour = null,
   openDetails = false,
   canvases = {},
+  ownWords = {},
+  typeHere = [],
   renderStamp = 'lab',
   stagesStudio = false,
   studio = null,
@@ -217,6 +220,9 @@ export function MakerLabShell({
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
+  /** ✍ Each scene of their own's words, and the scene words the canvas is told to find — as the real Maker hands them. */
+  ownWords?: Readonly<Record<string, { title: string; body: string }>>;
+  typeHere?: readonly SceneTypeWords[];
   /** Moves with every render of the lab page, as the real Maker's does (`String(Date.now())`). */
   renderStamp?: string;
 }) {
@@ -502,6 +508,8 @@ export function MakerLabShell({
         }}
         elementEditing={{
           canvases,
+          ownWords,
+          typeHere,
           palette: { ink: '#2C2A29', heading: '#2C2A29', accent: '#A9834B', muted: '#8A8580', surface: '#FBF9F5' },
           draftAction: labDraft,
         }}

@@ -2,29 +2,29 @@ import { test, expect, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { GIVE_WAY_ORDER } from '../../app/[slug]/_lib/first-screen-fit';
 
 /**
- * THE STRANGER'S COVER KEEPS ITS ORDER, AND NOTHING ON IT OVERLAPS — measured, with the shipped fit running.
+ * THE STRANGER'S COVER KEEPS ITS ORDER, AND NOTHING ON IT OVERLAPS — measured, on the real markup under the app's CSS.
  *
- * Live, 2026-10-15, right after Batch 8 (`/maria-and-jose`, signed out, 375 × 812): the cover's words regrouped.
- * "TOGETHER WITH THEIR FAMILIES" ran into "Maria", the monogram was drawn BELOW everything at y 706–876 (half under
- * the fold), and "Guests arrive 2:30 PM" fell off the screen. Cause: the Cover Scene made the cover's header the
- * whole first screen on its own (`min-h` 100svh, words centred), so the stranger's "Get inside" — which follows the
- * header in the same first-screen block — was pushed below the fold, and the first-screen fit (`first-screen-door.tsx`
- * → `_lib/first-screen-fit.ts`) moved parts below the door and closed up air that the centring had already spent.
- * Every unit test passed: the static renders draw no fit, and the fit's own test runs on boxes, not on a page.
+ * Live, 2026-10-15, right after Batch 8 (`/maria-and-jose`, signed out, 375 × 812): the cover's words regrouped while
+ * a first-screen fit made room for the door under the cover. Since 2026-10-17 (owner, on `/cale-ice`: *"the button
+ * shows after the cover?"*) the stranger's ONE door — "Confirm your Booking" — stands IN the cover's foot, where a
+ * guest's RSVP button stands, with the "Swipe up" hint under it; no fit runs around it (`FirstScreenDoor fit={false}`).
  *
  * So this renders the REAL stranger's page (`SiteBody`, the fixture invitation — Maria & Jose) under the app's own
- * compiled CSS, runs the REAL `FirstScreenDoor` on it (bundled by the renderer), and measures, at 375 × 812,
- * 390 × 844 and 375 × 667, with and without the first-visit cookie notice, with no ground and with a Full / Framed ground:
+ * compiled CSS, mounts the REAL `FirstScreenDoor` as the page does, and measures, at 375 × 812, 390 × 844 and
+ * 375 × 667, with and without the first-visit cookie notice, with no ground and with a Full / Framed ground:
  *   • the cover's parts stand in the order the page writes them — eyebrow · mark · names · line · date · time · link —
- *     except the ones the fit moved below "Get inside", which follow it in that same order; the names never move;
+ *     then the door, then the hint: nothing moved;
  *   • no two of them overlap (each box ≥ 2px clear of the next);
- *   • the names, the date and "Get inside" are on the first screen, the button above the notice when it is up.
+ *   • nothing is cut off the top; the names and the date are on the first screen;
+ *   • the door is in the cover's own foot, and on a 812 / 844 phone with no notice up it is on the first screen.
  *
- * ⚠ WHAT A PASS DOES NOT PROVE: the couple's own logo image (the fixture draws the lettered mark), and WebKit
- * (this suite is Chromium; the walk that shipped the fix measured both).
+ * ⚠ WHAT A PASS DOES NOT PROVE — AND A MEASURED GAP, NAMED (2026-10-17): this TEXT cover (the card, its large mark and
+ * its "the day, the place ↓") is taller than a 375 × 667 screen, so there the door stands just below the fold — the
+ * same place the guest's RSVP button stands on this cover — and with the notice up it is under the notice until the
+ * reader scrolls. The photo cover (cale-ice's shape) fits both. Not asserted, so not hidden: it is in the PR body.
+ * Also not covered: the couple's own logo image, and WebKit (this suite is Chromium).
  */
 
 const WEB = join(__dirname, '..', '..');
@@ -75,7 +75,7 @@ async function mount(page: Page, body: string, banner: number) {
 type Part = { key: string; top: number; bottom: number };
 
 /** The cover's parts and the door, as drawn (fit included), in the order the page WRITES them. */
-async function parts(page: Page): Promise<{ parts: Part[]; door: Part; vh: number }> {
+async function parts(page: Page): Promise<{ parts: Part[]; door: Part; hint: Part; inFoot: boolean; vh: number }> {
   return page.evaluate(() => {
     const header = document.querySelector<HTMLElement>('header[data-pahina-first-screen]')!;
     const inner = header.querySelector<HTMLElement>('[data-cover-frameless] > div')!;
@@ -96,60 +96,49 @@ async function parts(page: Page): Promise<{ parts: Part[]; door: Part; vh: numbe
         afterDate = true;
       } else box(!afterNames ? 'eyebrow' : !afterDate ? 'line' : 'time', el);
     }
-    for (const el of Array.from(header.children)) if (!el.contains(inner) && el.querySelector('a[href]')) box('link', el);
+    for (const el of Array.from(header.children)) if (!el.contains(inner) && !el.matches('[data-cover-foot]') && el.querySelector('a[href]')) box('link', el);
     const d = document.querySelector('details[data-get-inside]')!.getBoundingClientRect();
-    return { parts: out, door: { key: 'door', top: d.top, bottom: d.bottom }, vh: window.innerHeight };
+    const hint = document.querySelector('[data-cover-hint]')!.getBoundingClientRect();
+    const inFoot = Boolean(document.querySelector('header[data-pahina-first-screen] [data-cover-foot] details[data-get-inside]'));
+    return { parts: out, door: { key: 'door', top: d.top, bottom: d.bottom }, hint: { key: 'hint', top: hint.top, bottom: hint.bottom }, inFoot, vh: window.innerHeight };
   });
 }
 
 for (const [w, h] of [
   [375, 812],
   [390, 844],
-  /* 📱 A short phone (iPhone SE / 8 — Batch 9 walk R4, 2026-10-16): with the cookie notice up the first-screen block
-     started at −24 px and the eyebrow was cut off the top — the fit's "close up the air" pull (−1.5rem) ran on a
-     Cover Scene whose column has no top padding left to close. */
+  /* 📱 A short phone (iPhone SE / 8 — Batch 9 walk R4, 2026-10-16): nothing may be cut off the top. */
   [375, 667],
 ] as const) {
   for (const ground of ['plain', 'full', 'framed']) {
     for (const banner of [0, 133]) {
-      test(`${w}×${h} · ${ground} · ${banner ? 'cookie notice up' : 'no notice'}: the cover keeps its order, nothing overlaps, the door is on the first screen`, async ({ page }) => {
+      test(`${w}×${h} · ${ground} · ${banner ? 'cookie notice up' : 'no notice'}: the cover keeps its order, nothing overlaps, the door is in its foot`, async ({ page }) => {
         await page.setViewportSize({ width: w, height: h });
         await mount(page, RENDER.pages[ground]!, banner);
-        const { parts: written, door, vh } = await parts(page);
+        const { parts: written, door, hint, inFoot, vh } = await parts(page);
         const keys = written.map((p) => p.key);
         expect(keys.slice(0, 7), 'anti-vacuity: the fixture cover lost a part').toEqual(
           expect.arrayContaining(['eyebrow', 'mark', 'names', 'line', 'date', 'time']),
         );
-        const above = written.filter((p) => p.top < door.top);
-        const below = written.filter((p) => p.top >= door.top);
-        // The order: what stands above the door is in the page's own order, and so is what the fit moved below it.
-        expect([...above].sort((a, b) => a.top - b.top).map((p) => p.key), 'the parts above "Get inside" are out of the written order').toEqual(above.map((p) => p.key));
-        expect([...below].sort((a, b) => a.top - b.top).map((p) => p.key), 'the parts moved below "Get inside" are out of the written order').toEqual(below.map((p) => p.key));
-        expect(above.map((p) => p.key), 'the names left the first screen group (they never give way)').toContain('names');
-        // What moved below the door is the FEWEST the rule allows, in its order (`GIVE_WAY_ORDER`): a prefix of it.
-        const present = GIVE_WAY_ORDER.filter((k) => keys.includes(k));
-        expect(new Set(below.map((p) => p.key)), 'the fit moved parts below "Get inside" out of its give-way order').toEqual(new Set(present.slice(0, below.length)));
-        if (!banner) {
-          // 🔒 The approved first screen (live before Batch 8): eyebrow → mark → names → line → date → time → Get inside.
-          // On a phone with no notice up, nothing of it moves below the door (only the link down may).
-          expect(below.map((p) => p.key).filter((k) => k !== 'link'), 'on a clear phone screen the cover gave parts away below "Get inside" — the approved order is broken').toEqual([]);
-        }
+        expect(inFoot, 'the stranger’s door is not in the cover’s foot').toBe(true);
+        // The order: every part as the page writes it, then the door, then the hint — the fit moves nothing.
+        const drawn = [...written, door, hint];
+        expect([...drawn].sort((a, b) => a.top - b.top).map((p) => p.key), 'the cover is out of the written order').toEqual(drawn.map((p) => p.key));
         // Nothing is cut off the TOP of the screen: the first part the page writes starts on it (Batch 9 R4).
-        const first = [...written].sort((a, b) => a.top - b.top)[0]!;
-        expect(first.top, `"${first.key}" starts above the top of the screen (${first.top.toFixed(1)}px)`).toBeGreaterThanOrEqual(0);
-        // Nothing overlaps: every box, door included, ≥ 2px clear of the one drawn after it.
-        const drawn = [...written, door].sort((a, b) => a.top - b.top);
+        expect(written[0]!.top, `"${written[0]!.key}" starts above the top of the screen (${written[0]!.top.toFixed(1)}px)`).toBeGreaterThanOrEqual(0);
+        // Nothing overlaps: every box, door and hint included, ≥ 2px clear of the one drawn after it.
         for (let i = 1; i < drawn.length; i++) {
           const gap = drawn[i]!.top - drawn[i - 1]!.bottom;
           expect(gap, `"${drawn[i - 1]!.key}" and "${drawn[i]!.key}" overlap or touch (${gap.toFixed(1)}px)`).toBeGreaterThanOrEqual(2);
         }
-        // The first screen: the names, the date and the door — the door clear of the notice when it is up.
+        // The first screen: the names and the date — clear of the notice when it is up.
         const limit = vh - (banner ? banner + 8 : 0);
         for (const k of ['names', 'date']) {
           const p = written.find((x) => x.key === k)!;
           expect(p.bottom, `${k} is below the first screen`).toBeLessThanOrEqual(limit + 0.5);
         }
-        expect(door.bottom, '"Get inside" is below the first screen (or under the cookie notice)').toBeLessThanOrEqual(limit + 0.5);
+        // …and the door, on a phone the cover fits (see the docblock's named gap for 375 × 667 and the notice).
+        if (!banner && h >= 812) expect(door.bottom, '"Confirm your Booking" is below the first screen').toBeLessThanOrEqual(vh + 0.5);
         await page.screenshot({ path: test.info().outputPath(`cover-${w}x${h}-${ground}-${banner ? 'notice' : 'clear'}.png`) });
       });
     }

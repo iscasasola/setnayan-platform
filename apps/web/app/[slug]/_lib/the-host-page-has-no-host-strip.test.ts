@@ -66,8 +66,8 @@ test('0 · RENDERED: a signed-in host’s own page draws no host strip — and i
       assert.doesNotMatch(asHost.html, re, `${phase}: a signed-in host is drawn ${what}`);
     }
     // Strip only (owner pick): the host body stays — the host meets no stranger’s door; the stranger still does.
-    assert.doesNotMatch(asHost.html, /Get inside/, `${phase}: the host is handed the stranger’s door — the host body is gone`);
-    assert.match(asStranger.html, /Get inside/, `${phase}: the stranger lost the door — the comparison is blind`);
+    assert.doesNotMatch(asHost.html, /Confirm your Booking/, `${phase}: the host is handed the stranger’s door — the host body is gone`);
+    assert.match(asStranger.html, /Confirm your Booking/, `${phase}: the stranger lost the door — the comparison is blind`);
   }
 });
 

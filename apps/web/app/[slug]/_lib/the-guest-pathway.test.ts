@@ -332,13 +332,14 @@ test('3 · "Your guests": Send their invite for a named plus-one, Add their name
 
 // ═══ 5 · THE STRANGER ═════════════════════════════════════════════════════
 
-test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non-guest gets "Ask to join"', async () => {
+test('5 · the stranger gets ONE button — "Confirm your Booking" (it read "Get inside" until 2026-10-17) — and a signed-in non-guest gets "Ask to join"', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GetInside } = await import('../_components/get-inside');
   const door = renderToStaticMarkup(
     React.createElement(GetInside, { slug: 'ana', eventId: 'e-1', signedInNotListed: false, theOrganizer: 'the couple' }),
   );
-  assert.match(door, /Get inside/);
+  assert.match(door, />Confirm your Booking</, 'the door does not read "Confirm your Booking" (owner 2026-10-17)');
+  assert.doesNotMatch(door, /Get inside/, 'the door still reads its old words');
   // It names only what opens underneath — no "Scan", no "Tap NFC" (audit 2026-09-30).
   assert.match(door, /Upload your QR · Sign in/);
   assert.doesNotMatch(door, /Tap NFC|Scan your QR/);
@@ -356,7 +357,7 @@ test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non
   );
   assert.match(ask, /You’re not on the guest list for this event yet/);
   assert.match(ask, /href="\/join\/e-1"[^>]*>Ask to join/);
-  assert.doesNotMatch(ask, /Get inside/, 'two buttons on one screen');
+  assert.doesNotMatch(ask, /Confirm your Booking/, 'two buttons on one screen');
   assert.match(
     PAGE,
     /signedInNotListed:\s*Boolean\(viewerAccount\?\.id\) && !viewerHoldsASeat && !ownerCapability && !vendorCapability/,

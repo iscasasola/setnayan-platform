@@ -76,6 +76,7 @@ export function PahinaMasthead({
   rsvp = null,
   still = false,
   foot: withFoot = true,
+  door = null,
   kitSlot = null,
 }: {
   /**
@@ -85,11 +86,19 @@ export function PahinaMasthead({
    */
   rsvp?: CoverRsvp | null;
   /**
-   * The foot (the RSVP button and the "Swipe up" hint). False on the STRANGER's cover: its first screen is the cover
-   * and the page's ONE door ("Get inside", docked under it — owner 2026-09-26/27, "one button"), so nothing is added
-   * there — the passcode door IS a visitor's way to reply.
+   * The foot (the RSVP button and the "Swipe up" hint). Every cover has it — a first screen never ends with neither a
+   * way in nor the hint (live on cale-ice 2026-10-17, owner: *"where is the RSVP and swipe marker?"*). False only where
+   * a caller draws no first screen at all.
    */
   foot?: boolean;
+  /**
+   * 🚪 THE STRANGER'S ONE DOOR, IN THE FOOT (owner 2026-10-17, *"the button shows after the cover?"* · *"Change the
+   * button to 'Confirm your Booking'"*). Since the Cover Scene took the whole first screen, the door that stood UNDER
+   * the cover was drawn below the fold. So a stranger's door stands where a guest's RSVP button does — in place of it,
+   * never beside it (the one-button rule, owner 2026-09-26/27) — with the "Swipe up" hint under it. A cover LINE like
+   * the button: behind a closed veil it waits for the unveil. Absent → the RSVP button, as before.
+   */
+  door?: ReactNode;
   /**
    * 🎬 The cover's entrance is Still (`coverEntranceIsStill`): no line enters — after an unveil they appear together,
    * so every line is marked as its own and the veil's default entrance passes them by.
@@ -404,7 +413,13 @@ export function PahinaMasthead({
   );
   const foot = !withFoot ? null : (
     <div {...{ [COVER_FOOT_ATTR]: '' }} className={COVER_SCENE_FOOT}>
-      {rsvpPart}
+      {door ? (
+        <div {...line()} data-cover-door="" className="w-full space-y-3">
+          {door}
+        </div>
+      ) : (
+        rsvpPart
+      )}
       <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 15l6-6 6 6" />

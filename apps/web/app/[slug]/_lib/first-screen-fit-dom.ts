@@ -76,6 +76,7 @@ export function firstScreenFitter(
     /* (Only inside the cover's own header: a cover that IS its header has nothing after it that is its own.) */
     for (let next = cover === cover.closest('header') ? null : cover.nextElementSibling; next; next = next.nextElementSibling) {
       if (!(next instanceof HTMLElement) || next.getBoundingClientRect().height === 0) continue;
+      if (door && (next === door || next.contains(door))) continue; // 🦶 the door's own block (the cover's foot) is the door, not a part
       if (next.matches('figure')) add('plate', next);
       else if (next.querySelector('a[href]')) add('link', next);
     }

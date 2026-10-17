@@ -39,8 +39,8 @@ async function main() {
           for (const old of door.querySelectorAll(':scope > span[hidden]')) old.remove();
           const host = document.createElement('span');
           door.appendChild(host);
-          /* As the page mounts it: a door in the cover's foot is not fitted around (owner 2026-10-17); a docked one is. */
-          createRoot(host).render(createElement(FirstScreenDoor, { fit: !door.closest('[data-cover-foot]') }));
+          /* As the page mounts it (\`get-inside.tsx\`): a door in the cover's foot is fitted as the foot; a docked one as itself. */
+          createRoot(host).render(createElement(FirstScreenDoor, door.closest('[data-cover-foot]') ? { foot: true } : {}));
         }`,
       resolveDir: WEB,
       loader: 'tsx',

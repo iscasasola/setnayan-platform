@@ -1854,19 +1854,8 @@ const CANVAS_KEY_GROUP: Record<string, CanvasFacetGroup> = {
 };
 
 /** A part's Pro field → the group it is named by. */
-const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], CanvasFacetGroup> = {
-  motion: 'part-motion',
-  font: 'part-style',
-  color: 'part-style',
-  size: 'part-style',
-  weight: 'part-style',
-  italic: 'part-style',
-  underline: 'part-style',
-  align: 'part-style',
-  width: 'part-style',
-  leading: 'part-style',
-  tracking: 'part-style',
-};
+/* Motion is a part's Animate; every other Pro field is its Style (2026-10-16). A rule, not a table — the Maker's first load. */
+const elementFieldGroup = (field: (typeof HUB_ELEMENT_PRO_FIELDS)[number]): CanvasFacetGroup => (field === 'motion' ? 'part-motion' : 'part-style');
 
 /**
  * Every look facet of a section's canvas, live → drafted, each with its own
@@ -1897,7 +1886,7 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas,
     for (const field of HUB_ELEMENT_PRO_FIELDS) {
       out.push({
         key: `el:${element}:${field}`,
-        group: ELEMENT_FIELD_GROUP[field],
+        group: elementFieldGroup(field),
         element,
         change: refChange(asText(live.elements?.[element]?.[field]), asText(next.elements?.[element]?.[field])),
       });

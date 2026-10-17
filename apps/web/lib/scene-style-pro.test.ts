@@ -15,14 +15,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PRO_SCENE_STYLES, sceneStyleIsPro } from './scene-style-pro';
+import { SCENE_STYLE_FREE, sceneStyleIsPro } from './scene-style-pro';
 import { SCENE_STYLE_SETS, sceneStyleOptions, sceneStylesOn, defaultSceneStyle } from './scene-styles';
 import { HUB_STAGES } from './hub-canvas';
 import { canvasFreePart, canvasLookChange, canvasLookFacets } from './hub-draft';
 
-/** The table recomputed from the registry: a style is Pro unless it is the default on EVERY stage that draws it. */
-function expectedProStyles(): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
+/** The table recomputed from the registry: per type with a choice, the ONE style that is the default on every stage
+ *  drawing it ('' when none is) — every other style of the type is Pro. */
+function expectedFree(): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const type of Object.keys(SCENE_STYLE_SETS)) {
     const ids = new Set<string>();
     const pro = new Set<string>();
@@ -33,20 +34,24 @@ function expectedProStyles(): Record<string, string[]> {
         if (st.id !== def) pro.add(st.id);
       }
     }
-    if (ids.size > 1 && pro.size > 0) out[type] = [...pro].sort();
+    if (ids.size < 2) continue;
+    const free = [...ids].filter((id) => !pro.has(id));
+    assert.ok(free.length <= 1, `${type} has two free styles (${free.join(', ')}) — the table holds one per type`);
+    out[type] = free[0] ?? '';
   }
   return out;
 }
 
-test('💎 the Pro table IS the registry: every style but the theme’s own default is Pro (2026-10-16)', () => {
-  const want = expectedProStyles();
-  const have = Object.fromEntries(Object.entries(PRO_SCENE_STYLES).map(([t, ids]) => [t, [...ids].sort()]));
+test('💎 the free-style table IS the registry: every style but the theme’s own default is Pro (2026-10-16)', () => {
+  const want = expectedFree();
   assert.ok(Object.keys(want).length >= 30, `anti-vacuity: only ${Object.keys(want).length} types recomputed`);
-  assert.deepEqual(have, want, `PRO_SCENE_STYLES drifted from the registry — paste:\n${JSON.stringify(want, null, 1)}`);
-  /* A free default stays free wherever it is every stage's own. */
+  assert.deepEqual({ ...SCENE_STYLE_FREE }, want, `SCENE_STYLE_FREE drifted from the registry — paste:\n${JSON.stringify(want, null, 1)}`);
+  /* Read through the one question: a default that is every stage's own is free, every other drawn style is Pro. */
   for (const [type, stage] of [['our_love_story', 'rsvp'], ['countdown', 'rsvp'], ['hero_names', 'event'], ['schedule', 'rsvp']] as const) {
     assert.ok(!sceneStyleIsPro(type, defaultSceneStyle(type, stage)), `${type}'s default on ${stage} must be free`);
   }
+  assert.ok(sceneStyleIsPro('gallery', 'mosaic') && sceneStyleIsPro('gallery', 'grid'), 'a cross-stage default is Pro once stored');
+  assert.ok(!sceneStyleIsPro('no_such_type', 'x'), 'a type with no choice has no Pro style');
   assert.equal(defaultSceneStyle('our_love_story', 'rsvp'), 'conversation', 'Conversation is the Love Story default');
   assert.equal(defaultSceneStyle('our_love_story', 'save_the_date'), 'conversation');
 });

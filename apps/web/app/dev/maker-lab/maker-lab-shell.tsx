@@ -437,7 +437,9 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
+      /* 💎 The Apply sheet names the Pro effects a free event tried (the real bar's `asksForPro` needs a purchase page —
+         the lab's own address stands in; nothing is bought here). `?pro=1`: the event owns Pro, so nothing is asked. */
+      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={ownsPro ? null : '/dev/maker-lab'} ownsPro={ownsPro} draftAction={labDraft} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork

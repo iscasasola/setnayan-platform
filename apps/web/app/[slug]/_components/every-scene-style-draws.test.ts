@@ -712,7 +712,9 @@ test('🔒 the five fixed parts with no pick render byte-identically to the ship
   };
   const galleryProps = { gallery, eventId: 'e', isLive: true, isPost: false, showClaimAccountCta: false, occasion: 'celebration', eventWord: 'wedding' };
   const parts: Array<[Parameters<typeof fixedSceneStyleOf>[1], 'rsvp' | 'event', (style?: string | null) => React.ReactElement]> = [
-    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s, myGuestId: 'g7' }) } as never)],
+    /* 🫵 The same signed guest on both sides: since 2026-10-17 the default look marks her own name too
+       (`entourage-you.tsx`), so the shipped part is drawn FOR her — what this holds is that no pick means no style. */
+    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, myGuestId: 'g7', ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['entourage', 'event', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['find_your_seat', 'event', (s) => h(YourSeatBlock, { ...SEAT, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['announcements', 'event', (s) => h(DayOfAnnouncement, { body: 'Be seated by 2:45.', ...(s === undefined ? {} : { sceneStyle: s }) })],

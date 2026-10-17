@@ -93,6 +93,7 @@ for (const [w, h] of [
           vh: window.innerHeight,
           vw: window.innerWidth,
           scroll: box.scrollHeight,
+          limit: parseFloat(getComputedStyle(dialog).maxHeight) || dialog.getBoundingClientRect().height,
           client: box.clientHeight,
           dialog: rect(dialog)!,
           box: rect(box)!,
@@ -109,7 +110,8 @@ for (const [w, h] of [
       expect(m.board.length, 'Your Mood Board did not draw five').toBe(5);
       expect(m.recent.length, 'Recently used did not draw five').toBe(5);
       expect(m.custom, 'Custom is missing').not.toBeNull();
-      // THE PROPERTY: nothing to scroll.
+      // THE PROPERTY: nothing to scroll. (The headroom is printed, so a sheet creeping toward the edge is seen before it tips.)
+      console.log(`  ${w}×${h} ${key}: the sheet is ${Math.round(m.dialog.h)}px of its ${Math.round(m.limit)}px limit (content ${m.scroll}px, box ${m.client}px)`);
       expect(m.scroll, `the sheet scrolls: ${m.scroll}px of content in a ${m.client}px box`).toBeLessThanOrEqual(m.client + 1);
       expect(m.dialog.top, 'the sheet is taller than the screen').toBeGreaterThanOrEqual(0);
       expect(m.dialog.bottom).toBeLessThanOrEqual(m.vh + 1);

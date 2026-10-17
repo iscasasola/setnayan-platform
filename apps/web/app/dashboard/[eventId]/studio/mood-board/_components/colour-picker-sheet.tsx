@@ -143,10 +143,16 @@ export function ColourPickerBody({
   }, [matchKey]);
   const now = current.toUpperCase();
   const read = pickerReadsOn(current, readsOn);
-  /* One dot of a row: the colour, its name under it, and — on the colour chosen now — a ring and its code.
-     The code's line is kept on every dot, so a row never jumps when the choice moves. */
-  const dot = (r: PickerRow) => {
+  /* One dot of a row: the colour, its name under it, and — on the colour chosen now — a ring and its code. The code's
+     line is kept on every dot of the row that holds the chosen colour (so that row never jumps), and only there. */
+  const remove = (fn: () => void) => (
+    <span data-picker-remove="" className="self-start">
+      <ActionButton tone="neutral" icon={X} label="Remove this colour" onClick={fn} className="!h-11" />
+    </span>
+  );
+  const dot = (r: PickerRow, i: number, row: readonly PickerRow[]) => {
     const on = r.hex === now;
+    const coded = row.some((x) => x.hex === now);
     return (
       <button
         key={r.hex}
@@ -163,9 +169,11 @@ export function ColourPickerBody({
           style={{ background: r.hex }}
         />
         <span className={`w-full truncate text-center text-[11px] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/70'}`}>{r.name ?? '\u00A0'}</span>
-        <small className="font-mono text-[10px] leading-none text-ink/50" data-picker-code={on ? '' : undefined}>
-          {on ? r.hex : '\u00A0'}
-        </small>
+        {coded ? (
+          <small className="font-mono text-[10px] leading-none text-ink/50" data-picker-code={on ? '' : undefined}>
+            {on ? r.hex : '\u00A0'}
+          </small>
+        ) : null}
       </button>
     );
   };
@@ -268,12 +276,19 @@ export function ColourPickerBody({
           No colour by that name — try another word, or a code like #7A1F2B.
         </p>
       ) : null}
-      {extra}
-      {onRemove ? (
-        <span data-picker-remove="" className="self-start">
-          <ActionButton tone="neutral" icon={X} label="Remove this colour" onClick={onRemove} className="!h-11" />
-        </span>
-      ) : null}
+      {/* The caller's quiet action and "Remove this colour" share ONE line when both are there — a second line is what
+          pushed the fullest sheet past the phone. */}
+      {extra && onRemove ? (
+        <div className="flex flex-wrap items-center gap-2" data-picker-quiet="">
+          {extra}
+          {remove(onRemove)}
+        </div>
+      ) : (
+        <>
+          {extra}
+          {onRemove ? remove(onRemove) : null}
+        </>
+      )}
     </div>
   );
 }

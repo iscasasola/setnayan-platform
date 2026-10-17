@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "39ea05fd0",
+  "generatedFromRef": "714ba247c2",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6548,
+  "blocks": 6550,
   "routes": {
     "/": {
       "files": [
@@ -782,6 +782,7 @@
         "[slug]/_components/candlelight-off-on-canvas.tsx",
         "[slug]/_components/canvas-bring-up.ts",
         "[slug]/_components/canvas-section-binder.ts",
+        "[slug]/_components/closing-line.tsx",
         "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown-styles.tsx",
         "[slug]/_components/countdown.tsx",
@@ -1119,6 +1120,7 @@
         "ChapterWriteUp",
         "ClientEventWords",
         "ClipFrame",
+        "ClosingLine",
         "Colophon",
         "ColumnWords",
         "ConsentVeto",
@@ -10663,6 +10665,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ClosingLine",
         "CountdownWidget",
         "CoverPlayOpening",
         "CoverSceneMenuWaits",

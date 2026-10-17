@@ -46,7 +46,7 @@ import {
 import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, isDetailsItemKey, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerCameBackToItself, makerDoorLanding, makerLoadNow, makerResumeKey, noteMakerResume, takeMakerResume } from '@/lib/maker-resume';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
-import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
+import { SEE_AS, SEE_AS_EDITING, type SeeAs, type SeeAsRoleRow } from '@/lib/see-as';
 import { MAKER_PLAY_SCENE_EVENT, PreviewStageLink } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
@@ -157,6 +157,8 @@ const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
       );
 
 /** The sheet handed down only when the new Maker is on — a plain call, never a component, so the shipped tree is unchanged. */
+const NO_ROLE_ROWS: readonly SeeAsRoleRow[] = [];
+
 function withPickSheet(on: boolean, children: ReactNode): ReactNode {
   return on ? <PickSheetContext.Provider value={makerPickSheet}>{children}</PickSheetContext.Provider> : children;
 }
@@ -189,8 +191,11 @@ export function MakerShell({
   postEventTour = null,
   stagesStudio = false,
   studio = null,
+  seeAsRoles = NO_ROLE_ROWS,
   children,
 }: {
+  /** 🎭 See as · Role ▾'s rows — this event's guest-list roles (`lib/preview-role.ts`, built on the server). */
+  seeAsRoles?: readonly SeeAsRoleRow[];
   /**
    * 🧭 THE NEW MAKER — "Stages | Studio" (`makerStagesStudioEnabled`, resolved
    * ONCE by the launch page; nothing here reads the env). On a phone: ✕ ·
@@ -315,6 +320,8 @@ export function MakerShell({
      own editing canvas. Kept across stages (a guest is a guest on every stage);
      never written anywhere — not the draft, not the tab's memory. */
   const [seeAs, setSeeAs] = useState<SeeAs | null>(null);
+  /* 🎭 Role ▾ — which wedding role that sample guest stands in (null: any guest). Same posture as See as. */
+  const [seeAsRole, setSeeAsRole] = useState<string | null>(null);
   /* 📄 Page ▾ — what the work area reports, and the pick waiting for its stage. */
   const [guestPages, setGuestPages] = useState<MakerGuestPagesReport | null>(null);
   const [pageJump, setPageJump] = useState<MakerPageJump | null>(null);
@@ -568,6 +575,9 @@ export function MakerShell({
       storeShell,
       seeAs,
       setSeeAs,
+      seeAsRole,
+      setSeeAsRole,
+      seeAsRoles,
       addScene,
       setAddScene,
       detailsItem,
@@ -606,7 +616,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page

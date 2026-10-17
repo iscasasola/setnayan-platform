@@ -4,6 +4,7 @@ import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { guestRoleLabel } from '@/lib/guests';
 import { guestAttireOf } from '@/lib/attire-rows';
+import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 import type { RoleNames } from '@/lib/role-names';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
@@ -264,8 +265,14 @@ function HideableWidgetBody({
          (`site-body.tsx` passes `!isMakerCanvas`), where `guest` is the HOST
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
-         guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+         guests will read. So the role is withheld on the canvas, not passed.
+         🎭 …UNLESS THE CANVAS IS DRAWN FOR THE SAMPLE GUEST (See as ▾ · Role ▾, owner 2026-10-17): then `guest` is no
+         host — it is the fabricated seat-holder, id `SIMULATED_GUEST_ID`, which matches no row — and the scene is
+         read exactly as that role's guest reads it. */
+      {
+        const reader = guestView || guest?.guest_id === SIMULATED_GUEST_ID;
+        return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={reader && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={reader && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} march={reader && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={reader} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!reader} />;
+      }
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

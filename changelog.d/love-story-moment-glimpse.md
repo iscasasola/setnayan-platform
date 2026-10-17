@@ -12,7 +12,10 @@ moment's photos: one big, the next peeking, swipe or auto-scroll; one photo stay
   WHOLE at their own shape (`object-contain`), centred in the look's reserved place (same width and shape as before,
   at most 70svh tall), with the Glimpse corners and lift. The words below never jump while a photo loads. A moment's
   photos store no crop or focal point (refs only), so the whole picture is the only thing to honour.
-  `GlimpseRail` gains `whole` (the Photos scene keeps its filled 3:4 cards).
+  `GlimpseRail` gains `whole` (the Photos scene keeps its filled 3:4 cards). Chapters' grid follows the same rule.
+- Light leak ◆ (#6607) reaches every Glimpse frame — `button` joins its box list in `globals.css`, because a Glimpse
+  card is a button holding its one photo — in the Love Story and the Photos scene alike. Guarded in
+  `lib/the-effects-reach-every-part.test.ts` (5).
 - Swipe cards: inside the photos a swipe moves the photos (the rail is its own scroller and contains its overscroll);
   anywhere else on the card it moves the cards.
 - The Maker's empty samples of the three looks draw the Glimpse shape at the photo slot.

@@ -114,6 +114,7 @@ import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
+import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 
 
 export type GuestsScreenProps = {
@@ -148,6 +149,8 @@ export type GuestsScreenProps = {
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
   requests: number;
+  /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
+  titlesWaiting?: TitleWaitingPerson[];
   /** The map's root — the couple's names. */
   rootLabel: string;
   /** A `?q=` from the shell's top bar search. */
@@ -258,6 +261,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     linkedGuestIds,
     faceByGuest,
     requests,
+    titlesWaiting = [],
     rootLabel,
     initialQuery = '',
     initialSelect = false,
@@ -712,6 +716,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <ActionButton tone="brand" main icon={User} label="Review" href={`/dashboard/${eventId}/guests/claims`} />
           </span>
         </div>
+      ) : null}
+      {titlesWaiting.length > 0 && !copy ? (
+        <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t, s: styles.s, acts: styles.acts }} />
       ) : null}
       {empty && !q ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {

@@ -21,7 +21,7 @@
  * list and are unchanged.)
  *
  * 🛡 Sabotaged, each red then restored (2026-10-18):
- *   • rotate-qr back on `rateLimit(`                              → test 1 red;
+ *   • rotate-qr back on the bare limiter import                 → tests 1, 3 red;
  *   • the order-link token handed to the limiter unhashed         → test 2 red;
  *   • a new bare `rateLimit(` import in app/papic/buy/actions.ts  → tests 1, 3 red.
  */

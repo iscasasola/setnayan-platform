@@ -96,3 +96,11 @@ No new emails. No UI redesign; any new error copy is plain words. Changelog frag
       Still never throws. Test lib/a-lost-seat-write-is-planned-again.test.ts (4, injected pass/record). Sabotage:
       upsert error dropped → 1 red · one attempt → 2 red · no record → 1 red. Guard repointed:
       a-seat-plan-is-never-arranged-from-an-unread-list test 3 (reads now inside reconcilePass, run inside the try).
+- [x] 8 bare rateLimit → enforceRateLimit — FIXED where guest/public-facing: /api/upload (120/min/user, kept),
+      [slug]/rotate-qr-actions (guest 3/day kept; IP 10/h → 100/h per event, hashed via joinDoorIdent — 10/h counted
+      for real would refuse a venue), app/live/actions pairing (10/10min kept, hashed ip), papic/buy (10/min per
+      credential kept; order-link 8/min kept, token HASHED before it reaches rate_limit_hits).
+      SKIPPED on purpose (reasons in lib/guest-limits-are-durable.test.ts): papic media route (a DB write per image GET
+      at a reception + 600/min per venue IP counted across instances would black out galleries) and vendor qr-guard
+      (supplier-only, not a guest door). Guard lib/guest-limits-are-durable.test.ts (3) fails on any new bare import
+      without a reason. Sabotage: rotate bare → 2 red · raw token → 1 red · buy bare → 2 red.

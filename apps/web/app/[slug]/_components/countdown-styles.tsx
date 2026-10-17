@@ -28,11 +28,14 @@ export function CountdownBigNumber({
   remaining,
   targetIso,
   bare = false,
+  kit = null,
 }: {
   label: ReactNode;
   remaining: CountdownReading | null;
   targetIso: string;
   bare?: boolean;
+  /** 🕯 The scene's Accent (`<KitSlot slot="countdown">`), drawn as the card's first child — every style draws it. */
+  kit?: ReactNode;
 }) {
   const day = calendarDay(targetIso);
   return (
@@ -41,6 +44,7 @@ export function CountdownBigNumber({
       data-scene-style="big-number"
       className={`${sceneCardClass('countdown', bare)} text-center`}
     >
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <p className="mt-4 font-pahina text-[5.5rem] font-light leading-none tabular-nums text-ink sm:text-[7rem]">
         {remaining ? String(remaining.days) : '––'}
@@ -69,11 +73,14 @@ export function CountdownCalendar({
   remaining,
   targetIso,
   bare = false,
+  kit = null,
 }: {
   label: ReactNode;
   remaining: CountdownReading | null;
   targetIso: string;
   bare?: boolean;
+  /** 🕯 The scene's Accent (`<KitSlot slot="countdown">`), drawn as the card's first child — every style draws it. */
+  kit?: ReactNode;
 }) {
   const month = monthWeeks(targetIso);
   return (
@@ -82,6 +89,7 @@ export function CountdownCalendar({
       data-scene-style="calendar"
       className={sceneCardClass('countdown', bare)}
     >
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       {month ? (
         <div className="mt-4">
@@ -134,10 +142,11 @@ export function CountdownCalendar({
  * (`.el[data-el=countdown][data-preset="3"|"4"]`): the count in one uppercase line between
  * accent rules, and the days inside a filled circle.
  */
-export function CountdownLine({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+export function CountdownLine({ label, remaining, bare = false, kit = null }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean; kit?: ReactNode }) {
   const d = remaining?.days;
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="line" className={`${sceneCardClass('countdown', bare)} text-center`}>
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <p className="mt-4 border-y border-terracotta py-3 font-sans text-sm uppercase tabular-nums tracking-[0.2em] text-ink/80">
         {d ?? '––'} {d === 1 ? 'day' : 'days'}
@@ -150,9 +159,10 @@ export function CountdownLine({ label, remaining, bare = false }: { label: React
   );
 }
 
-export function CountdownCircle({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+export function CountdownCircle({ label, remaining, bare = false, kit = null }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean; kit?: ReactNode }) {
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="circle" className={`${sceneCardClass('countdown', bare)} text-center`}>
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <div className="mx-auto mt-4 flex h-40 w-40 flex-col items-center justify-center rounded-full bg-terracotta-700 text-cream">
         <span className="font-pahina text-6xl font-light leading-none tabular-nums">{remaining ? String(remaining.days) : '––'}</span>
@@ -163,9 +173,10 @@ export function CountdownCircle({ label, remaining, bare = false }: { label: Rea
 }
 
 /** The prototype's countdown preset 2: the days large at the left, the label and "days to go" beside them. */
-export function CountdownOffset({ label, remaining, bare = false }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean }) {
+export function CountdownOffset({ label, remaining, bare = false, kit = null }: { label: ReactNode; remaining: CountdownReading | null; bare?: boolean; kit?: ReactNode }) {
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} data-scene-style="offset" className={sceneCardClass('countdown', bare)}>
+      {kit}
       <div className="flex items-center gap-5">
         <span className="shrink-0 font-pahina text-[4.4rem] font-light leading-none tabular-nums text-ink">{remaining ? String(remaining.days) : '––'}</span>
         <span className="min-w-0 text-left">

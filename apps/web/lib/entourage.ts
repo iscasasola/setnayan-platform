@@ -74,10 +74,11 @@ export type EntouragePerson = {
    */
   sortKey?: { last: string; first: string };
   /**
-   * 'father' / 'mother' when the couple's own entry for THIS person says so, else null — see `parentWordOf`.
-   * Gender is not stored; without a word from the couple nothing is guessed (never from a first name).
+   * 'father' / 'mother' when the couple's own entry for THIS person says so — or, for one of exactly two parents
+   * (grandparents) of a side, when the OTHER one's entry says the opposite word — else null. See `parentWordOf` and
+   * `withThePairInferred`. Gender is not stored; nothing is guessed from a first name.
    */
-  parentWord?: 'father' | 'mother' | null;
+  parentWord?: KinWord | null;
   /** `guests.side`, when the read asked for it (the march's walk side — `walkSideOf`). */
   side?: string | null;
   /**
@@ -653,7 +654,8 @@ export function entourageCellWord(group: EntourageGroup, person: EntouragePerson
  * 👪 ONE NAME IS ONE PARENT (guest text audit 2026-09-30). "Parents of the
  * Bride" sat beside a single name — a plural beside one person. Beside ONE
  * name the word is singular: "Father of the Bride" / "Mother of the Bride"
- * when the typed title says which, "Parent of the Bride" when it does not
+ * when the couple's entry says which (title, attire — or the other of the two
+ * parents, `withThePairInferred`), "Parent of the Bride" when nothing does
  * (nothing is guessed from a first name). The plural is for two, and the
  * group heading already carries it. The couple's own word still wins.
  */
@@ -1177,21 +1179,87 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
 
 /**
  * 'father' / 'mother' from what the couple entered for THIS person, else null:
- *   1. the typed title (prefix, else the display name's first word) — Mr. → father; Mrs., Ms., Miss → mother;
+ *   1. the typed title — every title word of the prefix, then the display name's leading title words — Mr. → father;
+ *      Mrs., Ms., Miss → mother. A professional or honorific title (Atty., Dr., Engr., Hon., Judge, USec., Comm.,
+ *      Gen., Ombudsman …) is NOT a gender word: it is stepped over, so "Atty. Mrs. Luz Abad" is still a mother;
  *   2. else the guest card's "Attire · 3D seat plan" pick (`guests.attire`) — Gown → mother, Suit → father.
- * A title that says neither (Atty., Dr., Hon.) with the attire left at 'neutral' (its default) is null, and the
- * page says "Parent of the Groom". There is no gender column; nothing is guessed from a first name.
+ * A title that says neither with the attire left at 'neutral' (its default) is null — and then the PAIR may still
+ * tell (`withThePairInferred`). There is no gender column; nothing is guessed from a first name.
  */
-function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
-  const title = (row.name_prefix ?? row.display_name?.trim().split(/\s+/)[0] ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\.$/, '');
-  if (title === 'mr') return 'father';
-  if (title === 'mrs' || title === 'ms' || title === 'miss') return 'mother';
+function parentWordOf(row: EntourageGuestRow): KinWord | null {
+  for (const word of titleWordsOf(row)) {
+    const said = GENDER_TITLE[word];
+    if (said) return said;
+  }
   if (row.attire === 'gown') return 'mother';
   if (row.attire === 'suit') return 'father';
   return null;
+}
+
+export type KinWord = 'father' | 'mother';
+const OTHER_KIN: Record<KinWord, KinWord> = { father: 'mother', mother: 'father' };
+
+/** The only title words that say father or mother. */
+const GENDER_TITLE: Readonly<Record<string, KinWord>> = { mr: 'father', mrs: 'mother', ms: 'mother', miss: 'mother' };
+
+/**
+ * Title words that say NOTHING about gender — stepped over on the way to one that does. The sort's titles
+ * (`LEADING_TITLE`) plus the Philippine government and professional honorifics a real guest list carries (73 of 77
+ * guests on one real event held a title, 2026-09-16: Atty., Comm., Associate Dean …).
+ */
+const NOT_GENDER_TITLES: ReadonlySet<string> = new Set<string>([
+  ...['dr', 'dra', 'hon', 'atty', 'engr', 'arch', 'archt', 'ar', 'rev', 'fr', 'msgr', 'sr', 'sra', 'srta', 'mx'],
+  ...['gen', 'col', 'capt', 'maj', 'lt', 'ltc', 'sgt', 'cdr', 'adm', 'brig', 'supt', 'insp', 'ret', 'retd'],
+  ...['prof', 'judge', 'justice', 'sen', 'gov', 'mayor', 'rep', 'cong', 'vm', 'vice', 'councilor', 'kgd', 'brgy', 'kap'],
+  ...['sec', 'usec', 'asec', 'comm', 'commissioner', 'ombudsman', 'amb', 'ambassador', 'chairman', 'chair', 'chief'],
+  ...['pres', 'dir', 'director', 'dean', 'assoc', 'associate', 'cpa', 'rn', 'pastor', 'ptr', 'bishop', 'sis', 'bro'],
+]);
+
+/**
+ * The title words a person carries, lower-cased, in order: every word of the prefix (it holds titles only), then
+ * the display name's LEADING words while they are titles — the first ordinary word ends it, so a first name is
+ * never read.
+ */
+function titleWordsOf(row: Pick<EntourageGuestRow, 'name_prefix' | 'display_name'>): string[] {
+  const words = (s: string | null | undefined) => (s ?? '').toLowerCase().split(/[\s.,]+/).filter(Boolean);
+  const out = words(row.name_prefix);
+  for (const w of words(row.display_name)) {
+    if (!GENDER_TITLE[w] && !NOT_GENDER_TITLES.has(w)) break;
+    out.push(w);
+  }
+  return out;
+}
+
+/**
+ * 👪 THE OTHER PARENT IS NAMED (owner 2026-10-17, live /cale-ice: "Mr. … — FATHER OF THE GROOM" beside "Atty. … —
+ * PARENT OF THE GROOM"; the owner's word: "mother of the groom").
+ *
+ * `words` are what each holder of ONE kin role (one side's parents, or one side's grandparents) says on their own
+ * entry. When they are exactly TWO and one says father / mother while the other says nothing, the other is the
+ * other word. Nobody whose own entry says something is ever changed; two unknowns stay unknown ("Parents of the …");
+ * one person alone, or three or more, are left exactly as their entries say.
+ */
+function withThePairInferred(words: readonly (KinWord | null)[]): (KinWord | null)[] {
+  if (words.length !== 2) return [...words];
+  const [a, b] = words as [KinWord | null, KinWord | null];
+  if (a && !b) return [a, OTHER_KIN[a]];
+  if (b && !a) return [OTHER_KIN[b], b];
+  return [a, b];
+}
+
+/** Everyone who holds `role` and prints (has a name), in print order — with each one's kin word, pair included. */
+function kinWordsOfHolders(
+  rows: readonly EntourageGuestRow[],
+  role: GuestRole,
+  style?: NameStyle,
+): Array<{ row: EntourageGuestRow; name: string; word: KinWord | null }> {
+  const holders = holdersOfRoleInPrintOrder(rows, role).flatMap((row) => {
+    const name = personName(row, style);
+    return name ? [{ row, name }] : [];
+  });
+  const own = holders.map((h) => parentWordOf(h.row));
+  const words = KIN_OF_ROLE[role] ? withThePairInferred(own) : own;
+  return holders.map((h, i) => ({ ...h, word: words[i] ?? null }));
 }
 
 /** The people of one group, in `spec.roles` order — the sequence pairing sees. */
@@ -1202,9 +1270,8 @@ function peopleForSpec(
 ): EntouragePerson[] {
   const people: EntouragePerson[] = [];
   for (const role of spec.roles) {
-    for (const row of holdersOfRoleInPrintOrder(rows, role)) {
-      const name = personName(row, style);
-      if (!name) continue;
+    /* 👪 One role's holders together, so the pair can name the other parent (`withThePairInferred`). */
+    for (const { row, name, word } of kinWordsOfHolders(rows, role, style)) {
       people.push({
         id: row.guest_id ?? null,
         name,
@@ -1215,7 +1282,7 @@ function peopleForSpec(
         coupleWith: row.couple_with_guest_id ?? null,
         ceremonyOnly: isCeremonyOnly(row),
         sortKey: sortKeyOf(row, name),
-        parentWord: parentWordOf(row),
+        parentWord: word,
         ...(row.side !== undefined ? { side: row.side } : {}),
         ...(row.not_walking ? { notWalking: true as const } : {}),
       });

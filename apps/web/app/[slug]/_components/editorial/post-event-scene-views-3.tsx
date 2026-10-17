@@ -16,11 +16,12 @@
 // 🔒 The road's guest-layer entries (the captures) arrive already filtered for
 // this reader by the caller (`guestLayerAdmits`), exactly as the spine files them.
 
-import type { ReactElement } from 'react';
+import { Fragment, type ReactElement } from 'react';
 import type { StoryRoom } from '@/lib/story-room';
 import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import type { PeWords } from './post-event-scene-views';
+import { MineName, YourPlaceLine, anchorOnce, entourageMeOf } from '../entourage-you';
 
 const say = (words: PeWords, part: keyof PeWords, fallback: string): string => words[part] ?? fallback;
 const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700';
@@ -316,38 +317,50 @@ export function EntourageScene({
   groups,
   names,
   words,
+  myGuestId = null,
 }: {
   style: PostEventStyleId;
   groups: readonly EntourageGroup[];
   /** The names at the root of the tree — the event's own. */
   names: string;
   words: PeWords;
+  /** 🫵 The signed-in guest's own id (`loadYourOwnDay`) — their name is marked in every style (owner 2026-10-17). */
+  myGuestId?: string | null;
 }): ReactElement {
   const label = say(words, 'label', 'The entourage');
+  /** Their name, marked when it is theirs (`entourage-you.tsx`); everyone else's as it was. */
+  const nameOf = (p: EntouragePerson, me: ReturnType<typeof entourageMeOf>, anchor: () => string | null) =>
+    me && p.id === me.id ? <MineName anchor={anchor()}>{p.name}</MineName> : p.name;
+  /* After the day nobody is about to walk — the line says only that their place is marked. */
+  const youLine = (me: ReturnType<typeof entourageMeOf>) => <YourPlaceLine me={me} groups={groups} walks={false} className="mt-2 text-sm text-ink/70" />;
   if (style === 'portrait-grid') {
     /* .pgrid — a circle for each person, three across; the honour pair sit wider. */
     const honour = groups.find((g) => g.key === 'honour');
     const rest = groups.filter((g) => g.key !== 'honour').flatMap((g) => peopleIn(g).map((p) => ({ p, role: g.label })));
+    const tiles = rest.slice(0, 24);
+    const me = entourageMeOf(myGuestId, [...(honour ? peopleIn(honour) : []), ...tiles.map((t) => t.p)], 'entourage');
+    const anchor = anchorOnce(me);
     return (
       <div className="py-8">
         <p className={EYEBROW}>{label}</p>
         <h2 className={H2}>{say(words, 'heading', 'The ones who stood with us')}</h2>
+        {youLine(me)}
         <div className="mt-4 grid grid-cols-3 gap-x-2.5 gap-y-3.5">
           {honour
             ? peopleIn(honour).map((p) => (
                 <div key={`h-${p.id ?? p.name}`} className="col-span-3 flex items-center gap-3">
                   <Portrait name={p.name} size="h-24 w-24 mx-0" />
                   <span>
-                    <span className="block font-serif text-[1.35rem] leading-tight text-ink">{p.name}</span>
+                    <span className="block font-serif text-[1.35rem] leading-tight text-ink">{nameOf(p, me, anchor)}</span>
                     <span className={MICRO}>{honour.label}</span>
                   </span>
                 </div>
               ))
             : null}
-          {rest.slice(0, 24).map(({ p, role }) => (
+          {tiles.map(({ p, role }) => (
             <div key={`${role}-${p.id ?? p.name}`} className="text-center">
               <Portrait name={p.name} />
-              <span className="mt-1.5 block font-serif text-base leading-tight text-ink">{p.name}</span>
+              <span className="mt-1.5 block font-serif text-base leading-tight text-ink">{nameOf(p, me, anchor)}</span>
               <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink/70">{role}</span>
             </div>
           ))}
@@ -364,10 +377,13 @@ export function EntourageScene({
       tier(['principal_sponsors', 'secondary_sponsors']),
       tier(['honour', 'bridesmaids_groomsmen', 'bearers', 'flower_girls', 'ceremony', 'nikah']),
     ].filter((t) => t.length > 0);
+    const me = entourageMeOf(myGuestId, tiers.flatMap((t) => t.slice(0, 12).map((x) => x.p)), 'entourage');
+    const anchor = anchorOnce(me);
     return (
       <div className="py-8">
         <p className={EYEBROW}>{label}</p>
         <h2 className={H2}>{say(words, 'heading', 'Family tree')}</h2>
+        {youLine(me)}
         <div className="mt-5 flex flex-col items-center">
           <Portrait name={names} size="h-20 w-20" ring />
           <span className="mt-1.5 block text-center font-serif text-base text-ink">{names}</span>
@@ -378,7 +394,7 @@ export function EntourageScene({
                 {people.slice(0, 12).map(({ p, role }) => (
                   <span key={`${role}-${p.id ?? p.name}`} className="w-[88px] text-center">
                     <Portrait name={p.name} size="h-14 w-14" />
-                    <span className="mt-1 block font-serif text-sm leading-tight text-ink">{p.name}</span>
+                    <span className="mt-1 block font-serif text-sm leading-tight text-ink">{nameOf(p, me, anchor)}</span>
                     <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink/70">{role}</span>
                   </span>
                 ))}
@@ -390,10 +406,13 @@ export function EntourageScene({
     );
   }
   /* roll-call · .roll — roles as micro-labels, names in display serif, grouped by whitespace. */
+  const me = entourageMeOf(myGuestId, groups.flatMap(peopleIn), 'entourage');
+  const anchor = anchorOnce(me);
   return (
     <div className="py-8">
       <p className={EYEBROW}>{label}</p>
       <h2 className={H2}>{say(words, 'heading', 'Roll call')}</h2>
+      {youLine(me)}
       {groups.map((g) => (
         <div key={g.key} className="mt-5">
           <span className={`${MICRO} text-terracotta-700`}>{g.label}</span>
@@ -401,8 +420,12 @@ export function EntourageScene({
             <span key={i} className="mt-1 block font-serif text-[1.45rem] leading-tight text-ink">
               {row
                 .filter((p): p is EntouragePerson => p !== null)
-                .map((p) => p.name)
-                .join(' & ')}
+                .map((p, j) => (
+                  <Fragment key={j}>
+                    {j > 0 ? ' & ' : ''}
+                    {nameOf(p, me, anchor)}
+                  </Fragment>
+                ))}
             </span>
           ))}
         </div>

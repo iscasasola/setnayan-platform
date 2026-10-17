@@ -17,6 +17,7 @@
  * pure, no I/O. The client receives the finished strings in
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
+import { ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
@@ -262,6 +263,14 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
         if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null) && !qrMoved) return { place: 'Camera', what: `Look · ${CAMERA_LOOK_LABEL[cam]}` };
         /* 🧱 A fixed block's look (`lib/block-looks.ts`) — "Event Hub · How a block looks", not the QR. */
         if (!qrMoved && isPlainObjectValue(item.value) && 'block_looks' in item.value) return { place: 'Event Hub', what: 'How a block looks' };
+        /* 🕯 Each scene's Accent (owner 2026-10-16) — "Countdown, Cover · Decorations", the word the Pro sheet uses, not
+           the QR (17 Oct: the Apply sheet read "Guest's ticket · QR look" for an accent pick). */
+        if (!qrMoved && isPlainObjectValue(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
+          const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+          const drafted = sceneAccentsFromPreferences(item.value);
+          const moved = ACCENT_SCENES.filter((sc) => drafted[sc] !== undefined && drafted[sc] !== liveAccents[sc]);
+          return { place: moved.length > 0 ? moved.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', ') : 'Event Hub', what: 'Decorations' };
+        }
       }
       /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
          "RSVP · When they say yes · Confetti" — with the RSVP's other edits beside it

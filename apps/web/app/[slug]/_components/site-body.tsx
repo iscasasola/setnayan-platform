@@ -2920,7 +2920,10 @@ export async function SiteBody({
     });
     /** The walking order is Welcome's on the day — so it leaves the Live tab (one place). */
     const marchOnWelcome = dayWelcome.includes('march');
-    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
+    /* 🫵 THE GUEST SEES THEIR PLACE (owner 2026-10-17, `entourage-you.tsx`): every look marks this guest's own name.
+       Never on the Maker's canvas — See as and View as a role draw a stand-in, and no real name is marked there (the
+       same rule as "You walk 5th" below, `marchPlace`). */
+    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={isMakerCanvas ? null : guest.guest_id} /> : null;
     /* Same resolver, guest viewer. The camera destination keeps the shipped
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
@@ -4282,6 +4285,9 @@ export async function SiteBody({
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
       /* 🕯 The Closing is a part of the Maker (owner 2026-10-17): its marker, right before the footer. */
       closingMark={makerMark('f:closing')}
+      /* 🕯 …and its line — the couple's words for "See you soon." and their look, on the hero row's canvas
+         (`lib/closing-line.ts`, owner 2026-10-17). Draft-overlaid on the Maker's canvas like every cover word. */
+      closingLine={heroCanvas.elements?.closing ?? null}
       /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark.
          Drawn when the Closing's Accent is on (the oval), AND on a kit look whose Closing picked None (owner
          2026-10-17: None keeps "See you soon." and the band, without the oval — `KitClosing` draws no oval then). */

@@ -192,6 +192,8 @@ export const HUB_CANVAS_LOOK_KEYS = [
   'inFx',
   'outFx',
   'during',
+  // ✨ Reveal ▾ on a scene's pictures (Develop · Curtain, 2026-10-17) — motion, Pro at Apply like the rest of Animate.
+  'reveal',
   'timeline',
   'sequence',
   'stagger',
@@ -270,6 +272,8 @@ export const HUB_CANVAS_MOTION_KEYS = [
   'inFx',
   'outFx',
   'during',
+  // ✨ Reveal ▾ on a scene's pictures (Develop · Curtain, 2026-10-17) — motion, Pro at Apply like the rest of Animate.
+  'reveal',
   'timeline',
   'sequence',
   'stagger',

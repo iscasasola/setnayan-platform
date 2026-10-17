@@ -145,7 +145,9 @@ test('3 · the guest page: the sponsors’ row says and draws each column’s ow
   assert.ok(shared, 'the sponsors’ row is not drawn');
   assert.match(shared, /For women · Long gown/);
   assert.doesNotMatch(shared, /For men · Long gown/, 'the men are told the women’s gown');
-  assert.deepEqual(figure(shared), [['m', 'suit'], ['f', 'ninang-long_gown']], 'not the men in their plain suit (Wear not said) and the women in the ninang’s gown');
+  /* 2026-10-17 (owner: "if … nothing is picked, then nothing should show"): the men, whose Wear is not said, are drawn
+     in no garment at all — never a plain suit assumed for them; their colours still show, said by what they colour. */
+  assert.deepEqual(figure(shared), [['f', 'ninang-long_gown']], 'only the women, in the ninang’s gown — no garment assumed for the men');
 
   const split = slice(await scene({ config: { groups: { principal_sponsors: { style: 'barong_tagalog' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } } }), 'data-role-row="principal_sponsors"');
   assert.match(split, /For men · Barong Tagalog[\s\S]*For women · Long gown/);
@@ -157,7 +159,8 @@ test('3 · the reader’s own panel and checklist: a ninong is never told the sh
   const you = html.slice(html.indexOf('data-dress-code="you"'));
   assert.ok(you, 'no panel for him');
   assert.doesNotMatch(you, />Long gown</, 'the ninong is told to wear a long gown');
-  assert.deepEqual(figure(you).map(([w]) => w), ['m']);
+  /* His Wear is not said: he is drawn in nothing assumed (owner 2026-10-17, "nothing is picked … nothing should show"). */
+  assert.deepEqual(figure(you).map(([w]) => w), []);
   const her = (await scene({ config: SHARED, guestRole: 'principal_sponsor_ninang' }));
   assert.match(her.slice(her.indexOf('data-dress-code="you"')), />Long gown</, 'the ninang lost the gown that is hers');
 

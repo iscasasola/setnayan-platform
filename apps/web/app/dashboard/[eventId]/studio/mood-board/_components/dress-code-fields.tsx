@@ -1,4 +1,4 @@
-import { PaletteField } from './palette-field';
+import { ATTIRE_ROWS, attireRow, isDressableRole, sanitizeSecondPicks, wearSaid } from '@/lib/attire-rows';
 import { RoleAttireField } from './role-attire-field';
 import { GroupAttireField } from './group-attire-field';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
@@ -78,6 +78,17 @@ export function DressCodeFields({
     people: groupTally.get(group)!.people,
   }));
 
+  /* 👗 THE WEAR IS THE STUDIO'S (2026-10-17, "ONE FACT"). Studio › Mood Board & Dress Code picks each row's Wear, per
+     person, from that person's own designs; this form shows it as the Studio says it and keeps only the call time and
+     the note. Its old Wear ▾ listed one global list for a whole group (a "Formal" for parents, a "Long gown" for a
+     father) — a second way to write the same fact that the Studio and the guest page then read as "Not said yet". */
+  /* A plain map (`tier:key` → words), never a function: the fields are client components (2026-10-17). */
+  const wearOf: Record<string, string> = Object.fromEntries(
+    ATTIRE_ROWS.map((row) => [`${row.tier}:${row.key}`, wearSaid(config as unknown as Record<string, unknown>, row)]),
+  );
+  /* Only the people the Studio dresses by their OWN row (the celebrant, the bride, the groom) are listed by role. */
+  const ownRowRoles = eventRoles.filter((r) => attireRow('roles', r.role) !== null);
+
   return (
     <div className={gap}>
       <div className="space-y-1.5">
@@ -112,15 +123,9 @@ export function DressCodeFields({
         <p className={hint}>Up to 600 characters.</p>
       </div>
 
-      <div className="space-y-1.5">
-        <p className={label}>Palette</p>
-        <p className={hint}>
-          Up to six swatches. Guests use these to dress in colors that match your {eventNoun}
-          &rsquo;s mood.
-        </p>
-        <PaletteField initial={config.palette} />
-      </div>
-
+      {/* 🎨 NO PALETTE HERE (2026-10-17). The colours are the Mood Board's five main colours — one palette (DECISION_LOG
+          2026-10-06) — set in Studio › Mood Board & Dress Code; a second list typed here was added after them on the
+          guest page (eleven against five). `updateDressCode` carries the stored list untouched. */}
       {/* 👗 THE OUTFIT FIGURE SWITCH (owner 2026-09-30: "they can opt not to
           add this"). The hidden 'off' always posts; the box adds 'on' after it
           when ticked, so `updateDressCode` reads the answer either way. A
@@ -148,8 +153,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each group wears</p>
         <p className="text-xs text-ink/55">
-          One line dresses everyone in the group. Anyone given their own outfit below keeps it —
-          each group says who, before you type.
+          What each group wears is picked in Studio › Mood Board &amp; Dress Code. Here: when they arrive, and a note.
         </p>
         <GroupAttireField
           groups={eventGroups}
@@ -157,6 +161,7 @@ export function DressCodeFields({
           roles={config.roles}
           roleNames={roleNames}
           compact={compact}
+          wear={wearOf}
         />
         {/* 🛟 NOT SHOWN HERE ≠ ERASED. Where this form cannot list the groups
             (the Maker's panel is not handed the guest list; a helper without
@@ -169,11 +174,12 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each role wears</p>
         <p className="text-xs text-ink/55">
-          Each role gets its own outfit and its colour from your mood board. A guest with a role
-          sees only their own line.
+          Their outfit is picked in Studio › Mood Board &amp; Dress Code. Here: when they arrive, and a note.
         </p>
-        <RoleAttireField roles={eventRoles} saved={config.roles} compact={compact} />
-        {eventRoles.length === 0 ? <CarriedAttire prefix="role" saved={config.roles} /> : null}
+        <RoleAttireField roles={ownRowRoles} saved={config.roles} compact={compact} wear={wearOf} />
+        {/* 🛟 Every other role's stored line rides along unchanged — the Studio dresses those people by their group's
+            row (`resolveAttireFor`, 2026-10-17), and this form no longer lists them; a Save never wipes them. */}
+        <CarriedAttire prefix="role" saved={Object.fromEntries(Object.entries(config.roles).filter(([k]) => !ownRowRoles.some((r) => r.role === k)))} />
       </div>
 
       {/* ✅ Each list sits under its own heading. The two role sections above
@@ -267,13 +273,21 @@ export function normalizeDressCodeConfig(raw: unknown): DressCodeConfig {
     // Per-role attire (owner 2026-09-20). Only PUBLISHED roles may carry an
     // instruction — `roleLabel` returning null means the role is not one the
     // invitation names, so an instruction for it could never be shown.
-    roles: sanitizeRoleAttire(obj.roles, (v) => roleLabel(v as GuestRole) !== null),
+    roles: sanitizeRoleAttire(obj.roles, isDressableRole),
     // Per-GROUP attire. `sanitizeGroupAttire` drops any key that is not one of
     // the twelve, so a group retired in a later build stops being offered and
     // stops being read on the same deploy.
     groups: sanitizeGroupAttire(obj.groups),
     // 👗 Only an explicit `false` turns the outfit figure off (owner 2026-09-30).
     show_figure: obj.show_figure !== false,
+    // 👗 THE SECOND PICKS — the women's and the girls' Wear and colours (2026-10-14). This parser feeds Studio › Mood
+    // Board & Dress Code (`MoodBoardStudioBody` → `studio.dressConfig`); it used to drop them, so on every reload the
+    // Studio drew the women as the men's shared Wear read per column ("Not said yet") and its next save wrote the
+    // config back WITHOUT them (2026-10-17, "the website does not reflect what is picked").
+    ...(() => {
+      const women = sanitizeSecondPicks(obj.women);
+      return Object.keys(women).length > 0 ? { women } : {};
+    })(),
     palette: Array.isArray(obj.palette)
       ? obj.palette
           .map((row) => {

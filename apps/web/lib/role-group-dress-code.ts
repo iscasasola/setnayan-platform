@@ -36,6 +36,11 @@
  * only reason the precedence question below exists at all. The plan never asks
  * it.
  *
+ * ⚠ SUPERSEDED IN PART, 2026-10-17 ("ONE FACT"): the per-role tier below is now read ONLY for the roles the Studio
+ * lists by themselves (the celebrant, the bride, the groom, the guests — `studioRowOf`); every other role reads its
+ * group's row, the one Studio › Mood Board & Dress Code edits. Owner: *"the website does not reflect what is picked
+ * on attires on mood board & dress code."* The history below is kept for why the tiers exist.
+ *
  * ── PRECEDENCE: THE FINER WINS ─────────────────────────────────────────────
  * 🔑 A role rule beats its group's rule. A couple who took the trouble to write
  * something for `principal_sponsor_ninang` specifically meant it, and a group
@@ -75,6 +80,7 @@ import {
   type RoleAttireRule,
 } from './role-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
+import { studioRowOf } from './attire-rows';
 import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import type { GuestRole } from './guests';
@@ -168,11 +174,18 @@ export function resolveAttireFor(
   groups: GroupAttireMap,
 ): ResolvedAttire {
   if (!role || role === 'guest') return null;
-  const own = roles[role];
-  if (own) return { rule: own, source: 'role' };
-  const group = roleGroupOf(role);
-  if (group === 'guest') return null;
-  const shared = groups[group];
+  /* 🪞 ONE FACT (2026-10-17): the answer is the Studio row's (`studioRowOf`) — a role the Studio lists by itself (the
+     celebrant, the bride, the groom) answers from its own line; every other role from its group's row, the row the
+     couple picks on in Studio › Mood Board & Dress Code. A per-role line for anyone else (`roles.best_man`,
+     `roles.groom_parents` — written by the older dress-code form, shown by no editor today) is no longer read: it
+     told a father "Long gown" while the row he is dressed by said "Suit and tie". The stored value is kept. */
+  const row = studioRowOf(role);
+  if (!row) return null;
+  if (row.tier === 'roles') {
+    const own = roles[role];
+    return own ? { rule: own, source: 'role' } : null;
+  }
+  const shared = groups[row.key as RoleGroup];
   return shared ? { rule: shared, source: 'group' } : null;
 }
 
@@ -193,6 +206,8 @@ export function groupOverrides(group: RoleGroup, roles: RoleAttireMap, names?: R
   for (const key of Object.keys(roles) as GuestRole[]) {
     if (!roles[key]) continue;
     if (roleGroupOf(key) !== group) continue;
+    /* Only a line that is still READ overrides the group (`resolveAttireFor`, 2026-10-17). */
+    if (studioRowOf(key)?.tier !== 'roles') continue;
     out.push(roleLabel(key, names) ?? key);
   }
   return out.sort((a, b) => a.localeCompare(b));

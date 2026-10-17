@@ -30,6 +30,8 @@
 // Only the couple, in the Maker's canvas and its whole-stage preview, meets the
 // scene's placeholder — its own layout, with the line that says what fills it.
 
+import { HUB_SCENE_FX_ATTR } from '@/lib/element-style';
+import { HubSceneFx } from '../hub-scene-fx';
 import type { ReactElement, ReactNode } from 'react';
 import type { DayChapter } from './data';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
@@ -59,6 +61,7 @@ export function PostEventSceneFrame({
   scene,
   style,
   css,
+  fx = null,
   id,
   className = '',
   children,
@@ -67,6 +70,8 @@ export function PostEventSceneFrame({
   style: PostEventStyleId;
   /** `hubElementSceneCss(postEventElementScope(scene), elements)` — null when none. */
   css: string | null;
+  /** ✨ `hubSceneFxAttr(elements)` — its parts' Word by word · Spread · Glow, cut by `HubSceneFx`; null when none. */
+  fx?: string | null;
   id?: string;
   className?: string;
   children: ReactNode;
@@ -81,11 +86,12 @@ export function PostEventSceneFrame({
       >
         {children}
       </section>
-      {css ? (
-        <style hidden data-hub-els={postEventElementScope(scene)}>
-          {css}
+      {css || fx ? (
+        <style hidden data-hub-els={postEventElementScope(scene)} {...(fx ? { [HUB_SCENE_FX_ATTR]: fx } : {})}>
+          {css ?? ''}
         </style>
       ) : null}
+      {fx ? <HubSceneFx scope={postEventElementScope(scene)} /> : null}
     </>
   );
 }

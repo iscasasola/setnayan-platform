@@ -11,6 +11,13 @@
  * the DRAFT through the one events door (`useHeldEventsSave`): the whole `scene_accents` map, so a pick on one scene
  * never drops another's, and guests see it at ✓ Apply. ◆ Event Hub Pro while `ART_KIT_IS_PRO`: tried free here,
  * named "Decorations" at Apply; None is always free.
+ *
+ * 🔑 THE MAP IS BUILT ON THE MAKER'S OWN COPY, NEVER ON THE RENDER (owner 17 Oct: *"the accents are not saving"*). A pick
+ * is a held save — no Maker render follows it — so `picks` stays the map of the LAST render. Each scene's row is its
+ * own instance, so the next scene's pick was built on that old map and its whole-map save took the earlier scenes'
+ * picks back out of the draft. Now every pick is noted in the Maker's draft store (`noteDraftedAccents`) and every
+ * row reads and builds through it (`draftedAccentsOr`) — ours while our saves are newer than the page, the page's
+ * after ↺ / Restore / Apply (the store's "first render after an unheld write is the truth").
  */
 import { useEffect, useState, useTransition } from 'react';
 
@@ -23,6 +30,7 @@ import {
   type SceneAccents,
 } from '@/lib/art-kit-accents';
 import type { InviteThemeId } from '@/lib/invite-themes';
+import { draftedAccentsOr, noteAccentPick, noteDraftedAccents } from '@/lib/maker-draft-store';
 import { Dd } from '../../../launch/_components/stage-panel/kit';
 import type { ElementDraftAction } from './element-sheet';
 import { useHeldEventsSave } from './use-scene-canvas';
@@ -58,9 +66,9 @@ export function AccentRow({
 }) {
   const save = useHeldEventsSave(eventId, draftAction);
   const [pending, start] = useTransition();
-  const [mine, setMine] = useState<SceneAccents>(picks);
+  const [mine, setMine] = useState<SceneAccents>(() => draftedAccentsOr(picks));
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => setMine(picks), [picks]);
+  useEffect(() => setMine(draftedAccentsOr(picks)), [picks]);
   const options = SCENE_ACCENTS[scene];
   const value = resolvedAccent(scene, mine, theme);
   return (
@@ -82,20 +90,25 @@ export function AccentRow({
         ]}
         onPick={(id) => {
           if (pending || id === value) return;
-          const before = mine;
-          const next: SceneAccents = { ...mine, [scene]: id };
+          /* Every scene's pick as the Maker last wrote it — another scene's row may have saved since this page rendered. */
+          const { before, next } = noteAccentPick(scene, id, picks);
           setMine(next);
           setError(null);
+          /* Only the LATEST pick is put back — an older failure never undoes a newer choice. */
+          const putBack = (said: string) => {
+            if (JSON.stringify(draftedAccentsOr(picks)) !== JSON.stringify(next)) return;
+            noteDraftedAccents(before, picks);
+            setMine(before);
+            setError(said);
+          };
           start(async () => {
             try {
               const res = await save({ style_preferences: { [SCENE_ACCENTS_PREF_KEY]: next } });
               if (res && typeof res === 'object' && 'ok' in res && (res as { ok: boolean }).ok === false) {
-                setMine(before);
-                setError((res as { error?: string }).error ?? 'That did not save, so it is back as it was.');
+                putBack((res as { error?: string }).error ?? 'That did not save, so it is back as it was.');
               }
             } catch {
-              setMine(before);
-              setError('That did not save, so it is back as it was. Please try again.');
+              putBack('That did not save, so it is back as it was. Please try again.');
             }
           });
         }}

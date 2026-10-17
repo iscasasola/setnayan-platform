@@ -133,7 +133,10 @@ const EVENT = {
     { role: 'ceremony', name: 'San Agustin Church', address: 'Intramuros, Manila', latitude: 14.5889, longitude: 120.9751 },
     { role: 'reception', name: 'The Manila Hotel', address: 'One Rizal Park, Manila', latitude: 14.5832, longitude: 120.9747 },
   ],
-  dress_code_config: { title: 'Garden formal', description: 'Soft colours, comfortable shoes.', dos: ['Barong or suit'], donts: ['White gowns'], palette: [{ name: 'Sage', hex: '#9caf88' }] },
+  dress_code_config: { title: 'Garden formal', description: 'Soft colours, comfortable shoes.', dos: ['Barong or suit'], donts: ['White gowns'], palette: [{ name: 'Sage', hex: '#9caf88' }], groups: { principal_sponsors: { style: 'suit' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } },
+  /* The sponsors dressed (no "Our colours" in this scene — owner 2026-10-17): their row's colours, each said by what it
+     colours ("Coat & pants", "Long gown"). */
+  role_palette: { reception: ['#9caf88'], principal_sponsors: ['#9caf88'], touched_roles: ['principal_sponsors'] },
   special_message: 'Thank you for being part of our story.',
   what_to_bring: 'An umbrella, and your dancing shoes.',
   love_story: { moments: [{ id: 'm-1', line: 'We met at a friend’s wedding.', date: { y: 2019, m: 3 }, place: 'Tagaytay' }] },
@@ -248,7 +251,7 @@ for (const field of FIELDS) {
 test('Dress code’s chip names and do / don’t lines are drawn in every look the fixture claims to walk', async () => {
   const seen = new Set<string>();
   for (const canvas of drawings('dress_code')) for (const w of words(await sceneHtml('dress_code', canvas))) seen.add(w.text);
-  assert.ok(seen.has('Sage'), 'anti-vacuity: no colour-chip name rendered');
+  assert.ok([...seen].some((w) => w.includes('Long gown')), 'anti-vacuity: no colour-chip word rendered');
   assert.ok([...seen].some((w) => w.includes('Barong or suit')), 'anti-vacuity: no do line rendered');
   assert.ok([...seen].some((w) => w.includes('White gowns')), 'anti-vacuity: no don’t line rendered');
 });

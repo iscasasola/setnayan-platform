@@ -42,7 +42,7 @@ const WEB = join(__dirname, '..');
 /** The live hero row the Apply sheet compares the draft to — nothing chosen on it. */
 const HERO_ROW = { widget_id: 'w-hero', widget_type: 'hero', is_always_on: true, display_order: 0, config_json: {}, mode: 'auto' } as never;
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const TEXT: readonly HubElementKey[] = ['eyebrow', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'label', 'heading', 'body'];
+const TEXT: readonly HubElementKey[] = ['eyebrow', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'closing', 'label', 'heading', 'body'];
 
 test('(1) any text part takes a shimmer — never the logo or the RSVP button; Gold only beside it', () => {
   for (const key of HUB_ELEMENT_KEYS) {

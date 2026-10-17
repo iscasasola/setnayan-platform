@@ -213,7 +213,7 @@ function HideableWidgetBody({
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
           sceneStyle={sceneStyle}
-          kit={artKit && !bare ? <KitSlot kit={artKit} slot="countdown" /> : null}
+          kit={artKit ? <KitSlot kit={artKit} slot="countdown" /> : null}
         />
       ) : null;
 

@@ -37,6 +37,7 @@
  *
  * Pure. No I/O, no React.
  */
+import { isDressableRole } from '@/lib/attire-rows';
 import { replyWindowWords, type ReplyWindow } from './reply-window';
 import type { GuestsGetIn } from './who-can-reply';
 import type { GuestRole } from './guests';
@@ -86,7 +87,7 @@ export function guestMeFacts(input: {
     roles?: unknown;
     groups?: unknown;
   };
-  const roles = sanitizeRoleAttire(config.roles, (v) => roleLabel(v as GuestRole) !== null);
+  const roles = sanitizeRoleAttire(config.roles, isDressableRole);
   const groups = sanitizeGroupAttire(config.groups);
   const board = resolveDisplayPalette(sanitizeRolePalette(input.rolePalette));
   const { panel } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null });

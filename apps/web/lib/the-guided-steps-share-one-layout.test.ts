@@ -697,5 +697,7 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
 
 test('(24) the Invitation page\'s sign-off reads on every theme — never the light gold over a moving ground', () => {
   const shell = read('app/[slug]/_components/invitation-shell.tsx');
-  assert.match(shell, /data-shell-sign-off=""\s*className=\{`font-pahina text-lg italic \$\{\s*backdrop \? 'text-cream\/90' : 'text-terracotta-700'\s*\}`\}/, '"See you soon." is the light gold again');
+  /* 🕯 The line is drawn by `ClosingLine` since 2026-10-17 (the couple's own words) — the shell still hands it the class. */
+  assert.match(shell, /<ClosingLine [^>]*className=\{`font-pahina text-lg italic \$\{\s*backdrop \? 'text-cream\/90' : 'text-terracotta-700'\s*\}`\}/, '"See you soon." is the light gold again');
+  assert.match(read('app/[slug]/_components/closing-line.tsx'), /data-shell-sign-off=""[\s\S]{0,400}className=\{className\}/, 'the closing\'s line drops the class the shell hands it');
 });

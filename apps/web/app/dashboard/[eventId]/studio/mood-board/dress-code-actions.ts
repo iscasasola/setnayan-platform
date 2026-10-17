@@ -83,6 +83,24 @@ export type DressCodeConfig = {
 };
 
 /** The live dress code, for a writer that replaces it whole — a failed read throws (nothing is written blind). */
+/**
+ * 🎨 THE FORM NO LONGER HAS A PALETTE (2026-10-17). The colours are the Mood Board's five main colours — one palette
+ * (DECISION_LOG 2026-10-06) — and the guest page no longer adds `dress_code_config.palette` after them. A save that
+ * posted no swatches carries the stored list as it was (nothing is wiped unseen); a poster that still sends swatches
+ * (`palette_hex`) is read as before.
+ */
+function withPaletteCarried<C extends DressCodeConfig>(next: C, base: unknown, formData: FormData): C {
+  if (formData.has('palette_hex')) return next;
+  const raw = base && typeof base === 'object' ? (base as { palette?: unknown }).palette : null;
+  const was = Array.isArray(raw)
+    ? raw.flatMap((r) => {
+        const row = r && typeof r === 'object' ? (r as { name?: unknown; hex?: unknown }) : null;
+        return row && typeof row.hex === 'string' && HEX_PATTERN.test(row.hex) ? [{ name: typeof row.name === 'string' ? row.name : '', hex: row.hex }] : [];
+      })
+    : [];
+  return { ...next, palette: was };
+}
+
 async function liveDressCode(eventId: string): Promise<unknown> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('events').select('dress_code_config').eq('event_id', eventId).maybeSingle();
@@ -247,7 +265,7 @@ export async function updateDressCode(
     const drafted = await draftedEventColumn(eventId, 'dress_code_config');
     let base: unknown = drafted.drafted ? drafted.value : null;
     if (!drafted.drafted) base = await liveDressCode(eventId);
-    const config = withSecondPicksCarried(built, base);
+    const config = withPaletteCarried(withSecondPicksCarried(built, base), base, formData);
     return draftEventsAndReturn(
       eventId,
       { dress_code_config: config },
@@ -258,7 +276,8 @@ export async function updateDressCode(
 
   // ----- Persist ----------------------------------------------------------
   const supabase = await createClient();
-  const config = withSecondPicksCarried(built, await liveDressCode(eventId));
+  const live = await liveDressCode(eventId);
+  const config = withPaletteCarried(withSecondPicksCarried(built, live), live, formData);
   const { data: written, error } = await supabase
     .from('events')
     .update({

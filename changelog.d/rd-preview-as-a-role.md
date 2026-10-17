@@ -19,3 +19,13 @@ to wear, the figure and the palette draw exactly what that role's guest reads.
 Guard: `apps/web/lib/a-role-preview-is-that-roles-sample.test.ts` (sabotaged five ways, each caught).
 
 SPEC IMPACT: None — extends See as ▾ (PR-10); the 2026-09-14 "a generic guest, never a real named one" ruling holds.
+
+## 2026-10-17 · fix(dress-code): "You are Father of the Bride" — a parent named per person
+
+The Dress code's "You are …" line said "Parents of the Bride" to one father. Its one label source,
+`resolveGuestDressCode` (`lib/role-dress-code.ts`), now asks the entourage's own per-person resolver
+(`kinWordOfReader`, `lib/entourage.ts`: title → attire → "Parent of the …"; a couple's rename wins), fed the
+reader's own title, shown name and attire (`guestNameParts` from `site-body.tsx`). Real guests and the Role ▾
+preview alike. Guard: `lib/a-role-preview-is-that-roles-sample.test.ts`.
+
+SPEC IMPACT: None — follows the owner's per-person parent ruling (#6598).

@@ -238,6 +238,10 @@ export async function adoptSeatSessionAction(eventId: string): Promise<void> {
   await setGuestSession({ guest_id: seat.guestId, event_id: eventId, qr_token: seat.qrToken });
 }
 
+/** What a reply save reads of the guest before it writes — and again, if another save landed in between. */
+const REPLY_BEFORE_COLUMNS =
+  'rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles, updated_at';
+
 export async function submitRsvp(
   eventId: string,
   guestId: string,
@@ -449,7 +453,7 @@ export async function submitRsvp(
   // draft of this very note turned the guard red.
   const { data: before } = await admin
     .from('guests')
-    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles')
+    .select(REPLY_BEFORE_COLUMNS)
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -524,43 +528,73 @@ export async function submitRsvp(
   const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
   const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
 
-  const { error } = await admin
-    .from('guests')
-    .update({
-      // The count is frozen: the stored answer is left exactly as it is.
-      ...(replyLocked
-        ? {}
-        : {
-            rsvp_status: status,
-            // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
-            // is `defaultValue=`, so a guest correcting their phone number
-            // reposts the answer they already gave — and this used to restamp
-            // it as though they had just replied. The host's twin of this bug
-            // was fixed the same day; this is the guest-side one.
-            // An unchanged answer keeps its own date, INCLUDING null: stamping
-            // an untouched answer invents one.
-            // ⚖ A failed `before` read stamps, deliberately — a stale date is
-            // wrong, a deleted date is gone.
-            rsvp_responded_at:
-              status === 'attending' || status === 'declined'
-                ? before?.rsvp_status === status
-                  ? ((before?.rsvp_responded_at as string | null) ?? null)
-                  : new Date().toISOString()
-                : null,
-          }),
-      meal_preference: mealToWrite,
-      dietary_restrictions: dietaryToWrite,
-      guest_note: guestNoteToWrite,
-      // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
-      // phone number corrected the week of the event is worth more then than
-      // at any other time.
-      // 📵 No `email` here — the reply does not collect one (see above).
-      mobile: mobileToWrite,
-      display_name: contactName,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId);
+  /*
+    🔁 TWO SAVES AT ONCE TELL THE COUPLE ONCE (event-day L1·6). Two submits of
+    this reply (a double tap, a retry after a lost answer, two tabs) each read
+    `before` while it still held the OLD answer, so each decided "it changed"
+    and the couple got two "replied" notices. The write therefore asks whether
+    the row is STILL the one that was read — `updated_at` as read — and when it
+    is not (somebody saved in between), the row is read again and THAT is what
+    this save is compared against, then written as before. The guest's answer
+    always lands; only the report of what moved is decided by the write.
+    A failed `before` read has no stamp to ask with: written unconditionally,
+    as it always was.
+  */
+  const beforeStamp = ((before as { updated_at?: string | null } | null)?.updated_at ?? null) || null;
+  const writeReply = (ifStillAt: string | null) => {
+    const row = admin
+      .from('guests')
+      .update({
+        // The count is frozen: the stored answer is left exactly as it is.
+        ...(replyLocked
+          ? {}
+          : {
+              rsvp_status: status,
+              // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
+              // is `defaultValue=`, so a guest correcting their phone number
+              // reposts the answer they already gave — and this used to restamp
+              // it as though they had just replied. The host's twin of this bug
+              // was fixed the same day; this is the guest-side one.
+              // An unchanged answer keeps its own date, INCLUDING null: stamping
+              // an untouched answer invents one.
+              // ⚖ A failed `before` read stamps, deliberately — a stale date is
+              // wrong, a deleted date is gone.
+              rsvp_responded_at:
+                status === 'attending' || status === 'declined'
+                  ? before?.rsvp_status === status
+                    ? ((before?.rsvp_responded_at as string | null) ?? null)
+                    : new Date().toISOString()
+                  : null,
+            }),
+        meal_preference: mealToWrite,
+        dietary_restrictions: dietaryToWrite,
+        guest_note: guestNoteToWrite,
+        // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
+        // phone number corrected the week of the event is worth more then than
+        // at any other time.
+        // 📵 No `email` here — the reply does not collect one (see above).
+        mobile: mobileToWrite,
+        display_name: contactName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    return (ifStillAt ? row.eq('updated_at', ifStillAt) : row).select('guest_id');
+  };
+  let { data: wrote, error } = await writeReply(beforeStamp);
+  if (!error && beforeStamp && before && (wrote ?? []).length === 0) {
+    // Somebody saved this row between the read and the write — most often this
+    // same reply, sent twice. Compare against what is there NOW, then write.
+    const { data: now_, error: againErr } = await admin
+      .from('guests')
+      .select(REPLY_BEFORE_COLUMNS)
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (againErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guests.select(reply re-read)', againErr);
+    if (now_) Object.assign(before, now_);
+    ({ data: wrote, error } = await writeReply(null));
+  }
 
   if (error) {
     await insertFaultLog({

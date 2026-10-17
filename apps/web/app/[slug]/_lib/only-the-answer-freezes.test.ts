@@ -497,11 +497,14 @@ test('🔴 the guest-side restamp was fixed too, not just the host one', () => {
   assert.match(expr, /before\?\.rsvp_status === status/, 'an unchanged answer is restamped as a fresh reply');
   assert.match(expr, /before\?\.rsvp_responded_at/, 'an unchanged answer does not keep its own date');
   // …and the value it leans on must actually be selected.
+  // (2026-10-18, event-day L1·6: the column list became `REPLY_BEFORE_COLUMNS`, read
+  // once before the write and again if another save landed in between.)
   assert.match(
     src,
-    /\.select\('rsvp_status, rsvp_responded_at,/,
+    /const REPLY_BEFORE_COLUMNS =\s*'rsvp_status, rsvp_responded_at,/,
     'the prior date is not read — the expression above reads undefined',
   );
+  assert.match(src, /const \{ data: before \} = await admin\s*\.from\('guests'\)\s*\.select\(REPLY_BEFORE_COLUMNS\)/);
 });
 
 test('every reported change produces a sentence, and no branch is neutered', () => {

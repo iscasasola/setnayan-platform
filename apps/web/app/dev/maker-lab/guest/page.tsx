@@ -73,7 +73,7 @@ import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
 import { coverSceneLayer } from '@/app/[slug]/_lib/cover-scene-layer';
-import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { hubMovingBackgroundIds, type HubCoverGround } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
@@ -197,6 +197,22 @@ const LAB_PLATE_PHOTO = '/std/backgrounds/ballroom.webp';
 function labCoverPhoto(g: { kind: string; media?: string } | null | undefined): string | null {
   if (!g || g.kind !== 'photo') return null;
   return (g.media && LAB_SIGNED[g.media]) || LAB_COVER_PHOTO;
+}
+
+/**
+ * 🖼 The Cover Scene's layer as the real page lays it (`coverSceneLayer`) — and, for the couple's own CLIP, its still
+ * and its file from the lab's local stand-ins (`LAB_SIGNED`: the lab has no public media host, so the real resolver
+ * finds neither and the cover would fall back to The theme's own). The veil, scrim and tone are the real resolver's,
+ * worked out for the same ground as a photo (a clip and a photo are measured alike, `coverGroundSamples`).
+ */
+function labCoverLayer(g: HubCoverGround | undefined) {
+  const layer = coverSceneLayer(g, { heroPhotoUrl: labCoverPhoto(g), loopMedia: labLoopMedia });
+  if (g?.kind !== 'snippet') return layer;
+  const still = (g.poster && LAB_SIGNED[g.poster]) || null;
+  const clip = LAB_SIGNED[g.media] ?? null;
+  if (!still && !clip) return layer;
+  const asPhoto = coverSceneLayer({ kind: 'photo', media: g.media, ...(g.shade !== undefined ? { shade: g.shade } : {}) }, { heroPhotoUrl: still ?? clip });
+  return asPhoto ? { ...asPhoto, still, clip, parallax: false } : layer;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -528,7 +544,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       design={heroDesignOf(heroCanvas)}
       /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
          loops wear the stand-in files the Maker lab's Look rows use. */
-      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: labCoverPhoto(heroCanvas.ground), loopMedia: labLoopMedia })}
+      ground={labCoverLayer(heroCanvas.ground)}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={

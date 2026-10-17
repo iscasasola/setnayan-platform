@@ -96,7 +96,12 @@ test("3 · the part's own page takes the exit it already had", () => {
   assert.match(ALL, /const groups = \(await partDoorHidden\(admin, event\.event_id, 'entourage'\)\) \? \[\] : castGroups;/);
   assert.match(ALL, /\{groups\.length > 0 \? \(\s*<EntourageSection groups=\{groups\} \/>/);
   // Live: the wall's data closes with the block — and closes on a failed read.
-  assert.match(src('app/[slug]/live-wall/route.ts'), /if \(await partDoorHidden\(admin, event\.event_id, 'live'\)\.catch\(\(\) => true\)\) \{\s*return NextResponse\.json\(\{ error: 'not_found' \}, \{ status: 404 \}\);/);
+  // (2026-10-18, live-day polling: the feed answers through ONE shared answer per event, and a closed answer is
+  // answered to that phone only — `notRemembered(NOT_FOUND)`, NOT_FOUND being the same 404 — so a failed read here
+  // can never become every phone's "closed". lib/live-day-answers-are-shared.test.ts holds that half.)
+  const WALL = src('app/[slug]/live-wall/route.ts');
+  assert.match(WALL, /if \(await partDoorHidden\(admin, event\.event_id, 'live'\)\.catch\(\(\) => true\)\) \{\s*return notRemembered\(NOT_FOUND\);/);
+  assert.match(WALL, /const NOT_FOUND: WallAnswer = \{ status: 404, body: \{ error: 'not_found' \} \};/);
 });
 
 test('4 · the Day hub: its seat card, gift door, stream, wall and camera ask — at the stage the hub resolved', () => {

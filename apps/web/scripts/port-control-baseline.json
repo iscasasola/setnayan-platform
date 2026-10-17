@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "62647a981a",
+  "generatedFromRef": "48b3190c6",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6569,
+  "blocks": 6571,
   "routes": {
     "/": {
       "files": [
@@ -1402,6 +1402,7 @@
         "ReplySending.Provider",
         "ReplySubmit",
         "ReplyWindowNote",
+        "RequestKeyInput",
         "RevealFeatures",
         "RevealMount",
         "RevealOverlay",
@@ -1632,9 +1633,9 @@
       "blocks": [
         "EntrancePos",
         "Link",
-        "LiveRefresher",
         "Logo",
         "PromptCard",
+        "PulsedLiveRefresher",
         "RoomFooter",
         "SeatsShowOnTheDay",
         "Shell",
@@ -1935,11 +1936,11 @@
         "EventMonogramBadge",
         "GuestPushPrompt",
         "Link",
-        "LiveRefresher",
         "Logo",
         "PersonalPass",
         "PromptCard",
         "PublicTableView",
+        "PulsedLiveRefresher",
         "RoomFooter",
         "SeatCouldNotLoad",
         "SeatPassShell",
@@ -11159,6 +11160,7 @@
         "JoinShell",
         "Link",
         "RequestForm",
+        "RequestKeyInput",
         "RequestSentScreen",
         "StartOver",
         "SubmitButton"

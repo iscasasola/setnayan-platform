@@ -81,6 +81,10 @@ const GUEST_FACING: Record<string, GuestRead> = {
     why: 'loadRunOfShowMoments — the moments a guest’s arranged Story pages are grouped under (lib/story-pages.ts), shared with the editor so the two agree. Service-role.',
     reads: 1,
   },
+  'lib/event-pulse.server.ts': {
+    why: 'the day-of "has anything changed?" stamp the guests’ hub, seat and find-seat pages poll (live-day polling, 2026-10-18) — only a stamp leaves it, but it must move only for lines a guest may see. Service-role.',
+    reads: 1,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,

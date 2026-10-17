@@ -307,3 +307,113 @@ test('3 · the announcement: one read per event, the writer forgets it BEFORE th
   assert.match(card, /herdDelay\(PING_SPREAD_MS\)/, 'every phone asks the instant the ping lands');
   assert.match(card, /const pull = async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/, 'a pocketed phone asks every 45 s again');
 });
+
+// ── 2b · "has anything changed?" — the pulse that replaced the 45 s full re-render ──────────────
+
+const EV = '22222222-2222-4222-8222-222222222222';
+const ANA = '33333333-3333-4333-8333-333333333333';
+async function pulseOf(over: Partial<Parameters<typeof import('./event-pulse-stamp').pulseFromRows>[0]> = {}) {
+  const { pulseFromRows } = await import('./event-pulse-stamp');
+  return pulseFromRows({
+    event: { event_id: EV, slug: 'maria', panood_watch_url: null, manual_phase: 'event', updated_at: '2026-10-18T01:00:00Z', last_kwento_notify_at: null },
+    clock: { day: 'live', stage: 'event' },
+    blocks: [{ block_id: 'b1', run_state: 'live' }, { block_id: 'b2', run_state: 'upcoming' }],
+    seats: [{ guest_id: ANA, table_id: 't7' }],
+    tables: [{ table_id: 't7', table_label: 'Table 7' }],
+    floor: [{ published_at: '2026-10-01T00:00:00Z' }],
+    hero: [],
+    arrivals: [],
+    tags: [],
+    ...over,
+  });
+}
+
+test('2b · the stamp moves for what guests see, and only for that', async () => {
+  const base = await pulseOf();
+  assert.equal((await pulseOf()).v, base.v, 'the same event stamped twice gave two answers — every phone would re-draw every poll');
+  // Same rows in another order: the same answer.
+  assert.equal((await pulseOf({ blocks: [{ block_id: 'b2', run_state: 'upcoming' }, { block_id: 'b1', run_state: 'live' }] })).v, base.v);
+  // An advance, a reseat, a renamed table, a new watch link, the clock crossing into "after": each moves it.
+  for (const [what, over] of [
+    ['an advance', { blocks: [{ block_id: 'b1', run_state: 'done' }, { block_id: 'b2', run_state: 'live' }] }],
+    ['a reseat', { seats: [{ guest_id: ANA, table_id: 't8' }] }],
+    ['a renamed table', { tables: [{ table_id: 't7', table_label: 'Sampaguita' }] }],
+    ['a watch link', { event: { event_id: EV, slug: 'maria', panood_watch_url: 'https://youtu.be/x', manual_phase: 'event', updated_at: '2026-10-18T01:00:00Z', last_kwento_notify_at: null } }],
+    ['the day ending', { clock: { day: 'post', stage: 'editorial' } }],
+    ['the floor plan withdrawn', { floor: [] }],
+  ] as const) {
+    assert.notEqual((await pulseOf(over as never)).v, base.v, `${what} did not move the stamp — guests would never see it`);
+  }
+  // Bookkeeping columns that change with nothing on screen do not.
+  assert.equal(
+    (await pulseOf({ event: { event_id: EV, slug: 'maria', panood_watch_url: null, manual_phase: 'event', updated_at: '2026-10-18T09:09:09Z', last_kwento_notify_at: '2026-10-18T09:00:00Z' } })).v,
+    base.v,
+    'a Kwento notification stamp re-drew every phone at the venue',
+  );
+});
+
+test('2b · an arrival or a photo tag is PER GUEST — it never moves the event stamp', async () => {
+  const { guestPulseKey } = await import('./event-pulse-stamp');
+  const base = await pulseOf();
+  const arrived = await pulseOf({
+    arrivals: [{ guest_id: ANA, checked_in_at: '2026-10-18T10:00:00Z' }],
+    tags: [{ guest_id: ANA, created_at: '2026-10-18T10:05:00Z', removed_at: null }],
+  });
+  assert.equal(arrived.v, base.v, 'an arrival moved the event stamp — every phone would re-draw at every arrival all evening');
+  const key = guestPulseKey(EV, ANA);
+  assert.equal(arrived.g[key], '2026-10-18T10:05:00Z', 'the guest’s own latest change is not listed under their key');
+  assert.ok(!JSON.stringify(arrived).includes(ANA), 'a guest id left the server — keys must be one-way');
+  assert.notEqual(guestPulseKey('another-event', ANA), key, 'one guest’s key is the same across events');
+});
+
+test('2b · the phone re-draws on a moved stamp or its OWN change after the render — once', async () => {
+  const { pulseSaysRefresh } = await import('./event-pulse');
+  const { guestPulseKey } = await import('./event-pulse-stamp');
+  const key = guestPulseKey(EV, ANA);
+  const base = { v: 'v1', guestKey: key, renderedAt: '2026-10-18T10:00:00Z' };
+  const none = new Set<string>();
+  assert.equal(pulseSaysRefresh(base, { v: 'v1', g: {} }, none).refresh, false, 'nothing changed and the page re-drew');
+  assert.equal(pulseSaysRefresh(base, { v: 'v2', g: {} }, none).refresh, true, 'the event changed and the page did not re-draw');
+  assert.equal(pulseSaysRefresh(base, { v: 'v2', g: {} }, new Set(['v:v2'])).refresh, false, 'the same change re-drew twice');
+  assert.equal(pulseSaysRefresh(base, { v: 'v1', g: { [key]: '2026-10-18T10:01:00Z' } }, none).refresh, true, 'the guest arrived and their page did not move');
+  assert.equal(pulseSaysRefresh(base, { v: 'v1', g: { [key]: '2026-10-18T09:30:00Z' } }, none).refresh, false, 'a change already in the page re-drew it');
+  assert.equal(pulseSaysRefresh(base, { v: 'v1', g: { other: '2026-10-18T10:01:00Z' } }, none).refresh, false, 'another guest’s arrival re-drew this page');
+  assert.equal(pulseSaysRefresh({ ...base, guestKey: null }, { v: 'v1', g: { [key]: '2026-10-18T10:01:00Z' } }, none).refresh, false);
+});
+
+test('2b · the pulse is one remembered answer per event; a closed event asks the page’s own door', () => {
+  const server = read('lib/event-pulse.server.ts');
+  assert.match(server, /rememberedLiveRead\(`event-pulse-v\d+:\$\{key\}`, key, \(\) => readPulse\(key\)\)/);
+  assert.match(server, /\.from\('guest_checkins'\)[\s\S]{0,120}\.gte\('checked_in_at', since\)/, 'arrivals are read whole — they must be the recent window only');
+  const route = read('app/[slug]/live-pulse/route.ts');
+  assert.match(route, /if \(!pulse\.openToStrangers && !\(await canViewSlugEvent\(pulse\.eventId, pulse\.visibility\)\)\)/);
+  assert.match(route, /pulse\.openToStrangers \? EDGE_CACHE : 'private, no-store'/, 'a closed event’s answer reached the shared edge cache');
+  assert.match(route, /catch \{\s*return NextResponse\.json\(\{ error: 'unavailable' \}, \{ status: 503/, 'a refused pulse must be an outage, never "nothing changed"');
+});
+
+test('2b · the phone asks only while visible on the day, spaced, and a broken pulse falls back to a full refresh', () => {
+  const hook = read('lib/use-event-pulse.ts');
+  assert.match(hook, /if \(!isEventDayActive\(eventDate\) \|\| document\.visibilityState !== 'visible'\) return;/);
+  assert.match(hook, /jittered\(PULSE_POLL_MS\)/);
+  assert.match(hook, /herdDelay\(PULSE_REFRESH_SPREAD_MS\)/, 'every phone at the venue re-draws in the same instant');
+  assert.match(hook, /if \(misses >= PULSE_MISSES_BEFORE_REFRESH\) \{\s*misses = 0;\s*redraw\(null\);/, 'a broken pulse would freeze the page');
+  assert.match(hook, /if \(away > PULSE_AWAY_MS && isEventDayActive\(eventDate\)\) redraw\(null\);/);
+});
+
+test('2b · the guests’ day-of pages use the pulse; the 45 s re-render runs only without a baseline', () => {
+  const shell = read('app/[slug]/_components/hub/hub-shell.tsx');
+  assert.match(shell, /useEventPulse\(slug, eventDate, pulse, \(\) => router\.refresh\(\)\);\s*useDayOfLiveTick\(slug && pulse \? null : eventDate, \(\) => router\.refresh\(\)\);/);
+  const hub = read('app/[slug]/hub/page.tsx');
+  assert.match(hub, /slug=\{event\.slug \?\? slug\}\s*pulse=\{await pulseAhead\}/, 'the hub no longer hands its phone a baseline — back to a full render every 45 s');
+  const refresher = read('app/_components/live-refresher.tsx');
+  assert.match(refresher, /useDayOfLiveTick\(pulsed \? null : eventDate,/);
+  for (const page of ['app/[slug]/seat/page.tsx', 'app/[slug]/find-my-table/page.tsx']) {
+    const src = read(page);
+    assert.match(src, /<PulsedLiveRefresher/, `${page} re-renders every 45 s again`);
+    assert.doesNotMatch(src, /<LiveRefresher eventDate=/, `${page} still mounts the bare 45 s refresher`);
+  }
+  const findSeat = read('app/[slug]/find-seat/page.tsx');
+  assert.equal((findSeat.match(/pulseBaseline\(slug, null, renderedAt\)/g) ?? []).length, 2, 'find-seat: both the refresher and the name search take the baseline');
+  const search = read('app/[slug]/find-seat/_components/name-search.tsx');
+  assert.match(search, /useEventPulse\(slug, eventDate, pulse, requery\);\s*useDayOfLiveTick\(eventDate && !pulse \? eventDate : null, requery\);/);
+});

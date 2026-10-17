@@ -61,15 +61,16 @@ export async function rememberedLiveRead<T>(
   load: () => Promise<T>,
   seconds: number = LIVE_DAY_SECONDS,
 ): Promise<T> {
-  let loadSettled: 'no' | 'threw' | 'not-remembered' = 'no';
-  let loadError: unknown;
+  // A holder, not two `let`s: the loader runs inside the cache's closure, and a narrowed `let` would read as still
+  // 'no' to the compiler at the checks below.
+  const outcome: { settled: 'no' | 'threw' | 'not-remembered'; error: unknown } = { settled: 'no', error: undefined };
   const remembered = unstable_cache(
     async () => {
       try {
         return await load();
       } catch (error) {
-        loadSettled = isNotRemembered(error) ? 'not-remembered' : 'threw';
-        loadError = error;
+        outcome.settled = isNotRemembered(error) ? 'not-remembered' : 'threw';
+        outcome.error = error;
         throw error;
       }
     },
@@ -79,8 +80,8 @@ export async function rememberedLiveRead<T>(
   try {
     return await remembered();
   } catch (error) {
-    if (loadSettled === 'not-remembered') return (loadError as NotRemembered<T>).value;
-    if (loadSettled === 'threw') throw loadError;
+    if (outcome.settled === 'not-remembered') return (outcome.error as NotRemembered<T>).value;
+    if (outcome.settled === 'threw') throw outcome.error;
     // The cache machinery failed (or no data cache — plain node): ask directly, once.
     try {
       return await load();

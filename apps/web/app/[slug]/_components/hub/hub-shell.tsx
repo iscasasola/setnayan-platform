@@ -27,8 +27,10 @@
  * area top) + the panel region (the only scrollable area, for a long Schedule)
  * + the bottom toggle menu (safe-area bottom). The PAGE never scrolls.
  *
- * REALTIME. `useDayOfLiveTick` re-runs the server component (router.refresh)
- * on a quiet cadence + on tab-focus while the wedding day is active — the
+ * REALTIME. `useEventPulse` re-runs the server component (router.refresh)
+ * when the event's shared "has anything changed?" answer moves (2026-10-18;
+ * `useDayOfLiveTick`'s 45 s refresh when the page has no pulse baseline)
+ * while the wedding day is active — the
  * pull-only "live propagation" the rest of the day-of surfaces already use, so
  * "everything shows in realtime" without any push/socket infra. The active
  * panel (client state) survives the refresh.
@@ -89,6 +91,8 @@ import {
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
+import { useEventPulse } from '@/lib/use-event-pulse';
+import type { PulseBaseline } from '@/lib/event-pulse';
 import type { NavSlot } from '../../_lib/site-nav';
 import {
   HUB_PAGE_ATTR,
@@ -138,6 +142,10 @@ type HubStageProps = {
   frame?: 'stage';
   /** Event date (drives the realtime tick; inert outside the wedding day). */
   eventDate: string | null;
+  /** 🧯 The event's address + the pulse baseline the page was drawn under (`pulseBaseline`). With both, the hub re-draws
+   *  only when something changed (`useEventPulse`); without, it keeps the 45 s refresh. */
+  slug?: string | null;
+  pulse?: PulseBaseline | null;
   /** Slim signature header (monogram / names + live badge), server-rendered. */
   header: ReactNode;
   now: ReactNode;
@@ -197,6 +205,8 @@ function useTabAddress(keys: readonly string[], onePage = false) {
 
 function HubStageFrame({
   eventDate,
+  slug = null,
+  pulse = null,
   header,
   now,
   watch,
@@ -210,7 +220,12 @@ function HubStageFrame({
   // Pull-only realtime: re-read current truth on a quiet cadence while the
   // wedding day is active + the tab is visible (no push/socket). The active
   // panel is local state, so it survives the server refresh.
-  useDayOfLiveTick(eventDate, () => router.refresh());
+  // 🧯 2026-10-18: with a pulse baseline the hub asks "has anything changed?"
+  // (one shared answer per event, every ~15 s) and re-draws only on a change —
+  // it used to re-render the whole hub (~32 database reads) every 45 s per phone.
+  // No baseline → the 45 s refresh, exactly as before.
+  useEventPulse(slug, eventDate, pulse, () => router.refresh());
+  useDayOfLiveTick(slug && pulse ? null : eventDate, () => router.refresh());
 
   const panels: Record<HubPanelKey, ReactNode | null> = {
     now,

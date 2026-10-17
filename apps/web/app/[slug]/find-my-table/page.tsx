@@ -19,7 +19,7 @@ import {
 } from '@/lib/indoor-blueprint';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
-import { LiveRefresher } from '@/app/_components/live-refresher';
+import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your table' };
@@ -184,7 +184,11 @@ export default async function FindMyTablePage({ params }: Props) {
     <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
       {/* Day-of: silently re-pull this guest's assignment so a live reseat
           re-lights the map without a manual reload (seat-finding PR 5). */}
-      <LiveRefresher eventDate={event.event_date as string | null} />
+      <PulsedLiveRefresher
+        slug={slug}
+        eventDate={event.event_date as string | null}
+        guest={{ eventId: event.event_id as string, guestId: session.guest_id }}
+      />
       <div className="space-y-5">
         <header className="space-y-2 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">

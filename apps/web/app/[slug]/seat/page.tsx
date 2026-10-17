@@ -24,7 +24,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
-import { LiveRefresher } from '@/app/_components/live-refresher';
+import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
@@ -610,7 +610,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null}>
+    <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null} pulseGuest={{ eventId: event.event_id, guestId: guest.guest_id }}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -715,11 +715,14 @@ function SeatPassShell({
   eventDate,
   roomLinks,
   avatarHref = null,
+  pulseGuest = null,
   children,
 }: {
   displayName: string;
   slug: string;
   eventDate: string | null;
+  /** The seated guest, when this state shows their pass — their own arrival re-draws it (live-day polling). */
+  pulseGuest?: { eventId: string; guestId: string } | null;
   /** THE SECOND DOOR into the avatar maker (owner 2026-09-06). The venue page's
    *  header link was the only one; a guest who opens their seat pass and never
    *  the 3D room never learned they could make an avatar. Null → no link (the
@@ -734,7 +737,7 @@ function SeatPassShell({
     <main className="min-h-dvh bg-cream text-ink">
       {/* Day-of: when a coordinator reseats a guest during the reception, poll for
           the new table so the Seat Pass matches find-my-table (renders null). */}
-      <LiveRefresher eventDate={eventDate} />
+      <PulsedLiveRefresher slug={slug} eventDate={eventDate} guest={pulseGuest} />
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex min-h-[44px] items-center gap-2 text-ink">

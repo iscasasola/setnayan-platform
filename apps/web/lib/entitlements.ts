@@ -1281,7 +1281,11 @@ function entitlementFactsOnce(supabase: SupabaseClient, eventId: string): Promis
   return askedOnce(supabase, 'entitlement-facts', [eventId], async () => {
     try {
       const { data, error } = await supabase.rpc('event_entitlement_facts', { p_event_id: eventId });
-      if (error) return null;
+      if (error) {
+        // Each fact is then asked the old way — the render loses a request, not an answer.
+        console.error('[supabase-error] entitlements: event_entitlement_facts', error);
+        return null;
+      }
       return entitlementFactsFrom(data);
     } catch {
       return null;

@@ -215,7 +215,12 @@ function theOneEventRead(admin: AdminClient, slug: string) {
 async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eventId: string; rev: number } | null> {
   try {
     const { data, error } = await admin.rpc('event_public_stamp', { p_slug: slug });
-    if (error || !Array.isArray(data) || data.length !== 1) return null;
+    if (error) {
+      // Not a failure of the page: it reads the row directly, as it always did — but on the record.
+      logQueryError('loadEventShell stamp', error, { slug }, 'graceful_degrade');
+      return null;
+    }
+    if (!Array.isArray(data) || data.length !== 1) return null;
     const row = data[0] as { event_id?: unknown; rev?: unknown };
     const rev = typeof row.rev === 'string' ? Number(row.rev) : row.rev;
     if (typeof row.event_id !== 'string' || typeof rev !== 'number' || !Number.isSafeInteger(rev)) return null;

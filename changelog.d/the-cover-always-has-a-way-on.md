@@ -15,7 +15,10 @@ the photo cover stands in the page's first group and the door in the next, so th
   Booking'"*), `STRANGER_DOOR_WORDS`; its sub-line and what it opens are unchanged. `inFoot`: no first-screen fit
   around a door already at the cover's foot (an opened door is still brought into view). The seat page's link to the
   door says the same words.
-- `lib/cover-scene.ts`: the foot clears the first-visit cookie notice while it is up (`--cookie-banner-top`).
+- `globals.css`: the cover's first screen ends above the first-visit cookie notice while it is up
+  (`--cover-scene-above: var(--cookie-banner-top, 0px)`), so the foot is not under it; and on a dark ground (cream
+  tone) the foot's framed button keeps a dark label — the guest's "Confirm attendance" and the door were drawn as
+  blank white-on-paper pills (walked on a `#3a4a5a` ground).
 - Guard: `app/[slug]/_components/the-cover-always-has-a-way-on.test.ts` — rendered, every viewer: every cover ends in
   its foot, the foot holds the door XOR the RSVP button plus the hint, the door is a veil line, never twice.
 

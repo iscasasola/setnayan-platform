@@ -7055,6 +7055,14 @@ html:active-view-transition .sn-page-enter { animation: none; }
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
 }
+/* 🔘 …AND ON A DARK GROUND THE FOOT'S BUTTON KEEPS ITS LABEL (2026-10-17, walked on a `#3a4a5a` ground at 375 and
+   1280). The cream tone repaints `--color-mulberry` as the paper (`COVER_SCENE_CREAM_VARS`, so a framed button reads
+   as a light pill on the dark ground) — but `.button-primary`'s label is `text-cream`, white: the guest's "Confirm
+   attendance" and the stranger's "Confirm your Booking" were drawn as BLANK pills, white on paper. Here the label is
+   the espresso ink (#2C2A29 on the paper #FBFAF7, 13.8:1) — the paper never follows the page's own theme. */
+header[data-cover-tone='cream'] [data-cover-foot] .button-primary {
+  color: rgb(44 42 41);
+}
 
 /* ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16, DECISION_LOG "APPROVED — SIX NEW EFFECTS: WORD BY WORD · SPREAD ·
    GLOW (TEXT), DEVELOP · CURTAIN · LIGHT LEAK (PICTURES)"; prototype `text_image_effects_2026-10-16.html`). Pure CSS on
@@ -9480,7 +9488,10 @@ html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-st
 }
 html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-page-column] {
   padding-top: 0;
-  --cover-scene-above: 0px;
+  /* 🍪 The first screen ends ABOVE the first-visit cookie notice while it is up (`--cookie-banner-top`, 0 once
+     answered — the seam the door's old row used): the cover's foot — the RSVP button, or a stranger's one door
+     (owner 2026-10-17) — rests where it can be pressed, not under the notice. Answered, this is 0px as before. */
+  --cover-scene-above: var(--cookie-banner-top, 0px);
   --cover-scene-pad: 0px;
 }
 html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {

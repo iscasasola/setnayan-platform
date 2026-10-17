@@ -38,14 +38,8 @@ export const COVER_SCENE_CENTRED = `${COVER_SCENE_SCREEN} flex flex-col justify-
  * kept for the readers that still name it; no design draws it. Held by `lib/the-cover-scene-has-its-own-tools.test.ts`.
  */
 export const COVER_SCENE_UPPER = `${COVER_SCENE_SCREEN} flex flex-col justify-start pt-[clamp(36px,7svh,58px)]`;
-/**
- * The foot: the RSVP button — or, for a stranger, the page's one door (owner 2026-10-17) — and under it the "Swipe up
- * for the event" hint, at the bottom of the full screen. 🍪 Clear of the first-visit cookie notice while it is up
- * (`--cookie-banner-top`, 0 once answered — the seam the door's old row used, `--cover-door-rest`): a stranger's first
- * visit is exactly when the notice is up, and it would sit on the door.
- */
-export const COVER_SCENE_FOOT =
-  'mt-auto flex w-full flex-col items-center gap-3 self-stretch pt-8 pb-[max(14px,env(safe-area-inset-bottom),calc(var(--cookie-banner-top,0px)_+_8px))]';
+/** The foot: the RSVP button and under it the "Swipe up for the event" hint, at the bottom of the full screen. */
+export const COVER_SCENE_FOOT = 'mt-auto flex w-full flex-col items-center gap-3 self-stretch pt-8 pb-[max(14px,env(safe-area-inset-bottom))]';
 /** The attribute on the foot — the guard and the Maker find it by it. */
 export const COVER_FOOT_ATTR = 'data-cover-foot';
 /** The hint's words — "the event", never "website" (owner 2026-10-04 · 2026-10-16). */

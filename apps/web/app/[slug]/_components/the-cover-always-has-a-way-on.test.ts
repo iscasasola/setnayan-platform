@@ -91,3 +91,17 @@ test('the door that stands in the foot is not fitted around — the fit is only 
   assert.ok(door, 'anti-vacuity: no door');
   assert.ok(!door.split(' ').includes('sn-door-dock'), 'the door in the foot is docked — the first-screen fit would move the cover around a door already at its foot');
 });
+
+test('on a dark ground the foot’s framed button keeps a label you can read, and the foot rests above the cookie notice', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const css = readFileSync(join(__dirname, '..', '..', 'globals.css'), 'utf8');
+  // The cream tone repaints mulberry as the paper; `.button-primary`'s label is cream (white) — blank pill without this.
+  const rule = /header\[data-cover-tone='cream'\] \[data-cover-foot\] \.button-primary \{\s*color: ([^;]+);/.exec(css);
+  assert.ok(rule, 'no label colour for the foot’s button on a dark ground — "Confirm your Booking" is white on paper');
+  assert.doesNotMatch(rule![1]!, /cream|255 255 255|#fff/i, 'the foot’s button label is the same white as its paper');
+  const page = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), widgets: FULL });
+  assert.match(page.html, /<header [^>]*data-cover-tone="cream"[\s\S]*?<div data-cover-foot=""[\s\S]*?class="button-primary/, 'anti-vacuity: the dark-ground stranger cover has no framed button in its foot');
+  // The first screen ends above the first-visit notice while it is up: the cover's height subtracts it.
+  assert.match(css, /\[data-page-column\] \{[^}]*--cover-scene-above: var\(--cookie-banner-top, 0px\);/, 'the cover’s foot rests under the first-visit cookie notice');
+});

@@ -118,6 +118,6 @@ test('(5) Slow lift is offered where it moves something', () => {
   assert.equal(at({ kind: 'photo', media: 'r2://setnayan-media/a.jpg', arrangement: 'text' }), false, 'Words only draws no photo');
   const tab = read('app/dashboard/[eventId]/website/editor/_components/scene-animate-tab.tsx');
   assert.match(tab, /const liftMoves = hubLiftMoves\(shown\);\s*const lift = liftMoves \|\| \(shown\.during \?\? m\.during\) === 'lift';/);
-  assert.match(tab, /options: \(lift \? \(\['still', 'lift'\] as const\) : \(\['still'\] as const\)\)/);
+  assert.match(tab, /'still',\s*\.\.\.\(lift \? \(\['lift'\] as const\) : \[\]\),/);
   assert.match(tab, /note=\{!liftMoves && animatePhase === 'act' \? LIFT_NEEDS_A_PHOTO : null\}/);
 });

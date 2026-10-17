@@ -704,6 +704,16 @@ export const MAKER_ROW_SCENES: readonly string[] = [
   'gifts',
 ];
 
+/**
+ * 🖼 THE SCENES THAT DRAW PICTURES (owner 2026-10-17, "extend the effects to every text and picture part"): the Love
+ * Story's photos, the gallery, the photo moments, the venue's picture — so Animate offers Reveal ▾ (Plain · Develop ◆ ·
+ * Curtain ◆) and Light leak ◆ there (as on any scene with a photo behind its words, `hubLiftMoves`).
+ */
+export const MAKER_PICTURE_SCENES: readonly string[] = ['our_love_story', 'our_photos', 'photo_moments', 'venue_map'];
+export function makerSceneHasPictures(widgetType: string): boolean {
+  return MAKER_PICTURE_SCENES.includes(widgetType);
+}
+
 /** Does this scene's Build in offer Rows ▾? */
 export function makerSceneHasRows(widgetType: string): boolean {
   return MAKER_ROW_SCENES.includes(widgetType);

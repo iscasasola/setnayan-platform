@@ -16,6 +16,8 @@ import {
   hubElementHeroMotionVars,
   hubElementSceneCss,
   hubSceneRunsAttr,
+  hubSceneFxAttr,
+  HUB_SCENE_FX_ATTR,
   hubTextHash,
   isHubElementKey,
   readHubSceneRuns,
@@ -36,7 +38,7 @@ import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
-import { applyPartFxAttrs, replayPartFx, unwrapPartFx, wrapPartFx } from './part-fx-cut';
+import { applyPartFxAttrs, applySceneFx, replayPartFx, unwrapPartFx, wrapPartFx } from './part-fx-cut';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
@@ -383,7 +385,7 @@ export function applySceneElementStyles(
   const runs = hubSceneRunsAttr(elements);
   let tag = sceneStyleOf(section, widgetType);
   if (!tag) {
-    if (!css && !runs) return null;
+    if (!css && !runs && !hubSceneFxAttr(elements)) return null;
     tag = doc.createElement('style');
     tag.hidden = true;
     tag.setAttribute('data-hub-els', widgetType);
@@ -392,6 +394,10 @@ export function applySceneElementStyles(
   tag.textContent = css;
   if (runs) tag.setAttribute('data-hub-runs', runs);
   else tag.removeAttribute('data-hub-runs');
+  /* ✨ …and its parts' word effects, as the frame renders them (`hubSceneFxAttr`). */
+  const fx = hubSceneFxAttr(elements);
+  if (fx) tag.setAttribute(HUB_SCENE_FX_ATTR, fx);
+  else tag.removeAttribute(HUB_SCENE_FX_ATTR);
   return tag;
 }
 
@@ -453,8 +459,14 @@ export function applyElementPreview(
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
   applySceneElementStyles(section, scope, elements, doc);
+  /* ✨ The word effects' cut off first (the runs re-cut the words drawn now), then laid again over them — at once, the
+     couple is looking at the scene (`applySceneFx`). */
+  const cutNow = Boolean(section.querySelector('[data-el-w]') || section.querySelector('[data-el-sl]'));
+  const cutNext = hubSceneFxAttr(elements) !== null;
+  if (cutNow) applySceneFx(section, null, doc);
   // ✍ …and its runs, cut into the part they were made on (`applySceneRuns`).
   if (key.startsWith('w:') && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneRuns(section, elements, doc);
+  if (cutNext && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneFx(section, elements, doc);
   return parts;
 }
 

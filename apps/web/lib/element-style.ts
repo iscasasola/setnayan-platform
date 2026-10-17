@@ -718,9 +718,20 @@ export function hubElementShimmer(motion: HubElementMotion | null | undefined): 
    canvas re-cuts them on a pick (`app/[slug]/_components/part-fx-cut.ts`). Pro ◆ at Apply, named by
    `hubElementEffectNames`. Held by `lib/six-effects-finish-still-and-ask-pro.test.ts`. */
 
-/** Does this part take Words ▾ and Glow? A COVER part with words (it is cut server-side) — never the joiner (one word inside the title). */
+/**
+ * Does this part take Words ▾ and Glow? EVERY part that takes a Shimmer (owner 2026-10-17, "extend the effects to every
+ * text and picture part") — the cover's words cut server-side (`pahina-masthead.tsx`), a scene's label · heading · words
+ * cut in the browser as the scene nears the screen (`HubSceneFx`). Never the joiner: one word INSIDE the Event title,
+ * cut with the title's own words (`HUB_WORD_FX_NOT`).
+ */
+export const HUB_WORD_FX_NOT: Readonly<Partial<Record<HubElementKey, string>>> = {
+  joiner: 'One word inside the Event title — it is cut, and glows, with the title’s own words.',
+  /* 🕯 The closing's line takes Glow (`hubElementTakesGlow`) but not Words ▾ — cut server-side, a word-by-word arrival
+     would play on the clock at load, at the page's foot, out of sight (`lib/closing-line.ts`). */
+  closing: 'At the foot of the page — its words would arrive before a guest gets there. It can glow.',
+};
 export function hubElementTakesWordFx(key: HubElementKey): boolean {
-  return (HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(key) && key !== 'joiner' && hubElementTakesShimmer(key);
+  return hubElementTakesShimmer(key) && !(key in HUB_WORD_FX_NOT);
 }
 /**
  * Does this part take Glow? Every part that takes Words ▾ — and 🕯 the closing's line, cut server-side the same way
@@ -1937,6 +1948,30 @@ export function hubSceneRunsAttr(elements: HubElementStyles | null | undefined):
     const style = elements[key];
     if (!style?.runs?.length || !style.of) continue;
     out[key] = { runs: style.runs, of: style.of, ...(style.was !== undefined ? { was: style.was } : {}) };
+  }
+  return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
+}
+
+/**
+ * ✨ A SCENE'S WORD EFFECTS, AS THE PAGE CARRIES THEM (owner 2026-10-17, "extend the effects to every text and picture
+ * part") — Word by word · Spread · Glow on a scene's label · heading · words, per part: `{ motion: { words, during,
+ * speed, delay } }`. Rides on the scene's own `<style data-hub-els>` as `data-hub-word-fx` (`HubCanvasFrame`, Post Event's
+ * `PostEventSceneFrame`, the Maker's preview) and is cut into the words by `HubSceneFx` — read back through
+ * `readHubSceneRuns`, sanitized again. Null when no part of the scene has one.
+ */
+export const HUB_SCENE_FX_ATTR = 'data-hub-word-fx';
+export function hubSceneFxAttr(elements: HubElementStyles | null | undefined): string | null {
+  if (!elements) return null;
+  const out: Partial<Record<HubSceneElementKey, Pick<HubElementStyle, 'motion'>>> = {};
+  for (const key of HUB_SCENE_ELEMENT_KEYS) {
+    const m = elements[key]?.motion;
+    if (!m || !hubElementWordCut(elements[key])) continue;
+    const motion: HubElementMotion = {};
+    if (m.words) motion.words = m.words;
+    if (m.during === 'glow') motion.during = 'glow';
+    if (m.speed) motion.speed = m.speed;
+    if (m.delay) motion.delay = m.delay;
+    out[key] = { motion };
   }
   return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
 }

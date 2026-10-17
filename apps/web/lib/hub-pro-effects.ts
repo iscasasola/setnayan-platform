@@ -36,12 +36,12 @@ import { STAGE_SHOW_KEY, configWithStageShow } from '@/lib/stage-scenes';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sceneStyleSet, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
-import { HUB_ELEMENT_LABEL, hubElementEffectNames, type HubElementKey } from '@/lib/element-style';
+import { HUB_ELEMENT_LABEL, HUB_EL_REVEAL_LABEL, hubElementEffectNames, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS } from '@/lib/art-kit-pro';
 import { QR_STYLE_PREF_KEY } from '@/lib/qr-look';
 import { ACCENT_NONE, ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, resolvedAccent, sceneAccentsFromPreferences, type SceneAccents } from '@/lib/art-kit-accents';
-import { hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_DURING_LABEL, hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
   canvasLookFacets,
@@ -456,7 +456,10 @@ function canvasEffects(
                Curtain · Light leak), owner 2026-10-16: "all animate, effects, styles, accents are pro". */
             first.group === 'part-motion' && first.element && hubElementEffectNames(drafted.elements?.[first.element]?.motion).length > 0
             ? hubElementEffectNames(drafted.elements?.[first.element]?.motion).join(' · ')
-            : name.what;
+            : /* ✨ …and a scene's own on its pictures — Develop · Curtain · Light leak (owner 2026-10-17). */
+              first.group === 'motion' && sceneEffectNames(drafted, facets).length > 0
+              ? sceneEffectNames(drafted, facets).join(' · ')
+              : name.what;
     /* 🕯 The closing's line is stored on the hero row but is no part of the cover — named, and reached, as itself. */
     const closing = first.element === 'closing';
     const where = closing ? HUB_ELEMENT_LABEL.closing : first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
@@ -478,6 +481,15 @@ function canvasEffects(
       remove: { widgets: { [item.widgetType]: { canvas: without } } as HubDraftPatch['widgets'] },
     });
   }
+  return out;
+}
+
+/** ✨ The new effects a scene's own motion facets carry, by their own names (only where that facet is what changed). */
+function sceneEffectNames(drafted: HubSectionCanvas, facets: readonly CanvasLookFacet[]): string[] {
+  const keys = new Set(facets.map((f) => f.key));
+  const out: string[] = [];
+  if (keys.has('reveal') && drafted.reveal) out.push(HUB_EL_REVEAL_LABEL[drafted.reveal]);
+  if (keys.has('during') && drafted.during === 'leak') out.push(HUB_DURING_LABEL.leak);
   return out;
 }
 

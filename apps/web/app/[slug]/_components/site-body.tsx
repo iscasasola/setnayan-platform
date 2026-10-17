@@ -233,7 +233,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, ty
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
-import { coverRsvpOf } from '@/lib/cover-rsvp';
+import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
 import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
@@ -2053,11 +2053,38 @@ export async function SiteBody({
        door keeps its row below, as before. Held by `the-cover-always-has-a-way-on.test.ts`. */
     const coverHoldsDoor = plan.anonymousHeroBanner || !hasHeroMedia;
     const footDoor = coverHoldsDoor && doorShown ? strangerDoor(true) : null;
+    /* 🧭 …AND THE HOST'S OWN PAGE HAS ITS RSVP PART (owner 2026-10-17, *"confirm attendance is not doing anything?"* —
+       on cale-ice, signed in as its host). The host holds no guest pass, so the reply page sent them straight back to
+       `/{slug}` (307) and the tap reloaded the cover. Their page is a guest's (owner 2026-10-15): the Reply card stands
+       under the cover as a guest's does, the cover's button takes them to it, and the card's button opens the Reply
+       as the host's own preview of it (`?preview=draft`, the Maker's "Preview the whole stage" door — verified host
+       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button. */
+    const hostReplyCard =
+      viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
+        ? replyCardOf({
+            action: resolveArrivalAction({
+              slug: event.slug ?? '',
+              rsvpStatus: 'pending',
+              eventDate: event.event_date,
+              today: manilaToday(),
+              hasPass: false,
+              replyOpen: replyOpenHere,
+              rsvpHref: `${replyDoor}?preview=draft`,
+            }),
+            replyBy: null,
+            seats: 1,
+            solemn: clientWords.solemn,
+            window: repliesWindow,
+            organizer: clientWords.theOrganizer,
+          })
+        : null;
     const strangerCoverRsvp = footDoor
       ? null
-      : pageStage === 'rsvp' && plan.rsvpShouldRender
-        ? coverRsvpOf({ card: null, visitorHref: replyDoor })
-        : null;
+      : hostReplyCard
+        ? coverRsvpOf({ card: hostReplyCard, toPart: true })
+        : pageStage === 'rsvp' && plan.rsvpShouldRender && vendorCapability === null && !viewerIsHost
+          ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+          : null;
 
     return (
       <>
@@ -2203,6 +2230,8 @@ export async function SiteBody({
                   🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the door is the first screen's
                   own child and can dock above the bar. */}
               {coverHoldsDoor || viewerIsHost ? null : <div className="sn-door-row">{strangerDoor(false)}</div>}
+              {/* 🧭 The host's RSVP part — the Reply card a guest meets here (see `hostReplyCard`). */}
+              {hostReplyCard ? <ReplyCardRow card={hostReplyCard} partId={COVER_RSVP_PART} /> : null}
               </HubCoverHold>
               {/* 📜 One page: Home lands after the cover and its one door (see the guest tree). */}
               {onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
@@ -2756,8 +2785,10 @@ export async function SiteBody({
         : null;
     /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
        reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
-       meets it. While the cover holds it (shown), the Welcome's own Reply card under the cover is not drawn a second
-       time — one doorway, moved (Me keeps its card). */
+       meets it. 🧭 For a guest it TAKES them to the RSVP part (owner 2026-10-17, *"it is not going to the RSVP
+       part?"*): the Welcome's own Reply card stands under the cover again, as the page's RSVP part
+       (`COVER_RSVP_PART`), and the cover's button is an in-page link to it (`toPart`) — the cover lifts away, the page
+       moves down to the card, and the card's own button opens the shipped Reply. */
     const guestRsvp =
       pageStage !== 'rsvp'
         ? null
@@ -2765,8 +2796,7 @@ export async function SiteBody({
           ? plan.rsvpShouldRender
             ? coverRsvpOf({ card: null, visitorHref: replyDoor })
             : null
-          : coverRsvpOf({ card: replyCard });
-    const coverHoldsReply = guestRsvp !== null && !heroElements.elements?.rsvp?.hidden;
+          : coverRsvpOf({ card: replyCard, toPart: true });
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -3282,8 +3312,8 @@ export async function SiteBody({
             }
           >
 
-          {coverHoldsReply ? null : replyCard ? (
-            <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
+          {replyCard ? (
+            <ReplyCardRow card={replyCard} partId={COVER_RSVP_PART} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow
             action={arrivalAction}

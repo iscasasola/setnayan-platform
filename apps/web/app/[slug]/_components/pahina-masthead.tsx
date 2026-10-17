@@ -23,6 +23,7 @@ import { HUB_RSVP_DEFAULT_WORDS } from '@/lib/element-style';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
 import { COVER_LINE_ATTR, COVER_LINE_OWN } from '@/lib/hub-veil';
 import { COVER_SCENE_CREAM_VARS, CoverSceneGround } from './cover-scene-ground';
+import { CoverRsvpGoes } from './cover-rsvp-goes';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
@@ -420,6 +421,8 @@ export function PahinaMasthead({
       ) : (
         rsvpPart
       )}
+      {/* 🧭 The button takes the reader to the page's RSVP part (`lib/cover-rsvp.ts` `COVER_RSVP_PART`): a glide. */}
+      {!door && rsvp && 'href' in rsvp && rsvp.href.startsWith('#') ? <CoverRsvpGoes /> : null}
       <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 15l6-6 6 6" />

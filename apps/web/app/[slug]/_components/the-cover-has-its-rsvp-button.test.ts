@@ -118,7 +118,7 @@ test('(2) the RSVP button opens the shipped reply, and shows the three states', 
   // A visitor without a key: the stranger's ONE door stands IN the cover's foot, in the button's place (owner
   // 2026-10-17 — "Confirm your Booking", the passcode first) — never a second button beside it (owner 2026-09-26/27).
   // `the-cover-always-has-a-way-on.test.ts` holds the stranger's foot whole.
-  assert.match(body, /: coverRsvpOf\(\{ card: replyCard \}\);/, 'the guest’s button does not read their own Reply card');
+  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true \}\);/, 'the guest’s button does not read their own Reply card, or does not take them to it');
   assert.equal((body.match(/foot=\{false\}/g) ?? []).length, 0, 'a cover draws no foot — its first screen ends in nothing');
   assert.equal((body.match(/door=\{footDoor\}/g) ?? []).length, 2, 'a stranger’s cover does not hold its door in the foot');
   assert.equal((body.match(/rsvp=\{guestRsvp\}/g) ?? []).length, 2, 'a guest’s cover has no button');
@@ -152,8 +152,10 @@ test('(4) the hint says "Swipe up for the event", is no part, and nods only wher
   assert.match(read('app/globals.css'), /@keyframes cover-hint-nod/);
 });
 
-test('(5) one doorway — while the cover holds the button, the Welcome’s Reply card is not drawn again', () => {
+test('(5) the button TAKES the guest to the RSVP part — the Welcome’s Reply card, under the cover (owner 2026-10-17)', () => {
+  // Owner, on live cale-ice: "it is not going to the RSVP part?" — the card is the RSVP part again, and the cover's
+  // button is an in-page link to it (`the-cover-rsvp-reaches-its-action.test.ts` holds it whole).
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  assert.match(body, /const coverHoldsReply = guestRsvp !== null && !heroElements\.elements\?\.rsvp\?\.hidden;/);
-  assert.match(body, /\{coverHoldsReply \? null : replyCard \? \(\s*<ReplyCardRow/, 'the Reply card is drawn under a cover that already holds the button');
+  assert.doesNotMatch(body, /coverHoldsReply/, 'the Reply card is hidden again under a cover that holds the button — the button would lead nowhere');
+  assert.match(body, /\{replyCard \? \(\s*<ReplyCardRow card=\{replyCard\} partId=\{COVER_RSVP_PART\}/, 'the Reply card is not the page’s RSVP part');
 });

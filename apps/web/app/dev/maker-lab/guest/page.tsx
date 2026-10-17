@@ -52,7 +52,7 @@ import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
 import { replyCardOf } from '@/lib/guest-me-parts';
-import { coverRsvpOf } from '@/lib/cover-rsvp';
+import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
@@ -524,9 +524,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
      it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
   const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
+  /* 🧭 …and, as on the page, the button TAKES the guest to the RSVP part — the Reply card under the cover (owner
+     2026-10-17, *"it is not going to the RSVP part?"*); the Maker's own canvas keeps the doorway it always drew. */
+  const labReplyCard =
+    stageNow === 'rsvp'
+      ? replyCardOf({
+          action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+          replyBy: null,
+          seats: 1,
+          window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
+          organizer: 'the couple',
+        })
+      : null;
   const labRsvp =
     stageNow === 'rsvp'
       ? coverRsvpOf({
+          toPart: !makerCanvas,
           card: replyCardOf({
             action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
             replyBy: null,
@@ -729,6 +742,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>}
         />
       </div>
+    ) : which === 'rsvp' && labReplyCard ? (
+      /* 🧭 A guest's RSVP part — the Reply card the cover's button takes them to (`COVER_RSVP_PART`), as on the page. */
+      <section className="px-4 pb-8">
+        <ReplyCardRow card={labReplyCard} partId={COVER_RSVP_PART} />
+      </section>
     ) : null;
   /** A scene the sample has nothing in yet: its place on the Maker's canvas (`MakerEmptyScene`), nothing for a guest. */
   const emptyScene = (type: 'what_to_bring' | 'our_photos') =>
@@ -1076,6 +1094,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           </>
         }
       >
+      {labReplyCard && !makerCanvas ? (
+        <section className="px-4 pb-8">
+          <ReplyCardRow card={labReplyCard} partId={COVER_RSVP_PART} />
+        </section>
+      ) : null}
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Personal greeting</p>
         <p className="mt-1 text-sm text-ink/70">Dear Teresita, we would love you there.</p>

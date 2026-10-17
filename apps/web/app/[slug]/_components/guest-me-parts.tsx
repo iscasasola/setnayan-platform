@@ -116,9 +116,12 @@ export function ReplyCardRow({
   card,
   landed = false,
   kit = null,
+  partId = null,
 }: {
   card: ReplyCard;
   landed?: boolean;
+  /** 🧭 The page's RSVP part (`COVER_RSVP_PART`, lib/cover-rsvp.ts): the cover's button takes the reader here. */
+  partId?: string | null;
   /**
    * 🕯 THE LOOK'S ART KIT OVER THE REPLY (`<KitSlot slot="reply">`, owner 2026-10-16) — the garland over the card's top
    * edge; the kit's stylesheet grows the card's top to clear its dip. Absent → the card byte for byte as before.
@@ -127,11 +130,12 @@ export function ReplyCardRow({
 }) {
   return (
     <div
+      id={partId ?? undefined}
       data-reply-card={card.kind}
       data-arrival-action={card.kind}
       data-motion="arrive-action"
       data-pahina-first-screen=""
-      className="flex flex-col items-center gap-2 pt-2 text-center"
+      className={`flex flex-col items-center gap-2 pt-2 text-center${partId ? ' scroll-mt-24' : ''}`}
     >
       {kit}
       <p className="font-pahina text-xl font-light leading-snug text-ink" data-motion={landed ? 'label-land' : undefined}>

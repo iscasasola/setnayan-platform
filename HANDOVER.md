@@ -52,3 +52,16 @@ Lab artefacts excluded (CSP report rpc + client-fault rate-limit rpc — the stu
 | /<slug>/seat | 27 | 23.0 |
 Cause, per minute: hub/seat router.refresh every 45 s (~32 reads each) · wall poll every 25 s (~9 reads) · watch poll every
 30 s (3 reads) · announcement pull every 45 s (2 reads, also while hidden). All of it × every guest.
+
+### Step 2 — FIX 1 live wall ✅ (commit 08345f1a43)
+`lib/live-day-cache.ts` (`rememberedLiveRead`, `notRemembered`, `liveDayTag`) — rememberedGlobalRead's pattern per EVENT,
+10 s. `/[slug]/live-wall`: whole answer remembered per event; only an OPEN wall remembered + `s-maxage=5, swr=10`;
+404/503/unmeasured challenge → that phone only, `no-store` (a 404 stops the block for good, so a shared blip would close
+the wall on every phone). A failed event read is now 503 (retried) not 404. Block: jittered ± 20 % timeout chain.
+NOTE: the route had no per-viewer bits at all (snapshot read with viewer `null`) — nothing to split.
+Guard `lib/live-day-answers-are-shared.test.ts`; 7 sabotages RED.
+
+### Step 3 — FIX 4 watch route ✅
+One events read (slug + both links; old 2-step kept as 42703 fallback), broadcast row only when no link, remembered per
+event, `s-maxage=10, swr=20` on a definite answer; 'unknown'/404 not shared, `no-store`. Embed skips polls while hidden.
+6 sabotages RED.

@@ -271,7 +271,13 @@ export function DressCodeWidget({
   // five main colours (one palette with Look › Colours)"). The six an older dress-code form typed into
   // `dress_code_config.palette` are no longer added after them (owner 2026-10-17: eleven colours against the five he
   // picked); the stored list is kept, unread here.
-  const palette = everyone.ourColours.map((hex) => ({ hex, name: '' }));
+  //    A name the couple typed there for one of the five still lends it its name ("Sage") — a word, never a colour.
+  const typedNames = new Map(
+    (Array.isArray(config?.palette) ? config.palette : []).flatMap((p) =>
+      p && typeof p.hex === 'string' && typeof p.name === 'string' && p.name.trim() ? [[p.hex.toUpperCase(), p.name.trim()] as const] : [],
+    ),
+  );
+  const palette = everyone.ourColours.map((hex) => ({ hex, name: typedNames.get(hex.toUpperCase()) ?? '' }));
   const generalHasContent = palette.length > 0 || everyone.rows.length > 0;
   // THE SPECIFIC VIEW — "if there is an account specified to this, show their
   // palette only". A panel that could only name the role stands down for the
@@ -280,19 +286,15 @@ export function DressCodeWidget({
   // dressed, never an older palette key the Studio no longer shows).
   const readerRowKey = studioRowOf(guestRole)?.paletteKey ?? null;
   const readerRowHexes = readerRowKey ? (board[readerRowKey] ?? []).filter((h) => typeof h === 'string' && h.length > 0) : [];
-  const resolvedRaw = resolveGuestAttireWithGroups({
+  const withRowColours = <T extends { panel: { hexes: string[]; hex: string | null } | null }>(r: T): T =>
+    r.panel && readerRowHexes.length > 0 ? { ...r, panel: { ...r.panel, hexes: [...readerRowHexes], hex: readerRowHexes[0] ?? null } } : r;
+  const resolved = speaksToThisReader(withRowColours(resolveGuestAttireWithGroups({
     role: guestRole,
     roles,
     groups,
     palette: board,
     names: roleNames,
-  });
-  const resolved = speaksToThisReader(
-    resolvedRaw.panel && readerRowHexes.length > 0
-      ? { ...resolvedRaw, panel: { ...resolvedRaw.panel, hexes: [...readerRowHexes], hex: readerRowHexes[0] ?? null } }
-      : resolvedRaw,
-    generalHasContent,
-  );
+  })), generalHasContent);
   /* 👗 THE READER'S OWN PICK (owner 2026-10-14): from a group with two picks (men · women, boys · girls), theirs — or
      both, named, when the page cannot tell which they are. Their colours and their person follow the same pick. */
   const mineDress = resolved.panel

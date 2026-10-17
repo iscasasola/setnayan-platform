@@ -61,7 +61,9 @@ const DRESS = {
   title: 'Garden formal',
   description: 'Long dresses and barongs or suits.',
   palette: SEVEN,
-  roles: { principal_sponsor_ninang: { style: 'long_gown' } },
+  /* The sponsors' row as the Studio saves it — men and women, each a picked Wear (a person is drawn only in one). */
+  groups: { principal_sponsors: { style: 'barong_tagalog' } },
+  women: { groups: { principal_sponsors: { style: 'long_gown' } } },
 };
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 const LOOKS = ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes'] as const;
@@ -139,8 +141,9 @@ test('1 · absent, `tags` and an unknown id are ONE markup — the shipped tags,
 
 test('2 · each of the looks draws every colour of "Our colours", in order', async () => {
   const want = drawn(block(await render({}), 'ours'));
-  // The couple's seven typed colours are all there (the Mood Board's lead, the rest follow).
-  for (const c of SEVEN) assert.ok(want.includes(c.hex.toUpperCase()), `${c.name} is in the palette`);
+  /* "Our colours" are the Mood Board's main colours — the seven typed into the older form are NOT appended (2026-10-17). */
+  assert.deepEqual(want, BOARD.reception.map((c) => c.toUpperCase()));
+  for (const c of SEVEN) assert.ok(!want.includes(c.hex.toUpperCase()), `${c.name} (typed elsewhere) was appended`);
   for (const look of LOOKS) {
     const ours = block(await render({ paletteLook: look }), 'ours');
     // Circles draw the buttons, then the same colours again as the dots of the names under them.
@@ -148,8 +151,7 @@ test('2 · each of the looks draws every colour of "Our colours", in order', asy
     assert.deepEqual(drawn(ours), expected, `${look} draws every colour, in order`);
     if (look !== 'tags') {
       assert.match(ours, new RegExp(`class="sn-pal sn-pal-${look}"`), `${look} is drawn in its own look`);
-      // Every named colour keeps its name, once (Circles says it in the line under the row).
-      for (const c of SEVEN) assert.ok(ours.includes(`>${c.name}<`), `${look} names ${c.name}`);
+
     }
   }
 });
@@ -157,8 +159,9 @@ test('2 · each of the looks draws every colour of "Our colours", in order', asy
 test('2b · with only two colours every look still draws both', async () => {
   const { DressCodeWidget } = await import('./dress-code-widget');
   const two = { title: 'Black tie', palette: [SEVEN[0], SEVEN[2]] };
+  const twoBoard = { reception: [SEVEN[0]!.hex, SEVEN[2]!.hex] };
   for (const look of LOOKS) {
-    const ours = block(html(h(DressCodeWidget, { words: WORDS, config: two, paletteLook: look } as never)), 'ours');
+    const ours = block(html(h(DressCodeWidget, { words: WORDS, config: two, rolePalette: twoBoard, paletteLook: look } as never)), 'ours');
     const two2 = ['#351115', '#EFE3B8'];
     assert.deepEqual(drawn(ours), look === 'circles' ? [...two2, ...two2] : two2, `${look} draws two colours`);
   }

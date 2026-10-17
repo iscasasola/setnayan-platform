@@ -46,8 +46,9 @@ function readable(markup: string): string[] {
   return out;
 }
 
+/* The Mood Board's main colours are the ones "Our colours" draws (2026-10-17); the typed names below lend them words. */
 const BOARD = {
-  reception: ['#7A1F2B', '#C9A24B', '#F4E9DC'],
+  reception: ['#5C0700', '#669C35', '#C9A1A0'],
   principal_sponsors: ['#C9A24B', '#F4E9DC'],
   bridesmaids: ['#8E3B5B'],
   touched_roles: ['principal_sponsors', 'bridesmaids'],

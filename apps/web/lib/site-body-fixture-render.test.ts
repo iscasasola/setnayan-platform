@@ -481,6 +481,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_lib/the-invitation-is-one-page.test.ts',
     /* …and (2026-10-16, Batch 9 walk W2) the map-waits guard: what the real landing asks a browser to fetch. A test. */
     'lib/the-map-waits-until-it-is-near.test.ts',
+    /* …and (2026-10-17, cale-ice) the cover-foot guard: every viewer's first screen ends in its foot. A test. */
+    'app/[slug]/_components/the-cover-always-has-a-way-on.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

@@ -70,11 +70,13 @@ for (const [who, props, way] of VIEWERS) {
       if (doorHere) {
         // Behind a closed veil the door waits for the unveil, like the button it stands in for: it is a cover line.
         assert.match(footHtml, new RegExp(`<div ${COVER_LINE_ATTR}="\\w*" data-cover-door=""`), 'the door in the foot is no cover line — it would show behind the veil');
-        assert.ok(footHtml.includes(`>${STRANGER_DOOR_WORDS}<`), `the door does not read "${STRANGER_DOOR_WORDS}"`);
+        // The signed-out door reads the owner's words; a signed-in stranger's is "Ask to join" / the list-only line.
+        if (footHtml.includes('data-get-inside="door"')) assert.ok(footHtml.includes(`>${STRANGER_DOOR_WORDS}<`), `the door does not read "${STRANGER_DOOR_WORDS}"`);
       }
     }
     // NEVER TWICE: one door on the whole page at most, and, where the cover holds it, none after the cover.
     assert.ok(page.html.split('data-get-inside=').length - 1 <= 1, 'the stranger’s door is drawn twice');
+    if (way === 'door') assert.ok(page.html.includes('data-get-inside='), 'anti-vacuity: a stranger with no door');
     assert.equal(page.html.includes('>Get inside<'), false, 'the door still reads its old words');
     if (way === 'door') {
       const lastCover = page.html.lastIndexOf('</header>');

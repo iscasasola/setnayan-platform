@@ -2003,8 +2003,12 @@ export async function SiteBody({
        out draws THE DOOR on the canvas — the same GetInside, with no join action bound (a sample viewer asks to join
        nothing). */
     const doorShown = !viewerIsHost && !(vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out'));
-    const strangerDoor = (inFoot: boolean) =>
-      viewerIsHost ? null : (
+    const strangerDoor = (inFoot: boolean) => (
+      <>
+        {viewerIsHost ? (
+          /* THE HOST'S OWN PAGE: no door (see above). */
+          null
+        ) : (
         <>
           {reason === 'invalid_invite' ? (
             <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
@@ -2035,7 +2039,9 @@ export async function SiteBody({
             />
           )}
         </>
-      );
+        )}
+      </>
+    );
     /* 🦶 THE COVER ALWAYS HAS A WAY ON (live on cale-ice 2026-10-17 — owner: *"where is the RSVP and swipe marker?"* ·
        *"the button shows after the cover?"*). Since the Cover Scene took the whole first screen (100svh), the door that
        stood under the cover was drawn BELOW the fold and the cover itself had no foot — a first screen that ended in

@@ -273,7 +273,8 @@ test('6b · typing the names writes the DRAFT’s events.display_name — the on
   const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
   assert.ok(save.length > 0);
   /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
-  assert.match(save, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur\) => \{[\s\S]{0,300}?const next = mergeHubDraft\(c, rebased\.patch\);/);
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(save, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur, by\) => \{[\s\S]{0,300}?const next = mergeHubDraft\(c, rebased\.patch, by\);/);
   // A save may READ (the live date, to ask the supplier clash) — it never writes a table but the draft.
   assert.doesNotMatch(save, /\.update\(|\.insert\(|\.upsert\(|\.delete\(/, 'a save wrote a table other than through the draft store');
 });

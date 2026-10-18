@@ -190,7 +190,8 @@ test('12 · every place the pattern is wired still carries it', () => {
   // Every draft write in the one action goes through the compare-and-set door.
   const action = read('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts');
   assert.doesNotMatch(action, /\bwriteHubDraft\(/, 'hubDraftAction writes the draft without the compare-and-set again');
-  assert.match(action, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur\) => \{\s*const c = cur \?\? emptyHubDraft\(\);\s*const rebased = await rebaseOnDraft\(supabase, eventId, c, patch, base\);/, 'a save is no longer merged from its base onto the draft as it is now');
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(action, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur, by\) => \{\s*const c = cur \?\? emptyHubDraft\(\);\s*const rebased = await rebaseOnDraft\(supabase, eventId, c, patch, base\);/, 'a save is no longer merged from its base onto the draft as it is now');
   const store = read('lib', 'hub-draft-store.ts');
   assert.match(store, /if \(expect\) q = q\.eq\(expect\.column, expect\.value\);/, 'the draft write no longer asks whether the row is still the one read');
   assert.match(store, /\.select\('draft_json, revision'\)/, 'the draft is no longer read with its version');

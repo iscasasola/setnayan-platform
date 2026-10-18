@@ -15,3 +15,11 @@ Migrations via pnpm migration:new; Ugat/exposure guards green. Never open the ow
 Another builder is editing the Maker's own-section scene + ◆ marks + the gifts accent (rd/maker-own-section-photos) —
 don't touch those parts; one is changing sign-in (rd/google-login-same). Own walk folder (scratchpad/two-hosts-3-walk/).
 Shots of the named note + greyed ↺ at 375 → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-two-hosts-round-3.md.
+
+## BUILDER LOG (round 3)
+- [x] Step 1 · A + B: `by` on every draft state (`HubDraftState.by`, set via `updateHubDraft(…, build(cur, by), …, author)` →
+  `mergeHubDraft(…, by)`); `lib/hub-draft-authors.ts` (undoOwnHubDraftStep, hubDraftStepAuthorOf, twoScreensNoteFor,
+  pickHostFirstName); `lib/host-first-name.server.ts`; summary canUndo = own steps (`hubDraftCanUndoOwn`); ↺ reason
+  "Nothing of yours to undo". Test `lib/two-hosts-name-and-own-undo.test.ts` (9). 5 guards re-aimed.
+  Decision: a step with no recorded author (pre-existing drafts, admin-client writers) stays undoable by anyone — greying
+  it would strand every existing draft. Live-column writers (no who-record) keep the neutral "another screen" line.

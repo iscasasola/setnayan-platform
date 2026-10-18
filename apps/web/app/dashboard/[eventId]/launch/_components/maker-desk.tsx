@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 /**
  * 🖥 THE NEW MAKER ON A DESKTOP — THREE COLUMNS (owner 2026-10-07, all "A" on
@@ -26,6 +26,7 @@ import { useSyncExternalStore } from 'react';
  * their `aria-label`s, as on the phone.
  */
 export function MakerDesk() {
+  useDeskPopAnchor();
   return (
     <>
       <style>{MAKER_DESK_CSS}</style>
@@ -43,6 +44,10 @@ export const DESK_PARTS_PX = 264;
 export const DESK_PARTS_FROM_PX = 1280;
 
 const D = '[data-maker-shell][data-maker-desk]';
+/** A phone's sheet (`MakerSheet` without `everyWidth`) while a desktop's Maker is open — portalled to the body. */
+const POP = 'html:has([data-maker-desk]) [data-maker-sheet][class~="lg:hidden"]';
+/** …placed downward (under its button) or upward (over it). */
+const popAt = (dir: 'down' | 'up') => `html[data-desk-pop="${dir}"]:has([data-maker-desk]) [data-maker-sheet][class~="lg:hidden"] [role="dialog"]`;
 /** The phone's own words for its four controls (`MAKER_TOOLBAR_STAGES_STUDIO`, maker-bar.ts) — drawn, not re-typed. */
 const WORD = 'font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap';
 const BAR_PILL = 'width:auto!important;min-width:44px;padding:0 16px 0 12px;gap:8px';
@@ -52,9 +57,14 @@ export const MAKER_DESK_CSS =
   /* ── the grid: the bar, a row for the View-as strip, then the columns ── */
   `${D}{display:grid!important;grid-template-columns:0 minmax(0,1fr) ${DESK_TOOLS_PX}px;grid-template-rows:auto auto minmax(0,1fr)}` +
   `${D}>*{grid-column:1/-1;grid-row:2}` +
-  `${D}>[data-maker-toolbar]{grid-row:1;height:60px;padding:0 12px;gap:8px}` +
+  /* The bar's menus (👁 Preview) open over the columns under it. */
+  `${D}>[data-maker-toolbar]{grid-row:1;height:60px;padding:0 12px;gap:8px;z-index:40}` +
   `${D}>[data-maker-work]{grid-column:2;grid-row:3}` +
   `${D}:not(:has(>[data-maker-lower-third]))>[data-maker-work]{grid-column:1/-1}` +
+  /* Studio's side (its home, a tool, Look) is Studio's own page — it takes the width; the tools and parts columns
+     are the Stages toolbar's (Studio's own widths are the build plan's PR 5). */
+  `${D}:not(:has([data-stage-tools]))>[data-maker-work]{grid-column:1/-1}` +
+  `${D}:not(:has([data-stage-tools]))>:is([data-maker-lower-third],[data-maker-desk-parts]){display:none!important}` +
   `${D}>[data-maker-lower-third]{grid-column:3;grid-row:3;display:flex!important;height:auto!important;min-height:0;padding:0!important;border-top:0;border-left:1px solid rgba(44,42,41,.1)}` +
   `${D}>[data-maker-desk-parts]{grid-column:1;grid-row:3;min-height:0;overflow:hidden;border-right:1px solid rgba(44,42,41,.1);background:#FBFAF7}` +
   /* ── the top nav: the phone's four controls with their words; the old desktop's Page ▾ and Event Details go ── */
@@ -75,7 +85,7 @@ export const MAKER_DESK_CSS =
   `${D} [data-maker-apply] button[data-bar-item]::after{content:"Apply";${WORD}}` +
   `${D} [data-icon-pill]{gap:8px}` +
   /* The phone's bar says why a control is grey in its title, not an ⓘ beside it — so does this one. */
-  `${D} [data-maker-draft-actions] button[data-bar-item]~span{display:none}` +
+  `${D} [data-maker-draft-actions] button[data-bar-item]:disabled~span{display:none}` +
   /* 👁 Preview ▾ swaps the page — "Both" is dropped (answer 1), and the old scenes column is the parts column's. */
   `${D} [data-maker-tool-menu] button:has([data-maker-tool-row="scenes"]){display:none}` +
   /* ── the page: the old desktop's scenes column, See as ▾ over it and the Event Bar switch under it are the
@@ -87,9 +97,49 @@ export const MAKER_DESK_CSS =
   `${D} [data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}` +
   `${D} [data-stage-tools]{border-radius:0;box-shadow:none;padding:12px 14px 0}` +
   `${D} [data-maker-lower-third]{background:var(--sp-page,#F3F0EA)}` +
+  /* ── 🗨 THE MAKER'S ONE SHEET IS A POP-OVER BESIDE ITS BUTTON (the doc's "Sheets": anchored, 400 px, opening
+        downward or upward to fit; nothing opens from the bottom of the screen). Only the phone's sheets — the ✕ sheet
+        and "What guests see", drawn on every width already, keep their own shape. The place is the press that opened
+        it (`useDeskPopAnchor`). ── */
+  `${POP}{display:block!important}` +
+  `${POP} [data-maker-sheet-dark]{display:none}` +
+  `${POP} [role="dialog"]{left:clamp(8px,var(--desk-pop-left,8px),calc(100vw - 408px))!important;right:auto!important;width:400px;max-width:none!important;margin:0!important;border-radius:18px!important;padding-bottom:8px!important;box-shadow:0 24px 48px -20px rgba(30,26,18,.45)!important}` +
+  `${popAt('down')}{top:var(--desk-pop-top,64px);bottom:auto!important;max-height:calc(100dvh - var(--desk-pop-top,64px) - 16px)!important}` +
+  `${popAt('up')}{bottom:var(--desk-pop-bottom,16px)!important;max-height:calc(100dvh - var(--desk-pop-bottom,16px) - 16px)!important}` +
+  `${POP} [role="dialog"]>span[aria-hidden]:first-child{display:none}` +
   '}' +
   `@media (min-width:${DESK_PARTS_FROM_PX}px){${D}{grid-template-columns:${DESK_PARTS_PX}px minmax(0,1fr) ${DESK_TOOLS_PX}px}}` +
   `@media (max-width:${DESK_PARTS_FROM_PX - 0.02}px){${D}>[data-maker-desk-parts]{display:none}}`;
+
+/**
+ * 🗨 Where the next pop-over opens: under the button just pressed (or over it, when the button sits low on the
+ * screen). Read off the press itself, so every sheet — the stage list, Studio's pages, ＋ Add a part — opens beside
+ * the control that opened it with no change to that control.
+ */
+function useDeskPopAnchor(): void {
+  useEffect(() => {
+    const root = document.documentElement;
+    const onPress = (e: PointerEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== 'Enter' && e.key !== ' ') return;
+      const el = (e.target as Element | null)?.closest?.('button,[role="button"],a');
+      if (!el || el.closest('[data-maker-sheet]')) return;
+      const r = el.getBoundingClientRect();
+      const up = r.bottom + 8 > window.innerHeight * 0.55;
+      root.dataset.deskPop = up ? 'up' : 'down';
+      root.style.setProperty('--desk-pop-left', `${Math.round(r.left)}px`);
+      root.style.setProperty('--desk-pop-top', `${Math.round(r.bottom + 8)}px`);
+      root.style.setProperty('--desk-pop-bottom', `${Math.round(window.innerHeight - r.top + 8)}px`);
+    };
+    window.addEventListener('pointerdown', onPress, true);
+    window.addEventListener('keydown', onPress, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPress, true);
+      window.removeEventListener('keydown', onPress, true);
+      delete root.dataset.deskPop;
+      for (const v of ['--desk-pop-left', '--desk-pop-top', '--desk-pop-bottom']) root.style.removeProperty(v);
+    };
+  }, []);
+}
 
 /* ── the parts column's place, handed to the Stages toolbar (one at a time) ── */
 let partsSlot: HTMLElement | null = null;

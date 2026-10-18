@@ -148,9 +148,13 @@ export function dressCodeForEveryone(input: {
     const meaning: 'outfit' | 'options' = key && PALETTE_LIMITS[key].meaning === 'options' ? 'options' : 'outfit';
     const rowColours = key ? shown(key) : [];
     const rowPicked = key ? picked(key) : false;
-    const two = def.who.length === 2;
+    /* 🤵‍♂️ An `optionalSecond` column (the man of honor's, 2026-10-19) is listed only when it holds a Wear or its own
+       colours — the page cannot see the guest list, and the row's colours alone are the maid's. */
+    const all = picksOf(config, def);
+    const listed = all.filter((p, i) => !(def.optionalSecond && i === 1 && !p.style && !(p.colours && p.colours.length > 0)));
+    const two = def.who.length === 2 && listed.length === 2;
     const picks: EveryonePick[] = [];
-    for (const p of picksOf(config, def)) {
+    for (const p of listed) {
       const ownColours = p.colours && p.colours.length > 0 ? [...p.colours] : null;
       if (!p.style && !ownColours && !rowPicked) continue;
       const colours = ownColours ?? rowColours;
@@ -166,9 +170,10 @@ export function dressCodeForEveryone(input: {
     }
     if (picks.length === 0) continue;
     /* 👯 An honour row (2026-10-19) is listed like every other Studio row — what the Studio shows, the page shows —
-       and always named for both of its pair ("Maid of Honor & Matron of Honor", "Best Man & Best Woman"). */
+       and always named for both of its pair ("Maid of Honor & Matron of Honor", "Best Man & Best Woman") — and for the
+       man of honor too once his column is listed ("Maid, Matron & Man of Honor"). */
     const label = isHonourRowKey(def.key) && def.tier === 'roles'
-      ? honourRowLabel(def.key, input.names)
+      ? honourRowLabel(def.key, input.names, Boolean(def.optionalSecond) && listed.length === 2)
       : key ? rowLabel(key, input.names) : (roleLabel(def.key as GuestRole, input.names) ?? guestRoleLabel(def.key as GuestRole, input.names));
     const source: 'role' | 'group' = def.tier === 'roles' ? 'role' : 'group';
     const note = noteOf(config, def.tier, def.key);

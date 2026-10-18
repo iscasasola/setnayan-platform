@@ -59,6 +59,13 @@ export type AttireRowDef = {
    * whose style it is (`pickOptions`, `picksOf`).
    */
   either?: true;
+  /**
+   * 🤵‍♂️ A TWO-PICK row whose SECOND column is drawn only when its person is on the guest list or it already holds a
+   * pick (`shownColumns`) — the man of honor's in "Maid of Honor & Matron of Honor" (owner 2026-10-19). Every live
+   * wedding's maid row was one woman; an empty FOR MEN column on every one of them would be clutter nobody asked for.
+   * The column never inherits the first column's Wear either: the maid's gown said nothing about a man.
+   */
+  optionalSecond?: true;
 };
 
 /**
@@ -76,9 +83,13 @@ export const ATTIRE_ROWS: readonly AttireRowDef[] = [
   { tier: 'groups', key: 'muslim_principals', paletteKey: 'muslim_principals', who: ['m'], either: true },
   /* 👯 THE HONOUR ATTENDANTS, at the head of the entourage (owner 2026-10-19: *"Best man and best woman share a row like
      principal sponsors. same goes to maid and matron of honor"*). Each row is keyed by the role it is named for and
-     coloured by the Mood Board slot that already covers the pair (`maid_of_honor` "Maid / Matron of Honor", `best_man`
-     "Best Man / Best Woman"); the matron of honor and the best woman read it too (`HONOUR_ROW_OF`). */
-  { tier: 'roles', key: 'maid_of_honor', paletteKey: 'maid_of_honor', who: ['f'] },
+     coloured by the Mood Board slot that already covers the pair (`maid_of_honor` "Maid / Matron / Man of Honor",
+     `best_man` "Best Man / Best Woman"); the matron of honor, the man of honor and the best woman read it too
+     (`HONOUR_ROW_OF`).
+     🤵‍♂️ The maid's row is FOR WOMEN (the maid and the matron — one woman, one pick: owner 2026-10-19, *"maid/matron
+     of honor can have the same character. both female"*) and FOR MEN (the man of honor: *"but also want a man of
+     honor option"*). Women first, so every Wear already stored for the maid stays the FIRST pick, where it always was. */
+  { tier: 'roles', key: 'maid_of_honor', paletteKey: 'maid_of_honor', who: ['f', 'm'], optionalSecond: true },
   { tier: 'roles', key: 'best_man', paletteKey: 'best_man', who: ['m', 'f'] },
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
@@ -96,16 +107,22 @@ export function attireRowOfPalette(paletteKey: string): AttireRowDef | null {
 /**
  * 👯 THE HONOUR ATTENDANTS' ROWS (owner 2026-10-19): each honour role → the row it is dressed by and its column there.
  * The best man is the men's column of "Best Man & Best Woman", the best woman its women's; the maid and the matron of
- * honor share one row of one person.
+ * honor share the women's column of the maid's row, and the man of honor is its men's column.
  */
 export const HONOUR_ROW_OF: Readonly<Partial<Record<GuestRole, { key: 'best_man' | 'maid_of_honor'; index: 0 | 1 }>>> = {
   maid_of_honor: { key: 'maid_of_honor', index: 0 },
   matron_of_honor: { key: 'maid_of_honor', index: 0 },
+  man_of_honor: { key: 'maid_of_honor', index: 1 },
   best_man: { key: 'best_man', index: 0 },
   best_woman: { key: 'best_man', index: 1 },
 };
 /** The honour roles each honour row is named for, in its order (the row is labelled with the ones on the guest list). */
-export const HONOUR_ROW_ROLES: Readonly<Record<'best_man' | 'maid_of_honor', readonly [GuestRole, GuestRole]>> = {
+export const HONOUR_ROW_ROLES: Readonly<Record<'best_man' | 'maid_of_honor', readonly GuestRole[]>> = {
+  maid_of_honor: ['maid_of_honor', 'matron_of_honor', 'man_of_honor'],
+  best_man: ['best_man', 'best_woman'],
+};
+/** The roles a row's heading ALWAYS names (the pair the owner named on 2026-10-19), before any optional one. */
+const HONOUR_ROW_ALWAYS: Readonly<Record<'best_man' | 'maid_of_honor', readonly GuestRole[]>> = {
   maid_of_honor: ['maid_of_honor', 'matron_of_honor'],
   best_man: ['best_man', 'best_woman'],
 };
@@ -115,8 +132,30 @@ export const HONOUR_ROW_ROLES: Readonly<Record<'best_man' | 'maid_of_honor', rea
  * that read "Maid of Honor" for a list with no matron: *"maid and matron of honor same row"* — the row is the pair's,
  * whichever of the two the guest list holds; the Studio, the guest page and the prints all say it the same way.
  */
-export function honourRowLabel(key: 'best_man' | 'maid_of_honor', names?: RoleNames | null): string {
-  return HONOUR_ROW_ROLES[key].map((r) => roleLabel(r, names) ?? r).join(' & ');
+export function honourRowLabel(key: 'best_man' | 'maid_of_honor', names?: RoleNames | null, withOptional = false): string {
+  /* 🤵‍♂️ TITLE DECISION (2026-10-19, rd/man-of-honor): the man of honor is named only when his column is drawn — he is
+     on the guest list, or his column holds a pick (`shownColumns`). Three names share their tail when they can, so the
+     heading fits a 375 px phone: "Maid, Matron & Man of Honor" (27 characters — shorter than the shipped
+     "Maid of Honor & Matron of Honor"). A renamed role keeps its whole word: "Maid of Honor, Ate Lia & Man of Honor". */
+  const roles = withOptional ? HONOUR_ROW_ROLES[key] : HONOUR_ROW_ALWAYS[key];
+  const words = roles.map((r) => roleLabel(r, names) ?? r);
+  if (words.length <= 2) return words.join(' & ');
+  const TAIL = ' of Honor';
+  const shared = words.every((w) => w.endsWith(TAIL) && w.length > TAIL.length);
+  const parts = shared ? words.map((w, i) => (i === words.length - 1 ? w : w.slice(0, -TAIL.length))) : words;
+  return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`;
+}
+/**
+ * 🤵‍♂️ THE COLUMNS A ROW DRAWS: every column, except an `optionalSecond` row's second, which is drawn only when its
+ * person is on the guest list (`present`, the Studio's `honourColumns`) or it already holds a Wear or its own colours —
+ * so a pick is never hidden where it cannot be taken back.
+ */
+export function shownColumns(config: Config, row: AttireRowDef, present?: ReadonlyArray<0 | 1>): Array<0 | 1> {
+  const all = row.who.map((_, i) => i as 0 | 1);
+  if (!row.optionalSecond) return all;
+  const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
+  const held = Boolean(second && (second.style || second.colours));
+  return present?.includes(1) || held ? all : [0];
 }
 export const isHonourRowKey = (key: string): key is 'best_man' | 'maid_of_honor' => key === 'best_man' || key === 'maid_of_honor';
 export const isHonourRole = (role: string | null | undefined): boolean => Boolean(role && HONOUR_ROW_OF[role as GuestRole]);
@@ -256,9 +295,11 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
     return [{ who, style, colours: null, role: columnRole(row.key, 0) }];
   }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
+  /* 🤵‍♂️ An `optionalSecond` column never reads the first column's Wear (the maid's gown said nothing about a man). */
+  const inherited = row.optionalSecond ? null : first;
   return [
     { who: row.who[0], style: own(0, first), colours: null, role: columnRole(row.key, 0) },
-    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : first), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
+    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : inherited), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
   ];
 }
 
@@ -295,7 +336,8 @@ export function withFirstStyle<C extends Record<string, unknown>>(
 ): C {
   const row = attireRow(tier, key);
   let base = config;
-  if (row && isTwoPick(row)) {
+  /* An `optionalSecond` column never followed the first, so there is nothing to pin. */
+  if (row && isTwoPick(row) && !row.optionalSecond) {
     const second = womenOf(config)[tier]?.[key];
     /* Pinned to what the women READ — the shared Wear when it is theirs, else "Not said yet" (`picksOf`). */
     if (!(second && 'style' in second)) base = withSecond(base, tier, key, (p) => ({ ...p, style: picksOf(config, row)[1]!.style }));
@@ -329,6 +371,10 @@ export function guestAttireOf(guest: { attire?: unknown } | null | undefined): G
 const ROLE_WHO: Partial<Record<GuestRole, FigureWho>> = {
   principal_sponsor_ninang: 'f',
   principal_sponsor_ninong: 'm',
+  /* 👯 Every honour role says who they are — each reads their own column of their honour row. */
+  maid_of_honor: 'f',
+  matron_of_honor: 'f',
+  man_of_honor: 'm',
   best_man: 'm',
   best_woman: 'f',
   flower_girl: 'girl',
@@ -348,7 +394,9 @@ export function readerPick(row: AttireRowDef, role: GuestRole | null | undefined
   const said = role ? ROLE_WHO[role] : undefined;
   const feminine = said ? said === 'f' || said === 'girl' : attire === 'gown' ? true : attire === 'suit' ? false : null;
   if (feminine === null) return null;
-  return feminine ? 1 : 0;
+  /* By WHO each column dresses, never by position: the maid's row is women first (2026-10-19), every other men first. */
+  const at = row.who.findIndex((w) => (w === 'f' || w === 'girl') === feminine);
+  return at < 0 ? null : (at as 0 | 1);
 }
 
 /* ── what ONE reader is told ────────────────────────────────────────────── */

@@ -160,7 +160,11 @@ const CALE = {
 function studioShows(config: Record<string, unknown>, palette: RolePalette, row: AttireRowDef) {
   const touched = new Set(palette.touched_roles ?? []);
   const colourPicked = row.paletteKey ? touched.has(row.paletteKey) || (palette[row.paletteKey]?.length ?? 0) > 0 : false;
-  return picksOf(config, row).map((p) => ({ ...p, shown: Boolean(p.style || (p.colours && p.colours.length) || colourPicked) }));
+  /* 🤵‍♂️ An `optionalSecond` column (the man of honor's, 2026-10-19) is the Studio's only when its person is on the list —
+     which a guest page cannot see — so the page lists it only once it holds a Wear or its own colours. */
+  return picksOf(config, row)
+    .filter((p, i) => !(row.optionalSecond && i === 1 && !p.style && !(p.colours && p.colours.length)))
+    .map((p) => ({ ...p, shown: Boolean(p.style || (p.colours && p.colours.length) || colourPicked) }));
 }
 
 test('1 · every pick the Studio shows renders on the guest page, in the person’s own word (60 dress codes + cale-ice)', async () => {
@@ -170,10 +174,11 @@ test('1 · every pick the Studio shows renders on the guest page, in the person�
       if (row.key === 'muslim_principals') continue;
       const key = row.paletteKey ?? row.key;
       const lines = pickLines(rowHtml(html, key));
-      for (const p of studioShows(config, palette, row)) {
+      const columns = studioShows(config, palette, row);
+      for (const p of columns) {
         if (!p.style) continue;
         const said = p.role ? designLabel(p.role, p.style) : ATTIRE_STYLE_LABEL[p.style];
-        const want = row.who.length === 2 ? `${PICK_LABEL[p.who]} · ${said}` : said;
+        const want = columns.length === 2 ? `${PICK_LABEL[p.who]} · ${said}` : said;
         assert.ok(lines.includes(want), `${key}: the Studio's "${want}" is not on the guest page (lines: ${JSON.stringify(lines)})`);
       }
     }

@@ -309,16 +309,20 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     /* ⚖ Owner 2026-09-30: "We can pick either best man or best woman and maid
        or matron of honor." `best_woman` stands where the best man stands — the
        groom's column — so she pairs across from the maid/matron exactly as he
-       does. Nothing makes the pairs exclusive: a couple may have both. */
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'best_woman'],
-    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man', 'best_woman']],
+       does. Nothing makes the pairs exclusive: a couple may have both.
+       🤵‍♂️ Owner 2026-10-19: "maid/matron/man of honor … like bestman and best
+       woman". `man_of_honor` stands where the maid stands — the bride's column —
+       the mirror of the best woman, and like her (`unusual`) he makes the
+       heading name him: "Man of Honor & Best Man". */
+    roles: ['maid_of_honor', 'matron_of_honor', 'man_of_honor', 'best_man', 'best_woman'],
+    sides: [['maid_of_honor', 'matron_of_honor', 'man_of_honor'], ['best_man', 'best_woman']],
     sideWords: ['Maid of Honor', 'Best Man'],
-    unusual: ['best_woman'],
+    unusual: ['best_woman', 'man_of_honor'],
     headingForm: 'one',
     /* 🚂 Train 2026-09-30 (#6165 + #6170): a best woman makes the heading say
        "Best Woman" (`unusual`), so the heading names her too — no word beside
        her name. A Matron keeps hers: the column still reads "Maid of Honor". */
-    headingNames: ['maid_of_honor', 'best_man', 'best_woman'],
+    headingNames: ['maid_of_honor', 'man_of_honor', 'best_man', 'best_woman'],
   },
   {
     key: 'principal_sponsors',
@@ -478,6 +482,7 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   coin_sponsor: 'Coin Sponsor',
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
+  man_of_honor: 'Man of Honor',
   best_man: 'Best Man',
   best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',

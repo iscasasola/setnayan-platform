@@ -756,7 +756,7 @@ export function replayMarch(m: MarchShown, steps: readonly MarchStep[]): MarchSh
  * keeps its own columns.
  */
 const LEFT_ROLES = new Set(['principal_sponsor_ninong', 'principal_sponsor', 'best_man', 'best_woman', 'groomsman']);
-const RIGHT_ROLES = new Set(['principal_sponsor_ninang', 'maid_of_honor', 'matron_of_honor', 'bridesmaid']);
+const RIGHT_ROLES = new Set(['principal_sponsor_ninang', 'maid_of_honor', 'matron_of_honor', 'man_of_honor', 'bridesmaid']);
 
 export function walkSideOf(p: Pick<MarchPerson, 'role' | 'side'>): 0 | 1 {
   if (LEFT_ROLES.has(p.role)) return 0;

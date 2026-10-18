@@ -16,7 +16,8 @@ import {
   isRoleSubtype,
 } from './host-roles';
 
-// The original 13, in order, with ONE addition: `best_woman` beside `best_man`
+// The original 13, in order, with TWO additions: `man_of_honor` beside `maid_of_honor`
+// (owner 2026-10-19 — "maid/matron/man of honor") and `best_woman` beside `best_man`
 // (owner 2026-09-30 — "either best man or best woman"). Nothing was removed.
 const WEDDING_13 = [
   'bride',
@@ -26,6 +27,7 @@ const WEDDING_13 = [
   'parent_of_bride',
   'parent_of_groom',
   'maid_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'wedding_planner_external',
@@ -35,7 +37,7 @@ const WEDDING_13 = [
   'viewer',
 ];
 
-test('the wedding list is exactly the original 13 plus best_woman, in the original order', () => {
+test('the wedding list is exactly the original 13 plus best_woman and man_of_honor, in the original order', () => {
   assert.deepEqual([...hostRolesForEventType('wedding')], WEDDING_13);
 });
 
@@ -58,6 +60,7 @@ test('no non-wedding event type offers wedding vocabulary', () => {
     'parent_of_bride',
     'parent_of_groom',
     'maid_of_honor',
+    'man_of_honor',
     'best_man',
     'best_woman',
     'wedding_planner_external',

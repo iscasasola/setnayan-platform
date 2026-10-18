@@ -133,7 +133,8 @@ export function roleArtKey(role: FigureRole, style: AttireStyle | null | undefin
 /* ── which people a Studio row draws ─────────────────────────────────────── */
 
 /**
- * A row's columns, as figure roles — first (men · boys), second (women · girls), matching `ATTIRE_ROWS[].who`.
+ * A row's columns, as figure roles, matching `ATTIRE_ROWS[].who` — first (men · boys), second (women · girls); the
+ * maid of honor's row is the one women-first (FOR WOMEN · FOR MEN, 2026-10-19).
  * A row with none here (the celebrant, Nikah principals, officiants & readers) keeps the shipped seven styles.
  */
 export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | readonly [FigureRole, FigureRole]>> = {
@@ -145,7 +146,8 @@ export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | r
   /* 👯 The honour attendants' rows (owner 2026-10-19, "Best man and best woman share a row like principal sponsors.
      same goes to maid and matron of honor"): the best man wears the groom's list, the best woman the maid of honor's. */
   best_man: ['best_man', 'maid_of_honor'],
-  maid_of_honor: ['maid_of_honor'],
+  /* 🤵‍♂️ FOR WOMEN (the maid and the matron) · FOR MEN (the man of honor, owner 2026-10-19 — the best man's list). */
+  maid_of_honor: ['maid_of_honor', 'best_man'],
   bridesmaids: ['bridesmaid'],
   groomsmen: ['groomsman'],
   bearers_flower_girl: ['ring_bearer', 'flower_girl'],
@@ -162,8 +164,13 @@ export function columnRole(rowKey: string, index: 0 | 1 = 0): FigureRole | null 
 
 /**
  * A guest-list role → the person drawn for them: one role (a ninang), or a pair the page picks between by what the
- * couple marked them as wearing (a parent, a candle sponsor, a plain guest). Roles with no drawing of their own (`best_woman` —
- * the best man's designs are a man's —, officiants, the celebrant, Nikah principals) are absent — they keep the shipped figures.
+ * couple marked them as wearing (a parent, a candle sponsor, a plain guest). Roles with no drawing of their own (officiants, the
+ * celebrant, Nikah principals) are absent — they keep the shipped figures.
+ *
+ * 👯 EVERY HONOUR ROLE IS THE PERSON OF ITS HONOUR-ROW COLUMN (2026-10-19, held by `every-role-is-mapped-everywhere.test.ts`):
+ * the best woman is the maid of honor's figure (her column, "Best Man & Best Woman" FOR WOMEN, lists the maid of honor's
+ * designs), the man of honor the best man's (his, "Maid, Matron & Man of Honor" FOR MEN). Until 2026-10-19 the best woman
+ * had no entry here while her Studio column drew the maid of honor — the guest page and the Studio told her two things.
  */
 export const READER_FIGURE: Readonly<Partial<Record<string, FigureRole | readonly [FigureRole, FigureRole]>>> = {
   groom: 'groom',
@@ -172,6 +179,9 @@ export const READER_FIGURE: Readonly<Partial<Record<string, FigureRole | readonl
   bride: 'bride',
   maid_of_honor: 'maid_of_honor',
   matron_of_honor: 'maid_of_honor',
+  best_woman: 'maid_of_honor',
+  /* 🤵‍♂️ The man of honor (owner 2026-10-19) wears the best man's list — the same four drawings (#02/#21/#22/#23). */
+  man_of_honor: 'best_man',
   bridesmaid: 'bridesmaid',
   principal_sponsor_ninong: 'ninong',
   principal_sponsor_ninang: 'ninang',

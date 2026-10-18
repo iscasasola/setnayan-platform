@@ -27,3 +27,13 @@ dress-code attire fields 4.9 (SKIPPED: form fields inside a server-rendered form
 missing from a save) · moment-sheet 4.8 (SKIPPED: earlier measured trade-off, see details-lazy.tsx).
 PLAN step 1: media panels + LaunchStdButton → stand-ins in details-lazy.tsx (chunk maker-details); NFC → QrActions renders
 a lazy NfcWriteButton only when NFC is on (useNfcEnabled), chunk `nfc-write`.
+
+## RESULT step 1 (2026-10-18 ~23:15 PHT) — commit 81bb8fdeee
+Maker first load 507.0 → 493.2KB gz (13.8KB headroom; target was ≥6). Shared bundle 201.8 → 201.8 (unchanged).
+Moved to `maker-details` (details-lazy.tsx): media panels (7) + LaunchStdButton (editor/page.tsx imports the stand-ins)
+and MoreExtras (moved to website/editor/_components/more-extras.tsx; editor-shell mounts the stand-in).
+⚠ A first try gated the NFC writer inside QrActions with its own chunk `nfc-write` — it put the shared bundle at
+201.9/202 (+1 runtime entry). Reverted in favour of the MoreExtras move (same saving, no new chunk name).
+Guards repointed: every-qr-carries-the-strip (STRIP_MOUNTS key → more-extras.tsx), the-maker-lower-third-holds-every-tool
+(reads MoreExtras from more-extras.tsx + asserts editor-shell still mounts <MoreExtras>). Sabotage both: red → green.
+NEXT: preflight, draft PR, 375px walk (Maker opens; ⋯ sheet shows Scan to view after its chunk; a row panel opens).

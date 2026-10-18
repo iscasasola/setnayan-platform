@@ -132,11 +132,11 @@ const HAND =
 /* The sample's own CSS, scoped to `.sn-spot-*`. Colours come from the --m-* family so the tip
    card turns dark with the page (`html.dark`); the dim and the white ring are the same in both. */
 const CSS_TEXT = `
-.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:999px;box-shadow:0 0 0 9999px rgba(15,17,21,.64);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
+.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px rgba(15,17,21,.64);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;left:16px;right:16px;margin:0 auto;max-width:420px;background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:18px;padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.sn-spot-tip{position:fixed;z-index:2147483003;left:16px;right:16px;margin:0 auto;max-width:420px;background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-step{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-orange,#A9834B);margin-bottom:2px}
@@ -144,17 +144,17 @@ const CSS_TEXT = `
 .sn-spot-tip p{margin:0 0 12px;font-size:14px;line-height:1.4;color:var(--m-slate,#3a3e45)}
 .sn-spot-hint{font-size:13px;color:var(--m-mulberry,#C24E25);font-weight:600;margin:-6px 0 10px}
 .sn-spot-row{display:flex;justify-content:space-between;align-items:center}
-.sn-spot-prog{height:4px;border-radius:4px;background:var(--m-line,#efe9df);flex:1;margin:0 12px;overflow:hidden}
+.sn-spot-prog{height:4px;border-radius:var(--m-r-xs,4px);background:var(--m-line,#efe9df);flex:1;margin:0 12px;overflow:hidden}
 .sn-spot-prog i{display:block;height:100%;background:var(--m-mulberry,#C24E25);transition:width .5s}
 .sn-spot-skip{background:none;border:0;color:var(--m-slate-2,#6b6f76);font:inherit;font-size:14px;min-height:44px;padding:0 4px;cursor:pointer}
-.sn-spot-go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;font:inherit;font-weight:600;font-size:14px;border:0;background:var(--m-ink,#1e2229);color:var(--m-paper,#fff);cursor:pointer}
+.sn-spot-go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:var(--m-r-full,999px);font:inherit;font-weight:600;font-size:14px;border:0;background:var(--m-ink,#1e2229);color:var(--m-paper,#fff);cursor:pointer}
 .sn-spot-finger{position:fixed;z-index:2147483002;width:34px;height:34px;pointer-events:none;opacity:0;transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),opacity .3s}
 .sn-spot-finger.tap{animation:sn-spot-tap .9s ease-in-out infinite}
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
 .sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:rgba(15,17,21,.6);padding:16px}
 .sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%}
 .sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
-.sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;animation:sn-spot-fall 1.8s ease-in forwards}
+.sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}
 @keyframes sn-spot-fall{to{transform:translateY(110vh) rotate(540deg);opacity:.2}}
 @media (prefers-reduced-motion:reduce){.sn-spot-ring,.sn-spot-ring::after,.sn-spot-tip,.sn-spot-finger,.sn-spot-prog i,.sn-spot-confetti i{animation:none!important;transition:none!important}.sn-spot-confetti{display:none}}
 `;
@@ -186,6 +186,8 @@ export function SpotlightTour({
   const [finger, setFinger] = useState<{ x: number; y: number; on: boolean; tap: boolean }>({ x: 0, y: 0, on: false, tap: false });
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The step whose element is lit right now (−1: none) — the tip and the hand belong to it. */
+  const [litFor, setLitFor] = useState(-1);
   const tipRef = useRef<HTMLDivElement>(null);
   const goRef = useRef<HTMLButtonElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
@@ -238,6 +240,7 @@ export function SpotlightTour({
     if (document.querySelector('[data-maker-shell]')) {
       targetRef.current = null;
       setBox(null);
+      setLitFor(-1);
       missingSince.current = null;
       return;
     }
@@ -257,9 +260,12 @@ export function SpotlightTour({
 
     if (!el) {
       targetRef.current = null;
-      setBox(null);
+      setLitFor(-1);
       const now = Date.now();
       if (missingSince.current == null) missingSince.current = now;
+      /* Within the grace the ring HOLDS where it was (the next page is still arriving), so it glides on
+         from there when the element appears — across pages, as the sample's did. After it, the dim lifts. */
+      if (now - missingSince.current > GRACE_MS) setBox(null);
       if (now - missingSince.current > GRACE_MS) {
         // Skip ahead to a later step whose element IS on this screen.
         for (let j = iRef.current + 1; j < steps.length; j++) {
@@ -276,6 +282,7 @@ export function SpotlightTour({
     }
     missingSince.current = null;
     targetRef.current = el;
+    setLitFor(iRef.current);
 
     const band = freeBand(el, insets.current);
     const r = el.getBoundingClientRect();
@@ -292,7 +299,7 @@ export function SpotlightTour({
     if (y + h > maxBottom) h = Math.max(24, maxBottom - y);
     const x = Math.max(8, r.left - pad);
     const w = Math.min(window.innerWidth - 8 - x, r.width + pad * 2);
-    const next: Box = { x, y, w, h, r: h > 70 ? '22px' : '999px' };
+    const next: Box = { x, y, w, h, r: h > 70 ? 'var(--m-r-lg,22px)' : 'var(--m-r-full,999px)' };
     setBox((b) => (b && b.x === x && b.y === y && b.w === w && b.h === h ? b : next));
 
     const tipH = tipRef.current?.offsetHeight ?? 190;
@@ -316,10 +323,12 @@ export function SpotlightTour({
     };
   }, [place]);
 
-  // A new step: the tip pops in, focus moves to Next, the hand glides in and taps.
-  const lit = box !== null;
+  // A newly lit step: the tip pops in, focus moves to Next, the hand glides in and taps.
+  const boxRef = useRef(box);
+  boxRef.current = box;
   useEffect(() => {
-    if (!lit || !box) return;
+    const box = boxRef.current;
+    if (litFor < 0 || !box) return;
     const tip = tipRef.current;
     if (tip) {
       tip.classList.remove('pop');
@@ -334,23 +343,24 @@ export function SpotlightTour({
       window.clearTimeout(a);
       window.clearTimeout(b);
     };
-    // Only when the step changes or the tour first lights — not on every re-measure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i, lit]);
+  }, [litFor]);
 
-  // The person taps the lit button themselves: the real thing happens, then the tour moves on.
+  /* The person taps the lit button themselves: the real thing happens, then the tour moves on. Listened
+     for on the document (capture), so a button the page re-draws mid-step is still heard. */
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   useEffect(() => {
-    const el = targetRef.current;
-    if (!el || !lit) return;
-    const onTap = () => {
+    if (litFor < 0) return;
+    const onTap = (e: MouseEvent) => {
+      const el = targetRef.current;
+      if (busyRef.current || !el || !(e.target instanceof Node) || !el.contains(e.target)) return;
       // Record where they are first — a tap that navigates must still resume on the next step.
-      const cur = iRef.current;
-      writeProgress(tourKey, Math.min(cur + 1, steps.length - 1));
+      writeProgress(tourKey, Math.min(iRef.current + 1, steps.length - 1));
       advance(450);
     };
-    el.addEventListener('click', onTap, { once: true });
-    return () => el.removeEventListener('click', onTap);
-  }, [advance, i, lit, steps.length, tourKey]);
+    document.addEventListener('click', onTap, true);
+    return () => document.removeEventListener('click', onTap, true);
+  }, [advance, litFor, steps.length, tourKey]);
 
   // Escape skips, as the old card did.
   useEffect(() => {
@@ -419,7 +429,7 @@ export function SpotlightTour({
         className={`sn-spot-finger${finger.tap ? ' tap' : ''}`}
         viewBox="0 0 24 24"
         aria-hidden
-        style={{ left: finger.x, top: finger.y, opacity: finger.on && !busy ? 1 : 0 }}
+        style={{ left: finger.x, top: finger.y, opacity: finger.on && !busy && litFor === i ? 1 : 0 }}
       >
         <path fill="#fff" stroke="#1e2229" strokeWidth="1.2" d={HAND} />
       </svg>
@@ -430,7 +440,7 @@ export function SpotlightTour({
         aria-modal="false"
         aria-live="polite"
         aria-labelledby="sn-spot-title"
-        style={{ top: tipTop, opacity: busy ? 0 : 1 }}
+        style={{ top: tipTop, opacity: busy || litFor !== i ? 0 : 1 }}
       >
         <div className="sn-spot-step">
           Step {i + 1} of {steps.length}

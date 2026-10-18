@@ -219,18 +219,25 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
 
 /* ── 5 · the Maker's marks sit only on the Pro rows ───────────────────────── */
 
-test('💎 the part sheet marks Animate only — Font ▾ is free (2026-10-06), and never the whole part', () => {
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆":
+   *"all animate, effects, styles, accents are pro"*). This test pinned Font ▾ as FREE (no mark, never hidden — the
+   2026-10-06 rule). Font is Style, so it is Pro again and held at Apply — and the older part sheet's Font ▾ now WEARS
+   the sheet's one mark (the node Animate wears) and is hidden in the store shell like every Pro row. Still never the
+   whole part. */
+test('💎 the part sheet marks Font ▾ and Animate — the same one mark — and never the whole part', () => {
   const sheet = code('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx');
   const title = sheet.slice(sheet.indexOf('id={titleId}'), sheet.indexOf('</p>', sheet.indexOf('id={titleId}')));
   assert.ok(title.length > 20, 'the sheet title was not found — the scan is blind');
   assert.doesNotMatch(title, /PaidMark|Pro/, 'the whole part sheet still wears one Pro mark');
-  // The sheet draws exactly ONE mark — Animate — and hands it down; Font ▾ carries none.
-  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 1, 'the sheet draws a mark on something that is free');
-  assert.match(sheet, /const fontMark = null;/, 'Font ▾ wears a Pro mark again');
-  assert.match(sheet, /hideFont=\{false\}/, 'Font ▾ is hidden from a couple without Pro again');
+  // The sheet draws exactly ONE mark node and hands it to both Pro rows: Font ▾ and Animate.
+  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 1, 'the sheet draws a second, different mark');
+  assert.match(sheet, /const fontMark = animateMark;/, 'Font ▾ lost its Pro mark (it is Style — Pro since 2026-10-16)');
+  assert.doesNotMatch(sheet, /const fontMark = null;/, 'Font ▾ is drawn free again');
+  assert.match(sheet, /hideFont=\{hidePro\}/, 'Font ▾ is shown in the store shell to a couple without Pro');
+  assert.match(sheet, /fontMark=\{fontMark\}/, 'the mark is not handed to the Text rows');
   assert.match(sheet, /<PartAnimateTab\s+proMark=\{animateMark\}/);
   const rows = code('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx');
-  assert.match(rows, /fontMark \? \(/, 'the inspector can no longer carry a mark on Font ▾ (none is handed today)');
+  assert.match(rows, /fontMark \? \(/, 'the inspector can no longer carry the mark on Font ▾');
   assert.match(rows, /data-part-animate-pro/, 'Animate lost its mark');
   assert.doesNotMatch(rows, /<PaidMark/, 'a Text row draws its own padlock');
   const parts = code('app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx');

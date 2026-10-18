@@ -110,7 +110,7 @@ test('(4) the Maker offers it as one dropdown with Band ▾, and Apply names it 
   assert.match(sheet, /HUB_EL_DURING_PRO_NAMED\.includes\(v\) \? `\$\{HUB_EL_DURING_LABEL\[v\]\} ◆`/, 'Shimmer is not marked ◆ (Pro at Apply)');
   assert.match(sheet, /band=\{\s*motion\.during === 'shimmer'/, 'no Band ▾ while it shimmers');
   const animate = stripComments(read('app/dashboard/[eventId]/launch/_components/stage-panel/stage-animate.tsx'));
-  assert.match(animate, /does\.options\.length >= 3 \? \(\s*<Dd small="While on screen"/, 'three Action choices are not ONE dropdown');
+  assert.match(animate, /does\.options\.length >= 3 \? \(\s*<Dd small=\{animatePro\('While on screen'\)\}/, 'three Action choices are not ONE dropdown');
   assert.match(animate, /at === 'act' && band \? \(/, 'Band ▾ is not drawn on Action');
   /* The Apply sheet names it — asked of the sheet itself, for a couple without Pro. */
   const draft = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { during: 'shimmer' } } } } } } });

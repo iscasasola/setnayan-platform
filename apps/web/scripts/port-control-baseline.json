@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "48b3190c6",
+  "generatedFromRef": "ba46e1798d",
   "routeCount": 447,
-  "destinations": 993,
+  "destinations": 992,
   "actions": 664,
-  "blocks": 6571,
+  "blocks": 6580,
   "routes": {
     "/": {
       "files": [
@@ -1392,6 +1392,7 @@
         "PublicEventDetails",
         "PublicHideableWidget",
         "PublicPageActions",
+        "R",
         "ReactElement",
         "ReactNode",
         "Relive",
@@ -5847,8 +5848,8 @@
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
+        "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
         "dashboard/[eventId]/budget/actions.ts",
-        "dashboard/[eventId]/budget/allocation-actions.ts",
         "dashboard/[eventId]/budget/cost-actions.ts",
         "dashboard/[eventId]/budget/loading.tsx",
         "dashboard/[eventId]/budget/page.tsx"
@@ -5857,7 +5858,6 @@
         "/api/budget/[seg]/export",
         "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/ics",
-        "/dashboard/[seg]",
         "/dashboard/[seg]/messages"
       ],
       "actions": [
@@ -5870,41 +5870,46 @@
         "BudgetSheetState",
         "BudgetSheets",
         "BudgetSummary",
-        "ChineseTraditionInfoCard",
         "ContactShortlistVendorButton",
         "Count",
         "DeleteCostResult",
         "DeniedState",
         "EventMoney",
         "ExpenseGroup",
+        "ExpenseRow",
         "ExpenseSheet",
         "Figure",
         "Fill",
         "GroupHead",
         "GroupUnread",
+        "GroupWhy",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "InfoTip",
-        "Link",
+        "ListFilter",
         "ListPageSkeleton",
-        "MahrInfoCard",
         "MiniTour",
         "OrderGroup",
+        "OrderRow",
         "OwedLine",
         "PageMasthead",
         "Peso",
         "PickMenu",
+        "R",
         "RecordCostResult",
         "RecordSheet",
-        "SaveSnapshotResult",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
         "Sheet",
         "SuggestMilestonesResult",
         "SupplierGroup",
+        "SupplierRow",
         "SupplierSheet",
-        "SwitchTrack"
+        "SwitchTrack",
+        "ThumbRow",
+        "TraditionNotes"
       ]
     },
     "/dashboard/[eventId]/checklist": {
@@ -6232,6 +6237,7 @@
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
@@ -6691,6 +6697,7 @@
         "CoordinatorGrantChips",
         "Link",
         "ListPageSkeleton",
+        "ModeratorPermissions",
         "PageMasthead",
         "ReadRefusedNotice",
         "SetDelegateAreaResult"
@@ -9793,6 +9800,7 @@
         "HubDraftActionResult",
         "HubDraftBarLive",
         "HubDraftIntent",
+        "HubDraftRebased",
         "HubDraftToolbar",
         "IconPill",
         "InfoTip",
@@ -10483,7 +10491,8 @@
       ],
       "actions": [],
       "blocks": [
-        "BudgetScreen"
+        "BudgetScreen",
+        "TraditionNotes"
       ]
     },
     "/dev/card-maker-lab": {

@@ -28,7 +28,7 @@
  * through a second server action — two writers of one number.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Count, Fill } from '@/components/count';
@@ -77,9 +77,12 @@ export function BudgetSummary({
   agreedPhp,
   paidPhp,
   owedPhp,
+  owedAtLeast = false,
+  partial = false,
   next,
   payHref,
   onPay,
+  targetNote,
 }: {
   eventId: string;
   /** Setting the target is the couple's alone (locked D1); a delegate reads it. */
@@ -88,10 +91,24 @@ export function BudgetSummary({
   agreedPhp: number | null;
   paidPhp: number | null;
   owedPhp: number | null;
+  /**
+   * A source was refused, so `owedPhp` is a FLOOR — drawn "₱994,400+" (the
+   * prototype's failed frame; `bookedBudgetBlock`, the Suppliers block's own
+   * rule, decides it, so the two surfaces cannot disagree).
+   */
+  owedAtLeast?: boolean;
+  /**
+   * A source was refused: the legend says "part of this couldn't load" where
+   * "₱X left of target" would be, and the Next line says it could not check
+   * (an empty line would read "nothing due").
+   */
+  partial?: boolean;
   next: NextPayment | null;
   /** Where "Pay ›" goes when there is no `onPay`. */
   payHref: string;
   onPay?: (next: NextPayment) => void;
+  /** More words inside the Target's ⓘ — the Mahr / Chinese tradition notes, for the event types that have one. */
+  targetNote?: ReactNode;
 }) {
   const router = useRouter();
   const [targetPhp, setTargetPhp] = useState<number | null>(initialTargetPhp);
@@ -193,6 +210,7 @@ export function BudgetSummary({
           <div className={styles.k}>
             <InfoTip label="Target" align="start">
               What you plan to spend in all.{canEdit ? ' Tap the number to change it; it saves as you type.' : ''}
+              {targetNote}
             </InfoTip>
             <span
               className={styles.saved}
@@ -247,7 +265,7 @@ export function BudgetSummary({
         </div>
         <div className={styles.cell} data-budget-cell="owed">
           <div className={styles.k}>Owed</div>
-          <Figure value={owedPhp} id="budget-owed" tone={styles.vWine} />
+          <Figure value={owedPhp} id="budget-owed" tone={styles.vWine} atLeast={owedAtLeast} />
         </div>
       </div>
 
@@ -269,7 +287,11 @@ export function BudgetSummary({
           <i className={styles.swTarget} />
           target
         </span>
-        {left === null ? null : left >= 0 ? (
+        {partial ? (
+          <span className={`${styles.left} ${styles.wine}`} data-budget-partial="">
+            part of this couldn&rsquo;t load
+          </span>
+        ) : left === null ? null : left >= 0 ? (
           <span className={`${styles.left} ${styles.num}`}>
             <Peso value={left} id="budget-left" /> left of target
           </span>
@@ -299,19 +321,32 @@ export function BudgetSummary({
             </a>
           )}
         </div>
+      ) : partial ? (
+        <div className={styles.nextdue} data-budget-next="unread">
+          <span className={styles.mute}>Next</span>
+          <span className={`${styles.nextTxt} ${styles.mute}`}>couldn&rsquo;t check</span>
+        </div>
       ) : null}
     </section>
   );
 }
 
-/** One summary figure — or "—" when nobody measured it. Never ₱0 for unknown. */
-function Figure({ value, id, tone }: { value: number | null; id: string; tone?: string }) {
+/**
+ * One summary figure — or "—" when nobody measured it. Never ₱0 for unknown.
+ * `atLeast`: a floor, drawn with a "+" ("₱994,400+ — at least this").
+ */
+function Figure({ value, id, tone, atLeast = false }: { value: number | null; id: string; tone?: string; atLeast?: boolean }) {
   if (value === null) {
     return <div className={`${styles.v} ${styles.vMuted}`}>—</div>;
   }
   return (
-    <div className={`${styles.v} ${styles.num}${tone ? ` ${tone}` : ''}`}>
+    <div
+      className={`${styles.v} ${styles.num}${tone ? ` ${tone}` : ''}`}
+      data-budget-owed={atLeast ? 'at-least' : undefined}
+      title={atLeast ? 'At least this. Part of your budget could not load, so there may be more.' : undefined}
+    >
       <Peso value={value} id={id} />
+      {atLeast ? '+' : null}
     </div>
   );
 }

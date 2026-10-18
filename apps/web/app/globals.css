@@ -8151,6 +8151,21 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
   height: 100%;
   object-fit: cover;
 }
+/* 🖼 THE MAKER'S CANVAS ONLY (`renderScene` `makerSlots`): a picture slot still empty, drawn in its place as the
+   template's own box, so the couple sees where a picture goes and taps it to add one. A guest never gets this. */
+.hub-tpl-m[data-scene-slot-empty] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed rgb(var(--color-ink) / 0.28);
+  background: rgb(var(--color-ink) / 0.04);
+}
+.hub-tpl-m[data-scene-slot-empty] > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--color-ink) / 0.62);
+}
 .hub-tpl-w {
   display: flex;
   flex-direction: column;

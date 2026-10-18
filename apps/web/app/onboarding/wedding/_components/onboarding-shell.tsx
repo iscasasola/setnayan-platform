@@ -54,6 +54,7 @@ import {
   type OnboardingVenueResult,
 } from '../actions';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { signUp } from '@/app/signup/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
@@ -4129,7 +4130,16 @@ export function OnboardingShell({
                 placeholder="your@email.com"
                 style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
               />
+              {/* A TYPED Google address takes the Google button's own door, the
+                  same row as above (owner 2026-10-18); the password part folds. */}
+              <GoogleAddressDoor
+                enabled={!storeShell}
+                next={RESUME_NEXT}
+                accountType="customer"
+                verb={SIGNUP_OAUTH_VERB}
+              />
               <input
+                data-password-only=""
                 className="field"
                 name="password"
                 type="password"
@@ -4145,7 +4155,7 @@ export function OnboardingShell({
                   refused every submission and bounced the couple to
                   /signup?error=terms_required to retype everything. Never a
                   hidden field: consent posted for someone is not consent. */}
-              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, textAlign: 'left' }}>
+              <label data-password-only="" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, textAlign: 'left' }}>
                 <input name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
                 <span>
                   I agree to the <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}><u>Terms</u></a>{' '}
@@ -4155,11 +4165,11 @@ export function OnboardingShell({
               {/* "Stay signed in" — defaults CHECKED, exactly as on /signup; `signUp`
                   downgrades the session to browser-only when it is unticked. Without
                   this field the login only lasted until the browser closed. */}
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, textAlign: 'left' }}>
+              <label data-password-only="" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, textAlign: 'left' }}>
                 <input name="remember" type="checkbox" defaultChecked />
                 <span>Stay signed in</span>
               </label>
-              <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
+              <SubmitButton className="byo-send" pendingLabel="Creating account…" data-password-only="">Create account</SubmitButton>
             </form>
             <div className="ghost" style={{ marginTop: 4 }}>
               <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>

@@ -309,6 +309,9 @@ function HideableWidgetBody({
         facts: sceneFactsFor(event, { solemn: words.solemn }),
         ownClipPlays,
         clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
+        /* 🖼 `ownClipPlays` IS the Maker's canvas (`site-body.tsx` passes `isMakerCanvas`): its picture slots are drawn
+           in place there, tappable (owner 2026-10-18). A guest never gets them. */
+        makerSlots: ownClipPlays,
       });
 
     case 'our_love_story':

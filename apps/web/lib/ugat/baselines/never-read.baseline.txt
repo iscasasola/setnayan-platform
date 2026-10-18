@@ -4,9 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above.
-budget_allocation_decisions.recommended_amount_php	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-budget_allocation_decisions.recommended_share_bp	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-budget_allocation_decisions.total_budget_php	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 chat_threads.compat_reasons	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 discount_code_redemptions.discount_centavos_applied	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_editorial.edited_by_couple	# first run 2026-10-02 · host app · a column the app writes and nothing reads

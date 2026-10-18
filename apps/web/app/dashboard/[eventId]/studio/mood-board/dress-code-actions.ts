@@ -25,6 +25,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
   ATTIRE_STYLES,
+  carryCallTimes,
   isAttireStyle,
   sanitizeCallTime,
   type RoleAttireMap,
@@ -109,20 +110,7 @@ function withPaletteCarried<C extends DressCodeConfig>(next: C, base: unknown, f
  * before. A line this save removed (its Wear unset) carries nothing: a time with no outfit line is read by nobody.
  */
 function withCallTimesCarried<C extends DressCodeConfig>(next: C, base: unknown, formData: FormData): C {
-  const was = base && typeof base === 'object' && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
-  const carry = <M extends Partial<Record<string, RoleAttireRule>>>(tier: 'roles' | 'groups', map: M): M => {
-    if (formData.has(tier === 'roles' ? 'role_call_time' : 'group_call_time')) return map;
-    const stored = (was[tier] && typeof was[tier] === 'object' ? was[tier] : {}) as Record<string, { callTime?: unknown } | undefined>;
-    const out = { ...map } as Record<string, RoleAttireRule | undefined>;
-    for (const [key, rule] of Object.entries(out)) {
-      if (!rule) continue;
-      const { callTime: _posted, ...rest } = rule;
-      const time = sanitizeCallTime(stored[key]?.callTime);
-      out[key] = time ? { ...rest, callTime: time } : rest;
-    }
-    return out as M;
-  };
-  return { ...next, roles: carry('roles', next.roles), groups: carry('groups', next.groups) };
+  return carryCallTimes(next, base, { roles: formData.has('role_call_time'), groups: formData.has('group_call_time') });
 }
 
 async function liveDressCode(eventId: string): Promise<unknown> {

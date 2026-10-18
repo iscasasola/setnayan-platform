@@ -17,8 +17,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
-import { LOGO_LAYER_KINDS, defaultMotion, logoInkBox, sanitizeLogoLayers, type LogoLayer } from './logo-layers';
-import { composeLogoSvg, duplicateLayer, layersFromSaved, layerShapes, metaOf, parseLogoSvg } from './logo-layers-edit';
+import { LOGO_LAYER_KINDS, defaultMotion, logoInkBox, logoKindName, sanitizeLogoLayers, type LogoLayer } from './logo-layers';
+import { LOGO_LAYER_KIND_LABEL, composeLogoSvg, duplicateLayer, layersFromSaved, layerShapes, metaOf, parseLogoSvg } from './logo-layers-edit';
 import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, swapOrnament } from './logo-ornaments';
 import { sanitizeStudioSvg } from './monogram-studio-shared';
 
@@ -44,7 +44,7 @@ test('1 · ＋ Add layer = Text · Image · Frame · Ornament, the prototype’s
   const list = cards.slice(cards.indexOf('export const LOGO_ADD_KINDS'), cards.indexOf('] as const;', cards.indexOf('export const LOGO_ADD_KINDS')));
   assert.deepEqual([...list.matchAll(/kind: '([a-z]+)', label: '([^']+)'/g)].map((m) => `${m[1]}:${m[2]}`), ['text:Text', 'image:Image', 'frame:Frame', 'ornament:Ornament']);
   assert.match(list, /kind: 'ornament', label: 'Ornament', hint: 'A flourish, a leaf, a star'/, 'the Ornament row lost the prototype’s line');
-  assert.match(cards, /ornament: <[A-Z]\w+ aria-hidden/, 'the Ornament row has no icon');
+  assert.match(cards, /ornament: \(\s*<svg aria-hidden viewBox="0 0 200 200"/, 'the Ornament row has no icon');
   assert.ok((LOGO_LAYER_KINDS as readonly string[]).includes('ornament'), 'ornament is not a layer kind');
   const editor = read(`${L}/maker-logo.tsx`);
   assert.match(editor, /else if \(kind === 'ornament'\) addOrnament\(\);/, 'the Ornament row adds nothing');
@@ -144,6 +144,10 @@ test('5 · the first load does not pay for six ornaments: only the lazy maker-lo
   walk(join(WEB, 'lib'));
   walk(join(WEB, 'components'));
   assert.deepEqual(importers, [`${L}/maker-logo.tsx`], `logo-ornaments is imported outside the lazy Logo editor: ${importers}`);
+  // ⚡ The kinds' labels are lazy too (the budget had 0.1 KB left) — and a nameless layer's name says the same words.
+  assert.doesNotMatch(read('lib/logo-layers.ts'), /LOGO_LAYER_KIND_LABEL\s*[:=]/, 'the kind labels moved back into the first-load file');
+  for (const k of LOGO_LAYER_KINDS) assert.equal(logoKindName(k), LOGO_LAYER_KIND_LABEL[k], `${k}: the default name and the label differ`);
+  assert.equal(sanitizeLogoLayers([{ id: 'o1', kind: 'ornament', x: 1, y: 1, scale: 1, motion: {} }])[0]!.name, 'Ornament');
   // And the first-load half (`logo-layers.ts`) carries the kind, never the shapes.
   assert.doesNotMatch(read('lib/logo-layers.ts'), /flourish|data-ornament/, 'ornament shapes leaked into the first-load file');
 });

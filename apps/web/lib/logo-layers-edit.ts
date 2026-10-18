@@ -23,6 +23,7 @@ import {
   type LogoFrameKind,
   type LogoIn,
   type LogoLayer,
+  type LogoLayerKind,
   type LogoLayerMeta,
   type LogoMotion,
   type LogoOut,
@@ -31,6 +32,11 @@ import {
   sanitizeRotate,
 } from './logo-layers';
 import { LOGO_WRITE_CELLS, penAlong, resampleWrite } from './logo-layers-player';
+
+
+/** What each kind of layer is called (L5 moved it here from the first-load `logo-layers.ts`; it equals
+ *  `logoKindName`, which a guard holds). */
+export const LOGO_LAYER_KIND_LABEL: Record<LogoLayerKind, string> = { image: 'Image', text: 'Text', frame: 'Frame', ornament: 'Ornament' };
 
 export const LOGO_IN_LABEL: Record<LogoIn, string> = { draw: 'Draw on', rise: 'Rise', fade: 'Fade', none: 'None' };
 export const LOGO_DURING_LABEL: Record<LogoDuring, string> = { still: 'Still', drift: 'Drift' };

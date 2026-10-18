@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CircleDashed, Flower2, ImagePlus, Lock, Plus, Type } from 'lucide-react';
-import { LOGO_LAYER_KIND_LABEL, type LogoLayer } from '@/lib/logo-layers';
-import { layerShapes } from '@/lib/logo-layers-edit';
+import { CircleDashed, ImagePlus, Lock, Plus, Type } from 'lucide-react';
+import type { LogoLayer } from '@/lib/logo-layers';
+import { LOGO_LAYER_KIND_LABEL, layerShapes } from '@/lib/logo-layers-edit';
 import { cardDropIndex, LOGO_CARD_H_PX, LOGO_CARD_HALF_PX } from '@/lib/logo-maker-layout';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
@@ -256,7 +256,12 @@ const ADD_ICON: Record<LogoAddKind, ReactNode> = {
   text: <Type aria-hidden className="h-4 w-4" />,
   image: <ImagePlus aria-hidden className="h-4 w-4" />,
   frame: <CircleDashed aria-hidden className="h-4 w-4" />,
-  ornament: <Flower2 aria-hidden className="h-4 w-4" />,
+  /* The prototype's ❦ — drawn here as the leaf's own blade (no new icon module: the Maker's first load had 0.1 KB left). */
+  ornament: (
+    <svg aria-hidden viewBox="0 0 200 200" className="h-4 w-4" fill="currentColor">
+      <path d="M100 58C84 34 48 26 30 52C12 80 34 120 62 146C76 160 90 172 100 196C110 172 124 160 138 146C166 120 188 80 170 52C152 26 116 34 100 58Z" />
+    </svg>
+  ),
 };
 
 /**

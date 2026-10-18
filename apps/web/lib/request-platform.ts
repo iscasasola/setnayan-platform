@@ -19,6 +19,8 @@
 import { headers, cookies } from 'next/headers';
 import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
+import { iapAvailable } from '@/lib/iap/iap-gate';
+import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -113,4 +115,23 @@ export async function isStoreShellRequest(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * 🍎 The store shell, and whether it may sell through Apple on this request.
+ *
+ * `iap` is true only when ALL of: the store shell, a build carrying the StoreKit
+ * plugin (`SetnayanIAP/1`), and the owner's switch — the rule is
+ * `iapAvailable` in lib/iap/iap-gate.ts. With `iap` false every reader keeps
+ * the store-shell behaviour it had before In-App Purchase existed. Safe outside
+ * a request scope → both false.
+ */
+export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean }> {
+  const signals = await readShellSignals();
+  if (!signals) return { storeShell: false, iap: false };
+  const storeShell = isStoreShellSignals(signals.ua, signals.clientType);
+  return {
+    storeShell,
+    iap: iapAvailable({ storeShell, userAgent: signals.ua, enabled: isAppleIapEnabled() }),
+  };
 }

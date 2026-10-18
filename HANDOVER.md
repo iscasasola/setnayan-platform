@@ -46,7 +46,7 @@ Design decisions (made from the record; listed in the PR body):
 - Prices: the app shows ONLY StoreKit's displayPrice. Owner sets each App Store price ≥ web ÷ 0.85 (computed list in PR body).
 
 Steps (✅ = committed + pushed):
-- [ ] S1 config + gate + products (lib/iap/*) + tests
+- [x] ✅ S1 config + gate + products (lib/iap/*) + tests
 - [ ] S2 migration app_store_purchases
 - [ ] S3 server: JWS verify, intent/verify/restore actions, fulfil + refund, ASSN v2 route, tests (fixtures, sabotage)
 - [ ] S4 Swift StoreKit 2 plugin + registration + Info.plist + UA token; xcodebuild if lock allows

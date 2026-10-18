@@ -137,7 +137,7 @@ test('(4) the Stages panel and the scene’s Background row draw no range by han
   assert.equal(drawn, 5, 'a slider the panel drew is gone, or a new one is not counted here');
   assert.equal((read(`${L}/stage-panel/stage-background.tsx`).match(/<Slider\b/g) ?? []).length, 2, 'the Background’s Opacity or its Darker ↔ Lighter bar is not the app’s slider');
   assert.equal((read(`${L}/stage-panel/stage-animate.tsx`).match(/<Slider\b|<TimeRow\b/g) ?? []).length, 0, 'Animate draws a slider again — it has no row for one');
-  assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /small="Delay"[\s\S]{0,300}options=\{delay\.steps\.map\(\(s\) => \(\{ key: String\(s\), label: seconds\(s\) \}\)\)\}/, 'Delay does not offer the shipped steps');
+  assert.match(read(`${L}/stage-panel/stage-animate.tsx`), /small=\{animatePro\('Delay'\)\}[\s\S]{0,300}options=\{delay\.steps\.map\(\(s\) => \(\{ key: String\(s\), label: seconds\(s\) \}\)\)\}/, 'Delay does not offer the shipped steps');
   /* Each says what its value means, beside it and to a screen reader. */
   assert.match(read(`${L}/stage-panel/stage-text.tsx`), /valueText=\{`\$\{pct\}%`\}[\s\S]{0,400}<span className=\{`\$\{SLIDER_VALUE\} w-\[44px\]`\}>\{pct\}%<\/span>/);
   /* (🔁 2026-10-09: the toolbar's Opacity is drawn by `stage-background.tsx` from the row's own value — one in each file.) */

@@ -37,3 +37,9 @@ Plan / decisions:
 2. ◆: element-sheet Font ▾ wears the sheet's own Pro mark (re-aim free-vs-pro-redrawn test); StageAnimate's other
    named controls get " ◆".
 3. Gifts: Maker-only empty gifts block draws the kit's divider + card accent around the shipped prompt.
+
+## Progress
+- [x] Item 2 ◆ (commit below): element-sheet Font ▾ = the sheet's one mark, hidden in the shell; StageAnimate's
+  every named control via `animatePro` (Fade · Blur · Move · Size, While on screen, From/To, Band, Plays, Rows,
+  Words/Reveal, Delay, Leaves). Guard `lib/every-animate-control-wears-the-mark.test.ts` (sabotage: Delay unmarked →
+  red; restored → green). 9 pinned-label tests re-aimed (marked RE-AIMED 2026-10-18). Not walked yet.

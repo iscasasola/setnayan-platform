@@ -22,8 +22,11 @@ Decisions where the record is silent: search empty copy "No match."; group count
 (prototype); filter does not move the summary; meter draws no bar on a partial ledger (B1 rule, not the
 prototype's partial bar); Next on partial = "couldn't check" (B4's rule); tradition notes ride INSIDE the Target ⓘ
 (a second ⓘ does not fit the 160px cell).
-NEXT: walk /dev/budget-lab at 375 light+dark (states summary, failed, view, owing via filter, search) → shots
-→ draft PR → CI loop.
+Step 2 DONE: walked /dev/budget-lab 375 light+dark, Chromium + WebKit; shots in scratchpad budget-walk/shots.
+Walk fixes: search input type=text (native ✕ doubled ours); row controls all 44px; Target field lifted above the
+(pointer:coarse) 16px input floor (it drew 16px on phones since B1); TraditionNotes moved to its own component +
+lab ?state=traditions.
+NEXT: draft PR → copy shots → CI loop.
 Left, named: masthead .ics/CSV/Print still on the page (B4's move to Schedule/⋯ not done); share-band toggle
 still at page foot (no ⋯ menu yet); payment-plan instalments not in EventMoney (own PR, changes every money
 surface); marketing page app/(shell)/budget + lib/feature-pages/plan-a.ts still describe Save/Standard/Splurge.

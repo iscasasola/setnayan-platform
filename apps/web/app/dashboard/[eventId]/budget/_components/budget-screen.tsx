@@ -314,19 +314,23 @@ function ThumbRow({
             if (isListFilter(k)) onFilter(k);
           }}
           dataAttr="data-budget-filter"
-          className="!border-transparent !bg-transparent"
+          // 42px inside the glass's 1px edge = the row's 44px (the prototype's `.sel`).
+          className="!min-h-[42px] !border-transparent !bg-transparent"
         />
       </span>
       {searching ? (
         <label
           data-glass-row="budget-search"
           data-fit-field=""
-          className="sn-glass-row flex h-10 min-w-[60%] flex-1 items-center gap-2 rounded-full pl-3.5 pr-1 text-ink"
+          className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center gap-2 rounded-full pl-3.5 pr-1 text-ink"
         >
           <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
           <input
             ref={inputRef}
-            type="search"
+            // `text`, not `search`: a search input draws the browser's own ✕ beside ours.
+            type="text"
+            inputMode="search"
+            enterKeyHint="search"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -356,7 +360,7 @@ function ThumbRow({
               icon={Search}
               label="Search"
               onClick={() => setSearching(true)}
-              className="!border-transparent"
+              className="!h-[42px] !min-h-[42px] !w-[42px] !min-w-[42px] !border-transparent"
             />
           </span>
         </>

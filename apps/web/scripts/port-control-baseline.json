@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a41d92f7a7",
+  "generatedFromRef": "ba46e1798d",
   "routeCount": 447,
   "destinations": 992,
   "actions": 664,
-  "blocks": 6579,
+  "blocks": 6580,
   "routes": {
     "/": {
       "files": [
@@ -5848,6 +5848,7 @@
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
+        "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
         "dashboard/[eventId]/budget/actions.ts",
         "dashboard/[eventId]/budget/cost-actions.ts",
         "dashboard/[eventId]/budget/loading.tsx",
@@ -10490,7 +10491,8 @@
       ],
       "actions": [],
       "blocks": [
-        "BudgetScreen"
+        "BudgetScreen",
+        "TraditionNotes"
       ]
     },
     "/dev/card-maker-lab": {

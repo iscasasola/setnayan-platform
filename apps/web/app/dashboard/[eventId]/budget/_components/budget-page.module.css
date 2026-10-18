@@ -113,6 +113,16 @@
   outline: none;
   box-shadow: none;
 }
+/* The app's touch floor (globals.css, `@media (pointer: coarse)`) forces every
+   input to 16px !important so iOS does not zoom on focus — which drew the
+   Target at 16px on every phone while its neighbours stand at 24px. 24px is
+   above that floor, so the zoom it guards against cannot happen here. The
+   selector repeats the floor's own `:not()` chain so it outranks it. */
+@media (pointer: coarse) {
+  .target input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']) {
+    font-size: 24px !important;
+  }
+}
 .target input:focus,
 .target input:focus-visible {
   border-bottom-color: var(--bp-brand);

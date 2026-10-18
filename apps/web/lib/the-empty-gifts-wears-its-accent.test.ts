@@ -39,7 +39,7 @@ test('1 · the Maker, no way to give, a kit: the divider, and the card accent on
 test('2 · the Maker with no kit draws the empty block exactly as before — no card', () => {
   const html = draw({ maker: true, artKit: null });
   assert.doesNotMatch(html, /data-kit-slot|data-maker-gifts-card/, 'a card or an accent without a kit');
-  assert.equal(renderToStaticMarkup(h(MakerWelcomeGiftsEmpty, { kit: null })), renderToStaticMarkup(h(MakerWelcomeGiftsEmpty, {})), 'a null kit changed the block');
+  assert.equal(renderToStaticMarkup(MakerWelcomeGiftsEmpty({ kit: null })), renderToStaticMarkup(MakerWelcomeGiftsEmpty()), 'a null kit changed the block');
   assert.match(html, /Add a way to receive gifts\./);
 });
 

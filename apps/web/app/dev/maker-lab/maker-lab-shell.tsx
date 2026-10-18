@@ -143,10 +143,12 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
-  const { labDraftStep } = await labEngine();
+  const { labDraftStep, labOwnKind } = await labEngine();
+  /* 🖼 The lab's scene of their own (`lab_own`), so the save is merged against a live state that holds it. */
+  const own = labOwnKind(document.cookie.split('; ').find((c) => c.startsWith('lab_own='))?.slice('lab_own='.length));
   const scrub = labScrubOn();
   /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Hub Pro: Apply holds nothing, as the real gate does for an unlocked event. */
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base') }, scrub, readLabPublished(scrub));
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base') }, scrub, readLabPublished(scrub), own);
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */

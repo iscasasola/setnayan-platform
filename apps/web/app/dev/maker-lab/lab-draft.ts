@@ -161,9 +161,12 @@ function layState(under: HubDraftState | null | undefined, over: HubDraftState):
  * What the draft is compared against: the sample's rows — on the Scrub chain (`?scrub=1`), wearing the chain's start
  * — with what the lab has PUBLISHED laid over them, by the page's own overlay.
  */
-export function labLive(scrub: boolean, published: HubDraftState | null = null): HubLiveState {
+export function labLive(scrub: boolean, published: HubDraftState | null = null, own: LabOwnKind = null): HubLiveState {
   const start = labScrubCanvases(scrub, {});
-  const sample = labRows().map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r));
+  /* 🖼 …with the lab's scene of their own (`lab_own`) when it holds one — its canvas (the template) is LIVE, so a save's
+     rebase (`rebaseHubDraftPatch`) reads the template as standing, as production's live row says (2026-10-18: without
+     it a picture put in a slot read as "the template taken off"). */
+  const sample = labRows(own).map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r));
   if (!published) return { events: {}, widgets: sample };
   const styles = Object.fromEntries(Object.entries(published.fixedStyles ?? {}).filter(([, v]) => v !== null));
   return {
@@ -175,8 +178,8 @@ export function labLive(scrub: boolean, published: HubDraftState | null = null):
 }
 
 /** The ✓ bar for the lab's draft — the SAME summary, named changes and Pro effects the real save answers with. */
-export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftBarLive {
-  const live = labLive(scrub, published);
+export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, own: LabOwnKind = null): HubDraftBarLive {
+  const live = labLive(scrub, published, own);
   return {
     free: { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) },
     owned: { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) },
@@ -235,6 +238,8 @@ export function labDraftStep(
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
+  /** 🖼 The lab's scene of their own (`lab_own`), so the live state the save is merged against holds it. */
+  own: LabOwnKind = null,
 ): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } {
   const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
   if (!intent) return { draft: current, published, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
@@ -247,7 +252,7 @@ export function labDraftStep(
       return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
     /* ↺ …with the stamp of the state it left, as the real action answers (`lib/hub-draft-stamp.ts`). */
-    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published, own) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
@@ -277,7 +282,7 @@ export function labDraftStep(
     } catch {
       base = undefined;
     }
-    const live = labLive(scrub, published);
+    const live = labLive(scrub, published, own);
     const canvas: Record<string, unknown> = {};
     for (const row of live.widgets) {
       const c = (row.config_json as { canvas?: unknown } | null)?.canvas;

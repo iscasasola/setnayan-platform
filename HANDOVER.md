@@ -53,3 +53,12 @@ Steps (✅ = committed + pushed):
 - [x] ✅ S5 web bridge lib/iap/native-store.ts
 - [x] ✅ S6 UI: Apply sheet · Home rows (Papic + Live Watch) · Papic sheet · Live Watch sheet · states · Profile Restore
 - [ ] S7 guards + changelog fragment + PR (draft, do-not-auto-merge) + CI loop
+
+### State at 2026-10-18 ~14:00 PHT
+- PR **#6637** (draft, label do-not-auto-merge, autoMergeRequest null). Corpus DECISION_LOG row pushed (70ffda52).
+- Queued under the heavy lock (background): the IAP db test (`tests/db/an-app-store-purchase-is-one-order.db.test.ts`)
+  and an iOS simulator `xcodebuild` (`apps/mobile`; `npx cap sync ios` rewrote `CapApp-SPM/Package.swift` 8.4.0→8.4.3 —
+  a sync artifact, NOT committed: `git checkout apps/mobile/ios/App/CapApp-SPM/Package.swift` after the build).
+- Walk queued (walk:iap): /dev/home-lab?store=1&apple=1 + ?view=apply&screen=… in WebKit iPhone 13, a stand-in
+  window.Capacitor with SAMPLE prices. Shots → ~/Documents/Claude/Projects/shots-2026-10-18/6637/.
+- Next: CI loop to green; then delete this file.

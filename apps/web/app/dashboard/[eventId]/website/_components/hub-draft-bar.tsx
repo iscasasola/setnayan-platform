@@ -7,12 +7,15 @@ import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDe
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check, Undo2, X } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
-import { ApplyProSheet } from './apply-pro-sheet';
+import { ApplyProSheet, type AppleProParts } from './apply-pro-sheet';
+
+/** 🍎 Lazy: never on the Maker's first load (scripts/check-maker-js-budget.mjs). */
+const AppleProDriver = lazy(() => import('@/lib/iap/pro-at-apply'));
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
@@ -376,41 +379,13 @@ export function HubDraftToolbar({
      write — while the draft holds a Pro effect this event has not unlocked. */
   const [sheetOpen, setSheetOpen] = useState(false);
   const asksForPro = (appleIap ? storeShell : !storeShell && proHref !== null) && proEffects.length > 0;
-  /* 🍎 Apple's sheet for Event Hub Pro. The StoreKit kit (`lib/iap/pro-at-apply.ts`)
-     is imported LAZILY — only in the iPhone app, only once this sheet opens with
-     Pro in it — so the Maker's first load carries none of it. */
-  const appleAsks = appleIap && asksForPro;
-  const [appleKit, setAppleKit] = useState<typeof import('@/lib/iap/pro-at-apply') | null>(null);
-  const [applePrice, setApplePrice] = useState<{ state: 'loading' | 'ready' | 'silent'; price: string | null }>({ state: 'loading', price: null });
-  const [appleBuying, setAppleBuying] = useState(false);
-  const [appleScreen, setAppleScreen] = useState<Awaited<ReturnType<typeof import('@/lib/iap/pro-at-apply').buyProWithApple>> | null>(null);
-  useEffect(() => {
-    if (!appleAsks || !sheetOpen || appleKit) return;
-    let alive = true;
-    void import('@/lib/iap/pro-at-apply')
-      .then((kit) => {
-        if (alive) setAppleKit(kit);
-      })
-      .catch(() => {
-        if (alive) setApplePrice({ state: 'silent', price: null });
-      });
-    return () => {
-      alive = false;
-    };
-  }, [appleAsks, sheetOpen, appleKit]);
-  useEffect(() => {
-    if (!appleKit || !sheetOpen || applePrice.state === 'ready') return;
-    let alive = true;
-    void appleKit.loadProPrice().then((p) => {
-      if (alive) setApplePrice(p);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [appleKit, sheetOpen, applePrice.state]);
-  /* What the success screen names — captured at the tap, because the Apply it
-     triggers empties the draft before the sheet is read again. */
-  const [appleApplied, setAppleApplied] = useState<{ count: number; names: string[] } | null>(null);
+  /* 🍎 Apple's sheet for Event Hub Pro (owner 2026-10-18, ruling 2). Its driver
+     (`lib/iap/pro-at-apply.tsx`) is a LAZY chunk — only in the iPhone app, only
+     while this sheet is open with Pro in it — and hands the sheet its pieces. */
+  const [appleParts, setAppleParts] = useState<AppleProParts | null>(null);
+  /* An outcome screen (Pro is on · switching it on) stays up after the Apply it
+     triggered empties the draft — until the couple closes it. */
+  const appleAsks = appleIap && (asksForPro || Boolean(appleParts?.body));
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
@@ -646,36 +621,7 @@ export function HubDraftToolbar({
           changeCount={summary.changeCount}
           changes={summary.changes}
           heldOnWeb={proShell ? summary.proCount : 0}
-          apple={
-            appleAsks && appleKit
-              ? appleKit.appleProParts({
-                  price: applePrice.price,
-                  priceState: applePrice.state,
-                  buying: appleBuying,
-                  applying: pending,
-                  screen: appleScreen,
-                  proCount: proEffects.length,
-                  applied: appleApplied,
-                  onBuy: () => {
-                    if (appleBuying) return;
-                    setAppleBuying(true);
-                    setAppleScreen(null);
-                    setAppleApplied({ count: summary.changeCount, names: proEffects.map((e) => e.what) });
-                    void appleKit.buyProWithApple(eventId).then((screen) => {
-                      setAppleBuying(false);
-                      setAppleScreen(screen);
-                      /* "KEEP, MARKED" (2026-10-08): the held ◆ changes apply in the
-                         same tap — only once OUR server said Pro is on. */
-                      if (screen.kind === 'on') act({ intent: 'apply' });
-                    });
-                  },
-                  onDone: () => {
-                    setAppleScreen(null);
-                    setSheetOpen(false);
-                  },
-                })
-              : null
-          }
+          apple={appleAsks ? appleParts : null}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}
@@ -686,13 +632,29 @@ export function HubDraftToolbar({
             act({ intent: 'apply' });
           }}
           onClose={() => {
-            if (appleBuying) return;
-            setAppleScreen(null);
+            setAppleParts(null);
             setSheetOpen(false);
           }}
           tour={applyTour}
         />,
         document.body,
+      ) : null}
+      {sheetOpen && appleAsks ? (
+        <Suspense fallback={null}>
+          <AppleProDriver
+            eventId={eventId}
+            applying={pending}
+            proCount={proEffects.length}
+            changeCount={summary.changeCount}
+            names={proEffects.map((e) => e.what)}
+            onParts={setAppleParts}
+            onApply={() => act({ intent: 'apply' })}
+            onFinish={() => {
+              setAppleParts(null);
+              setSheetOpen(false);
+            }}
+          />
+        </Suspense>
       ) : null}
       <div ref={panelRef} className="relative" data-maker-draft-panel="">
         {/* Portalled and FIXED to the screen (like the Apply sheet): inside the

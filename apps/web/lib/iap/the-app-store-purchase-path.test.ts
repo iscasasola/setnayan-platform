@@ -141,8 +141,9 @@ test('the iOS build announces the plugin it carries — and Android never claims
 });
 
 test('every Apple surface is mounted ONLY behind the three-part gate', () => {
-  assert.match(code('app/dashboard/[eventId]/layout.tsx'), /getIapGate\(\)\.then\(\(g\) => g\.iap\)/);
-  assert.match(code('app/dashboard/[eventId]/layout.tsx'), /\{appStoreNet \? <AppStoreTransactions \/> : null\}/);
+  // The net rides Home (where the app lands), never the event layout (the Maker's first load).
+  assert.match(code('app/dashboard/[eventId]/page.tsx'), /\{appleFacts \? <AppStoreTransactions \/> : null\}/);
+  assert.doesNotMatch(code('app/dashboard/[eventId]/layout.tsx'), /AppStoreTransactions|lib\/iap\//);
   assert.match(code('app/dashboard/[eventId]/page.tsx'), /getIapGate\(\)\.then\(async \(\{ iap \}\) => \{\s*if \(!iap\) return null;/);
   assert.match(code('app/dashboard/(account)/profile/page.tsx'), /\{appleIap \? <RestorePurchasesRow className=\{ACCOUNT_ROW\} \/> : null\}/);
   assert.match(code('lib/hub-draft-store.ts'), /appleIap: iap,/);

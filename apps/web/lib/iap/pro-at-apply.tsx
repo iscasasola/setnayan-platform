@@ -13,6 +13,7 @@
  * on — said only after OUR server verified), 7 (switching it on), 8 (nothing
  * was charged), 9 (Apple couldn't — the button stays).
  */
+import { useEffect, useRef, useState } from 'react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import type { AppleProParts } from '@/app/dashboard/[eventId]/website/_components/apply-pro-sheet';
 import { formatCount } from '@/lib/format-number';
@@ -141,4 +142,79 @@ export function appleProParts(s: AppleProState): AppleProParts {
       </p>
     ),
   };
+}
+
+/**
+ * The Apply sheet's Apple DRIVER — the default export the draft bar loads with
+ * `React.lazy` while its sheet is open with Pro in it. It owns StoreKit's price,
+ * the purchase and its outcome, and hands the sheet its pieces (`onParts`);
+ * it draws nothing itself. When OUR server says Pro is on it asks the bar to
+ * Apply (`onApply`) — the held ◆ changes go live in the same tap ("KEEP,
+ * MARKED", 2026-10-08).
+ */
+export default function AppleProDriver({
+  eventId,
+  applying,
+  proCount,
+  changeCount,
+  names,
+  onParts,
+  onApply,
+  onFinish,
+}: {
+  eventId: string;
+  applying: boolean;
+  proCount: number;
+  changeCount: number;
+  names: string[];
+  onParts: (parts: AppleProParts) => void;
+  onApply: () => void;
+  onFinish: () => void;
+}) {
+  const [price, setPrice] = useState<{ state: 'loading' | 'ready' | 'silent'; price: string | null }>({ state: 'loading', price: null });
+  const [buying, setBuying] = useState(false);
+  const [screen, setScreen] = useState<IapScreen | null>(null);
+  const [applied, setApplied] = useState<{ count: number; names: string[] } | null>(null);
+  /* The bar hands fresh closures every render; read them through a ref so the
+     pieces are rebuilt only when what they SHOW changes (no render loop). */
+  const latest = useRef({ changeCount, names, onApply, onFinish });
+  latest.current = { changeCount, names, onApply, onFinish };
+
+  useEffect(() => {
+    let alive = true;
+    void loadProPrice().then((p) => {
+      if (alive) setPrice(p);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onParts(
+      appleProParts({
+        price: price.price,
+        priceState: price.state,
+        buying,
+        applying,
+        screen,
+        proCount,
+        applied,
+        onBuy: () => {
+          if (buying) return;
+          setBuying(true);
+          setScreen(null);
+          setApplied({ count: latest.current.changeCount, names: latest.current.names });
+          void buyProWithApple(eventId).then((s) => {
+            setBuying(false);
+            setScreen(s);
+            if (s.kind === 'on') latest.current.onApply();
+          });
+        },
+        onDone: () => latest.current.onFinish(),
+      }),
+    );
+  }, [price, buying, applying, screen, proCount, applied, eventId, onParts]);
+
+  return null;
 }

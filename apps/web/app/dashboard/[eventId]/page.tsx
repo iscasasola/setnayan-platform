@@ -8,6 +8,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -749,6 +750,11 @@ export default async function EventHomePage({
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
   const homeFirstScreen = (
+    <>
+    {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
+        lands — every unfinished Apple purchase is handed to our server. Only
+        where the app sells through Apple; never on the Maker's first load. */}
+    {appleFacts ? <AppStoreTransactions /> : null}
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
@@ -802,6 +808,7 @@ export default async function EventHomePage({
         </Suspense>
       }
     />
+    </>
   );
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard

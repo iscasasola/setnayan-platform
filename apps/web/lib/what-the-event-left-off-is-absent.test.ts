@@ -70,5 +70,5 @@ test('the Maker drops the stages and Studio tiles of what is off, and never open
   assert.match(bar, /if \(input\.hiddenStages\?\.includes\(s\)\) continue;/);
   // …and the top bar's Stages ▾ sheet lists only the stages Page ▾ lists (walked 2026-10-18: it drew all five).
   const sheet = read('app/dashboard/[eventId]/launch/_components/stage-item-menu.tsx');
-  assert.match(sheet, /MAKER_STAGE_KEYS\.filter\(\(s\) => options\.some\(/, 'the Stages sheet lists a stage this event does not have');
+  assert.match(sheet, /if \(options\.length > 0 && !options\.some\(\(o\) => o\.key === s \|\| o\.key\.startsWith\(`\$\{s\}:`\)\)\) return null;/, 'the Stages sheet lists a stage this event does not have');
 });

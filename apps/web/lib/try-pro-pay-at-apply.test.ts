@@ -302,9 +302,9 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell, me\);\s*if \(!proShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
   // …and still no web price or web link in ANY store shell, Apple or not.
   assert.match(load, /if \(!storeShell && summary\.proCount > 0\)/);
-  assert.match(load, /proHref: storeShell \? null :/);
+  assert.match(load, /proHref: iap \? `\/dashboard\/\$\{eventId\}\/apple-pro\?from=maker` : storeShell \? null :/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /const asksForPro = \(appleIap \? storeShell : !storeShell && proHref !== null\) && proEffects\.length > 0;/);
+  assert.match(bar, /const asksForPro = !proShell && proHref !== null && proEffects\.length > 0;/);
   // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px
   // icon — a mis-tap never publishes); the sheet names the Pro effects when
   // `asksForPro`, else says "Ready to apply" with the count.

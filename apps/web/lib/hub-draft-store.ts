@@ -512,7 +512,7 @@ export type HubDraftBarData = {
   storeShell: boolean;
   /** `formatPhp` over the live catalogue row, or null (unreadable, or the shell). */
   priceLabel: string | null;
-  /** The one Event Hub Pro buy surface (null in the shell). */
+  /** The one Event Hub Pro buy surface — Apple's page where Apple sells it, else null in the shell. */
   proHref: string | null;
   /**
    * 🍎 The store shell may sell Pro through Apple here (lib/iap/iap-gate.ts —
@@ -602,7 +602,10 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     storeShell,
     priceLabel,
     // `from=maker`: the buy page's way back is the Maker, where the draft waits.
-    proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
+    // 🍎 Where Apple sells Pro (owner 2026-10-18), "Unlock Pro and Apply" opens
+    // Apple's page (`/apple-pro`, lib/iap) — never the web's price page — and it
+    // returns with `?apply=1` exactly as the web's does. Any other store shell: none.
+    proHref: iap ? `/dashboard/${eventId}/apple-pro?from=maker` : storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
     proEffects,
     readError,
     ownsPro: ownsProViewed && !proShell,

@@ -48,14 +48,6 @@ export const APPLY_SHEET_MAX_LINES = 8;
  * walk the count makes (`hubDraftCountedChanges`), so the lines and the number
  * cannot disagree. A Pro line keeps its ◆. Reading it writes nothing.
  *
- * 🍎 …AND IN THE iPHONE APP, APPLE SELLS IT HERE (owner 2026-10-18, DECISION_LOG
- * "IN-APP PURCHASE — THE FIVE DECISIONS", ruling 2: Pro is offered in the app
- * ONLY at ✓ Apply). `apple` carries the pieces the lazily loaded kit draws
- * (`lib/iap/pro-at-apply.tsx` — StoreKit's price, Apple's button, the fine
- * print, and after Apple's sheet the one honest outcome: prototype
- * `in_app_purchase_screens_2026-10-17_fable.html` frames 1 · 6 · 7 · 8 · 9).
- * The sheet only places them, so none of that code rides the Maker's first load.
- *
  * No server imports — its actions come in as props, so a test can mount it.
  */
 export function ApplyProSheet({
@@ -71,10 +63,7 @@ export function ApplyProSheet({
   changeCount = 0,
   changes,
   heldOnWeb = 0,
-  apple = null,
 }: {
-  /** 🍎 Apple In-App Purchase's pieces, placed in the sheet — absent everywhere but the iPhone app. */
-  apple?: AppleProParts | null;
   effects: readonly HubProEffectView[];
   /** How many changes guests do not see yet (`HubDraftSummary.changeCount`). */
   changeCount?: number;
@@ -96,7 +85,7 @@ export function ApplyProSheet({
   tour?: ReactNode;
 }) {
   const titleId = 'maker-apply-pro-title';
-  const none = effects.length === 0 && !apple?.body;
+  const none = effects.length === 0;
   /* The house modal hook: focus moves in and is trapped, Escape closes, and
      focus goes back to Apply when the sheet shuts (`lib/use-modal-a11y.ts`). */
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -121,9 +110,9 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
-            {apple?.title ?? (none ? 'Ready to apply' : 'Apply needs Event Hub Pro')}
+            {none ? 'Ready to apply' : 'Apply needs Event Hub Pro'}
           </p>
-          {none || apple?.body ? null : (
+          {none ? null : (
             <InfoTip label="" ariaLabel="About Event Hub Pro effects" align="end">
               These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply
               the rest now — the Pro ones stay in your draft.
@@ -139,10 +128,8 @@ export function ApplyProSheet({
           </button>
         </div>
 
-        {none || apple ? null : tour}
-        {apple?.body ? (
-          apple.body
-        ) : none ? (
+        {none ? null : tour}
+        {none ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm text-ink/70" data-apply-ready="">
             <p>
               {changeCount === 1 ? '1 change' : `${formatCount(changeCount)} changes`} guests do not see yet. Apply puts{' '}
@@ -175,8 +162,6 @@ export function ApplyProSheet({
             ) : null}
           </div>
         ) : (
-          <>
-          {apple?.lead ?? null}
           <ul className="mt-2 flex-1 overflow-y-auto px-2" data-apply-pro-effects="">
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
@@ -212,16 +197,10 @@ export function ApplyProSheet({
               </li>
             ))}
           </ul>
-          </>
         )}
 
         <div className="flex flex-col gap-2 px-4 pt-3">
-          {apple?.body ? (
-            <>
-              {apple.primary}
-              {apple.footer ?? null}
-            </>
-          ) : none ? (
+          {none ? (
             <button type="button" disabled={pending} onClick={onApplyFree} className="button-primary sn-press min-h-11 w-full">
               {pending ? 'Applying…' : 'Apply'}
             </button>
@@ -230,9 +209,7 @@ export function ApplyProSheet({
               {/* Owner 2026-09-28, verbatim: "Unlock Pro and Apply". The one
                   purchase page, asked to come back and finish the Apply
                   (`unlockAndApplyOnReturn`); the price is the catalogue's. */}
-              {apple ? (
-                apple.primary
-              ) : proHref ? (
+              {proHref ? (
               <Link
                 href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""
@@ -250,7 +227,6 @@ export function ApplyProSheet({
               >
                 {pending ? 'Applying…' : 'Apply without the Pro effects'}
               </button>
-              {apple?.footer ?? null}
             </>
           )}
         </div>
@@ -258,19 +234,3 @@ export function ApplyProSheet({
     </div>
   );
 }
-
-/**
- * 🍎 The pieces of the Apply sheet Apple's path supplies (drawn by
- * `appleProParts`, lib/iap/pro-at-apply.tsx). `body` set = an outcome screen
- * (Pro is on · switching it on) that replaces the effects list.
- */
-export type AppleProParts = {
-  title?: ReactNode;
-  /** One quiet line above the effects (nothing charged · Apple couldn't · App Store silent). */
-  lead?: ReactNode;
-  body?: ReactNode;
-  /** The first button: Apple's buy, or Done / OK on an outcome screen. */
-  primary: ReactNode;
-  /** Fine print under the buttons. */
-  footer?: ReactNode;
-};

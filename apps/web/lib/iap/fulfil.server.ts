@@ -116,7 +116,11 @@ async function readIntent(
     .select(INTENT_COLS)
     .eq('app_account_token', token)
     .maybeSingle();
-  if (error) return { ok: false };
+  if (error) {
+    // Apple re-delivers; the caller answers "switching it on" — but the reason is logged.
+    console.error('[iap] could not read the purchase intent:', error.message);
+    return { ok: false };
+  }
   return { ok: true, row: (data as IntentRow | null) ?? null };
 }
 
@@ -130,6 +134,7 @@ async function orderAmountPhp(
     .select('retail_price_php')
     .eq('service_code', tx.product.serviceKey)
     .maybeSingle();
+  if (error) console.error('[iap] could not read the catalogue price (Apple’s PHP figure is used when present):', error.message);
   const raw = (data as { retail_price_php?: number | string | null } | null)?.retail_price_php;
   const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw);
   const php = chargedPhp(tx);
@@ -358,10 +363,13 @@ export async function fulfilAppleTransaction(
 
   // 5 · Link the intent to its order (idempotent).
   if (row.order_id !== order.order_id) {
-    await admin
+    const { error: linkErr } = await admin
       .from('app_store_purchases')
       .update({ order_id: order.order_id, updated_at: new Date().toISOString() })
       .eq('app_account_token', row.app_account_token);
+    // Not fatal — the order is paid and keyed by `IOS-<transaction>`, which the
+    // refund path also falls back to — but never silent.
+    if (linkErr) console.error('[iap] could not link the purchase intent to its order:', linkErr.message);
   }
 
   // 💰 The owner's floor (ruling 4): an App Store price below web ÷ 0.85 is a

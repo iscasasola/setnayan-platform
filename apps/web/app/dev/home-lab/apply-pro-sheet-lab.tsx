@@ -1,21 +1,14 @@
 'use client';
 
-import { ApplyProSheet } from '@/app/dashboard/[eventId]/website/_components/apply-pro-sheet';
-import { appleProParts } from '@/lib/iap/pro-at-apply';
+import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 import type { IapScreen } from '@/lib/iap/iap-outcome';
-import type { HubProEffectView } from '@/lib/hub-pro-effect-view';
 
 /**
- * DEV-ONLY (`/dev/home-lab?view=apply&screen=…`): the REAL Apply sheet with the
- * REAL Apple pieces (`appleProParts`), in each outcome the prototype draws
+ * DEV-ONLY (`/dev/home-lab?view=apply&screen=…`): the REAL Apple Pro page
+ * (`/dashboard/[eventId]/apple-pro`) in each outcome the prototype draws
  * (frames 1 · 6 · 7 · 8 · 9). The price is a SAMPLE string standing in for
- * StoreKit's — the real sheet never types one.
+ * StoreKit's — the real page never types one.
  */
-const EFFECTS = [
-  { id: 'look:velvet', what: 'Velvet', where: 'Theme', jump: null, removable: true },
-  { id: 'anim:rise', what: 'Rise', where: 'Animation · Schedule', jump: null, removable: true },
-] as unknown as HubProEffectView[];
-
 export function ApplyProSheetLab({ screen }: { screen: string }) {
   const s: IapScreen | null =
     screen === 'cancelled'
@@ -29,30 +22,13 @@ export function ApplyProSheetLab({ screen }: { screen: string }) {
             : screen === 'on'
               ? { kind: 'on' }
               : null;
-  const silent = screen === 'silent';
   return (
     <div className="min-h-dvh bg-cream">
-      <ApplyProSheet
-        effects={screen === 'on' ? [] : EFFECTS}
-        changeCount={screen === 'on' ? 0 : 5}
-        priceLabel={null}
-        proHref={null}
-        pending={false}
-        onGo={() => {}}
-        onRemove={() => {}}
-        onApplyFree={() => {}}
-        onClose={() => {}}
-        apple={appleProParts({
-          price: silent ? null : '₱5,990.00',
-          priceState: silent ? 'silent' : 'ready',
-          buying: false,
-          applying: false,
-          screen: s,
-          proCount: 2,
-          applied: { count: 5, names: ['Velvet', 'Rise'] },
-          onBuy: () => {},
-          onDone: () => {},
-        })}
+      <AppleProScreen
+        eventId="00000000-0000-4000-8000-000000000000"
+        back="/dev/home-lab"
+        // a SAMPLE StoreKit string — never a catalogue price
+        sample={{ screen: s, price: screen === 'silent' ? null : 'PHP 5,990.00' }}
       />
     </div>
   );

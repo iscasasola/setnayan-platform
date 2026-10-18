@@ -7,15 +7,12 @@ import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDe
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Suspense, lazy, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check, Undo2, X } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
-import { ApplyProSheet, type AppleProParts } from './apply-pro-sheet';
-
-/** 🍎 Lazy: never on the Maker's first load (scripts/check-maker-js-budget.mjs). */
-const AppleProDriver = lazy(() => import('@/lib/iap/pro-at-apply'));
+import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
@@ -378,14 +375,7 @@ export function HubDraftToolbar({
      on apply and point out the effect chosen"*). Apply opens it — never the
      write — while the draft holds a Pro effect this event has not unlocked. */
   const [sheetOpen, setSheetOpen] = useState(false);
-  const asksForPro = (appleIap ? storeShell : !storeShell && proHref !== null) && proEffects.length > 0;
-  /* 🍎 Apple's sheet for Event Hub Pro (owner 2026-10-18, ruling 2). Its driver
-     (`lib/iap/pro-at-apply.tsx`) is a LAZY chunk — only in the iPhone app, only
-     while this sheet is open with Pro in it — and hands the sheet its pieces. */
-  const [appleParts, setAppleParts] = useState<AppleProParts | null>(null);
-  /* An outcome screen (Pro is on · switching it on) stays up after the Apply it
-     triggered empties the draft — until the couple closes it. */
-  const appleAsks = appleIap && (asksForPro || Boolean(appleParts?.body));
+  const asksForPro = !proShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
@@ -525,7 +515,8 @@ export function HubDraftToolbar({
       asked: true,
       proEffects: proEffects.length,
       hasChanges: summary.hasChanges,
-      storeShell,
+      // 🍎 Where Apple sells Pro, the app returns from Apple's page like the web from its own.
+      storeShell: proShell,
     });
     if (next === 'apply') act({ intent: 'apply' });
     else if (next === 'sheet') setSheetOpen(true);
@@ -621,7 +612,6 @@ export function HubDraftToolbar({
           changeCount={summary.changeCount}
           changes={summary.changes}
           heldOnWeb={proShell ? summary.proCount : 0}
-          apple={appleAsks ? appleParts : null}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}
@@ -631,30 +621,10 @@ export function HubDraftToolbar({
             setSheetOpen(false);
             act({ intent: 'apply' });
           }}
-          onClose={() => {
-            setAppleParts(null);
-            setSheetOpen(false);
-          }}
+          onClose={() => setSheetOpen(false)}
           tour={applyTour}
         />,
         document.body,
-      ) : null}
-      {sheetOpen && appleAsks ? (
-        <Suspense fallback={null}>
-          <AppleProDriver
-            eventId={eventId}
-            applying={pending}
-            proCount={proEffects.length}
-            changeCount={summary.changeCount}
-            names={proEffects.map((e) => e.what)}
-            onParts={setAppleParts}
-            onApply={() => act({ intent: 'apply' })}
-            onFinish={() => {
-              setAppleParts(null);
-              setSheetOpen(false);
-            }}
-          />
-        </Suspense>
       ) : null}
       <div ref={panelRef} className="relative" data-maker-draft-panel="">
         {/* Portalled and FIXED to the screen (like the Apply sheet): inside the

@@ -112,5 +112,6 @@ test('wiring: the one action records the author on every step, undoes only the h
   const store = src('lib/hub-draft-store.ts');
   assert.match(store, /const built = await build\(row\.draft, by\)/, 'the one door does not hand the author to its builders');
   assert.match(store, /mergeHubDraft\(current, rebased\.patch, by\)/, 'the existing writers’ draft saves do not record who made them');
-  assert.match(store, /summarizeHubDraft\(draft, live, ownsPro && !storeShell, me\)/, 'the render’s bar does not know whose steps are whose');
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (rd/in-app-purchase, 2026-10-18).
+  assert.match(store, /summarizeHubDraft\(draft, live, ownsPro && !proShell, me\)/, 'the render’s bar does not know whose steps are whose');
 });

@@ -26,7 +26,7 @@ Maker, named at ✓ Apply; free events keep what they published):
 2. A ◆ effect is WRITTEN to the draft (like Parallax), not "tried on the sample, never written + See Pro note":
    `effectMayApply`/`effectProNote`/the trying state + note leave; `mainGroundChange` (lib/hub-draft.ts) counts the
    effect (refChange → grandfather: a live effect = no change; taking it off = free; new/changed = Pro).
-3. Apply sheet names it by its own name (`hub-pro-effects.ts` main line: "Lanterns" / "Photo background · Lanterns").
+3. Apply sheet names it "Effect" (`hub-pro-effects.ts` `mainLineWhat`: "Effect" / "Moving background · Effect") — the generic word keeps the engine out of the Maker first load.
 4. Guest render: no visible change. The render gate keeps refusing only the six kinds that were ALWAYS Pro (a free
    event could never publish them); Soft haze / Bokeh published while free keep drawing.
 5. Guards updated (the-effects-are-picked-on-the-sample, the-look-sample-is-the-guest-look, eight-and-cost-nothing)

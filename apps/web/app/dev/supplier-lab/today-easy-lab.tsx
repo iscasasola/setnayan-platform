@@ -255,7 +255,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean }) {
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -328,7 +328,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions }: { sup: EasySuppli
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} />
+      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} library={library} />
     </div>
   );
 }

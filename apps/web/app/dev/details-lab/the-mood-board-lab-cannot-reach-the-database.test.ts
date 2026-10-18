@@ -12,7 +12,8 @@
  * page must never print (`studio-mood-board-posts-the-same.test.ts`).
  *
  * NOT stubbed (listed, not hidden): the Auto sheet and the colour picker (no write); "Search ideas" reads (`fetchGalleryAssets`) answer an
- * empty gallery, so a supplier's photo cannot be picked in the lab.
+ * empty gallery, so a supplier's photo cannot be picked in the lab — EXCEPT with `&library=1` (2026-10-19), where they read the supplier
+ * library lab's in-memory store (`../supplier-lab/library-lab-server.ts`, held to no database by its own test).
  *
  * SABOTAGE (each seen RED, then restored): a stand-in deleted from the lab · a call site importing its action directly again · a
  * provider put in the app · the lab's node no longer wrapping the page.
@@ -81,5 +82,6 @@ test('(3) nothing but the lab provides the context — the app runs the shipped 
   walk(APP);
   assert.deepEqual(hits.sort(), ['dashboard/[eventId]/studio/mood-board/_components/mood-board-actions-context.tsx', 'dev/details-lab/lab-mood-board-actions.tsx']);
   const node = read(join(HERE, 'details-lab-node.tsx'));
-  assert.match(node, /<LabMoodBoardActions refuse=\{one\('refuse'\) === '1'\}>\s*<MoodBoardStudio/, 'the lab’s page is not wrapped in the stand-ins');
+  /* RE-AIMED 2026-10-19: `library` (the supplier library lab's memory for Search ideas — `library-lab-server.ts`, no database). */
+  assert.match(node, /<LabMoodBoardActions refuse=\{one\('refuse'\) === '1'\} library=\{one\('library'\) === '1'\}>\s*<MoodBoardStudio/, 'the lab’s page is not wrapped in the stand-ins');
 });

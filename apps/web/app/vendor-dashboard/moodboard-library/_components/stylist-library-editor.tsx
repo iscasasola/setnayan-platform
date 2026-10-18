@@ -43,6 +43,19 @@ import {
   uploadStylistAsset,
   type ImportableEditorialPhoto,
 } from '../actions';
+
+/**
+ * The editor's four writes — the SHIPPED server actions unless a caller hands in others. Only the dev lab
+ * (`/dev/supplier-lab?s=library`) does, with stand-ins that keep the photo in the dev server's memory and never reach
+ * the database; the page passes nothing, so production always runs these.
+ */
+export type StylistLibraryActions = {
+  uploadStylistAsset: typeof uploadStylistAsset;
+  importEditorialMediaToGallery: typeof importEditorialMediaToGallery;
+  saveStylistColorRanges: typeof saveStylistColorRanges;
+  deleteStylistAsset: typeof deleteStylistAsset;
+};
+const SHIPPED_ACTIONS: StylistLibraryActions = { uploadStylistAsset, importEditorialMediaToGallery, saveStylistColorRanges, deleteStylistAsset };
 // ⚠ FROM THE PURE MODULE, DELIBERATELY. `lib/moodboard-gallery.ts` and
 // `lib/moodboard-gallery-upload.ts` both reach `lib/supabase/admin.ts` through
 // the taxonomy, and this is a client component — importing either of them from
@@ -114,6 +127,8 @@ export type StylistLibraryEditorProps = {
   importableEditorial: ImportableEditorialPhoto[];
   /** TRUE when that read FAILED — which is not the same as "you have none". */
   importableEditorialFailed: boolean;
+  /** 🧪 The dev lab's stand-ins; absent everywhere in the app (the shipped actions run). */
+  actions?: Partial<StylistLibraryActions>;
 };
 
 export function StylistLibraryEditor({
@@ -124,7 +139,11 @@ export function StylistLibraryEditor({
   backCatalogueCap,
   importableEditorial,
   importableEditorialFailed,
+  actions: actionsIn,
 }: StylistLibraryEditorProps) {
+  const { uploadStylistAsset, importEditorialMediaToGallery, saveStylistColorRanges, deleteStylistAsset } = actionsIn
+    ? { ...SHIPPED_ACTIONS, ...actionsIn }
+    : SHIPPED_ACTIONS;
   const [assets, setAssets] = useState<StylistAsset[]>(initialAssets);
   const [assetType, setAssetType] = useState<StylistAsset['asset_type']>(
     gallerySlots.length > 0 ? SUPPLIER_GALLERY_ASSET_TYPE : 'venue_scene',

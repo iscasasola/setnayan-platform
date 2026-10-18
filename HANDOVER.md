@@ -19,3 +19,9 @@ types, Budget B3, Logo L2–L4, in-app purchase, Maker photos) — describe only
 pages whose screenshots must be retaken after those land.
 Files: apps/web/lib/feature-pages/*, app/features/*, /tl twins, help pages, sitemap. Own walk folder (scratchpad/features-walk/).
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-features-pages-refresh.md.
+
+## BUILDER LOG (rd/features-pages-refresh)
+- 16:20 read spec. Five read-only fact sweeps run (Maker/Pro · RSVP/dress/march/gifts/prints · Suppliers/supplier dashboard/AI · Budget/Guests/Home/Seats · Papic/Live/others).
+- Prod readings (2026-10-18, read-only): `platform_settings.setnayan_ai_paywall_enabled = true` → Setnayan AI is PAID. Catalogue: COUPLE_WEBSITE_PRO ₱5,000 one_time (the budget-lab fixture's ₱2,499 is stale → never show that row in a shot). Vercel prod SETS (values encrypted): MAKER_STAGES_STUDIO, LOCK_HANDSHAKE, EXPLORE_REPLAN (memory: "true"), PAPIC_GAMES_V1, REGISTER_GATES — so copy avoids claims that depend on an unknown value (handshake, Stages|Studio-only tools, Papic Challenges, no-sign-up preview).
+- False/unprovable claims found in the 2026-10-01 copy: Setnayan AI "weekly digest" (no caller) · Memories "leave a message" (no surface) · Music Maker / Patiktok "cleared for sharing" (licence not in code) · Logo Maker "describe the feel" (it is a layered editor) · Mood Board "free" (renders cost credits) and rooms/ceiling now live in Seat plan · "invitation site" / "celebration" wording.
+- Walk: lab dev server on :3617 (walk lane `walk:features-pages`), scripts in scratchpad/features-walk/.

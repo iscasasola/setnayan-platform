@@ -17,7 +17,7 @@ import { MERGE_BASE_FIELD } from './merge-base-field';
 import { eventDetailsToWrite, formFieldsOf } from './event-details-merge';
 import { updatePrintDetails } from './print-details-write';
 import { parseMenu, parsePrintDetails, serializePrintDetails } from './print-pieces';
-import { JSON_COLUMN_WRITE_ATTEMPTS, JsonColumnMovedError, updateJsonColumn, type JsonColumnClient } from './update-json-column';
+import { JSON_COLUMN_WRITE_ATTEMPTS, JsonColumnMovedError, pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from './update-json-column';
 import type { HubSectionCanvas } from './hub-canvas';
 
 const code = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
@@ -235,4 +235,19 @@ test('5b · every print_details writer goes through the one door', () => {
   assert.doesNotMatch(route, /\.update\(\{ print_details:/, 'the route writes print_details from the copy it read at the top again');
   assert.match(code('app', 'dashboard', '[eventId]', 'guests', 'send', 'actions.ts'), /updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{ \.\.\.now, inviteMessage: template \}\)\)/);
   assert.match(code('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts'), /const pd = await updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{/);
+});
+
+/* ── 7 · the role words and a guest's extra roles ─────────────────────────── */
+
+test('7a · renameRole · addRoleToGuest · setGuestPrimaryRole change the value AS IT IS when the write lands', () => {
+  const names = code('app', 'dashboard', '[eventId]', 'guests', 'role-name-actions.ts');
+  assert.match(names, /column: 'role_names'/, 'renameRole writes the whole map from the copy it read again');
+  assert.match(names, /\{ \.\.\.readRoleNames\(stored\) \}/, 'a rename is no longer built on the names as they are now');
+  assert.doesNotMatch(names, /\.update\(\{ role_names/, 'renameRole writes role_names around the compare');
+  const quick = code('app', 'dashboard', '[eventId]', 'guests', 'quick-add-actions.ts');
+  assert.equal((quick.match(/column: 'extra_roles', what: 'That role', spell: pgArrayLiteral/g) ?? []).length, 2, 'an extra-roles writer no longer compares the list it read');
+  assert.doesNotMatch(quick, /\.update\(\{ (role, )?extra_roles/, 'an extra-roles writer writes the list around the compare');
+  assert.equal(pgArrayLiteral(['bride_parents', 'groom_parents']), '{bride_parents,groom_parents}');
+  assert.equal(pgArrayLiteral([]), '{}');
+  assert.throws(() => pgArrayLiteral(['a,b']), 'a word that would break the literal was spelled into it');
 });

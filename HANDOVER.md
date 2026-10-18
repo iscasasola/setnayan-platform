@@ -37,3 +37,7 @@ another builder's serve.sh in a shared folder killed a server today). Changelog 
       (route name-style · poster clear · poster set · menu · words; saveInviteMessage; Apply) pass a CHANGE on the blob as it is now.
       5 guards re-pointed to the same property in the new shape (name-style AST guard now: no direct serialize + every change spreads its arg).
       Tests 5a–5b; sabotage S13–S15 red→restored.
+- [ ] 6. Post Event saveEditorial — LEFT (client posts its WHOLE form state; draft_json measured 4,965 chars > the compare cap; needs its own base wiring).
+- [x] 7. renameRole (role_names) · addRoleToGuest / setGuestPrimaryRole (guests.extra_roles, enum[] compared as its array literal,
+      `pgArrayLiteral`) on updateJsonColumn; SQLSTATE kept (JsonColumnWriteError) so the singleton 23505 words still work.
+      db tests (array + role words, staged race); 7a; sabotage S16–S17 red→restored.

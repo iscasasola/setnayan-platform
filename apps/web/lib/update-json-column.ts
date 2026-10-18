@@ -23,6 +23,16 @@ export const JSON_COLUMN_WRITE_ATTEMPTS = 5;
 /** Above this many characters of JSON the compare is not sent (see the ⚠ above). */
 export const JSON_COMPARE_MAX_CHARS = 3000;
 
+/** A read or write the database answered with an error — its SQLSTATE kept (`code`), so a caller can say it in words. */
+export class JsonColumnWriteError extends Error {
+  code?: string;
+  constructor(e: { message: string; code?: string }) {
+    super(e.message);
+    this.name = 'JsonColumnWriteError';
+    this.code = e.code;
+  }
+}
+
 export class JsonColumnMovedError extends Error {
   constructor(what: string) {
     super(`${what} kept changing while it was being saved. Please try again.`);
@@ -34,11 +44,11 @@ export class JsonColumnMovedError extends Error {
 type Filterable = {
   eq(column: string, value: unknown): Filterable;
   is(column: string, value: null): Filterable;
-  select(columns: string): PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+  select(columns: string): PromiseLike<{ data: unknown[] | null; error: { message: string; code?: string } | null }>;
 };
 type Readable = {
   eq(column: string, value: unknown): Readable;
-  maybeSingle(): PromiseLike<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+  maybeSingle(): PromiseLike<{ data: Record<string, unknown> | null; error: { message: string; code?: string } | null }>;
 };
 export type JsonColumnClient = {
   from(table: string): {
@@ -54,7 +64,21 @@ export type JsonColumnTarget = {
   column: string;
   /** For the refusal's words ("Your menu"). */
   what?: string;
+  /**
+   * How the compare spells the value it read. Default: JSON (a `jsonb` column). A Postgres ARRAY column (a guest's
+   * `extra_roles`, an enum[]) is compared as its array literal — `pgArrayLiteral`.
+   */
+  spell?: (current: unknown) => string;
 };
+
+/** `{a,b}` — a Postgres array literal of plain words (enum values: no quoting needed; anything else is refused). */
+export function pgArrayLiteral(v: unknown): string {
+  // Already a literal (a driver that hands an enum[] back unparsed): compared as it came.
+  if (typeof v === 'string' && /^\{[a-z0-9_,]*\}$/i.test(v)) return v;
+  const items = Array.isArray(v) ? v : [];
+  if (!items.every((x) => typeof x === 'string' && /^[a-z0-9_]+$/i.test(x))) throw new Error('pgArrayLiteral: plain words only');
+  return `{${items.join(',')}}`;
+}
 
 export type JsonColumnBuilt<V, R> = { next: V; also?: Record<string, unknown>; said?: R } | null;
 
@@ -62,7 +86,7 @@ export async function updateJsonColumn<V = unknown, R = undefined>(
   client: JsonColumnClient,
   target: JsonColumnTarget,
   build: (current: V | null, found: boolean) => JsonColumnBuilt<V, R> | Promise<JsonColumnBuilt<V, R>>,
-): Promise<{ written: boolean; value: V | null; said?: R }> {
+): Promise<{ written: boolean; value: V | null; said?: R; found: boolean }> {
   const keys = Object.entries(target.row);
   /** What the last LOST round read: read again unchanged, nothing moved — the write was refused, not raced. */
   let lost: string | null | undefined;
@@ -70,23 +94,23 @@ export async function updateJsonColumn<V = unknown, R = undefined>(
     let read = client.from(target.table).select(target.column);
     for (const [k, v] of keys) read = read.eq(k, v);
     const got = await read.maybeSingle();
-    if (got.error) throw new Error(got.error.message);
+    if (got.error) throw new JsonColumnWriteError(got.error);
     const found = got.data !== null;
     const current = (found ? (got.data![target.column] ?? null) : null) as V | null;
-    if (lost !== undefined && found && (current === null ? null : JSON.stringify(current)) === lost) {
+    if (lost !== undefined && found && (current === null ? null : (target.spell ?? JSON.stringify)(current)) === lost) {
       throw new Error(`${target.what ?? 'This'} could not be saved.`);
     }
     const built = await build(current, found);
-    if (!built || !found) return { written: false, value: current };
+    if (!built || !found) return { written: false, value: current, found };
     let write = client.from(target.table).update({ ...(built.also ?? {}), [target.column]: built.next });
     for (const [k, v] of keys) write = write.eq(k, v);
-    const spelled = current === null ? null : JSON.stringify(current);
+    const spelled = current === null ? null : (target.spell ?? JSON.stringify)(current);
     if (spelled === null) write = write.is(target.column, null);
     else if (spelled.length <= JSON_COMPARE_MAX_CHARS) write = write.eq(target.column, spelled);
     else console.warn(`[update-json-column] ${target.table}.${target.column} is ${spelled.length} characters — written without the compare`);
     const done = await write.select(keys[0]![0]);
-    if (done.error) throw new Error(done.error.message);
-    if (Array.isArray(done.data) && done.data.length > 0) return { written: true, value: built.next, said: built.said };
+    if (done.error) throw new JsonColumnWriteError(done.error);
+    if (Array.isArray(done.data) && done.data.length > 0) return { written: true, value: built.next, said: built.said, found };
     // 👥 The row moved on since it was read (another screen's save) — read again and build again on the newer value.
     if (attempt >= JSON_COLUMN_WRITE_ATTEMPTS) throw new JsonColumnMovedError(target.what ?? 'This');
     lost = spelled;

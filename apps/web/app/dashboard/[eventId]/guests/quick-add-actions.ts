@@ -18,6 +18,7 @@ import {
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { pickReuseGroup } from '@/lib/guest-group-reuse';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
@@ -383,12 +384,24 @@ export async function addRoleToGuest(
   if (g.role === role || current.includes(role)) {
     return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: current } };
   }
-  const next = [...current, role];
-
-  const { error: updErr } = await supabase
-    .from('guests')
-    .update({ extra_roles: next })
-    .eq('guest_id', guestId);
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): the role is added to the extra roles AS THEY
+     ARE when the write lands (`updateJsonColumn`, a compare-and-set on the list) — never to the copy read above, so a
+     role the other host added meanwhile stays. */
+  let next: GuestRole[] = [...current, role];
+  let updErr: { message: string; code?: string } | null = null;
+  try {
+    await updateJsonColumn<GuestRole[]>(
+      supabase as unknown as JsonColumnClient,
+      { table: 'guests', row: { guest_id: guestId, event_id: eventId }, column: 'extra_roles', what: 'That role', spell: pgArrayLiteral },
+      (cur) => {
+        const now = (cur ?? []) as GuestRole[];
+        next = now.includes(role) ? now : [...now, role];
+        return now.includes(role) ? null : { next };
+      },
+    );
+  } catch (e) {
+    updErr = { message: e instanceof Error ? e.message : String(e), code: (e as { code?: string }).code };
+  }
   if (updErr) {
     await insertFaultLog({
       event_type: 'SUPABASE_SAVE_ERROR',
@@ -435,12 +448,22 @@ export async function setGuestPrimaryRole(
     return { ok: false, error: 'Couldn’t find that guest.' };
   }
 
-  const nextExtras = ((g.extra_roles ?? []) as GuestRole[]).filter((r) => r !== role);
-
-  const { error: updErr } = await supabase
-    .from('guests')
-    .update({ role, extra_roles: nextExtras })
-    .eq('guest_id', guestId);
+  /* 👥 The extra roles AS THEY ARE when the write lands (round 2, `updateJsonColumn`) — a role the other host added
+     meanwhile stays; only the new primary leaves the list. */
+  let nextExtras = ((g.extra_roles ?? []) as GuestRole[]).filter((r) => r !== role);
+  let updErr: { message: string; code?: string } | null = null;
+  try {
+    await updateJsonColumn<GuestRole[]>(
+      supabase as unknown as JsonColumnClient,
+      { table: 'guests', row: { guest_id: guestId, event_id: eventId }, column: 'extra_roles', what: 'That role', spell: pgArrayLiteral },
+      (cur) => {
+        nextExtras = ((cur ?? []) as GuestRole[]).filter((r) => r !== role);
+        return { next: nextExtras, also: { role } };
+      },
+    );
+  } catch (e) {
+    updErr = { message: e instanceof Error ? e.message : String(e), code: (e as { code?: string }).code };
+  }
   if (updErr) {
     const dupRole =
       (updErr as { code?: string }).code === '23505'

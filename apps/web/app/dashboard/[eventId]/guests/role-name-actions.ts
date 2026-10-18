@@ -23,6 +23,7 @@ import { requireHostMembership } from '@/lib/host-gate';
 import { revalidateMarch } from '@/lib/entourage-write';
 import { cleanRoleName, isRenamableRole, type RoleNames } from '@/lib/role-names';
 import { isKnownGuestRole, readRoleNames } from '@/lib/role-names.server';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { revalidatePath } from 'next/cache';
 
 export type RenameRoleResult =
@@ -40,32 +41,28 @@ export async function renameRole(
     return { ok: false, reason: 'That role can’t be renamed.' };
   }
 
-  const admin = createAdminClient();
-  const { data: ev, error: readErr } = await admin
-    .from('events')
-    .select('role_names')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (readErr || !ev) {
-    return { ok: false, reason: 'Couldn’t read your role names — nothing was changed. Try again.' };
-  }
-
-  const current = readRoleNames((ev as { role_names?: unknown }).role_names);
   const cleanOne = cleanRoleName(one);
   const cleanMany = cleanRoleName(many ?? '');
-  const next: Record<string, { one: string; many?: string }> = { ...current };
-  // 🔑 Blank means "the usual word" — the key is removed, never stored empty.
-  if (!cleanOne) delete next[role];
-  else next[role] = cleanMany && cleanMany !== cleanOne ? { one: cleanOne, many: cleanMany } : { one: cleanOne };
-
-  const value = Object.keys(next).length > 0 ? next : null;
-  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
-  const { data, error } = await admin
-    .from('events')
-    .update({ role_names: value })
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (error || !data || data.length === 0) {
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): the one word is changed on the names AS THEY
+     ARE when the write lands (`updateJsonColumn`, a compare-and-set on the value) — another host's rename of another
+     role, landed meanwhile, stays. (Before: read → change → write the whole map back, the race "accepted".) */
+  let value: Record<string, { one: string; many?: string }> | null = null;
+  try {
+    const wrote = await updateJsonColumn(
+      createAdminClient() as unknown as JsonColumnClient,
+      { table: 'events', row: { event_id: eventId }, column: 'role_names', what: 'The new name' },
+      (stored) => {
+        const next: Record<string, { one: string; many?: string }> = { ...readRoleNames(stored) };
+        // 🔑 Blank means "the usual word" — the key is removed, never stored empty.
+        if (!cleanOne) delete next[role];
+        else next[role] = cleanMany && cleanMany !== cleanOne ? { one: cleanOne, many: cleanMany } : { one: cleanOne };
+        value = Object.keys(next).length > 0 ? next : null;
+        return { next: value };
+      },
+    );
+    // A zero-row UPDATE returns no error — the write proves its row, or "saved" is a guess.
+    if (!wrote.written) return { ok: false, reason: 'The new name was not saved — nothing was changed.' };
+  } catch {
     return { ok: false, reason: 'The new name was not saved — nothing was changed.' };
   }
 

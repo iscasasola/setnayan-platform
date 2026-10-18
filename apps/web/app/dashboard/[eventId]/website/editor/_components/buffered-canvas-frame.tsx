@@ -402,11 +402,11 @@ export function BufferedCanvasFrame({
       for (const [id, el] of Object.entries(els.current)) {
         if (el && event.source === el.contentWindow) {
           readyOf.current[id] = data;
-          watch.current?.ready(id);
           /* 🔥 What the bridge drew while this kept frame was loading, in order (`canvasPosts` `wait`). */
           const missed = waiting.current[id];
           delete waiting.current[id];
           for (const m of missed ?? []) el.contentWindow?.postMessage(m, window.location.origin);
+          watch.current?.ready(id);
           tick();
         }
       }
@@ -611,8 +611,8 @@ export function BufferedCanvasFrame({
             data-maker-page-frame={pageFrame && role === 'shown' ? '' : undefined}
             onLoad={() => {
               loaded.current.add(canvasFrameId(f));
-              watch.current?.loaded(canvasFrameId(f));
               setWarmTick((n) => n + 1);
+              watch.current?.loaded(canvasFrameId(f));
               if (!loading) return;
               window.setTimeout(() => {
                 if (!(canvasFrameId(f) in readyOf.current)) promote(canvasFrameId(f));

@@ -160,7 +160,7 @@ test('6 · the wiring reaches the couple, and the fault module stays out of the 
 
   /* both `ready` listeners and every `load` feed it */
   assert.equal((frame.match(/watch\.current\?\.ready\(/g) ?? []).length, 2, 'a ready heard by either listener reaches the watch');
-  assert.match(frame, /onLoad=\{\(\) => \{\s*loaded\.current\.add\(canvasFrameId\(f\)\);\s*watch\.current\?\.loaded\(canvasFrameId\(f\)\);/);
+  assert.match(frame, /onLoad=\{\(\) => \{\s*loaded\.current\.add\(canvasFrameId\(f\)\);\s*setWarmTick\(\(n\) => n \+ 1\);\s*watch\.current\?\.loaded\(canvasFrameId\(f\)\);/);
   assert.match(frame, /watch\.current\?\.shownNow\(/);
   assert.match(frame, /window\.addEventListener\(MAKER_CANVAS_RELOAD_EVENT/);
 

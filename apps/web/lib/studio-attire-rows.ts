@@ -16,9 +16,13 @@
  * `matron_of_honor`, `best_man` · `best_woman`), named in the couple's words, and the Bridesmaids /
  * Groomsmen counts no longer include them. A group row whose only people are honour attendants is not drawn.
  *
+ * 🤵‍♂️ THE MAN OF HONOR (owner 2026-10-19, DECISION_LOG "A MAN OF HONOR"): the maid's row gains a FOR MEN column, drawn
+ * when a man of honor is on the guest list (or the column already holds a pick — `shownColumns`), and then the row is
+ * named for him too: "Maid, Matron & Man of Honor".
+ *
  * Pure, client-safe.
  */
-import { ATTIRE_ROWS, HONOUR_ROW_OF, HONOUR_ROW_ROLES, honourRowLabel, isHonourRole, isHonourRowKey } from './attire-rows';
+import { ATTIRE_ROWS, HONOUR_ROW_OF, HONOUR_ROW_ROLES, honourRowLabel, isHonourRole, isHonourRowKey, shownColumns } from './attire-rows';
 import type { GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { formatCallTime } from './role-dress-code';
@@ -41,8 +45,10 @@ export type StudioAttireRowData = {
    * the group's heading, so the Studio can say so ("Until you pick what they wear, they dress as the Bridesmaids").
    */
   fallsBackTo?: string;
-  /** 👯 The honour row's columns whose people are on the guest list (the best woman's is 1). */
+  /** 👯 The honour row's columns whose people are on the guest list (the best woman's is 1, the man of honor's 1). */
   honourColumns?: Array<0 | 1>;
+  /** 🤵‍♂️ The columns the Studio draws (`shownColumns`) — absent: every column of the row. */
+  columns?: Array<0 | 1>;
 };
 
 const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: PaletteKey | null }> = [
@@ -82,15 +88,18 @@ export function studioAttireRows(
         const key = row.key as 'best_man' | 'maid_of_honor';
         const pair = HONOUR_ROW_ROLES[key];
         if (!pair.some((r) => roles.has(r))) continue;
-        const own = roleGroupOf(pair[0]);
+        const own = roleGroupOf(pair[0]!);
+        const honourColumns = [...new Set(pair.filter((r) => roles.has(r)).map((r) => HONOUR_ROW_OF[r]!.index))];
+        const columns = shownColumns(config as Record<string, unknown> | null, row, honourColumns);
         out.push({
           tier: 'roles',
           key,
-          label: honourRowLabel(key, names),
+          label: honourRowLabel(key, names, row.optionalSecond ? columns.includes(1) : false),
           paletteKey: row.paletteKey,
           arrives: callOf('roles', key),
           people: countOf((r) => pair.includes(r)),
-          honourColumns: [...new Set(pair.filter((r) => roles.has(r)).map((r) => HONOUR_ROW_OF[r]!.index))],
+          honourColumns,
+          columns,
           ...(own !== 'guest' && groups.has(own) ? { fallsBackTo: roleGroupLabel(own, names) } : {}),
         });
       }

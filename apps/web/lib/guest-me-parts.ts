@@ -37,7 +37,7 @@
  *
  * Pure. No I/O, no React.
  */
-import { isDressableRole } from '@/lib/attire-rows';
+import { isDressableRole, readerAttire } from '@/lib/attire-rows';
 import { replyWindowWords, type ReplyWindow } from './reply-window';
 import type { GuestsGetIn } from './who-can-reply';
 import type { GuestRole } from './guests';
@@ -46,7 +46,8 @@ import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import { sanitizeRolePalette } from './mood-board';
 import { resolveDisplayPalette } from './room-palette';
-import { sanitizeRoleAttire } from './role-dress-code';
+import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from './role-dress-code';
+import { singleWearerOf } from './role-figure';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from './role-group-dress-code';
 import type { ArrivalAction } from './arrival-action';
 
@@ -90,14 +91,28 @@ export function guestMeFacts(input: {
   const roles = sanitizeRoleAttire(config.roles, isDressableRole);
   const groups = sanitizeGroupAttire(config.groups);
   const board = resolveDisplayPalette(sanitizeRolePalette(input.rolePalette));
-  const { panel } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null, config });
+  const { panel, source } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null, config });
+  /* 👯 The reader's OWN pick (`readerAttire`, the same reader the Dress code's "You are …" and the checklist use) — a man
+     of honor or a best woman is not told they have a Wear because the other column of their honour row has one. */
+  const own = panel
+    ? readerAttire({
+        role,
+        attire: null,
+        source,
+        config: config as Record<string, unknown>,
+        style: panel.style,
+        hexes: panel.hexes,
+        label: (st) => ATTIRE_STYLE_LABEL[st],
+        single: singleWearerOf,
+      })
+    : null;
   const named =
     role && role !== 'guest'
       ? panel?.roleLabel ?? roleLabel(role, input.roleNames) ?? guestRoleLabel(role, input.roleNames)
       : null;
   return {
     role: named && named.trim() ? named : null,
-    wear: Boolean(panel && (panel.styleLabel !== null || panel.hexes.length > 0)),
+    wear: Boolean(panel && own && (own.styleLabel !== null || own.hexes.length > 0)),
     arriveBy: panel?.callTime ?? null,
     comingWith: (input.comingWith ?? []).map((n) => (n ?? '').trim()).filter((n) => n.length > 0),
   };

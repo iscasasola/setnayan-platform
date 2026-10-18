@@ -882,7 +882,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {props.attire.map((row) => {
             const def = attireRow(row.tier as AttireTier, row.key);
             const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
-            const two = picks.length === 2;
+            /* 🤵‍♂️ The columns this row draws (`shownColumns`, 2026-10-19) — the maid's FOR MEN column only with a man of
+               honor on the list; every index stays the column's own (0 = the first pick, 1 = the second). */
+            const drawn = picks.map((pick, pi) => ({ pick, pi })).filter(({ pi }) => !row.columns || row.columns.includes(pi as 0 | 1));
+            const two = drawn.length === 2;
             const note = noteFor(row);
             const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
             /* ⏰ What the draft holds now — so the header says a time the moment it is set, not after a reload. */
@@ -902,8 +905,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     Until you pick what they wear, they dress as the {row.fallsBackTo}.
                   </p>
                 ) : null}
-                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={picks.length}>
-                  {picks.map((pick, pi) => {
+                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={drawn.length}>
+                  {drawn.map(({ pick, pi }) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;

@@ -116,6 +116,8 @@ const SINGLE: Record<string, FigureKind> = {
   matron_of_honor: 'gown',
   // Colours with the best man (palette key `best_man`), dresses as a woman.
   best_woman: 'gown',
+  // Colours with the maid of honor (palette key `maid_of_honor`), dresses as a man (owner 2026-10-19).
+  man_of_honor: 'suit',
   bridesmaid: 'gown',
   groomsman: 'suit',
   principal_sponsor_ninang: 'gown',

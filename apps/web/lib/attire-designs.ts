@@ -172,6 +172,8 @@ export const READER_FIGURE: Readonly<Partial<Record<string, FigureRole | readonl
   bride: 'bride',
   maid_of_honor: 'maid_of_honor',
   matron_of_honor: 'maid_of_honor',
+  /* 🤵‍♂️ The man of honor (owner 2026-10-19) wears the best man's list — the same four drawings (#02/#21/#22/#23). */
+  man_of_honor: 'best_man',
   bridesmaid: 'bridesmaid',
   principal_sponsor_ninong: 'ninong',
   principal_sponsor_ninang: 'ninang',

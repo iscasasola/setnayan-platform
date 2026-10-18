@@ -30,6 +30,15 @@ export type GuestRole =
   | 'groom_immediate_family'
   | 'maid_of_honor'
   | 'matron_of_honor'
+  // 🤵‍♂️ OWNER 2026-10-19: *"we give them a choice maid/matron/man of honor. so
+  // they can have male/female version like bestman and best woman"*. The bride's
+  // honour attendant may be a man — the mirror of `best_woman`. Same place in
+  // the march (the bride's column), same group (Bridesmaids / the couple's
+  // crew), same colour slot (`maid_of_honor`); dressed by the honour row's FOR
+  // MEN column (the best man's list). Enum value added via migration
+  // 20271277879483 (guest_role_add_man_of_honor). NOT exclusive with the maid
+  // or the matron.
+  | 'man_of_honor'
   | 'best_man'
   // ⚖ OWNER 2026-09-30: *"We can pick either best man or best woman and maid or
   // matron of honor."* The groom's honour attendant may be a woman. Same place
@@ -132,6 +141,9 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
   bride: 'gown',
   maid_of_honor: 'gown',
   matron_of_honor: 'gown',
+  // The bride's honour attendant who is a man (owner 2026-10-19) — the one role
+  // whose attire is the reason it exists, as the best woman's is.
+  man_of_honor: 'suit',
   bridesmaid: 'gown',
   flower_girl: 'gown',
   groom: 'suit',
@@ -332,6 +344,7 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'groom_immediate_family',
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'bridesmaid',
@@ -417,6 +430,7 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   groom_immediate_family: "Groom's Immediate Family",
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
+  man_of_honor: 'Man of Honor',
   best_man: 'Best Man',
   best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',

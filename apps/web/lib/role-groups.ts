@@ -64,6 +64,9 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   // what makes them "first row" (see ROLE_IMPORTANCE below).
   maid_of_honor: 'bridesmaids',
   matron_of_honor: 'bridesmaids',
+  // 🤵‍♂️ Owner 2026-10-19 — the bride's honour attendant may be a man; he leads
+  // the bride's side exactly as the maid and the matron do.
+  man_of_honor: 'bridesmaids',
   bridesmaid: 'bridesmaids',
   best_man: 'groomsmen',
   // ⚖ Owner 2026-09-30 — the groom's honour attendant may be a woman; she
@@ -178,6 +181,7 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'groomsman',
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'bridesmaid',
   // The Ninong/Ninang pair ranks with the role it split from (2026-09-14).
   //

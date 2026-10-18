@@ -52,6 +52,7 @@ const ROLE_SAYS_WHO: Partial<Record<GuestRole, PreviewWho>> = {
   principal_sponsor_ninang: 'f',
   flower_girl: 'f',
   best_man: 'm',
+  man_of_honor: 'm',
   groomsman: 'm',
   principal_sponsor_ninong: 'm',
   ring_bearer: 'm',

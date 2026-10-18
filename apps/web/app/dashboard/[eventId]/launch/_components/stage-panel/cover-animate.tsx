@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
@@ -19,6 +19,7 @@ import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
+import { usePickUntilDraftMoves } from './follow-draft';
 import { Dd } from './kit';
 
 /**
@@ -83,7 +84,8 @@ export const COVER_FEEL_OFF = 'Pick an entrance first — Movement times it.';
 export function CoverAnimate({ words, onSay }: { words: readonly CoverWord[]; onSay: (w: string) => void }) {
   const o = typeof window === 'undefined' ? null : askDoor();
   const stored = draftedCanvasOr('hero', o?.hero ?? null);
-  const [canvas, setCanvas] = useState<HubSectionCanvas>(stored);
+  /* ↺ The pick until the draft moves, then the draft (`follow-draft.ts`) — never a copy seeded once. */
+  const [canvas, setCanvas] = usePickUntilDraftMoves<HubSectionCanvas>(stored);
   const [pending, start] = useTransition();
   const entrance = canvas.entrance ?? null;
   const choice = coverEntranceChoice(entrance);
@@ -93,7 +95,6 @@ export function CoverAnimate({ words, onSay }: { words: readonly CoverWord[]; on
   const beats = coverEntranceBeats(entrance, canvas.elements, words);
 
   const save = (change: (c: HubSectionCanvas) => HubSectionCanvas) => {
-    const was = canvas;
     const next = change({ ...canvas });
     setCanvas(next);
     start(async () => {
@@ -104,7 +105,8 @@ export function CoverAnimate({ words, onSay }: { words: readonly CoverWord[]; on
         ok = false;
       }
       if (!ok) {
-        setCanvas(was);
+        /* Refused: the hero row was put back in the Maker's copy — show it. */
+        setCanvas(null);
         onSay(NOT_SAVED);
       }
     });

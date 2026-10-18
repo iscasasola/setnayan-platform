@@ -13,3 +13,16 @@ budget (0.1 KB left; never raise it). Other builders: Logo L5 (logo files), Look
 — if the shared fix lands in a file #6639 changes, keep the change minimal and say so.
 HARD STOP 19:45 PHT tonight: commit + push, keep this HANDOVER current — the work continues on a new account.
 Own walk folder (scratchpad/undo-switch-walk/). Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-edit-switches-follow-undo.md.
+
+## STATE (builder, 2026-10-18 ~18:05 PHT)
+CAUSE (found): (1) `stage-panel/cover-lines.tsx` showed its own pick over the draft FOR GOOD (`own[part] ?? l.shown`);
+`cover-animate.tsx` seeded `useState(stored)` once. (2) a drawn ↺ (`lib/canvas-pick-undo.ts` → `noteDraftedCanvas`) and a
+merged save (#6626 `elsewhere`) change the Maker's own copy with NO Maker render; `stage-tools.tsx`'s cover-lines read
+re-ran only on `renderStamp`.
+FIX (one shared module, lazy): `launch/_components/stage-panel/follow-draft.ts` — `usePickUntilDraftMoves(truth)` (pick
+shown only until the draft moves; pure step `followDraft`) + `useDraftMoves()` (hears `hearDraftedCanvas` and the
+`elsewhere` save status; notes `merged.widgets[*].canvas` into the copy). `lib/maker-refresh.ts` (first load, ~10 B)
+now passes `merged` on the `elsewhere` announcement. Applied: CoverLines, CoverAnimate, stage-tools cover-lines effect.
+NOT touched (#6639 owns them): stage-background.tsx, cover-words-background.tsx, element-sheet.tsx (element-sheet and
+stage-look-row already hear `hearDraftedCanvas`). post-event-shown re-reads on every render; its saves are never held.
+NEXT: test `stage-panel/follow-draft.test.ts` + sabotage → WebKit 375 walk before/after → fragment → draft PR.

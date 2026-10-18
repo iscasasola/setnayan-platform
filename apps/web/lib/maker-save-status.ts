@@ -7,8 +7,9 @@
  * happening through one window event; `HubDraftToolbar` shows it beside Apply.
  * An error is never silent: it is shown until the next save succeeds.
  */
-/** 👥 `elsewhere` — another screen's change reached a save; its words come with the save's answer (`TWO_SCREENS_NOTE`). */
-export type MakerSaveStatus = { state: 'saving' } | { state: 'saved' } | { state: 'error'; text: string } | { state: 'elsewhere'; text: string };
+/** 👥 `elsewhere` — another screen's change reached a save; its words come with the save's answer (`TWO_SCREENS_NOTE`),
+ *  and `merged` — the values it must now show — for the panels that keep the Maker's own copy (`follow-draft.ts`). */
+export type MakerSaveStatus = { state: 'saving' } | { state: 'saved' } | { state: 'error'; text: string } | { state: 'elsewhere'; text: string; merged?: unknown };
 
 export const MAKER_SAVE_STATUS_EVENT = 'setnayan:maker-save-status';
 

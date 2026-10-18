@@ -42,6 +42,11 @@ import type { GuestRole } from './guests';
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
     if (request === 'server-only' || request === 'client-only') return {};
+    /* The Studio is a client component: no app router and no server actions in a unit test (as its sibling guards do). */
+    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }), usePathname: () => '/', useSearchParams: () => new URLSearchParams() };
+    if (/(?:^|\/)(?:actions|wizard-actions|hub-draft-actions|colour-access-actions)$/.test(request)) {
+      return new Proxy({}, { get: () => async () => ({}) });
+    }
     return load.call(this, request, ...rest);
   };
 }

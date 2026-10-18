@@ -12,7 +12,8 @@
  * 👯 THE HONOUR ATTENDANTS (owner 2026-10-19, DECISION_LOG "THE HONOUR ATTENDANTS GET THEIR OWN DRESS-CODE ROWS"):
  * *"Best man and best woman share a row like principal sponsors. same goes to maid and matron of honor"*. Two rows at
  * the head of the entourage — "Maid of Honor & Matron of Honor" (one person) and "Best Man & Best Woman" (for men ·
- * for women) — each only when the guest list has one of its roles, named in the couple's words, and the Bridesmaids /
+ * for women) — each only when the guest list has one of its roles (`HONOUR_ROW_ROLES`: `maid_of_honor` ·
+ * `matron_of_honor`, `best_man` · `best_woman`), named in the couple's words, and the Bridesmaids /
  * Groomsmen counts no longer include them. A group row whose only people are honour attendants is not drawn.
  *
  * Pure, client-safe.

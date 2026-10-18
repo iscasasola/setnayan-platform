@@ -83,6 +83,7 @@ const ROLE_ORDER: GuestRole[] = [
   'principal_sponsor',
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'bridesmaid',

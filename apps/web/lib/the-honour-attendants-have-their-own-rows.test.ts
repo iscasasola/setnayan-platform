@@ -117,7 +117,9 @@ test('2 · the best man wears the groom’s list (Tuxedo too); the best woman an
   const bm = attireRow('roles', 'best_man')!;
   const moh = attireRow('roles', 'maid_of_honor')!;
   assert.deepEqual(bm.who, ['m', 'f'], 'the best man’s row is not two columns, men · women');
-  assert.deepEqual(moh.who, ['f'], 'the maid / matron row is not one woman');
+  /* 🤵‍♂️ 2026-10-19: one woman (the maid AND the matron — "same character. both female") and the man of honor */
+  assert.deepEqual(moh.who, ['f', 'm'], 'the maid / matron row is not FOR WOMEN · FOR MEN');
+  assert.deepEqual([...pickOptions(moh, 1)], [...roleDesigns('best_man')], 'the man of honor does not wear the best man’s list');
   assert.deepEqual([...pickOptions(bm, 0)], [...roleDesigns('groom')]);
   assert.ok(pickOptions(bm, 0).includes('tuxedo'));
   assert.deepEqual([...pickOptions(bm, 1)], ['long_gown', 'cocktail_dress', 'filipiniana']);

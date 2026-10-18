@@ -252,8 +252,9 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
   maid_of_honor: {
     min: 1,
     max: 3,
-    label: 'Maid / Matron of Honor',
-    hint: 'The honor attendant — 1 to 3 colors (falls back to Wedding Party)',
+    // Covers the man of honor too (owner 2026-10-19: "maid/matron/man of honor").
+    label: 'Maid / Matron / Man of Honor',
+    hint: 'The maid, matron or man of honor — 1 to 3 colors (falls back to Wedding Party)',
     meaning: 'outfit',
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
@@ -629,6 +630,9 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
       return 'groom';
     case 'maid_of_honor':
     case 'matron_of_honor':
+    // 🤵‍♂️ Owner 2026-10-19: maid, matron OR man of honor — one honour attendant
+    // on the bride's side, one colour slot (as best man / best woman share one).
+    case 'man_of_honor':
       return 'maid_of_honor';
     case 'best_man':
     // ⚖ Owner 2026-09-30: best man OR best woman — one honour attendant on the

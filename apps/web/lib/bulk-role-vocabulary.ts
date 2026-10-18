@@ -70,7 +70,7 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   },
   {
     label: ROLE_GROUP_LABELS.bridesmaids,
-    roles: ['maid_of_honor', 'matron_of_honor', 'bridesmaid'],
+    roles: ['maid_of_honor', 'matron_of_honor', 'man_of_honor', 'bridesmaid'],
   },
   {
     label: ROLE_GROUP_LABELS.principal_sponsors,

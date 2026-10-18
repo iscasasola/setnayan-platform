@@ -38,6 +38,7 @@ const PARENT_ROLES = new Set(['bride_parents', 'groom_parents', 'bride_grandpare
 const NAMED_ROLES = new Set([
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'principal_sponsor',
@@ -61,6 +62,7 @@ const ROLE_LABEL: Record<string, string> = {
   groom_grandparents: 'Grandparents of the groom',
   maid_of_honor: 'Maid of honor',
   matron_of_honor: 'Matron of honor',
+  man_of_honor: 'Man of honor',
   best_man: 'Best man',
   best_woman: 'Best woman',
   principal_sponsor: 'Principal sponsor',

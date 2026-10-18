@@ -383,7 +383,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
-    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.titles === '1' ? 'titles' : 'lone');
+    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.cast === 'man' ? 'man' : sp.titles === '1' ? 'titles' : 'lone');
     const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
     const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
@@ -622,8 +622,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      `?attire=cale-now` — after the owner's Apply. `&you=<guest-list role>` reads it as them. */
   /* 👯 `?attire=cale-honour` — cale-now with the two honour rows dressed (2026-10-19); with `?as=1&asrole=maid_of_honor`
      the Me › What to wear below reads cale-ice's dress code too (`cale-now`: her own row unset → the Bridesmaids'). */
-  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now' || sp.attire === 'cale-honour';
-  const caleIceHonour = sp.attire === 'cale-honour';
+  /* 🤵‍♂️ `?attire=man-honour` — cale-honour with the man of honor's FOR MEN column dressed (2026-10-19); with
+     `?as=1&asrole=man_of_honor-m`, his Me › What to wear. */
+  const manHonour = sp.attire === 'man-honour';
+  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now' || sp.attire === 'cale-honour' || manHonour;
+  const caleIceHonour = sp.attire === 'cale-honour' || manHonour;
   const caleIceAfter = sp.attire === 'cale-now' || caleIceHonour;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
@@ -631,7 +634,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      strictly by the page's own reader (`previewRoleOf`). The scene stays the general dress code (as the real page draws
      it for an identified guest); under it, that role's Me › What to wear. */
   const labRole = typeof sp.as === 'string' ? previewRoleOf(one('asrole'), WEDDING_ROLE_SET.offeredRoles) : null;
-  const roleDress = caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour) as never) : labCaleRoleDressConfig();
+  const roleDress = caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never) : labCaleRoleDressConfig();
   const rolePal = caleIce ? labCaleIceRolePalette(caleIceAfter) : labCaleRoleRolePalette();
   const roleNames = caleIce ? LAB_CALE_ICE_ROLE_NAMES : null;
   const roleWear = words && labRole ? (
@@ -650,7 +653,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   ) : words ? (
     <DressCodeWidget
       words={words}
-      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
       rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}

@@ -173,7 +173,8 @@ export function zonesOf(style: AttireStyle | null | undefined): readonly DesignZ
 }
 
 /** Each role drawing's width at 280 tall — printed by `scripts/build-role-attire.py` (the #NN is its prompt number). There is
- *  no `best_woman` drawing: she stands where the best man stands, and the best man's four are a man's (lib/attire-designs.ts). */
+ *  no `best_woman` or `man_of_honor` drawing of their own: each is drawn as the person of their honour-row column — the
+ *  best woman as the maid of honor, the man of honor as the best man (lib/attire-designs.ts `READER_FIGURE`). */
 const ROLE_WIDTH: Readonly<Record<string, number>> = {
   'groom-suit': 76, // #01
   'best_man-suit': 80, // #02

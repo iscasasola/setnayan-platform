@@ -114,12 +114,14 @@ const TITLE_PICKS: Record<string, { name_prefix: string; gender: 'woman' | 'man'
   bp1: { name_prefix: 'Dr.', gender: 'man' },
 };
 
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'titles' = 'sample') {
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'titles' | 'man' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
   if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
-  const cast0 = cast === 'cale' ? [...CALE_PARENTS, ...ROWS.filter((r) => r[4] !== 'groom_parents')] : ROWS;
+  /* 🤵‍♂️ `man` (2026-10-19): the sample with its maid of honor a MAN OF HONOR — a stand-in name, same walk and place. */
+  const asMan: Row[] = ROWS.map((r) => (r[0] === 'moh' ? ['moh', 'Mr.', 'Carlo', 'Reyes', 'man_of_honor', r[5], r[6]] : r));
+  const cast0 = cast === 'cale' ? [...CALE_PARENTS, ...ROWS.filter((r) => r[4] !== 'groom_parents')] : cast === 'man' ? asMan : ROWS;
   const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : cast0).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
@@ -215,7 +217,7 @@ export function labCaleRolePalette() {
  * the groomsmen or the guests. `?attire=cale-now` is the same event after that Apply (every Studio row picked).
  * Fixture only; nothing here reaches a guest.
  */
-export function labCaleIceDressConfig(after = false, honour = false) {
+export function labCaleIceDressConfig(after = false, honour = false, man = false) {
   const before = {
     dos: ['Lean into the palette'],
     donts: ['No white or ivory'],
@@ -237,7 +239,8 @@ export function labCaleIceDressConfig(after = false, honour = false) {
     ...before,
     roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: 'suit' }, ...honourRoles },
     women: {
-      roles: { guest: { style: 'long_gown' }, ...(honour ? { best_man: { style: 'filipiniana' } } : {}) },
+      /* 🤵‍♂️ `?attire=man-honour` (2026-10-19): the maid's row's FOR MEN column — the man of honor in a Barong Tagalog. */
+      roles: { guest: { style: 'long_gown' }, ...(honour ? { best_man: { style: 'filipiniana' } } : {}), ...(man ? { maid_of_honor: { style: 'barong_tagalog' } } : {}) },
       groups: {
         vip_family: { style: 'long_gown', colours: ['#5C0700', '#248191', '#3E3350'] },
         principal_sponsors: { style: 'long_gown', colours: ['#8B7E74', '#6C6C6C'] },
@@ -325,6 +328,8 @@ export const LAB_CALE_ICE_ROLE_TALLY = [
   { role: 'flower_girl', count: 2 },
   { role: 'guest', count: 20 },
 ] as const;
+/** 🤵‍♂️ `?attire=man-honour` — the same guest list with a man of honor beside the two maids of honor (2026-10-19). */
+export const LAB_MAN_OF_HONOR_ROLE_TALLY = [...LAB_CALE_ICE_ROLE_TALLY, { role: 'man_of_honor', count: 1 }] as const;
 
 /**
  * 👔 `?attire=roles` — THE PER-ROLE ATTIRE WALK (owner 2026-10-16, "APPROVED — ALL 45 ROLE × DESIGN DRAWINGS"), in

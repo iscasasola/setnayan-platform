@@ -70,7 +70,7 @@ export const ROLE_SEATING_SETS: ReadonlyArray<{ key: RoleSeatingKey; roles: read
   },
   {
     key: 'wedding_party',
-    roles: ['maid_of_honor', 'matron_of_honor', 'bridesmaid', 'best_man', 'best_woman', 'groomsman'],
+    roles: ['maid_of_honor', 'matron_of_honor', 'man_of_honor', 'bridesmaid', 'best_man', 'best_woman', 'groomsman'],
   },
   {
     key: 'secondary_sponsors',

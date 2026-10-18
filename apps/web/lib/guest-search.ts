@@ -119,6 +119,7 @@ const ROLE_ALIASES: Partial<Record<GuestRow['role'], readonly string[]>> = {
   groom: ['host', 'couple'],
   maid_of_honor: ['moh'],
   matron_of_honor: ['moh'],
+  man_of_honor: ['moh'],
   best_man: ['bm'],
   best_woman: ['bw'],
   bride_grandparents: ['lolo', 'lola', 'grandfather', 'grandmother'],

@@ -333,6 +333,7 @@ export const SPECIALTY_CATALOG: Record<string, SpecialtySpec> = {
               "best_woman",
               "maid_of_honor",
               "matron_of_honor",
+              "man_of_honor",
               "groomsman",
               "bridesmaid"
             ]

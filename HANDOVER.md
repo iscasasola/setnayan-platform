@@ -50,4 +50,4 @@ Preflight #1 FAILED 2 guards: moving all of MoreExtras took editor-shell's only 
 maker-pro-controls-wear-the-paid-mark) and its "for all nine" docblock (the-invite-look-is-finished). Fix: only the QR
 strip moves (`scan-qr-strip.tsx` → `ScanQrStrip` stand-in in details-lazy); MoreExtras stays in editor-shell;
 lower-third guard back to main's text; strip guard counts scan-qr-strip.tsx (sabotage red → green).
-Rebuild + preflight #2 running (numbers to follow; expect ≈13.5KB headroom).
+MEASURED after rework: Maker 493.6KB gz · 51 chunks · 13.4KB headroom; shared 201.8/202 (unchanged). Preflight #2 running.

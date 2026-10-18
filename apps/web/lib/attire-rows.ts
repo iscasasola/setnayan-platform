@@ -110,17 +110,13 @@ export const HONOUR_ROW_ROLES: Readonly<Record<'best_man' | 'maid_of_honor', rea
   best_man: ['best_man', 'best_woman'],
 };
 /**
- * An honour row's heading in the couple's own words (owner 2026-09-30, "THE COUPLE NAMES THEIR ROLES"): the names of
- * the pair's roles that are `present` ("Best Man & Best Woman", or just "Maid of Honor" when the guest list has no
- * matron). `present` null — a reader who cannot see the guest list — names both, as the Mood Board slot does
- * ("Maid of Honor / Matron of Honor").
+ * An honour row's heading — ALWAYS BOTH NAMES of its pair, each in the couple's own word (owner 2026-09-30, "THE
+ * COUPLE NAMES THEIR ROLES"): "Maid of Honor & Matron of Honor", "Best Man & Best Woman". Owner 2026-10-19, on a row
+ * that read "Maid of Honor" for a list with no matron: *"maid and matron of honor same row"* — the row is the pair's,
+ * whichever of the two the guest list holds; the Studio, the guest page and the prints all say it the same way.
  */
-export function honourRowLabel(key: 'best_man' | 'maid_of_honor', present: ReadonlySet<string> | null, names?: RoleNames | null): string {
-  const pair = HONOUR_ROW_ROLES[key];
-  const said = (r: GuestRole) => roleLabel(r, names) ?? r;
-  if (!present) return pair.map(said).join(' / ');
-  const here = pair.filter((r) => present.has(r));
-  return (here.length > 0 ? here : pair).map(said).join(' & ');
+export function honourRowLabel(key: 'best_man' | 'maid_of_honor', names?: RoleNames | null): string {
+  return HONOUR_ROW_ROLES[key].map((r) => roleLabel(r, names) ?? r).join(' & ');
 }
 export const isHonourRowKey = (key: string): key is 'best_man' | 'maid_of_honor' => key === 'best_man' || key === 'maid_of_honor';
 export const isHonourRole = (role: string | null | undefined): boolean => Boolean(role && HONOUR_ROW_OF[role as GuestRole]);

@@ -6,6 +6,7 @@ import { PROMOTABLE_ORDER_STATUSES } from '@/lib/order-promotion-rule';
 import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { formatPhp } from '@/lib/php';
 import { appStorePriceFloorPhp, type IapProduct } from './products';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
 
@@ -374,7 +375,7 @@ export async function fulfilAppleTransaction(
         event_type: 'OTHER',
         element_name: 'App Store price below the ÷0.85 floor',
         file_path: 'lib/iap/fulfil.server.ts',
-        error_message: `${tx.product.productId} sold for ₱${php} — the floor is ₱${floor} (web ₱${amount.catalogPhp} ÷ 0.85). Raise its price point in App Store Connect.`,
+        error_message: `${tx.product.productId} sold for ${formatPhp(php)} — the floor is ${formatPhp(floor)} (web ${formatPhp(amount.catalogPhp ?? 0)} ÷ 0.85). Raise its price point in App Store Connect.`,
         payload_snapshot: { productId: tx.product.productId, chargedPhp: php, floorPhp: floor },
       });
     }

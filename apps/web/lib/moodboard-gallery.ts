@@ -83,6 +83,12 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
   bridal_bouquet: ['florist'],
   centrepieces: ['florist', 'stylist_decorator', 'catering'],
+  // 🎨🖼 The Palette's five parts with photos of their own (2026-10-19), on the tiles that dress them.
+  chairs: ['chairs_tents', 'stylist_decorator'],
+  ribbons_candles: ['stylist_decorator'],
+  lights: ['lights_sound', 'stylist_decorator'],
+  entourage_bouquets: ['florist'],
+  flower_accents: ['florist', 'stylist_decorator'],
   overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
   // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
   // from — a wall, a fabric, a sunset. No shop's portfolio answers it.

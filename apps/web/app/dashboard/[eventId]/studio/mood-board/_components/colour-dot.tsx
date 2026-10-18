@@ -8,14 +8,17 @@
  *
  *   · `RoleColourDot` — the circle itself: 44 px to the finger, the colour on a 28 px circle inside, a hairline ring.
  *     Moved here unchanged from `mood-board-studio.tsx`, where Attire drew it inline (its call sites' props are the same).
- *   · `NamedColourDot` — the circle with its word under it, in the Attire dots' own type (`DOT_WORD`): Palette's five,
- *     the room's parts and the flowers. The word is the colour's NAME when it has one, never its code; no arrow.
+ *   · `NamedColourDot` — the circle with its word under it, in the Attire dots' own type (`DOT_WORD`): Palette's five
+ *     (their slot word, then the name — `DOT_NAME`), the room, the flowers and the cake. The word is the colour's NAME
+ *     when it has one, never its code; no arrow.
  *
  * `colour-circles-are-one.test.ts` holds that the Studio draws no other colour circle and no colour code.
  */
 
 /** The word under a circle — the Attire dots' own type. */
 export const DOT_WORD = '-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65';
+/** The colour's name under a main colour's slot word (prototype `.dotcol small.name`): the same type, quieter. */
+export const DOT_NAME = 'max-w-[64px] text-center text-[10.5px] leading-tight text-ink/50';
 
 /** The circle, without the button (the one drawing of it). */
 function Circle({ colour, tight }: { colour: string; tight: boolean }) {
@@ -38,7 +41,7 @@ export function RoleColourDot({ label, colour, index, onPick, tight = false }: {
  * A Palette colour: the same circle, its NAME under it (only when it has one — never the code). `onPick` absent = shown,
  * not changeable (a part a supplier has agreed): the same circle, not a button, and its line says why.
  */
-export function NamedColourDot({ label, colour, name, onPick, data }: { label: string; colour: string; name: string | null; onPick?: () => void; data: string }) {
+export function NamedColourDot({ label, colour, name, onPick, data, slot }: { label: string; colour: string; name: string | null; onPick?: () => void; data: string; slot?: string }) {
   return (
     <span className="flex flex-col items-center" data-mood-board-colour={data}>
       {onPick ? (
@@ -48,8 +51,14 @@ export function NamedColourDot({ label, colour, name, onPick, data }: { label: s
           <Circle colour={colour} tight={false} />
         </span>
       )}
+      {slot ? (
+        /* A main colour: its slot ("Dominant"), then the colour's name under it (prototype frame 1, YOUR MAIN PALETTE). */
+        <small className={DOT_WORD} data-mood-board-dot-slot={slot}>
+          {slot}
+        </small>
+      ) : null}
       {name ? (
-        <small className={DOT_WORD} data-mood-board-dot-word={name}>
+        <small className={slot ? DOT_NAME : DOT_WORD} data-mood-board-dot-word={name}>
           {name}
         </small>
       ) : null}

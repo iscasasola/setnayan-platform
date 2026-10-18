@@ -176,6 +176,28 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
     kind: 'not_a_part',
     why: 'an inspiration card (florists, stylists, caterers), not a render part — the tables zone keeps its own trades',
   },
+  // 🎨🖼 The Palette's five parts with photos (2026-10-19): inspiration boards of their own, NOT render parts — the
+  // same answer step 4c gave the bouquet and the centrepieces.
+  chairs: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the stylist’s chairs), not a render part — the tables zone keeps its own trades',
+  },
+  ribbons_candles: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the stylist’s ribbons and candles), not a render part — the tables zone keeps its own trades',
+  },
+  lights: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (lights and sound), not a render part — the ceiling zone keeps its own trades',
+  },
+  entourage_bouquets: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the wedding party’s part keeps its own trades',
+  },
+  flower_accents: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the tables zone keeps its own trades',
+  },
   // 👗 The four attire boards (2026-10-08): inspiration boards of their own, NOT
   // render parts — the same answer step 4c gave, for the same reason. Aliasing
   // them onto an attire role would move what a paid render is conditioned on

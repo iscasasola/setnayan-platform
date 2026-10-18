@@ -199,6 +199,19 @@ export type Lab3DPalette = {
   chairs?: string;
   florals?: string;
   /**
+   * 🎨 THE PALETTE'S OTHER PARTS (owner 2026-10-19, "yes all circles" — and these colours feed the 3D Plan). The
+   * couple's EXPLICIT `room_dressing` override for the part, and ONLY that, for the reason chairs/florals give above:
+   * absent = they set none, and every surface draws exactly what it drew before. Read where the room draws the part —
+   * the stage slab (`stage`), the walls and drapes (`walls`), the ceiling's hanging lights (`ceiling`), the entrance
+   * tunnel (`tunnel`), the table candles (`candles`) and the cake (`cake`). The bouquets have no 3D object.
+   */
+  stage?: string;
+  walls?: string;
+  ceiling?: string;
+  tunnel?: string;
+  candles?: string;
+  cake?: string;
+  /**
    * THE FIFTH MAJOR COLOUR — `role_palette.reception[4]`, the slot
    * `PALETTE_LIMITS.reception.slotLabels` calls **"Accent 2"**.
    *

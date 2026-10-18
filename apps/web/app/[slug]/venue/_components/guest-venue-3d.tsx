@@ -1278,7 +1278,8 @@ export default function GuestVenue3D({
             slab, so the same stage reads across all three surfaces. */}
         <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
           <boxGeometry args={[stageW, 0.3, stageD]} />
-          <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+          {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+          <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
         </mesh>
 
         {/* Entrance structure — mirrors the couple's 3D lab (seating-lab-3d) so

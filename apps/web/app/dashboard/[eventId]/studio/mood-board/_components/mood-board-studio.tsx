@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, Palette, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -14,8 +14,8 @@ import { extractPaletteFromFile } from '@/lib/extract-palette';
 import { MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette, type RoomDressing } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
-import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
-import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
+import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, paletteBoardOf, type StudioInspirationSlot } from '@/lib/inspiration-slots';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
@@ -131,20 +131,19 @@ export type MoodBoardStudioProps = {
   startTab?: Tab;
 };
 
-export type Tab = 'colours' | 'attire' | 'insp' | 'dos';
+export type Tab = 'colours' | 'attire' | 'dos';
 const TABS: ReadonlyArray<[Tab, string]> = [
-  /* "Palette" (owner 2026-10-08, "ok") — the five, the room and the flowers; the key stays `colours`. */
+  /* "Palette" (owner 2026-10-08, "ok") — the five, the room, the flowers and the cake; the key stays `colours`. Inspiration
+     is IN it since 2026-10-19 (owner: "the inspirations here and the palette can be integrated together properly" →
+     "make it look like attire"): each part's block carries its own photos, so there is no Inspiration section. */
   ['colours', 'Palette'],
   ['attire', 'Attire'],
-  ['insp', 'Inspiration'],
   ['dos', 'Do’s & Don’ts'],
 ];
 
 type PickTarget =
   | { kind: 'main'; index: number }
   | { kind: 'part'; part: LanePart }
-  /** A part that only follows a main colour — its circle changes that main colour (the sheet says so). */
-  | { kind: 'follows'; part: LanePart }
   | { kind: 'role'; key: PaletteKey; label: string }
   /** One colour a role already wears — tap its dot to change it, or remove it. */
   | { kind: 'role-colour'; key: PaletteKey; label: string; index: number; zone?: ZoneDot }
@@ -344,6 +343,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const [dress, setDress] = useState(() => draftedBoardOr(`${eventId}:dress`, props.dressConfig));
   const dressKey = JSON.stringify(props.dressConfig);
   useEffect(() => setDress(draftedBoardOr(`${eventId}:dress`, props.dressConfig)), [dressKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* 🖼 "Which part?" — Venue & decor, then every part with a board, by the part's own name (Table linens, not Tables). */
+  const uploadOptions = [
+    ...STUDIO_INSPIRATION_SLOTS.filter((s) => s.slotKey === MAIN_PALETTE_BOARD).map((s) => ({ key: s.slotKey, label: s.label })),
+    ...[...ROOM_LANE_PARTS, ...FLORIST_LANE_PARTS, ...CAKE_LANE_PARTS].flatMap((p) => {
+      const b = paletteBoardOf(p.field);
+      return b ? [{ key: b.slotKey, label: p.label }] : [];
+    }),
+  ];
 
   /* ═══ COLOURS ═══ */
   const pickMain = (index: number, hex: string) => commit(withMainColour(palette, five, index, hex), `${MAIN_COLOUR_SLOTS[index]} changed.`);
@@ -572,16 +580,6 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         ) : null,
       };
     }
-    if (t.kind === 'follows') {
-      const main = MAIN_COLOUR_SLOTS[t.part.follows] ?? MAIN_COLOUR_SLOTS[0]!;
-      return {
-        title: `${t.part.label} — follows ${main}`,
-        job: `This is your ${main} — every part that follows it changes too`,
-        current: five[t.part.follows] ?? five[0]!,
-        onPick: (h: string) => pickMain(t.part.follows, h),
-        extra: null,
-      };
-    }
     if (t.kind === 'role-colour' && t.zone) {
       const now = roleColours(t.key);
       const zone = t.zone;
@@ -679,67 +677,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : [];
   };
 
-  /* 🖼 ONE BOARD PER PART — upload (+) and Search ideas › (the suppliers' photos), drawn in Inspiration, or in Attire for the attire boards. */
-  /* 👗 The attire boards sit under their role's row (`attireBoardsUnder` — one for most, two for the bearers:
-     Flower girl · Ring bearer); a board whose role is not on the list yet is drawn after the rows (`attireBoardsAfter`). */
-  const slotBoard = (slot: StudioInspirationSlot) => {
-    const row = tiles[slot.slotKey] ?? [];
-    const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
-    const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
-    return (
-      <section key={slot.slotKey} className="flex flex-col gap-2 border-t border-ink/10 pt-3" data-mood-board-slot={slot.slotKey}>
-        <div className="flex items-center justify-between gap-2">
-          <b className="text-[14.5px] font-semibold text-ink">{slot.label}</b>
-          <span data-mood-board-search={slot.slotKey}>
-            <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
-          </span>
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto">
-          {/* The Upload kind's tile (§ 21): one clear place to add a file. It is not the shared `FileUpload`, because the board's write
-              (`uploadMoodboardSlot`) takes the photo itself with the colours read from it — see the guard's list of what is not a template. */}
-          <button type="button" data-mood-board-add={slot.slotKey} aria-label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} className="sn-press flex h-20 w-20 flex-none items-center justify-center rounded-xl bg-ink/5 text-sn-accent">
-            <Plus aria-hidden className="h-6 w-6" />
-          </button>
-          {photos.map(({ pos, tile }) => (
-            <span key={pos} className="relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-ink/5">
-              {tile!.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={tile!.url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-[11px] text-ink/50">Uploading…</span>
-              )}
-              {photoTag(tile!.credit) ? <em className="absolute bottom-1 left-1 rounded-md bg-ink/55 px-1.5 py-0.5 text-[9.5px] not-italic text-white">{photoTag(tile!.credit)}</em> : null}
-              {tile!.url ? (
-                <span className="absolute right-0 top-0 scale-75">
-                  <ActionButton tone="neutral" iconOnly icon={X} label="Remove this photo" onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })} />
-                </span>
-              ) : null}
-            </span>
-          ))}
-        </div>
-        <div className="flex min-h-11 items-center gap-2">
-          {slotPalette.length > 0 ? (
-            <>
-              <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
-              {slot.useLabel ? (
-                <span data-mood-board-use-slot={slot.slotKey} className="ml-auto">
-                  <ActionButton tone="neutral" icon={Sparkles} label={slot.useLabel} onClick={() => applySlotPalette(slot, slotPalette)} />
-                </span>
-              ) : null}
-            </>
-          ) : (
-            <small className="text-[12px] text-ink/55">Add photos to get its palette</small>
-          )}
-        </div>
-      </section>
-    );
-  };
-
   /* 👗 A ROLE'S OWN PHOTOS, IN ATTIRE (prototype `ideasHTML`): its photos small, how many, ＋ (the couple's own) and
      Search ideas › (the suppliers' — the shipped picker). A photo comes off through the same confirm box; the photos'
      colours are offered to the role where its board has one ("Use for …"). `named` — a role with two boards (the
-     bearers: Flower girl · Ring bearer) says whose each is. */
-  const ideasRow = (slot: StudioInspirationSlot, named: boolean) => {
+     bearers: Flower girl · Ring bearer) says whose each is. `offer` — a Palette block's own (2026-10-19, prototype frame 3):
+     the photos' colours under them with "Use for Table linens", which sets that part only when tapped (with Undo). */
+  const ideasRow = (slot: StudioInspirationSlot, named: boolean, offer?: { label: string; use: (colours: string[]) => void } | null) => {
     const row = tiles[slot.slotKey] ?? [];
     const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
     const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
@@ -768,7 +711,14 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
           </span>
         </div>
-        {slotPalette.length > 0 && slot.useLabel ? (
+        {slotPalette.length > 0 && offer ? (
+          <div className="flex min-h-11 items-center gap-2" data-mood-board-offer={slot.slotKey}>
+            <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
+            <span data-mood-board-use-slot={slot.slotKey} className="ml-auto">
+              <ActionButton tone="neutral" icon={Sparkles} label={offer.label} onClick={() => offer.use(slotPalette)} />
+            </span>
+          </div>
+        ) : slotPalette.length > 0 && slot.useLabel && offer === undefined ? (
           <div className="flex min-h-11 items-center gap-2">
             <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
             <span data-mood-board-use-slot={slot.slotKey} className="ml-auto">
@@ -779,6 +729,59 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       </div>
     );
   };
+
+  /* 🎨🖼 A PALETTE PART, DRAWN LIKE AN ATTIRE BLOCK (owner 2026-10-19, *"make it look like attire"*; prototype
+     `palette_inspiration_one_list_2026-10-19.html` frame 1): the Attire block's own shape — the part's name in the
+     role's type, its line ("Follows Dominant" / "Set by you"), its ONE circle with the colour's name under it
+     (`colour-dot.tsx`), then its photos the Attire way (`ideasRow`). A tap on the circle opens the one picker for that
+     part (every part has its own colour since that day — owner: "yes all circles"); one a supplier agreed is shown,
+     not changeable. Its photos' colours are offered for it ("Use for Table linens") and set nothing until tapped. */
+  const partBlock = (p: LanePart) => {
+    const c = lanePartColour(p, five, palette);
+    const frozen = Boolean(p.field && props.frozenDressing.includes(p.field));
+    const line = frozen ? 'Agreed with your supplier' : c.setByYou ? 'Set by you' : `Follows ${c.followsLabel}`;
+    const board = paletteBoardOf(p.field);
+    const word = nearestColorName(c.hex);
+    const said = `${p.label}: ${word ?? 'its colour'}`;
+    const field = p.field;
+    return (
+      <section key={p.label} data-mood-board-part={p.label} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
+        <header className="flex flex-wrap items-baseline gap-2">
+          <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{p.label}</h3>
+        </header>
+        <p className={`text-[12px] ${c.setByYou && !frozen ? 'text-ink' : 'text-ink/65'}`} data-mood-board-part-line="">{line}</p>
+        <span className="flex flex-wrap items-start gap-x-1" data-mood-board-swatches={p.label}>
+          <NamedColourDot
+            label={frozen ? said : `${said} — change it`}
+            colour={c.hex}
+            name={word}
+            onPick={frozen ? undefined : () => setSheet({ kind: 'picker', target: { kind: 'part', part: p } })}
+            data={`part-${p.label}`}
+          />
+        </span>
+        {board
+          ? ideasRow(
+              { ...board, label: p.label },
+              false,
+              frozen || !field ? null : { label: `Use for ${p.label}`, use: (colours) => colours[0] && commit(withPartColour(palette, field, colours[0]), `${p.label} set.`) },
+            )
+          : null}
+      </section>
+    );
+  };
+  /* 🖼 The Flowers board (every flower at once) has no part of its own — the finer boards sit on their parts. Where an
+     event already holds its photos, they keep a block in the florist's group (nothing is lost); it takes no new photo. */
+  const legacyBlock = (slot: StudioInspirationSlot) =>
+    (tiles[slot.slotKey] ?? []).some(Boolean) ? (
+      <section key={slot.slotKey} data-mood-board-board={slot.slotKey} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
+        <header className="flex flex-wrap items-baseline gap-2">
+          <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{slot.label}</h3>
+        </header>
+        <p className="text-[12px] text-ink/65">Every flower at once</p>
+        {ideasRow(slot, false, null)}
+      </section>
+    ) : null;
+  const mainBoard = STUDIO_INSPIRATION_SLOTS.find((s) => s.slotKey === MAIN_PALETTE_BOARD) ?? null;
 
   /* ✨ Auto — IN the Studio's Tool row, beside Tool ▾ (prototype `.fhead`: MOOD BOARD ▾ · ✨ Auto), portalled into its right end;
      drawn here only where there is no such row (the shipped Mood Board page). */
@@ -856,29 +859,61 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               </FormRows>
             </div>
           ) : null}
-          <Heading title="Your five main colours" tip="One palette with Look › Colours. Every part below follows them until you set it." />
+          {/* 🎨🖼 PALETTE AND INSPIRATION ARE ONE LIST (owner 2026-10-19; prototype `palette_inspiration_one_list_2026-10-19.html`
+              frame 1): the upload bar on top as it stood in Inspiration; YOUR MAIN PALETTE — the five as the one circle, the slot
+              word and the colour's name under each, Venue & decor's photos under them; then every part ONCE, each an Attire
+              block (`partBlock`) in its group. */}
           <div className={STUDIO_GROUP}>
-            <FormRows width="short" data="mood-board-five">
-              {five.map((hex, i) => (
-                <ColourRow key={i} hex={hex} name={MAIN_COLOUR_SLOTS[i]!} line={MAIN_COLOUR_JOBS[i]!} onTap={() => setSheet({ kind: 'picker', target: { kind: 'main', index: i } })} data={`main-${i}`} />
-              ))}
+            <FormRows data="mood-board-upload">
+              <ChosenRow
+                name="Upload your own photos"
+                label="Upload your own photos — which part is it for?"
+                value={null}
+                options={uploadOptions}
+                onPick={(k) => openUpload(k)}
+                buttonText="Which part?"
+                dataAttr="data-mood-board-upload"
+              />
             </FormRows>
+          </div>
+          <div className="flex flex-col gap-1.5 pb-1" data-mood-board-main-palette="">
+            <Heading title="Your main palette" tip="One palette with Look › Colours. Every part below follows them until you set it." />
+            <div className="flex flex-wrap items-start justify-between" data-mood-board-five="">
+              {five.map((hex, i) => {
+                const word = nearestColorName(hex);
+                return (
+                  <span key={i} className="w-16">
+                    <NamedColourDot
+                      label={`${MAIN_COLOUR_SLOTS[i]}: ${word ?? 'its colour'} — change it`}
+                      colour={hex}
+                      slot={MAIN_COLOUR_SLOTS[i]!}
+                      name={word}
+                      onPick={() => setSheet({ kind: 'picker', target: { kind: 'main', index: i } })}
+                      data={`main-${i}`}
+                    />
+                  </span>
+                );
+              })}
+            </div>
+            {mainBoard
+              ? ideasRow(mainBoard, false, {
+                  label: 'Use as my five main colours',
+                  use: (colours) => commit(withAutoPalette(palette, slotsFromPhotoPalette(colours.slice(0, 5), five)), 'Five colours from your photos.'),
+                })
+              : null}
           </div>
           <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
-          <div className={STUDIO_GROUP}>
-            <FormRows width="short" data="mood-board-room">
-              {ROOM_LANE_PARTS.map((p) => (
-                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: p.field ? { kind: 'part', part: p } : { kind: 'follows', part: p } })} />
-              ))}
-            </FormRows>
+          <div className={STUDIO_GROUP} data-mood-board-room="">
+            {ROOM_LANE_PARTS.map(partBlock)}
           </div>
           <Heading title="Flowers — for your florist" tip="Your booked florist can change the flowers. You see every change." />
-          <div className={STUDIO_GROUP}>
-            <FormRows width="short" data="mood-board-flowers">
-              {FLORIST_LANE_PARTS.map((p) => (
-                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: p.field ? { kind: 'part', part: p } : { kind: 'follows', part: p } })} />
-              ))}
-            </FormRows>
+          <div className={STUDIO_GROUP} data-mood-board-flowers="">
+            {FLORIST_LANE_PARTS.map(partBlock)}
+            {LEGACY_PALETTE_BOARDS.map((k) => STUDIO_INSPIRATION_SLOTS.find((s) => s.slotKey === k)).map((slot) => (slot ? legacyBlock(slot) : null))}
+          </div>
+          <Heading title="Cake — for your cake maker" tip="Your cake’s colour and the photos you love. It follows your Neutral until you set it." />
+          <div className={STUDIO_GROUP} data-mood-board-cake="">
+            {CAKE_LANE_PARTS.map(partBlock)}
           </div>
         </div>
       ) : null}
@@ -1114,43 +1149,6 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         </div>
       ) : null}
 
-      {tab === 'insp' ? (
-        <div className="flex flex-col gap-4" data-mood-board-inspiration="">
-          <div className={STUDIO_GROUP}>
-            <FormRows data="mood-board-upload">
-              <ChosenRow
-                name="Upload your own photos"
-                label="Upload your own photos — which part is it for?"
-                value={null}
-                options={STUDIO_INSPIRATION_SLOTS.filter((s) => !s.attire).map((s) => ({ key: s.slotKey, label: s.label }))}
-                onPick={(k) => openUpload(k)}
-                buttonText="Which part?"
-                dataAttr="data-mood-board-upload"
-              />
-            </FormRows>
-          </div>
-          <div className="flex flex-col gap-2" data-mood-board-main-palette="">
-            <Heading title="Your main palette" tip="Read from all your photos. Each part below has its own too." />
-            {photoFive ? (
-              <>
-                <Swatches colours={photoFive} label="Your photos’ palette" wide />
-                <div className="flex gap-2 [&_.ab]:w-full [&>span]:min-w-0 [&>span]:flex-1">
-                  <span>
-                    <ActionButton tone="brand" main icon={Sparkles} label="Use as my five main colours" onClick={() => commit(withAutoPalette(palette, photoFive), 'Five colours from your photos.')} />
-                  </span>
-                  <span className="flex-none [&_.ab]:w-auto">
-                    <ActionButton tone="neutral" icon={Palette} label="Compare" onClick={() => setTab('colours')} />
-                  </span>
-                </div>
-              </>
-            ) : (
-              <p className="text-[12.5px] text-ink/60">Add photos to get its palette.</p>
-            )}
-          </div>
-          {STUDIO_INSPIRATION_SLOTS.filter((slot) => !slot.attire).map(slotBoard)}
-        </div>
-      ) : null}
-
       {tab === 'dos' ? (
         <div data-mood-board-dos="">
           {props.dosLists ? (
@@ -1266,32 +1264,6 @@ function Swatches({ colours, label, wide = false }: { colours: readonly string[]
       ))}
     </span>
   );
-}
-
-/**
- * 🎨 A COLOUR ROW (owner 2026-10-19: *"no need for code. just name if it has name. and just the circle like attire"*): its
- * name and its job, and the colour as the Studio's ONE circle (`colour-dot.tsx`, the Attire dots' own) with the colour's
- * name under it when it has one — no code, no arrow. A tap opens the one colour picker; `onTap` absent = shown only.
- */
-function ColourRow({ hex, name, line, onTap, data }: { hex: string; name: string; line: string; onTap?: () => void; data: string }) {
-  const word = nearestColorName(hex);
-  const said = `${name}: ${word ?? 'its colour'}`;
-  return (
-    <FormRow name={name} line={line} attrs={{ 'data-mood-board-row': data }}>
-      <NamedColourDot label={onTap ? `${said} — change it` : said} colour={hex} name={word} onPick={onTap} data={data} />
-    </FormRow>
-  );
-}
-
-/**
- * A room or flower part. Its own colour (a part with a `room_dressing` field) opens the picker for that part; a part that
- * only FOLLOWS a main colour opens the picker for the main colour it follows (owner: *"all colors can be edited on
- * palette"* — the sheet says which one it changes); one a supplier has agreed is shown, not changeable.
- */
-function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five: readonly string[]; palette: RolePalette; frozen: boolean; onTap: () => void }) {
-  const c = lanePartColour(part, five, palette);
-  const line = frozen ? 'Agreed with your supplier' : c.setByYou ? 'Set by you' : `Follows ${c.followsLabel}`;
-  return <ColourRow hex={c.hex} name={part.label} line={line} onTap={frozen ? undefined : onTap} data={`part-${part.label}`} />;
 }
 
 /** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */

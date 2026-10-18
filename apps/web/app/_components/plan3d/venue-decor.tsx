@@ -1172,6 +1172,15 @@ export function VenueDecor({
 }) {
   // No ceiling → nothing to hang chandeliers/lanterns/floral clusters from.
   const openAir = isOpenAir(archetype);
+  /* 🎨 THE PALETTE'S PARTS, WHERE THE ROOM DRAWS THEM (owner 2026-10-19: "yes all circles"; these colours feed the 3D
+     Plan). Each is the couple's own override (`partOverrides`, room-palette.ts) and nothing else, so an unset part
+     draws exactly what it drew before: Walls dress the drapes, wall treatments, photo wall and entrance posts as the
+     `wall` tone; Ceiling the hung lights as their `accent`; Tunnel the entrance tunnel; Ribbons & candles the
+     centrepieces' candles. */
+  const wallsP = palette.walls ? { ...palette, wall: palette.walls } : palette;
+  const ceilingP = palette.ceiling ? { ...palette, accent: palette.ceiling } : palette;
+  const tunnelP = palette.tunnel ? { ...palette, accent: palette.tunnel, wall: palette.tunnel } : wallsP;
+  const candleP = palette.candles ? { ...palette, accent: palette.candles } : palette;
   const ceiling = sel(design, 'ceiling', 'treatment');
   const backdrop = sel(design, 'backdrop', 'style');
   const centerpiece = sel(design, 'tables', 'centerpiece');
@@ -1241,9 +1250,9 @@ export function VenueDecor({
           primary-only to verify — so the check moved here rather than being
           dropped. */}
       <group name={`decor-ceiling-${ceiling}`}>
-        {!openAir && ceiling === 'chandeliers' && <Chandeliers room={room} palette={palette} quality={quality} />}
-        {(ceiling === 'fairy_lights') && <StringLights room={room} palette={palette} />}
-        {!openAir && ceiling === 'lanterns' && <Lanterns room={room} palette={palette} quality={quality} />}
+        {!openAir && ceiling === 'chandeliers' && <Chandeliers room={room} palette={ceilingP} quality={quality} />}
+        {(ceiling === 'fairy_lights') && <StringLights room={room} palette={ceilingP} />}
+        {!openAir && ceiling === 'lanterns' && <Lanterns room={room} palette={ceilingP} quality={quality} />}
         {!openAir && (ceiling === 'hanging_florals' || ceiling === 'hanging_greenery') && (
           <HangingFlorals room={room} palette={palette} quality={quality} greenery={ceiling === 'hanging_greenery'} />
         )}
@@ -1251,7 +1260,7 @@ export function VenueDecor({
       {/* 'draped' | 'geometric' | 'bare' → no ceiling decor (drape reads as the room itself) */}
 
       {/* Stage backdrop */}
-      {(backdrop === 'draped') && <DrapedBackdrop center={stageCenter} width={stageWidth} palette={palette} />}
+      {(backdrop === 'draped') && <DrapedBackdrop center={stageCenter} width={stageWidth} palette={wallsP} />}
       {(backdrop === 'floral_wall' || backdrop === 'greenery') && (
         <FloralWall center={stageCenter} width={stageWidth} palette={palette} quality={quality} />
       )}
@@ -1269,12 +1278,12 @@ export function VenueDecor({
         <ColdSparkTunnel
           entrance={{ x: entranceWorld.x, z: entranceWorld.z }}
           room={room}
-          palette={palette}
+          palette={tunnelP}
           quality={quality}
           progressRef={tunnelProgressRef}
         />
       ) : entranceVariant !== 'plain' ? (
-        <EntranceArch position={entranceWorld} palette={palette} variant={entranceVariant} />
+        <EntranceArch position={entranceWorld} palette={tunnelP} variant={entranceVariant} />
       ) : null}
 
       {/* Walls & surroundings. 'bare' is the DEFAULT and draws nothing, which
@@ -1283,12 +1292,12 @@ export function VenueDecor({
           perimeter greenery), so the choice is kept and simply has nothing to
           hang on — same rule as the ceiling above. */}
       {!openAir && wallTreatments.length > 0 && (
-        <WallTreatment room={room} palette={palette} quality={quality} treatments={wallTreatments} />
+        <WallTreatment room={room} palette={wallsP} quality={quality} treatments={wallTreatments} />
       )}
 
       {/* Photo wall — the step-and-repeat, explicitly NOT the stage backdrop. */}
       {photoWallStyles.length > 0 && (
-        <PhotoWall room={room} palette={palette} quality={quality} styles={photoWallStyles} />
+        <PhotoWall room={room} palette={wallsP} quality={quality} styles={photoWallStyles} />
       )}
 
       {/* Welcome table by the door. */}
@@ -1298,7 +1307,7 @@ export function VenueDecor({
 
       {/* Table centrepieces (instanced across all tables) */}
       {tables.length > 0 && (
-        <Centerpieces tables={tables} room={room} palette={palette} quality={quality} variant={centerpiece} />
+        <Centerpieces tables={tables} room={room} palette={candleP} quality={quality} variant={centerpiece} />
       )}
     </group>
   );
@@ -1457,7 +1466,7 @@ export function archetypeBackground(archetype: VenueArchetype): string {
 export function VenueShell({
   archetype,
   room,
-  palette,
+  palette: given,
   quality = 'high',
 }: {
   archetype: VenueArchetype;
@@ -1465,6 +1474,8 @@ export function VenueShell({
   palette: Lab3DPalette;
   quality?: DecorQuality;
 }) {
+  /* 🎨 The couple's Walls colour (Palette › Walls, 2026-10-19) is the shell's wall tone; unset, the shell is unchanged. */
+  const palette = given.walls ? { ...given, wall: given.walls } : given;
   switch (archetype) {
     case 'garden':
       return <GardenShell room={room} palette={palette} quality={quality} />;

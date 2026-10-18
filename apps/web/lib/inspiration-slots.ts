@@ -38,6 +38,7 @@
  * Pure, client-safe: types only from the taxonomy (it reaches the server).
  */
 import type { MoodboardSlotKey } from './moodboard-slots';
+import type { RoomDressing } from './mood-board';
 import type { WeddingTile } from './taxonomy';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
@@ -123,7 +124,57 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   /* 💐 Their slots exist since 2026-10-07 (migration 20271265788160, step 4c). */
   { slotKey: 'bridal_bouquet', label: 'Bridal bouquet', from: 'florists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
   { slotKey: 'centrepieces', label: 'Centrepieces', from: 'florists, stylists and caterers', target: { kind: 'room' }, useLabel: 'Use for the room' },
+  /* 🎨🖼 The Palette's five parts with photos of their own (owner 2026-10-19, "2. yes"; migration 20271278232574). Each
+     sits on its part's block, whose own offer ("Use for Chairs") sets that part — so none carries a slot target. */
+  { slotKey: 'chairs', label: 'Chairs', from: 'stylists and chair rentals', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'ribbons_candles', label: 'Ribbons & candles', from: 'stylists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'lights', label: 'Lights', from: 'lights and sound, and stylists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'entourage_bouquets', label: 'Entourage bouquets', from: 'florists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'flower_accents', label: 'Flower accents', from: 'florists and stylists', target: { kind: 'none' }, useLabel: null },
 ];
+
+/**
+ * 🎨🖼 THE PALETTE'S PARTS HOLD THEIR OWN PHOTOS (owner 2026-10-19, DECISION_LOG "APPROVED — PALETTE + INSPIRATION AS
+ * ONE LIST", prototype `palette_inspiration_one_list_2026-10-19.html`): Studio › Mood Board's Palette and Inspiration
+ * are one list, and each part's block carries its board's photos line (`paletteBoardOf`, by the part's `field`).
+ * NOTHING MOVES IN THE DATABASE: a board keeps its `slot_key`, so every stored photo is drawn where its board now
+ * sits, and every write still names that key.
+ *
+ *   · Venue & decor (`overall`) feeds YOUR MAIN PALETTE — its photos sit under the five (`MAIN_PALETTE_BOARD`).
+ *   · Flowers (`flowers`, every flower at once) has no part of its own: the finer boards (Bridal bouquet ·
+ *     Centrepieces · Entourage bouquets · Accents) sit on their parts. Its photos, where an event holds any, keep a
+ *     block of their own in the florist's group (`LEGACY_PALETTE_BOARDS`) — never offered for a new photo.
+ *
+ * `the-palette-holds-the-boards.test.ts` holds that every non-attire board in the Studio is drawn exactly once.
+ */
+const PART_BOARD: Readonly<Partial<Record<keyof RoomDressing, MoodboardSlotKey>>> = {
+  stage: 'stage',
+  ceiling: 'ceiling',
+  /* "Wall" is the shipped `backdrop` slot (above). */
+  walls: 'backdrop',
+  tunnel: 'tunnel',
+  linens: 'table',
+  chairs: 'chairs',
+  ribbons_candles: 'ribbons_candles',
+  lighting_warmth: 'lights',
+  bridal_bouquet: 'bridal_bouquet',
+  entourage_bouquets: 'entourage_bouquets',
+  florals: 'centrepieces',
+  flower_accents: 'flower_accents',
+  cake: 'cake',
+};
+const slotOf = (k: MoodboardSlotKey) => STUDIO_INSPIRATION_SLOTS.find((s) => s.slotKey === k) ?? null;
+export function paletteBoardOf(field: keyof RoomDressing | undefined): StudioInspirationSlot | null {
+  const k = field ? PART_BOARD[field] : undefined;
+  return k ? slotOf(k) : null;
+}
+export const MAIN_PALETTE_BOARD: MoodboardSlotKey = 'overall';
+export const LEGACY_PALETTE_BOARDS: readonly MoodboardSlotKey[] = ['flowers'];
+/** The boards a couple's own photo may go to from the Palette's "Which part?" — every part's, and Venue & decor's. */
+export function paletteUploadBoards(): StudioInspirationSlot[] {
+  const keys = new Set<MoodboardSlotKey>([MAIN_PALETTE_BOARD, ...(Object.values(PART_BOARD) as MoodboardSlotKey[])]);
+  return STUDIO_INSPIRATION_SLOTS.filter((s) => !s.attire && keys.has(s.slotKey));
+}
 
 /**
  * The owner's parts that have no `slot_key` to store a photo in. Each maps to

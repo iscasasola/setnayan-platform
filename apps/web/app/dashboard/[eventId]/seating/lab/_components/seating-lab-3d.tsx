@@ -3509,7 +3509,8 @@ function RoomShell({
       {/* Stage */}
       <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
         <boxGeometry args={[stageW, 0.3, stageD]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+        {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+        <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Dance floor — the mood-board MURAL (Fable §3.7) replaces the old flat

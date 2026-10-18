@@ -13,7 +13,7 @@
  *   ⚠ Papic One is GONE (owner 2026-08-26: "no 2 ways of papic service.
  *     just 1"). Setting shots aside for one camera is a FEATURE of the single
  *     pot, done inside the event — never a second thing to buy here.
- *   • Papic — ONE pot of credits the whole celebration draws from, a flat pass
+ *   • Papic — ONE pot of credits the whole event draws from, a flat pass
  *     per bucket (3,000 / 6,000 / 10,000 credits).
  * The old per-camera × rate × days engine (and the per-tier wedding cap it
  * applied to the removed "Papic Max" rung) is gone.
@@ -73,7 +73,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
   let productDetail = '';
   if (bucket) {
     productLabel = `Papic · ${bucket.label}`;
-    productDetail = 'One pot of credits for the whole celebration';
+    productDetail = 'One pot of credits for the whole event';
   }
 
   return (
@@ -82,7 +82,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
         Build your Papic
       </p>
       <p className="mt-2 font-display text-2xl font-medium tracking-tight text-ink">
-        Estimate your Papic — one pot of credits for the whole celebration.
+        Estimate your Papic — one pot of credits for the whole event.
       </p>
 
       {/* ⚠ THERE IS NO PRODUCT TOGGLE, AND THERE MUST NEVER BE ONE AGAIN.
@@ -111,7 +111,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       {bucket ? (
         <div className="mt-6">
           <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
-            Papic is one pot of credits the whole celebration draws from &mdash; every
+            Papic is one pot of credits the whole event draws from &mdash; every
             camera, every guest, no per-camera maths. Pick your pot below. You can
             set some of it aside for a particular camera later, and take back
             whatever they don&rsquo;t use.
@@ -205,7 +205,7 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
-        Papic is one pot of credits for the whole celebration. Cameras are free and
+        Papic is one pot of credits for the whole event. Cameras are free and
         unlimited; add-ons are charged separately.{' '}
         Estimate only — no charge is made here.
       </p>

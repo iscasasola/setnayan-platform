@@ -14,6 +14,7 @@ import { forgetCanvasSent, sendCanvasBase } from './maker-draft-store';
 import { rebaseHubDraftPatch } from './hub-draft-rebase';
 import { emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { MERGE_BASE_FIELD } from './merge-base-field';
+import { BLOCK_LOOKS_PREF_KEY } from './block-looks';
 import { eventDetailsToWrite, formFieldsOf } from './event-details-merge';
 import { updatePrintDetails } from './print-details-write';
 import { parseMenu, parsePrintDetails, serializePrintDetails } from './print-pieces';
@@ -250,4 +251,45 @@ test('7a · renameRole · addRoleToGuest · setGuestPrimaryRole change the value
   assert.equal(pgArrayLiteral(['bride_parents', 'groom_parents']), '{bride_parents,groom_parents}');
   assert.equal(pgArrayLiteral([]), '{}');
   assert.throws(() => pgArrayLiteral(['a,b']), 'a word that would break the literal was spelled into it');
+});
+
+/* ── 9 · the blocks' looks (`useBlockLooksDraft`) — one key of the drafted `style_preferences` ─ */
+
+test('9a · two hosts each give a different block a look: both stay; another key of the blob is neither merged nor news', () => {
+  const K = BLOCK_LOOKS_PREF_KEY;
+  const opened = { story: { out: 'fade' } };
+  // The draft holds the QR look (another feature's key) and Claire's look on the schedule block.
+  const current = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { shape: 'circle' }, [K]: { ...opened, schedule: { out: 'rise' } } } } });
+  // Indalecio, still on `opened`, gives the gifts block a look.
+  const mine = { events: { style_preferences: { [K]: { ...opened, gifts: { out: 'blur' } } } } };
+  const base = { events: { style_preferences: { [K]: opened } } };
+  const r = rebaseHubDraftPatch(current, mine, base, { events: {}, canvas: {} });
+  const next = mergeHubDraft(current, r.patch);
+  const prefs = next.events.style_preferences as Record<string, Record<string, unknown>>;
+  assert.deepEqual(Object.keys(prefs[K]!).sort(), ['gifts', 'schedule', 'story'], 'one host’s block look was wiped by the other’s whole looks');
+  assert.deepEqual(prefs.qr, { shape: 'circle' }, 'another key of the blob was lost');
+  assert.equal(r.moved, true);
+  assert.deepEqual(Object.keys((r.merged.events?.style_preferences ?? {}) as object), [K], 'another feature’s key was handed to this screen as news');
+  // With nobody else saving, a key another feature holds is no news: nothing is said.
+  const quiet = rebaseHubDraftPatch(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { shape: 'circle' }, [K]: opened } } }), mine, base, { events: {}, canvas: {} });
+  assert.equal(quiet.moved, false, 'the note would be said on every save beside another key');
+});
+
+test('9b · the blocks’ looks send what each tap was built on, and show the merged looks', () => {
+  const src = code('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'block-animate.tsx');
+  assert.match(src, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ events: \{ style_preferences: \{ \[BLOCK_LOOKS_PREF_KEY\]: was\[BLOCK_LOOKS_PREF_KEY\] \?\? \{\} \} \} \}\)\)/, 'the blocks’ looks no longer send what they were based on');
+  assert.match(src, /r\.elsewhere\?\.merged\.events\?\.style_preferences/, 'the toolbar no longer shows the merged looks');
+});
+
+/* ── 8 · `style_preferences` (one key) and a helper's access ──────────────── */
+
+test('8a · writeStylePreferenceKey · Apply’s QR · setDelegateArea change the value AS IT IS when the write lands', () => {
+  const prefs = code('lib', 'style-preferences.server.ts');
+  assert.match(prefs, /column: 'style_preferences', what: 'Your style' \}/, 'writeStylePreferenceKey writes the blob without the compare again');
+  assert.doesNotMatch(prefs, /\.update\(\{ style_preferences/, 'writeStylePreferenceKey writes the blob around the compare');
+  const action = code('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts');
+  assert.doesNotMatch(action, /\.update\(\{ style_preferences/, 'Apply writes style_preferences from the copy it read');
+  const hosts = code('app', 'dashboard', '[eventId]', 'hosts', 'actions.ts');
+  assert.match(hosts, /column: 'permissions_json', what: 'Their access' \}/, 'setDelegateArea writes the access from the copy it read');
+  assert.doesNotMatch(hosts.slice(hosts.indexOf('export async function setDelegateArea')), /^[^]*?\.update\(\{ permissions_json: permissions/, 'setDelegateArea writes around the compare');
 });

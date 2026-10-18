@@ -176,7 +176,7 @@ test('3 · without Pro Apply holds every one; with Pro it writes every one', () 
 
 test('3 · the server merges the QR into the live blob, screens new photos, holds a foreign file, and stamps the song', () => {
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /\.update\(\{ style_preferences: \{ \.\.\.\(prefs \?\? \{\}\), \.\.\.qrWrite \} \}\)/, 'the QR is not merged into the live blob');
+  assert.match(action, /column: 'style_preferences', what: 'Your style' \},\s*\(raw\) => \(\{ next: \{ \.\.\.\(raw && typeof raw === 'object' && !Array\.isArray\(raw\) \? \(raw as Record<string, unknown>\) : \{\}\), \.\.\.qrWrite \} \}\)/, 'the QR is not merged into the live blob');
   assert.match(action, /delete eventsPatch\.style_preferences;/, 'the blob rides the session UPDATE whole');
   assert.match(action, /const blocked = await screenNewPhotoRefs\(fresh\);\s*if \(blocked\.length > 0\) eventsPatch\.our_photos =/);
   assert.match(action, /!newMediaIsOwn\(item\.column, item\.value\)\s*\) \{\s*held\.push\(\{ item, reason: 'not_your_photo' \}\);/);

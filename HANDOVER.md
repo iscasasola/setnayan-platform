@@ -41,3 +41,8 @@ another builder's serve.sh in a shared folder killed a server today). Changelog 
 - [x] 7. renameRole (role_names) · addRoleToGuest / setGuestPrimaryRole (guests.extra_roles, enum[] compared as its array literal,
       `pgArrayLiteral`) on updateJsonColumn; SQLSTATE kept (JsonColumnWriteError) so the singleton 23505 words still work.
       db tests (array + role words, staged race); 7a; sabotage S16–S17 red→restored.
+- [x] 8 (part). writeStylePreferenceKey + Apply's QR write (style_preferences) · setDelegateArea (permissions_json) on updateJsonColumn;
+      guards re-pointed (a-host-can-take-access-back, accents-survive-every-save, try-then-pay-the-last-three, style-preferences.server fake).
+      LEFT: schedule answers/nudges · E-Gifts method edit · live widget config_json writers · wizard_state (max 2 chars in prod — unused).
+- [x] 9. useBlockLooksDraft sends its base; keyed draft blobs rebased only on the keys a save sends (HUB_DRAFT_KEYED_COLUMNS). 9a–9b; S18–S19.
+- Quick preflight (guards, lint, pins) green: 43 guards, eslint 35 files, 167 test files / 1,393 tests. Next: CI loop.

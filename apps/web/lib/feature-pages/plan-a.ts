@@ -37,12 +37,12 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         'Type your target in pesos. A meter shows paid and agreed against it, and how much is left.',
         'Book a supplier and they join the list. Record each payment with the amount, date and how you paid; add expenses with no supplier too.',
-        'The Next line names the next payment and its date, with Pay beside it. Download the budget as a spreadsheet or print it.',
+        'The Next line names the next payment and its date, with Pay beside it. Filter to what is owing or paid, search, and download or print the budget.',
       ],
       tl: [
         'I-type ang target mo sa piso. Ipinapakita ng meter ang bayad at agreed laban dito, at kung magkano pa ang natitira.',
         'Mag-book ng supplier at papasok sila sa listahan. I-record ang bawat bayad kasama ang halaga, petsa at paraan; puwede ring magdagdag ng gastos na walang supplier.',
-        'Sinasabi ng Next line ang susunod na bayarin at petsa nito, may Pay sa tabi. I-download ang budget bilang spreadsheet o i-print ito.',
+        'Sinasabi ng Next line ang susunod na bayarin at petsa nito, may Pay sa tabi. I-filter ang may utang pa o bayad na, maghanap, at i-download o i-print ang budget.',
       ],
     },
     different: {
@@ -90,8 +90,8 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       {
         src: '/feature-shots/budget-0.jpg',
         alt: {
-          en: 'The Budget screen on a phone: Target, Agreed, Paid and Owed, a meter, the next payment, booked suppliers and your own expenses',
-          tl: 'Ang Budget screen sa telepono: Target, Agreed, Paid at Owed, isang meter, ang susunod na bayarin, ang na-book na supplier at sariling gastos',
+          en: 'The Budget screen on a phone: Target, Agreed, Paid and Owed, a meter, the next payment, booked suppliers, your own expenses, and Add expense with the All filter and search',
+          tl: 'Ang Budget screen sa telepono: Target, Agreed, Paid at Owed, isang meter, ang susunod na bayarin, ang na-book na supplier, sariling gastos, at Add expense kasama ang All filter at search',
         },
       },
     ],

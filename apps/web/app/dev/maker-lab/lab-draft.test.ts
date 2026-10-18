@@ -311,7 +311,7 @@ test('R01 — the bar a render brings lists exactly as many changes as it counts
   assert.match(shell, /<HubDraftToolbar eventId=\{eventId\} summary=\{bar\}/);
   /* The REAL Maker's render has always named them (this is the lab's fault alone): one reader, right after the count. */
   const store = readFileSync(join(process.cwd(), 'lib', 'hub-draft-store.ts'), 'utf8');
-  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell, me\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/);
+  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell, me\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !proShell\);/);
 });
 
 test('leaving and coming back keeps the draft — its count, its history and what the page draws', () => {

@@ -74,8 +74,8 @@ test('4 · the Effects block draws "The picture" on every source — off, with t
   const paint = (takes: boolean) =>
     renderToStaticMarkup(
       React.createElement(BgEffects, {
-        eventId: 'E1', effect: null, trying: null, locked: true, proHref: '/p', swatch: '#fff', picture: null,
-        onPick: noop, onChange: noop, onTryEnd: noop,
+        eventId: 'E1', effect: null, locked: true, swatch: '#fff', picture: null,
+        onPick: noop, onChange: noop,
         ...{ treatment: { takes, parallax: takes, proMark: true, onParallax: noop, blur: takes ? 'soft' : 'none', onBlur: noop } },
       }),
     );

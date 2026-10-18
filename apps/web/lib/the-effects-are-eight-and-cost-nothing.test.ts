@@ -306,10 +306,10 @@ test('(6) the same effect on the same ground is the same drawing, shape for shap
   }
 });
 
-test('(7) the words, and which are free: Soft haze and Bokeh lights — the other six are Pro', () => {
+test('(7) the words, and the marks: every one ◆ (owner 2026-10-16, "all … effects … are pro")', () => {
   assert.deepEqual(
     HUB_MAIN_EFFECTS.map((k) => `${AMBIENT_EFFECT_LABEL[k]}${AMBIENT_EFFECT_IS_PRO[k] ? ' ◆' : ''}`),
-    ['Soft haze', 'Bokeh lights', 'Gold dust ◆', 'Petal drift ◆', 'Lanterns ◆', 'Gold shimmer ◆', 'Light leak ◆', 'Film grain ◆'],
+    ['Soft haze ◆', 'Bokeh lights ◆', 'Gold dust ◆', 'Petal drift ◆', 'Lanterns ◆', 'Gold shimmer ◆', 'Light leak ◆', 'Film grain ◆'],
     'the set, its order or its Pro marks moved off the approved prototype’s',
   );
   assert.deepEqual(Object.values(AMBIENT_INTENSITY_LABEL), ['Subtle', 'Standard', 'Lavish']);

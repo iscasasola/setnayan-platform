@@ -3,7 +3,7 @@ import 'server-only';
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { hubMainEffect, hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
-import { AMBIENT_EFFECT_IS_PRO } from '@/lib/ambient-effects';
+import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO } from '@/lib/ambient-effects';
 import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
@@ -298,8 +298,10 @@ function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls
  * one where a layer was resolved for it, else null — the page's own ground (nothing drawn for a follow with no photo,
  * or for media this viewer is not shown).
  *
- * ◆ A Pro effect is drawn for a guest only while the event OWNS Event Hub Pro (the request's cached read — asked only
- * when a Pro effect is stored), and on the host's own canvas as it WOULD look (`tryOn`). A free one asks nothing.
+ * ◆ One of the six ALWAYS-Pro effects (`AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO`) is drawn for a guest only while the event
+ * OWNS Event Hub Pro (the request's cached read — asked only when one is stored), and on the host's own canvas as it
+ * WOULD look (`tryOn`). Soft haze and Bokeh lights became Pro on 2026-10-16 and are gated at ✓ Apply instead, so one a
+ * free event published before that keeps drawing (*"free events keep what they already published"*) and asks nothing.
  * It wears the COUPLE's colours only. Returning a layer also tells the page to drop its opaque paper (`ownGround`),
  * which is what lets the effect show on a plain colour.
  */
@@ -307,7 +309,7 @@ async function effectOver(ground: ReactNode, { theme, heroConfig, event, tryOn =
   const main = hubMainGround(heroConfig);
   const effect = hubMainEffect(main);
   if (!effect) return ground;
-  if (AMBIENT_EFFECT_IS_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
+  if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
   const shown = ground === null ? null : main;
   const spec = lookSampleEffect(effect, lookEffectOn(shown, lookRowOf(event), theme, true));
   if (!spec) return ground;

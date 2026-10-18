@@ -9,6 +9,13 @@ export type StepperRung = {
   pricePhp: number;
   /** Whole-percent saving against ₱1 a shot, or null when there is none. */
   discountPercent: number | null;
+  /**
+   * 🍎 In the iPhone app: Apple's own price string for this pack (StoreKit's
+   * `displayPrice`). When set it is the ONLY price drawn — `pricePhp` and the
+   * saving (both the web catalogue's) are not shown (owner 2026-10-18; the app
+   * never shows a web price).
+   */
+  priceLabel?: string;
 };
 
 /**
@@ -93,11 +100,11 @@ export function CreditStepper({
           className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center"
         >
           <span className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-ink">
-            {peso(rung.pricePhp)}
+            {rung.priceLabel ?? peso(rung.pricePhp)}
           </span>
           <span className="whitespace-nowrap text-[12.5px] text-ink/65">
             adds {rung.points.toLocaleString('en-PH')} credits
-            {rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
+            {rung.priceLabel === undefined && rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
           </span>
         </div>
 
@@ -116,7 +123,7 @@ export function CreditStepper({
           dead end somebody has to guess at. Both figures are the real first and
           last rung — never a typed range. */}
       <p className="text-xs text-ink/60">
-        {peso(floor.pricePhp)} to {peso(ceiling.pricePhp)} ·{' '}
+        {floor.priceLabel ?? peso(floor.pricePhp)} to {ceiling.priceLabel ?? peso(ceiling.pricePhp)} ·{' '}
         {rungs.length} sizes · add any of them again later.
       </p>
 

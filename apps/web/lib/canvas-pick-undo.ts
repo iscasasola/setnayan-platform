@@ -9,7 +9,7 @@
  * case of #6485 cannot come back). A refused ↺ draws `next` again. Lazy: only those pickers import it.
  */
 import type { HubSectionCanvas } from './hub-canvas';
-import { canvasWriteKey, noteDraftedCanvas } from './maker-draft-store';
+import { canvasWriteKey, forgetCanvasSent, noteDraftedCanvas } from './maker-draft-store';
 import { drawnNow, type UndoStep } from './maker-drawn-undo';
 
 /** Every canvas frame the Maker holds (the stage on show and its warm stages). */
@@ -37,9 +37,14 @@ export function canvasPickUndo(
     undraw: () => {
       postToMakerCanvases(draw(next, before));
       noteDraftedCanvas(type, before, server);
+      /* 👥 …and the canvas this screen last SENT is no longer the server's: the ↺ takes it back. Kept, it was the base
+         of the next pick (`sendCanvasBase`), so Date off · ↺ · Date off read as "another screen showed the Date" and
+         the pick was merged away (walked 2026-10-18, WebKit 375). The base is the render's canvas again. */
+      forgetCanvasSent(type);
       return drawnNow(() => {
         postToMakerCanvases(draw(before, next));
         noteDraftedCanvas(type, next, server);
+        forgetCanvasSent(type);
       });
     },
   };

@@ -233,6 +233,15 @@ const ORDER_MINTERS: Record<string, string> = {
   'lib/booking-fee-lock.server.ts':
     'Booking fee at vendor lock. amountPhp is derived by the fee ladder (lib/booking-fee-lock.ts) ' +
     'from the declared deal value; service-role insert. Already service-role — unchanged.',
+  'lib/iap/fulfil.server.ts':
+    'APPLE IN-APP PURCHASE (owner 2026-10-18). The amount is what APPLE CHARGED, read from Apple’s ' +
+    'signed transaction (verified against Apple Root CA - G3 in lib/iap/apple-jws.ts) — or, for a ' +
+    'non-peso storefront, the catalogue’s retail_price_php with Apple’s figure written beside it. No ' +
+    'browser figure exists on this path at all. Identity is stamped through orderRowFor from the ' +
+    'INTENT row (user + event that passed membership + coordinator money scope in ' +
+    'startAppStorePurchase BEFORE Apple’s sheet opened), never from the request. The client is a ' +
+    'parameter: its callers (lib/iap/iap-actions.ts, lib/iap/notifications.server.ts via the ' +
+    'notification route) pass createMoneyWriterClient(); tests/db passes its replay client.',
   [ADMIN_CUSTOM_PLANS]:
     'ADMIN-MINTED BESPOKE AMOUNT — legitimate and intentional. assertAdmin()-gated, service-role ' +
     'write, per-quote unit-price overrides are an admin negotiation tool. Exempt from test 3.',
@@ -700,6 +709,10 @@ function isMoneyWriterClient(src: string, id: string): boolean {
  * and a new entry is a deliberate act rather than an oversight.
  */
 const MINT_CLIENT_REVIEWED: Record<string, string> = {
+  'lib/iap/fulfil.server.ts':
+    '`admin: SupabaseClient` is a parameter so the DB-replay test can drive the real module. Every ' +
+    'production caller passes createMoneyWriterClient() (lib/iap/iap-actions.ts and ' +
+    'app/api/iap/app-store-notifications/route.ts) — held by lib/iap/the-app-store-purchase-path.test.ts.',
   'lib/booking-fee-lock.server.ts':
     '`admin: SupabaseClient` is a parameter, not a local binding. The module header states "MUST ' +
     'be called with the SERVICE-ROLE admin client (the RPC is service_role-only)", and its only ' +
@@ -858,6 +871,10 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // booking-fee-lock DB tests went red on exactly this). Their CALLERS are what
   // must pass the money writer, and those callers are scanned normally.
   const INJECTED_CLIENT_REVIEWED: Record<string, string> = {
+    'lib/iap/fulfil.server.ts':
+      '`admin: SupabaseClient` is a parameter. Its production callers (lib/iap/iap-actions.ts, ' +
+      'app/api/iap/app-store-notifications/route.ts) pass createMoneyWriterClient() — held by ' +
+      'lib/iap/the-app-store-purchase-path.test.ts; tests/db passes its replay client.',
     'lib/booking-fee-lock.server.ts':
       '`admin: SupabaseClient` is a parameter. Its ONE production caller ' +
       '(lib/deposit-acknowledged-effects.server.ts — runDepositAcknowledgedEffects, which both ' +

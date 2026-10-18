@@ -21,6 +21,12 @@
  *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
  *                                    off (the bar's own drop is held by its test), the One QR card and ONE
  *                                    "Switch on more" row (prototype frame 2, a hangout after)
+ *   ?store=1&apple=1[&live=on]       🍎 the iPhone app where Apple sells (owner 2026-10-18): Your
+ *                                    services carries Papic · Buy more and Live Watch · Activate
+ *                                    (or "On"). Prices come from StoreKit — in a browser there is
+ *                                    none, so a walk injects a stand-in `window.Capacitor`.
+ *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
+ *                                    selling Event Hub Pro through Apple, in each outcome
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -37,6 +43,7 @@ import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
 import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
+import { ApplyProSheetLab } from './apply-pro-sheet-lab';
 import {
   aiStatus,
   glanceCount,
@@ -72,7 +79,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -124,6 +131,9 @@ export default async function HomeLab({
     { serviceCode: 'LAB_1000', points: 1000, pricePhp: 700, discountPercent: 30 },
     { serviceCode: 'LAB_3000', points: 3000, pricePhp: 1680, discountPercent: 44 },
   ];
+  if (q.view === 'apply') {
+    return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
+  }
   if (q.view === 'early') {
     const early = q.early !== '0';
     const n = Math.max(0, Number(q.shots ?? 0) || 0);
@@ -223,6 +233,17 @@ export default async function HomeLab({
         }
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
+        apple={
+          q.store === '1' && q.apple === '1'
+            ? {
+                papic: { status: papicNow.status, buy: true },
+                liveWatch:
+                  q.live === 'on'
+                    ? { status: 'On', owned: true, askReady: false }
+                    : { status: 'Not on yet · one camera is free', owned: false, askReady: true },
+              }
+            : null
+        }
         services={homeServices({
           next: next.kind,
           storeShell: q.store === '1',

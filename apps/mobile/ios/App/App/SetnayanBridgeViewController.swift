@@ -75,6 +75,10 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(SetnayanAuthPlugin())
+        // `SetnayanStore` is Apple In-App Purchase (StoreKit 2) — Papic credits,
+        // Event Hub Pro, Live Watch (owner 2026-10-18). The web asks for it only
+        // when this build's user-agent carries `SetnayanIAP/1`.
+        bridge?.registerPluginInstance(SetnayanStorePlugin())
     }
 
     override func viewDidLoad() {

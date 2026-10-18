@@ -41,7 +41,7 @@ const STRIP_MOUNTS: Record<string, number> = {
   // The join-link QR — lives in the panel both the invite page and the
   // guest list's Share tab render, so it is ONE mount, not two.
   'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx': 1,
-  'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx': 1, // scan-to-view
+  'app/dashboard/[eventId]/website/editor/_components/scan-qr-strip.tsx': 1, // scan-to-view's strip (the ⋯ sheet; out of editor-shell.tsx 2026-10-18 so it loads lazily)
   // ⤷ 2026-09-30: the guest's own card NO LONGER draws a QR (owner, the Fable
   // guest card: "QR look leaves the card"). It draws their Digital ticket — the
   // QR is ON it — with Save ticket, and "Write to NFC" in the ⋯ menu (below).

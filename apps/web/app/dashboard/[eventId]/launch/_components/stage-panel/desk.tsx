@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Lock, X } from 'lucide-react';
 import { StageAbout } from './kit';
 import { makerPartSource, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import { makerPartLabelOn } from '@/lib/maker-part-groups';
+import { formatCount } from '@/lib/format-number';
 import { STAGE_BAR_GRID_CSS } from '@/lib/maker-stage-room';
 import { DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, useDeskPartsSlot } from '../maker-desk';
 
@@ -136,7 +137,7 @@ export function DeskStep({
         <span className="min-w-0 truncate">{makerPartLabelOn(stage, picked)}</span>
         {at >= 0 ? (
           <span className="ml-auto shrink-0 pl-2 font-semibold normal-case tracking-normal text-[var(--sp-mute)]">
-            {at + 1} of {order.length}
+            {formatCount(at + 1)} of {formatCount(order.length)}
           </span>
         ) : null}
         <StageAbout />
@@ -211,7 +212,7 @@ export function DeskParts({
       ) : null}
       <p className="flex items-center justify-between px-3 pb-1.5 pt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--sp-mute)]">
         <span>Parts of this page</span>
-        <span>{order.length}</span>
+        <span>{formatCount(order.length)}</span>
       </p>
       <ul className="flex flex-col gap-0.5">
         {order.map((k) => {

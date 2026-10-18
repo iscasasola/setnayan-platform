@@ -235,7 +235,7 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
   assert.match(page, /if \(d\?\.source === 'setnayan-site' && d\.t === 'ready'\) setCanvas\(\(n\) => n \+ 1\);/);
   /* EDGE TO EDGE: fixed to the page's own edges, as tall as the page that can be SEEN (measured, never guessed). */
   assert.match(page, /host\.style\.cssText = 'position:fixed;left:0;right:0;top:0;height:100vh;z-index:5;cursor:pointer;overflow:hidden';/);
-  assert.match(page, /const bottom = Math\.min\(fr\.bottom, lt \? lt\.top : window\.innerHeight, bar && bar\.height > 0 \? bar\.top : window\.innerHeight\);/);
+  assert.match(page, /const bottom = Math\.min\(fr\.bottom, lt && lt\.left < fr\.right && lt\.right > fr\.left \? lt\.top : window\.innerHeight, bar && bar\.height > 0 \? bar\.top : window\.innerHeight\);/);
   assert.match(page, /if \(h !== null\) for \(const host of hosts\) host\.style\.height = `\$\{h\}px`;/);
   /* The canvas's own stand-in steps aside while the camera is drawn, and comes back when it is not. */
   assert.match(page, /css\.textContent = `\$\{CAMERA_PAGE\}>:not\(#\$\{HOST_ID\}\)\{display:none!important\}/);

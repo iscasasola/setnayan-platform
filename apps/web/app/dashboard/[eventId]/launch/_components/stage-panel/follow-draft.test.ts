@@ -76,6 +76,23 @@ test('↺ after a switch was turned off: the switch turns back on with the page'
   assert.equal(sw.render(), true, 'after ↺ the Date switch still reads off (the bug)');
 });
 
+test('Date off · ↺ · Date off: the second pick is sent on the undone canvas, never merged away as another screen’s', async () => {
+  const { store, undo } = await load();
+  const { MERGE_BASE_FIELD } = await import('@/lib/merge-base-field');
+  const server = SHOWN;
+  const baseOf = (fd: FormData) => (JSON.parse(String(fd.get(MERGE_BASE_FIELD))) as { widgets: { hero: { canvas: Canvas } } }).widgets.hero.canvas;
+  // Date off — sent (its base: the render's).
+  store.noteDraftedCanvas('hero', DATE_OFF as never, server as never);
+  store.sendCanvasBase(new FormData(), 'hero', server as never, DATE_OFF as never);
+  // ↺ drawn: the server steps back to SHOWN.
+  undo.canvasPickUndo('hero', SHOWN as never, DATE_OFF as never, server as never, () => []).undraw();
+  // Date off again: its base must be what the server holds now (Date shown) — kept as DATE_OFF, the server's three-way
+  // merge read "this screen did not change the Date, another screen showed it" and the pick was lost.
+  const fd = new FormData();
+  store.sendCanvasBase(fd, 'hero', server as never, DATE_OFF as never);
+  assert.notEqual(baseOf(fd).elements?.date?.hidden, true, 'the pick after ↺ is based on the canvas the ↺ took back');
+});
+
 test('Reset / Restore (a Maker render): the switch shows the render, and a pick never comes back', async () => {
   const { store, refresh, follow } = await load();
   let server: Canvas = SHOWN;

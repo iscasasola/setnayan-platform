@@ -69,3 +69,17 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Changelog fragment
 - Decision recorded (not in the record): the domain check reveals nothing about any ACCOUNT (it is a property of
   the address's domain, public DNS), so the 2026-09-23 "reveal the provider only after a failed attempt" rule is
   untouched — the account lookup still runs only after a refused password.
+
+## STEP 2 — BUILT + WALKED (2026-10-18) · PR #6630 (draft, do-not-auto-merge)
+- Built as planned above. Walk (WebKit iPhone 13 @375, lab env + 54321 stub) caught one real defect, fixed:
+  `googleDoorShell` was exported from the 'use client' door and /signup (a server page) 500'd calling it → moved
+  to `lib/google-address.ts`, pinned by a test.
+- Walk result: typed Gmail → password/remember/submit fold away, "Continue with Google" shows; Enter in the box and
+  the button both go to the SAME authorize URL as the top Google button — identical provider + redirect_to (incl.
+  `next=/open-shop&as=vendor` on /signup?as=vendor); the only differences are `login_hint` and PKCE's per-attempt
+  challenge. Workspace domain (MX → smtp.google.com) folds too; icloud.com keeps the password; "Use a password
+  instead" restores it. Replayed both authorize queries on the real auth host: both reach accounts.google.com
+  sign-in; the typed one carries login_hint to Google. No credentials entered.
+- Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6630/ (01–10 + sheet-a/b).
+- Sabotage: 7 mutations each turn lib/google-address.test.ts red (1 fail of 8), restored green.
+- NEXT: CI to green.

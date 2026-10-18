@@ -104,3 +104,16 @@ export const GOOGLE_ADDRESS_WORDS = {
 export function googleDomainCheckUrl(domain: string): string {
   return `/api/sign-in/google-domain?domain=${encodeURIComponent(domain)}`;
 }
+
+export type GoogleDoorShell = 'web' | 'desktop' | 'native';
+
+/**
+ * Which Google flow this shell runs, from the two booleans every sign-in surface
+ * already holds. Lives HERE, not beside the door: the door is a client module,
+ * and a server page (/signup) cannot call a function exported from one — the
+ * lab walk caught exactly that ("Attempted to call googleDoorShell() from the
+ * server") on the first render.
+ */
+export function googleDoorShell(desktopOAuth: boolean, nativeOAuth: boolean): GoogleDoorShell {
+  return desktopOAuth ? 'desktop' : nativeOAuth ? 'native' : 'web';
+}

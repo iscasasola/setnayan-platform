@@ -171,3 +171,13 @@ test('every form with a Google button beside a typed email + password mounts the
   }
   assert.ok(doors.length >= 3, `expected the sign-in card, /signup and the onboarding account screen; found ${doors.join(', ')}`);
 });
+
+test('googleDoorShell picks the same flow the shell\'s Google button runs', async () => {
+  const { googleDoorShell } = await import('./google-address');
+  assert.equal(googleDoorShell(true, false), 'desktop');
+  assert.equal(googleDoorShell(false, true), 'native');
+  assert.equal(googleDoorShell(false, false), 'web');
+  // A server page cannot call a function exported from a 'use client' module.
+  const door = read('app/_components/auth/google-address-door.tsx');
+  assert.doesNotMatch(door, /export function googleDoorShell/);
+});

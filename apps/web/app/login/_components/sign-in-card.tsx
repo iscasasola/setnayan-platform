@@ -38,7 +38,8 @@ import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
-import { GoogleAddressDoor, googleDoorShell } from '@/app/_components/auth/google-address-door';
+import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
+import { googleDoorShell } from '@/lib/google-address';
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */

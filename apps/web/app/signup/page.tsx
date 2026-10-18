@@ -62,7 +62,8 @@ import { accountTypeForSignup } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
-import { GoogleAddressDoor, googleDoorShell } from '@/app/_components/auth/google-address-door';
+import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
+import { googleDoorShell } from '@/lib/google-address';
 import '@/app/_components/home/home-reskin.css';
 
 export const metadata: Metadata = {

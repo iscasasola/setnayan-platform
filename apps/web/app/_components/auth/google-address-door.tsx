@@ -43,19 +43,13 @@ import {
   googleDomainCheckUrl,
   googleLoginHint,
   isGoogleNamedDomain,
+  type GoogleDoorShell,
 } from '@/lib/google-address';
 
 const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 
 const BTN =
   'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
-
-export type GoogleDoorShell = 'web' | 'desktop' | 'native';
-
-/** The shell from the same three booleans every sign-in surface already holds. */
-export function googleDoorShell(desktopOAuth: boolean, nativeOAuth: boolean): GoogleDoorShell {
-  return desktopOAuth ? 'desktop' : nativeOAuth ? 'native' : 'web';
-}
 
 /** Domain → Google? answers this page has already had (the server caches too). */
 const answered = new Map<string, boolean>();

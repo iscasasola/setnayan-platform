@@ -8,7 +8,8 @@
  *   ✨ Auto · Compare · Use as my five main colours ·
  *   Use for … · Keep · Undo it · Search ideas ·
  *   Add another · Remove (a row) · Make more           → Action button (`ActionButton`; one filled forward step per row)
- *   a main colour · a room part · a flower part        → Form row (`FormRow`) with the colour pill that opens the ONE picker
+ *   a main colour · a room part · a flower part        → Form row (`FormRow`) with the ONE colour circle (`colour-dot.tsx`, the Attire
+ *                                                        dot — owner 2026-10-19 "just the circle like attire") that opens the ONE picker
  *   a supplier's suggested change                      → Form row (a notice) + Action buttons
  *   what to wear (per role)                            → Dropdown (`ChosenRow` over `PickMenu`)
  *   Upload your own photos — which part?               → Dropdown (`ChosenRow`)
@@ -115,7 +116,8 @@ test('1 · every button is a template’s: the action button, the Form row’s p
   assert.equal(count(s.insp, /data-main=""/g), 1, 'more than one filled forward step on a screen');
   const src = read(STUDIO);
   assert.doesNotMatch(src, /STUDIO_AUTO_BUTTON|STUDIO_SAVED_PILL|InfoTip/, 'an old hand-made strip is back');
-  assert.equal((src.match(/<button\b/g) ?? []).length, 3, 'a hand-made button beside the templates (the colour pill, the ＋ tile and the role’s colour circle are the only three)');
+  /* RE-AIMED 2026-10-19: the colour pill is gone and the role's circle moved to `colour-dot.tsx` (held by colour-circles-are-one). */
+  assert.equal((src.match(/<button\b/g) ?? []).length, 1, 'a hand-made button beside the templates (the ＋ tile is the only one; a colour is the one circle in colour-dot.tsx)');
   assert.match(read(AUTO), /<ActionButton tone="neutral" icon=\{Sparkles\} label="Make more"/, 'Make more is not the ActionButton');
   assert.doesNotMatch(read(DOS), /<button\b/, 'the lists draw a hand-made button');
 });
@@ -139,9 +141,10 @@ test('3 · the colours, the outfits and the lists are Form rows in lists with th
   assert.equal(count(s.palette, /data-form-rows="mood-board-(?:five|room|flowers)"/g), 3, 'the colours are not three lists of rows');
   assert.equal(count(s.palette, /data-mood-board-colour="main-\d"/g), 5, 'the five main colours are not five tappable colour rows');
   assert.ok(count(s.palette, /data-mood-board-colour="part-/g) >= 8, 'the room and flower parts are not rows');
-  /* a part that only follows a main colour (no colour of its own) and one a supplier agreed are shown, never tappable */
-  assert.match(s.palette, /<span data-mood-board-colour="part-Stage"/, 'a part with no colour of its own looks tappable');
-  assert.match(s.palette, /<span data-mood-board-colour="part-Bridal bouquet"|<span data-mood-board-colour="part-Entourage bouquets"/);
+  /* RE-AIMED 2026-10-19 (owner: "all colors can be edited on palette"): a part that only follows a main colour opens THAT
+     main colour's picker; only one a supplier agreed (here the florist's Centrepieces) is shown, never tappable. */
+  assert.match(s.palette, /data-mood-board-colour="part-Stage"><button/, 'a part that follows a main colour cannot be changed');
+  assert.match(s.palette, /data-mood-board-colour="part-Centrepieces"><span role="img"/, 'a part the florist agreed looks tappable');
   assert.match(s.palette, /data-form-rows="mood-board-changes"/, 'a supplier’s change is not a row');
   assert.doesNotMatch(s.paletteQuiet, /data-form-rows="mood-board-changes"/, 'an empty list of changes is drawn');
   /* RE-AIMED 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"): ONE BLOCK PER ROLE, and a role that holds

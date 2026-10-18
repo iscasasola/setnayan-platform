@@ -839,9 +839,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     attrs={{ 'data-colour-change': c.id }}
                     line={
                       <span className="flex flex-wrap items-center gap-1.5">
+                        {/* No colour code on the Palette (owner 2026-10-19: "no need for code. just name if it has name"). */}
                         {c.what} ·{c.from ? <Dot hex={c.from} /> : null}
-                        {c.from ?? 'following'} → <Dot hex={c.to} />
-                        {c.to}
+                        {c.from ? nearestColorName(c.from) : 'following'} → <Dot hex={c.to} />
+                        {nearestColorName(c.to)}
                       </span>
                     }
                     below={

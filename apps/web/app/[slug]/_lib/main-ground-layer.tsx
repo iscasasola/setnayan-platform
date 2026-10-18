@@ -176,14 +176,13 @@ async function pictureOf(
   const { theme, heroConfig, event, signed = {}, tryOn = false } = input;
   const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
   // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07) — and Parallax (Look restudy row 8).
-  if (loop && isHubMainLoop(main)) {
-    loop.ground.look = loopLook(hubMainLook(main));
-    if (main.motion === 'parallax') loop.ground.parallax = true;
-  }
+  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
+  if (loop && isHubMainLoop(main) && main.motion === 'parallax') loop.ground.parallax = true;
   const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
   const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
   // The ONE answer to "what is behind the event", shared with Discover's card.
-  return { mainGround: loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event), urls };
+  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
+  return { mainGround, urls };
 }
 
 /**

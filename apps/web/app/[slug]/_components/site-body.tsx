@@ -194,7 +194,8 @@ import { mainGroundLayerFor, mainGroundStillFor } from '../_lib/main-ground-laye
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
-import { isOmbreValue, parseSiteBackground } from '@/lib/ombre';
+import { isOmbreValue } from '@/lib/ombre';
+import { parseSiteBackground } from '@/lib/ombre';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';

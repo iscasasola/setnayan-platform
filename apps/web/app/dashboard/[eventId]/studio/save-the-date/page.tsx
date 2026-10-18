@@ -191,12 +191,15 @@ export default async function SaveTheDatePage({ params }: Props) {
   const hubTheme =
     (await resolveHubTheme({ event_id: eventId, display_name: event?.display_name ?? null, invite_theme: event?.invite_theme ?? null }).catch(() => null))
       ?.theme ?? 'house';
-  const { data: heroRow } = await supabase
+  const { data: heroRow, error: heroRowError } = await supabase
     .from('invitation_widgets')
     .select('config_json')
     .eq('event_id', eventId)
     .eq('widget_type', 'hero')
     .maybeSingle();
+  // Refused: the preview wears the page colour instead of the main background's picture — a preview only; nothing is
+  // written from it, and the guest page resolves its own.
+  if (heroRowError) logQueryError('SaveTheDatePage.heroRow', heroRowError, { event_id: eventId }, 'graceful_degrade');
   const pageBg = parseSiteBackground((event as { site_bg_color?: unknown } | null)?.site_bg_color);
   const filmOnMain = stdFilmOnMain({
     still: await mainGroundStillFor({

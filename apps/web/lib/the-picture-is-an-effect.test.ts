@@ -56,7 +56,7 @@ test('2 · the sanitiser keeps Parallax on every picture, and the guest resolver
   assert.equal(clip?.parallax, true, 'a clip with Parallax is drawn still');
   // The page's layer: a video of ours carries it, and ONE wrapper moves the still AND the clip.
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
-  assert.match(layer, /if \(main\.motion === 'parallax'\) loop\.ground\.parallax = true;/, 'a video of ours never moves');
+  assert.match(layer, /if \(loop && isHubMainLoop\(main\) && main\.motion === 'parallax'\) loop\.ground\.parallax = true;/, 'a video of ours never moves');
   const ground = read('app/[slug]/_components/main-ground.tsx');
   assert.match(ground, /<div className="absolute inset-0" \{\.\.\.\(parallax \? \{ 'data-pahina-parallax': 'page' \} : \{\}\)\}>/, 'the parallax wrapper is gone');
   assert.doesNotMatch(ground, /parallax && !clip/, 'a clip is kept out of the parallax again');

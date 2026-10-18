@@ -629,11 +629,10 @@ export function ElementSheet({
                  Drift · Ken Burns · Parallax · Light leak ◆ (Parallax its own, an absence). Each new effect is marked ◆
                  exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT HUB PRO ◆"). */
               value: travelOffered && travelling ? LOGO_TRAVELS_ACTION : (motion.during ?? hubElementDuringDefault(target.el)),
-              options: [
-                ...hubElementDuringOffered(target.el).map((v) => ({ key: v, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
+              options: hubElementDuringOffered(target.el).map((v) => ({ key: v as string, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })).concat(
                 /* ✈ The cover's Logo: its journey to the bar, ◆ as Magic Move always was. */
-                ...(travelOffered ? [{ key: LOGO_TRAVELS_ACTION, label: `${LOGO_TRAVELS_LABEL} ◆` }] : []),
-              ],
+                travelOffered ? [{ key: LOGO_TRAVELS_ACTION, label: `${LOGO_TRAVELS_LABEL} ◆` }] : [],
+              ),
               onPick: (v) => {
                 if (travelOffered && v === LOGO_TRAVELS_ACTION) {
                   if (motion.during) moveTo('during', null);

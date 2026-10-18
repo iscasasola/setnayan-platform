@@ -420,18 +420,19 @@ test('5 · each layer sets its own speed — and a logo saved before keeps its t
 
 /* ── 6 · the page, and what guests see ────────────────────────────────────── */
 
-test('6 · the Logo page has no header bar, and adds Text · Image · Frame', () => {
+test('6 · the Logo page has no header bar, and adds Text · Image · Frame · Ornament', () => {
   const page = code('app/dashboard/[eventId]/launch/_components/maker-logo.tsx');
   for (const gone of ['Back to', 'Have a logo already', 'Every change saves', 'Upload it instead', 'SETNAYAN', 'VectorStudio', '<header']) {
     assert.ok(!page.includes(gone), `the Logo page still has "${gone}"`);
   }
   assert.match(page, /aria-label="Logo layers"/);
   assert.match(page, /aria-label="Layer tools"/);
-  /* RE-AIMED 2026-10-18 (L2, LOGO_MAKER_REPLOT): ＋ Add layer opens ONE list — Text · Image · Frame — in the panel. */
+  /* RE-AIMED 2026-10-18 (L2, LOGO_MAKER_REPLOT): ＋ Add layer opens ONE list — Text · Image · Frame — in the panel.
+     RE-AIMED 2026-10-18 (L5, DECISION_LOG 2026-10-08 "approve add ornament"): … · Ornament. */
   const cards = code('app/dashboard/[eventId]/launch/_components/logo-layer-cards.tsx');
-  for (const kind of ['Text', 'Image', 'Frame']) assert.match(cards, new RegExp(`kind: '${kind.toLowerCase()}', label: '${kind}'`), `no "+ ${kind}"`);
+  for (const kind of ['Text', 'Image', 'Frame', 'Ornament']) assert.match(cards, new RegExp(`kind: '${kind.toLowerCase()}', label: '${kind}'`), `no "+ ${kind}"`);
   assert.match(page, /<LogoAddLayer\b/, 'the Add list is not in the panel');
-  assert.match(page, /if \(kind === 'text'\) addText\(\);\s*else if \(kind === 'frame'\) addFrame\(\);\s*else fileRef\.current\?\.click\(\);/, 'an Add row does not add its kind');
+  assert.match(page, /if \(kind === 'text'\) addText\(\);\s*else if \(kind === 'frame'\) addFrame\(\);\s*else if \(kind === 'ornament'\) addOrnament\(\);\s*else fileRef\.current\?\.click\(\);/, 'an Add row does not add its kind');
   // Phone: the tools panel sits UNDER the logo and the carousel, never a lower-third tool (L1 2026-10-08, the
   // one-layer trap) — the full contract is `the-logo-maker-opens-ready-to-edit.test.ts`.
   assert.equal((page.match(/sn-glass-bare flex-col \$\{LOGO_PANEL_PHONE\}/g) ?? []).length, 1, 'the tools panel is not under the logo');

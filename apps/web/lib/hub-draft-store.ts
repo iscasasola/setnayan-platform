@@ -16,7 +16,8 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
 import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/lib/hub-pro-effects';
-import { hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { HUB_DRAFT_REBASE_WIDGET_FIELDS, hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { sanitizePostEventDraft } from '@/lib/post-event-draft';
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
   HUB_DRAFT_FIELD,
@@ -264,25 +265,37 @@ export async function forgetDraftedEventColumn(supabase: SessionClient, eventId:
 export async function readHubDraftRebaseLive(
   supabase: SessionClient,
   eventId: string,
-  needs: { columns: string[]; canvases: string[] },
+  needs: { columns: string[]; canvases: string[]; editorial?: boolean },
 ): Promise<HubDraftRebaseLive> {
   const columns = needs.columns.filter((c) => (HUB_DRAFT_EVENT_READ_COLUMNS as readonly string[]).includes(c));
-  const [ev, rows] = await Promise.all([
+  const [ev, rows, story] = await Promise.all([
     columns.length > 0
       ? supabase.from('events').select(columns.join(', ')).eq('event_id', eventId).maybeSingle()
       : Promise.resolve({ data: {}, error: null }),
     needs.canvases.length > 0
       ? supabase.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', needs.canvases)
       : Promise.resolve({ data: [], error: null }),
+    // 📖 Round 3: the story's own row, through its own reader — the same one the draft's `editorial` goes through.
+    needs.editorial
+      ? supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   if (ev.error) throw new Error(`Could not read the live Event Hub: ${ev.error.message}`);
   if (rows.error) throw new Error(`Could not read the live sections: ${rows.error.message}`);
+  if (story.error) throw new Error(`Could not read the live story: ${story.error.message}`);
   const canvas: Record<string, unknown> = {};
+  const fields: Record<string, Record<string, unknown>> = {};
   for (const r of (rows.data ?? []) as Array<{ widget_type: string; config_json: unknown }>) {
-    const c = (r.config_json as { canvas?: unknown } | null)?.canvas;
-    if (c !== undefined) canvas[r.widget_type] = c;
+    const cfg = (r.config_json ?? {}) as Record<string, unknown>;
+    if (cfg.canvas !== undefined) canvas[r.widget_type] = cfg.canvas;
+    fields[r.widget_type] = Object.fromEntries(HUB_DRAFT_REBASE_WIDGET_FIELDS.filter((f) => cfg[f] !== undefined).map((f) => [f, cfg[f]]));
   }
-  return { events: (ev.data ?? {}) as Record<string, unknown>, canvas };
+  return {
+    events: (ev.data ?? {}) as Record<string, unknown>,
+    canvas,
+    ...(needs.canvases.length > 0 ? { fields } : {}),
+    ...(needs.editorial ? { editorial: (sanitizePostEventDraft((story.data as { draft_json?: unknown } | null)?.draft_json) ?? {}) as Record<string, unknown> } : {}),
+  };
 }
 
 /** One save, merged from its `base` onto the draft as it is NOW (`rebaseHubDraftPatch`), with the live values it needs. */
@@ -295,7 +308,7 @@ export async function rebaseOnDraft(
 ): Promise<HubDraftRebased> {
   if (base === undefined || base === null) return rebaseHubDraftPatch(current, patch, undefined, { events: {}, canvas: {} });
   const needs = hubDraftRebaseNeeds(current, patch, sanitizeHubDraftPatch(base));
-  const live = needs.columns.length + needs.canvases.length > 0 ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
+  const live = needs.columns.length + needs.canvases.length > 0 || needs.editorial ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
   return rebaseHubDraftPatch(current, patch, base, live);
 }
 

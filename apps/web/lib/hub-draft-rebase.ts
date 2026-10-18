@@ -20,8 +20,25 @@ export const HUB_DRAFT_REBASE_SET_KEYS = ['touched_roles'] as const;
 export const HUB_DRAFT_KEYED_COLUMNS: ReadonlyArray<string> = ['style_preferences', 'print_details'];
 const isPlainObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** The live values a rebase compares with, for what the draft does not hold: `events` columns, and canvases by section. */
-export type HubDraftRebaseLive = { events: Record<string, unknown>; canvas: Record<string, unknown> };
+/**
+ * The live values a rebase compares with, for what the draft does not hold: `events` columns, canvases by section —
+ * and (round 3) a section's other whole values (`fields`: `main`, `custom`, by section) and the Post Event story's keys
+ * (`editorial`, read through the story's own reader). Absent = not read: the save is taken as sent there.
+ */
+export type HubDraftRebaseLive = {
+  events: Record<string, unknown>;
+  canvas: Record<string, unknown>;
+  fields?: Record<string, Record<string, unknown>>;
+  editorial?: Record<string, unknown>;
+};
+
+/**
+ * 👥 A section's whole values (beside its canvas) a based save may send — merged three ways like a canvas (round 3): a
+ * scene of their own's words (`custom`: a heading and a body). NOT the Main background (`main`): its kinds (a photo that
+ * follows the hero, the couple's own clip, a pattern, the theme's) share no fields, so merging two of them field by field
+ * draws a background nobody picked — a pick there is whole, and the later pick is the background.
+ */
+export const HUB_DRAFT_REBASE_WIDGET_FIELDS = ['custom'] as const;
 
 export type HubDraftRebased = {
   patch: HubDraftPatch;
@@ -34,13 +51,20 @@ export type HubDraftRebased = {
 };
 
 /** Which live values a rebase of `patch` on `current` needs (the based values the draft does not hold). */
-export function hubDraftRebaseNeeds(current: HubDraft, patch: HubDraftPatch, base: HubDraftState): { columns: string[]; canvases: string[] } {
+export function hubDraftRebaseNeeds(current: HubDraft, patch: HubDraftPatch, base: HubDraftState): { columns: string[]; canvases: string[]; editorial: boolean } {
   const columns = Object.keys(patch.events ?? {}).filter((c) => c in base.events && !(c in current.events));
+  type T = keyof HubDraftState['widgets'];
+  const fields = ['canvas', ...HUB_DRAFT_REBASE_WIDGET_FIELDS] as const;
+  // A section whose live row must be read: a based whole value (canvas, main, custom) the draft does not hold.
   const canvases = Object.entries(patch.widgets ?? {})
-    .filter(([t, w]) => w?.canvas !== undefined && base.widgets[t as keyof HubDraftState['widgets']]?.canvas !== undefined)
-    .map(([t]) => t)
-    .filter((t) => current.widgets[t as keyof HubDraftState['widgets']]?.canvas === undefined);
-  return { columns, canvases };
+    .filter(([t, w]) =>
+      fields.some(
+        (f) => (w as Record<string, unknown> | undefined)?.[f] !== undefined && (base.widgets[t as T] as Record<string, unknown> | undefined)?.[f] !== undefined && (current.widgets[t as T] as Record<string, unknown> | undefined)?.[f] === undefined,
+      ),
+    )
+    .map(([t]) => t);
+  const editorial = Object.keys(patch.editorial ?? {}).some((k) => base.editorial && k in base.editorial && !(current.editorial && k in current.editorial));
+  return { columns, canvases, editorial };
 }
 
 /**
@@ -91,6 +115,45 @@ export function rebaseHubDraftPatch(current: HubDraft, patch: HubDraftPatch, raw
       moved = true;
       ((merged.widgets ??= {})[type] ??= {}).canvas = m.value;
     }
+  }
+  /* 👥 ROUND 3 — a section's OTHER whole values (a scene of their own's `custom` words): the same three-way merge as its
+     canvas, against the draft's value or the live row's. */
+  for (const [type, w] of Object.entries(mine.widgets) as Array<[keyof HubDraftState['widgets'], Record<string, unknown>]>) {
+    for (const f of HUB_DRAFT_REBASE_WIDGET_FIELDS) {
+      if (w[f] === undefined) continue;
+      const b = (base.widgets[type] as Record<string, unknown> | undefined)?.[f];
+      if (b === undefined) continue;
+      const drafted = (current.widgets[type] as Record<string, unknown> | undefined)?.[f];
+      const theirs = drafted !== undefined ? drafted : live.fields?.[type]?.[f];
+      if (theirs === undefined && !live.fields) continue; // not read: taken as sent
+      const m = w[f] === null ? mergeFromBase(b, null, theirs ?? null) : mergeFromBase(b ?? {}, w[f], theirs ?? {});
+      const outW = out.widgets as Record<string, Record<string, unknown> | undefined>;
+      outW[type] = { ...(outW[type] ?? {}), [f]: m.value };
+      for (const pth of m.clashed) clashed.push(`${f}:${type}.${pth}`);
+      if (m.moved) {
+        moved = true;
+        const mw = (merged.widgets ??= {}) as Record<string, Record<string, unknown> | undefined>;
+        mw[type] = { ...(mw[type] ?? {}), [f]: m.value };
+      }
+    }
+  }
+  /* 👥 …and the Post Event story's drafted keys (`editorial`: `sections`, `sectionOrder`, `sceneLooks` — each replaced
+     whole by the draft): a scene's look sent from a stale arrangement keeps the other host's other scenes. */
+  if (mine.editorial && base.editorial) {
+    const ed: Record<string, unknown> = { ...(out.editorial ?? {}) };
+    for (const [k, v] of Object.entries(mine.editorial)) {
+      if (!(k in base.editorial)) continue;
+      const theirs = current.editorial && k in current.editorial ? (current.editorial as Record<string, unknown>)[k] : live.editorial?.[k];
+      if (theirs === undefined && !live.editorial) continue;
+      const m = mergeFromBase((base.editorial as Record<string, unknown>)[k], v, theirs ?? null);
+      ed[k] = m.value;
+      for (const pth of m.clashed) clashed.push(`editorial.${k}.${pth}`);
+      if (m.moved) {
+        moved = true;
+        ((merged.editorial ??= {}) as Record<string, unknown>)[k] = m.value;
+      }
+    }
+    out.editorial = ed as HubDraftPatch['editorial'];
   }
   return { patch: out, clashed, moved, merged };
 }

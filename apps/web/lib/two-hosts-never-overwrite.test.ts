@@ -198,7 +198,8 @@ test('12 · every place the pattern is wired still carries it', () => {
   assert.match(store, /await writeHubDraft\(supabase, eventId, built\.next, appliedSnapshot, row\.stamp\);/, 'updateHubDraft no longer writes against the version it read');
   // The Maker's two whole-canvas writers (a scene's tabs and Style rows; a part's Colour · Size · Width) carry their base.
   const sceneCanvas = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'use-scene-canvas.ts');
-  assert.match(sceneCanvas, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[widgetType\]: \{ canvas: base \} \} \}\)\);/, 'a scene’s canvas no longer sends what it was based on');
+  // RE-AIMED 2026-10-18 round 3: the scene's tabs now send their base through the ONE shared map too (it kept its own).
+  assert.match(sceneCanvas, /sendCanvasBase\(fd, widgetType, canvas, next, before\);/, 'a scene’s canvas no longer sends what it was based on');
   const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
   // Round 2: the base is the one shared map every canvas panel uses (`sendCanvasBase`, lib/maker-draft-store.ts).
   assert.match(partLook, /sendCanvasBase\(fd, t\.widgetType, server, next\);/, 'a part’s look no longer sends what it was based on');

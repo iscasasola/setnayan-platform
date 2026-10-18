@@ -176,3 +176,40 @@ test('live sections · a write merges from the bag it READ onto the bag as it is
   const wizard = src('app/dashboard/[eventId]/wizard-actions.ts');
   assert.equal((wizard.match(/column: 'role_palette', what: 'The palette' \}/g) ?? []).length, 2, 'the mood-board palette slot writes the board’s colours back whole');
 });
+
+test('maker · a scene’s own words and the story’s scene looks merge from their base too', async () => {
+  const { rebaseHubDraftPatch } = await import('./hub-draft-rebase');
+  const { emptyHubDraft, mergeHubDraft } = await import('./hub-draft');
+  const none = { events: {}, canvas: {} };
+  // Claire drafted the Gallery's look; Indalecio's stale panel (built on an arrangement without it) sets the Recap's.
+  const claire = mergeHubDraft(emptyHubDraft(), { editorial: { sceneLooks: { numbers: { words: { heading: 'Our day' } } } } } as never);
+  const r = rebaseHubDraftPatch(claire, { editorial: { sceneLooks: { chapters: { words: { heading: 'As it unfolded' } } } } } as never, { editorial: { sceneLooks: {} } }, none);
+  assert.deepEqual((r.patch.editorial as { sceneLooks: unknown }).sceneLooks, { numbers: { words: { heading: 'Our day' } }, chapters: { words: { heading: 'As it unfolded' } } }, 'the other host’s scene look was wiped by a stale arrangement');
+  assert.equal(r.moved, true);
+  // A scene of their own: Claire drafted the words; Indalecio's stale box changes only the heading.
+  const words = mergeHubDraft(emptyHubDraft(), { widgets: { custom_1: { custom: { title: 'Ours', body: 'Claire’s words' } } } } as never);
+  const w = rebaseHubDraftPatch(words, { widgets: { custom_1: { custom: { title: 'Our day', body: '' } } } } as never, { widgets: { custom_1: { custom: { title: 'Ours', body: '' } } } }, none);
+  const custom = (w.patch.widgets as Record<string, { custom?: { title: string; body: string } }>).custom_1?.custom;
+  assert.deepEqual(custom, { title: 'Our day', body: 'Claire’s words' }, 'the other host’s words were wiped by a stale heading save');
+  // A live scene's words the draft does not hold: merged against the live row's (`fields`).
+  const live = rebaseHubDraftPatch(emptyHubDraft(), { widgets: { custom_2: { custom: { title: 'Our day', body: '' } } } } as never, { widgets: { custom_2: { custom: { title: 'Ours', body: '' } } } }, { ...none, fields: { custom_2: { custom: { title: 'Ours', body: 'Claire’s words' } } } });
+  assert.equal((live.patch.widgets as Record<string, { custom?: { body?: string } }>).custom_2?.custom?.body, 'Claire’s words', 'the other host’s live words were wiped by a stale heading save');
+});
+
+test('maker · the canvas writers #6629 left each say what they were built on', () => {
+  const P = 'app/dashboard/[eventId]/';
+  const has = (rel: string, re: RegExp, why: string) => assert.match(src(P + rel), re, why);
+  has('launch/_components/stage-panel/part-words.ts', /sendCanvasBase\(fd, 'hero', door\.heroCanvas, patch\.widgets\.hero\.canvas\)/, 'part words: the cover line sends no base');
+  has('launch/_components/stage-panel/part-words.ts', /else if \(w\.base\) fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(w\.base\)\)/, 'part words: a scene’s own words send no base');
+  has('website/editor/_components/type-in-place.tsx', /for \(const \[t, v\] of canvases\) sendCanvasBase\(fd, t, /, 'type-in-place sends no base');
+  has('website/editor/_components/type-in-place.tsx', /custom \? \{ widgets: \{ \[sceneType\]: \{ custom: own \} \} \} : undefined/, 'type-in-place: a scene’s own words send no base');
+  has('website/editor/_components/details-bound-field.tsx', /if \(nextCanvas\) sendCanvasBase\(fd, widgetType, canvas, nextCanvas, builtOn\)/, 'the Details-bound field sends no base');
+  has('website/editor/_components/scene-background-row.tsx', /for \(const \[type, c\] of Object\.entries\(touched\)\) sendCanvasBase\(fd, type, before\[type\], c, before\[type\]\)/, 'a scene’s background (and Every scene) sends no base');
+  has('website/editor/_components/post-event-scene-panel.tsx', /if \(built\) fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(built\(patch\)\)\)/, 'the Post Event scene panel sends no base');
+  has('website/editor/_components/editor-shell.tsx', /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ editorial: \{ sceneLooks: pe\.arrangement\.sceneLooks \} \}\)\)/, 'a Post Event part’s look sends no base');
+  has('website/editor/_components/use-scene-canvas.ts', /sendCanvasBase\(fd, widgetType, canvas, next, before\)/, 'a scene’s tabs keep their own base map again');
+  // A refused send is forgotten — the next save is never based on what never landed.
+  for (const rel of ['launch/_components/stage-panel/part-words.ts', 'website/editor/_components/type-in-place.tsx', 'website/editor/_components/details-bound-field.tsx', 'website/editor/_components/scene-background-row.tsx', 'website/editor/_components/use-scene-canvas.ts']) {
+    has(rel, /forgetCanvasSent\(/, `${rel}: a refused canvas is still the next save's base`);
+  }
+});

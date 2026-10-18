@@ -187,7 +187,8 @@ test('5a · the bar never renders the Maker: every save is held, in the element 
   const bar = read('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx');
   const saves = bar.match(/makerSave\(/g) ?? [];
   assert.equal(saves.length, 1, 'ONE write path for every change the bar makes');
-  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(key, \(\) => saveDraft\(draftAction, eventId, patch\)\)/, 'one queue, the latest write per key');
+  /* RE-AIMED 2026-10-18 round 3 (two hosts never overwrite): every step records who made it; whole canvases say what they were built on. Same property. */
+  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(key, \(\) => saveDraft\(draftAction, eventId, patch, based\)\)/, 'one queue, the latest write per key');
   assert.match(bar, /write\(\s*canvasWriteKey\('hero'\),\s*\{ widgets: \{ hero: \{ canvas: next \} \} \},\s*\{ messages: layMessages\(before, next\), typedIn \}/, 'the hero’s canvas: the element sheet’s queue and key, drawn first');
   assert.match(bar, /\) => \{\s*postToCanvas\(shown\.messages, shown\.typedIn\);[\s\S]*?makerSave\(/, 'the one write path draws on the canvas before it saves');
   assert.match(bar, /requestMakerRefresh,\s*\{ held: true, ok:/, 'held — no Maker render behind it');

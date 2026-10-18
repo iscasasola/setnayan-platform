@@ -8,7 +8,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
-import { noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
@@ -317,6 +317,8 @@ function SceneBackgroundRows({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      // 👥 Each scene's canvas goes in WHOLE: each says what it was built on (two hosts never overwrite).
+      for (const [type, c] of Object.entries(touched)) sendCanvasBase(fd, type, before[type], c, before[type]);
       /* ⚡ No Maker render follows a held pick — the Apply count comes back with the save. */
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* 🖼 A pick that changes who draws the box (or a clip coming or going) is
@@ -329,6 +331,7 @@ function SceneBackgroundRows({
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
       );
       if (!res.ok) {
+        for (const type of Object.keys(touched)) forgetCanvasSent(type);
         /* ↩ Refused: the canvas, the hold and the row go back to what was saved
            — unless a later choice on this scene is already on its way (it
            carries the whole canvas and decides). */

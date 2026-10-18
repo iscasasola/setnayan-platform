@@ -1,6 +1,7 @@
 'use client';
 
 import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
+import { forgetCanvasSent, sendCanvasBase } from '@/lib/maker-draft-store';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { RotateCcw } from 'lucide-react';
@@ -124,7 +125,8 @@ export function DetailsBoundField({
 
   const answer = (choice: DetailsEditChoice) => {
     setError(null);
-    const patch = detailsEditPatch({ choice, fact, text, widgetType, canvas: latest.current });
+    const builtOn = latest.current;
+    const patch = detailsEditPatch({ choice, fact, text, widgetType, canvas: builtOn });
     const nextCanvas = patch.widgets?.[widgetType]?.canvas;
     if (nextCanvas) latest.current = nextCanvas;
     onSaving?.(patch, choice, text);
@@ -132,6 +134,8 @@ export function DetailsBoundField({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      // 👥 A whole canvas says what it was built on — its own copy (two hosts never overwrite).
+      if (nextCanvas) sendCanvasBase(fd, widgetType, canvas, nextCanvas, builtOn);
       /* ⚡ Words the bridge drew bring no Maker render — the Apply count comes back with the save. */
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* `held`: the shell decides in `onSaving` (above) — it holds the canvas
@@ -142,6 +146,7 @@ export function DetailsBoundField({
          error screen, and the paragraph just typed went with it (`hubDraftAnswer`). */
       const res = await hubDraftAnswer('save', () => makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }));
       if (!res.ok) {
+        if (nextCanvas) forgetCanvasSent(widgetType);
         setError(res.error);
         return;
       }

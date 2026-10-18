@@ -405,7 +405,8 @@ export function galleryImageUrl(storagePath: string): string {
   const prefix = 'moodboard-library/';
   if (!storagePath.startsWith(prefix)) return storagePath;
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
-  return `${base}/storage/v1/object/public/${storagePath}`;
+  // Joined, not a `/…` template: the Root map reads a slash-led template as an app door (it matched a catch-all).
+  return [base, 'storage', 'v1', 'object', 'public', storagePath].join('/');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

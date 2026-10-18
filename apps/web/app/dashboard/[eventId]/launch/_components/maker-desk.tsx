@@ -51,6 +51,8 @@ export const DESK_PARTS_PX = 264;
 export const DESK_PARTS_FROM_PX = 1280;
 
 const D = '[data-maker-shell][data-maker-desk]';
+/** The work area — the shell's one child that holds the work (no marker of its own: not a byte more in the first load). */
+export const WORK = 'div:has([data-maker-work-area])';
 /** A phone's sheet (`MakerSheet` without `everyWidth`) while a desktop's Maker is open — portalled to the body. */
 const POP = 'html:has([data-maker-desk]) [data-maker-sheet][class~="lg:hidden"]';
 /** …placed downward (under its button) or upward (over it). */
@@ -66,11 +68,11 @@ export const MAKER_DESK_CSS =
   `${D}>*{grid-column:1/-1;grid-row:2}` +
   /* The bar's menus (👁 Preview) open over the columns under it. */
   `${D}>[data-maker-toolbar]{grid-row:1;height:60px;padding:0 12px;gap:8px;z-index:40}` +
-  `${D}>[data-maker-work]{grid-column:2;grid-row:3}` +
-  `${D}:not(:has(>[data-maker-lower-third]))>[data-maker-work]{grid-column:1/-1}` +
+  `${D}>${WORK}{grid-column:2;grid-row:3}` +
+  `${D}:not(:has(>[data-maker-lower-third]))>${WORK}{grid-column:1/-1}` +
   /* Studio's side (its home, a tool, Look) is Studio's own page — it takes the width; the tools and parts columns
      are the Stages toolbar's (Studio's own widths are the build plan's PR 5). */
-  `${D}:not(:has([data-stage-tools]))>[data-maker-work]{grid-column:1/-1}` +
+  `${D}:not(:has([data-stage-tools]))>${WORK}{grid-column:1/-1}` +
   `${D}:not(:has([data-stage-tools]))>:is([data-maker-lower-third],[data-maker-desk-parts]){display:none!important}` +
   `${D}>[data-maker-lower-third]{grid-column:3;grid-row:3;display:flex!important;height:auto!important;min-height:0;padding:0!important;border-top:0;border-left:1px solid rgba(44,42,41,.1)}` +
   `${D}>[data-maker-desk-parts]{grid-column:1;grid-row:3;min-height:0;overflow:hidden;border-right:1px solid rgba(44,42,41,.1);background:#FBFAF7}` +

@@ -1180,7 +1180,7 @@ export function MakerShell({
         {viewAsFree?.on ? <ViewAsFreeKeeper /> : null}
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
-        <div className="relative min-h-0 flex-1" data-maker-work="">
+        <div className="relative min-h-0 flex-1">
           {children}
           {/* 👋 The first open's one quiet line — never a dialog, never a tap target. */}
           {hint ? (

@@ -268,7 +268,7 @@ test('(6) Exit preview is on top of every layer that covers the work area — on
   }
   /* …and the work area the layers sit in makes no stacking context of its own: their numbers are compared with the
      button's in the shell's. */
-  assert.match(shell, /<div className="relative min-h-0 flex-1"(?: data-maker-work="")?>\s*\{children\}/, 'the work area changed — check the layers still stack in the shell');
+  assert.match(shell, /<div className="relative min-h-0 flex-1">\s*\{children\}/, 'the work area changed — check the layers still stack in the shell');
   /* The guests' own bar stays under the button. */
   const barZ = z(/'absolute inset-x-0 (z-\[\d+\]) border-t/.exec(tools)?.[1] ?? '');
   assert.ok(Number.isFinite(barZ) && exitZ > barZ, 'Exit preview is under the guests’ bar');

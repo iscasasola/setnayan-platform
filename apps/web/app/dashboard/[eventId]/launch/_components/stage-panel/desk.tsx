@@ -8,7 +8,7 @@ import { makerPartSource, type MakerPartKey, type MakerStageKey } from '@/lib/ma
 import { makerPartLabelOn } from '@/lib/maker-part-groups';
 import { formatCount } from '@/lib/format-number';
 import { STAGE_BAR_GRID_CSS } from '@/lib/maker-stage-room';
-import { DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, useDeskPartsSlot } from '../maker-desk';
+import { DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, WORK, useDeskPartsSlot } from '../maker-desk';
 
 /**
  * 🖥 THE STAGES TOOLBAR ON A DESKTOP — the tools column (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md` § Stages,
@@ -71,8 +71,8 @@ export const STAGE_DESK_CSS =
   /* The RSVP stage's screens are the parts column's rows (the phone's are its tab bar) — the old desktop list goes. */
   `${D} [data-rsvp-stage-scenes],${D} [data-rsvp-stage-scene-title]{display:none!important}` +
   /* The page column keeps the room for them under the page — the page is never under its own caption. */
-  `${D}>[data-maker-work]{padding-bottom:36px}` +
-  `${D}:has([data-stage-guest-bar]:not([hidden]))>[data-maker-work]{padding-bottom:81px}` +
+  `${D}>${WORK}{padding-bottom:36px}` +
+  `${D}:has([data-stage-guest-bar]:not([hidden]))>${WORK}{padding-bottom:81px}` +
   `${D}:has([data-stage-guest-bar]:not([hidden])) [data-desk-editing]{bottom:45px}` +
   '}' +
   `@media (min-width:${DESK_PARTS_FROM_PX}px){${D} [data-stage-guest-bar],${D} [data-desk-editing]{left:${DESK_PARTS_PX}px!important}}` +

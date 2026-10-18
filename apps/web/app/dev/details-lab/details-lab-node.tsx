@@ -48,7 +48,7 @@ import { labOpenMarchCard } from './lab-march-cards';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
 import { studioAttireRows } from '@/lib/studio-attire-rows';
-import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
+import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, LAB_MAN_OF_HONOR_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { LabMoodBoardActions } from './lab-mood-board-actions';
@@ -128,8 +128,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const rolesAttire = one('attire') === 'roles';
   /* 🪞 `?attire=cale|cale-now` — cale-ice's dress code and guest-list rows as production held them 2026-10-17 (`labCaleIceDressConfig`). */
   /* 👯 `cale-honour` — cale-now with the two honour rows dressed (`labCaleIceDressConfig`, 2026-10-19). */
-  const caleIce = one('attire') === 'cale' || one('attire') === 'cale-now' || one('attire') === 'cale-honour';
-  const caleIceHonour = one('attire') === 'cale-honour';
+  /* 🤵‍♂️ `man-honour` — cale-honour with a man of honor on the list and his FOR MEN column dressed (2026-10-19). */
+  const manHonour = one('attire') === 'man-honour';
+  const caleIce = one('attire') === 'cale' || one('attire') === 'cale-now' || one('attire') === 'cale-honour' || manHonour;
+  const caleIceHonour = one('attire') === 'cale-honour' || manHonour;
   const caleIceAfter = one('attire') === 'cale-now' || caleIceHonour;
   const rolesPick = { groom: one('groom'), bride: one('bride'), men: one('men'), women: one('women'), boys: one('boys'), girls: one('girls'), gm: one('gm'), gw: one('gw') };
   const wishState = labWishState(one('wish'));
@@ -385,7 +387,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
-                    attire={caleIce ? studioAttireRows(LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig(caleIceAfter, caleIceHonour), LAB_CALE_ICE_ROLE_NAMES as never) : [
+                    attire={caleIce ? studioAttireRows(manHonour ? LAB_MAN_OF_HONOR_ROLE_TALLY : LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour), LAB_CALE_ICE_ROLE_NAMES as never) : [
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
                       ...(sharedAttire || rolesAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
@@ -398,7 +400,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     ] as never}
                     dressConfig={
                       caleIce
-                        ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour) as never)
+                        ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never)
                         : rolesAttire
                         ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)
                         : sharedAttire

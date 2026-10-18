@@ -30,7 +30,10 @@ test('1 · the editor opens with the top layer picked, and a tap on the empty fr
   assert.match(logo, /function openingPick\(layers: readonly LogoLayer\[\]\): string \| null \{\s*return layers\[layers\.length - 1\]\?\.id \?\? null;/, 'the opening pick is not the top of the stack');
   assert.doesNotMatch(logo, /setSelectedId\(null\)/, 'something un-picks the layer — Edit goes dead again');
   assert.doesNotMatch(logo, /setSheet\(null\)/, 'a panel can be shut with no way back to it');
-  assert.match(logo, /useState<'layers' \| 'tools'>\('tools'\)/, 'the editor no longer opens on the picked layer’s tools');
+  /* RE-AIMED 2026-10-18 (L2 — the Layers panel became the layers carousel, always drawn): the panel opens on the
+     picked layer's tools, in the tool that layer has. */
+  assert.match(logo, /useState<'tools' \| 'add'>\('tools'\)/, 'the editor no longer opens on the picked layer’s tools');
+  assert.match(logo, /useState<LogoTool>\(\(\) => toolFor\(layers\[layers\.length - 1\]\)\)/, 'the editor opens on a tool the top layer may not have');
 });
 
 test('2 · the panels are never a Maker tool and never tiles in the lower third’s navigator', () => {
@@ -38,11 +41,15 @@ test('2 · the panels are never a Maker tool and never tiles in the lower third�
   assert.doesNotMatch(logo, /useMakerTool\b/, 'a Logo panel registers as a Maker tool — the navigator folds and the other panel is unreachable');
   assert.doesNotMatch(logo, /IntoLowerThird\b|\bltNav\b/, 'the Logo’s controls are portalled into the lower third’s navigator again');
   assert.doesNotMatch(logo, /MAKER_LT_TOOL\b/, 'a Logo panel is fixed over the lower third again');
-  // Both panels wear the in-flow phone layout, and the row that switches them is on the phone.
+  /* RE-AIMED 2026-10-18 (L2 + L3, LOGO_MAKER_REPLOT): the layers are the carousel — ALWAYS drawn, never a panel to
+     switch to — and the tools panel wears the in-flow phone layout, its tools row inside it. */
   const panels = [...logo.matchAll(/flex-col \$\{LOGO_PANEL_PHONE\} lg:static/g)].length;
-  assert.equal(panels, 2, `${panels} of the two panels sit under the logo`);
-  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the row is the Pill selector. */
-  assert.match(logo, /<PillSelector\s+label="Logo panels"[\s\S]*?key: 'layers'[\s\S]*?key: 'tools'/, 'the Layers | layer row is gone');
+  assert.equal(panels, 1, `${panels} tools panels sit under the logo`);
+  const strip = /<aside[^>]*data-logo-cards-strip=""[^>]*className="([^"]*)"/.exec(logo);
+  assert.ok(strip, 'the layers carousel is gone');
+  assert.doesNotMatch(strip![1]!, /(?:^|\s)(?:max-lg:)?hidden(?:\s|$)/, 'the layers carousel can be hidden on a phone — the one-layer trap again');
+  assert.match(logo, /<LogoLayerCards\b/, 'the carousel is not the layer cards');
+  assert.match(logo, /<PillSelector<LogoTool>\s+label="Logo tools"/, 'the tools row is gone');
 });
 
 test('3 · the phone layout is in the page’s flow, under the logo, and steps aside only in the guided flow', () => {
@@ -60,10 +67,16 @@ test('3 · the phone layout is in the page’s flow, under the logo, and steps a
     const share = (height - MAKER_PHONE_BAR_PX - lt) / height;
     assert.ok(share >= MAKER_PREVIEW_MIN_SHARE - 1e-9, `${width}×${height}: the logo keeps ${(share * 100).toFixed(1)}%`);
   }
-  // The row's declared room is the row the editor draws (44 px buttons, p-1, mt-2).
+  // The row's declared room is the row the editor draws.
   const logo = code(`${L}/maker-logo.tsx`);
-  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the Pill selector (44 px) sits centred in a 52 px band under mt-2 — the same 60 px the room is counted with. */
-  assert.match(logo, /data-logo-panels="" className="mt-2 flex h-\[52px\] w-full max-w-sm shrink-0 items-center /, 'the row changed size — LOGO_PANEL_ROW_PX is stale');
+  /* RE-AIMED 2026-10-18 (L2): the row is the layers carousel — 74 px cards under mt-2, the 82 px the room is counted
+     with (the prototype's `.lyrs`); the tools row is inside the panel's own height. */
+  assert.equal(LOGO_PANEL_ROW_PX, 8 + 74);
+  assert.match(logo, /data-logo-cards-strip=""\s+className="mt-2 flex h-\[74px\] w-full shrink-0 flex-col /, 'the carousel changed size — LOGO_PANEL_ROW_PX is stale');
+  const cards = code(`${L}/logo-layer-cards.tsx`);
+  // A card fills the 74 px strip less the room its picked ring needs (3 px a side), as the prototype's `.lyrs` 2 px.
+  assert.match(cards, /overscroll-contain px-3 py-\[3px\]/, 'the strip lost the room the picked ring is drawn in');
+  assert.match(cards, /relative flex w-\[66px\] shrink-0 flex-col self-stretch /, 'a layer card does not fill the strip');
 });
 
 test('4 · no "Do you want a logo?" over the Logo studio', () => {

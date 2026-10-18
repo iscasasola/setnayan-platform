@@ -53,7 +53,8 @@ function seenHeight(): number | null {
   const fr = frame.getBoundingClientRect();
   const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
   const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
-  const bottom = Math.min(fr.bottom, lt ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
+  /* 🖥 The lower third ends the page only where it lies under it (a desktop's is the column beside it). */
+  const bottom = Math.min(fr.bottom, lt && lt.left < fr.right && lt.right > fr.left ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
   const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
   const h = (bottom - fr.top) / (k || 1);
   return h > 40 ? Math.round(h) : null;

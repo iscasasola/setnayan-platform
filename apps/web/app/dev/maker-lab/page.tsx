@@ -233,6 +233,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
+      /* 🖥 `&desk=1` — …and on a desktop in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`). */
+      desktopColumns={(sp.studio === '1' || sp.ss === '1') && sp.desk === '1'}
       /* 🚪 `?needs=simple|open|list|full` (owner 2026-10-08, Level 1): the stages this event does not need are absent. */
       hiddenStages={labNeeds ? MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, labNeeds)) : []}
       /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws

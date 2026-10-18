@@ -100,6 +100,16 @@ const FLAGS: FlagSpec[] = [
     locals: ['stagesStudio'],
   },
   {
+    // 🖥 The new Maker on a desktop, three columns (owner 2026-10-07 all "A"; 2026-10-15 desktop first).
+    // Dark for couples while its PRs land; on for an internal viewer — handed in.
+    env: 'NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED',
+    helper: 'lib/maker-desktop-columns-flag.ts',
+    fn: 'makerDesktopColumnsEnabled',
+    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
+    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx'],
+    locals: ['desktopColumns'],
+  },
+  {
     env: 'NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED',
     helper: 'lib/explore-replan-flag.ts',
     fn: 'isExploreReplanEnabled',

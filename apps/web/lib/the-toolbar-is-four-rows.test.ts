@@ -331,11 +331,11 @@ test('(5) what left the toolbar: the stage ▾, "Tap a part of the page", the pa
 });
 
 test('(6) the shipped Maker never sees any of it: mounted only by the new Maker on a phone; every rule names the toolbar', () => {
-  /* Mounted in one place, behind `ss` (the flag AND a phone), on the Stages side. */
+  /* Mounted in one place, behind `ss` (the flag AND a phone — or a desktop with its three columns on), on the Stages side. */
   const shell = read(`${L}/maker-shell.tsx`);
   assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1);
   assert.match(shell, /grab=\{ss \? side === 'stages' \? <StageTools /);
-  assert.match(shell, /const ss = stagesStudio && phone;|ss = stagesStudio && phone/, 'the new Maker is no longer the flag AND a phone');
+  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/, 'the new Maker is no longer the flag AND (a phone, or a desktop with its three columns)');
 
   /* Every rule the toolbar writes is conditional on the toolbar being drawn. */
   const tools = read(`${L}/stage-tools.tsx`);

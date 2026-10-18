@@ -47,7 +47,7 @@ test('(2) it waits for the line to be drawn with a height, and for a picture’s
 });
 
 test('(3) the band is centrePart’s; the frame’s own window scrolls; a line in the middle stays', () => {
-  assert.match(fn, /const bottom = Math\.min\(fr\.bottom, bar && bar\.height > 0 \? bar\.top : Infinity, lt \? lt\.top : Infinity\);/);
+  assert.match(fn, /const bottom = Math\.min\(fr\.bottom, bar && bar\.height > 0 \? bar\.top : Infinity, lt && lt\.left < fr\.right && lt\.right > fr\.left \? lt\.top : Infinity\);/);
   assert.match(fn, /document\.querySelector\('\[data-stage-guest-bar\]'\)/);
   assert.match(fn, /document\.querySelector\('\[data-maker-lower-third\]'\)/);
   assert.match(fn, /const dy = partPickScroll\(\{ top: r\.top, height: r\.height \}, band\);/);
@@ -55,7 +55,7 @@ test('(3) the band is centrePart’s; the frame’s own window scrolls; a line i
   assert.doesNotMatch(fn, /scrollIntoView/, 'scrollIntoView scrolls the Maker too');
   /* The toolbar's own measure is the one copied — if it changes, this must be looked at again. */
   const TOOLS = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/stage-tools.tsx'), 'utf8'));
-  assert.match(TOOLS, /const bottom = Math\.min\(fr\.bottom, bar && bar\.height > 0 \? bar\.top : Infinity, lt \? lt\.top : Infinity\);/, 'centrePart measures its band another way now');
+  assert.match(TOOLS, /const bottom = Math\.min\(fr\.bottom, bar && bar\.height > 0 \? bar\.top : Infinity, lt && lt\.left < fr\.right && lt\.right > fr\.left \? lt\.top : Infinity\);/, 'centrePart measures its band another way now');
 });
 
 test('(4) the sums: a Wide or Tall picture lands whole in a 270-px band, from below or above it', () => {

@@ -37,3 +37,11 @@ and MoreExtras (moved to website/editor/_components/more-extras.tsx; editor-shel
 Guards repointed: every-qr-carries-the-strip (STRIP_MOUNTS key → more-extras.tsx), the-maker-lower-third-holds-every-tool
 (reads MoreExtras from more-extras.tsx + asserts editor-shell still mounts <MoreExtras>). Sabotage both: red → green.
 NEXT: preflight, draft PR, 375px walk (Maker opens; ⋯ sheet shows Scan to view after its chunk; a row panel opens).
+PR #6646 (draft, do-not-auto-merge, autoMergeRequest null).
+WALK (375×812, /dev/maker-lab on `next dev`, no-database lab env + the 404 stub on 54321; Chromium + Playwright WebKit —
+the Safari ENGINE, not a real iPhone): Maker opens; Invitation ▾ › Settings › "Who can view" shows Settings · Your Event
+Hub with Scan to view drawn by the lazy MoreExtras (QR image blank = lab has no database). No page errors (console
+errors are the expected no-database supabase ones). NOTE: MoreSheet is kept mounted hidden, so MoreExtras' chunk
+(`maker-details`) is requested right after hydration — not before it; the same chunk the Maker's mounted stand-ins
+(LowerThirdGrab/StageTools/MakerSheet) already pull at mount. The lab imports SiteChromePanel directly, so the media-panel
+stand-ins were not walked (typecheck + guards only). Pictures + tools: controller-2026-10-12/walk-headroom/.

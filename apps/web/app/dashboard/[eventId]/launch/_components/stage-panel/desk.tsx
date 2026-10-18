@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Lock, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GripVertical, Lock, Plus, Trash2, X } from 'lucide-react';
 import { Phases, StageAbout } from './kit';
 import { AnimateRows, type StageAnimateProps } from './stage-animate';
 import { setDeskAnimateStack, useAnimatePhase, type AnimatePhase } from './store';
 import { makerPartSource, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
-import { makerPartLabelOn } from '@/lib/maker-part-groups';
+import { makerPartCanvasOn, makerPartLabelOn } from '@/lib/maker-part-groups';
 import { formatCount } from '@/lib/format-number';
 import { STAGE_BAR_GRID_CSS } from '@/lib/maker-stage-room';
-import { DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, WORK, useDeskPartsSlot } from '../maker-desk';
+import { DESK_GOLD, DESK_HOVER_RING, DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, WORK, useDeskPartsSlot } from '../maker-desk';
 
 /**
  * 🖥 THE STAGES TOOLBAR ON A DESKTOP — the tools column (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md` § Stages,
@@ -93,7 +93,7 @@ export const STAGE_DESK_CSS =
   `${D} [data-phone-chrome="panel"] ${GRID}>[data-style-card]{height:auto!important;width:auto!important;aspect-ratio:3/4}` +
   `${D} [data-phone-chrome="panel"] ${GRID}>[data-style-card][data-wide]{grid-column:1/-1;aspect-ratio:3/1!important;inline-size:auto!important}` +
   /* 🖱 The mouse's soft gold ring on a look (the doc's "Mouse"). */
-  `${D} [data-phone-chrome="panel"] ${GRID}>[data-style-card]:not([aria-checked="true"]):hover{box-shadow:0 0 0 2px var(--sp-page),0 0 0 4px rgba(169,131,75,.45)}` +
+  `${D} [data-phone-chrome="panel"] ${GRID}>[data-style-card]:not([aria-checked="true"]):hover{box-shadow:0 0 0 2px ${DESK_GOLD}}` +
   '}' +
   `@media (min-width:${DESK_PARTS_FROM_PX}px){${D} [data-stage-guest-bar],${D} [data-desk-editing]{left:${DESK_PARTS_PX}px!important}}` +
   /* The four rows keep the phone's measures — the toolbar fills from the top and nothing is centred up and down. */
@@ -181,7 +181,26 @@ export function DeskStep({
 }
 
 const ROW =
-  'sn-press flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-left text-[14.5px] text-[var(--sp-ink)] transition-colors duration-sn-control ease-sn hover:bg-[rgba(44,42,41,.05)]';
+  `sn-press flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-left text-[14.5px] text-[var(--sp-ink)] transition-shadow duration-sn-control ease-sn ${DESK_HOVER_RING}`;
+/** ＋ Add above / below — the picked row's own, a dashed line of words (the approved frame's \`.addrow\`). */
+const ADD_ROW =
+  `sn-press flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--sp-line)] text-[12.5px] font-semibold text-[var(--sp-cta)] transition-shadow duration-sn-control ease-sn ${DESK_HOVER_RING}`; // no-card-ok: the class of the ＋ Add above / below <button> (a press)
+/** The picked row's grip and 🗑 — 44 px presses on the row's right. */
+const ROW_ICON = `sn-press inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--sp-ink2)] ${DESK_HOVER_RING}`;
+
+/** The picked part's own tools on its row — the frame's (`usePartEdits` `PartEditsNow`, read structurally: the drag's module is reached only through the Stages panel), never new ones. */
+export type DeskPartTools = {
+  addAbove: (() => void) | null;
+  addBelow: (() => void) | null;
+  remove: (() => void) | null;
+  removeWord: string;
+  earlier: (() => void) | null;
+  later: (() => void) | null;
+  moveAmong: () => string[];
+  moveNear: ((target: string, where: 'above' | 'below') => boolean) | null;
+  why: { earlier: string; later: string };
+  say: (words: string) => void;
+};
 
 /**
  * 🗂 THE PARTS OF THIS PAGE — the left column (the doc's LEFT, 264 px; the build plan's PR 4). The stage's pages
@@ -197,6 +216,7 @@ export function DeskParts({
   order,
   picked,
   onPick,
+  tools,
 }: {
   stage: MakerStageKey;
   pages: ReadonlyArray<{ key: string; label: string; option: string }>;
@@ -205,8 +225,66 @@ export function DeskParts({
   order: readonly MakerPartKey[];
   picked: MakerPartKey | null;
   onPick: (key: MakerPartKey) => void;
+  /** The picked part's ＋ above · grip · 🗑 · ＋ below — the same the page draws on it. */
+  tools: DeskPartTools;
 }) {
   const slot = useDeskPartsSlot();
+  /* ✋ THE GRIP, HELD WITH A MOUSE: the row under the pointer, and whether it lands above or below it. */
+  const [drop, setDrop] = useState<{ key: MakerPartKey; where: 'above' | 'below' } | null>(null);
+  const [holding, setHolding] = useState(false);
+  const among = useRef<string[]>([]);
+  const at = (e: ReactPointerEvent): { key: MakerPartKey; where: 'above' | 'below' } | null => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-desk-part]');
+    const key = row?.getAttribute('data-desk-part') as MakerPartKey | null;
+    const canvas = key && key !== picked ? makerPartCanvasOn(stage, key) : null;
+    if (!row || !key || !canvas || !among.current.includes(canvas)) return null;
+    const r = row.getBoundingClientRect();
+    return { key, where: e.clientY < r.top + r.height / 2 ? 'above' : 'below' };
+  };
+  const grip = {
+    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      if (!tools.moveNear) return tools.say(tools.why.earlier);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      among.current = tools.moveAmong();
+      setHolding(true);
+    },
+    onPointerMove: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (holding) setDrop(at(e));
+    },
+    onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!holding) return;
+      const d = at(e);
+      setHolding(false);
+      setDrop(null);
+      const c = d ? makerPartCanvasOn(stage, d.key) : null;
+      if (d && c) tools.moveNear?.(c, d.where);
+    },
+    onPointerCancel: () => {
+      setHolding(false);
+      setDrop(null);
+    },
+    /* ⌨ …and the keyboard's way: ↑ ↓ one place, as the tag's Move up · Move down. */
+    onKeyDown: (e: ReactKeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      /* …the grip's own: never also the toolbar's ↑ ↓ (the next part). */
+      e.preventDefault();
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
+      const go = e.key === 'ArrowUp' ? tools.earlier : tools.later;
+      if (go) go();
+      else tools.say(e.key === 'ArrowUp' ? tools.why.earlier : tools.why.later);
+    },
+  };
+  /* The picked row in view in the column (a part picked on the page may sit low in a long list). */
+  useEffect(() => {
+    if (!slot || !picked) return;
+    const list = slot.querySelector<HTMLElement>('[data-desk-parts-list]');
+    const row = list?.querySelector<HTMLElement>(`[data-desk-part="${picked}"]`)?.closest('li');
+    if (!list || !row) return;
+    const top = row.offsetTop - list.offsetTop;
+    if (top < list.scrollTop + 8 || top + row.offsetHeight > list.scrollTop + list.clientHeight - 8) list.scrollTop = Math.max(0, top - list.clientHeight / 3);
+  }, [slot, picked]);
   if (!slot) return null;
   return createPortal(
     <div data-desk-parts-list="" className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-2.5 pb-6 pt-3 [scrollbar-width:thin]">
@@ -238,21 +316,48 @@ export function DeskParts({
         {order.map((k) => {
           const on = k === picked;
           const from = partSourceWord(k);
+          const name = makerPartLabelOn(stage, k);
+          const line = drop?.key === k ? drop.where : null;
           return (
-            <li key={k}>
-              <button
-                type="button"
-                aria-pressed={on}
-                data-desk-part={k}
-                onClick={() => onPick(k)}
-                className={`${ROW} ${on ? 'bg-[var(--sp-cta-wash)] font-semibold shadow-[inset_3px_0_0_var(--sp-cta)]' : ''}`}
-              >
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate">{makerPartLabelOn(stage, k)}</span>
-                  {from ? <span className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--sp-gold)]">{from}</span> : null}
-                </span>
-                {k === 'reveal' ? <Lock aria-label="Stays first" className="h-3.5 w-3.5 shrink-0 text-[var(--sp-mute)]" strokeWidth={2} /> : null}
-              </button>
+            <li key={k} className="relative" data-desk-drop={line ?? undefined}>
+              {line ? <span aria-hidden data-desk-drop-line={line} className={`pointer-events-none absolute inset-x-2 z-[1] h-0.5 rounded-full bg-[var(--sp-cta)] ${line === 'above' ? '-top-px' : '-bottom-px'}`} /> : null}
+              {on && tools.addAbove ? (
+                <button type="button" data-desk-add="above" onClick={tools.addAbove} className={`${ADD_ROW} mb-1`}>
+                  <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+                  Add above
+                </button>
+              ) : null}
+              <div className={`flex items-center rounded-xl ${on ? 'bg-[var(--sp-cta-wash)] shadow-[inset_3px_0_0_var(--sp-cta)]' : ''} ${on && holding ? 'opacity-70' : ''}`}>
+                <button
+                  type="button"
+                  aria-pressed={on}
+                  data-desk-part={k}
+                  onClick={() => onPick(k)}
+                  className={`${ROW} min-w-0 flex-1 ${on ? 'font-semibold' : ''}`}
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate">{name}</span>
+                    {from ? <span className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--sp-gold)]">{from}</span> : null}
+                  </span>
+                  {k === 'reveal' ? <Lock aria-label="Stays first" className="h-3.5 w-3.5 shrink-0 text-[var(--sp-mute)]" strokeWidth={2} /> : null}
+                </button>
+                {on && tools.moveNear ? (
+                  <button type="button" data-desk-grip="" aria-label={`Move ${name} — drag, or ↑ ↓`} title="Drag to move" className={`${ROW_ICON} cursor-grab touch-none active:cursor-grabbing`} {...grip}>
+                    <GripVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                ) : null}
+                {on && tools.remove ? (
+                  <button type="button" data-desk-remove="" aria-label={`${tools.removeWord} ${name}`} title={tools.removeWord} onClick={tools.remove} className={`${ROW_ICON} mr-1 text-[rgb(var(--color-danger))]`}>
+                    <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                ) : null}
+              </div>
+              {on && tools.addBelow ? (
+                <button type="button" data-desk-add="below" onClick={tools.addBelow} className={`${ADD_ROW} mt-1`}>
+                  <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+                  Add below
+                </button>
+              ) : null}
             </li>
           );
         })}

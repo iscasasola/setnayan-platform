@@ -376,6 +376,13 @@ export type PartEditsNow = {
   statusKey: number | null;
   /** Say one line there (why a grey step did nothing). */
   say: (words: string) => void;
+  /** 🖥 The frame's own ＋ above / below, for the desktop's parts column — null where the frame draws none. */
+  addAbove: (() => void) | null;
+  addBelow: (() => void) | null;
+  /** 🖥 The parts the picked one may land among, by canvas key, measured now — the desktop list's grip. */
+  moveAmong: () => string[];
+  /** 🖥 Land it above / below one of those (the drop's own one order write) — false: nothing was written. */
+  moveNear: ((target: string, where: 'above' | 'below') => boolean) | null;
 };
 
 /** The presses still on their way to the page: a scene moved · taken off, a part brought back. */
@@ -864,6 +871,23 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     status: drag.status,
     statusKey: drag.statusKey,
     say: drag.say,
+    addAbove: working ? null : fixedPages ? (lineAdd?.above ? () => lineAdd.onAdd('above') : null) : edgesOf.addAbove ? () => askAdd('above') : null,
+    addBelow: working ? null : fixedPages ? (lineAdd?.below ? () => lineAdd.onAdd('below') : null) : edgesOf.addBelow ? () => askAdd('below') : null,
+    moveAmong: () => {
+      const o = askPartOps();
+      return o && canMove ? moveTargets(o).map((t) => t.key) : [];
+    },
+    moveNear:
+      working || !canMove
+        ? null
+        : (target, where) => {
+            const o = askPartOps();
+            const t = o ? moveTargets(o).find((x) => x.key === target) : null;
+            const done = o && t ? dropOn(o, t, where, here, false) : null;
+            if (!done) return false;
+            drag.run({ type: 'move', label, key: canvas }, done);
+            return true;
+          },
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */

@@ -21,6 +21,7 @@ export function DatesRow({
   data,
   strong,
   download = false,
+  tour,
 }: {
   title: ReactNode;
   line?: ReactNode;
@@ -34,6 +35,8 @@ export function DatesRow({
   strong?: ReactNode;
   /** The row downloads a file (the phone calendar's .ics) — a plain link, never a client navigation. */
   download?: boolean;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
 }) {
   const inner = (
     <>
@@ -55,17 +58,17 @@ export function DatesRow({
   const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
   if (href && !end && download) {
     return (
-      <a href={href} download className={`sn-press ${rowClass}`} data-dates-row={data ?? ''}>
+      <a href={href} download className={`sn-press ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
         {inner}
       </a>
     );
   }
   return href && !end ? (
-    <Link href={href} scroll className={`sn-press ${rowClass}`} data-dates-row={data ?? ''}>
+    <Link href={href} scroll className={`sn-press ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
       {inner}
     </Link>
   ) : (
-    <div className={rowClass} data-dates-row={data ?? ''}>
+    <div className={rowClass} data-dates-row={data ?? ''} data-tour={tour}>
       {inner}
     </div>
   );

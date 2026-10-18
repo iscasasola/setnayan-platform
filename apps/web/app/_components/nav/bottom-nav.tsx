@@ -898,6 +898,11 @@ function PressFlash({
   );
 }
 
+/** 🔦 A tab's spotlight anchor: `tab-` + the last path segment (`/dashboard/<id>/guests` → `tab-guests`). */
+function tabTourToken(href: string): string {
+  return 'tab-' + (href.split(/[?#]/)[0]!.split('/').filter(Boolean).pop() ?? '');
+}
+
 /* ── flat-path tab cell (unchanged) ────────────────────────────────────── */
 
 function BottomNavTab({
@@ -925,6 +930,7 @@ function BottomNavTab({
         href={item.href}
         aria-current={active ? 'page' : undefined}
         aria-haspopup={item.onSelect ? 'dialog' : undefined}
+        data-tour={tabTourToken(item.href)}
         onClick={
           item.onSelect
             ? (e) => {

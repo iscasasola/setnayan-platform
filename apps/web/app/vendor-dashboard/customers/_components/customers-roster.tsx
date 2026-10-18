@@ -343,19 +343,19 @@ export function CustomersRoster({
       {hidden ? null : rows.length === 0 ? (
         q ? (
           otherMatches > 0 ? null : (
-            <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="">
+            <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
               No one named &ldquo;{q}&rdquo;. Check the spelling, or add them with <b>Add</b>.
             </p>
           )
         ) : (
-          <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="">
+          <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
             {total === 0
               ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
               : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.'}
           </p>
         )
       ) : (
-        <ul data-customers-list="">
+        <ul data-customers-list="" data-tour="customers-list">
           {rows.map((r) => (
             <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
               <RosterRowView r={r} nowMs={nowMs} query={q} />

@@ -387,6 +387,7 @@ async function ShopHome({
           <Link
             href="/open-shop"
             className="button-primary mt-4 inline-flex items-center gap-2"
+            data-tour="shop-details"
           >
             Set up my shop
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -500,6 +501,7 @@ async function ShopHome({
         <div id="manage-shop" className="scroll-mt-24 divide-y divide-ink/10" data-shop-doors="">
           <DatesRow
             data="shop-details"
+            tour="shop-details"
             title="Your details"
             line="Name · what you do · where · contact · documents · how clients pay you"
             badge={

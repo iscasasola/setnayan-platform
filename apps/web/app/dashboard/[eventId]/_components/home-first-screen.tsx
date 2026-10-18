@@ -220,7 +220,7 @@ export function HomeFirstScreen({
       /* 🎨 The card's Buy more opens the same sheet as the row (owner 2026-10-14). */
       <PapicBuySheet eventId={eventId} left={papicLeft} tone="brand" main sizes={papicSizes} />
     ) : (
-      <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} />
+      <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} tour="home-next" />
     );
   return (
     <section

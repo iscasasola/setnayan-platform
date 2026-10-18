@@ -1,6 +1,6 @@
 import { TOURS, type TourKey } from '@/lib/tours';
 import { TIP_POPUPS_ON } from '@/lib/tip-popups';
-import { GuidedTourCard } from './guided-tour-card';
+import { GuidedTourCardLazy } from './guided-tour-card-lazy';
 import { tourSlideView, type GuidedTourView } from './tour-slide-view';
 
 type Props = {
@@ -35,5 +35,5 @@ export function guidedTourView(tourKey: TourKey, storeShell = false): GuidedTour
 
 export function GuidedTour({ tourKey, completeAction, storeShell = false }: Props) {
   if (!TIP_POPUPS_ON) return null;
-  return <GuidedTourCard tourKey={tourKey} {...guidedTourView(tourKey, storeShell)} completeAction={completeAction} />;
+  return <GuidedTourCardLazy tourKey={tourKey} {...guidedTourView(tourKey, storeShell)} completeAction={completeAction} />;
 }

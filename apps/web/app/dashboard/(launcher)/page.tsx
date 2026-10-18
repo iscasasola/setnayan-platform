@@ -1292,6 +1292,7 @@ export default async function LauncherPage({
               <Link
                 href="/dashboard/create-event"
                 className="sn-press inline-block rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-black"
+                data-tour="create-event"
               >
                 Create an event
               </Link>
@@ -2227,6 +2228,7 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
     <NewThingTile
       href="/dashboard/create-event"
       label="New event"
+      tour="create-event"
       delay={delay}
       layout={poster ? 'poster' : 'card'}
     />

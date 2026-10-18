@@ -533,6 +533,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
       data-guests-seg={key}
+      data-tour={key === 'share' ? 'guests-setup' : undefined}
     >
       {label}
       {count !== undefined && measured ? <b><Count value={count} id={`gs-seg-${key}`} /></b> : null}
@@ -548,6 +549,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       label="Add"
       onClick={() => openAddGuest(q)}
       data-testid="thumb-add"
+      tour="guests-add"
     />
   );
   const sortPick = (
@@ -585,6 +587,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       aria-label="Search guests or add"
       data-fit-field=""
       data-guests-search=""
+      data-tour="guests-add"
       onInput={(e) => onType(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return;

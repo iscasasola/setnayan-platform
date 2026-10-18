@@ -14,6 +14,7 @@ import {
   Wand2,
   Clapperboard,
   Gift,
+  Info,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -287,6 +288,19 @@ function SwitcherPanelBody({
               <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Create your shop
             </Link>
           ) : null}
+          {/* 🔦 ⓘ Show me around — plays this surface's spotlight tour again (`spotlight-mount.tsx` listens
+              for the event). Drawn only where a tour is mounted: the mount marks <html data-spotlight>, so on a
+              page with none this is not a dead button. A replay never re-writes `tour_seen_keys`. */}
+          <button
+            type="button"
+            className="hidden items-center gap-1 font-medium text-ink/70 hover:text-terracotta [html[data-spotlight]_&]:inline-flex"
+            onClick={() => {
+              close();
+              window.dispatchEvent(new Event('sn:spotlight'));
+            }}
+          >
+            <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Show me around
+          </button>
           {data.isAnonymous ? (
             <Link
               href="/signup"

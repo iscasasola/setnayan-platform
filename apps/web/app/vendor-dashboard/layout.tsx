@@ -37,6 +37,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Spotlight } from '@/app/_components/spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
@@ -630,6 +631,9 @@ export default async function VendorDashboardLayout({
       {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
         <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔦 The supplier's spotlight journey — Today → Shop → services → Customers → payday (owner
+          2026-10-02). In the layout so it carries across pages. The old welcome above stays off. */}
+      <Spotlight tourKey="supplier_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay />
     </div>
   );
 }

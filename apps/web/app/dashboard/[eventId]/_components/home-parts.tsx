@@ -117,6 +117,7 @@ export function HomeDoorways({
             label={d.label}
             href={d.href}
             data-testid={`home-door-${d.key}`}
+            tour={`home-${d.key}`}
           />
         );
       })}

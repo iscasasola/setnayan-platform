@@ -15,7 +15,7 @@
  * PURE — no DOM, no IO.
  */
 
-import { R } from './logo-layers';
+import { LOGO_SCALE_MAX, LOGO_SCALE_MIN, R } from './logo-layers';
 
 export const LOGO_ORNAMENT_KINDS = ['flourish', 'blossom', 'leaf', 'star', 'fleur', 'diamonds'] as const;
 export type LogoOrnamentKind = (typeof LOGO_ORNAMENT_KINDS)[number];
@@ -176,4 +176,20 @@ export function ornamentBody(kind: LogoOrnamentKind): { body: string; w: number;
 export function ornamentOf(body: string | undefined | null): LogoOrnamentKind | null {
   const k = /data-ornament="([a-z-]{1,16})"/.exec(body ?? '')?.[1];
   return k && (LOGO_ORNAMENT_KINDS as readonly string[]).includes(k) ? (k as LogoOrnamentKind) : null;
+}
+
+/**
+ * Style › Ornament ▾ — the picked one's shapes and name, at a size that keeps its WEIGHT. Scale fits a layer's longer
+ * side to the frame, so at one scale a square leaf would stand three times the height of the wide flourish it replaced
+ * (walked 2026-10-18: it covered the names). The new one keeps the old one's drawn area instead (√ of the aspect ratio).
+ */
+export function swapOrnament(
+  layer: { w: number; h: number; scale: number },
+  kind: LogoOrnamentKind,
+): { name: string; body: string; w: number; h: number; scale: number } {
+  const next = ornamentBody(kind);
+  const aspect = (w: number, h: number) => Math.min(w, h) / Math.max(w, h, 1e-9);
+  const k = Math.sqrt(aspect(layer.w, layer.h) / aspect(next.w, next.h));
+  const scale = Math.min(LOGO_SCALE_MAX, Math.max(LOGO_SCALE_MIN, Number((layer.scale * k).toFixed(3))));
+  return { name: LOGO_ORNAMENT_LABEL[kind], ...next, scale };
 }

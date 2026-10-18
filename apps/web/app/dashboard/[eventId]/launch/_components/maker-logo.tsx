@@ -87,7 +87,7 @@ import {
   type LogoGlyphCut,
   type LogoLook,
 } from '@/lib/logo-layers-edit';
-import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, type LogoOrnamentKind } from '@/lib/logo-ornaments';
+import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, swapOrnament, type LogoOrnamentKind } from '@/lib/logo-ornaments';
 import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
@@ -1336,7 +1336,7 @@ export function LayerTools({
             name="Ornament"
             value={ornamentOf(layer.body)}
             options={LOGO_ORNAMENT_KINDS.map((k) => ({ key: k, label: LOGO_ORNAMENT_LABEL[k] }))}
-            onPick={(k) => onChange({ name: LOGO_ORNAMENT_LABEL[k as LogoOrnamentKind], ...ornamentBody(k as LogoOrnamentKind) })}
+            onPick={(k) => onChange(swapOrnament(layer, k as LogoOrnamentKind))}
             dataAttr="data-logo-ornament-pick"
           />
         ) : null}

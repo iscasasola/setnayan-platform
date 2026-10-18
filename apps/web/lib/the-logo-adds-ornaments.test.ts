@@ -19,7 +19,7 @@ import { join, relative } from 'node:path';
 import { stripComments } from './strip-comments';
 import { LOGO_LAYER_KINDS, defaultMotion, logoInkBox, sanitizeLogoLayers, type LogoLayer } from './logo-layers';
 import { composeLogoSvg, duplicateLayer, layersFromSaved, layerShapes, metaOf, parseLogoSvg } from './logo-layers-edit';
-import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf } from './logo-ornaments';
+import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, swapOrnament } from './logo-ornaments';
 import { sanitizeStudioSvg } from './monogram-studio-shared';
 
 const WEB = join(__dirname, '..');
@@ -117,7 +117,15 @@ test('4 · Style offers Ornament ▾ — a dropdown of all six — and a pick sw
   assert.match(row, /<ChosenRow\s+name="Ornament"/, 'Ornament is not a dropdown');
   assert.match(row, /value=\{ornamentOf\(layer\.body\)\}/, 'the dropdown does not show the ornament the layer is');
   assert.match(row, /options=\{LOGO_ORNAMENT_KINDS\.map\(/, 'the dropdown does not offer the whole set');
-  assert.match(row, /onPick=\{\(k\) => onChange\(\{ name: LOGO_ORNAMENT_LABEL\[[^\]]+\], \.\.\.ornamentBody\(/, 'a pick does not swap the shapes and the name');
+  assert.match(row, /onPick=\{\(k\) => onChange\(swapOrnament\(layer, k as LogoOrnamentKind\)\)\}/, 'a pick does not swap the shapes and the name');
+  // The swap keeps the ornament's weight: a square leaf replacing the wide flourish keeps its drawn area, not its scale.
+  const flourish = orn('ornf', 'flourish');
+  const leaf = swapOrnament(flourish, 'leaf');
+  assert.equal(leaf.name, 'Leaf');
+  assert.equal(ornamentOf(leaf.body), 'leaf');
+  const drawn = (l: { w: number; h: number; scale: number }) => { const k = (1000 / Math.max(l.w, l.h)) * l.scale; return l.w * k * l.h * k; };
+  assert.ok(Math.abs(drawn(leaf) / drawn(flourish) - 1) < 0.02, `the leaf is ${drawn(leaf) / drawn(flourish)}× the flourish's area`);
+  assert.equal(swapOrnament(orn('orns', 'star'), 'blossom').scale, 0.4, 'a square for a square changed size');
   // The kind's own control sits with the frame's, before Colour (the prototype's Style).
   assert.ok(style.indexOf('data-logo-ornament-pick') < style.indexOf('{colour}'), 'Ornament ▾ is not where Frame ▾ is');
 });

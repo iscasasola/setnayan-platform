@@ -26,7 +26,7 @@ import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO, AMBIENT_EFFECT_IS_PRO } from './amb
 import { HUB_MAIN_EFFECTS, hubMovingBackgroundIds, type HubMainEffect, type HubMainGround } from './hub-canvas';
 import { withEffect } from './background-effect';
 import { emptyHubDraft, mainEffectChange, mainGroundChange, mergeHubDraft } from './hub-draft';
-import { hubDraftProEffects } from './hub-pro-effects';
+import { hubDraftProEffects, type HubProEffect } from './hub-pro-effects';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -35,11 +35,12 @@ const E = 'app/dashboard/[eventId]/website/editor/_components';
 const liveWith = (main: HubMainGround | null) =>
   ({ events: {}, widgets: [{ widget_id: 'w-hero', widget_type: 'hero', is_always_on: true, display_order: 0, config_json: main ? { main } : {}, mode: 'auto' }] }) as never;
 const draftWith = (main: HubMainGround | null) => mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main } } } as never);
-const asked = (live: HubMainGround | null, next: HubMainGround | null, ownsPro = false) => hubDraftProEffects(draftWith(next), liveWith(live), ownsPro);
+const asked = (live: HubMainGround | null, next: HubMainGround | null, ownsPro = false): HubProEffect[] => hubDraftProEffects(draftWith(next), liveWith(live), ownsPro);
 
 const COLOUR: HubMainGround = { ground: 'none' };
 const THEME: HubMainGround = { ground: 'theme' };
 const HAZE: HubMainEffect = { kind: 'haze', intensity: 'standard' };
+const UNDERS: readonly (HubMainGround | null)[] = [null, COLOUR, THEME];
 
 /* ── (1) the line ─────────────────────────────────────────────────────── */
 
@@ -59,9 +60,9 @@ test('(1) all eight are Pro; the guest render still refuses only the six that we
 
 test('(2) each of the eight, put on by a free event, is held at Apply and named "Effect" — Pro is asked nothing', () => {
   for (const kind of HUB_MAIN_EFFECTS) {
-    for (const under of [null, COLOUR, THEME] as (HubMainGround | null)[]) {
-      const next = withEffect(under, { kind, intensity: 'standard' });
-      const free = asked(under, next);
+    for (const under of UNDERS) {
+      const next: HubMainGround = withEffect(under, { kind, intensity: 'standard' });
+      const free: HubProEffect[] = asked(under, next);
       assert.deepEqual(free.map((e) => [e.id, e.what, e.where]), [['main', 'Effect', 'Behind every scene']], `${kind} over ${JSON.stringify(under)}: Apply does not hold and name it`);
       assert.ok(free[0]!.remove, `${kind}: it cannot be taken off alone`);
       assert.deepEqual(asked(under, next, true), [], `${kind}: Pro is asked of a couple who has it`);

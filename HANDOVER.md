@@ -35,6 +35,7 @@ Maker, named at ✓ Apply; free events keep what they published):
 ## STATE (PR #6644, draft, do-not-auto-merge)
 - [x] code · fragment · guard + 6 sabotages red (S4 retune-free not run: its regex missed; queued run was stopped so it
       could not edit hub-draft.ts under the live walk)
+- [x] CI round 2: TS7022 again in the guard → explicit types (UNDERS, HubProEffect); typecheck of the file alone clean
 - [x] CI round 1 fixes: port baseline (removed `useState<HubMainEffect>`), label-contrast dark baseline (the removed
       note's ink-on-white), TS7022 in the new guard
 - [x] Found + fixed: `proOn = Boolean(makerProMark(...))` is TRUE for an OWNER ('unlocked') — so on main a Pro couple's

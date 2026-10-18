@@ -95,3 +95,19 @@ test('seating · booths and signs: a row this screen never saw is never deleted;
   assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, boothsPayload\(boothsBase\.current\)\);\s*await saveBooths\(fd\);/);
   assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, signsPayload\(signsBase\.current\)\);\s*await saveSigns\(fd\);/);
 });
+
+test('post event · saveEditorial: only the story keys THIS screen changed move, laid onto the row as it is when the write lands', () => {
+  const a = src('app/dashboard/[eventId]/story/actions.ts');
+  const save = a.slice(a.indexOf('export async function saveEditorial('), a.indexOf("revalidatePath(`/dashboard/${eventId}/story`);"));
+  assert.ok(save.length > 0, 'anti-vacuity: saveEditorial was not found');
+  assert.match(save, /const draft = buildDraft\(input\);\s*const baseDraft = baseInput \? buildDraft\(baseInput\) : null;/, 'what the screen started from is not built the same way as what it sends');
+  assert.match(save, /!baseDraft \|\| !sameValue\(baseDraft\[k\], draft\[k\]\)/, 'a key this screen did not change is still written');
+  assert.match(save, /\.from\('event_editorial'\)\.select\('draft_json'\)\.eq\('event_id', eventId\)\.maybeSingle\(\);/, 'the write is not laid onto the row as it is now');
+  assert.match(save, /for \(const k of keysOfThisSave\) \{\s*if \(k in draft\) written\[k\] = draft\[k\];\s*else delete written\[k\];\s*\}/);
+  assert.match(save, /draft_json: written,/, 'the whole draft built on the copy read at the top is still written');
+  assert.doesNotMatch(save, /draft_json: draft,/);
+  const editor = src('app/dashboard/[eventId]/story/_components/editorial-editor.tsx');
+  assert.match(editor, /const r = await saveEditorial\(eventId, sent, savedInput\.current\);/, 'the story editor sends no base');
+  assert.match(editor, /if \(savedInput\.current === null\) savedInput\.current = composeInput\(form\.audience\);/);
+  assert.match(editor, /savedInput\.current = sent;/, 'a second save is still based on the form as it first opened');
+});

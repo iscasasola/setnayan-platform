@@ -104,7 +104,8 @@ test('1 · a free couple’s draft keeps every Pro pick (the draft door strips n
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save')"), action.indexOf("if (intent === 'reset')"));
   /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
-  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch\);/);
+  /* RE-AIMED 2026-10-18 round 3 (rulings A + B): every step records who made it (`by`); the bar greys ↺ for the viewer (`me`). Same property. */
+  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch, by\);/);
   assert.doesNotMatch(save, /lookProAllows|eventCoupleWebsiteProActive|planHubDraftApply/, 'the draft save asks Pro');
 
   // …and "+ Add a scene" in the Maker is not refused at the door any more.
@@ -283,7 +284,7 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
   assert.match(drop, /const id = formData\.get\('effect'\);/);
   assert.match(drop, /hubDraftProEffects\(current, live, false\)\.find\(\(e\) => e\.id === id\)/);
   /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
-  assert.match(drop, /const remove = hubDraftProEffects\(cur \?\? emptyHubDraft\(\), live, false\)\.find\(\(e\) => e\.id === id\)\?\.remove;\s*return remove \? \{ next: mergeHubDraft\(cur \?\? emptyHubDraft\(\), remove\) \} : null;/);
+  assert.match(drop, /const remove = hubDraftProEffects\(cur \?\? emptyHubDraft\(\), live, false\)\.find\(\(e\) => e\.id === id\)\?\.remove;\s*return remove \? \{ next: mergeHubDraft\(cur \?\? emptyHubDraft\(\), remove, by\) \} : null;/);
   assert.doesNotMatch(drop, /formData\.get\('patch'\)/, 'a drop took a patch from the client');
   // The sheet sends only the id.
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
@@ -295,7 +296,8 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
 test('the bar’s list comes from the one plan, as the viewer is shown it — and is empty in the store shell', () => {
   const store = code('lib/hub-draft-store.ts');
   const load = store.slice(store.indexOf('export const loadHubDraftBarData'));
-  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);\s*if \(!storeShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
+  /* RE-AIMED 2026-10-18 round 3 (rulings A + B): every step records who made it (`by`); the bar greys ↺ for the viewer (`me`). Same property. */
+  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell, me\);\s*if \(!storeShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /const asksForPro = !storeShell && proHref !== null && proEffects\.length > 0;/);
   // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px

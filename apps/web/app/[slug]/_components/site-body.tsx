@@ -100,7 +100,8 @@ import {
   revealWaxColor,
 } from '../_lib/reveal-props';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { type StdBackground } from '@/lib/std-backgrounds';
+import { stdFilmOnMain, stdFollowLegibility } from '@/lib/std-backgrounds';
+import { themeColours } from '@/lib/theme-colours';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { OurStory, storyTabHasChapter } from './our-story';
 import { HubShell } from './hub/hub-shell';
@@ -189,11 +190,12 @@ import type { GiftPageEvent } from '../pabuya/_lib/gift-page.server';
 import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
-import { mainGroundLayerFor } from '../_lib/main-ground-layer';
+import { mainGroundLayerFor, mainGroundStillFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { isOmbreValue } from '@/lib/ombre';
+import { parseSiteBackground } from '@/lib/ombre';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -412,8 +414,6 @@ type SiteBodyProps = {
   replyWindow?: ReplyWindow;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
-  stdBackground?: StdBackground;
-  stdBackgroundUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoServeUrls
    *  — the verdict must still bind this media, SEC-6),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
@@ -611,8 +611,6 @@ export async function SiteBody({
   lifecyclePhase,
   replyWindow: repliesWindow = OPEN_REPLY_WINDOW,
   stdFilm,
-  stdBackground,
-  stdBackgroundUrl,
   stdVideoUrl,
   stdVideoPosterUrl,
   stdVenues,
@@ -841,6 +839,27 @@ export async function SiteBody({
     // 🎞 A moving background tried in the draft shows on the host's own canvas (verified host only).
     tryOn: isEditorCanvas,
   });
+  /* 🎞 THE SAVE THE DATE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08: *"Save the
+     date should adapt to the main background as well. we stay 1 design for all."*) — the picture the page wears
+     (`mainGroundStillFor`, the same resolution as the layer above, draft-overlaid for the host), else the page
+     colour; the couple's Readability kept. Resolved only when the film is drawn. */
+  const filmGround = stdFilm
+    ? stdFilmOnMain({
+        still: await mainGroundStillFor({
+          theme: sceneTheme,
+          heroConfig: heroRow?.config_json,
+          event,
+          viewerIsHost,
+          signed: canvasMediaUrls,
+          tryOn: isEditorCanvas,
+        }),
+        pageColour: (() => {
+          const bg = parseSiteBackground(event.site_bg_color);
+          return bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : themeColours(sceneTheme, event.role_palette).colours.canvas;
+        })(),
+        legibility: stdFollowLegibility(event.std_background),
+      })
+    : null;
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
@@ -1605,8 +1624,8 @@ export async function SiteBody({
         animatedMonogram={animatedMonogram}
         studioAnim={studioAnim}
         film={stdFilm}
-        background={stdBackground}
-        backgroundImageUrl={stdBackgroundUrl}
+        background={filmGround?.background}
+        backgroundImageUrl={filmGround?.imageUrl ?? null}
         monogramText={event.monogram_text}
         monogramSvg={bespokeSvg}
         lockup={stdLockupFor(event)}

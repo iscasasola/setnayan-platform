@@ -90,6 +90,13 @@ const NO_GRANT_NEEDED = new Set([
   'honoree_label',
   'honoree_dependent_id',
 
+  // ── 🎞 A SERVICE-ROLE COPY, read by nothing (Look restudy row 6, 2026-10-18) ──
+  // The Save the Date film's own background, copied verbatim the day the film
+  // started wearing the main background (20271277600211); kept 30 days, then
+  // dropped. No user session reads or writes it — granting it would only
+  // expose an old value.
+  'std_background_retired',
+
   // ── ✅ THE 2026-08-15 BILL IS PAID — every line below was CHECKED ──────────
   // That list said: "Whether each is a live defect depends on whether its
   // feature reads it through the cookie-scoped client or only through

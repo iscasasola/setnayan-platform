@@ -312,8 +312,11 @@ test('(6) Shade ▾ is gone from the Studio’s Background: ONE fade bar on a pi
   assert.match(studio, /data-bg-candlelight-off=""\s*onClick=\{\(\) => pickLook\(\{ events: \{ site_art_direction: 'daylight' \} \}, FAILED\)\}/, 'a stored Candlelight cannot be turned off (an absent field would leave it on)');
   assert.ok(studio.indexOf('data-bg-kept="candlelight"') < studio.indexOf('{active ? ('), 'the Candlelight line shows only on the stored source');
   assert.match(panel, /fd\.set\('patch', JSON\.stringify\(backgroundWritePatch\(write\)\)\);\s*return draft\(eventId, fd\);/, 'a pick is more than one draft save');
-  // Blur · Focus · Motion keep their rows where they mean something — each a list that OPENS (a ▾ never cycles).
-  for (const attr of ['data-studio-blur-pick', 'data-studio-focus-pick', 'data-main-ground-motion-pick']) assert.ok(studio.includes(`dataAttr="${attr}"`), `${attr} is gone`);
+  // Focus keeps its row where it means something — a list that OPENS (a ▾ never cycles). 🌄 Parallax and Blur moved
+  // into the Effects block's "The picture" (Look restudy row 8): no Motion or Blur row of their own here any more.
+  assert.ok(studio.includes('dataAttr="data-studio-focus-pick"'), 'data-studio-focus-pick is gone');
+  assert.doesNotMatch(studio, /data-main-ground-motion-pick|label="Motion"|dataAttr="data-studio-blur-pick"/, 'Motion or Blur is drawn twice — as its own row AND in Effects');
+  assert.match(read(`${E}/background-effects.tsx`), /dataAttr="data-studio-blur-pick"/, 'Blur ▾ is gone');
 });
 
 /* ── (7) each control once ────────────────────────────────────────────── */

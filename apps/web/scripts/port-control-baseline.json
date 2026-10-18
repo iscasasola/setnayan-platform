@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e8d26bb367",
-  "routeCount": 447,
-  "destinations": 992,
+  "generatedFromRef": "5ce498d0ad",
+  "routeCount": 448,
+  "destinations": 993,
   "actions": 664,
-  "blocks": 6589,
+  "blocks": 6598,
   "routes": {
     "/": {
       "files": [
@@ -5474,7 +5474,6 @@
         "dashboard/[eventId]/_components/services-covered-picker.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
-        "dashboard/[eventId]/_components/std-background-picker.tsx",
         "dashboard/[eventId]/_components/std-media-picker.tsx",
         "dashboard/[eventId]/_components/supplier-connect-panel.tsx",
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
@@ -5490,6 +5489,7 @@
         "dashboard/[eventId]/nikah-actions.ts",
         "dashboard/[eventId]/page.tsx",
         "dashboard/[eventId]/pakanta-actions.ts",
+        "dashboard/[eventId]/switch-on-actions.ts",
         "dashboard/[eventId]/template.tsx",
         "dashboard/[eventId]/wizard-actions.ts"
       ],
@@ -5501,6 +5501,7 @@
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/details",
+        "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/tea-ceremony",
@@ -6853,6 +6854,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/post-event-edit.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/post-event-shown.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/scene-photos.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-arrange.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/stage-background.tsx",
@@ -7255,6 +7257,8 @@
         "SaveWords",
         "SceneDragHost",
         "SceneDragWired",
+        "ScenePhotoRow",
+        "ScenePhotoSheet",
         "SceneTemplatePicker",
         "ScheduleMatrix",
         "ScheduleSlots",
@@ -9188,7 +9192,6 @@
         "SchedulePicker",
         "StdBackground",
         "StdBackgroundLayer",
-        "StdBackgroundPicker",
         "StdBuilderClient",
         "StdFilmContent",
         "StdMedia",
@@ -10016,7 +10019,6 @@
         "LookSample",
         "LoopPicture",
         "LoveStoryChaptersPanel",
-        "MagicMovePick",
         "MainBackgroundPanel",
         "MakerHalfSheet",
         "MakerHeroPanel",
@@ -10110,6 +10112,7 @@
         "SubmitButton",
         "Swatch",
         "SwitchRow",
+        "SwitchTrack",
         "T",
         "TextPanel",
         "Thumb",
@@ -10771,6 +10774,17 @@
       "actions": [],
       "blocks": []
     },
+    "/dev/onboarding-lab": {
+      "files": [
+        "dev/onboarding-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "GenericOnboarding",
+        "SimpleSetupFlow"
+      ]
+    },
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/page.tsx",
@@ -11343,12 +11357,15 @@
       "actions": [],
       "blocks": [
         "DateCalendar",
+        "EventNeeds",
         "Eyebrow",
         "Field",
         "GenericOnboarding",
         "HTMLDivElement",
         "ItemInput",
         "Link",
+        "NeedPreset",
+        "NeedsStep",
         "OpenMultiselect",
         "Roster",
         "ServicesStep",
@@ -11377,8 +11394,11 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "EventNeeds",
         "HTMLDivElement",
         "Link",
+        "NeedPreset",
+        "NeedsStep",
         "Paced",
         "PapicStepFields",
         "ServicesStep",

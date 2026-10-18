@@ -286,3 +286,21 @@ export function sanitizeStdFollowTheme(raw: unknown): StdFollowTheme | null | un
   if (!stdFollowsTheme(raw) || raw === undefined) return undefined;
   return stdFollowTheme(stdFollowLegibility(raw));
 }
+
+/**
+ * 🎞 THE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08: *"Save the date should adapt
+ * to the main background as well. we stay 1 design for all."*). The film no longer keeps a background of its own
+ * (`events.std_background` holds only "follows" + its Readability since migration 20271277600211): it is handed the
+ * main background's picture (`mainGroundStillFor`, `app/[slug]/_lib/main-ground-layer.tsx`) — or, with no picture,
+ * the page colour — and keeps the couple's Readability over it. `value` is not a ref: the picture is `imageUrl`.
+ *
+ * Pure. Held by `lib/the-film-wears-the-main-background.test.ts`.
+ */
+export function stdFilmOnMain(input: { still: string | null; pageColour: string; legibility: StdLegibility }): {
+  background: StdBackground;
+  imageUrl: string | null;
+} {
+  if (input.still) return { background: { kind: 'upload', value: 'main-background', legibility: input.legibility }, imageUrl: input.still };
+  const colour = /^#[0-9a-fA-F]{3,8}$/.test(input.pageColour) ? input.pageColour : DEFAULT_PLAIN_COLOR;
+  return { background: { kind: 'plain', value: colour, legibility: input.legibility }, imageUrl: null };
+}

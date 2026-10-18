@@ -221,7 +221,6 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           tour: false,
           chosen: mj || !fresh,
           // maria-and-jose's film keeps a picked background (plain #e8d9bd).
-          filmOwnBackground: mj,
         }}
         prints={{
           eventId: EVENT,

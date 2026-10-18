@@ -1569,14 +1569,19 @@ export function hubMainEffect(m: HubMainGround | null | undefined): HubMainEffec
   return m?.effect ?? null;
 }
 
-/** The extras a footage ground carries. */
-export type HubMainLook = { shade?: HubMainShadeValue; blur?: HubMainBlur; focus?: HubMainFocus };
+/**
+ * The extras a footage ground carries. 🌄 `motion: 'parallax'` joined them (Look restudy row 8, owner 2026-10-08:
+ * *"parallax is an effect also"*): every picture moves on the shipped page-scroll parallax — a scene still, a video
+ * of ours, the couple's clip, the cover — not only an own photo.
+ */
+export type HubMainLook = { shade?: HubMainShadeValue; blur?: HubMainBlur; focus?: HubMainFocus; motion?: 'parallax' };
 
 function readMainLook(src: Record<string, unknown>, allow: { focus: boolean }): HubMainLook {
   const out: HubMainLook = {};
   const shade = sanitizeHubMainShade(src.shade);
   if (shade !== undefined) out.shade = shade;
   if (typeof src.blur === 'string' && (HUB_MAIN_BLURS as readonly string[]).includes(src.blur)) out.blur = src.blur as HubMainBlur;
+  if (src.motion === 'parallax') out.motion = 'parallax';
   if (allow.focus && typeof src.focus === 'string' && (HUB_MAIN_FOCUSES as readonly string[]).includes(src.focus)) {
     out.focus = src.focus as HubMainFocus;
   }
@@ -1586,8 +1591,8 @@ function readMainLook(src: Record<string, unknown>, allow: { focus: boolean }): 
 /** The extras of a stored main background (none for a colour, a pattern or the theme's own). */
 export function hubMainLook(m: HubMainGround | null | undefined): HubMainLook {
   if (!m || ('ground' in m && m.ground !== 'loop')) return {};
-  const { shade, blur, focus } = m as HubMainLook;
-  return { ...(shade ? { shade } : {}), ...(blur ? { blur } : {}), ...(focus ? { focus } : {}) };
+  const { shade, blur, focus, motion } = m as HubMainLook;
+  return { ...(shade ? { shade } : {}), ...(blur ? { blur } : {}), ...(focus ? { focus } : {}), ...(motion === 'parallax' ? { motion } : {}) };
 }
 
 /** Can this main background take Shade · Blur (footage), and Focus (their own photo or clip, the cover)? */
@@ -1624,9 +1629,9 @@ export type HubMainOwn = HubMainLook & HubMainFx & {
   /** The adaptive theme: "Match my video's colours" and the frame it follows. */
   tint?: HubTint;
   /**
-   * 🌄 Still (absent) or Parallax — a PHOTO only, on the shipped hero parallax
-   * (`PahinaCoverParallax`, page-scroll mode for this fixed layer). Pro, like
-   * the photo it moves.
+   * 🌄 Still (absent) or Parallax — on the shipped hero parallax (`PahinaCoverParallax`, page-scroll mode for this
+   * fixed layer). A photo OR a clip since the Look restudy row 8 (read by `readMainLook`, like every picture's). Pro,
+   * like the picture it moves.
    */
   motion?: 'parallax';
 };
@@ -1718,7 +1723,8 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (poster) out.poster = poster;
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
-  if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
+  /* 🌄 A photo OR a clip (Look restudy row 8) — set here so the stored shape keeps its key order. */
+  if (src.motion === 'parallax') out.motion = 'parallax';
   return { ...out, ...readMainLook(src, { focus: true }), ...fx };
 }
 
@@ -1747,7 +1753,7 @@ export type ResolvedMainGround = {
   /** The same clip for a GUEST — null when the guest gate (`guestClipGate`) holds it back. */
   guestClipRef: string | null;
   tint: HubTint | null;
-  /** 🌄 Parallax on the couple's own photo. */
+  /** 🌄 Parallax on the picture — their photo or clip, a scene, the cover, a video of ours (Look restudy row 8). */
   parallax?: boolean;
   /** 🌄 Shade · Blur · Focus (owner 2026-10-06/07) — absent = as it always was. */
   look?: HubMainLook;
@@ -1795,6 +1801,7 @@ export function resolveMainGround(
     clipRef: hero.videoRef,
     guestClipRef: hero.videoRef ? guestClipGate(hero.videoRef) : null,
     tint: main.tint,
+    ...(main.motion === 'parallax' ? { parallax: true } : {}),
     ...withLook(main),
   };
 }

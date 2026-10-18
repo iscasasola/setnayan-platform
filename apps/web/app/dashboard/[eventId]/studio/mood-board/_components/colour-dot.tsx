@@ -20,11 +20,6 @@ export const DOT_WORD = '-mt-1 max-w-[64px] text-center text-[10.5px] leading-ti
 /** The colour's name under a main colour's slot word (prototype `.dotcol small.name`): the same type, quieter. */
 export const DOT_NAME = 'max-w-[64px] text-center text-[10.5px] leading-tight text-ink/50';
 
-/** The circle, without the button (the one drawing of it). */
-function Circle({ colour, tight }: { colour: string; tight: boolean }) {
-  return <i aria-hidden className={`${tight ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: colour }} />;
-}
-
 /**
  * 🎨 THE ROLE'S COLOUR CIRCLE — the one hand-made button for a colour a role wears (a zone's dot, a guest's option, a
  * pick's colour): tap it to change the colour. 44 px to the finger, the colour on the circle inside.
@@ -32,7 +27,7 @@ function Circle({ colour, tight }: { colour: string; tight: boolean }) {
 export function RoleColourDot({ label, colour, index, onPick, tight = false }: { label: string; colour: string; index: number; onPick: () => void; tight?: boolean }) {
   return (
     <button type="button" aria-label={label} data-mood-board-role-colour={index} onClick={onPick} className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${tight ? '-my-1' : ''}`}>
-      <Circle colour={colour} tight={tight} />
+      <i aria-hidden className={`${tight ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: colour }} />
     </button>
   );
 }
@@ -48,7 +43,7 @@ export function NamedColourDot({ label, colour, name, onPick, data, slot }: { la
         <RoleColourDot label={label} colour={colour} index={0} onPick={onPick} />
       ) : (
         <span role="img" aria-label={label} className="inline-flex h-11 w-11 items-center justify-center" data-mood-board-colour-shown="">
-          <Circle colour={colour} tight={false} />
+          <i aria-hidden className="h-7 w-7 rounded-full border border-ink/10" style={{ background: colour }} />
         </span>
       )}
       {slot ? (

@@ -107,7 +107,7 @@ const PARTY: Row[] = [
  * the first `useState('colours')` of the render is answered with the tab asked for — the component's
  * own code draws everything else.
  */
-async function drawn(tab: 'colours' | 'attire' | 'insp' | 'dos', attire: readonly Row[]): Promise<string> {
+async function drawn(tab: 'colours' | 'attire' | 'dos', attire: readonly Row[]): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MoodBoardStudio } = await import(`../${MB}/_components/mood-board-studio`);
   const R = require('react') as { useState: (init: unknown) => unknown };
@@ -183,17 +183,23 @@ test('1 · the four are stored slots, each on the trades that dress those people
 test('2 · the migration widens BOTH slot gates by exactly the four — and the app’s list is the gates’', () => {
   const before = sql('_studio_missing_fields.sql');
   const ours = sql('_attire_boards_four_more_slots.sql');
+  /* RE-AIMED 2026-10-19: the Palette's five parts with photos widened both gates again
+     (`20271278232574_palette_parts_five_more_slots.sql`, held by `the-palette-holds-the-boards.test.ts`) — so the app's
+     list is THAT file's, which is this file's plus exactly those five. */
+  const latest = sql('_palette_parts_five_more_slots.sql');
+  const FIVE_PARTS = ['chairs', 'ribbons_candles', 'lights', 'entourage_bouquets', 'flower_accents'];
   for (const gate of ['ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3', 'ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape']) {
     assert.deepEqual(listed(ours, gate), [...listed(before, gate), ...FOUR], `${gate}: not the latest list plus exactly the four`);
-    assert.deepEqual([...listed(ours, gate)].sort(), [...MOODBOARD_SLOT_KEYS].sort(), `${gate}: the app and the database disagree`);
+    assert.deepEqual(listed(latest, gate), [...listed(ours, gate), ...FIVE_PARTS], `${gate}: the next widening is not this list plus exactly the five`);
+    assert.deepEqual([...listed(latest, gate)].sort(), [...MOODBOARD_SLOT_KEYS].sort(), `${gate}: the app and the database disagree`);
   }
   /* Idempotent, additive, and nothing but the two CHECKs. */
   const body = ours.replace(/--.*$/gm, '');
   assert.equal((body.match(/DROP CONSTRAINT IF EXISTS/g) ?? []).length, 2, 'a CHECK is re-added without being dropped first (not idempotent)');
   assert.doesNotMatch(body, /\b(?:UPDATE|DELETE|INSERT|TRUNCATE|DROP TABLE|DROP COLUMN|ADD COLUMN|CREATE TABLE|GRANT|REVOKE|CREATE POLICY)\b/, 'the migration does more than widen two CHECKs');
-  /* It is the LATEST word on both gates. */
+  /* The palette parts' file is the LATEST word on both gates. */
   const later = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
-  const mine = later.findIndex((f) => f.endsWith('_attire_boards_four_more_slots.sql'));
+  const mine = later.findIndex((f) => f.endsWith('_palette_parts_five_more_slots.sql'));
   for (const f of later.slice(mine + 1)) {
     assert.doesNotMatch(readFileSync(join(MIGRATIONS, f), 'utf8').replace(/--.*$/gm, ''), /event_inspiration_assets_slot_key_check|moodboard_library_assets_supplier_gallery_shape/, `${f} re-lists a slot gate after this one — point this test at it`);
   }
@@ -242,8 +248,8 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
   assert.deepEqual(boardOrder(rowOf('bridesmaids')), ['bridesmaids']);
   assert.deepEqual(boardOrder(rowOf('groomsmen')), ['groomsmen']);
   assert.deepEqual(boardOrder(rowOf('bearers_flower_girl')), ['flower_girl', 'ring_bearer']);
-  /* …and Inspiration draws none of them: an attire board lives in Attire only. */
-  const insp = await drawn('insp', [...COUPLE, GUESTS]);
+  /* …and Palette (where Inspiration's boards sit since 2026-10-19) draws none of them: an attire board lives in Attire only. */
+  const insp = await drawn('colours', [...COUPLE, GUESTS]);
   for (const [slot] of SEVEN) assert.doesNotMatch(insp, new RegExp(`data-mood-board-slot="${slot}"`), `Inspiration also draws the ${slot} board`);
   /* The board IS the shipped one — its ＋ and its search are the two the other boards use. */
   const src = read(`${MB}/_components/mood-board-studio.tsx`);
@@ -255,7 +261,7 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
 /* ── 4 ─────────────────────────────────────────────────────────────────────── */
 
 test('4 · the ＋ can open the file picker from Attire: the one file input is mounted on every tab', async () => {
-  for (const tab of ['colours', 'attire', 'insp', 'dos'] as const) {
+  for (const tab of ['colours', 'attire', 'dos'] as const) {
     const out = await drawn(tab, [...COUPLE, GUESTS]);
     const inputs = out.match(/<input[^>]*type="file"[^>]*>/g) ?? [];
     assert.equal(inputs.length, 1, `on the ${tab} tab there ${inputs.length === 0 ? 'is no file input — a board’s ＋ opens nothing' : 'are several file inputs'}`);

@@ -160,7 +160,7 @@ test('5 · the full-screen surface: green switches, edge to edge, Look full widt
 
 test('6 · Attire: every colour a role wears is a button that opens the SAME picker, drafts the change, and can be removed', () => {
   const src = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
-  const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'insp' ? ("));
+  const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'dos' ? ("));
   assert.doesNotMatch(attire, /<i key=\{i\} aria-label=\{c\}/, 'a role’s colour is still a static dot (owner: “the palettes can still be changed to colors manually”)');
   /* RE-AIMED 2026-10-14 (two picks): the first pick's dot opens the role's colour; the second's, its own (`second-colour`). */
   /* RE-AIMED 2026-10-16 (per-role attire): every dot is the one `RoleColourDot` (a zone's, a guest option's, a pick's). */

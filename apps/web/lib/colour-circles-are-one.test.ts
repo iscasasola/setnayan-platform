@@ -7,12 +7,12 @@
  *   1 · ONE component: `RoleColourDot` / `NamedColourDot` live in `colour-dot.tsx`; the Studio defines no circle of its own.
  *   2 · the Palette: every colour (the five · the room · the flowers) is that circle — no colour code, no dropdown arrow,
  *       no pill — with the colour's NAME under it (`nearestColorName`) and nothing when it has none.
- *   3 · every Palette colour can be changed (the one picker): a part with its own colour sets it, a part that only follows
- *       a main colour opens THAT main colour's picker; only a part a supplier agreed is shown, not a button.
+ *   3 · every Palette colour can be changed (the one picker) — every part has its own colour since 2026-10-19 (owner:
+ *       "yes all circles"); only a part a supplier agreed is shown, not a button.
  *   4 · the word under a Palette circle is in the Attire dots' own type (`DOT_WORD`) — the two can never drift apart.
  *
  * Sabotaged, seen red, restored (see the commit): the hex back on a row → 2 · a circle drawn inline in the Studio → 1 ·
- * the follow-only parts back to shown-only → 3 · the Attire word's class changed → 4.
+ * a part's circle back to shown-only → 3 · the Attire word's class changed → 4.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { nearestColorName } from './color-names';
-import { FLORIST_LANE_PARTS, ROOM_LANE_PARTS } from './colour-access';
+import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS } from './colour-access';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -71,7 +71,7 @@ function circles(html: string): Map<string, string> {
   for (const m of html.matchAll(/<span class="flex flex-col items-center" data-mood-board-colour="([^"]+)">/g)) {
     const rest = html.slice(m.index! + m[0].length);
     /* The wrapper holds a button (or the shown span) with one <i>, then at most one <small>. */
-    const end = /^(?:<button[^>]*><i[^>]*><\/i><\/button>|<span role="img"[^>]*><i[^>]*><\/i><\/span>)(?:<small[^>]*>[^<]*<\/small>)?<\/span>/.exec(rest);
+    const end = /^(?:<button[^>]*><i[^>]*><\/i><\/button>|<span role="img"[^>]*><i[^>]*><\/i><\/span>)(?:<small[^>]*>[^<]*<\/small>){0,2}<\/span>/.exec(rest);
     assert.ok(end, `${m[1]}: the circle is not the colour-dot component's markup`);
     out.set(m[1]!, end[0]);
   }
@@ -87,13 +87,13 @@ test('1 · ONE circle: the Studio draws the colour-dot component and defines no 
   assert.doesNotMatch(studio, /function (?:RoleColourDot|NamedColourDot|ColourPill)\b/, 'the Studio defines a colour circle of its own');
   /* The only colours the Studio paints itself: the supplier change's small dots and the photos' strips (drawings, not controls). */
   assert.equal((studio.match(/style=\{\{ background:/g) ?? []).length, 3, 'the Studio paints a colour of its own — draw the one circle');
-  assert.equal((studio.match(/<button\b/g) ?? []).length, 1, 'a hand-made button in the Studio (the ＋ photo tile is the only one)');
+  assert.equal((studio.match(/<button\b/g) ?? []).length, 0, 'a hand-made button in the Studio (a colour is the one circle in colour-dot.tsx; a photo’s ＋ is the ActionButton)');
 });
 
 test('2 · the Palette: every colour is the circle with its NAME under it — no code, no arrow, no pill', async () => {
   const html = await palette();
   const all = circles(html);
-  const expected = ['main-0', 'main-1', 'main-2', 'main-3', 'main-4', ...[...ROOM_LANE_PARTS, ...FLORIST_LANE_PARTS].map((p) => `part-${p.label.replace(/&/g, '&amp;')}`)];
+  const expected = ['main-0', 'main-1', 'main-2', 'main-3', 'main-4', ...[...ROOM_LANE_PARTS, ...FLORIST_LANE_PARTS, ...CAKE_LANE_PARTS].map((p) => `part-${p.label.replace(/&/g, '&amp;')}`)];
   assert.deepEqual([...all.keys()].sort(), [...expected].sort(), 'a Palette colour is not the one circle');
   /* No colour code anywhere in the Palette's words (a code inside an attribute — the circle's own paint — is not a word). */
   const words = html.replace(/<[^>]*>/g, ' ');
@@ -117,9 +117,9 @@ test('3 · every Palette colour can be changed — only a supplier-agreed part i
       assert.match(c, /<button[^>]*data-mood-board-role-colour=/, `${k} cannot be changed (owner: "all colors can be edited on palette")`);
     }
   }
-  const studio = read(STUDIO);
-  assert.match(studio, /target: p\.field \? \{ kind: 'part', part: p \} : \{ kind: 'follows', part: p \}/, 'a part that follows a main colour does not open it');
-  assert.match(studio, /if \(t\.kind === 'follows'\) \{[\s\S]*?onPick: \(h: string\) => pickMain\(t\.part\.follows, h\)/, 'the follows sheet does not change the main colour it names');
+  const { CAKE_LANE_PARTS: cake, FLORIST_LANE_PARTS: flowers, ROOM_LANE_PARTS: room } = await import('./colour-access');
+  for (const p of [...room, ...flowers, ...cake]) assert.ok(p.field, `${p.label} has no colour of its own to set`);
+  assert.match(read(STUDIO), /onPick=\{frozen \? undefined : \(\) => setSheet\(\{ kind: 'picker', target: \{ kind: 'part', part: p \} \}\)\}/, 'a part’s circle does not open its own picker');
 });
 
 test('4 · the word under a Palette circle is in the Attire dots’ own type', () => {
@@ -130,5 +130,6 @@ test('4 · the word under a Palette circle is in the Attire dots’ own type', (
   const attireWords = [...attire.matchAll(/<small className="([^"]+)" data-mood-board-dot-word=/g)].map((m) => m[1]);
   assert.ok(attireWords.length >= 3, `the Attire dots lost their words (${attireWords.length})`);
   for (const w of attireWords) assert.equal(w, word, 'an Attire dot’s word and a Palette circle’s word are in different type');
-  assert.match(dot, /<small className=\{DOT_WORD\} data-mood-board-dot-word=\{name\}>/, 'the Palette circle’s word is not DOT_WORD');
+  assert.match(dot, /<small className=\{slot \? DOT_NAME : DOT_WORD\} data-mood-board-dot-word=\{name\}>/, 'a part’s circle word is not DOT_WORD');
+  assert.match(dot, /<small className=\{DOT_WORD\} data-mood-board-dot-slot=\{slot\}>/, 'a main colour’s slot word is not DOT_WORD');
 });

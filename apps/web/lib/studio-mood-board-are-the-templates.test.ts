@@ -8,8 +8,8 @@
  *   ✨ Auto · Compare · Use as my five main colours ·
  *   Use for … · Keep · Undo it · Search ideas ·
  *   Add another · Remove (a row) · Make more           → Action button (`ActionButton`; one filled forward step per row)
- *   a main colour · a room part · a flower part        → Form row (`FormRow`) with the ONE colour circle (`colour-dot.tsx`, the Attire
- *                                                        dot — owner 2026-10-19 "just the circle like attire") that opens the ONE picker
+ *   a main colour · a room / flower / cake part        → the ONE colour circle (`colour-dot.tsx`, the Attire dot — owner 2026-10-19
+ *                                                        "just the circle like attire"), a part in an Attire-shaped block, that opens the ONE picker
  *   a supplier's suggested change                      → Form row (a notice) + Action buttons
  *   what to wear (per role)                            → Dropdown (`ChosenRow` over `PickMenu`)
  *   Upload your own photos — which part?               → Dropdown (`ChosenRow`)
@@ -77,7 +77,12 @@ const base = {
   ],
   dressConfig: { roles: {} },
   attireStyles: [{ key: 'long_gown', label: 'Long gown' }],
-  inspirations: [{ slot_key: 'flowers', slot_position: 1, image_url: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', credit: null, swatches: ['#C99A9A'] }],
+  inspirations: [
+    { slot_key: 'flowers', slot_position: 1, image_url: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', credit: null, swatches: ['#C99A9A'] },
+    /* Venue & decor's photo feeds Your main palette (2026-10-19), Table linens' its own block. */
+    { slot_key: 'overall', slot_position: 1, image_url: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', credit: null, swatches: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'] },
+    { slot_key: 'table', slot_position: 1, image_url: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', credit: null, swatches: ['#4F7D2A'] },
+  ],
   autoThemes: [],
   regions: [],
   dosLists: { dos: ['Lean into the palette'], donts: ['No white', 'No jeans'], incStarter: true },
@@ -92,8 +97,9 @@ const STATES = async () => ({
   paletteQuiet: await page({ startTab: 'colours', changes: [] }),
   attire: await page({ startTab: 'attire' }),
   attireNoDress: await page({ startTab: 'attire', dressConfig: null }),
-  insp: await page({ startTab: 'insp' }),
-  inspNoPhotos: await page({ startTab: 'insp', inspirations: [] }),
+  /* RE-AIMED 2026-10-19 (owner: Palette and Inspiration are one list): the boards are drawn in Palette. */
+  insp: await page({ startTab: 'colours' }),
+  inspNoPhotos: await page({ startTab: 'colours', inspirations: [] }),
   dos: await page({ startTab: 'dos' }),
   dosNoLook: await page({ startTab: 'dos', dosLookCanvas: null }),
   dosUnread: await page({ startTab: 'dos', dosLists: null }),
@@ -112,12 +118,17 @@ test('1 · every button is a template’s: the action button, the Form row’s p
   /* the action buttons are the ONE ActionButton (the markup class), with a tone */
   assert.ok(count(s.palette, /class="ab ab-neutral/g) >= 3, 'Auto · Keep · Undo it are not the one ActionButton');
   assert.match(s.palette, /data-mood-board-auto=""><button[^>]*class="ab ab-neutral/, '✨ Auto is not the ActionButton');
-  assert.match(s.insp, /class="ab ab-brand ab-main"[^>]*data-main=""><svg[\s\S]*?<span class="lbl">Use as my five main colours/, 'the one filled forward step is not the main ActionButton');
-  assert.equal(count(s.insp, /data-main=""/g), 1, 'more than one filled forward step on a screen');
+  /* RE-AIMED 2026-10-19 (prototype `palette_inspiration_one_list_2026-10-19.html` frame 3): a photos line's colours are
+     OFFERED (the neutral ActionButton) — "Use as my five main colours" under Venue & decor, "Use for Table linens" under its
+     own photos — and the Palette has no filled step of its own. */
+  assert.match(s.insp, /data-mood-board-use-slot="overall"[^>]*><button[^>]*class="ab ab-neutral[\s\S]*?<span class="lbl">Use as my five main colours/, 'Venue & decor’s photos do not offer the five');
+  assert.match(s.insp, /data-mood-board-use-slot="table"[^>]*><button[^>]*class="ab ab-neutral[\s\S]*?<span class="lbl">Use for Table linens/, 'a part’s photos do not offer it their colour');
+  assert.doesNotMatch(s.inspNoPhotos, /data-mood-board-use-slot=/, 'an offer is drawn with no photos to read it from');
+  assert.ok(count(s.insp, /data-main=""/g) <= 1, 'more than one filled forward step on a screen');
   const src = read(STUDIO);
   assert.doesNotMatch(src, /STUDIO_AUTO_BUTTON|STUDIO_SAVED_PILL|InfoTip/, 'an old hand-made strip is back');
   /* RE-AIMED 2026-10-19: the colour pill is gone and the role's circle moved to `colour-dot.tsx` (held by colour-circles-are-one). */
-  assert.equal((src.match(/<button\b/g) ?? []).length, 1, 'a hand-made button beside the templates (the ＋ tile is the only one; a colour is the one circle in colour-dot.tsx)');
+  assert.equal((src.match(/<button\b/g) ?? []).length, 0, 'a hand-made button beside the templates (a colour is the one circle in colour-dot.tsx; a photo’s ＋ is the ActionButton)');
   assert.match(read(AUTO), /<ActionButton tone="neutral" icon=\{Sparkles\} label="Make more"/, 'Make more is not the ActionButton');
   assert.doesNotMatch(read(DOS), /<button\b/, 'the lists draw a hand-made button');
 });
@@ -138,8 +149,10 @@ test('2 · nothing is typed in a bare input, textarea or select — the do’s a
 
 test('3 · the colours, the outfits and the lists are Form rows in lists with the one hairline', async () => {
   const s = await STATES();
-  assert.equal(count(s.palette, /data-form-rows="mood-board-(?:five|room|flowers)"/g), 3, 'the colours are not three lists of rows');
-  assert.equal(count(s.palette, /data-mood-board-colour="main-\d"/g), 5, 'the five main colours are not five tappable colour rows');
+  /* RE-AIMED 2026-10-19 (owner: "make it look like attire"): the room, the flowers and the cake are Attire-shaped blocks
+     (one per part, a hairline between), and the five are one row of the one circle. */
+  assert.equal(count(s.palette, /<section[^>]*data-mood-board-part="/g), 13, 'the room, flower and cake parts are not one block each');
+  assert.equal(count(s.palette, /data-mood-board-colour="main-\d"/g), 5, 'the five main colours are not five circles');
   assert.ok(count(s.palette, /data-mood-board-colour="part-/g) >= 8, 'the room and flower parts are not rows');
   /* RE-AIMED 2026-10-19 (owner: "all colors can be edited on palette"): a part that only follows a main colour opens THAT
      main colour's picker; only one a supplier agreed (here the florist's Centrepieces) is shown, never tappable. */
@@ -177,7 +190,9 @@ test('5 · no colour of the page’s own on a control — the accent is the toke
   /* No literal colour at all: the figure (the one drawing that had one, its skin tone) is the shared `RoleFigure` since 2026-10-14. */
   const hexes = [...read(STUDIO).matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0]);
   assert.deepEqual(hexes, [], 'a hex colour is written on the page');
-  assert.match(read(STUDIO), /text-sn-accent/, 'the page’s marks are not the accent token');
+  /* RE-AIMED 2026-10-19: the page's one accent mark (the ＋ photo tile) went with the Inspiration section — a photo's ＋ is
+     the ActionButton now; so the page draws NO mark of its own, which is what this rule asks. */
+  assert.doesNotMatch(read(STUDIO), /text-(?!sn-accent\b)(?:accent|brand)\b/, 'a mark of the page’s own that is not the accent token');
 });
 
 test('6 · a result is the top toast (Undo is its action); a failure is a line on the page in plain words — no strip of the page’s own', () => {

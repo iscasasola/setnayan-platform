@@ -216,7 +216,7 @@ export function MakerShell({
   /**
    * 🖥 …ON A DESKTOP TOO, in three columns (`makerDesktopColumnsEnabled`, resolved once by the launch page;
    * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`, all "A"). From `lg` the new Maker is drawn instead of the old
-   * one: the shell wears `data-maker-desk` and its layout is `MakerDesk` (`maker-desk.tsx`, mounted by the lazy
+   * one: the lazy `MakerDesk` marks the shell `data-maker-desk` and lays it out (`maker-desk.tsx`, mounted by the lazy
    * Stages | Studio switch — no byte of it in the Maker's first load). A phone is
    * the same either way. False: a desktop draws the shipped Maker exactly.
    */
@@ -322,9 +322,8 @@ export function MakerShell({
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
+  /* 🖥 …and on a desktop's width when its three columns are on (`MakerDesk`, lazy: it marks the shell itself). */
   const ss = stagesStudio && (phone || desktopColumns);
-  /** 🖥 The new Maker on a desktop's width — its three columns (`MakerDesk`). */
-  const desk = ss && !phone;
   const studioOn = ss && side === 'studio';
   const studioHomeOn = studioOn && studioAt === 'home';
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
@@ -626,17 +625,16 @@ export function MakerShell({
       setTool,
       /* 🧭 A Studio tool full screen is not a lower-third tool: its editor opens at once, beside nothing. */
       /* 🖥 A desktop's tools column IS the lower third: its tools say they are open, as on a phone. */
-      lowerThird: (phone || desk) && !studioCovers,
+      lowerThird: (phone || ss) && !studioCovers,
       ltNav: studioCovers ? null : ltNav,
       eventBar,
       setEventBar,
       setLtWhere,
       stagesStudio: ss,
-      desk,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, desk],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -920,7 +918,7 @@ export function MakerShell({
     selection?.kind === 'scene' ||
     (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event'].includes(selection.key)) ||
     (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'));
-  const bothView = desk ? null : (makerViewOptions(wide).find((o) => o.key === 'both') ?? null);
+  const bothView = makerViewOptions(wide).find((o) => o.key === 'both') ?? null;
 
   /* 🎨 LOOK · 🗂 EVENT DETAILS — the desktop's top bar (on a phone: the lower
      third's Theme and Details, owner 2026-10-05). */
@@ -1061,7 +1059,6 @@ export function MakerShell({
            (the effect above). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
         className="fixed inset-x-0 top-0 z-[80] flex h-[100dvh] flex-col bg-cream text-ink"
         data-maker-shell=""
-        data-maker-desk={desk ? '' : undefined}
         data-maker-studio-full={studioFull ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */

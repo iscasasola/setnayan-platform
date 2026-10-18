@@ -4,8 +4,8 @@
  * phone's own tree laid out differently — so the one promise is that a phone (99 % of viewers) is exactly as it was.
  * Held four ways, each a way that promise breaks:
  *
- *   1 · ONE SWITCH, NEVER A PHONE'S — the shell wears `data-maker-desk` only when `desk`, and `desk` needs a
- *       desktop's width (`!phone`); the launch page asks the flag once and hands the boolean in.
+ *   1 · ONE SWITCH, NEVER A PHONE'S — `data-maker-desk` is set only by the lazy `MakerDesk`, mounted only on a
+ *       desktop's width with the columns on; the shell carries none of it; the launch page asks the flag once.
  *   2 · EVERY DESK RULE NEEDS THAT SWITCH — every selector in the desk rule sets (`maker-desk.tsx`,
  *       `stage-panel/desk.tsx`) names `data-maker-desk`, so none can match a phone's page whatever it says.
  *   3 · THE DESK CODE IS LAZY — `MakerDesk` is mounted only by the lazy Stages | Studio switch, under `desk` (no
@@ -33,9 +33,14 @@ test('1 · one switch, never a phone’s — `desk` needs a desktop width, and t
   assert.match(shell, /const wide = useIsDesktop\('lg'\);/);
   assert.match(shell, /const phone = !wide;/);
   assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/, 'the new Maker no longer needs the flag');
-  assert.match(shell, /const desk = ss && !phone;/, '`desk` no longer needs a desktop width');
-  assert.match(shell, /data-maker-desk=\{desk \? '' : undefined\}/, 'the shell wears the desk switch without `desk`');
-  assert.equal((shell.match(/data-maker-desk\b/g) ?? []).length, 1, 'the desk switch is written in more than one place');
+  assert.doesNotMatch(shell, /data-maker-desk/, 'the shell writes the desk switch itself — a byte of the desktop in the phone’s first load');
+  /* The one place it is written: the lazy layout, on mount — and taken off on unmount. */
+  const desk = read(`${L}/maker-desk.tsx`);
+  assert.match(desk, /el\?\.setAttribute\('data-maker-desk', ''\);\s*return \(\) => el\?\.removeAttribute\('data-maker-desk'\);/);
+  /* …mounted only by the Stages | Studio switch, only for the new Maker on a desktop's width. */
+  const parts = read(`${L}/stages-studio-parts.tsx`);
+  assert.match(parts, /const desk = useMaker\(\)\?\.stagesStudio === true && wide;/);
+  assert.match(parts, /const wide = useIsDesktop\('lg'\);/);
   assert.match(shell, /\bdesktopColumns = false,/, 'MakerShell no longer defaults to today’s desktop');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /const desktopColumns = stagesStudio && makerDesktopColumnsEnabled\(\{ internal: freeSwitch\.offered \}\);/);
@@ -79,10 +84,9 @@ test('3 · the desk code is lazy — a phone never downloads it, and the toolbar
   /* Mounted by the lazy Stages | Studio switch, and only under `desk`. */
   assert.match(read(`${L}/details-lazy.tsx`), /export const StudioSideSwitch = dynamic\(/);
   const parts = read(`${L}/stages-studio-parts.tsx`);
-  assert.match(parts, /const desk = useMaker\(\)\?\.desk === true;/);
   assert.match(parts, /\{desk \? <MakerDesk \/> : null\}/, 'the desk layout is mounted without `desk`');
   const tools = read(`${L}/stage-tools.tsx`);
-  assert.match(tools, /const desk = maker\?\.desk === true;/);
+  assert.match(tools, /const desk = useIsDesktop\('lg'\);/);
   assert.match(tools, /\{desk \? <DeskStep /, 'Previous · Next · Done is drawn without `desk`');
   assert.match(tools, /\{desk && !away \? \(\s*<DeskParts/, 'the parts column is drawn without `desk`');
   assert.match(tools, /\(desk \? STAGE_DESK_CSS : ''\)/, 'the desk rule set is written without `desk`');

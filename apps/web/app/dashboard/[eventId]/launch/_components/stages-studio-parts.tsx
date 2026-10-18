@@ -20,6 +20,7 @@ import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
 import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
 import { useMaker } from './maker-context';
 import { MakerDesk } from './maker-desk';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 /**
  * 🧭 THE NEW MAKER'S PARTS — "Stages | Studio" (owner 2026-10-06; plan
@@ -112,7 +113,8 @@ export function StudioSideSwitch({
   const here = !onStages && page ? page : null;
   /* 🖥 A desktop's three columns (`maker-desk.tsx`) — mounted by this switch, which every width of the new Maker
      draws and which is lazy: so the desk layout costs the Maker's first load nothing and never reaches a phone. */
-  const desk = useMaker()?.desk === true;
+  const wide = useIsDesktop('lg');
+  const desk = useMaker()?.stagesStudio === true && wide;
   return (
     <>
       {desk ? <MakerDesk /> : null}

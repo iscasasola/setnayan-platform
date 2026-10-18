@@ -203,11 +203,9 @@ export type MakerState = {
    * resolved once by the launch page). A part's tools read it: Text is Font ·
    * Colour · Size, Animate's steps are Build in · Action · Build out, and the
    * panel's Style | Text | Animate picks the section (`stage-tools.tsx`).
-   * Absent/false: the shipped Maker, exactly. True on a desktop too when its three columns are on (`desk`).
+   * Absent/false: the shipped Maker, exactly. True on a desktop too when its three columns are on (`MakerDesk`).
    */
   stagesStudio?: boolean;
-  /** 🖥 The new Maker on a desktop's width, in three columns (`MakerDesk`, `makerDesktopColumnsEnabled`) — never a phone. */
-  desk?: boolean;
 };
 
 /**

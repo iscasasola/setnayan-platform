@@ -14,7 +14,7 @@ import { DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, WORK, useDeskPartsSlo
  * 🖥 THE STAGES TOOLBAR ON A DESKTOP — the tools column (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md` § Stages,
  * RIGHT, and the build plan's PR 2 + PR 4). The SAME toolbar as the phone's (`stage-tools.tsx`): its selector, its
  * rows, its ▶ — drawn full height in the right-hand column (`maker-desk.tsx`). Only what a mouse needs instead of a
- * swipe is added, and only on a desktop (`useMaker().desk`, never a phone):
+ * swipe is added, and only on a desktop's width (`useIsDesktop`; the toolbar is there only when the columns are on):
  *
  *   · under the selector, the picked part's caption — "COUNTDOWN · 7 of 8" — and ‹ Previous · Next › · ✕ Done
  *     (the phone swipes across its toolbar; a mouse clicks) — `DeskStep`;

@@ -31,7 +31,14 @@ export function MakerDesk() {
   useDeskPopAnchor();
   /* Drawn INTO the shell (a grid cell of its own), wherever the switch that mounts it sits. */
   const [shell, setShell] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => setShell(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
+  /* 🏷 …and MARKS it (`data-maker-desk`): the one switch every desk rule needs — set here, in lazy code, never by
+     the shell (the Maker's first load carries no byte of the desktop). Gone the moment this unmounts (a phone's width). */
+  useLayoutEffect(() => {
+    const el = document.querySelector<HTMLElement>('[data-maker-shell]');
+    setShell(el);
+    el?.setAttribute('data-maker-desk', '');
+    return () => el?.removeAttribute('data-maker-desk');
+  }, []);
   if (!shell) return null;
   return createPortal(
     <>
@@ -95,8 +102,9 @@ export const MAKER_DESK_CSS =
   `${D} [data-icon-pill]{gap:8px}` +
   /* The phone's bar says why a control is grey in its title, not an ⓘ beside it — so does this one. */
   `${D} [data-maker-draft-actions] button[data-bar-item]:disabled~span{display:none}` +
-  /* 👁 Preview ▾ swaps the page — "Both" is dropped (answer 1), and the old scenes column is the parts column's. */
-  `${D} [data-maker-tool-menu] button:has([data-maker-tool-row="scenes"]){display:none}` +
+  /* 👁 Preview ▾ swaps the page — "Both" (the row after Phone / Desktop) is dropped (answer 1), and the old scenes
+     column is the parts column's. */
+  `${D} [data-maker-tool-menu] button:has([data-maker-tool-row="view"])+button:not(:has([data-maker-tool-row])),${D} [data-maker-tool-menu] button:has([data-maker-tool-row="scenes"]){display:none}` +
   /* ── the page: the old desktop's scenes column, See as ▾ over it and the Event Bar switch under it are the
         phone's elsewhere (the parts column · ▶ held · Studio) ── */
   `${D} nav[aria-label="Scenes"],${D} [data-maker-see-as],${D} [data-maker-guest-bars]{display:none!important}` +

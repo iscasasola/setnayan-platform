@@ -111,6 +111,7 @@ import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-p
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
 import { DeskParts, DeskStep, STAGE_DESK_CSS, useDeskRowsTop } from './stage-panel/desk';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
@@ -1338,7 +1339,8 @@ export function StageTools({
      found once the panel is on the page (before the browser paints, so the bar never arrives a frame late). */
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
   /* 🖥 A desktop's three columns (`maker-desk.tsx`): the same toolbar, full height on the right (`stage-panel/desk.tsx`). */
-  const desk = maker?.desk === true;
+  /* (This toolbar is drawn only in the new Maker — on a desktop's width, only when its three columns are on.) */
+  const desk = useIsDesktop('lg');
   const rowsRef = useRef<HTMLDivElement>(null);
   useDeskRowsTop(desk, rowsRef);
   useLayoutEffect(() => setShellEl(document.querySelector<HTMLElement>('[data-maker-shell]')), []);

@@ -19,3 +19,9 @@ touch only the Look side's MagicMovePick; if #6638 owns Logo Animate code, wait 
 Files: launch/_components/studio-*, website/editor/_components/main-background-panel.tsx, pro-panels.tsx, hub-draft.
 375 px shots light + dark + side-by-side vs the doc. Never open the owner's cale-ice. Own walk folder
 (scratchpad/look-rest-walk/). Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-look-restudy-6-9.md.
+
+## STATE — builder (Opus 5.5), 2026-10-18
+- Row 9 DONE (240288514b): cover Logo › Animate › Action "Travels to the bar ◆" writes site_magic_traveller via the draft; MagicMovePick gone; 4 guards re-aimed; port baseline regenerated.
+- Row 6 DONE (7bffb6b51f): film wears main background (mainGroundStillFor/stdFilmOnMain); STD picker removed; migration 20271277600211 (30-day copy std_background_retired, service-role only). Prod measured read-only: 2 events, both already have a main → nothing moves.
+- Row 7: shipped in substance by the 2026-10-09 toolbar (Maker_Two_Bars_LOCKED: Source ▾ first choice "The Event Hub's" = Same as main, picking it = back to main). Gap vs the lock: the part's Source lacks Video ◆ — next.
+- Row 8: next — Effects block "The picture": Parallax ◆ switch + Blur ▾ inside BgEffects, greyed with reason on Colour; widen parallax to loops/clips.

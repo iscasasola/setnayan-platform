@@ -48,6 +48,16 @@ export const APPLY_SHEET_MAX_LINES = 8;
  * walk the count makes (`hubDraftCountedChanges`), so the lines and the number
  * cannot disagree. A Pro line keeps its ◆. Reading it writes nothing.
  *
+ * 🍎 …AND IN THE iPHONE APP, APPLE SELLS IT HERE (owner 2026-10-18, DECISION_LOG
+ * "IN-APP PURCHASE — THE FIVE DECISIONS", ruling 2: Pro is offered in the app
+ * ONLY at ✓ Apply). With `apple` set — the store shell, a StoreKit build, the
+ * owner's switch — the sheet lists the Pro effects as on the web and its first
+ * button opens Apple's sheet instead of the Pro page. Its price is the one
+ * StoreKit returned (`apple.price`), never typed and never the web's. Two lines
+ * of fine print are added; nothing says "website" or "cheaper". After Apple's
+ * sheet the SAME sheet shows the one honest outcome (`apple.screen`):
+ * prototype `in_app_purchase_screens_2026-10-17_fable.html` frames 1 · 6 · 7 · 8 · 9.
+ *
  * No server imports — its actions come in as props, so a test can mount it.
  */
 export function ApplyProSheet({
@@ -63,7 +73,10 @@ export function ApplyProSheet({
   changeCount = 0,
   changes,
   heldOnWeb = 0,
+  apple = null,
 }: {
+  /** 🍎 In-App Purchase in the iPhone app — absent everywhere else (then nothing below changes). */
+  apple?: ApplePro | null;
   effects: readonly HubProEffectView[];
   /** How many changes guests do not see yet (`HubDraftSummary.changeCount`). */
   changeCount?: number;
@@ -85,7 +98,9 @@ export function ApplyProSheet({
   tour?: ReactNode;
 }) {
   const titleId = 'maker-apply-pro-title';
-  const none = effects.length === 0;
+  const appleDone = apple?.screen?.kind === 'on';
+  const applePending = apple?.screen?.kind === 'pending';
+  const none = effects.length === 0 && !appleDone;
   /* The house modal hook: focus moves in and is trapped, Escape closes, and
      focus goes back to Apply when the sheet shuts (`lib/use-modal-a11y.ts`). */
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -110,9 +125,20 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
-            {none ? 'Ready to apply' : 'Apply needs Event Hub Pro'}
+            {appleDone ? (
+              <span className="inline-flex items-center gap-1.5">
+                Event Hub Pro is on
+                <PaidMark state="unlocked" bare label="Event Hub Pro" size="xs" />
+              </span>
+            ) : applePending ? (
+              apple?.copy?.pendingTitle
+            ) : none ? (
+              'Ready to apply'
+            ) : (
+              'Apply needs Event Hub Pro'
+            )}
           </p>
-          {none ? null : (
+          {none || appleDone || applePending ? null : (
             <InfoTip label="" ariaLabel="About Event Hub Pro effects" align="end">
               These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply
               the rest now — the Pro ones stay in your draft.
@@ -128,8 +154,23 @@ export function ApplyProSheet({
           </button>
         </div>
 
-        {none ? null : tour}
-        {none ? (
+        {none || apple ? null : tour}
+        {appleDone ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm text-ink/70" data-apple-pro-on="">
+            <p>For this event, and everyone on it.</p>
+            {apple?.applied ? (
+              <p className="mt-1 font-semibold text-ink">
+                ✓ Applied — {apple.applied.count === 1 ? 'your change' : `all ${formatCount(apple.applied.count)} changes`}
+                {apple.applied.names.length > 0 ? `, including ${apple.applied.names.slice(0, 2).join(' and ')}` : ''}.
+              </p>
+            ) : null}
+          </div>
+        ) : applePending ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm text-ink/70" data-apple-pro-pending="">
+            <p>{apple?.screen?.kind === 'pending' && apple.screen.askToBuy ? apple.copy?.askToBuy : apple?.copy?.pendingBody}</p>
+            <p className="mt-2">{apple?.copy?.pendingRestore}</p>
+          </div>
+        ) : none ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm text-ink/70" data-apply-ready="">
             <p>
               {changeCount === 1 ? '1 change' : `${formatCount(changeCount)} changes`} guests do not see yet. Apply puts{' '}
@@ -162,6 +203,8 @@ export function ApplyProSheet({
             ) : null}
           </div>
         ) : (
+          <>
+          {apple ? <AppleOutcomeLine apple={apple} proCount={effects.length} /> : null}
           <ul className="mt-2 flex-1 overflow-y-auto px-2" data-apply-pro-effects="">
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
@@ -197,10 +240,18 @@ export function ApplyProSheet({
               </li>
             ))}
           </ul>
+          </>
         )}
 
         <div className="flex flex-col gap-2 px-4 pt-3">
-          {none ? (
+          {appleDone || applePending ? (
+            <>
+              <button type="button" onClick={apple?.onDone ?? onClose} className="button-primary sn-press min-h-11 w-full">
+                {appleDone ? 'Done' : 'OK'}
+              </button>
+              {appleDone ? <p className="text-center text-xs text-ink/60">{apple?.copy?.receipt}</p> : null}
+            </>
+          ) : none ? (
             <button type="button" disabled={pending} onClick={onApplyFree} className="button-primary sn-press min-h-11 w-full">
               {pending ? 'Applying…' : 'Apply'}
             </button>
@@ -209,7 +260,19 @@ export function ApplyProSheet({
               {/* Owner 2026-09-28, verbatim: "Unlock Pro and Apply". The one
                   purchase page, asked to come back and finish the Apply
                   (`unlockAndApplyOnReturn`); the price is the catalogue's. */}
-              {proHref ? (
+              {apple ? (
+                <button
+                  type="button"
+                  disabled={pending || apple.buying || !apple.price || !apple.copy}
+                  onClick={apple.onBuy}
+                  data-apple-pro-unlock=""
+                  className="button-primary sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center disabled:opacity-60"
+                >
+                  {apple.buying
+                    ? 'Opening the App Store…'
+                    : `${apple.screen?.kind === 'failed' ? 'Try again' : 'Unlock Pro and Apply'}${apple.price ? ` · ${apple.price}` : ''}`}
+                </button>
+              ) : proHref ? (
               <Link
                 href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""
@@ -227,10 +290,94 @@ export function ApplyProSheet({
               >
                 {pending ? 'Applying…' : 'Apply without the Pro effects'}
               </button>
+              {apple ? (
+                <p className="text-center text-xs text-ink/60" data-apple-fine-print="">
+                  One unlock for this event — it covers everyone on it.
+                  <br />
+                  {apple.copy?.billedByApple}
+                </p>
+              ) : null}
             </>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * 🍎 What the Apply sheet needs to sell Event Hub Pro through Apple — supplied
+ * by the bar, words included: this file rides the Maker's first load and takes
+ * NO new import (every-stages-popup-follows-the-rule.test.ts), so the Apple
+ * copy arrives with the lazily loaded kit (`lib/iap/pro-at-apply.ts`).
+ */
+export type ApplePro = {
+  /** StoreKit's `displayPrice` — null while loading, or when the App Store did not answer. */
+  price: string | null;
+  priceState: 'loading' | 'ready' | 'silent';
+  /** Apple's sheet is open / our server is confirming. */
+  buying: boolean;
+  /** The outcome after Apple's sheet closed (`screenFor`, lib/iap/iap-outcome.ts). */
+  screen:
+    | { kind: 'on' }
+    | { kind: 'pending'; askToBuy: boolean }
+    | { kind: 'cancelled' }
+    | { kind: 'failed' }
+    | { kind: 'refused'; message: string }
+    | null;
+  /** The changes the purchase applies — captured at the tap, for "✓ Applied — all N changes". */
+  applied?: { count: number; names: string[] } | null;
+  /** The fixed words (`APPLE_PRO_COPY`), null until the kit has loaded. */
+  copy: {
+    cancelled: string;
+    failedLead: string;
+    failedNext: string;
+    pendingTitle: string;
+    pendingBody: string;
+    pendingRestore: string;
+    askToBuy: string;
+    billedByApple: string;
+    receipt: string;
+    storeSilent: string;
+  } | null;
+  onBuy: () => void;
+  /** Close after "Event Hub Pro is on" / "Switching it on…". */
+  onDone: () => void;
+};
+
+/** The ONE quiet line above the effects after Apple's sheet: cancelled · failed · refused · App Store silent. */
+function AppleOutcomeLine({ apple, proCount }: { apple: ApplePro; proCount: number }) {
+  const s = apple.screen;
+  const c = apple.copy;
+  if (!c) return null;
+  if (s?.kind === 'cancelled') {
+    return (
+      <p className="px-4 pt-2 text-sm text-ink/70" role="status" data-apple-cancelled="">
+        {c.cancelled} Your {proCount === 1 ? 'Pro change is' : `${formatCount(proCount)} Pro changes are`} still in your draft.
+      </p>
+    );
+  }
+  if (s?.kind === 'failed') {
+    return (
+      <div className="px-4 pt-2 text-sm text-ink/70" role="alert" data-apple-failed="">
+        <p>{c.failedLead}</p>
+        <p className="mt-1">{c.failedNext}</p>
+      </div>
+    );
+  }
+  if (s?.kind === 'refused') {
+    return (
+      <p className="px-4 pt-2 text-sm text-ink/70" role="alert" data-apple-refused="">
+        {s.message}
+      </p>
+    );
+  }
+  if (apple.priceState === 'silent') {
+    return (
+      <p className="px-4 pt-2 text-sm text-ink/70" role="status" data-apple-silent="">
+        {c.storeSilent}
+      </p>
+    );
+  }
+  return null;
 }

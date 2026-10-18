@@ -10,7 +10,7 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
@@ -483,6 +483,14 @@ export type HubDraftBarData = {
   /** The one Event Hub Pro buy surface (null in the shell). */
   proHref: string | null;
   /**
+   * 🍎 The store shell may sell Pro through Apple here (lib/iap/iap-gate.ts —
+   * the shell, a StoreKit build, the owner's switch). Then Pro behaves as on the
+   * web — tried in the draft, asked for at Apply — except that the Apply sheet's
+   * button opens Apple's sheet and its price is StoreKit's. Still no web price
+   * (`priceLabel` stays null) and no web link (`proHref` stays null).
+   */
+  appleIap: boolean;
+  /**
    * 💎 The Pro effects this draft holds, by name and place — what the Apply
    * sheet lists (owner 2026-09-28). Derived from the SAME plan as `proCount`
    * (`hubDraftProEffects` over `planHubDraftApply`), never a second list.
@@ -514,7 +522,11 @@ export type HubDraftBarData = {
 export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   eventId: string,
 ): Promise<HubDraftBarData & { readError: boolean }> {
-  const storeShell = await isStoreShellRequest();
+  const { storeShell, iap } = await getIapGate();
+  /* 📵 Pro is hidden/held in the store shell UNLESS Apple can sell it there
+     (owner 2026-10-18): with IAP, web-bought Pro is usable in the app too —
+     guideline 3.1.3(b) allows it once the same item is sold by In-App Purchase. */
+  const proShell = storeShell && !iap;
   const supabase = await createClient();
   let summary: HubDraftSummary = { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   let proEffects: HubProEffectView[] = [];
@@ -536,10 +548,10 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
-      summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
-      if (!storeShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
+      summary = summarizeHubDraft(draft, live, ownsPro && !proShell);
+      if (!proShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
       // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
-      summary.changes = hubDraftChangeLines(draft, live, ownsPro && !storeShell);
+      summary.changes = hubDraftChangeLines(draft, live, ownsPro && !proShell);
     }
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
@@ -559,7 +571,8 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
     proEffects,
     readError,
-    ownsPro: ownsProViewed && !storeShell,
+    ownsPro: ownsProViewed && !proShell,
+    appleIap: iap,
   };
 });
 

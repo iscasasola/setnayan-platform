@@ -295,9 +295,14 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
 test('the bar’s list comes from the one plan, as the viewer is shown it — and is empty in the store shell', () => {
   const store = code('lib/hub-draft-store.ts');
   const load = store.slice(store.indexOf('export const loadHubDraftBarData'));
-  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);\s*if \(!storeShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+  assert.match(load, /const proShell = storeShell && !iap;/);
+  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell\);\s*if \(!proShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
+  // …and still no web price or web link in ANY store shell, Apple or not.
+  assert.match(load, /if \(!storeShell && summary\.proCount > 0\)/);
+  assert.match(load, /proHref: storeShell \? null :/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /const asksForPro = !storeShell && proHref !== null && proEffects\.length > 0;/);
+  assert.match(bar, /const asksForPro = \(appleIap \? storeShell : !storeShell && proHref !== null\) && proEffects\.length > 0;/);
   // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px
   // icon — a mis-tap never publishes); the sheet names the Pro effects when
   // `asksForPro`, else says "Ready to apply" with the count.

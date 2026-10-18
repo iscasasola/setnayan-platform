@@ -69,7 +69,7 @@ import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { PUBLIC_R2_BUCKET, eventMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
@@ -346,8 +346,12 @@ export async function hubDraftAction(
     }
 
     /* ── APPLY ───────────────────────────────────────────────────────────── */
+    /* 🍎 In the store shell a Pro key is held for the web — UNLESS Apple can
+       sell Pro there (lib/iap/iap-gate.ts, owner 2026-10-18): then the app is
+       the web for Pro, and the event's real ownership decides. */
+    const iapGate = await getIapGate();
     const live = await readHubLiveState(supabase, eventId);
-    const storeShell = await isStoreShellRequest();
+    const storeShell = iapGate.storeShell && !iapGate.iap;
     /* ⛔ THE GATE. `lookProAllows(eventId, 'change')` is true only when the event
        owns ACTIVE Event Hub Pro — the same read, and the same rule, every live
        look writer uses. In the store shell a Pro key is never applied. */

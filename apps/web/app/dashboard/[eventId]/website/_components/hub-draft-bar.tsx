@@ -13,6 +13,7 @@ import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
+import type { ApplePro } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
@@ -98,6 +99,8 @@ export type HubDraftBarProps = {
   applyTour?: ReactNode;
   /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
+  /** 🍎 The store shell may sell Pro through Apple (`HubDraftBarData.appleIap`); absent/false = as before. */
+  appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -341,8 +344,13 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
+  appleIap = false,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
+  /* 🍎 With Apple In-App Purchase the app treats Pro as the web does (tried in
+     the draft, asked for at Apply); only the buy button differs. Without it the
+     store shell keeps every Pro key held, exactly as before. */
+  const proShell = storeShell && !appleIap;
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
      the bridge drew is followed by no render of the Maker (`lib/maker-refresh.ts`),
      so its save answers with the bar and `makerSave` hands it here. The render's
@@ -360,7 +368,7 @@ export function HubDraftToolbar({
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
   const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  const proEffects = !fromSave || proShell ? (proShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();
@@ -368,7 +376,42 @@ export function HubDraftToolbar({
      on apply and point out the effect chosen"*). Apply opens it — never the
      write — while the draft holds a Pro effect this event has not unlocked. */
   const [sheetOpen, setSheetOpen] = useState(false);
-  const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
+  const asksForPro = (appleIap ? storeShell : !storeShell && proHref !== null) && proEffects.length > 0;
+  /* 🍎 Apple's sheet for Event Hub Pro. The StoreKit kit (`lib/iap/pro-at-apply.ts`)
+     is imported LAZILY — only in the iPhone app, only once this sheet opens with
+     Pro in it — so the Maker's first load carries none of it. */
+  const appleAsks = appleIap && asksForPro;
+  const [appleKit, setAppleKit] = useState<typeof import('@/lib/iap/pro-at-apply') | null>(null);
+  const [applePrice, setApplePrice] = useState<{ state: ApplePro['priceState']; price: string | null }>({ state: 'loading', price: null });
+  const [appleBuying, setAppleBuying] = useState(false);
+  const [appleScreen, setAppleScreen] = useState<ApplePro['screen']>(null);
+  useEffect(() => {
+    if (!appleAsks || !sheetOpen || appleKit) return;
+    let alive = true;
+    void import('@/lib/iap/pro-at-apply')
+      .then((kit) => {
+        if (alive) setAppleKit(kit);
+      })
+      .catch(() => {
+        if (alive) setApplePrice({ state: 'silent', price: null });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [appleAsks, sheetOpen, appleKit]);
+  useEffect(() => {
+    if (!appleKit || !sheetOpen || applePrice.state === 'ready') return;
+    let alive = true;
+    void appleKit.loadProPrice().then((p) => {
+      if (alive) setApplePrice(p);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [appleKit, sheetOpen, applePrice.state]);
+  /* What the success screen names — captured at the tap, because the Apply it
+     triggers empties the draft before the sheet is read again. */
+  const [appleApplied, setAppleApplied] = useState<{ count: number; names: string[] } | null>(null);
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
@@ -603,7 +646,36 @@ export function HubDraftToolbar({
           effects={asksForPro ? proEffects : []}
           changeCount={summary.changeCount}
           changes={summary.changes}
-          heldOnWeb={storeShell ? summary.proCount : 0}
+          heldOnWeb={proShell ? summary.proCount : 0}
+          apple={
+            appleAsks
+              ? {
+                  price: applePrice.price,
+                  priceState: applePrice.state,
+                  buying: appleBuying,
+                  screen: appleScreen,
+                  applied: appleApplied,
+                  copy: appleKit?.APPLE_PRO_COPY ?? null,
+                  onBuy: () => {
+                    if (appleBuying || !appleKit) return;
+                    setAppleBuying(true);
+                    setAppleScreen(null);
+                    setAppleApplied({ count: summary.changeCount, names: proEffects.map((e) => e.what) });
+                    void appleKit.buyProWithApple(eventId).then((screen) => {
+                      setAppleBuying(false);
+                      setAppleScreen(screen);
+                      /* "KEEP, MARKED" (2026-10-08): the held ◆ changes apply in the
+                         same tap — only once OUR server said Pro is on. */
+                      if (screen.kind === 'on') act({ intent: 'apply' });
+                    });
+                  },
+                  onDone: () => {
+                    setAppleScreen(null);
+                    setSheetOpen(false);
+                  },
+                }
+              : null
+          }
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}
@@ -613,7 +685,11 @@ export function HubDraftToolbar({
             setSheetOpen(false);
             act({ intent: 'apply' });
           }}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => {
+            if (appleBuying) return;
+            setAppleScreen(null);
+            setSheetOpen(false);
+          }}
           tour={applyTour}
         />,
         document.body,

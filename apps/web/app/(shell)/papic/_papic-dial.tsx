@@ -118,7 +118,7 @@ export function PapicDial({
             <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
           <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
-            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your celebration'}
+            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your event'}
           </span>
         </div>
 
@@ -164,7 +164,7 @@ export function PapicDial({
             </span>
           </p>
           <p className="mt-1 text-xs text-[var(--m-slate-2)]">
-            while you are setting your celebration up
+            while you are setting your event up
           </p>
         </>
       ) : (

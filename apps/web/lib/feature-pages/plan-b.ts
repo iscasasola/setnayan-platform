@@ -68,7 +68,15 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       en: ['event mood board', 'wedding color palette', 'motif and colors', 'entourage colors', 'mood board maker'],
       tl: ['mood board ng event', 'kulay at motif', 'kulay ng entourage'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/mood-board-0.jpg',
+        alt: {
+          en: 'The Mood Board on a phone: Palette, Attire, Inspiration and Do’s & Don’ts, your five main colours with what each one colours, and the room’s colours for your stylist',
+          tl: 'Ang Mood Board sa telepono: Palette, Attire, Inspiration at Do’s & Don’ts, ang limang pangunahing kulay mo at kung ano ang kinukulayan ng bawat isa, at ang kulay ng kuwarto para sa stylist mo',
+        },
+      },
+    ],
     price: { kind: 'free-plus', catalogue: 'retail', codes: ['MOODBOARD_RENDER_PACK'] },
     moreHref: '/mood-board',
     evidence: ['app/(shell)/mood-board/page.tsx', 'lib/mood-board.ts', 'lib/moodboard-printable.ts', 'lib/moodboard-render-credits.ts', 'lib/room-palette.ts'],

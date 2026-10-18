@@ -40,6 +40,13 @@
  * the Invite stage hands out ONE link for everybody. Say "share one link" or
  * "copy a guest's link", never "send each guest their invitation".
  * 🔴 NUMBERS. No role counts, no import caps, no RSVP windows.
+ *
+ * 🔁 RE-CHECKED 2026-10-18 (`product-pages-say-what-ships.test.ts`). This page
+ * still offered a third RSVP answer (switched off by the owner 2026-09-30,
+ * `lib/rsvp-ask.ts` — a reply is yes or no) and an "allow" tick for plus-ones
+ * (the shipped control is a count pick, `lib/guest-parse.ts` / `lib/extra-seats-sync.ts`,
+ * each extra seat its own row and QR). Import is "Paste many names" or a CSV
+ * file ("Import a file"), not a pasted spreadsheet.
  */
 
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
@@ -98,11 +105,12 @@ const APP_LD = {
   description: PAGE_DESCRIPTION,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'PHP' },
   featureList: [
-    'Every guest is one row — RSVP, plus-one, meal preference, role and table',
+    'Every guest is one row — reply, plus-ones, meal preference, role and table',
     'Filipino wedding roles — principal sponsors, candle, veil, cord and coin sponsors, ninong, ninang, bearers',
     'A personal link and QR code for every guest',
-    'Guests RSVP in a tap and your list updates in real time',
-    'Paste your spreadsheet, or type a name and press Enter',
+    'Guests answer yes or no in a tap and your list updates in real time',
+    'Type a name and press Enter, paste many names, or import a CSV file',
+    'Plus-ones are a +1, +2 pick, and each extra seat gets its own row and QR',
     'One join link you can share with everyone',
     'Free with every Setnayan account',
   ],
@@ -113,7 +121,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is the Guest List?',
-    a: 'It is your guest book, one row per guest. Each row carries their RSVP, their plus-one, their meal preference, their role in the wedding and their table — all in the same place your invitations and your gallery read from, so there is no Google Sheet, Notes app and group chat to keep in step.',
+    a: 'It is your guest book, one row per guest. Each row carries their reply, their plus-ones, their meal preference, their role in the wedding and their table — all in the same place your invitations and your gallery read from, so there is no Google Sheet, Notes app and group chat to keep in step.',
   },
   {
     q: 'Is it really free?',
@@ -121,11 +129,11 @@ const FAQ = [
   },
   {
     q: 'How do guests RSVP?',
-    a: 'Each guest opens their personal link or scans their QR, taps RSVP and picks Yes, No or Maybe. If you are asking about meals, they pick theirs there too, with a note for allergies, and it feeds the count your caterer works from. You see who is coming in real time, right beside your guest list and seating.',
+    a: 'Each guest opens their personal link or scans their QR, taps RSVP and answers yes or no. If you are asking about meals, they pick theirs there too, with a note for allergies, and it feeds the count your caterer works from. You see who is coming in real time, right beside your guest list and seating.',
   },
   {
     q: 'What about plus-ones?',
-    a: 'Tick “Allow plus-one” on a guest and Setnayan adds a second row linked to theirs. The plus-one has their own QR and can RSVP on their own. If you do not know who it is yet, the guest names them on their reply, or the plus-one names themselves the first time they open the invitation.',
+    a: 'Pick how many a guest may bring — +1, +2 — and Setnayan adds a row for each extra seat, linked to theirs. Each one has their own QR and can reply on their own. If you do not know who it is yet, the guest names them on their reply, or the plus-one names themselves the first time they open the invitation.',
   },
   {
     q: 'Does it know Filipino wedding roles?',
@@ -150,11 +158,11 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Build the list',
-    d: 'Type a name and press Enter, paste your spreadsheet, or pick from the people already in your account. Each guest gets a side, a role, a group and, if you allow it, a plus-one.',
+    d: 'Type a name and press Enter, paste many names, import a CSV file, or pick from the people already in your account. Each guest gets a side, a role, a group and, if you choose, a +1 or +2.',
   },
   {
     t: 'Invite, and let them answer',
-    d: 'Every guest has a personal link and QR code, and there is one join link you can share with everyone. They tap RSVP, pick Yes, No or Maybe and their meal, and your list updates in real time.',
+    d: 'Every guest has a personal link and QR code, and there is one join link you can share with everyone. They tap RSVP, answer yes or no and pick their meal, and your list updates in real time.',
   },
   {
     t: 'Seat them, then count who came',
@@ -192,7 +200,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Your list',
     t: 'Type a name, press Enter',
-    d: 'Type “Ana Cruz +1 groom vip #Barkada” and she lands as a row with her side, her plus-one, her role and her group. Or paste your spreadsheet, or pick from the people already in your account.',
+    d: 'Type “Ana Cruz +1 groom vip #Barkada” and she lands as a row with her side, her plus-one, her role and her group. Or paste many names, import a CSV file, or pick from the people already in your account.',
     media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A bride and groom raising their glasses in a toast, surrounded by guests and candlelight' },
   },
   {
@@ -204,7 +212,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'RSVP',
     t: 'Guests answer in a tap',
-    d: 'They open their link, pick Yes, No or Maybe and their meal, and you see who is coming in real time — right beside your guest list and seating. A plus-one can answer on their own, and name themselves if you did not know who they were.',
+    d: 'They open their link, answer yes or no and pick their meal, and you see who is coming in real time — right beside your guest list and seating. A plus-one can answer on their own, and name themselves if you did not know who they were.',
     media: { kind: 'photo', src: '/demo/maria-jose/ceremony.webp', alt: 'A bride and groom kneeling before the altar of a stone church, with an officiant beside them' },
   },
   {

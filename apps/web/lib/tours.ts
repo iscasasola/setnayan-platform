@@ -1299,8 +1299,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'guests-add',
-          title: 'Add your first guest',
-          body: 'Add guests one by one, pick them from your people, or bring a whole list in at once. Each guest gets their own invitation and QR.',
+          title: 'Search or add',
+          body: 'Type a name to find a guest — or, if they are not on your list yet, to add them. Each guest gets their own invitation and QR.',
         },
         {
           anchor: 'guests-setup',

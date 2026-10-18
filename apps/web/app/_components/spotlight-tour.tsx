@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { SpotlightStep, SpotlightFinale, TourKey } from '@/lib/tours';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🔦 THE SPOTLIGHT TOUR — the approved look, copied from the corpus sample
@@ -390,7 +391,7 @@ export function SpotlightTour({
     return (
       <div data-sn-spot="">
         {style}
-        <div className="sn-spot-done" role="dialog" aria-modal="true" aria-labelledby="sn-spot-done-title">
+        <div className="sn-spot-done" role="dialog" aria-labelledby="sn-spot-done-title">
           <div className="sn-spot-tip pop">
             <div className="sn-spot-step">Done</div>
             <h4 id="sn-spot-done-title">{finale.title}</h4>
@@ -437,13 +438,12 @@ export function SpotlightTour({
         ref={tipRef}
         className="sn-spot-tip"
         role="dialog"
-        aria-modal="false"
         aria-live="polite"
         aria-labelledby="sn-spot-title"
         style={{ top: tipTop, opacity: busy || litFor !== i ? 0 : 1 }}
       >
         <div className="sn-spot-step">
-          Step {i + 1} of {steps.length}
+          Step {formatCount(i + 1)} of {formatCount(steps.length)}
         </div>
         <h4 id="sn-spot-title">{step.title}</h4>
         <p>{step.body}</p>

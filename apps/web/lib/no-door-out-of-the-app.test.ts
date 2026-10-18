@@ -126,6 +126,13 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
       'app/dev/supplier-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
   },
   {
+    prefix: 'app/dev/spotlight-lab/',
+    why:
+      "The spotlight tours' dev lab — it draws the supplier's OWN Today and Customers through " +
+      '`/dev/supplier-lab` (above) and refuses to render in production (`notFound()`, pinned by ' +
+      'app/dev/spotlight-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },

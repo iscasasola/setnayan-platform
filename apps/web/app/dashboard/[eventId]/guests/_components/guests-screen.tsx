@@ -587,6 +587,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       aria-label="Search guests or add"
       data-fit-field=""
       data-guests-search=""
+      data-tour="guests-add"
       onInput={(e) => onType(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return;

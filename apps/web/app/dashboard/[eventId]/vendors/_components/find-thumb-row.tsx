@@ -183,9 +183,9 @@ function ThumbControls({
       </span>
       <label
         data-glass-row="suppliers-find"
-        data-tour="suppliers-find"
         data-fit-field=""
         className="sn-glass-row flex h-10 min-w-[60%] flex-1 items-center gap-2 rounded-full px-3.5 text-ink"
+        data-tour="suppliers-find"
       >
         <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
         <input

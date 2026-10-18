@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { TOURS, type TourKey } from '@/lib/tours';
 import { completeTour } from '@/lib/tour-actions';
 import { SpotlightMount } from './spotlight-mount';
@@ -56,9 +57,14 @@ async function readSeenKeys(): Promise<ReadonlyArray<string> | null> {
     } = await supabase.auth.getUser();
     if (!user) return null;
     const { data: row, error } = await supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle();
-    if (error) return null;
+    if (error) {
+      // Unknown, so the tour is not shown (never replayed to someone who finished it) — and said.
+      logQueryError('Spotlight.readSeenKeys', error, { user_id: user.id }, 'graceful_degrade');
+      return null;
+    }
     return (row?.tour_seen_keys ?? []) as string[];
-  } catch {
+  } catch (err) {
+    logQueryError('Spotlight.readSeenKeys (threw)', err instanceof Error ? err : new Error(String(err)), {}, 'graceful_degrade');
     return null;
   }
 }

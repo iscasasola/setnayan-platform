@@ -183,6 +183,7 @@ export function MakerLabShell({
   typeHere = [],
   renderStamp = 'lab',
   stagesStudio = false,
+  hiddenStages = [],
   studio = null,
   venuePictures = null,
   fixedStyles = {},
@@ -213,6 +214,8 @@ export function MakerLabShell({
   kitTheme?: 'vintage' | null;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
+  /** 🚪 `?needs=` — the stages this event does not need (`needsHidesStage`). */
+  hiddenStages?: readonly string[];
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
   venuePictures?: MakerVenuePictures | null;
@@ -428,7 +431,7 @@ export function MakerLabShell({
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
       slug={scrub ? LAB_SCRUB_GUEST.slice(1) : 'dev/maker-lab/guest'}
       liveStage="rsvp"
-      initialStage="rsvp"
+      initialStage={hiddenStages.includes('rsvp') ? 'event' : 'rsvp'}
       /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
       initialSelection={openDetails ? { kind: 'tool', key: 'details' } : null}
       storeShell={false}
@@ -449,6 +452,7 @@ export function MakerLabShell({
       venuePictures={venuePictures}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
+      hiddenStages={hiddenStages}
     >
       <MakerWork
         eventId={eventId}

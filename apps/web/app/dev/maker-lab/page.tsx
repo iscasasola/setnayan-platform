@@ -1,4 +1,6 @@
 import { sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kit-accents';
+import { NEED_PRESETS, needsColumns, needsForPreset, needsHidesStage, needsHidesStudioTile, readEventNeeds, type NeedPreset } from '@/lib/event-needs';
+import { MAKER_PAGE_STAGES } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
@@ -65,6 +67,10 @@ const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'jo
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  const labNeeds =
+    typeof sp.needs === 'string' && (NEED_PRESETS as readonly string[]).includes(sp.needs)
+      ? readEventNeeds(needsColumns(needsForPreset(sp.needs as NeedPreset, { marketplace: true })))
+      : null;
   /* ⏱ `?slow=1`: a whole-Maker render takes as long as production's (3–6 s). */
   if (sp.slow === '1') await new Promise((r) => setTimeout(r, 4000));
   /* 🧾 The sample's rows WITH THE LAB'S DRAFT LAID OVER THEM — a scene's place on a stage, its eye, its Auto · Hidden
@@ -227,6 +233,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
+      /* 🚪 `?needs=simple|open|list|full` (owner 2026-10-08, Level 1): the stages this event does not need are absent. */
+      hiddenStages={labNeeds ? MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, labNeeds)) : []}
       /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
          (`&vpic=photo|drawing|none`, `&pro=1`). */
       venuePictures={
@@ -240,7 +248,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
               /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
                  with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
                  drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
-              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
+              /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
+              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key) && !(labNeeds && needsHidesStudioTile(key, labNeeds))).map((key) => ({
                 key,
                 label: STUDIO_TILES[key].label,
                 short: STUDIO_TILES[key].short,

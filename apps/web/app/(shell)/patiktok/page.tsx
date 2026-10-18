@@ -120,7 +120,7 @@ const FAQ = [
   },
   {
     q: 'What about the music?',
-    a: 'Every reel is set to music that’s cleared for sharing, so you can post it anywhere without worry — no surprise takedowns, no licensing headaches.',
+    a: 'Every reel is set to music from Setnayan’s own catalogue — pick a track, or let the template pick one for you.',
   },
   {
     q: 'Does this replace our wedding film?',
@@ -189,7 +189,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Music',
     t: 'Set the length and the song',
-    d: 'Slide the length and pick a track, or let the template pick one for you. Every reel is set to music that’s cleared for sharing, so you can post it anywhere without worry.',
+    d: 'Slide the length and pick a track, or let the template pick one for you. Every reel is set to music from Setnayan’s own catalogue.',
     media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-1.jpg', alt: 'Patiktok — set the length and the song' },
   },
   {
@@ -223,7 +223,7 @@ export default function PatiktokLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Made to be shared', lede: 'The keepsake film is for keeping. Patiktok is for sharing — fast, vertical, and ready the same night.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Share the day, the day it happens', body: 'Patiktok lives inside your free Setnayan wedding — alongside your gallery, website, and guest list. Start planning free, and add your highlight reels when you’re ready.', href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
+      closing={{ heading: 'Share the day, the day it happens', body: 'Patiktok lives inside your free Setnayan wedding — alongside your gallery, your Event Hub and your guest list. Start planning free, and add your highlight reels when you’re ready.', href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection

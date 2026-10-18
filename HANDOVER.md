@@ -32,3 +32,10 @@ DONE: fix + 3rd cause (Date off · ↺ · Date off merged away — `lib/canvas-p
 (5, sabotaged 8 ways) + WebKit 375 walk before/after (U ↺ · R Reset · M merged · again) light + dark-after. Walk files:
 scratchpad/undo-switch-walk/ (walk.mjs, serve.sh, shots/). Pre-existing, NOT fixed: after the second pick the status line
 stays "Saving…" (same on main). NEXT: draft PR, CI to green.
+
+## STATE (builder, 2026-10-18 18:52 PHT) — PR #6642 (draft, do-not-auto-merge, auto-merge null)
+Round 1 CI: `bundle size check` red — Maker first load over by a few bytes (the `merged` pass-through in
+`lib/maker-refresh.ts`). Round 2 (fe6bd1fb0c): maker-refresh/maker-save-status/two-hosts test back to base; merged
+canvases noted by the lazy writers (`noteMergedSave` in cover-lines, cover-animate, part-look). Nothing first-load changes.
+Re-walked round 2 (U · again · R · M all as expected; one Reset read lagged one render in one run, re-run clean).
+Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6642/. NEXT: CI round 2 to green; delete this file only when green.

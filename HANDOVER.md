@@ -19,3 +19,21 @@ Rules: Rule 0 (extend shipped components). Phone first, 375 px, light + dark whe
 cale-ice Maker. Another builder is changing Maker SAVE paths (rd/two-hosts-round-3) — don't touch save/draft-store code
 beyond calling it; one is changing sign-in. Own walk folder (scratchpad/own-photos-walk/).
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-maker-own-section-photos.md.
+
+## BUILDER STATE (builder, 2026-10-18)
+Rule 0 found (all shipped, extended — nothing redrawn):
+- Template renderer `app/[slug]/_components/scene-template.tsx` `renderScene`; 16 templates have picture slots
+  (1–7, 13–15, 17–21; 5 and 14 are clip slots). Desktop picker = `SceneSlotsPanel` (Content tab). Phone Edit =
+  `stage-panel/stage-edit.tsx` (rows 1–2 = Heading · Words since #6616; row 3 free).
+- Picture picker on the phone = the Background tool's Upload row (`stage-background.tsx` tiles, `FileUpload` into
+  `scene-background/`, the couple's photos + clip) and `RsvpPictureSheet` (MakerSheet + FileUpload). Reused.
+- Write = the background row's pattern: whole canvas → `hubDraftAction` intent=save, `makerRedrawSave`, `noteDraftedCanvas`.
+- Apply held slot pictures from `scene-background/` as not_your_photo (slots checked against ownRefs only) → widen
+  to the scene-upload folder (same rule a scene background already has).
+Plan / decisions:
+1. Photos: Maker canvas draws every slot in place (empty = the template's own box + "＋ Photo"), each `data-scene-slot`.
+   Tap a slot → Edit opens with that slot's sheet. Edit row 3 "Photos": one tile per slot. Sheet = Upload + your
+   media (+ clips where the template takes one) + Take it off. ◆ per makerProMark; hidden in the store shell.
+2. ◆: element-sheet Font ▾ wears the sheet's own Pro mark (re-aim free-vs-pro-redrawn test); StageAnimate's other
+   named controls get " ◆".
+3. Gifts: Maker-only empty gifts block draws the kit's divider + card accent around the shipped prompt.

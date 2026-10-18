@@ -14,7 +14,7 @@
  *
  * ⚠ THE DATABASE HOLDS THE SAME ALLOWLIST as a CHECK constraint
  * (`event_inspiration_assets_slot_key_check_v3`, last widened by
- * `20271266380994_attire_boards_four_more_slots.sql`). That pair predates
+ * `20271278232574_palette_parts_five_more_slots.sql`). That pair predates
  * this file and is NOT collapsed here — a CHECK cannot read TypeScript. They
  * agree today; widen both together, and the DB is the one that fails loudly.
  */
@@ -24,7 +24,7 @@
 import type { WeddingTile } from './taxonomy';
 
 /**
- * 24 named slots. Grouped in the UI as Venue & feel (13) · Palette (1) ·
+ * 29 named slots. Grouped in the UI as Venue & feel (18) · Palette (1) ·
  * Dress codes (10) — see `_components/inspiration-board.tsx`.
  *
  * ⚠ `venue` is NOT renamed to `ceremony_venue`. Real rows carry that key from
@@ -45,6 +45,14 @@ export const MOODBOARD_SLOT_KEYS = [
   // slots made 2026-10-07, migration 20271265788160 — both DB gates widened).
   'bridal_bouquet',
   'centrepieces',
+  // 🎨🖼 Every Palette part has its own photos (owner 2026-10-19, DECISION_LOG "PALETTE + INSPIRATION AS ONE LIST";
+  // migration 20271278232574 — both DB gates widened): Chairs · Ribbons & candles · Lights · Entourage bouquets ·
+  // the florist's Accents.
+  'chairs',
+  'ribbons_candles',
+  'lights',
+  'entourage_bouquets',
+  'flower_accents',
   'overall',
   'palette',
   'groom',

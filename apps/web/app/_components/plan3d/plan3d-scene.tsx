@@ -1493,7 +1493,8 @@ export function Plan3DScene({
         <boxGeometry
           args={[Math.max(1.5, (floor.stage.wPct / 100) * room.w), 0.28, Math.max(1, (floor.stage.hPct / 100) * room.d)]}
         />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+        {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+        <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Dance floor — the mood-board mural (Fable §3.7). This room previously

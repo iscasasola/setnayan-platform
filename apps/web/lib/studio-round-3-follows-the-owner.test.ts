@@ -309,10 +309,12 @@ test('6 · Look › Music has no Save: an upload or the switch drafts at once; "
   }
 });
 
-test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; the attire boards live in Attire beside their role', async () => {
+test('7 · Mood Board: Palette · Attire · Do’s & Don’ts (Inspiration is IN Palette); the attire boards live in Attire beside their role', async () => {
   const { STUDIO_INSPIRATION_SLOTS, AWAITING_A_SLOT } = await import('./inspiration-slots');
   const src = read(`${D}/studio/mood-board/_components/mood-board-studio.tsx`);
-  assert.match(src, /\['colours', 'Palette'\],\s*\['attire', 'Attire'\],\s*\['insp', 'Inspiration'\],\s*\['dos', 'Do’s & Don’ts'\],/, 'the tabs are not Palette · Attire · Inspiration · Do’s & Don’ts (keys kept)');
+  /* RE-AIMED 2026-10-19 (owner: "the inspirations here and the palette can be integrated together properly" → "make it look
+     like attire"): Inspiration's boards sit on their parts in Palette, so its section is gone. */
+  assert.match(src, /\['colours', 'Palette'\],\s*\['attire', 'Attire'\],\s*\['dos', 'Do’s & Don’ts'\],/, 'the tabs are not Palette · Attire · Do’s & Don’ts (keys kept)');
   const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]);
   /* 👗 Seven since 2026-10-08 (owner: "go" on the four's slots, migration 20271266380994); SIX since 2026-10-14 (owner:
      "remove entourage"). `four-more-attire-boards.test.ts` draws them. */
@@ -322,17 +324,16 @@ test('7 · Mood Board: Palette · Attire · Inspiration · Do’s & Don’ts; th
     'the attire boards are not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer',
   );
   assert.deepEqual(AWAITING_A_SLOT.map((a) => a.label), [], 'a board that has its slot is still recorded as waiting');
-  assert.match(src, /STUDIO_INSPIRATION_SLOTS\.filter\(\(slot\) => !slot\.attire\)\.map\(slotBoard\)/, 'Inspiration still draws the attire boards');
+  assert.match(src, /\{ROOM_LANE_PARTS\.map\(partBlock\)\}/, 'the room’s boards are not on their parts');
   /* RE-AIMED 2026-10-14: in Attire a board is the role's compact photo row (`ideasRow`, the prototype's `ideasHTML`), inside the role's block. */
   assert.match(src, /\{attireBoardsUnder\(row\.key\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}>\s*\{ideasRow\(slot,/, 'an attire board is not beside its role');
   assert.match(src, /\{attireBoardsAfter\(props\.attire\.map\(\(r\) => r\.key\)\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}[^>]*>\s*\{ideasRow\(slot, true\)\}/, 'a board whose role is not on the list yet has no place');
   const row = src.slice(src.indexOf('const ideasRow = '), src.indexOf('const bar = ('));
   assert.match(row, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'an attire board cannot take the couple’s own photo');
   assert.match(row, /setSheet\(\{ kind: 'browse', slot \}\)/, 'an attire board cannot search the suppliers’ photos');
-  /* Both sources on every board: its own upload (+) and the suppliers' photos (Search ideas ›). */
-  const board = src.slice(src.indexOf('const slotBoard = '), src.indexOf('const bar = ('));
-  assert.match(board, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'a board cannot take the couple’s own photo');
-  assert.match(board, /setSheet\(\{ kind: 'browse', slot \}\)/, 'a board cannot search the suppliers’ photos');
+  /* Both sources on every board: its own upload (+) and the suppliers' photos (Search ideas ›) — a Palette part's board is
+     the same `ideasRow` (2026-10-19). */
+  assert.match(src.slice(src.indexOf('const partBlock = '), src.indexOf('const bar = (')), /ideasRow\(/, 'a Palette part’s board is not the Attire photos line');
 });
 
 test('8 · Love Story: an EMPTY story draws its real arrangement in sample shapes; the sheet’s help sits behind ⓘ', async () => {

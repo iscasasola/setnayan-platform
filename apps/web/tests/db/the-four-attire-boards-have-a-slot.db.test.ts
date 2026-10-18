@@ -206,7 +206,9 @@ test('applied a second time, over stored photos on every board, it changes no ro
   const before = await rows();
   assert.ok(before.includes('"entourage"') && before.includes('"ring_bearer"'), 'the fixture rows are not there to be compared');
 
-  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_attire_boards_four_more_slots.sql'));
+  /* RE-AIMED 2026-10-19: re-apply the LATEST re-listing of both gates (the Palette's five parts with photos,
+     20271278232574) — re-applying this file's own, now older, list would narrow the gates and refuse the five's rows. */
+  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_palette_parts_five_more_slots.sql'));
   assert.ok(file, 'the migration file is not there');
   await db.exec(readFileSync(join(MIGRATIONS_DIR, file!), 'utf8'));
 

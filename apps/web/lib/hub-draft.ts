@@ -2145,7 +2145,8 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
     isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
-  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
+  /* 🌄 Parallax on ANY picture is Pro to add (Look restudy row 8 widened it past an own photo). */
+  const motion = (m: HubMainGround | null) => (m && 'motion' in m && m.motion === 'parallax' ? 'parallax' : null);
   if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
   return combineChanges(
     refChange(ref(live), ref(next)),
@@ -3143,7 +3144,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
-  site_magic_traveller: 'Magic move',
+  site_magic_traveller: 'Your logo travelling to the bar',
   site_button_style: 'Your buttons',
   site_roles: 'Your fonts',
   invite_theme: 'Your theme',

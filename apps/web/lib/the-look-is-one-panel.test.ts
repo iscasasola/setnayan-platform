@@ -331,7 +331,7 @@ test('(4) Font posts only the typeface; the page fill only the page; Colours nei
   for (const e of ['plain', 'dawn', 'diagonal', 'glow']) assert.match(pageFill, new RegExp(`data-background-effect="${e}"`), `the page fill lost ${e}`);
   assert.doesNotMatch(pageFill, /name="button_color"|name="site_font_key"|name="site_art_direction"|name="site_magic_traveller"/, 'the page fill would post a colour of the Elements');
   // 🎨 Look › Elements › Colours: Candlelight — never the page.
-  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art', magicTraveller: 'mark' }));
+  const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'art' }));
   assert.match(colours, /name="site_art_direction"/);
   // ✈ MAGIC MOVE LEFT LOOK (owner 2026-10-08, on the local copy: "remove magic move") — no row, no field…
   assert.doesNotMatch(colours, /name="site_magic_traveller"|data-look-magic-move|data-magic-move-pick|Magic Move/, 'Magic Move is still a control of Look');
@@ -345,8 +345,12 @@ test('(4) Font posts only the typeface; the page fill only the page; Colours nei
   assert.equal(guarded.length, writes.length, 'a form that posts no Magic Move would CLEAR the stored one');
   assert.match(coloursAction, /const magicRaw = formData\.get\('site_magic_traveller'\);/);
   assert.match(read('app/[slug]/_components/site-body.tsx') + read('app/[slug]/page.tsx'), /site_magic_traveller|magicTraveller/, 'the guest page no longer reads the stored Magic Move');
-  const wholeRow = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'colours', magicTraveller: 'mark' }));
-  assert.match(wholeRow, /<input type="hidden" name="site_magic_traveller" value="mark"\/>/, 'anti-vacuity: the control this test looks for is gone everywhere — the assertion above would pass on anything');
+  // ✈ …and it lives on as the cover Logo's Action (Look restudy row 9): the record's whole Colours row no longer
+  // draws it either, and the one control left is "Travels to the bar" in the element sheet — anti-vacuity: the
+  // journey still has a control somewhere, or the assertions above would pass on a feature nobody can reach.
+  const wholeRow = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'colours' }));
+  assert.doesNotMatch(wholeRow, /name="site_magic_traveller"|data-magic-move-pick/, 'Magic Move is drawn in Event Details as well as on the Logo');
+  assert.match(read('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'), /LOGO_TRAVELS_LABEL/, 'the journey has no control left anywhere');
   assert.doesNotMatch(colours, /name="bg_color"|data-background-effect=/, 'the page fill is drawn under Colours again');
   // 🔘 The button colour moved to Look › Buttons (2026-10-04): Colours no longer
   // posts it, which the action reads as "unchanged" — one field, one place.
@@ -371,9 +375,11 @@ test('(4) Font posts only the typeface; the page fill only the page; Colours nei
 
 test('(5) Apply’s "Go to" for the theme, the background, the font, the colours and the hero video opens Look', async () => {
   const fx = read('lib/hub-pro-effects.ts');
-  for (const what of ['Typeface', 'Candlelight', 'Magic move', 'Ombré background']) {
+  for (const what of ['Typeface', 'Candlelight', 'Ombré background']) {
     assert.match(fx, new RegExp(`what: '${what}', where: 'Whole Event Hub', jump: \\{ kind: 'look' \\}`), what);
   }
+  // ✈ The journey is the cover Logo's Action now (Look restudy row 9) — its "Go to" opens the hero, never Look.
+  assert.match(fx, /what: 'Travels to the bar', where: 'Logo', jump: \{ kind: 'tool', key: 'hero' \}/);
   assert.match(fx, /where: 'Behind every scene',\s*jump: \{ kind: 'look' \}/);
   assert.match(fx, /what: 'Theme', [^\n]*jump: \{ kind: 'look' \}/);
   // 🎬 The hero video is Look › Background's — its "Go to" no longer opens the Music panel.

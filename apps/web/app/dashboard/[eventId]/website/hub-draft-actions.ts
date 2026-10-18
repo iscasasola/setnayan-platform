@@ -122,6 +122,7 @@ import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
+import { isThemeLoopRef } from '@/lib/theme-loop-refs';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
@@ -433,7 +434,9 @@ export async function hubDraftAction(
     const ownScenePrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`;
     /* 🖼 …or one of the ready-made Save the Date scenes (Setnayan's own public
        pictures, a closed list — owner 2026-09-29, answer 3). */
-    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
+    /* 🎞 …or one of OUR theme loops and its still (Look restudy row 7 — a part's Video ◆), the closed list
+       `isThemeLoopRef`, never a folder pattern. */
+    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref) || isThemeLoopRef(ref);
 
     /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
        song, hero video or gallery photo is a public POST like any other, so

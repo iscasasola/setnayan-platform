@@ -136,7 +136,6 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
           buttonColor={(drafted.site_button_color as string | null) ?? null}
           artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}
           fontKey={(drafted.site_font_key as string | null) ?? null}
-          magicTraveller={editor === 'colours' ? ((drafted.site_magic_traveller as string | null) ?? null) : undefined}
         />
       );
     }

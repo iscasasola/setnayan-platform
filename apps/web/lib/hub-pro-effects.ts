@@ -194,7 +194,8 @@ function eventEffect(
     case 'site_art_direction':
       return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_magic_traveller':
-      return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'look' } };
+      /* ✈ The cover Logo's Action (Look restudy row 9) — named and jumped to where it now lives. */
+      return { what: 'Travels to the bar', where: 'Logo', jump: { kind: 'tool', key: 'hero' } };
     case 'site_bg_color':
       return { what: 'Ombré background', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'rsvp_backdrop':

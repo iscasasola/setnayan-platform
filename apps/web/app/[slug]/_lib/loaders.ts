@@ -49,7 +49,7 @@ import { replayMarch, type MarchStep } from '@/lib/march-drag';
 import { printedRowsAsDrafted } from '@/lib/march-draft-print';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colours';
+import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { withPickedDate } from '@/lib/event-anchor';
 import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
@@ -84,9 +84,7 @@ import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc, stdFilmBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -834,31 +832,8 @@ export const loadMedia = cache(
         ? await displayUrlForStoredAsset(siteMediaServeRef(event.site_bg_music_r2_key))
         : null;
 
-    // Step-1 Save-the-Date background (events.std_background). Realistic → the
-    // public scene src; upload → a presigned R2 url; plain/paper → no image.
-    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`) —
-    // as the Mood Board palette dresses it (the same day's "THE MOOD BOARD
-    // PALETTE IS THE PRIORITY", `themeColours`); picked → the couple's own.
-    const stdBackground =
-      // …keeping the couple's Readability while it follows (`stdFollowTheme`).
-      stdFollowsTheme(event.std_background)
-        ? stdFilmBackground(
-            event.std_background,
-            themeColours((await resolveHubTheme(event).catch(() => null))?.theme ?? 'house', event.role_palette).colours.canvas,
-          )
-        : resolveStdBackground(event.std_background);
-    const stdBackgroundUrl =
-      stdBackground.kind === 'realistic'
-        ? realisticBgSrc(stdBackground.value)
-        : stdBackground.kind === 'upload'
-          ? // Serve a screen-sized WebP variant (cached in R2), not the couple's
-            // full-resolution original — the full-bleed CSS background otherwise
-            // streams multiple MB and loads slowly on phones. Falls back to the
-            // original on any error. See lib/std-bg-image.
-            // (and it READS the original to make that variant — so the ref is
-            // held to the public bucket before anything is fetched).
-            await displayUrlForStdBackground(siteMediaServeRef(stdBackground.value))
-          : null;
+    // 🎞 The Save the Date film no longer keeps a background of its own (Look restudy row 6, owner 2026-10-08):
+    // it wears the MAIN background, resolved where the page's own is (`site-body.tsx`, `mainGroundStillFor`).
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
     // either their photo gallery (default) or an uploaded video.
@@ -1012,8 +987,6 @@ export const loadMedia = cache(
       heroPhotoUrl,
       heroVideoUrl,
       bgMusicUrl,
-      stdBackground,
-      stdBackgroundUrl,
       stdVideoUrl,
       stdVideoPosterUrl,
       stdVenues,

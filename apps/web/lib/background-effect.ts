@@ -101,3 +101,50 @@ export const EFFECT_NONE_LABEL = 'None';
 /** What the Effects rows' ⓘ says. */
 export const EFFECTS_INFO = 'On top of your background, under the words — one at a time. It never covers what guests read.';
 export const EFFECT_COLOUR_INFO = 'Its own colour, or one of your five. A pale colour is deepened on a light page and lightened on a dark one until it shows.';
+
+/* ══ 🖼 THE PICTURE — Parallax ◆ · Blur ▾ (Look restudy row 8) ══════════════════════════════════════════════════
+   Owner 2026-10-08 (DECISION_LOG "LOOK › BACKGROUND, AMENDED"; approved amendment § 2.A "Effects ▾ on every
+   source"): *"Effects: Lantern / Parallax / etc"* · *"parallax is an effect also"*. The background's OWN treatment —
+   it moves a little slower than the page (Parallax), or is softened (Blur) — sits in the Effects block beside the
+   overlays, on EVERY source: where there is no picture (a colour, a pattern, "just the colour") both are shown OFF
+   with the reason, never hidden. Parallax is widened to every picture — a scene still, a theme video, the couple's
+   clip — on the shipped page-scroll parallax (`PahinaCoverParallax`); Pro ◆ as it always was (tried free, named at
+   Apply). Stored on the main background (`motion: 'parallax'`, `blur`), as before — no new key. */
+
+export type PictureBlur = 'none' | 'soft' | 'strong';
+export const PICTURE_BLUR_LABEL: Readonly<Record<PictureBlur, string>> = { none: 'None', soft: 'Soft', strong: 'Strong' };
+/** The approved prototype's words under each row — what it does, or why it is off. */
+export const PICTURE_LINE = {
+  parallax: 'Moves a little slower than the page as guests scroll',
+  parallaxOff: 'Needs a picture — a plain colour has nothing to move',
+  blur: 'Softens the picture under the words',
+  blurOff: 'Needs a picture — a plain colour has nothing to blur',
+} as const;
+
+/** Does this background have a picture to move and blur (a photo, a scene, a clip, a video of ours, the cover)? */
+export function pictureTakes(main: HubMainGround | null): boolean {
+  return Boolean(main) && (isHubMainOwn(main) || isHubMainLoop(main) || (main !== null && 'follow' in main));
+}
+
+/** The background with Parallax on or off — every other key exactly as it was. Refused (unchanged) where there is no picture. */
+export function withParallax(main: HubMainGround | null, on: boolean): HubMainGround | null {
+  if (!main || !pictureTakes(main)) return main;
+  const { motion: _was, ...rest } = main as HubMainGround & { motion?: unknown };
+  return (on ? { ...rest, motion: 'parallax' } : rest) as HubMainGround;
+}
+
+/** The background with Blur set (`none` takes the key off) — every other key exactly as it was. Refused where there is no picture. */
+export function withBlur(main: HubMainGround | null, blur: PictureBlur): HubMainGround | null {
+  if (!main || !pictureTakes(main)) return main;
+  const { blur: _was, ...rest } = main as HubMainGround & { blur?: unknown };
+  return (blur === 'none' ? rest : { ...rest, blur }) as HubMainGround;
+}
+
+/** The Effects row's closed summary — "Lanterns · Parallax · Blur · Soft", or "Off" (the approved prototype's `effectsSummary`). */
+export function effectsSummary(overlay: string | null, picture: { parallax: boolean; blur: PictureBlur } | null): string {
+  const parts: string[] = [];
+  if (overlay) parts.push(overlay);
+  if (picture?.parallax) parts.push('Parallax');
+  if (picture && picture.blur !== 'none') parts.push(`Blur · ${PICTURE_BLUR_LABEL[picture.blur]}`);
+  return parts.length > 0 ? parts.join(' · ') : 'Off';
+}

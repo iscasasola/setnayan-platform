@@ -12,7 +12,6 @@ import type { WallTile } from '@/lib/live-wall-logic';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
-import type { StdBackground } from '@/lib/std-backgrounds';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -309,8 +308,6 @@ export type EventMedia = {
   heroPhotoUrl: string | null;
   heroVideoUrl: string | null;
   bgMusicUrl: string | null;
-  stdBackground: StdBackground;
-  stdBackgroundUrl: string | null;
   stdVideoUrl: string | null;
   stdVideoPosterUrl: string | null;
   stdVenues: StdVenues;

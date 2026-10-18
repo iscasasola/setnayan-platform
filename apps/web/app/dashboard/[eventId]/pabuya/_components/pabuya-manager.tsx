@@ -30,6 +30,7 @@ import {
   setEgiftMethodEnabled,
   type EgiftActionResult,
 } from '../actions';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
 /** A saved method as handed down from the server page. */
 export type ManagerMethod = {
@@ -109,6 +110,9 @@ export function PabuyaManager({
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
+  /* 👥 The way as it stood when the edit form opened — sent as the edit's base, so only the fields this screen changes
+     are written (`lib/egift-method-merge.ts`, owner 2026-10-18: two hosts never overwrite each other). */
+  const [opened, setOpened] = useState<ManagerMethod | null>(null);
 
   function openNew() {
     setEditingId(null);
@@ -119,6 +123,7 @@ export function PabuyaManager({
 
   function openEdit(m: ManagerMethod) {
     setEditingId(m.egift_method_id);
+    setOpened(m);
     setDraft({
       kind: m.method_kind,
       label: m.label,
@@ -173,6 +178,10 @@ export function PabuyaManager({
     fd.set('handle', draft.handle);
     fd.set('note', draft.note);
     fd.set('qr_r2_key', draft.qrRef);
+    if (editingId && opened?.egift_method_id === editingId) {
+      const { method_kind, label, account_name, handle, qr_r2_key, note } = opened;
+      fd.set(MERGE_BASE_FIELD, JSON.stringify({ method_kind, label, account_name, handle, qr_r2_key, note }));
+    }
     run(saveEgiftMethod, fd, closeForm);
   }
 

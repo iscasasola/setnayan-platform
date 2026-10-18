@@ -28,7 +28,12 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const golden = JSON.parse(readFileSync(join(__dirname, 'studio-egifts-posts-the-same.golden.json'), 'utf8')) as Record<string, { calls: Array<{ action: string; args: unknown[]; fields?: Record<string, string> }> }>;
 
 /** The page's FormData for a write: the event first, then the builder's fields. */
-const posted = (fields: Record<string, string>) => ({ event_id: 'E1', ...fields });
+/* RE-AIMED 2026-10-18 (two hosts never overwrite, round 3): every field the golden recorded is still posted byte for byte;
+   an edit now ALSO carries its base (`base`, what it carries forward unseen) — held on its own in test 3b below. */
+const posted = (fields: Record<string, string>) => {
+  const { base: _base, ...rest } = fields;
+  return { event_id: 'E1', ...rest };
+};
 const the = (name: string, i = 0) => {
   const c = golden[name]?.calls[i];
   assert.ok(c, `the golden has no call ${i} for ${name}`);
@@ -64,6 +69,14 @@ test('3 · changing the number or the name on the account carries the way’s id
   assert.equal(egiftMethodNeedsSaving({ stored: GCASH, accountName: 'Maria Santos', handle: ' 0917 555 0101 ' }), false, 'what is stored is compared trimmed');
   assert.equal(egiftMethodNeedsSaving({ stored: GCASH, accountName: 'Maria Santos', handle: '' }), true, 'emptying a number IS sent (the writer refuses it in words)');
   assert.deepEqual(posted(egiftMethodFields({ stored: GCASH, kind: 'gcash', accountName: 'Maria Santos', handle: '' })), the('s6_handle_fail').fields);
+});
+
+test('3b · an edit says what it carried forward unseen — label, note and the stored QR — so it never writes them back over another host’s', () => {
+  const base = JSON.parse(egiftMethodFields({ stored: GCASH, kind: 'gcash', accountName: 'a', handle: 'b' }).base ?? 'null');
+  assert.deepEqual(base, { label: GCASH.label, note: GCASH.note, qr_r2_key: GCASH.qr_r2_key });
+  const settingQr = JSON.parse(egiftMethodFields({ stored: GCASH, kind: 'gcash', accountName: 'a', handle: 'b', qrRef: '' }).base ?? 'null');
+  assert.equal('qr_r2_key' in settingQr, false, 'a QR being set or removed right now was sent as unchanged');
+  assert.equal(egiftMethodFields({ stored: null, kind: 'gcash', accountName: 'a', handle: 'b' }).base, undefined, 'a new way has no base');
 });
 
 test('4 · the QR is set and removed through the same write, with the typed number and name beside it', () => {

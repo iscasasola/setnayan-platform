@@ -817,6 +817,13 @@ export type HubDraftState = {
    * Absent = nothing drafted.
    */
   march?: MarchStep[][];
+  /**
+   * 👥 WHO MADE THE STEP THAT LEFT THIS STATE (owner 2026-10-18, rulings A + B — `lib/hub-draft-authors.ts`): the
+   * account id of the host whose save produced it, set by the one door (`updateHubDraft` → `mergeHubDraft(…, by)`).
+   * Each Undo state keeps its own, so the draft knows who made every step it can still take back. Absent = not known
+   * (a step from before this record, or a writer with no session). Never part of what Apply writes, nor of the stamp.
+   */
+  by?: string;
 };
 
 export type HubDraft = HubDraftState & {
@@ -1186,12 +1193,23 @@ export function sanitizeHubDraftPatch(raw: unknown): HubDraftState {
 
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
 export function sanitizeHubDraft(raw: unknown): HubDraft {
-  const state = sanitizeState(raw);
+  const state = withAuthor(sanitizeState(raw), raw);
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const history = Array.isArray(src.history)
-    ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map(sanitizeState)
+    ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map((h: unknown) => withAuthor(sanitizeState(h), h))
     : [];
   return fitHubDraftHistory({ v: 1, ...state, history });
+}
+
+/** 👥 An account id, as `auth.uid()` spells it — or nothing. */
+export function hubDraftAuthorOf(v: unknown): string | undefined {
+  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : undefined;
+}
+/* 👥 Only a STORED state keeps its author: a posted patch (`sanitizeHubDraftPatch`) never can — who made a step is the
+   session's, said by the server, never the client's. */
+function withAuthor(state: HubDraftState, raw: unknown): HubDraftState {
+  const by = hubDraftAuthorOf(raw && typeof raw === 'object' ? (raw as { by?: unknown }).by : undefined);
+  return by ? { ...state, by } : state;
 }
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
@@ -1231,6 +1249,7 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
   ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
   ...(d.march ? { march: d.march.map((move) => [...move]) } : {}),
+  ...(d.by ? { by: d.by } : {}),
 });
 
 /**
@@ -1239,9 +1258,13 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
  * forget a canvas already drafted); its canvas is replaced whole, because the
  * writer that sends it has already merged the canvas it read.
  */
-export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft {
+export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: string): HubDraft {
   const clean = sanitizeState(patch);
   const next = stateOf(current);
+  /* 👥 The new state is THIS save's: its author (`by`, the session's account — `updateHubDraft`), or not known. */
+  const author = hubDraftAuthorOf(by);
+  if (author) next.by = author;
+  else delete next.by;
   for (const [col, v] of Object.entries(clean.events)) {
     // 🎫 The two drafted print settings merge KEY BY KEY — a ticket style pick
     // never forgets a drafted name style, nor the other way round.
@@ -2933,7 +2956,22 @@ export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: H
   return out;
 }
 
-export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean): HubDraftSummary {
+/**
+ * ↺ RULING B (owner 2026-10-18): ↺ takes back only YOUR OWN steps (`lib/hub-draft-authors.ts`). A step ↺ may take back
+ * for `me`: one `me` made, or one nobody is recorded for (before the record). `me` unknown (the dev lab): every step.
+ */
+export function isOwnStep(by: string | undefined, me: string | undefined): boolean {
+  return me === undefined || by === undefined || by === me;
+}
+/** ↺ Is there a step `me` may take back? Step k left state k (`history`, then now); the oldest state's own step is gone. */
+export function hubDraftCanUndoOwn(draft: HubDraft | null, me?: string): boolean {
+  if (!draft) return false;
+  const states: HubDraftState[] = [...draft.history, draft];
+  for (let k = states.length - 1; k >= 1; k -= 1) if (isOwnStep(states[k]!.by, me)) return true;
+  return false;
+}
+
+export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean, me?: string): HubDraftSummary {
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
   const changeCount = hubDraftCountedChanges(plan).length;
@@ -2941,7 +2979,8 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
     hasChanges: changeCount > 0,
     changeCount,
     proCount: plan.refused.length,
-    canUndo: draft.history.length > 0,
+    // ↺ Greyed when no step left is yours (ruling B) — the other host's steps are theirs to take back.
+    canUndo: hubDraftCanUndoOwn(draft, me),
   };
 }
 

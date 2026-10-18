@@ -6,6 +6,7 @@ import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -15,7 +16,8 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
 import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/lib/hub-pro-effects';
-import { hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { HUB_DRAFT_REBASE_WIDGET_FIELDS, hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { sanitizePostEventDraft } from '@/lib/post-event-draft';
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
   HUB_DRAFT_FIELD,
@@ -23,6 +25,7 @@ import {
   emptyHubDraft,
   hubDraftBounceHref,
   hubDraftForWrite,
+  hubDraftAuthorOf,
   hubDraftSaveFailure,
   mergeHubDraft,
   sanitizeHubDraft,
@@ -182,6 +185,18 @@ export async function writeHubDraft(
   }
 }
 
+/** 👥 The session's own account id, from its token (checked locally) — or nothing (no session, an admin client, a test). */
+async function sessionAuthor(supabase: SessionClient): Promise<string | undefined> {
+  try {
+    const auth = (supabase as unknown as { auth?: { getClaims?: () => Promise<{ data: { claims?: { sub?: unknown } } | null }> } }).auth;
+    if (typeof auth?.getClaims !== 'function') return undefined;
+    const { data } = await auth.getClaims();
+    return hubDraftAuthorOf(data?.claims?.sub);
+  } catch {
+    return undefined;
+  }
+}
+
 /** How many times a draft write re-reads and builds again before it gives up (each lost round is another screen's save landing). */
 export const HUB_DRAFT_WRITE_ATTEMPTS = 5;
 
@@ -199,12 +214,17 @@ export const HUB_DRAFT_WRITE_ATTEMPTS = 5;
 export async function updateHubDraft<R = undefined>(
   supabase: SessionClient,
   eventId: string,
-  build: (current: HubDraft | null) => Promise<{ next: HubDraft; said?: R } | null> | { next: HubDraft; said?: R } | null,
+  build: (current: HubDraft | null, by: string | undefined) => Promise<{ next: HubDraft; said?: R } | null> | { next: HubDraft; said?: R } | null,
   appliedSnapshot?: Record<string, unknown>,
+  author?: string | null,
 ): Promise<{ written: boolean; draft: HubDraft | null; said?: R }> {
+  /* 👥 WHO MAKES THIS STEP (owner 2026-10-18, rulings A + B — `lib/hub-draft-authors.ts`): handed to `build`, which
+     passes it to `mergeHubDraft(…, by)`. The caller's gate already knows it (`author`); otherwise the session's own
+     account, read from its token locally (`getClaims`, no round trip). `null` = say nobody. */
+  const by = author === null ? undefined : (hubDraftAuthorOf(author) ?? (await sessionAuthor(supabase)));
   for (let attempt = 1; ; attempt += 1) {
     const row = await readHubDraftRow(supabase, eventId);
-    const built = await build(row.draft);
+    const built = await build(row.draft, by);
     if (!built) return { written: false, draft: row.draft };
     try {
       await writeHubDraft(supabase, eventId, built.next, appliedSnapshot, row.stamp);
@@ -245,25 +265,37 @@ export async function forgetDraftedEventColumn(supabase: SessionClient, eventId:
 export async function readHubDraftRebaseLive(
   supabase: SessionClient,
   eventId: string,
-  needs: { columns: string[]; canvases: string[] },
+  needs: { columns: string[]; canvases: string[]; editorial?: boolean },
 ): Promise<HubDraftRebaseLive> {
   const columns = needs.columns.filter((c) => (HUB_DRAFT_EVENT_READ_COLUMNS as readonly string[]).includes(c));
-  const [ev, rows] = await Promise.all([
+  const [ev, rows, story] = await Promise.all([
     columns.length > 0
       ? supabase.from('events').select(columns.join(', ')).eq('event_id', eventId).maybeSingle()
       : Promise.resolve({ data: {}, error: null }),
     needs.canvases.length > 0
       ? supabase.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', needs.canvases)
       : Promise.resolve({ data: [], error: null }),
+    // 📖 Round 3: the story's own row, through its own reader — the same one the draft's `editorial` goes through.
+    needs.editorial
+      ? supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   if (ev.error) throw new Error(`Could not read the live Event Hub: ${ev.error.message}`);
   if (rows.error) throw new Error(`Could not read the live sections: ${rows.error.message}`);
+  if (story.error) throw new Error(`Could not read the live story: ${story.error.message}`);
   const canvas: Record<string, unknown> = {};
+  const fields: Record<string, Record<string, unknown>> = {};
   for (const r of (rows.data ?? []) as Array<{ widget_type: string; config_json: unknown }>) {
-    const c = (r.config_json as { canvas?: unknown } | null)?.canvas;
-    if (c !== undefined) canvas[r.widget_type] = c;
+    const cfg = (r.config_json ?? {}) as Record<string, unknown>;
+    if (cfg.canvas !== undefined) canvas[r.widget_type] = cfg.canvas;
+    fields[r.widget_type] = Object.fromEntries(HUB_DRAFT_REBASE_WIDGET_FIELDS.filter((f) => cfg[f] !== undefined).map((f) => [f, cfg[f]]));
   }
-  return { events: (ev.data ?? {}) as Record<string, unknown>, canvas };
+  return {
+    events: (ev.data ?? {}) as Record<string, unknown>,
+    canvas,
+    ...(needs.canvases.length > 0 ? { fields } : {}),
+    ...(needs.editorial ? { editorial: (sanitizePostEventDraft((story.data as { draft_json?: unknown } | null)?.draft_json) ?? {}) as Record<string, unknown> } : {}),
+  };
 }
 
 /** One save, merged from its `base` onto the draft as it is NOW (`rebaseHubDraftPatch`), with the live values it needs. */
@@ -276,7 +308,7 @@ export async function rebaseOnDraft(
 ): Promise<HubDraftRebased> {
   if (base === undefined || base === null) return rebaseHubDraftPatch(current, patch, undefined, { events: {}, canvas: {} });
   const needs = hubDraftRebaseNeeds(current, patch, sanitizeHubDraftPatch(base));
-  const live = needs.columns.length + needs.canvases.length > 0 ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
+  const live = needs.columns.length + needs.canvases.length > 0 || needs.editorial ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
   return rebaseHubDraftPatch(current, patch, base, live);
 }
 
@@ -298,10 +330,10 @@ export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, b
     const supabase = await createClient();
     /* 👥 `base` — what the writer built its whole value on (a canvas it read from the draft): merged from it onto the
        draft as it is NOW, so a save that landed between the writer's read and this write is kept. */
-    await updateHubDraft(supabase, eventId, async (cur) => {
+    await updateHubDraft(supabase, eventId, async (cur, by) => {
       const current = cur ?? emptyHubDraft();
       const rebased = await rebaseOnDraft(supabase, eventId, current, patch, base);
-      return { next: mergeHubDraft(current, rebased.patch) };
+      return { next: mergeHubDraft(current, rebased.patch, by) };
     });
   } catch (e) {
     if (!back) throw e;
@@ -524,19 +556,21 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
      SPEED FIRST (a drawn pick brings no render any more). */
   let ownsProViewed = false;
   try {
-    const [draft, ownsPro] = await Promise.all([
+    const [draft, ownsPro, me] = await Promise.all([
       readHubDraft(supabase, eventId),
       // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
       // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
       // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
       asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
+      // ↺ Whose steps are whose (ruling B): the request's own account — the same cached read the page already made.
+      getCurrentUser().then((u) => u?.id).catch(() => undefined),
     ]);
     ownsProViewed = ownsPro;
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
-      summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
+      summary = summarizeHubDraft(draft, live, ownsPro && !storeShell, me);
       if (!storeShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
       // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
       summary.changes = hubDraftChangeLines(draft, live, ownsPro && !storeShell);
@@ -581,11 +615,13 @@ export async function hubDraftBarAfterSave(
   supabase: SessionClient,
   eventId: string,
   draft: HubDraft,
+  me?: string,
 ): Promise<HubDraftBarLive | null> {
   try {
     const live = await readHubLiveState(supabase, eventId);
-    const free = { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) };
-    const owned = { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) };
+    // ↺ `me` — whose steps ↺ may take back (ruling B); absent: every step, as before.
+    const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) };
+    const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
     let priceLabel: string | null = null;
     if (free.proCount > 0) {

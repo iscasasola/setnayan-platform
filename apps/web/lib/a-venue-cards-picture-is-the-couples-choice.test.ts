@@ -258,7 +258,8 @@ test('4 · turning the drawing OFF is never Pro', () => {
 test("4 · the Save-the-Date's live venue door neither sets nor clears the drawing", () => {
   const src = code('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
   const door = src.slice(src.indexOf('if (data.venueChoice)'));
-  const write = door.indexOf('.update({ config_json');
+  // RE-AIMED 2026-10-18 (two hosts never overwrite, round 3): the write is now the one-at-a-time section writer.
+  const write = door.indexOf('await writeWidgetConfig(');
   const keep = door.indexOf('delete choice.drawing;');
   assert.ok(keep > 0 && keep < write, 'the posted drawing is dropped before the write');
   assert.match(door.slice(keep, write), /if \(readVenueChoices\(config, eventId\)\[slot\]\?\.drawing === true\) choice\.drawing = true;/);

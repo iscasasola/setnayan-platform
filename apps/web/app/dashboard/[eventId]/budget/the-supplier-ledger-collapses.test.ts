@@ -123,7 +123,7 @@ test('a supplier row is a button that opens its own sheet', () => {
   );
   assert.match(
     screen(),
-    /<SupplierGroup rows=\{list\.suppliers\} onOpen=\{\(vendorId\) => open\(\{ kind: 'pay', vendorId \}\)\} \/>/,
+    /<SupplierGroup\s+rows=\{list\.suppliers\}\s+shown=\{shown\.suppliers\}[^>]*?onOpen=\{\(vendorId\) => open\(\{ kind: 'pay', vendorId \}\)\}/,
     'opening a supplier row must open the PAYMENTS sheet for that supplier',
   );
 });

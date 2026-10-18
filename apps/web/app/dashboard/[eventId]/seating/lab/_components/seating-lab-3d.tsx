@@ -39,6 +39,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
@@ -500,6 +501,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   // lost edit). The counter holds the resync until every in-flight save settles.
   const [floor, setFloor] = useState(floorProp);
   const floorInFlight = useRef(0);
+  // 👥 The floor this lab STARTED FROM (or last sent) — each save's base.
+  const floorBase = useRef(labFloorFields(floorProp, floorExtras));
   // Reception design (Wave 2b decor treatments) is LOCAL state too — the
   // relocated editor (ReceptionDesignEditor) writes here optimistically so
   // VenueDecor re-renders the 3D room immediately, same pattern as `floor`
@@ -509,6 +512,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   useEffect(() => {
     if (floorInFlight.current > 0) return;
     setFloor(floorProp);
+    floorBase.current = labFloorFields(floorProp, floorExtras);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the extras ride the same loader run as the floor
   }, [floorProp]);
   // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
   // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
@@ -1348,38 +1353,10 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('lock_id', lock.lockId ?? '');
-      fd.set('stage_x', String(f.stage.xPct));
-      fd.set('stage_y', String(f.stage.yPct));
-      fd.set('stage_w', String(f.stage.wPct));
-      fd.set('stage_h', String(f.stage.hPct));
-      fd.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
-      fd.set('entrance_x', String(f.entrance.xPct));
-      fd.set('entrance_y', String(f.entrance.yPct));
-      // CRITICAL — saveFloorPlan upserts the WHOLE row, so a 3D-lab save that
-      // omitted the entrance kind/depth would reset any Walk-through the 2D
-      // editor set back to 'door' (whole-row data loss). Round-trip them like
-      // the service-door / cocktail fields below.
-      fd.set('entrance_kind', f.entrance.kind);
-      fd.set('entrance_depth_m', String(f.entrance.depthM));
-      fd.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
-      fd.set('dance_x', String(f.dance.xPct));
-      fd.set('dance_y', String(f.dance.yPct));
-      fd.set('dance_w', String(f.dance.wPct));
-      fd.set('dance_h', String(f.dance.hPct));
-      if (f.venueWidthM != null) fd.set('venue_width_m', String(f.venueWidthM));
-      if (f.venueLengthM != null) fd.set('venue_length_m', String(f.venueLengthM));
-      // Preserve (else the whole-row upsert wipes them):
-      fd.set('service_entrance_enabled', floorExtras.serviceEntranceEnabled ? 'true' : 'false');
-      fd.set('service_entrance_x', String(floorExtras.serviceEntranceX));
-      fd.set('service_entrance_y', String(floorExtras.serviceEntranceY));
-      fd.set('cocktail_enabled', floorExtras.cocktailEnabled ? 'true' : 'false');
-      fd.set('cocktail_x', String(floorExtras.cocktailX));
-      fd.set('cocktail_y', String(floorExtras.cocktailY));
-      fd.set('cocktail_w', String(floorExtras.cocktailW));
-      fd.set('cocktail_h', String(floorExtras.cocktailH));
-      if (floorExtras.cocktailLabel) fd.set('cocktail_label', floorExtras.cocktailLabel);
-      fd.set('cocktail_vendor_edit', floorExtras.cocktailVendorEdit ? 'true' : 'false');
-      fd.set('cocktail_linked', floorExtras.cocktailLinked ? 'true' : 'false');
+      const fields = labFloorFields(f, floorExtras);
+      for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+      fd.set(MERGE_BASE_FIELD, JSON.stringify(floorBase.current));
+      floorBase.current = fields;
       floorInFlight.current += 1;
       void persist(async () => {
         try {
@@ -6025,4 +6002,46 @@ function Hud({
       ) : null}
     </>
   );
+}
+
+/**
+ * 👥 The fields a lab floor save posts — one builder, so the save and its BASE (owner 2026-10-18: two hosts never
+ * overwrite each other — `lib/floor-plan-row.ts`) are spelled the same: only the columns the lab changed are written,
+ * and the service door / cocktail room it carries forward unseen never put back the 2D editor's newer ones.
+ */
+function labFloorFields(f: Lab3DFloor, floorExtras: Lab3DFloorExtras): Record<string, string> {
+  const out = new Map<string, string>();
+  out.set('stage_x', String(f.stage.xPct));
+  out.set('stage_y', String(f.stage.yPct));
+  out.set('stage_w', String(f.stage.wPct));
+  out.set('stage_h', String(f.stage.hPct));
+  out.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
+  out.set('entrance_x', String(f.entrance.xPct));
+  out.set('entrance_y', String(f.entrance.yPct));
+  // CRITICAL — saveFloorPlan upserts the WHOLE row, so a 3D-lab save that
+  // omitted the entrance kind/depth would reset any Walk-through the 2D
+  // editor set back to 'door' (whole-row data loss). Round-trip them like
+  // the service-door / cocktail fields below.
+  out.set('entrance_kind', f.entrance.kind);
+  out.set('entrance_depth_m', String(f.entrance.depthM));
+  out.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
+  out.set('dance_x', String(f.dance.xPct));
+  out.set('dance_y', String(f.dance.yPct));
+  out.set('dance_w', String(f.dance.wPct));
+  out.set('dance_h', String(f.dance.hPct));
+  if (f.venueWidthM != null) out.set('venue_width_m', String(f.venueWidthM));
+  if (f.venueLengthM != null) out.set('venue_length_m', String(f.venueLengthM));
+  // Preserve (else the whole-row upsert wipes them):
+  out.set('service_entrance_enabled', floorExtras.serviceEntranceEnabled ? 'true' : 'false');
+  out.set('service_entrance_x', String(floorExtras.serviceEntranceX));
+  out.set('service_entrance_y', String(floorExtras.serviceEntranceY));
+  out.set('cocktail_enabled', floorExtras.cocktailEnabled ? 'true' : 'false');
+  out.set('cocktail_x', String(floorExtras.cocktailX));
+  out.set('cocktail_y', String(floorExtras.cocktailY));
+  out.set('cocktail_w', String(floorExtras.cocktailW));
+  out.set('cocktail_h', String(floorExtras.cocktailH));
+  if (floorExtras.cocktailLabel) out.set('cocktail_label', floorExtras.cocktailLabel);
+  out.set('cocktail_vendor_edit', floorExtras.cocktailVendorEdit ? 'true' : 'false');
+  out.set('cocktail_linked', floorExtras.cocktailLinked ? 'true' : 'false');
+  return Object.fromEntries(out);
 }

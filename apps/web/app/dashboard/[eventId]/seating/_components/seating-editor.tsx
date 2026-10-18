@@ -1,5 +1,7 @@
 'use client';
 
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
@@ -558,8 +560,14 @@ export function SeatingEditor({
   const boothsDirtyRef = useRef(false);
   boothsDirtyRef.current = boothsDirty;
   const tmpBoothSeq = useRef(0);
+  /* 👥 The booths (and signs, and floor) this editor STARTED FROM — sent as each save's base, so only what it changed
+     is written and a booth the other host added is never deleted here (owner 2026-10-18, two hosts never overwrite). */
+  const boothsBase = useRef(boothsProp);
   useEffect(() => {
-    if (!boothsDirtyRef.current) setBooths(boothsProp);
+    if (!boothsDirtyRef.current) {
+      setBooths(boothsProp);
+      boothsBase.current = boothsProp;
+    }
   }, [boothsProp]);
   // Wayfinding signs (rotatable arrow + label) — same local-state-then-save
   // model as booths: tmp- ids until the next save returns real rows.
@@ -568,8 +576,12 @@ export function SeatingEditor({
   const signsDirtyRef = useRef(false);
   signsDirtyRef.current = signsDirty;
   const tmpSignSeq = useRef(0);
+  const signsBase = useRef(signsProp);
   useEffect(() => {
-    if (!signsDirtyRef.current) setSigns(signsProp);
+    if (!signsDirtyRef.current) {
+      setSigns(signsProp);
+      signsBase.current = signsProp;
+    }
   }, [signsProp]);
   // Dock the cocktail room beside the reception at the entrance door: cross-axis
   // aligned to the door, out-axis pushed GAP + half-extent outside the wall
@@ -686,10 +698,12 @@ export function SeatingEditor({
   const floorDirtyRef = useRef(false);
   floorDirtyRef.current = floorDirty;
   const floorSeen = useRef(floorPlan);
+  const floorBase = useRef(floorPlanFieldsOf(floorPlan));
   useEffect(() => {
     if (!details || floorSeen.current === floorPlan) return;
     floorSeen.current = floorPlan;
     if (floorDirtyRef.current) return;
+    floorBase.current = floorPlanFieldsOf(floorPlan);
     setStage({ x: floorPlan.stage_x, y: floorPlan.stage_y, w: floorPlan.stage_w, h: floorPlan.stage_h });
     setEntrance({
       enabled: floorPlan.entrance_enabled,
@@ -4073,7 +4087,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('booths', boothsPayload(booths));
+          fd.set(MERGE_BASE_FIELD, boothsPayload(boothsBase.current));
           await saveBooths(fd);
+          boothsBase.current = booths;
           setBoothsDirty(false);
         }
         if (sDirty) {
@@ -4081,7 +4097,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('signs', signsPayload(signs));
+          fd.set(MERGE_BASE_FIELD, signsPayload(signsBase.current));
           await saveSigns(fd);
+          signsBase.current = signs;
           setSignsDirty(false);
         }
         for (const id of ids) {
@@ -4128,7 +4146,12 @@ export function SeatingEditor({
             fd.set('venue_width_m', String(venue.width));
             fd.set('venue_length_m', String(venue.length));
           }
+          // 👥 …and the floor it started from: only the columns this editor changed are written.
+          fd.set(MERGE_BASE_FIELD, JSON.stringify(floorBase.current));
           await saveFloorPlan(fd);
+          const sent: Record<string, string> = {};
+          for (const [k, v] of fd.entries()) if (k !== 'event_id' && k !== 'lock_id' && k !== MERGE_BASE_FIELD && typeof v === 'string') sent[k] = v;
+          floorBase.current = sent;
         }
         setDirty(new Set());
         setFloorDirty(false);

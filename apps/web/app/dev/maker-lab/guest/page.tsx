@@ -629,6 +629,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     <div data-lab-scene="me-wear" data-lab-role={labRole.key} className="mt-8 border-t border-ink/10 pt-6">
       <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">Me · {labRole.name}</p>
       <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="wear" />
+      {/* ⏰ Arrive by — the role's call time, the Me part after What to wear (`GUEST_ME_PARTS`), set per row in Studio › Attire. */}
+      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="arrive" />
     </div>
   ) : null;
   const dressCode = words && labRole ? (

@@ -181,7 +181,10 @@ export function sendCanvasBase(fd: FormData, type: string, server: HubSectionCan
   const kept = sentCanvas.get(type);
   const base = built ?? (kept && kept.server === fp ? kept.canvas : (server ?? {}));
   sentCanvas.set(type, { server: fp, canvas: next });
-  fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { [type]: { canvas: base } } }));
+  // A save of several scenes at once (Every scene's background) says each one's base, in one field.
+  const had = fd.get(MERGE_BASE_FIELD);
+  const widgets = typeof had === 'string' ? (JSON.parse(had) as { widgets: Record<string, unknown> }).widgets : {};
+  fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { ...widgets, [type]: { canvas: base } } }));
 }
 export function forgetCanvasSent(type: string): void {
   sentCanvas.delete(type);

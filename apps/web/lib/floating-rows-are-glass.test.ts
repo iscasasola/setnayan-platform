@@ -44,6 +44,11 @@ const ROWS: ReadonlyArray<readonly [key: string, file: string]> = [
   ['suppliers-find', `${E}/vendors/_components/find-thumb-row.tsx`],
   // The supplier's thumb row (supplier redesign S-PR0, 2026-10-08).
   ['supplier-thumb', 'app/vendor-dashboard/_components/supplier-thumb-row.tsx'],
+  // The Budget page's thumb row (Budget B3, 2026-10-18): the All ▾ dropdown and
+  // the search field are the frosted pieces; ＋ Add expense keeps its colour.
+  // PickMenu portals its list to <body>, so the glass's clip cannot cut it off.
+  ['budget-filter', `${E}/budget/_components/budget-screen.tsx`],
+  ['budget-search', `${E}/budget/_components/budget-screen.tsx`],
 ];
 
 function ruleBody(selector: string): string {

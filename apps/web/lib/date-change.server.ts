@@ -166,8 +166,8 @@ export async function enterReadyDateIntoDraft(
 ): Promise<void> {
   const draftClient = client as unknown as DraftClient;
   // 👥 Built on the draft as it is when the write lands — a host's save made meanwhile is kept (`updateHubDraft`).
-  await updateHubDraft(draftClient, eventId, (current) => ({
-    next: mergeHubDraft(current ?? emptyHubDraft(), { events: { event_date: date.date, event_date_precision: date.precision } }),
+  await updateHubDraft(draftClient, eventId, (current, by) => ({
+    next: mergeHubDraft(current ?? emptyHubDraft(), { events: { event_date: date.date, event_date_precision: date.precision } }, by),
   }));
 }
 
@@ -177,10 +177,10 @@ async function takeAskedDateOutOfDraft(client: Client, eventId: string, asked: s
   const { data: live } = await client.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
   const row = (live ?? {}) as { event_date?: string | null; event_date_precision?: string | null };
   // 👥 Built on the draft as it is when the write lands (`updateHubDraft`).
-  await updateHubDraft(draftClient, eventId, (current) =>
+  await updateHubDraft(draftClient, eventId, (current, by) =>
     !current || current.events.event_date !== asked
       ? null
-      : { next: mergeHubDraft(current, { events: { event_date: row.event_date ?? null, event_date_precision: row.event_date_precision ?? null } }) },
+      : { next: mergeHubDraft(current, { events: { event_date: row.event_date ?? null, event_date_precision: row.event_date_precision ?? null } }, by) },
   );
 }
 

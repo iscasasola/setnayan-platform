@@ -57,6 +57,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { parseOAuthAccountType, buildOAuthCallbackUrl } from '@/lib/oauth-signup';
+import { googleLoginHint } from '@/lib/google-address';
 
 type SupabaseOAuthProvider = 'google' | 'apple' | 'facebook';
 
@@ -78,9 +79,13 @@ async function signInWithProvider(
   // forwards arbitrary query params on the redirectTo URL all the way
   // through to /auth/callback (the standard Supabase OAuth + Next.js App
   // Router cookbook), so `next` + `as` round-trip intact.
+  // A TYPED Google address (lib/google-address.ts, owner 2026-10-18) arrives
+  // with `login_hint` so Google opens on that account. Google only; a missing
+  // or malformed hint is simply the plain button — never an error.
+  const loginHint = provider === 'google' ? googleLoginHint(formData.get('login_hint')) : null;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo },
+    options: { redirectTo, ...(loginHint ? { queryParams: { login_hint: loginHint } } : {}) },
   });
 
   if (error) {

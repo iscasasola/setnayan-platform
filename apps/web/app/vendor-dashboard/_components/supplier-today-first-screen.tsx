@@ -433,7 +433,7 @@ export function SupplierTodayFirstScreen({
     secondButton
   ) : (
     <>
-      <ActionButton tone={look.tone} main icon={icon(look.icon)} label={next.action} href={unread ? '/vendor-dashboard' : nextHref(next.target)} className="min-h-11" />
+      <ActionButton tone={look.tone} main icon={icon(look.icon)} label={next.action} href={unread ? '/vendor-dashboard' : nextHref(next.target)} className="min-h-11" tour="today-next" />
       {secondButton}
     </>
   );
@@ -526,7 +526,7 @@ export function SupplierTodayFirstScreen({
               <span className="block text-[11.5px] text-ink/60">this week</span>
               <TapMark />
             </Link>
-            <Link href={customerLandingHref('payday')} className="grid gap-0.5 text-center" data-today-number="money" data-money="">
+            <Link href={customerLandingHref('payday')} className="grid gap-0.5 text-center" data-today-number="money" data-money="" data-tour="today-money">
               {numbers.toComeIn === null ? (
                 <Unread />
               ) : (

@@ -671,6 +671,7 @@ export async function VendorServicesManager({
               canvas-off fallback, which is why it keeps its own longer name. */}
           <Link
             href={SERVICE_MAKER_HREF}
+            data-tour="shop-add-service"
             className="inline-flex items-center gap-1.5 text-sm font-medium"
             style={{ color: 'var(--m-orange-2)' }}
           >
@@ -827,7 +828,7 @@ export async function VendorServicesManager({
             {/* The FIRST card a shop ever makes is pressed here — the one
                 place the old drawer was worst, because a shop with no cards has
                 nothing to recognise in a list of 34 kinds. */}
-            <Link href={SERVICE_MAKER_HREF} className="button-primary mt-3 inline-flex">
+            <Link href={SERVICE_MAKER_HREF} className="button-primary mt-3 inline-flex" data-tour="shop-add-service">
               Add a service
             </Link>
           </div>

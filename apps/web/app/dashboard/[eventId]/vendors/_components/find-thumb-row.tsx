@@ -183,6 +183,7 @@ function ThumbControls({
       </span>
       <label
         data-glass-row="suppliers-find"
+        data-tour="suppliers-find"
         data-fit-field=""
         className="sn-glass-row flex h-10 min-w-[60%] flex-1 items-center gap-2 rounded-full px-3.5 text-ink"
       >

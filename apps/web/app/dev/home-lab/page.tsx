@@ -189,7 +189,7 @@ export default async function HomeLab({
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
   return (
-    <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+    <div className={`min-h-screen bg-cream px-4 pt-3 ${labNeeds ? 'pb-28' : 'pb-6'}`}>
       <HomeFirstScreen
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name }}

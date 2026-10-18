@@ -130,7 +130,8 @@ export function StageItemMenu({
           {/* From Studio the Stages panel is not drawn, and its colours go with it: the bar's list carries them itself. */}
           {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}`}</style> : null}
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
-            {MAKER_STAGE_KEYS.map((s) => {
+            {/* 🚪 A stage Page ▾ does not list (this event does not need it — `needsHidesStage`) is not listed here. */}
+            {MAKER_STAGE_KEYS.filter((s) => options.some((o) => o.key === s || o.key.startsWith(`${s}:`))).map((s) => {
               const pages = pagesOf(s);
               const on = s === stage && (bar?.here ?? true);
               const Icon = STAGE_ICON[s] ?? FileText;

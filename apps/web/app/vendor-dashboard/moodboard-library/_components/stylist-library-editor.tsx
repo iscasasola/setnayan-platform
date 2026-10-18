@@ -203,7 +203,10 @@ export function StylistLibraryEditor({
 
   function setMapForSelected(next: ColorRangeMap) {
     if (!selected) return;
-    setLocalMaps((prev) => ({ ...prev, [selected.asset_id]: next }));
+    // 🔁 The manipulator reports its map from an effect keyed on THIS function, which is new every render — so an
+    // unchanged map must not set state, or each report re-renders, re-reports and React stops at "Maximum update
+    // depth exceeded" (seen on the 2026-10-19 walk, the moment an upload selected itself).
+    setLocalMaps((prev) => (prev[selected.asset_id] === next ? prev : { ...prev, [selected.asset_id]: next }));
   }
 
   async function handleUpload(form: HTMLFormElement) {

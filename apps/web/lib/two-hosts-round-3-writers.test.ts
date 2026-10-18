@@ -213,3 +213,12 @@ test('maker · the canvas writers #6629 left each say what they were built on', 
     has(rel, /forgetCanvasSent\(/, `${rel}: a refused canvas is still the next save's base`);
   }
 });
+
+test('maker · Every scene’s background: ONE save says every scene’s base, not only the last one', async () => {
+  const { sendCanvasBase } = await import('./maker-draft-store');
+  const { MERGE_BASE_FIELD } = await import('./merge-base-field');
+  const fd = new FormData();
+  sendCanvasBase(fd, 'countdown', { bg: 'a' }, { bg: 'x' }, { bg: 'a' });
+  sendCanvasBase(fd, 'rsvp', { bg: 'b' }, { bg: 'x' }, { bg: 'b' });
+  assert.deepEqual(JSON.parse(String(fd.get(MERGE_BASE_FIELD))), { widgets: { countdown: { canvas: { bg: 'a' } }, rsvp: { canvas: { bg: 'b' } } } }, 'a second scene’s base wiped the first’s');
+});

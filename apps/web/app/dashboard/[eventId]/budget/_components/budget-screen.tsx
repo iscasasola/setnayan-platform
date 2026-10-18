@@ -42,7 +42,7 @@
  * (`router.refresh()`), which re-runs the ONE resolver for every group.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -282,6 +282,8 @@ function ThumbRow({
   const [searching, setSearching] = useState(false);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  // The label holds the ✕ button too: without `htmlFor`, a tap on the label would press ✕, not focus the field.
+  const fieldId = useId();
 
   useEffect(() => {
     const t = window.setTimeout(() => onSearch(text), SEARCH_DEBOUNCE_MS);
@@ -320,6 +322,7 @@ function ThumbRow({
       </span>
       {searching ? (
         <label
+          htmlFor={fieldId}
           data-glass-row="budget-search"
           data-fit-field=""
           className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center gap-2 rounded-full pl-3.5 pr-1 text-ink"
@@ -327,6 +330,7 @@ function ThumbRow({
           <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
           <input
             ref={inputRef}
+            id={fieldId}
             // `text`, not `search`: a search input draws the browser's own ✕ beside ours.
             type="text"
             inputMode="search"

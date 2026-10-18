@@ -27,6 +27,8 @@ Walk fixes: search input type=text (native ✕ doubled ours); row controls all 4
 (pointer:coarse) 16px input floor (it drew 16px on phones since B1); TraditionNotes moved to its own component +
 lab ?state=traditions.
 Step 3 DONE: draft PR #6633 (label do-not-auto-merge, autoMergeRequest null); shots → ~/Documents/Claude/Projects/shots-2026-10-18/6633/.
+CI round 1 (44f867644): unit 2/3 (a-cost-needs-no-supplier regex pinned the old GroupUnread call), unit 3/3
+(a-label-controls-its-switch: search label lacked htmlFor), source guards (screens.generated.json stale) — fixed in round 2.
 NEXT: CI loop to green; delete this file when green.
 Left, named: masthead .ics/CSV/Print still on the page (B4's move to Schedule/⋯ not done); share-band toggle
 still at page foot (no ⋯ menu yet); payment-plan instalments not in EventMoney (own PR, changes every money

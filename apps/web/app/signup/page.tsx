@@ -63,7 +63,6 @@ import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
-import { googleDoorShell } from '@/lib/google-address';
 import '@/app/_components/home/home-reskin.css';
 
 export const metadata: Metadata = {
@@ -257,7 +256,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 2026-10-18) — same verb, same account type as the row above. */}
             <GoogleAddressDoor
               enabled={showOAuth}
-              shell={googleDoorShell(desktopOAuth, nativeOAuth)}
+              desktopOAuth={desktopOAuth}
+              nativeOAuth={nativeOAuth}
               next={next}
               accountType={accountType}
               verb={SIGNUP_OAUTH_VERB}

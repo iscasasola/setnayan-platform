@@ -4134,7 +4134,6 @@ export function OnboardingShell({
                   same row as above (owner 2026-10-18); the password part folds. */}
               <GoogleAddressDoor
                 enabled={!storeShell}
-                shell="web"
                 next={RESUME_NEXT}
                 accountType="customer"
                 verb={SIGNUP_OAUTH_VERB}

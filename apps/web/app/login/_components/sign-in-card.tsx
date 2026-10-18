@@ -38,8 +38,18 @@ import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
-import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
-import { googleDoorShell } from '@/lib/google-address';
+import dynamic from 'next/dynamic';
+
+/*
+  Loaded after the card, never with it: this card ships inside the root layout's
+  sign-in popup, so anything imported here is on EVERY page's first load —
+  including the Maker's, whose budget the eager import broke by 1.2 KB gz
+  (CI 2026-10-18). The door only matters once an address has been typed.
+*/
+const GoogleAddressDoor = dynamic(
+  () => import('@/app/_components/auth/google-address-door').then((m) => m.GoogleAddressDoor),
+  { ssr: false },
+);
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -268,7 +278,7 @@ export function SignInCard({
         {/* A TYPED Google address takes the Google button's own door, address
             pre-filled (owner 2026-10-18). Folds away every `data-password-only`
             part below; where this shell hides the Google button it never shows. */}
-        <GoogleAddressDoor enabled={showOAuth} shell={googleDoorShell(desktopOAuth, nativeOAuth)} next={next} />
+        <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
         <div className="hr-si-field" data-password-only="">
           <label htmlFor="hr-si-password" className="hr-si-label">
             Password

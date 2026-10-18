@@ -42,8 +42,8 @@ import {
   emailDomain,
   googleDomainCheckUrl,
   googleLoginHint,
+  googleDoorShell,
   isGoogleNamedDomain,
-  type GoogleDoorShell,
 } from '@/lib/google-address';
 
 const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
@@ -56,14 +56,17 @@ const answered = new Map<string, boolean>();
 
 export function GoogleAddressDoor({
   enabled,
-  shell,
+  desktopOAuth = false,
+  nativeOAuth = false,
   next,
   accountType,
   verb = 'Continue with',
 }: {
   /** The shell gate's `show` — false wherever the Google button is not on screen. */
   enabled: boolean;
-  shell: GoogleDoorShell;
+  /** The shell gate's `desktop` / `native` — which Google flow this shell's button runs. */
+  desktopOAuth?: boolean;
+  nativeOAuth?: boolean;
   next: string;
   /** Only where the shell's Google button carries it (sign-up doors). */
   accountType?: 'customer' | 'vendor';
@@ -71,6 +74,7 @@ export function GoogleAddressDoor({
   verb?: string;
 }) {
   const active = enabled && GOOGLE_ENABLED;
+  const shell = googleDoorShell(desktopOAuth, nativeOAuth);
   const anchor = useRef<HTMLDivElement>(null);
   const [address, setAddress] = useState('');
   const [google, setGoogle] = useState(false);

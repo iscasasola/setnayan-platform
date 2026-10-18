@@ -567,7 +567,8 @@ test('(11) Colour is two circles like the Mood Board’s: the second is optional
   assert.match(two, /<\/button><button[^>]*data-bg-colour-remove=""[^>]*aria-label="Remove the second colour"/);
   assert.doesNotMatch(two, /data-bg-colour-well="add"/);
   // The Mood Board's circle: a 44-px target around a 28-px colour — for every circle and the "+".
-  const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
+  /* RE-AIMED 2026-10-19: the Mood Board's circle moved to `colour-dot.tsx` (one component, the Palette's and Attire's). */
+  const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/colour-dot.tsx');
   assert.match(mood, /className=\{`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full[^`]*`\}\s*>\s*<i aria-hidden className=\{`\$\{(?:two|tight) \? 'h-\[26px\] w-\[26px\]' : 'h-7 w-7'\} rounded-full border border-ink\/10`\}/, 'anti-vacuity: the Mood Board draws its palette circle some other way now');
   for (const html of [one, two]) {
     const targets = [...html.matchAll(/<button[^>]*data-bg-colour-well="[^"]+"[^>]*>/g)].map((m) => m[0]);

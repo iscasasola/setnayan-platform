@@ -54,7 +54,8 @@ test('the app carries them: the vocabulary, their trades, a Studio card and a bo
   const ours = sql('_studio_missing_fields.sql');
   const fourC = list(ours, 'ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3');
   for (const k of fourC) assert.ok((MOODBOARD_SLOT_KEYS as readonly string[]).includes(k), `${k} was in step 4c's gate and the app lost it`);
-  const latest = sql('_attire_boards_four_more_slots.sql');
+  /* RE-AIMED 2026-10-19: the Palette's five parts with photos are the latest re-listing (20271278232574). */
+  const latest = sql('_palette_parts_five_more_slots.sql');
   for (const gate of ['ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3', 'ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape']) {
     assert.deepEqual(list(latest, gate).slice(0, fourC.length), fourC, `${gate}: the latest re-listing changed a value step 4c held`);
     assert.deepEqual([...list(latest, gate)].sort(), [...MOODBOARD_SLOT_KEYS].sort(), `${gate}: the app and the database disagree`);

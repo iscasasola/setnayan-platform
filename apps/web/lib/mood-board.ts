@@ -64,6 +64,18 @@ export type RoomDressing = {
   chairs?: string;
   florals?: string;
   lighting_warmth?: string;
+  /* 🎨 EVERY PALETTE PART CAN BE SET (owner 2026-10-19, DECISION_LOG "PALETTE + INSPIRATION AS ONE LIST": "yes all
+     circles"). The parts Studio › Mood Board draws that had no colour of their own — each FOLLOWS its main colour
+     until set (`resolveRoomDressing`). Same jsonb object, same one hex per part; no column, no migration. */
+  stage?: string;
+  ceiling?: string;
+  walls?: string;
+  tunnel?: string;
+  ribbons_candles?: string;
+  bridal_bouquet?: string;
+  entourage_bouquets?: string;
+  flower_accents?: string;
+  cake?: string;
 };
 
 /**
@@ -753,7 +765,16 @@ const ROOM_DRESSING_FIELDS = [
   'chairs',
   'florals',
   'lighting_warmth',
-] as const;
+  'stage',
+  'ceiling',
+  'walls',
+  'tunnel',
+  'ribbons_candles',
+  'bridal_bouquet',
+  'entourage_bouquets',
+  'flower_accents',
+  'cake',
+] as const satisfies readonly (keyof RoomDressing)[];
 
 // Warm-neutral defaults, matching `resolvePalette([])` in seating-3d.ts so a
 // room with no reception palette AND no override renders byte-identically to the
@@ -763,6 +784,17 @@ const ROOM_DRESSING_DEFAULTS: Required<RoomDressing> = {
   chairs: '#E7E1D8',
   florals: '#C89B6C',
   lighting_warmth: '#FBE9D8',
+  /* The parts that follow a main colour (2026-10-19): each falls back to the default of the surface it is drawn
+     nearest to, so a board with fewer than five colours still dresses every part. */
+  stage: '#C89B6C',
+  ceiling: '#C89B6C',
+  walls: '#F3EFE9',
+  tunnel: '#F3EFE9',
+  ribbons_candles: '#E7E1D8',
+  bridal_bouquet: '#C89B6C',
+  entourage_bouquets: '#F3EFE9',
+  flower_accents: '#E7E1D8',
+  cake: '#F7F2EA',
 };
 
 /**
@@ -785,5 +817,17 @@ export function resolveRoomDressing(palette: RolePalette): Required<RoomDressing
     // Dominant (r[0]) = the warm ambient wash — matches the pre-taxonomy
     // `ambient` slot (NOT Accent2, so 4-color receptions keep today's ambient).
     lighting_warmth: o.lighting_warmth ?? r[0] ?? ROOM_DRESSING_DEFAULTS.lighting_warmth,
+    /* 🎨 The parts that follow a main colour until set (2026-10-19) — the SAME main colour each says it follows on the
+       Palette (`ROOM_LANE_PARTS` / `FLORIST_LANE_PARTS` / `CAKE_LANE_PARTS` in colour-access.ts — held equal by
+       `every-palette-part-can-be-set.test.ts`): Dominant r[0] · Supporting r[1] · Neutral r[3] · Accent 2 r[4]. */
+    stage: o.stage ?? r[0] ?? ROOM_DRESSING_DEFAULTS.stage,
+    ceiling: o.ceiling ?? r[0] ?? ROOM_DRESSING_DEFAULTS.ceiling,
+    walls: o.walls ?? r[3] ?? ROOM_DRESSING_DEFAULTS.walls,
+    tunnel: o.tunnel ?? r[1] ?? ROOM_DRESSING_DEFAULTS.tunnel,
+    ribbons_candles: o.ribbons_candles ?? r[4] ?? ROOM_DRESSING_DEFAULTS.ribbons_candles,
+    bridal_bouquet: o.bridal_bouquet ?? r[0] ?? ROOM_DRESSING_DEFAULTS.bridal_bouquet,
+    entourage_bouquets: o.entourage_bouquets ?? r[1] ?? ROOM_DRESSING_DEFAULTS.entourage_bouquets,
+    flower_accents: o.flower_accents ?? r[4] ?? ROOM_DRESSING_DEFAULTS.flower_accents,
+    cake: o.cake ?? r[3] ?? ROOM_DRESSING_DEFAULTS.cake,
   };
 }

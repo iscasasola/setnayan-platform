@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b73d4524cb",
-  "routeCount": 448,
-  "destinations": 993,
+  "generatedFromRef": "70e5b961c3",
+  "routeCount": 449,
+  "destinations": 994,
   "actions": 664,
-  "blocks": 6597,
+  "blocks": 6604,
   "routes": {
     "/": {
       "files": [
@@ -5203,6 +5203,7 @@
         "PrefixSelect",
         "ProfileShareButton",
         "PushToggle",
+        "RestorePurchasesRow",
         "Row",
         "Segmented",
         "SettingsGroup",
@@ -5558,6 +5559,8 @@
         "AfterSummary",
         "AppPreload",
         "AppRailShell",
+        "AppStoreTransactions",
+        "AppleServiceRow",
         "ApplyColourResult",
         "ApplyVoucherResult",
         "ArchiveResult",
@@ -5644,6 +5647,8 @@
         "HomeReload",
         "HomeWhatsNext",
         "HubSavesImmediately",
+        "IapLiveWatchSheet",
+        "IapPapicSheet",
         "Icon",
         "Image",
         "ImpactResult",
@@ -5840,6 +5845,16 @@
         "ListPageSkeleton",
         "NotSharedWithYou",
         "PageMasthead"
+      ]
+    },
+    "/dashboard/[eventId]/apple-pro": {
+      "files": [
+        "dashboard/[eventId]/apple-pro/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AppleProScreen"
       ]
     },
     "/dashboard/[eventId]/budget": {
@@ -6846,6 +6861,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/cover-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-lines.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/follow-draft.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/part-look.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/part-words.ts",
@@ -8380,6 +8396,7 @@
     "/dashboard/[eventId]/studio/mood-board": {
       "files": [
         "dashboard/[eventId]/studio/mood-board/_components/auto-palette-sheet.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/colour-dot.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx",
@@ -8447,8 +8464,6 @@
         "ClosedRoundNote",
         "ColourPickerBody",
         "ColourPickerSheet",
-        "ColourPill",
-        "ColourRow",
         "ConceptPdfButton",
         "CouldNotLoad",
         "CustomRolesEditor",
@@ -8483,7 +8498,6 @@
         "IncDressCodeStarterNote",
         "InfoTip",
         "InspirationBoard",
-        "LaneRow",
         "Link",
         "ListField",
         "MajorsEditor",
@@ -8498,6 +8512,7 @@
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
+        "NamedColourDot",
         "NeutralDrawing",
         "NoteSheet",
         "PageMasthead",
@@ -9875,6 +9890,7 @@
         "dashboard/[eventId]/website/editor/_components/post-event-tile-words.ts",
         "dashboard/[eventId]/website/editor/_components/pro-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/rail-rows.ts",
+        "dashboard/[eventId]/website/editor/_components/scan-qr-strip.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-animate-tab.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-background-row.tsx",
         "dashboard/[eventId]/website/editor/_components/scene-bg-preview-message.ts",
@@ -10071,6 +10087,7 @@
         "SafeForm",
         "SaveAnswer",
         "SaveButton",
+        "ScanQrStrip",
         "SceneAccents",
         "SceneAlignRow",
         "SceneAnimateTab",
@@ -10638,15 +10655,19 @@
     },
     "/dev/home-lab": {
       "files": [
+        "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/dev/home-lab"
       ],
       "actions": [],
       "blocks": [
+        "AppleProScreen",
+        "ApplyProSheetLab",
         "HomeFirstScreen",
         "HomeWhatsNext",
         "PapicTopBand",

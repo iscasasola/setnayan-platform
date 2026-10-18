@@ -62,6 +62,8 @@ import { HOST_ROLES_BY_EVENT_TYPE, isRoleSubtype } from './host-roles';
 import { SPECIALTY_OPTION_LABELS } from './onboarding/specialty-option-labels';
 import { voiceOf, roleLabel as badgeLabel } from '../app/[slug]/_components/editorial/voices';
 import { guestMeFacts } from './guest-me-parts';
+import { stripComments } from './strip-comments';
+import type { RoleSet } from './role-sets';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -102,9 +104,8 @@ test('A · the roles are the database enum’s, and the TypeScript words are exa
 
 /* ── B · the universal maps ───────────────────────────────────────────────── */
 
-const ROLE_SETS = Object.values(ROLE_SET_MODULE).filter(
-  (v): v is { key: string; offeredRoles: GuestRole[]; selfClaimableRoles: GuestRole[]; tier1Roles: Set<string>; tier2Roles: Set<string> } =>
-    Boolean(v && typeof v === 'object' && Array.isArray((v as { offeredRoles?: unknown }).offeredRoles)),
+const ROLE_SETS = (Object.values(ROLE_SET_MODULE) as unknown[]).filter((v): v is RoleSet =>
+  Boolean(v && typeof v === 'object' && Array.isArray((v as { offeredRoles?: unknown }).offeredRoles)),
 );
 /** Kept in the enum, offered by no picker — owner 2026-09-15 retired it (role-sets.ts). The ONLY one. */
 const RETIRED: ReadonlySet<string> = new Set(['principal_sponsor']);
@@ -128,9 +129,9 @@ const NOT_PRINTED: ReadonlySet<string> = new Set(['guest', 'celebrant', 'bride',
 
 /** The emcee's billing order (lib/emcee-script.ts `ROLE_ORDER`) — a role absent from it is not in the party roster. */
 function emceeBilling(): string[] {
-  const src = readFileSync(join(APP, 'lib', 'emcee-script.ts'), 'utf8');
+  const src = stripComments(readFileSync(join(APP, 'lib', 'emcee-script.ts'), 'utf8'));
   const body = /const ROLE_ORDER: GuestRole\[\] = \[([\s\S]*?)\];/.exec(src)?.[1] ?? '';
-  return [...body.replace(/\/\/.*$/gm, '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
+  return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
 }
 
 test('C · every printed role has its words, its printed group, its Studio row and its place in the emcee’s billing', () => {

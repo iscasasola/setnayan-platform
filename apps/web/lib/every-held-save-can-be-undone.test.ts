@@ -36,6 +36,8 @@ export const UNDO_NOT_DRAWN: Record<string, string> = {
   'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx › pickLook': `the main background's look — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx › save': `a scene background (Colour · Plain · a photo) — ${PHASE_2}`,
   /* 🖼 The Cover Scene's background (2026-10-15) — the same save shape as a scene's, redrawn in place. */
+  /* 🖼 A scene of their own's slot picture (2026-10-18) — the bridge cannot draw a picture into a slot; redrawn in place. */
+  'app/dashboard/[eventId]/launch/_components/stage-panel/scene-photos.tsx › write': `a scene of their own's picture slot (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx › put': `the Cover Scene's background (the hero row's canvas.ground) — ${PHASE_2}`,
   /* — drawn by their own message, an inverse not yet handed — */
   'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx › commit': `the music button — ${PHASE_2}`,

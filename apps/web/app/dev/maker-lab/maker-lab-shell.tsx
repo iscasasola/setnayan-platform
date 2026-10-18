@@ -143,10 +143,12 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
-  const { labDraftStep } = await labEngine();
+  const { labDraftStep, labOwnKind } = await labEngine();
+  /* 🖼 The lab's scene of their own (`lab_own`), so the save is merged against a live state that holds it. */
+  const own = labOwnKind(document.cookie.split('; ').find((c) => c.startsWith('lab_own='))?.slice('lab_own='.length));
   const scrub = labScrubOn();
   /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Hub Pro: Apply holds nothing, as the real gate does for an unlocked event. */
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base'), as: new URLSearchParams(window.location.search).get('as') }, scrub, readLabPublished(scrub));
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base'), as: new URLSearchParams(window.location.search).get('as') }, scrub, readLabPublished(scrub), own);
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
@@ -183,6 +185,7 @@ export function MakerLabShell({
   typeHere = [],
   renderStamp = 'lab',
   stagesStudio = false,
+  hiddenStages = [],
   studio = null,
   venuePictures = null,
   fixedStyles = {},
@@ -213,6 +216,8 @@ export function MakerLabShell({
   kitTheme?: 'vintage' | null;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
+  /** 🚪 `?needs=` — the stages this event does not need (`needsHidesStage`). */
+  hiddenStages?: readonly string[];
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
   venuePictures?: MakerVenuePictures | null;
@@ -429,7 +434,7 @@ export function MakerLabShell({
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
       slug={scrub ? LAB_SCRUB_GUEST.slice(1) : 'dev/maker-lab/guest'}
       liveStage="rsvp"
-      initialStage="rsvp"
+      initialStage={hiddenStages.includes('rsvp') ? 'event' : 'rsvp'}
       /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
       initialSelection={openDetails ? { kind: 'tool', key: 'details' } : null}
       storeShell={false}
@@ -450,6 +455,7 @@ export function MakerLabShell({
       venuePictures={venuePictures}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
+      hiddenStages={hiddenStages}
     >
       <MakerWork
         eventId={eventId}

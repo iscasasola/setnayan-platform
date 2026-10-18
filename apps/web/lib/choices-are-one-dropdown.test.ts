@@ -64,6 +64,14 @@ const SURFACES: Surface[] = [
     to: 'Or set your own (PHP)',
   },
   {
+    // Budget B3 (2026-10-18): the thumb row's All · Owing · Paid — the
+    // prototype draws it as ONE "All ▾" dropdown, "never pills".
+    name: 'Budget — All · Owing · Paid',
+    file: 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',
+    from: 'function ThumbRow(',
+    to: 'function GroupUnread(',
+  },
+  {
     name: 'Seat plan — room size',
     file: 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx',
     from: 'change it if your room is different.',

@@ -143,6 +143,12 @@ export type GenericOnboardingPayload = {
    * engine did not run (a type its seed has not admitted).
    */
   setup?: unknown;
+  /**
+   * "What do you need?" (Level 1, owner 2026-10-08 — `lib/event-needs.ts`). ⚠ UNTRUSTED for the same
+   * reason: the commit re-reads it (`sanitizeNeeds`) against the type (a vendor-free type can never
+   * switch Suppliers on). Absent = the needs screen did not run; the event keeps NULL = on.
+   */
+  needs?: unknown;
 };
 
 export type GenericCommitResult =

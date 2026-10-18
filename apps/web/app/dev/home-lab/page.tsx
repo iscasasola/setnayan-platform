@@ -17,6 +17,10 @@
  *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
  *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
  *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
+ *   ?needs=simple|open|list|full     🚪 what the event needs (owner 2026-10-08, Level 1 —
+ *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
+ *                                    off (the bar's own drop is held by its test), the One QR card and ONE
+ *                                    "Switch on more" row (prototype frame 2, a hangout after)
  *   ?store=1&apple=1[&live=on]       🍎 the iPhone app where Apple sells (owner 2026-10-18): Your
  *                                    services carries Papic · Buy more and Live Watch · Activate
  *                                    (or "On"). Prices come from StoreKit — in a browser there is
@@ -28,6 +32,7 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { notFound } from 'next/navigation';
+import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -74,7 +79,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; apple?: string; live?: string; screen?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -183,11 +188,17 @@ export default async function HomeLab({
           : null,
       }
     : picked;
-  const input: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
+  // 🚪 What the event needs — a preset's needs read back exactly as the dashboard reads the columns.
+  const labNeeds =
+    q.needs && (NEED_PRESETS as readonly string[]).includes(q.needs)
+      ? readEventNeeds(needsColumns(needsForPreset(q.needs as NeedPreset, { marketplace: true })))
+      : null;
+  const input0: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
+  const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
   return (
-    <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+    <div className={`min-h-screen bg-cream px-4 pt-3 pb-6`}>
       <HomeFirstScreen
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name }}
@@ -203,6 +214,7 @@ export default async function HomeLab({
           money: q.hidden === '1' ? null : unread ? 'unread' : { paid: F.paid, owing: F.owing },
         }}
         navSlots={slots}
+        needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
         whatsNext={
           <HomeWhatsNext
             open={3}

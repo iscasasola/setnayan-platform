@@ -427,11 +427,14 @@ test('6 · the Logo page has no header bar, and adds Text · Image · Frame', ()
   }
   assert.match(page, /aria-label="Logo layers"/);
   assert.match(page, /aria-label="Layer tools"/);
-  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the adds are the ActionButton, each marked by its kind. */
-  for (const kind of ['Text', 'Image', 'Frame']) assert.match(page, new RegExp(`data-logo-add-kind="${kind.toLowerCase()}">\\s*<ActionButton[^>]*label="${kind}"`), `no "+ ${kind}"`);
-  // Phone: both panels sit UNDER the logo, never a lower-third tool (L1 2026-10-08, the one-layer trap) —
-  // the full contract is `the-logo-maker-opens-ready-to-edit.test.ts`.
-  assert.equal((page.match(/sn-glass-bare flex-col \$\{LOGO_PANEL_PHONE\}/g) ?? []).length, 2, 'a logo panel is not under the logo');
+  /* RE-AIMED 2026-10-18 (L2, LOGO_MAKER_REPLOT): ＋ Add layer opens ONE list — Text · Image · Frame — in the panel. */
+  const cards = code('app/dashboard/[eventId]/launch/_components/logo-layer-cards.tsx');
+  for (const kind of ['Text', 'Image', 'Frame']) assert.match(cards, new RegExp(`kind: '${kind.toLowerCase()}', label: '${kind}'`), `no "+ ${kind}"`);
+  assert.match(page, /<LogoAddLayer\b/, 'the Add list is not in the panel');
+  assert.match(page, /if \(kind === 'text'\) addText\(\);\s*else if \(kind === 'frame'\) addFrame\(\);\s*else fileRef\.current\?\.click\(\);/, 'an Add row does not add its kind');
+  // Phone: the tools panel sits UNDER the logo and the carousel, never a lower-third tool (L1 2026-10-08, the
+  // one-layer trap) — the full contract is `the-logo-maker-opens-ready-to-edit.test.ts`.
+  assert.equal((page.match(/sn-glass-bare flex-col \$\{LOGO_PANEL_PHONE\}/g) ?? []).length, 1, 'the tools panel is not under the logo');
   // The status is the toolbar's, not a bar of the page's own.
   assert.match(page, /announceMakerSave\(\{ state: 'saving' \}\)/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
@@ -452,6 +455,8 @@ test('6 · every surface that plays the mark plays the layers', () => {
   assert.match(code('app/_components/couple-logo.tsx'), /<LayeredLogoPlayer svg=\{svg\}/, 'CoupleLogo plays something other than the one player');
   const player = code('app/_components/studio-reveal-player.tsx');
   assert.match(player, /if \(svg && isLayeredLogo\(svg\)\) return <LayeredLogoPlayer/, 'the reveal player does not play the layers');
-  // The editor's Play is the same player.
-  assert.match(code('app/dashboard/[eventId]/launch/_components/maker-logo.tsx'), /<LayeredLogoPlayer key=\{playKey\} svg=\{composed\} \/>/);
+  // The editor's Play is the same player — on the composed logo, the picked layer playing (L3's ▶).
+  const editor = code('app/dashboard/[eventId]/launch/_components/maker-logo.tsx');
+  assert.match(editor, /<LayeredLogoPlayer key=\{playKey\} svg=\{playSvg\} \/>/);
+  assert.match(editor, /composeLogoSvg\(layers\.filter\(\(l\) => l\.body\)\.map\(\(l\) => \(l\.id === selectedId \? l : /, 'the ▶ plays something other than the composed logo');
 });

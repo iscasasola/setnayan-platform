@@ -41,11 +41,12 @@ test('1 · the Logo offers exactly the stage font list, in the stage dropdown', 
   assert.ok(stage.length >= 30, `the stage list is the full catalogue (${stage.length})`);
   assert.deepEqual(Object.keys(LOGO_FONT_OUTLINE).sort(), stage, 'the logo knows every stage font, and no other');
   assert.deepEqual([...HUB_FONT_KEYS].sort(), stage);
-  // The editor's Typeface control IS the stage dropdown, fed by the stage list.
-  const picker = /<FontPick\s[^>]*?label="Typeface"[\s\S]*?\/>/.exec(editor)?.[0] ?? '';
-  assert.ok(picker, 'the Typeface control is the one font dropdown (FontPick)');
+  // The editor's Font control IS the stage dropdown, fed by the stage list.
+  /* RE-AIMED 2026-10-18 (L3, LOGO_MAKER_REPLOT: Character › "Font ▾" — the prototype's word, was "Typeface"). */
+  const picker = /<FontPick\s[^>]*?label="Font"[\s\S]*?\/>/.exec(editor)?.[0] ?? '';
+  assert.ok(picker, 'the Font control is the one font dropdown (FontPick)');
   assert.doesNotMatch(picker, /\boptions=/, 'fed by the one shelf list, never a list of its own');
-  assert.match(editor, /outlineWords\(face, words, 0, 0, S\)/, 'the editor sets words through outlineWords (never a bare face.getPath)');
+  assert.match(editor, /outlineWords\(face, words, 0, 0, S, spacing\)/, 'the editor sets words through outlineWords (never a bare face.getPath)');
   assert.doesNotMatch(editor, /face\.getPath\(/);
   assert.doesNotMatch(editor, /STUDIO_FONTS|<select\b/, 'no second font list, no native select');
 });

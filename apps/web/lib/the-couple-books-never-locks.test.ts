@@ -97,6 +97,8 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/checklist.ts', text: /locked date|Lock your date/, why: "the date's own lock" },
   { prefix: 'lib/checklist-event-type-defs.ts', why: 'lock the time of a non-wedding event' },
   { prefix: 'lib/onboarding/specialty-recommendations.ts', text: /lock the reunion date|lock the date to their trip/, why: "the date's own lock" },
+  { prefix: 'app/dashboard/[eventId]/launch/_components/maker-logo.tsx', text: /^Lock$|^Locked$|Lock stops accidental moves/, why: "a logo LAYER's lock (owner 2026-10-08 replot: Hide · Lock · Duplicate · Delete) — it stops a drag on the logo, never a booking" },
+  { prefix: 'app/dashboard/[eventId]/launch/_components/logo-layer-cards.tsx', text: /^Lock$/, why: "the picked layer card's ⋯ Lock — a logo layer's lock, never a booking" },
   // ── 3 · strings the database matches on ─────────────────────────────────────
   { prefix: 'app/dashboard/[eventId]/vendors/actions.ts', text: /awaiting vendor confirmation|^Lock \(finalize\) supplier booking$/, why: 'the payment stamp note the deposit trigger matches, and an analytics element name' },
 ];

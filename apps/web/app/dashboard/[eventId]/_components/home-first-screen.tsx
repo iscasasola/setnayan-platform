@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, ListChecks, Mail, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import { BookOpen, Camera, CalendarDays, Check, ChevronDown, ListChecks, Mail, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -20,6 +20,8 @@ import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
+import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
+import { switchOnNeed } from '../switch-on-actions';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -148,6 +150,13 @@ export type HomeFirstScreenProps = {
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
   /**
+   * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
+   * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
+   * Guests door, no coming / no-reply tiles, and the One QR card in their place; no suppliers → no
+   * Suppliers door, no money. `switchOn` = the needs that are off, for the ONE "Switch on more" row.
+   */
+  needs?: { guestList: boolean; suppliers: boolean; hubDetails: boolean; switchOn: SwitchOnNeed[] } | null;
+  /**
    * 🍎 THE IPHONE APP SELLS THROUGH APPLE HERE (owner 2026-10-18; prototype
    * `in_app_purchase_screens_2026-10-17_fable.html` frames 2 · 11). Set ONLY
    * when the page's `getIapGate().iap` is true — the store shell, a StoreKit
@@ -193,8 +202,12 @@ export function HomeFirstScreen({
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  needs = null,
   apple = null,
 }: HomeFirstScreenProps) {
+  const noList = needs?.guestList === false;
+  const noSuppliers = needs?.suppliers === false;
+  const doorsHidden = [...(noList ? ['guests'] : []), ...(noSuppliers ? ['explore'] : [])];
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
   const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
@@ -250,17 +263,29 @@ export function HomeFirstScreen({
 
         {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
             Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
-        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} />
+        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} hide={doorsHidden} hubOnlyCover={needs?.hubDetails === false} />
+
+        {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
+            (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
+        {noList ? (
+          <Link href={`/dashboard/${eventId}/event-qr`} className="home-card flex items-center gap-3" data-home-one-qr="">
+            <QrCode aria-hidden className="h-12 w-12 shrink-0 text-ink" strokeWidth={1.5} />
+            <span className="min-w-0">
+              <span className="block font-semibold">One QR for everyone</span>
+              <span className="home-s block">Anyone with the link gets in. Share it, print it, stick it on the door.</span>
+            </span>
+          </Link>
+        ) : null}
 
         {/* ③ THREE NUMBERS — counted (`Count`); "—" when unread, never 0. */}
         <div className="home-nums" data-home-numbers>
-          <Link href={`/dashboard/${eventId}/details`} className="home-tile" data-home-days="">
+          <Link href={`/dashboard/${eventId}/details`} className={`home-tile${noList ? ' col-span-3' : ''}`} data-home-days="">
             <div className={`home-v${typeof figures?.days === 'number' || /^[\d,—]+$/.test(days.value) ? '' : ' home-v-word'}`}>
               <Figure n={figures?.days} word={days.value} id="home-days" />
             </div>
             <div className="home-k">{days.label}</div>
           </Link>
-          {guestsUnread ? (
+          {noList ? null : guestsUnread ? (
             <div className="home-tile home-tile-bad col-span-2" data-home-guests-unread="">
               <div className="text-[14.5px] font-semibold leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
                 Guest counts couldn&rsquo;t load
@@ -289,7 +314,7 @@ export function HomeFirstScreen({
 
         {/* ④ THE MONEY — opens the budget, which lives in Suppliers now (owner 2026-10-07, H6).
             Absent only when not shared; an unread read is SAID (H3). */}
-        {money ? (
+        {money && !noSuppliers ? (
           moneyUnread ? (
             <div className="home-card home-card-bad" data-home-money="" data-money="">
               <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
@@ -378,6 +403,34 @@ export function HomeFirstScreen({
               })}
             </div>
           </nav>
+        ) : null}
+
+        {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
+            "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
+            place; each switch writes its need and lands on the shipped setup for it. */}
+        {needs && needs.switchOn.length > 0 ? (
+          <details className="home-card group" data-home-switch-on="">
+            <summary className="flex cursor-pointer list-none items-center gap-2">
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Switch on more</span>
+                <span className="home-s block">{needs.switchOn.map((k) => SWITCH_ON_LABEL[k]).join(' · ')}</span>
+              </span>
+              <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-ink/50 transition-transform group-open:rotate-180" strokeWidth={1.9} />
+            </summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {needs.switchOn.map((k) => (
+                <form key={k} action={switchOnNeed.bind(null, eventId, k)} className="contents">
+                  <ActionButton
+                    type="submit"
+                    tone="neutral"
+                    icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
+                    label={SWITCH_ON_LABEL[k]}
+                    data-testid={`home-switch-on-${k}`}
+                  />
+                </form>
+              ))}
+            </div>
+          </details>
         ) : null}
       </div>
     </section>

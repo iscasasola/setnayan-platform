@@ -459,22 +459,27 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_budget_v1: {
     key: 'customer_budget_v1',
     label: 'Budget',
-    blurb: 'Setting a total, adjusting each service, and seeing what is agreed and paid.',
+    // Rewritten 2026-10-18 (Budget B5) to the page that ships: the estimates
+    // split these slides described ("Start with one number" · "Adjust any
+    // service" — Save · Standard · Splurge) left the page in B2 (owner: "not
+    // this one"). Words verbatim from the approved prototype's first-visit tour
+    // (`prototypes/budget_page_2026-10-08_fable.html`, `TOUR`).
+    blurb: 'One list of what you booked, bought and added — the totals are its sum.',
     slides: [
       {
-        Icon: Wallet,
-        title: 'Start with one number',
-        body: 'Set your total budget and we split it across the services you need, from typical costs.',
+        Icon: ClipboardList,
+        title: 'One list, one truth',
+        body: 'Booked suppliers, what you bought here, and your own expenses. The numbers up top are the sum of this list.',
       },
       {
-        Icon: Settings,
-        title: 'Adjust any service',
-        body: 'Tap a service to choose Save, Standard or Splurge, or type your own amount. Your own number always wins.',
+        Icon: Briefcase,
+        title: 'Tap a supplier',
+        body: 'See every payment and record one. Owed moves the moment you do.',
       },
       {
         Icon: Receipt,
-        title: 'See what is agreed and paid',
-        body: 'As you book suppliers, what you have agreed, paid and still owe shows up here on its own.',
+        title: 'Add anything else',
+        body: '＋ Add expense for what you pay outside Setnayan. No Save button — it keeps as you type.',
       },
     ],
   },

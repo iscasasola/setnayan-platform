@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { needsHidesStage, needsHidesStudioTile } from '@/lib/event-needs';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveStdBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -75,7 +77,7 @@ import type { LoveStoryBlob } from '../website/our-story/_components/story-field
 import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
-import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { MAKER_PAGE_STAGES, MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
 import { makerTourSlideViews } from './_components/maker-tour-slides';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
@@ -334,6 +336,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
+  // 🚪 What THIS event needs (owner 2026-10-08, Level 1) — its own small read, started now; a refused
+  // read draws every stage and tile (yesterday's Maker), never fewer.
+  const needsRead = readEventNeedsFor(supabase, eventId, 'LaunchPage');
   // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
   // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
   const ent = await eventEntitlementClient(eventId);
@@ -831,7 +836,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     );
 
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
-  const makerStage = initialStage ?? liveStage ?? 'rsvp';
+  // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
+  const eventNeeds = await needsRead;
+  const hiddenStages = MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, eventNeeds));
+  const wantedStage = initialStage ?? liveStage ?? 'rsvp';
+  const makerStage = (hiddenStages as readonly string[]).includes(wantedStage) ? 'event' : wantedStage;
 
   const controller = (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the
@@ -1588,7 +1597,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
             offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
             marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
-          }),
+          }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
         };
       }
       const guidedPresentHere = guidedPresent({
@@ -1930,6 +1939,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */
+      hiddenStages={hiddenStages}
       seeAsRoles={
         hasWork
           ? previewRoleOptions(

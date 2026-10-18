@@ -1,4 +1,7 @@
 import { Suspense } from 'react';
+import { switchOnRows } from '@/lib/event-needs';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { startAhead } from '@/lib/start-ahead';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
@@ -161,6 +164,8 @@ export default async function EventHomePage({
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // 🚪 What THIS event needs (Level 1) — started now, its own small read, degrading to "everything on".
+  const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
 
   // Lazy expiry sweeps at the top of the dashboard (no-cron architecture per
   // CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures never block the
@@ -596,6 +601,9 @@ export default async function EventHomePage({
   // Every path renders the first screen, so every path awaits it; a refusal still keeps
   // today's colour. 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
   const homeCoverRead = startAhead(homeCoverFor(eventId).catch(() => null));
+  // 🚪 The type's profile, for which needs can be switched on at all (a vendor-free kind has no Suppliers) —
+  // React-cached, the layout's own read.
+  const homeTypeProfileRead = startAhead(resolveProfile((event.event_type as string | null) ?? 'wedding'));
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -660,7 +668,16 @@ export default async function EventHomePage({
   });
   const papicNudgeVisible = papicNow.moment === 'ready';
   const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
+  // 🚪 What THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). NULL = never asked = on,
+  // so every event made before reads exactly as it did. The type's profile is the layout's (React-cached).
+  const eventNeeds = await homeNeedsRead;
+  const needsProfile = await homeTypeProfileRead;
+  const homeNeeds = {
+    ...eventNeeds,
+    switchOn: switchOnRows(eventNeeds, { marketplace: needsProfile.marketplaceEnabled === true }),
+  };
   const homeNext = pickHomeNext({
+    needs: eventNeeds,
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
     // 👥 "Add your guests" / "Send N invitations" (first-timer fix 9) — from the
@@ -790,6 +807,7 @@ export default async function EventHomePage({
       }
       ground={homeCover}
       navSlots={homeNavSlots}
+      needs={homeNeeds}
       whatsNext={
         /* 📋 What's next unfolds IN PLACE (owner 2026-10-07, H7) — the decisions stream in
            under their row; the first screen never waits for them. */

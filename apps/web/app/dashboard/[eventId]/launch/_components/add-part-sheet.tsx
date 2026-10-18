@@ -142,6 +142,7 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
               }
             : { note: addScene.note },
     onPickTemplate: raw.onPickTemplate,
+    sceneMedia: raw.sceneMedia ?? null,
   };
 }
 

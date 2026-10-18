@@ -261,13 +261,13 @@ const names = (r: string) => [...r.matchAll(/data-dd-label="">([^<]*)</g)].map((
 test('(6) the toolbar: each phase’s row 4 shows ITS feel; Action has none; a feel with nothing to time is grey; on arrival Build out says so', async () => {
   const rin = row(await draw('in'), 4);
   const rout = row(await draw('out'), 4);
-  assert.deepEqual(names(rin), ['Movement ◆', 'Plays', 'Delay']);
+  assert.deepEqual(names(rin), ['Movement ◆', 'Plays ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
   assert.deepEqual(names(rout), ['Movement ◆', 'Leaves ◆']);
   assert.match(rin, /data-stage-dd="in-move"[\s\S]*?aria-label="Movement: Quick"/, 'Build in does not show its own feel');
   assert.match(rout, /data-stage-dd="out-move"[\s\S]*?aria-label="Movement: Cinematic"/, 'Build out does not show its own feel');
   assert.match(rin, /aria-label="Build in plays: On scroll"/);
   assert.match(rout, /aria-label="How it leaves: As it scrolls away"/);
-  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'Plays', 'Rows']);
+  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆']);
   /* ACTION: rows 1–2 only — it has no feel and no drive of its own. */
   const act = await draw('act');
   assert.equal(row(act, 4), '');

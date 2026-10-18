@@ -58,11 +58,18 @@ test('the drain puts the SAME queued id back on the wire', async () => {
   assert.equal(sent, id);
 });
 
-test('the route names the object by the id, answers a repeat early, and puts the pool back on `duplicate`', () => {
+test('the route names the object by the id, answers a repeat early, and hands the id to the one booking call', () => {
   const src = read('app', 'api', 'papic', 'guest-capture', 'route.ts');
   assert.match(src, /const stamp = clientCaptureId \?\? String\(Date\.now\(\)\);/, 'a retry leaves a second R2 object');
   const early = src.indexOf(".eq('client_capture_id', clientCaptureId)");
-  assert.ok(early > -1 && early < src.indexOf('reserveGuestOwnCameraCapture(\n'), 'a repeat is not answered before the pool is booked');
-  assert.match(src, /if \(error \|\| recordStatus !== 'ok' \|\| recordDuplicate\) \{/, 'a duplicate keeps the points it booked');
-  assert.match(src, /p_client_capture_id: clientCaptureId/);
+  const upload = src.indexOf('await r2Upload({\n      bucket: R2_BUCKETS.media,\n      key,');
+  const book = src.indexOf("admin.rpc('papic_record_guest_capture_and_spend'");
+  assert.ok(early > -1 && upload > -1 && book > -1, 'a landmark moved — re-point this guard');
+  assert.ok(early < upload && early < book, 'a repeat is not answered before the upload and the booking');
+  // 🔁 The booking and the row are one transaction (20271276810836), and the
+  // function books NOTHING for a shutter that already landed — so there is no
+  // pool to put back on `duplicate` any more, and the route must not try.
+  const call = src.slice(book, src.indexOf('});', book));
+  assert.match(call, /p_client_capture_id: clientCaptureId/, 'the booking call lost the shutter id — a retry would book twice');
+  assert.doesNotMatch(src, /releaseCaptureCredits/, 'a refund is back — it would give back a spend that committed with its row');
 });

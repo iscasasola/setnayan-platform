@@ -22,6 +22,7 @@ unreadable	events	app/dashboard/[eventId]/pabuya/actions.ts	1
 unreadable	events	app/dashboard/[eventId]/studio/mood-board/actions.ts	2
 unreadable	events	app/dashboard/[eventId]/studio/papic/actions.ts	1
 unreadable	events	app/dashboard/[eventId]/studio/save-the-date/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/switch-on-actions.ts	1
 unreadable	events	app/dashboard/[eventId]/website/colors/actions.ts	1
 unreadable	events	app/dashboard/[eventId]/website/editor/actions.ts	1
 unreadable	events	app/dashboard/[eventId]/website/hub-draft-actions.ts	1

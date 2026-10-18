@@ -11,7 +11,6 @@ import { makerPartCanvasOn, makerPartLabelOn } from '@/lib/maker-part-groups';
 import { formatCount } from '@/lib/format-number';
 import { STAGE_BAR_GRID_CSS } from '@/lib/maker-stage-room';
 import { DESK_GOLD, DESK_HOVER_RING, DESK_PARTS_FROM_PX, DESK_PARTS_PX, DESK_TOOLS_PX, WORK, useDeskPartsSlot } from '../maker-desk';
-import type { PartEditsNow } from '../add-part-sheet';
 
 /**
  * 🖥 THE STAGES TOOLBAR ON A DESKTOP — the tools column (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md` § Stages,
@@ -185,12 +184,23 @@ const ROW =
   `sn-press flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-left text-[14.5px] text-[var(--sp-ink)] transition-shadow duration-sn-control ease-sn ${DESK_HOVER_RING}`;
 /** ＋ Add above / below — the picked row's own, a dashed line of words (the approved frame's \`.addrow\`). */
 const ADD_ROW =
-  `sn-press flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--sp-line)] text-[12.5px] font-semibold text-[var(--sp-cta)] transition-shadow duration-sn-control ease-sn ${DESK_HOVER_RING}`;
+  `sn-press flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--sp-line)] text-[12.5px] font-semibold text-[var(--sp-cta)] transition-shadow duration-sn-control ease-sn ${DESK_HOVER_RING}`; // no-card-ok: the class of the ＋ Add above / below <button> (a press)
 /** The picked row's grip and 🗑 — 44 px presses on the row's right. */
 const ROW_ICON = `sn-press inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--sp-ink2)] ${DESK_HOVER_RING}`;
 
-/** The picked part's own tools on its row — the frame's (\`usePartEdits\`), never new ones. */
-export type DeskPartTools = Pick<PartEditsNow, 'addAbove' | 'addBelow' | 'remove' | 'removeWord' | 'earlier' | 'later' | 'moveAmong' | 'moveNear' | 'why' | 'say'>;
+/** The picked part's own tools on its row — the frame's (`usePartEdits` `PartEditsNow`, read structurally: the drag's module is reached only through the Stages panel), never new ones. */
+export type DeskPartTools = {
+  addAbove: (() => void) | null;
+  addBelow: (() => void) | null;
+  remove: (() => void) | null;
+  removeWord: string;
+  earlier: (() => void) | null;
+  later: (() => void) | null;
+  moveAmong: () => string[];
+  moveNear: ((target: string, where: 'above' | 'below') => boolean) | null;
+  why: { earlier: string; later: string };
+  say: (words: string) => void;
+};
 
 /**
  * 🗂 THE PARTS OF THIS PAGE — the left column (the doc's LEFT, 264 px; the build plan's PR 4). The stage's pages

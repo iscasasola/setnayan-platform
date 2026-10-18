@@ -69,11 +69,13 @@ export const MAKER_DESK_CSS =
   `${D} [data-maker-draft-actions] [data-bar-item="Undo"]::after{content:"Undo";${WORD}}` +
   `${D} [data-maker-tool="preview"]{${BAR_PILL};background:rgba(44,42,41,.06);margin-left:8px}` +
   `${D} [data-maker-tool="preview"]::after{content:"Preview";${WORD}}` +
-  `${D} [data-maker-apply] button{${BAR_PILL};background:rgb(var(--ramp-success-600));color:#FFF}` +
-  `${D} [data-maker-apply] button:hover{background:rgb(var(--ramp-success-700))}` +
-  `${D} [data-maker-apply] button:disabled{background:rgba(44,42,41,.1);color:rgba(44,42,41,.4)}` +
-  `${D} [data-maker-apply] button::after{content:"Apply";${WORD}}` +
+  `${D} [data-maker-apply] button[data-bar-item]{${BAR_PILL};background:rgb(var(--ramp-success-600));color:#FFF}` +
+  `${D} [data-maker-apply] button[data-bar-item]:hover{background:rgb(var(--ramp-success-700))}` +
+  `${D} [data-maker-apply] button[data-bar-item]:disabled{background:rgba(44,42,41,.1);color:rgba(44,42,41,.4)}` +
+  `${D} [data-maker-apply] button[data-bar-item]::after{content:"Apply";${WORD}}` +
   `${D} [data-icon-pill]{gap:8px}` +
+  /* The phone's bar says why a control is grey in its title, not an ⓘ beside it — so does this one. */
+  `${D} [data-maker-draft-actions] button[data-bar-item]~span{display:none}` +
   /* 👁 Preview ▾ swaps the page — "Both" is dropped (answer 1), and the old scenes column is the parts column's. */
   `${D} [data-maker-tool-menu] button:has([data-maker-tool-row="scenes"]){display:none}` +
   /* ── the page: the old desktop's scenes column, See as ▾ over it and the Event Bar switch under it are the

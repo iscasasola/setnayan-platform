@@ -110,6 +110,7 @@ import { CameraPage } from './stage-panel/camera-page';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
+import { DeskParts, DeskStep, STAGE_DESK_CSS, useDeskRowsTop } from './stage-panel/desk';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
@@ -1336,6 +1337,10 @@ export function StageTools({
      held a <nav> the server's HTML did not, and React refused the server's panel and rebuilt it. The shell is now
      found once the panel is on the page (before the browser paints, so the bar never arrives a frame late). */
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
+  /* 🖥 A desktop's three columns (`maker-desk.tsx`): the same toolbar, full height on the right (`stage-panel/desk.tsx`). */
+  const desk = maker?.desk === true;
+  const rowsRef = useRef<HTMLDivElement>(null);
+  useDeskRowsTop(desk, rowsRef);
   useLayoutEffect(() => setShellEl(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
   /** Where the tab row is drawn: over the foot of the stage's canvas — or, on the RSVP stage, in that stage's own
    *  column (never the shell there: the RSVP layer would cover it). */
@@ -1679,7 +1684,8 @@ export function StageTools({
           '[data-maker-shell]:has([data-stage-tools][data-scene-slide="back"]) [data-stage-guest-bar]{transition:none!important}' +
           `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-phone-chrome="panel"]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear!important;transform:none!important}` +
           '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-phone-chrome="panel"]{opacity:0}' +
-          '}'}
+          '}' +
+          (desk ? STAGE_DESK_CSS : '')}
       </style>
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
@@ -1782,9 +1788,11 @@ export function StageTools({
         </button>
       </div>
 
+      {/* ══ 🖥 A desktop's ‹ Previous · Next › · ✕ Done and the part's caption (the phone swipes) ══ */}
+      {desk ? <DeskStep stage={stageKey} picked={picked} order={desk && picked ? ordered() : []} onStep={(dir) => stepRef.current(dir)} onDone={deselect} /> : null}
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
-      <div data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
+      <div ref={rowsRef} data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
         {lookOn && lookTarget ? (
           <div className={SP_ROWS} data-stage-look="">
             <div className="row-start-4 min-w-0">
@@ -1921,6 +1929,34 @@ export function StageTools({
           )
         : null}
 
+      {/* ══ 🖥 A desktop's left column — the parts of this page — and "You're editing" under the page ══ */}
+      {desk && !away ? (
+        <DeskParts
+          stage={stageKey}
+          pages={pages}
+          shownPage={shownPage}
+          onPage={(key, option) => {
+            if (rsvpOpen) {
+              deselect();
+              goToScreen(key as RsvpStageScene);
+            } else {
+              goToPage(key, option);
+              askPage(key);
+            }
+          }}
+          order={ordered()}
+          picked={picked}
+          onPick={(k) => pickPartRef.current(k)}
+        />
+      ) : null}
+      {desk && shellEl
+        ? createPortal(
+            <p data-desk-editing="" className="pointer-events-none absolute bottom-0 z-[24] truncate px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--sp-mute)]">
+              {STAGE_BAR_LINE_LEAD} · <b className="font-semibold text-[var(--sp-ink)]">{linePieces.join(' › ')}</b>
+            </p>,
+            shellEl,
+          )
+        : null}
       {/* ══ THE GUEST'S TAB BAR, a bar at the foot of the page preview (owner 2026-10-09: "that is the bottom nav of
           the actual event hub") — only where the stage has pages. "You're editing" left it for the toolbar's own line. ══ */}
       {/* 🗳 On the RSVP stage it stands IN the stage's own column, under its screens (`RSVP_STAGE_BAR_SLOT`): that

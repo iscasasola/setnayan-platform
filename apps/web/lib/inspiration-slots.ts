@@ -40,6 +40,8 @@
 import type { MoodboardSlotKey } from './moodboard-slots';
 import type { RoomDressing } from './mood-board';
 import type { WeddingTile } from './taxonomy';
+/* Pure and client-safe too (its only value import is `./mood-board`), so this file stays reachable from the client. */
+import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS, type LanePart } from './colour-access';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
 export type SlotPaletteTarget =
@@ -174,6 +176,44 @@ export const LEGACY_PALETTE_BOARDS: readonly MoodboardSlotKey[] = ['flowers'];
 export function paletteUploadBoards(): StudioInspirationSlot[] {
   const keys = new Set<MoodboardSlotKey>([MAIN_PALETTE_BOARD, ...(Object.values(PART_BOARD) as MoodboardSlotKey[])]);
   return STUDIO_INSPIRATION_SLOTS.filter((s) => !s.attire && keys.has(s.slotKey));
+}
+
+/* ══ ONE LIST OF THE PARTS THAT HOLD PHOTOS — the couple's "Which part?" AND the supplier's library ══════════════
+ *
+ * 🌱🖼 Owner 2026-10-19 (DECISION_LOG "SUPPLIERS FILL THE INSPIRATION LIBRARY WITHOUT AN EVENT"): a supplier adds
+ * photos to the SAME parts, by the SAME names, in the SAME order the couple's Palette draws them — *"keep the mapping
+ * consistent and don't let me trace it"*. So both pickers read this one function: the couple's Studio upload bar
+ * (`mood-board-studio.tsx`, the Palette's parts) and the supplier's `/vendor-dashboard/moodboard-library`
+ * (`uploadableSlotsForShop`, the Palette's parts then the Attire boards). A new Palette part with a board joins both
+ * lists at once; `every-palette-part-reaches-the-supplier-library.test.ts` fails when it has no supplying trade.
+ */
+export type PhotoPartGroup = 'main' | 'room' | 'flowers' | 'cake' | 'attire';
+export type PhotoPart = { key: MoodboardSlotKey; label: string; group: PhotoPartGroup };
+
+/** The supplier's dropdown headings (the couple's say "for your stylist"; a supplier IS the stylist). */
+export const PHOTO_PART_GROUP_LABEL: Readonly<Record<PhotoPartGroup, string>> = {
+  main: 'Main palette',
+  room: 'The room',
+  flowers: 'Flowers',
+  cake: 'Cake',
+  attire: 'Attire',
+};
+
+/** Venue & decor, then every Palette part with a board, by the part's own name (Table linens, not Tables). */
+export function palettePhotoParts(): PhotoPart[] {
+  const main = STUDIO_INSPIRATION_SLOTS.filter((s) => s.slotKey === MAIN_PALETTE_BOARD).map((s) => ({ key: s.slotKey, label: s.label, group: 'main' as const }));
+  const lane = (parts: readonly LanePart[], group: PhotoPartGroup): PhotoPart[] =>
+    parts.flatMap((p) => {
+      const b = paletteBoardOf(p.field);
+      return b ? [{ key: b.slotKey, label: p.label, group }] : [];
+    });
+  return [...main, ...lane(ROOM_LANE_PARTS, 'room'), ...lane(FLORIST_LANE_PARTS, 'flowers'), ...lane(CAKE_LANE_PARTS, 'cake')];
+}
+
+/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
+export function libraryPhotoParts(): PhotoPart[] {
+  const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => ({ key: s.slotKey, label: s.label, group: 'attire' as const }));
+  return [...palettePhotoParts(), ...attire];
 }
 
 /**

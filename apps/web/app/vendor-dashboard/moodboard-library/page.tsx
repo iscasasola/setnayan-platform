@@ -13,6 +13,7 @@ import {
   type ImportableEditorialPhoto,
 } from './actions';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+import { listShopOwnPhotos } from '@/lib/shop-own-photos.server';
 
 export const metadata = { title: 'Moodboard Library · My Designs' };
 export const dynamic = 'force-dynamic';
@@ -121,6 +122,11 @@ export default async function StylistMoodboardLibraryPage() {
     importableFailed = true;
   }
 
+  // 🌱🖼 THE SHOP'S OWN PHOTOS (owner 2026-10-19: "add from the shop's own gallery photos as well as upload") — its
+  // page gallery and service cards, read under the supplier's own session. A failed read is said in the picker's
+  // place (`shopPhotosFailed`), never drawn as "no photos".
+  const shopPhotos = await listShopOwnPhotos(supabase, profile);
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
@@ -153,6 +159,8 @@ export default async function StylistMoodboardLibraryPage() {
       <StylistLibraryEditor
         initialAssets={assets}
         gallerySlots={slots}
+        shopPhotos={shopPhotos.photos}
+        shopPhotosFailed={shopPhotos.failed}
         backCatalogueCap={cap}
         importableEditorial={importable}
         importableEditorialFailed={importableFailed}

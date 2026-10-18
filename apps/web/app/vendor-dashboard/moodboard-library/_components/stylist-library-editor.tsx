@@ -52,6 +52,7 @@ import {
   RIGHTS_WARRANTY_TEXT,
   SUPPLIER_GALLERY_ASSET_TYPE,
 } from '@/lib/moodboard-gallery-pure';
+import { PHOTO_PART_GROUP_LABEL, type PhotoPartGroup } from '@/lib/inspiration-slots';
 import { ShopNotice } from '../../_components/kit';
 import { RejectionNotice } from './rejection-notice';
 import { formatCount } from '@/lib/format-number';
@@ -93,10 +94,20 @@ const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
   6: '#a02c45',
 };
 
+/** One of the shop's own photos (its page gallery or a service card) — `lib/shop-own-photos.server.ts`. */
+export type ShopPhotoChoice = { ref: string; url: string; from: 'page' | 'card' };
+
+/** The dropdown's headings, in the couple's order (`uploadableSlotsForShop`); "More boards" holds the older shelves. */
+const SLOT_GROUP_LABEL: Record<PhotoPartGroup | 'more', string> = { ...PHOTO_PART_GROUP_LABEL, more: 'More boards' };
+
 export type StylistLibraryEditorProps = {
   initialAssets: StylistAsset[];
-  /** Slots this shop may upload into — derived server-side from its trades. */
-  gallerySlots: Array<{ key: string; label: string }>;
+  /** Slots this shop may upload into — derived server-side from its trades, in the couple's order and words. */
+  gallerySlots: Array<{ key: string; label: string; group?: PhotoPartGroup | 'more' }>;
+  /** 🌱🖼 The shop's own photos, offered beside Upload (owner 2026-10-19). Empty = it has none (or none readable). */
+  shopPhotos?: ShopPhotoChoice[];
+  /** TRUE when the shop's photos could not be read — said, never drawn as "you have none". */
+  shopPhotosFailed?: boolean;
   /** This tier's back-catalogue ceiling, PER CATEGORY (MB19). 0 = event-linked photos only. */
   backCatalogueCap: number;
   /** The shop's own day-of editorial photos, eligible to become gallery rows. */
@@ -108,6 +119,8 @@ export type StylistLibraryEditorProps = {
 export function StylistLibraryEditor({
   initialAssets,
   gallerySlots,
+  shopPhotos = [],
+  shopPhotosFailed = false,
   backCatalogueCap,
   importableEditorial,
   importableEditorialFailed,
@@ -123,6 +136,10 @@ export function StylistLibraryEditor({
   // both need to know which shelf's count to read.
   const [uploadSlot, setUploadSlot] = useState<string>(gallerySlots[0]?.key ?? '');
   const [notice, setNotice] = useState<string | null>(null);
+  // 🌱🖼 One of the shop's own photos instead of a file — the same form, the same server gates.
+  const [shopPhotoRef, setShopPhotoRef] = useState<string | null>(null);
+  const [shopPickerOpen, setShopPickerOpen] = useState(false);
+  const shopPhoto = shopPhotos.find((p) => p.ref === shopPhotoRef) ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
   const [localMaps, setLocalMaps] = useState<Record<string, ColorRangeMap>>(() =>
@@ -184,8 +201,8 @@ export function StylistLibraryEditor({
           formData.get('assetType') ?? '',
         ) as StylistAsset['asset_type'];
         const assetSubtype = String(formData.get('assetSubtype') ?? '') || null;
-        const file = formData.get('file') as File | null;
-        const blobUrl = file ? URL.createObjectURL(file) : '';
+        const file = formData.get('file');
+        const blobUrl = shopPhoto ? shopPhoto.url : file instanceof File && file.size > 0 ? URL.createObjectURL(file) : '';
         const placeholder: StylistAsset = {
           asset_id: assetId,
           asset_type: uploadedType,
@@ -217,6 +234,7 @@ export function StylistLibraryEditor({
           );
         }
         setRightsWarranted(false);
+        setShopPhotoRef(null);
         form.reset();
       } catch (err) {
         setActionError((err as Error).message);
@@ -323,13 +341,79 @@ export function StylistLibraryEditor({
             }}
             className="space-y-3"
           >
-            <input
-              name="file"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              required
-              className="block w-full text-sm"
-            />
+            {shopPhoto ? (
+              /* 🌱🖼 A photo from the shop itself — sent as its stored ref; the server checks it is this shop's. */
+              <div data-library-shop-photo-chosen="" className="flex items-center gap-3">
+                <input type="hidden" name="shopPhotoRef" value={shopPhoto.ref} />
+                <Image
+                  src={shopPhoto.url}
+                  alt="The photo from your shop you picked"
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="h-14 w-14 flex-shrink-0 rounded object-cover"
+                />
+                <span className="min-w-0 flex-1 text-sm text-ink/70">
+                  From your shop{shopPhoto.from === 'card' ? ' · a service card' : ' · your page'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShopPhotoRef(null)}
+                  className="flex-shrink-0 rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink"
+                >
+                  Use a file
+                </button>
+              </div>
+            ) : (
+              <input
+                name="file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                required
+                className="block w-full text-sm"
+              />
+            )}
+
+            {/* 🌱🖼 ADD FROM THE SHOP'S OWN PHOTOS (owner 2026-10-19) — the page gallery and the service cards, beside
+                Upload. Picking one only chooses the bytes: the part, the label, the tick, the screen and Setnayan's
+                review below are the same as for a file. */}
+            {isGalleryUpload && shopPhotosFailed ? (
+              <p data-library-shop-photos-failed="" className="text-[11px] text-ink/60">
+                We couldn&rsquo;t load your shop&rsquo;s photos just now — reload in a moment, or pick a file.
+              </p>
+            ) : null}
+            {isGalleryUpload && shopPhotos.length > 0 && !shopPhoto ? (
+              <div data-library-shop-photos="">
+                <button
+                  type="button"
+                  aria-expanded={shopPickerOpen}
+                  onClick={() => setShopPickerOpen((o) => !o)}
+                  className="w-full rounded-md border border-ink/20 px-3 py-2 text-sm font-medium text-ink"
+                >
+                  {shopPickerOpen ? 'Hide your shop’s photos' : `Choose from your shop’s photos (${formatCount(shopPhotos.length)})`}
+                </button>
+                {shopPickerOpen ? (
+                  <ul className="mt-2 grid grid-cols-4 gap-2" aria-label="Your shop’s photos">
+                    {shopPhotos.map((p, i) => (
+                      <li key={p.ref}>
+                        <button
+                          type="button"
+                          data-library-shop-photo={p.from}
+                          onClick={() => {
+                            setShopPhotoRef(p.ref);
+                            setShopPickerOpen(false);
+                          }}
+                          className="block w-full overflow-hidden rounded-md border border-ink/15"
+                          aria-label={`Use photo ${i + 1} from your ${p.from === 'card' ? 'service cards' : 'page'}`}
+                        >
+                          <Image src={p.url} alt="" width={80} height={80} unoptimized className="aspect-square h-auto w-full object-cover" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
             <input
               name="label"
               type="text"
@@ -365,11 +449,7 @@ export function StylistLibraryEditor({
                   aria-label="Which part of the mood board"
                   className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
                 >
-                  {gallerySlots.map((slot) => (
-                    <option key={slot.key} value={slot.key}>
-                      {slot.label}
-                    </option>
-                  ))}
+                  <SlotOptions slots={gallerySlots} />
                 </select>
               ) : (
                 <input
@@ -462,11 +542,7 @@ export function StylistLibraryEditor({
               onChange={(e) => setImportSlot(e.target.value)}
               className="mb-3 w-full rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
             >
-              {gallerySlots.map((slot) => (
-                <option key={slot.key} value={slot.key}>
-                  {slot.label}
-                </option>
-              ))}
+              <SlotOptions slots={gallerySlots} />
             </select>
             <ul className="space-y-2">
               {importableEditorial.map((photo) => (
@@ -523,8 +599,7 @@ export function StylistLibraryEditor({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{a.label}</p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        {a.asset_type}
-                        {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
+                        {assetWhere(a, gallerySlots)}
                         {' · '}
                         {a.rejected_at
                           ? '✕ not published'
@@ -550,8 +625,7 @@ export function StylistLibraryEditor({
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
                 <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-                  {selected.asset_type}
-                  {selected.asset_subtype ? ` · ${selected.asset_subtype}` : ''} ·{' '}
+                  {assetWhere(selected, gallerySlots)} ·{' '}
                   {selected.rejected_at
                     ? '✕ not published'
                     : selected.approved_at
@@ -635,4 +709,51 @@ export function StylistLibraryEditor({
     </div>
     </>
   );
+}
+
+/**
+ * The dropdown's options, grouped under the couple's headings in the couple's order (Main palette · The room ·
+ * Flowers · Cake · Attire · More boards). A list with no groups (an older caller) draws flat, as it always did.
+ */
+function SlotOptions({ slots }: { slots: StylistLibraryEditorProps['gallerySlots'] }) {
+  if (!slots.some((s) => s.group)) {
+    return (
+      <>
+        {slots.map((slot) => (
+          <option key={slot.key} value={slot.key}>
+            {slot.label}
+          </option>
+        ))}
+      </>
+    );
+  }
+  const groups: Array<{ group: PhotoPartGroup | 'more'; slots: typeof slots }> = [];
+  for (const slot of slots) {
+    const g = slot.group ?? 'more';
+    const last = groups[groups.length - 1];
+    if (last && last.group === g) last.slots.push(slot);
+    else groups.push({ group: g, slots: [slot] });
+  }
+  return (
+    <>
+      {groups.map((g) => (
+        <optgroup key={g.group} label={SLOT_GROUP_LABEL[g.group]}>
+          {g.slots.map((slot) => (
+            <option key={slot.key} value={slot.key}>
+              {slot.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+/** Where a photo sits, in the words the dropdown used ("Chairs"), never the stored key ("supplier_gallery · chairs"). */
+function assetWhere(a: StylistAsset, slots: StylistLibraryEditorProps['gallerySlots']): string {
+  if (a.asset_type === SUPPLIER_GALLERY_ASSET_TYPE) {
+    const part = slots.find((s) => s.key === a.asset_subtype)?.label;
+    return part ? `Inspiration · ${part}` : `Inspiration${a.asset_subtype ? ` · ${a.asset_subtype}` : ''}`;
+  }
+  return `${a.asset_type}${a.asset_subtype ? ` · ${a.asset_subtype}` : ''}`;
 }

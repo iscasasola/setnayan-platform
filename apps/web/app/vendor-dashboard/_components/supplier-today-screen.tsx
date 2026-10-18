@@ -51,6 +51,7 @@ export function SupplierTodayScreen({
   askStatus,
   deskIncomplete,
   actions,
+  library = false,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -61,6 +62,8 @@ export function SupplierTodayScreen({
   askStatus: string;
   deskIncomplete: boolean;
   actions: TodayActions;
+  /** 🌱🖼 Draw "Add to the inspiration library" under the Shop row (the shop's trades supply a part). */
+  library?: boolean;
 }) {
   return (
       <SupplierTodayFirstScreen
@@ -112,6 +115,7 @@ export function SupplierTodayScreen({
         doors={view.doors}
         shop={view.shop}
         business={view.business}
+        library={library}
         alsoWaiting={
           /* The asks and the closed lines, each opening its answer in place — the booking fee is still read BEFORE
              Agree, the receipt before Confirm. The payout nudge is a door row of its own, so not repeated here. */

@@ -66,7 +66,7 @@ import {
 import {
   backCatalogueQuotaVerdict,
   slotUploadVerdict,
-  GALLERY_SLOT_LABEL,
+  libraryPartLabel,
   RIGHTS_WARRANTY_VERSION,
   type GalleryUploadMode,
 } from '@/lib/moodboard-gallery-upload';
@@ -74,6 +74,7 @@ import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { shopOwnPhotoRefs } from '@/lib/shop-own-photos.server';
 
 const BUCKET = 'moodboard-library';
 
@@ -305,20 +306,52 @@ async function fetchLogoBytes(logoUrl: string | null): Promise<Uint8Array | null
   }
 }
 
+/**
+ * The bytes of one of the shop's OWN photos (its page gallery or a service card), for the library's "From your
+ * shop's photos". 🛑 The ref must be in the list `shopOwnPhotoRefs` reads NOW, under the supplier's own session — a
+ * ref the browser made up (another shop's key, any URL) is refused before anything is fetched. A list that could not
+ * be read refuses too: we cannot prove the photo is theirs.
+ */
+async function readShopOwnPhoto(
+  profile: VendorProfileRow,
+  ref: string,
+): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  const supabase = await createClient();
+  const own = await shopOwnPhotoRefs(supabase, profile);
+  if (own === null) throw new Error('We couldn’t read your shop’s photos just now — please try again in a moment.');
+  if (!own.some((p) => p.ref === ref)) throw new Error('That photo isn’t one of your shop’s photos.');
+  const parsed = parseStoredAsset(ref);
+  if (!parsed) throw new Error('That photo could not be opened.');
+  if (parsed.kind === 'r2') {
+    const { bytes, contentType } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
+    return { bytes, contentType };
+  }
+  return { bytes: await safeFetchImageBytes(parsed.url), contentType: null };
+}
+
 export async function uploadStylistAsset(
   formData: FormData,
 ): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
-  const file = formData.get('file') as File | null;
+  const picked = formData.get('file');
+  const file = picked instanceof File && picked.size > 0 ? picked : null;
+  // 🌱🖼 OR ONE OF THE SHOP'S OWN PHOTOS (owner 2026-10-19, "add from the shop's own gallery photos as well as
+  // upload"): the same form, the same gates below, only the bytes come from the shop's page / service cards instead
+  // of the supplier's machine. The ref is checked against the shop's OWN list, read here — never trusted as sent.
+  const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
   const label = String(formData.get('label') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? '');
   const assetSubtype = String(formData.get('assetSubtype') ?? '').trim() || null;
   const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
 
-  if (!file) throw new Error('file required');
+  if (!file && !shopPhotoRef) throw new Error('Pick a photo — a file, or one from your shop.');
+  if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
   if (!label) throw new Error('label required');
+  if (shopPhotoRef && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) {
+    throw new Error('Photos from your shop go to the couples’ inspiration library.');
+  }
 
   const isGallery = assetType === SUPPLIER_GALLERY_ASSET_TYPE;
   if (!isGallery && !(LEGACY_ASSET_TYPES as readonly string[]).includes(assetType)) {
@@ -356,25 +389,28 @@ export async function uploadStylistAsset(
       mode,
       cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
       backCatalogueUsed: used,
-      categoryLabel: GALLERY_SLOT_LABEL[slot.slotKey] ?? 'that category',
+      categoryLabel: libraryPartLabel(slot.slotKey) ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  const photo = file
+    ? { bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type || null }
+    : await readShopOwnPhoto(profile, shopPhotoRef!);
   const result = await storeScreenedAsset({
     admin,
     userId,
     profile,
-    bytes: new Uint8Array(arrayBuffer),
-    contentType: file.type || null,
+    bytes: photo.bytes,
+    contentType: photo.contentType,
     row: {
       asset_type: assetType,
       asset_subtype: assetSubtype,
       label,
       source: 'stylist_upload',
-      // A file picked off the shop's own machine is BACK-CATALOGUE by
-      // definition — there is no celebration attached to it. The event-linked
+      // A file picked off the shop's own machine — or a photo off its own page
+      // or service cards — is BACK-CATALOGUE by definition: there is no
+      // celebration attached to it. The event-linked
       // route is `importEditorialMediaToGallery` below, which can prove the
       // link instead of taking the vendor's word for it.
       source_event_id: null,

@@ -11,6 +11,7 @@ import {
   Eye,
   FileText,
   HelpCircle,
+  ImagePlus,
   LogOut,
   MessageSquare,
   Play,
@@ -47,6 +48,7 @@ import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { SupplierSubmit } from './supplier-submit';
 import { TodayFigure } from './today-figure';
+import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 
 /**
  * Where a Next button (or an Also-waiting door) goes. Written as `href:`
@@ -154,6 +156,7 @@ const ROW_ICONS: Record<TodayRowIcon, LucideIcon> = {
   check: Check,
   remove: Trash2,
   gear: Settings,
+  image: ImagePlus,
 };
 
 /** A list row's mark — decorative (the row's words name it), so hidden from the reader. */
@@ -337,6 +340,12 @@ export type SupplierTodayFirstScreenProps = {
   shop: { name: string; line: string; pill: ShopPill };
   /** "How is business" — "312 looked · 14 asked", or null when it was not read (the row then shows no number). */
   business?: { line: string | null } | null;
+  /**
+   * 🌱🖼 "Add to the inspiration library" (owner 2026-10-19, DECISION_LOG "SUPPLIERS FILL THE INSPIRATION LIBRARY
+   * WITHOUT AN EVENT"): the shipped `/vendor-dashboard/moodboard-library`, made findable. Drawn only when the shop's
+   * trades supply a part (`moodboardLibraryAccessForProfile`) — a row that led to a refusal would be a broken door.
+   */
+  library?: boolean;
 };
 
 const DOOR_ICON: Record<SupplierWaitingDoor['id'], TodayRowIcon> = {
@@ -397,6 +406,7 @@ export function SupplierTodayFirstScreen({
   hasBills = false,
   shop,
   business = null,
+  library = false,
 }: SupplierTodayFirstScreenProps) {
   const day = next.kind === 'run_day';
   const unread = next.kind === 'unread';
@@ -621,6 +631,15 @@ export function SupplierTodayFirstScreen({
             rowIcon="shop"
           />
           <TodayRow href="/vendor-dashboard/performance" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
+          {library ? (
+            <TodayRow
+              href={INSPIRATION_LIBRARY_HREF}
+              label={INSPIRATION_LIBRARY_ROW.label}
+              line={INSPIRATION_LIBRARY_ROW.line}
+              marker="inspiration-library"
+              rowIcon="image"
+            />
+          ) : null}
         </div>
       </div>
     </section>

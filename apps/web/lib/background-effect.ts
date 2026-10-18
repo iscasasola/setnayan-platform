@@ -15,12 +15,13 @@
  *     ⚠ ONE CONSEQUENCE, said in the changelog: "the page's own" is a CHOICE, so a cover photo added later no
  *     longer becomes the background by itself (`heroNeedsMeasuring`).
  *
- * ◆ A PRO EFFECT IS TRIED, NEVER APPLIED (the approved gallery, kind 20 "Pro mark"): a couple without Event Hub
- * Pro may tap one — the sample screen wears it — but nothing is written, and one note offers See Pro / Not now.
+ * ◆ EVERY EFFECT IS PRO, TRIED FREE AND NAMED AT ✓ APPLY (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS,
+ * STYLES AND ACCENTS ARE EVENT HUB PRO ◆"; the #6623 pattern). A tap is written to the draft whoever taps it — the
+ * sample wears it — and the one gate is Apply (`mainGroundChange` → `mainEffectChange`, lib/hub-draft.ts). Until
+ * 2026-10-16 a ◆ effect was tried on the sample and never written, with a See Pro note; that path is gone.
  *
  * Pure. Held by `lib/the-effects-are-picked-on-the-sample.test.ts`.
  */
-import { AMBIENT_EFFECT_IS_PRO, AMBIENT_EFFECT_LABEL } from './ambient-effects';
 import {
   hubMainEffect,
   isHubMainLoop,
@@ -74,21 +75,6 @@ export function effectPicked(kind: HubMainEffectKind, on: HubMainEffect | null, 
 export function effectWith(on: HubMainEffect, change: { intensity?: HubMainEffectIntensity; colour?: HubMainEffectColour | null }): HubMainEffect {
   const colour = change.colour === undefined ? (on.colour ?? null) : change.colour;
   return { kind: on.kind, intensity: change.intensity ?? on.intensity, ...(colour ? { colour } : {}) };
-}
-
-/** May this tap be WRITTEN? A Pro effect, for a couple without Event Hub Pro, may only be tried. */
-export function effectMayApply(kind: HubMainEffectKind, ownsPro: boolean): boolean {
-  return ownsPro || !AMBIENT_EFFECT_IS_PRO[kind];
-}
-
-/** The note under the cards while a Pro effect is being tried — the approved gallery's own words (kind 20). */
-export function effectProNote(kind: HubMainEffectKind): { title: string; body: string; later: string; see: string } {
-  return {
-    title: `${AMBIENT_EFFECT_LABEL[kind]} is part of Pro`,
-    body: 'Pro also gives you scenes, films and your own music. You can keep trying it on the preview.',
-    later: 'Not now',
-    see: 'See Pro',
-  };
 }
 
 /** The Colour ▾ key for "the effect's own". Never stored. */

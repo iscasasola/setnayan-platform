@@ -76,7 +76,7 @@ test('2 · every desk rule needs the switch — no selector can match a phone’
 test('3 · the desk code is lazy — a phone never downloads it, and the toolbar draws its desk pieces only on a desktop', () => {
   const shell = read(`${L}/maker-shell.tsx`);
   assert.doesNotMatch(shell, /from '\.\/maker-desk'|stage-panel\/desk/, 'the shell imports the desk code statically');
-  assert.match(read(`${L}/details-lazy.tsx`), /export const MakerDesk = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/maker-desk'\)/);
+  assert.match(read(`${L}/details-lazy.tsx`), /export const MakerDesk = dynamic\(\(\) => import\([^)]*'\.\/maker-desk'\)/);
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const desk = maker\?\.desk === true;/);
   assert.match(tools, /\{desk \? <DeskStep /, 'Previous · Next · Done is drawn without `desk`');

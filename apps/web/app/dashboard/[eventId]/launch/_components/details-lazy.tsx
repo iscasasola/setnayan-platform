@@ -211,3 +211,18 @@ export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker
 
 /* ✕ The Maker's way out — Back to this event · All events (`maker-exit-sheet.tsx`), drawn when ✕ is pressed. */
 export const MakerExitSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-exit-sheet').then((m) => m.MakerExitSheet), { loading: SlotNone });
+
+/* ── 🗂 The Maker rows' own panels (`website/editor/page.tsx` → `rows[…].node`, `setLookPages`) — each is drawn only
+   when its row or look page is opened, so none rides the Maker's first load (headroom, 2026-10-18: the first load sat
+   AT its 507KB ceiling; these were ~6.8KB gz of it). Each is a WHOLE panel with its own form, so a panel that has not
+   arrived is a slot, never half a form. The ⋯ sheet's "Go live" control goes the same way. ── */
+export const HeroPhotoPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.HeroPhotoPanel), { loading: SlotRows });
+export const GalleryPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.GalleryPanel), { loading: SlotRows });
+export const SiteChromePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.SiteChromePanel), { loading: SlotRows });
+export const VisibilityPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.VisibilityPanel), { loading: SlotRows });
+export const OpenBrowsePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.OpenBrowsePanel), { loading: SlotRows });
+export const LaunchPhasePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.LaunchPhasePanel), { loading: SlotRows });
+export const RsvpBackdropPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.RsvpBackdropPanel), { loading: SlotRows });
+export const LaunchStdButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../studio/save-the-date/_components/launch-std-button').then((m) => m.LaunchStdButton), { loading: SlotButton });
+/* ⋯ Scan to view (the QR strip, with its NFC writer) and the one Pro CTA under the ⋯ sheet's rows (`more-extras.tsx`). */
+export const MoreExtras = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/more-extras').then((m) => m.MoreExtras), { loading: SlotRows });

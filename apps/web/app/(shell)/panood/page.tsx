@@ -122,7 +122,7 @@ const FAQ = [
     // only inside the YouTube answer further down, which is not where somebody deciding
     // whether this product fits them will look.
     q: 'What do I need on the day?',
-    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Watch control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
+    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the venue, running free streaming software (OBS) next to the Live Watch control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
   },
   {
     // 🎵 SECOND, immediately after the laptop, because it is the same KIND of fact —
@@ -256,7 +256,7 @@ export default function PanoodLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Watch lives where your guests already are — your wedding.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
+      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating and Event Hub. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
       // Kept deliberately, and kept AFTER the questions: this is the
       // YouTube-API-Services disclosure an OAuth reviewer looks for. The 2026-06-29

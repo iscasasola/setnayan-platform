@@ -90,7 +90,7 @@ export function guestMeFacts(input: {
   const roles = sanitizeRoleAttire(config.roles, isDressableRole);
   const groups = sanitizeGroupAttire(config.groups);
   const board = resolveDisplayPalette(sanitizeRolePalette(input.rolePalette));
-  const { panel } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null });
+  const { panel } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null, config });
   const named =
     role && role !== 'guest'
       ? panel?.roleLabel ?? roleLabel(role, input.roleNames) ?? guestRoleLabel(role, input.roleNames)

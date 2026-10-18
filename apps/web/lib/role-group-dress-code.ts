@@ -172,6 +172,9 @@ export function resolveAttireFor(
   role: GuestRole | null | undefined,
   roles: RoleAttireMap,
   groups: GroupAttireMap,
+  /** 👯 The stored dress code, so an honour attendant is answered by their own row once its Wear is picked
+   *  (`studioRowOf`, 2026-10-19). Absent: their group's row, as before. */
+  config?: Record<string, unknown> | null,
 ): ResolvedAttire {
   if (!role || role === 'guest') return null;
   /* 🪞 ONE FACT (2026-10-17): the answer is the Studio row's (`studioRowOf`) — a role the Studio lists by itself (the
@@ -179,10 +182,11 @@ export function resolveAttireFor(
      couple picks on in Studio › Mood Board & Dress Code. A per-role line for anyone else (`roles.best_man`,
      `roles.groom_parents` — written by the older dress-code form, shown by no editor today) is no longer read: it
      told a father "Long gown" while the row he is dressed by said "Suit and tie". The stored value is kept. */
-  const row = studioRowOf(role);
+  const row = studioRowOf(role, config);
   if (!row) return null;
   if (row.tier === 'roles') {
-    const own = roles[role];
+    /* The row's own line — keyed by the row (`roles.best_man` answers the best woman too, one call time and one note). */
+    const own = roles[row.key as GuestRole];
     return own ? { rule: own, source: 'role' } : null;
   }
   const shared = groups[row.key as RoleGroup];
@@ -249,8 +253,11 @@ export function resolveGuestAttireWithGroups(input: {
   names?: RoleNames | null;
   /** 👪 The reader's own title · attire — a parent is named per person (`resolveGuestDressCode` `person`). */
   person?: Parameters<typeof resolveGuestDressCode>[0]['person'];
+  /** 👯 The stored dress code (`events.dress_code_config`) — an honour attendant's own row (`resolveAttireFor`). */
+  config?: unknown;
 }): { panel: ReturnType<typeof resolveGuestDressCode>; source: 'role' | 'group' | null } {
-  const won = resolveAttireFor(input.role, input.roles, input.groups);
+  const config = input.config && typeof input.config === 'object' && !Array.isArray(input.config) ? (input.config as Record<string, unknown>) : null;
+  const won = resolveAttireFor(input.role, input.roles, input.groups, config);
   const effective: RoleAttireMap = won && input.role ? { [input.role]: won.rule } : {};
   return {
     panel: resolveGuestDressCode({

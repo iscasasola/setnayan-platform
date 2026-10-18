@@ -3677,7 +3677,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 <span className="font-medium text-ink">
                   {FAITH_KEY_TO_LABEL[filters.faithFilter]}
                 </span>{' '}
-                celebrations.
+                events.
               </span>
             </p>
             <Link

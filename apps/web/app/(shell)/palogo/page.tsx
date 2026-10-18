@@ -65,7 +65,7 @@ export const metadata = {
     'animated wedding logo',
     'custom wedding monogram Philippines',
     'wedding initials design',
-    'monogram for wedding website',
+    'wedding monogram maker',
     'animated monogram',
     'Logo Maker',
     'Setnayan',
@@ -98,7 +98,7 @@ const APP_LD = {
   featureList: [
     'A custom monogram drawn from your initials',
     'Animated — your mark comes alive, not just a static logo',
-    'Carries across your save-the-date, website, reception screens, and videos',
+    'Carries across your save-the-date, Event Hub, reception screens and videos',
     'Refine it until it feels like yours',
     'Tuned to your wedding’s colours and feel',
     'One signature for the whole day',
@@ -159,7 +159,7 @@ const VS = [
   ['A stock template everyone uses', 'A mark drawn from your initials'],
   ['A flat, static logo', 'A monogram that comes alive'],
   ['Different look on every piece', 'One signature across the day'],
-  ['Stuck on the invite only', 'On screens, website, and videos too'],
+  ['Stuck on the invite only', 'On screens, your Event Hub and videos too'],
 
 ] as const;
 
@@ -233,7 +233,7 @@ export default function LogoMakerLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Logo Maker looks like you — and it moves.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, website, and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, Event Hub and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection

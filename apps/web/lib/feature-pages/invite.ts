@@ -96,8 +96,15 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       {
         src: '/feature-shots/event-hub-0.jpg',
         alt: {
-          en: 'The Event Hub Maker on a phone: the Invitation stage’s Home with the couple’s names and date, and the parts of the page below',
-          tl: 'Ang Event Hub Maker sa telepono: ang Home ng Invitation stage na may pangalan at petsa ng magkasintahan, at ang mga bahagi ng page sa ibaba',
+          en: 'The Event Hub Maker on a phone: the Invitation stage’s Home with the couple’s names and date, Home · Details · Story · Me, and Edit, Style, Background and Animate for the part you tapped',
+          tl: 'Ang Event Hub Maker sa telepono: ang Home ng Invitation stage na may pangalan at petsa ng magkasintahan, Home · Details · Story · Me, at Edit, Style, Background at Animate para sa bahaging pinindot mo',
+        },
+      },
+      {
+        src: '/feature-shots/event-hub-1.jpg',
+        alt: {
+          en: 'The Event Hub Maker on a phone: the Invitation stage’s Story, with the love story’s own photos in its chapter',
+          tl: 'Ang Event Hub Maker sa telepono: ang Story ng Invitation stage, kasama ang sariling mga litrato ng love story sa kabanata nito',
         },
       },
     ],
@@ -183,7 +190,15 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       en: ['wedding dress code Philippines', 'entourage attire', 'call time for entourage', 'barong and filipiniana dress code'],
       tl: ['dress code ng kasal', 'kasuotan ng entourage', 'call time ng entourage'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/dress-code-0.jpg',
+        alt: {
+          en: 'The dress code on a phone, in Mood Board & Dress Code › Attire: the bride in a filipiniana and the groom in a barong tagalog, each with their colours, what to wear and a call time',
+          tl: 'Ang dress code sa telepono, sa Mood Board & Dress Code › Attire: ang bride na naka-filipiniana at ang groom na naka-barong tagalog, bawat isa may kulay, isusuot at call time',
+        },
+      },
+    ],
     price: { kind: 'free' },
     evidence: ['lib/role-dress-code.ts', 'app/[slug]/_components/dress-code-widget.tsx', 'lib/guest-checklist.ts', 'lib/print-layout.ts'],
   },
@@ -338,7 +353,15 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       en: ['wedding cash gift GCash', 'wedding wish list Philippines', 'online gift registry', 'e-gift for debut'],
       tl: ['regalo sa kasal sa GCash', 'wish list ng kasal', 'e-gift'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/e-gifts-0.jpg',
+        alt: {
+          en: 'E-Gifts as a guest sees it on a phone: the wish list with how much has been sent toward each wish, one marked got, and the ways to give with a GCash number to copy',
+          tl: 'Ang E-Gifts na nakikita ng bisita sa telepono: ang wish list at kung magkano na ang naipadala para sa bawat wish, isang may markang got, at ang mga paraan ng pagbibigay na may GCash number na makokopya',
+        },
+      },
+    ],
     price: { kind: 'free' },
     evidence: ['lib/egift.ts', 'lib/egift-kinds.ts', 'lib/wish-list.ts', 'lib/gift-record.ts', 'app/[slug]/pabuya/page.tsx'],
   },
@@ -409,7 +432,15 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       en: ['printable wedding invitation', 'table signs and place cards', 'wedding invitation set Philippines', 'guest QR code cards'],
       tl: ['printable na imbitasyon', 'table signs at place cards', 'invitation set ng kasal'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/prints-0.jpg',
+        alt: {
+          en: 'Prints on a phone: Print settings, then the invitation set — invitation, entourage, finer details and menu — each with its size and its own Download',
+          tl: 'Ang Prints sa telepono: Print settings, at ang invitation set — invitation, entourage, finer details at menu — bawat isa may laki at sariling Download',
+        },
+      },
+    ],
     price: { kind: 'free-plus', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] },
     evidence: ['lib/print-pieces.ts', 'lib/free-prints.ts', 'lib/studio-prints-six.ts', 'app/api/hub-print/[piece]/route.ts'],
   },
@@ -460,7 +491,15 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       en: ['wedding monogram maker', 'animated wedding logo', 'wedding logo Philippines'],
       tl: ['monogram ng kasal', 'animated na logo ng kasal'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/logo-maker-0.jpg',
+        alt: {
+          en: 'The Logo Maker on a phone: the couple’s initials as a text layer, Add layer beside it, and Character, Style and Animate with the words, font and size below',
+          tl: 'Ang Logo Maker sa telepono: ang initials ng magkasintahan bilang text layer, ang Add layer sa tabi nito, at ang Character, Style at Animate kasama ang salita, font at laki sa ibaba',
+        },
+      },
+    ],
     price: { kind: 'free-plus', catalogue: 'retail', codes: ['ANIMATED_MONOGRAM'] },
     moreHref: '/palogo',
     evidence: ['app/(shell)/palogo/page.tsx', 'lib/monogram.ts', 'lib/logo-layers.ts', 'app/dashboard/[eventId]/monogram/page.tsx'],

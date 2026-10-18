@@ -117,7 +117,7 @@ const EVERYTHING_ELSE: readonly Extra[] = [
   { t: 'Photo challenges', d: 'Little missions for the room — a written library to choose from, or write your own.' },
   { t: 'Video greetings', d: 'Ask your guests to leave a short message on camera instead of signing a book.' },
   { t: 'Challenges your suppliers suggest', d: 'Your photographer can propose one. Nothing appears until you approve it.' },
-  { t: 'A recap page', d: 'The celebration gathered into one page you can send.' },
+  { t: 'A recap page', d: 'The event gathered into one page you can send.' },
   { t: 'A keepsake magazine', d: 'Your photographs laid out to print, with your guests’ words beside the picture each one is about. Free.' },
   { t: 'Life flash', d: 'The whole story, cut short and set to music.' },
   { t: 'A thank-you film', d: 'Made from the night and addressed to the people who came.', paid: true },
@@ -246,8 +246,8 @@ export function PapicHub() {
         On your own page, not on ours
       </h2>
       <p className="mt-2 text-sm text-[var(--m-slate-2)]">
-        Papic is a part of the celebration page you already have — the same page holding your
-        details and your RSVP. There is no second website, and nothing to send anyone twice.
+        Papic is a part of the Event Hub you already have — the same page holding your
+        details and your RSVP. There is no second page, and nothing to send anyone twice.
       </p>
 
       <div className="mt-6 overflow-hidden rounded-[var(--m-r-lg)] border border-[var(--m-line)]">

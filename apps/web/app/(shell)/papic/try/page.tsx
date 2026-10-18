@@ -73,7 +73,7 @@ export default function PapicTryPage() {
       </div>
 
       <p className="mt-8 text-sm text-[var(--m-slate-2)]">
-        This is the real thing, in miniature. On a celebration it never rotates away, never leaves
+        This is the real thing, in miniature. At a real event it never rotates away, never leaves
         the people you invited, and never expires —{' '}
         <Link href="/papic" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
           see what Papic does →

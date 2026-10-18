@@ -12,15 +12,8 @@ import {
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { ingestToWall } from '@/lib/live-wall';
 import { papicCaptureCost } from '@/lib/papic-cameras';
-import {
-  papicEventPoolPreCheckExhausted,
-  papicReserveEventPoolForCapture,
-} from '@/lib/papic-event-pool-gate';
-import { releaseCaptureCredits } from '@/lib/papic-release-capture';
-import {
-  resolveGuestOwnCamera,
-  reserveGuestOwnCameraCapture,
-} from '@/lib/papic-guest-own-camera';
+import { papicEventPoolPreCheckExhausted } from '@/lib/papic-event-pool-gate';
+import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
@@ -407,24 +400,24 @@ export async function POST(req: Request) {
   // An absent or unparseable duration falls to the top band, never the cheap one.
   const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs);
 
-  // Pre-check the shared event pool so we don't PUT an object the reserve would
+  // Pre-check the shared event pool so we don't PUT an object the booking would
   // then refuse — keeps R2 free of orphans for the common exhausted case. The
-  // AUTHORITATIVE, race-safe gate is the papic_reserve_event_points reserve
-  // below (fail-CLOSED). This pre-check fails OPEN by design: a non-applies
-  // event (no grant / no pass) returns MAXINT so this is a no-op and the record
-  // RPC's own gate decides (legacy behaviour byte-identical), and any RPC error
-  // just skips the optimization — the reserve still gates.
+  // AUTHORITATIVE, race-safe gate is the booking inside
+  // papic_record_guest_capture_and_spend below. This pre-check fails OPEN by
+  // design: a non-applies event (no grant / no pass) returns MAXINT so this is a
+  // no-op, and any RPC error just skips the optimization — the booking still
+  // gates.
   //
   // ── DOES THIS GUEST HOLD SHOTS THEY BOUGHT? (2026-08-02) ─────────────────
   // A guest who bought their own shots has a camera of their own with a
-  // dedicated balance. Resolved ONCE here and reused by the reserve + unwind
-  // below, so the three cannot disagree about which ledger is in play.
+  // dedicated balance. Resolved ONCE here, for the pre-check below only: which
+  // ledger a shot is BOOKED against is decided inside the one-transaction
+  // record (same predicate — this event, this guest, not revoked), where it
+  // cannot go stale between the read and the spend.
   //
-  // ⚠ Gated on `dedicated > 0` and nothing else. On a camera with no bought
-  // balance the seat reserve would fall through to the TIER's daily budget —
-  // a 20/day cap this surface has never had — so a guest who never bought
-  // anything must not touch that path. This keeps the whole feature invisible
-  // to everyone except the people who paid for it.
+  // ⚠ Gated on `dedicated > 0` and nothing else: a guest whose camera holds
+  // nothing of her own left draws the pot like everyone else, so the pot's
+  // pre-check applies to her exactly as to them.
   // ── PUT AWAY = the shutter stops (owner 2026-08-16) ─────────────────────
   // The SECOND of the two capture entry points; they share no code path, which
   // is why the rule lives in one helper rather than being written twice. Fails
@@ -508,80 +501,33 @@ export async function POST(req: Request) {
     }
   }
 
-  // ── EVENT-POOL reserve (Phase 0c uniform gate) — the AUTHORITATIVE, race-safe
-  // cap for every guest capture. Free / Papic One / Papic Pool all draw this one
-  // shared pool; papic_reserve_event_points atomically books `cost` points (or
-  // allows unconditionally on a non-applies event, ledger untouched). Same
-  // fail-CLOSED posture as the seat path (papic/actions.ts): block on any RPC
-  // error EXCEPT function-not-found (the seam-cutover carve-out in
-  // resolvePointsGate). A refused reserve unwinds below if the record then fails.
-  // Two FIGURES, not two flags: a capture can be paid from the guest's own
-  // balance AND the pot at once, and an abort must put each half back where it
-  // came from (owner 2026-08-11: "spend 2 and take 6").
-  let dedicatedSpent = 0;
-  let poolSpent = 0;
-  {
-    // A guest spending their OWN shots books the pair the seat path books:
-    // their camera's balance first, then the pool, which stands down while
-    // that balance lasts. Everyone else takes the original path untouched.
-    const { outcome, booked } = ownCamera
-      ? await reserveGuestOwnCameraCapture(
-          admin,
-          session.event_id,
-          ownCamera.seatId,
-          cost,
-        ).then((r) => {
-          dedicatedSpent = r.dedicatedSpent;
-          return { outcome: r.outcome, booked: r.poolSpent };
-        })
-      // No camera of their own at all — nothing to split against, so the pot is
-      // the only ledger. Only a TRUE actually spent points; a fn-not-found
-      // 'allow' booked nothing.
-      : await papicReserveEventPoolForCapture(admin, session.event_id, cost).then((r) => ({
-          outcome: r.outcome,
-          booked: r.booked ? cost : 0,
-        }));
-    poolSpent = booked;
-    if (outcome === 'exhausted') {
-      // The authoritative reserve. Reached from BOTH shapes — the plain pool
-      // reserve, and the split, which refuses only when the guest's own balance
-      // AND the pot together cannot cover the cost. Either way the pot is short,
-      // so the couple is the right person to tell.
-      after(async () => {
-        await tellTheCouplePapicPoolIsSpent(session.event_id);
-      });
-      return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
-    }
-    if (outcome === 'blocked') {
-      return NextResponse.json({ status: 'points_check_failed' }, { status: 503 });
-    }
-  }
-
-  // Record the capture, carrying the guest's public-share consent + (for clips)
-  // media_type + duration + poster on the row, and what it cost.
+  // ── ONE CALL: BOOK THE POINTS AND WRITE THE ROW — OR NEITHER ─────────────
+  // (20271276810836, owner 2026-10-18: "build it".) This used to be TWO round
+  // trips: the pool / own-camera booking (papic_reserve_event_points or
+  // papic_reserve_capture_split), then the record, with an application unwind
+  // when the record refused. The unwind could only run if this process was
+  // still alive to run it, so a timeout, an eviction or a deploy landing
+  // between the two left the points spent on a photograph that does not exist.
+  // papic_record_guest_capture_and_spend books the SAME ledgers with the SAME
+  // cost and writes the row inside one transaction: they commit together or
+  // neither happens, and there is nothing left here to put back. A repeat of a
+  // shutter that already landed books nothing at all.
   //
-  // ── `p_points_cost` — THE COST IS PASSED IN, THE CEILING IS NOT ────────────
-  // The RPC stores this on the row and meters the couple's per-guest ceiling by
-  // SUMming it, so the meter is in CREDITS rather than rows (a ten-second clip
-  // costs 8 of them). It is the SAME `cost` the pool reserve above already
-  // booked — one number, computed once, spent against both ledgers, so the two
-  // can never disagree about what this capture was worth. The RPC does NOT take
-  // its LIMIT from us; it reads the couple's own table. Migration
-  // 20271184624871.
+  // `p_points_cost` — the cost is passed in, the ceiling is not: the record
+  // stores it on the row and meters the couple's per-guest ceiling by SUMming
+  // it, and the booking charges that same stored number. One number, computed
+  // once, spent against every ledger.
   //
-  // Graceful-degrade: if a newer signature isn't deployed yet, retry the 7-arg,
-  // then the 6-arg, then the 3-arg, then the 2-arg so the capture still records.
-  // ⚠ THE 6-ARG RUNG IS THE DEPLOY-WINDOW RUNG AND IT IS NOT DECORATION. Vercel
-  // and the migration workflow both fire on a push to main and race; for the
-  // minutes where this code is live and 20271184624871 is not, the 7-arg call
-  // 42883s. Without this rung it would fall straight to shapes that cannot
-  // carry media_type — recording every clip of that window as a photo.
-  // 🕐 The 8-arg rung is the same rung for 20271214644139: during ITS window the
-  // capture records with its upload minute instead of not recording at all.
-  // 🔁 The 9-arg rung carries the shutter's id (20271272777206) and is the only
-  // one that can answer `duplicate`. During that migration's deploy window it
-  // 42883s and the 8-arg rung records the capture as before.
-  let { data, error } = await admin.rpc('papic_record_guest_capture', {
+  // ⚠ NO SIGNATURE-FALLBACK LADDER, deliberately — the seat path's reasoning
+  // (app/papic/actions.ts, papic_record_seat_capture): deploy-prod applies
+  // migrations BEFORE it triggers the Vercel deploy hook, so this code is never
+  // live without the function; and if it ever were, the error below answers
+  // 500, which the camera and its offline queue retry (keyed by the shutter id,
+  // so the retry lands once). A fallback to the old two calls would bring back
+  // the very gap this closes.
+  //
+  // ⚠ SERVICE-ROLE ONLY — `admin` is the service-role client.
+  const { data, error } = await admin.rpc('papic_record_guest_capture_and_spend', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
     p_consent_to_public: sharePublicly,
@@ -592,84 +538,26 @@ export async function POST(req: Request) {
     p_captured_at: capturedAtIsoValue,
     p_client_capture_id: clientCaptureId,
   });
-  if (error && /p_client_capture_id|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-      p_media_type: mediaType,
-      p_duration_ms: durationMs,
-      p_poster_r2_key: posterRef,
-      p_points_cost: cost,
-      p_captured_at: capturedAtIsoValue,
-    }));
-  }
-  if (error && /p_captured_at|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-      p_media_type: mediaType,
-      p_duration_ms: durationMs,
-      p_poster_r2_key: posterRef,
-      p_points_cost: cost,
-    }));
-  }
-  if (error && /p_points_cost|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-      p_media_type: mediaType,
-      p_duration_ms: durationMs,
-      p_poster_r2_key: posterRef,
-    }));
-  }
-  if (error && /p_media_type|p_duration_ms|p_poster_r2_key|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-    }));
-    if (error && /p_consent_to_public|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-      ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-        p_guest_id: session.guest_id,
-        p_r2_object_key: r2Ref,
-      }));
-    }
-  }
-
-  // If the record failed OR came back non-ok (quota_exhausted / not_owned /
-  // invalid_guest), unwind the pool reservation so a refused capture never
-  // leaves points spent — symmetric to the seat path. Best-effort; a failed
-  // unwind costs the couple points, never a broken capture.
-  const recordStatus = (data as { status?: string } | null)?.status;
-  // 🔁 A `duplicate` answer is a success that spent nothing in the record: the
-  // first arrival of this shutter already paid. The pool points THIS request
-  // booked above are put back exactly as for a refusal.
-  const recordDuplicate = (data as { duplicate?: boolean } | null)?.duplicate === true;
-  if (error || recordStatus !== 'ok' || recordDuplicate) {
-    // ONE call, both halves — the guest's own balance and the host's pot each
-    // get back exactly what this capture took from them. Releasing the whole
-    // cost to either side alone would move credits between the two: the guest
-    // paid for theirs, and the leak in that direction is somebody's money
-    // rather than the host's allowance.
-    // ⚠ THIS USED TO END `.then(() => undefined, () => undefined)`. Supabase
-    // RESOLVES with { error } rather than throwing, so the FIRST handler
-    // discarded a real failure and the guest's own credits stayed spent on a
-    // photo that does not exist, silently. Best-effort was right; SILENT was
-    // the bug.
-    await releaseCaptureCredits(admin, {
-      seatId: ownCamera?.seatId ?? null,
-      eventId: session.event_id,
-      dedicatedSpent,
-      poolSpent,
-      callSite: 'papic.guestCapture.releaseAfterRecordFailed',
-    });
-  }
   if (error) {
+    // Nothing was spent: the transaction rolled back with the error.
+    console.error('[supabase-error] app/api/papic/guest-capture/route.ts · rpc:papic_record_guest_capture_and_spend', error);
     return NextResponse.json({ error: 'record_failed' }, { status: 500 });
   }
+
+  const recordStatus = (data as { status?: string } | null)?.status;
+  if (recordStatus === 'camera_points_exhausted') {
+    // The authoritative refusal. Reached from BOTH shapes — the plain pool
+    // booking, and the split, which refuses only when the guest's own balance
+    // AND the pot together cannot cover the cost. Either way the pot is short,
+    // so the couple is the right person to tell.
+    after(async () => {
+      await tellTheCouplePapicPoolIsSpent(session.event_id);
+    });
+    return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
+  }
+  // 🔁 A `duplicate` answer is a success that spent nothing: the first arrival
+  // of this shutter already paid, and the function booked nothing this time.
+  const recordDuplicate = (data as { duplicate?: boolean } | null)?.duplicate === true;
 
   const result = (data ?? {}) as {
     status?: string;

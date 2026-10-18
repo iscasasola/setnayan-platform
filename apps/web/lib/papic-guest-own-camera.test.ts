@@ -17,13 +17,13 @@
  *    bought shots run out — worse off than never having bought.
  * 2. Routing an un-bought guest through the seat reserve imposes that same cap
  *    on people who never paid anything.
- * 3. Booking the seat ledger and then failing the pool leg burns a shot the
- *    guest PAID for, on a photo that was refused.
+ * 3. Booking her camera and then failing the record (or dying before it)
+ *    burns a shot the guest PAID for, on a photo that does not exist.
  * Each has a test below. None throws; all three would ship green without one.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { stripComments } from './strip-comments';
@@ -122,25 +122,31 @@ test('minting reuses an existing camera rather than adding a second', () => {
 
 // ── 2 · the capture path stays invisible to everyone who did not buy ───────
 
-test('🪤 the split reserve is used whenever the guest HAS a camera', () => {
-  // ⚠ THE SWITCH MOVED, AND THAT IS THE FIX. It used to key on `dedicated > 0`
-  // because the old first leg would otherwise drop an un-bought guest onto the
-  // tier's 20/day cap — a surface that has never had one. The split reserve has
-  // no such fall-through: with no dedicated credits it simply spends the pot,
-  // which is what that guest was doing anyway.
-  //
-  // So the condition is now "do they have a camera at all", and that is what
-  // lets a guest who spent everything they bought CARRY ON from the host's pot
-  // instead of stopping dead — the ceiling-not-floor defect (owner 2026-08-11).
-  const src = noComments(read('app/api/papic/guest-capture/route.ts'));
+// 🔁 THE BOOKING MOVED INTO ONE TRANSACTION WITH THE ROW (20271276810836).
+// The route used to call `reserveGuestOwnCameraCapture` and unwind it by hand
+// through `releaseCaptureCredits` when the record refused — which could only
+// run if the process was still alive. Both helpers are gone; the rules they
+// carried are asserted against the function that now holds them.
+const SPEND = (() => {
+  const raw = read('../../supabase/migrations/20271276810836_a_guest_shot_spends_with_its_row.sql');
+  const body = raw.slice(raw.indexOf('CREATE OR REPLACE FUNCTION public.papic_record_guest_capture_and_spend'));
+  return body.slice(0, body.indexOf('$function$;')).replace(/--[^\n]*/g, '');
+})();
+
+test('🪤 the split is used whenever the guest HAS a camera — not when she has a balance left', () => {
+  // ⚠ THE SWITCH IS "do they have a camera at all". Keying it on a balance left
+  // re-imposes the stop-at-zero the split was written to avoid (owner
+  // 2026-08-11): with no dedicated credits the split simply spends the pot.
+  assert.ok(SPEND.length > 1000, 'self-check: the function body read as near-empty');
   assert.match(
-    src,
-    /const \{ outcome, booked \} = ownCamera\s*\n?\s*\? await reserveGuestOwnCameraCapture\(/,
-    'the split must be reached by having a camera, not by having a balance left',
+    SPEND,
+    /SELECT s\.seat_id INTO v_seat[\s\S]{0,200}?s\.guest_id = p_guest_id[\s\S]{0,80}?s\.revoked_at IS NULL/,
+    'her camera is found by the predicate resolveGuestOwnCamera uses',
   );
+  assert.match(SPEND, /IF v_seat IS NOT NULL THEN[\s\S]{0,200}?papic_reserve_capture_split\(v_seat, v_event, v_cost\)/);
   assert.ok(
-    !/spendOwn && ownCamera/.test(src),
-    'the old balance-gated switch would re-impose the stop-at-zero it was written to avoid',
+    !/papic_seat_dedicated_points/.test(SPEND),
+    'a balance-gated switch would stop a guest who spent what she bought while the pot is full',
   );
 });
 
@@ -151,9 +157,7 @@ test('a guest spending their OWN shots skips the shared-pool pre-check', () => {
   assert.match(src, /!spendOwn &&\s*\n?\s*\(await papicEventPoolPreCheckExhausted\(/);
 });
 
-test('the camera is resolved ONCE and reused by reserve and unwind', () => {
-  // Three readers of "which ledger is in play" that each re-derive it is three
-  // chances to disagree — and disagreement here means points leak.
+test('the camera is resolved ONCE in the route', () => {
   const src = noComments(read('app/api/papic/guest-capture/route.ts'));
   assert.equal(
     (src.match(/resolveGuestOwnCamera\(/g) ?? []).length,
@@ -164,83 +168,44 @@ test('the camera is resolved ONCE and reused by reserve and unwind', () => {
 
 // ── 3 · no shot the guest paid for is ever burned ──────────────────────────
 
-test('🚨 there is no hand-written partial unwind left to get wrong', () => {
-  // ⚠ THIS ASSERTION IS INVERTED FROM WHAT IT WAS, deliberately. It used to
-  // REQUIRE a hand-written "if the pool leg failed, release the seat leg"
-  // block — necessary while two calls could half-succeed. The split reserve is
-  // all-or-nothing inside one transaction, so that state cannot exist, and a
-  // release still sitting here would now un-spend a capture that WAS paid for.
-  const src = read('lib/papic-guest-own-camera.ts');
-  const fn = src.slice(src.indexOf('export async function reserveGuestOwnCameraCapture'));
-  assert.match(fn, /papic_reserve_capture_split/, 'one atomic call decides both halves');
-  assert.ok(
-    !/papic_release_camera_points/.test(fn),
-    'a partial unwind here would release credits the database never left spent',
-  );
-  assert.ok(
-    !/papic_reserve_event_points_for_seat/.test(fn),
-    'the second leg is gone — it is what made the pool stand down for an empty camera',
-  );
+test('🚨 her camera books BEFORE the row — the ceiling reads what she paid for herself', () => {
+  // The couple's ceiling meters everything she spent MINUS her own purchase,
+  // and her own purchase is read off the ledger the split moves. Recording
+  // first would meter her own credits as the couple's and refuse her at her
+  // own expense. Everyone else books AFTER the row, to keep the pot's lock short.
+  const split = SPEND.indexOf('papic_reserve_capture_split(');
+  const record = SPEND.indexOf('public.papic_record_guest_capture(\n');
+  const pot = SPEND.indexOf('public.papic_reserve_event_points(v_event, v_cost)');
+  assert.ok(split > -1 && record > -1 && pot > -1, 'a landmark moved — re-point this guard');
+  assert.ok(split < record, 'her camera is booked after the row — the ceiling would charge her own credits to the couple');
+  assert.ok(record < pot, 'the pot is booked before the row — its lock is held across the whole record');
 });
 
-test('the route unwinds BOTH halves in one call, with the real figures', () => {
-  // Releasing the whole cost to either side alone moves credits between the
-  // guest's paid balance and the host's pot. The two figures the reserve
-  // returned are the only honest thing to hand back.
-  //
-  // ⚠ THIS NOW FOLLOWS THE VALUE INTO THE CALLEE, and that is the point. The
-  // RPC moved out of the route into the shared `releaseCaptureCredits` on
-  // 2026-08-26 (the inline version discarded its own error, so a failed refund
-  // was invisible). Asserting only the route would have gone green while the
-  // helper did something else entirely — a function's NAME is not its
-  // behaviour. Both hops are checked.
+test('🚨 either side refusing undoes the other — and nothing else is swallowed', () => {
+  // An EXCEPTION handler is a subtransaction. Holding the booking AND the row,
+  // and catching only the two codes this function raises on purpose, it rolls
+  // back both together; a WHEN OTHERS would turn a real failure into a reply.
+  const handlers = [...SPEND.matchAll(/WHEN\s+([^\n]+?)\s+THEN/g)].map((m) => m[1]);
+  assert.deepEqual(handlers, ["SQLSTATE 'PX409'", "SQLSTATE 'PX422'"]);
+  assert.match(SPEND, /IS DISTINCT FROM 'ok'[\s\S]{0,120}?duplicate[\s\S]{0,200}?ERRCODE = 'PX422'/);
+});
+
+test('🚨 no hand-written unwind is left in the route, and its helper is gone', () => {
   const route = noComments(read('app/api/papic/guest-capture/route.ts'));
-  const helper = noComments(read('lib/papic-release-capture.ts'));
-
-  // Hop 1 — the route hands the shared release the two REAL figures.
-  assert.match(route, /releaseCaptureCredits\(/, 'the route no longer releases through the shared helper');
-  const call = /releaseCaptureCredits\([\s\S]{0,400}?\}\)/.exec(route)?.[0] ?? '';
-  assert.match(call, /dedicatedSpent/, 'the dedicated figure is no longer passed back');
-  assert.match(call, /poolSpent/, 'the pool figure is no longer passed back');
-
-  // Hop 2 — the helper spends them on ONE atomic call, under the right names.
-  assert.match(helper, /papic_release_capture_split/, 'the helper no longer makes the atomic release call');
-  assert.match(helper, /p_dedicated_spent: dedicatedSpent/);
-  assert.match(helper, /p_pool_spent: poolSpent/);
-
-  for (const [where, src] of [['route', route], ['helper', helper]] as const) {
-    assert.ok(
-      !/papic_release_camera_points/.test(src),
-      `the two separate releases are back in the ${where} — one call unwinds the pair it booked`,
-    );
+  for (const gone of [/releaseCaptureCredits/, /papic_release_/, /papic_reserve_/, /reserveGuestOwnCameraCapture/]) {
+    assert.doesNotMatch(route, gone, `${gone} is back in the route — a second booking or a refund of a spend that committed with its row`);
   }
-});
-
-test('🪤 what each side spent is a COUNT, never a boolean', () => {
-  // A capture can be paid from both balances at once ("spend 2 and take 6"), so
-  // "did the pool pay?" is not answerable yes/no. Booleans could only say
-  // "release the whole cost to this side", which is exactly the leak.
-  const src = read('lib/papic-guest-own-camera.ts');
-  assert.match(src, /dedicatedSpent: number;/);
-  assert.match(src, /poolSpent: number;/);
+  assert.equal(
+    (route.match(/admin\.rpc\('papic_record_guest_capture_and_spend', \{/g) ?? []).length,
+    1,
+    'exactly one call books and records',
+  );
   assert.ok(
-    !/seatBooked|poolBooked/.test(src),
-    'a flag cannot express a capture that was split across two balances',
+    !existsSync(join(WEB, 'lib/papic-release-capture.ts')),
+    'the release helper is back — nothing may put back a spend that committed with its row',
   );
-});
-
-test('the reserve fails CLOSED', () => {
-  // Metering is money logic: an outage must block, never silently un-meter.
-  // One leg now, so one catch — and an indeterminate row shape must block too,
-  // which is the case a thrown error would not have covered.
-  const src = read('lib/papic-guest-own-camera.ts');
-  const fn = src.slice(src.indexOf('export async function reserveGuestOwnCameraCapture'));
-  assert.match(fn, /catch \{[\s\S]*?outcome: 'blocked'/, 'a thrown RPC must block');
-  assert.match(
-    fn,
-    /row == null \? null :/,
-    'a missing or unrecognised result must be indeterminate (fail-CLOSED), not allowed',
-  );
+  const lib = noComments(read('lib/papic-guest-own-camera.ts'));
+  assert.doesNotMatch(lib, /papic_reserve_capture_split/, 'a second booking door for the guest camera');
 });
 
 // ── the offer reaches the surface that needed it ──────────────────────────

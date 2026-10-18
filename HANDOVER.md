@@ -53,3 +53,6 @@ lower-third guard back to main's text; strip guard counts scan-qr-strip.tsx (sab
 MEASURED after rework: Maker 493.6KB gz · 51 chunks · 13.4KB headroom; shared 201.8/202 (unchanged). Preflight #2 running.
 RE-WALK after rework (same lab, Chromium + WebKit, 375×812): Settings › Who can view → Scan to view; the lazy
 ScanQrStrip draws Download QR · Copy link (NFC flag off in this lab env; its prod value was not read). Pictures: walk-headroom/*-5-strip.png.
+## DONE (2026-10-19 ~00:30 PHT) — PR #6646 draft, label do-not-auto-merge, autoMergeRequest null
+Preflight #2 green (48 checks). CI on 4a44ba7f0a: 26/26 pass; CI's own bundle check: Maker 493.6KB gz · 51 chunks ·
+13.4KB headroom; shared 201.8/202KB. Not merged, not deployed (controller's call). Nothing left in this item.

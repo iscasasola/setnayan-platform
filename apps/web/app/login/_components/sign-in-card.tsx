@@ -29,8 +29,6 @@ import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
-import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
-import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
@@ -49,6 +47,18 @@ import dynamic from 'next/dynamic';
 const GoogleAddressDoor = dynamic(
   () => import('@/app/_components/auth/google-address-door').then((m) => m.GoogleAddressDoor),
   { ssr: false },
+);
+/*
+  Same reason, and it pays for the door: the desktop app's and the phone app's
+  buttons render ONLY in those shells (the shell gate decides on the server), so
+  a web page — the Maker included — never downloads them. Server-rendered as
+  before where they are shown.
+*/
+const DesktopOAuthButtons = dynamic(() =>
+  import('@/app/_components/desktop-oauth-buttons').then((m) => m.DesktopOAuthButtons),
+);
+const NativeOAuthButtons = dynamic(() =>
+  import('@/app/_components/native-oauth-buttons').then((m) => m.NativeOAuthButtons),
 );
 
 export type SignInCardProps = {

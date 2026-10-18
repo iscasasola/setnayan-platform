@@ -72,6 +72,9 @@ const NOT_A_TOOL: Record<string, string> = {
   'lib/offline/service-handlers/papic-vendor-drain.ts': 'Papic offline drain, not the Maker',
   'app/_components/home/HomeOverlays.tsx': 'the marketing site’s overlays — not the signed-in app',
   'app/dashboard/[eventId]/_components/more-services-sheet.tsx': 'the event bottom bar’s More sheet — under the Maker, not one of its tools',
+  'app/_components/auth/google-address-door.tsx': 'the sign-in card\'s typed-Google-address door (2026-10-18, `rd/google-login-same`) — the sign-in popup rides the root layout, but the Maker is signed in: nobody opens a sign-in card there; loaded only when a signed-out card mounts',
+  'app/_components/desktop-oauth-buttons.tsx': 'the sign-in card\'s Google/Apple buttons for the DESKTOP app only (lazy since 2026-10-18, `rd/google-login-same`) — rendered only in that shell and only on a signed-out card; the Maker is signed in',
+  'app/_components/native-oauth-buttons.tsx': 'the sign-in card\'s Google/Apple buttons for the PHONE app only (lazy since 2026-10-18, `rd/google-login-same`) — rendered only in that shell and only on a signed-out card; the Maker is signed in',
   'lib/native-oauth.ts': 'the phone app’s Apple/Google sign-in (Capacitor bridge, Turnstile) — loaded on the sign-in tap inside the app only, never in the Maker; a web visitor must not download it (train 2026-10-04 e)',
   'lib/last-seen/client.ts': 'the last-seen store (a host’s kept Home/Guests/Suppliers/Schedule/Details pages) — warmed on idle by the event layout itself, not a Maker panel',
 };

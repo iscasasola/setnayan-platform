@@ -83,3 +83,10 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Changelog fragment
 - Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6630/ (01–10 + sheet-a/b).
 - Sabotage: 7 mutations each turn lib/google-address.test.ts red (1 fail of 8), restored green.
 - NEXT: CI to green.
+
+## CI round 2 (head cf4cbb251) — 3 red, fixing locally before the next push
+- bundle size check: Maker first load 507.1 KB gz vs 507.0 budget (main 506.8). The door is lazy now; to pay for
+  the rest, the sign-in card also lazy-loads the DESKTOP and PHONE-app OAuth buttons (rendered only in those shells).
+- unit tests 2/3: maker-tools-are-all-preloaded needs each new import() named → NOT_A_TOOL lines with reasons.
+- typecheck + lint: the aggregator of the unit-tests job (not a type error).
+- Verifying under the heavy lock: targeted tests + full tsc + CI-env build + both bundle checks, THEN one push.

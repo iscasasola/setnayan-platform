@@ -63,7 +63,12 @@ test('the migration adds the enum value, alone, and the host CHECK lists it with
 
   const hostFile = ls.find((f) => f.endsWith('_host_roles_add_best_woman.sql'));
   assert.ok(hostFile, 'no host_roles_add_best_woman migration');
-  const hostSql = readFileSync(join(dir, hostFile!), 'utf8');
+  assert.ok(readFileSync(join(dir, hostFile!), 'utf8').includes(`'best_woman'::text`), 'the best_woman CHECK does not list best_woman');
+  /* The CHECK as it stands is the LATEST migration that redefines it (2026-10-19: host_roles_add_man_of_honor widened it
+     again) — every host role the TypeScript offers must be in THAT one. */
+  const latest = ls.filter((f) => f.endsWith('.sql') && readFileSync(join(dir, f), 'utf8').includes('ADD CONSTRAINT event_moderators_role_subtype_check')).sort().pop();
+  assert.ok(latest && latest >= hostFile!, 'no migration defines the host role CHECK');
+  const hostSql = readFileSync(join(dir, latest!), 'utf8');
   for (const r of ROLE_SUBTYPES) {
     assert.ok(hostSql.includes(`'${r}'::text`), `the widened CHECK dropped host role ${r}`);
   }

@@ -124,7 +124,11 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
   // pick either best man or best woman and maid or matron of honor." It stands
   // where the best man stands — tier 2, beside him — so it is checked against
   // HIM below rather than against the sponsors' tier-1 rule.
-  const SANCTIONED_ALTERNATIVES = [['best_woman', 'best_man']] as const;
+  // 🤵‍♂️ …and on 2026-10-19 the bride's side gained its man's word: "we give them
+  // a choice maid/matron/man of honor. so they can have male/female version like
+  // bestman and best woman". He stands where the maid and the matron stand —
+  // tier 2, offered right after the matron.
+  const SANCTIONED_ALTERNATIVES = [['best_woman', 'best_man'], ['man_of_honor', 'matron_of_honor']] as const;
 
   // 👵 …and on 2026-10-17 the owner gave grandparents their own roles ("the 2
   // grandparents should not be named immediate family on the wedding march

@@ -33,5 +33,9 @@ Maker, named at ✓ Apply; free events keep what they published):
    + a new one; sabotage each.
 
 ## STATE
-- [ ] 1–5 code  - [ ] targeted tests + sabotage  - [ ] walk 375 (lab) + shots → shots-2026-10-18/<pr>/
-- [ ] fragment changelog.d/rd-background-overlay-effects.md  - [ ] draft PR, label, auto-merge off, CI green
+- [x] 1–5 code (f604073431)  - [x] targeted tests 79/79 (10 effect/Pro guards)
+- [x] sabotage of the new guard: haze free · effect not counted at Apply · render reads IS_PRO · haze drawn only with
+      Pro · Apply line unnamed → each red; retune-free sabotage queued (scratchpad/sab4.sh)
+- [x] fragment changelog.d/rd-background-overlay-effects.md
+- [ ] walk 375 (lab, port 3657, scripts in scratchpad/overlay-walk) + shots → shots-2026-10-18/<pr>/
+- [ ] draft PR, label, auto-merge off, CI green

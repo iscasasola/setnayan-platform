@@ -717,7 +717,41 @@ export async function saveFloorPlan(formData: FormData) {
   }
   // The first save of all (no row yet), or an older page: the whole row.
   if (!written) {
-    const { error } = await supabase.from('event_floor_plan').upsert({ event_id: eventId, ...row, updated_at: updatedAt }, { onConflict: 'event_id' });
+    // Every column, spelled — the write that has always flipped the room's switches (`gates-have-handles`).
+    const { error } = await supabase.from('event_floor_plan').upsert(
+      {
+        event_id: eventId,
+        stage_x: row.stage_x,
+        stage_y: row.stage_y,
+        stage_w: row.stage_w,
+        stage_h: row.stage_h,
+        entrance_enabled: row.entrance_enabled,
+        entrance_x: row.entrance_x,
+        entrance_y: row.entrance_y,
+        entrance_kind: row.entrance_kind,
+        entrance_depth_m: row.entrance_depth_m,
+        dance_enabled: row.dance_enabled,
+        dance_x: row.dance_x,
+        dance_y: row.dance_y,
+        dance_w: row.dance_w,
+        dance_h: row.dance_h,
+        service_entrance_enabled: row.service_entrance_enabled,
+        service_entrance_x: row.service_entrance_x,
+        service_entrance_y: row.service_entrance_y,
+        cocktail_enabled: row.cocktail_enabled,
+        cocktail_x: row.cocktail_x,
+        cocktail_y: row.cocktail_y,
+        cocktail_w: row.cocktail_w,
+        cocktail_h: row.cocktail_h,
+        cocktail_label: row.cocktail_label,
+        cocktail_vendor_edit: row.cocktail_vendor_edit,
+        cocktail_linked: row.cocktail_linked,
+        venue_width_m: row.venue_width_m,
+        venue_length_m: row.venue_length_m,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'event_id' },
+    );
     if (error) throw new Error(error.message);
   }
 

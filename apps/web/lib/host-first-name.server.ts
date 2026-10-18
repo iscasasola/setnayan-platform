@@ -32,11 +32,12 @@ export async function hostFirstName(eventId: string, userId: string): Promise<st
     const who = [personId && isUuid(personId) ? `person_id.eq.${personId}` : null, seatId && isUuid(seatId) ? `guest_id.eq.${seatId}` : null]
       .filter(Boolean)
       .join(',');
-    let guest: { first_name: string | null; display_name: string | null } | null = null;
+    type NameRow = { first_name: string | null; display_name: string | null };
+    let guest: NameRow | null = null;
     if (who) {
       const g = await admin.from('guests').select('first_name, display_name').eq('event_id', eventId).or(who).is('deleted_at', null).limit(1).maybeSingle();
       if (g.error) logQueryError('hostFirstName.guest', g.error, { eventId }, 'graceful_degrade');
-      guest = (g.data as typeof guest) ?? null;
+      guest = (g.data as NameRow | null) ?? null;
     }
     const u = (user.data as { first_name: string | null; display_name: string | null } | null) ?? null;
     return pickHostFirstName({ guestFirst: guest?.first_name, guestDisplay: guest?.display_name, userFirst: u?.first_name, userDisplay: u?.display_name });

@@ -303,10 +303,13 @@ export async function saveEgiftMethod(
     const all = { method_kind: methodKind, label, account_name: accountName, handle, qr_r2_key: qrR2Key, note };
     const fields = onlyChanged === null ? all : Object.fromEntries(Object.entries(all).filter(([k]) => onlyChanged.has(k as EgiftEditField)));
     // 👥 Nothing changed here: nothing is written — the row is only proved to be there (a stale id still says so).
-    const { data: updated, error } =
-      Object.keys(fields).length > 0
-        ? await supabase.from('event_egift_methods').update(fields).eq('egift_method_id', editingId).eq('event_id', eventId).select('egift_method_id')
-        : await supabase.from('event_egift_methods').select('egift_method_id').eq('egift_method_id', editingId).eq('event_id', eventId);
+    let updated: unknown[] | null;
+    let error: unknown;
+    if (Object.keys(fields).length > 0) {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').update(fields).eq('egift_method_id', editingId).eq('event_id', eventId).select('egift_method_id'));
+    } else {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').select('egift_method_id').eq('egift_method_id', editingId).eq('event_id', eventId));
+    }
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
     if (!updated || updated.length === 0) return { ok: false, error: STALE_ROW_ERROR };
     if (!writesQr) {

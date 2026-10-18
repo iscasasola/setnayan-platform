@@ -14,6 +14,7 @@ import { floorPlanFieldsOf, floorPlanRowFrom } from './floor-plan-row';
 import { floorItemsThisScreenChanged } from './floor-items-merge';
 import { changedFields } from './merge-from-base';
 import { writeWidgetConfig, type WidgetConfigClient } from './widget-config-write';
+import type { HubSectionCanvas } from './hub-canvas';
 
 const WEB = join(__dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -218,7 +219,8 @@ test('maker · Every scene’s background: ONE save says every scene’s base, n
   const { sendCanvasBase } = await import('./maker-draft-store');
   const { MERGE_BASE_FIELD } = await import('./merge-base-field');
   const fd = new FormData();
-  sendCanvasBase(fd, 'countdown', { bg: 'a' }, { bg: 'x' }, { bg: 'a' });
-  sendCanvasBase(fd, 'rsvp', { bg: 'b' }, { bg: 'x' }, { bg: 'b' });
-  assert.deepEqual(JSON.parse(String(fd.get(MERGE_BASE_FIELD))), { widgets: { countdown: { canvas: { bg: 'a' } }, rsvp: { canvas: { bg: 'b' } } } }, 'a second scene’s base wiped the first’s');
+  const c = (focal: number) => ({ focal }) as unknown as HubSectionCanvas;
+  sendCanvasBase(fd, 'countdown', c(10), c(90), c(10));
+  sendCanvasBase(fd, 'rsvp', c(20), c(90), c(20));
+  assert.deepEqual(JSON.parse(String(fd.get(MERGE_BASE_FIELD))), { widgets: { countdown: { canvas: { focal: 10 } }, rsvp: { canvas: { focal: 20 } } } }, 'a second scene’s base wiped the first’s');
 });

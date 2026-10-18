@@ -33,4 +33,8 @@ Shots of the named note + greyed ↺ at 375 → ~/Documents/Claude/Projects/shot
   editor-shell saveCanvasWith, use-scene-canvas→shared map; rebase learns `custom` + `editorial`. Main background NOT
   merged (its kinds share no fields — a pick there is whole) — decided, in PR body.
 - [x] Step 7 · lab `?as=` hosts. Fragment written.
-- [ ] Step 8 · open draft PR, CI, walk shots (named note + greyed ↺, 375), sabotage runs, bundle.
+- [x] Step 8 · PR #6632 (draft, do-not-auto-merge, auto-merge null). Walk done (WebKit 375, light+dark) →
+  ~/Documents/Claude/Projects/shots-2026-10-18/6632/. Sabotage S1–S17 all red→restored (sabotage.txt there).
+  Bundle @ e3bf2d69e: Maker 506.8 KB of 507 (unchanged vs round 2), shared 201.8 of 202.
+- [ ] Step 9 · CI round 2: fixed screens map, 2 TS errors, 4 unit guards re-aimed, e-gift edit split into two statements
+  (rows-counted guard), floor upsert spells its columns again (gates-have-handles), gitleaks fingerprint pinned.

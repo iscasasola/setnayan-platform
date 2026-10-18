@@ -287,9 +287,15 @@ test('on a refused read the summary is handed UNKNOWN figures — not legacy num
   );
   assert.match(
     src,
-    /ledgerRefused\s*\?\s*\{ agreedPhp: null, paidPhp: null, owedPhp: null \}/,
-    'Agreed · Paid · Owed are sums over all three sources: with one refused they are unknown',
+    /ledgerRefused\s*\?\s*\{ agreedPhp: null, paidPhp: null, owedPhp: owedFloor\?\.php \?\? null, owedAtLeast: owedFloor !== null \}/,
+    'Agreed · Paid are sums over all three sources: with one refused they are unknown; Owed is only ever the FLOOR',
   );
+  assert.match(
+    src,
+    /const owedFloor = ledgerRefused && moneyRead \? bookedBudgetBlock\(moneyRead, stripMoney\.targetPhp\)\.owed : null;/,
+    "B3: the floor is the Suppliers block's own rule (bookedBudgetBlock) — one rule, so the two surfaces cannot print different Owed",
+  );
+  assert.match(src, /partial: ledgerRefused,/, 'and the summary is told the ledger is partial, so it can say so');
   assert.match(src, /const nextPayment: NextPayment \| null = ledgerRefused\s*\?\s*null/, 'and no "Next" payment is named from half a ledger');
 });
 
@@ -331,7 +337,7 @@ test('every group answers a refused read with words — before it considers the 
     const body = screen.slice(at, screen.indexOf('\nfunction ', at + 10) > 0 ? screen.indexOf('\nfunction ', at + 10) : screen.length);
     assert.match(
       body,
-      new RegExp(`\\{rows === null \\? \\(\\s*<GroupUnread what="${what}" \\/>`),
+      new RegExp(`\\{rows === null \\? \\(\\s*<GroupUnread what="${what}"\\s`),
       `${group}: a refused read is not answered first — it would fall through to rows.map() or the empty state`,
     );
     assert.match(
@@ -342,4 +348,45 @@ test('every group answers a refused read with words — before it considers the 
   }
   const unread = screen.slice(screen.indexOf('function GroupUnread('));
   assert.match(unread, /Couldn&rsquo;t load \{what\}\./, 'the refusal must be said in words');
+});
+
+// ── B3 · a refused group can be asked again; a floor is said as a floor ─────
+
+test('a refused group carries Retry, and Retry re-reads the page — never a client-side "₱0" refill', () => {
+  const screen = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx'), 'utf8'),
+  );
+  const unread = screen.slice(screen.indexOf('function GroupUnread('), screen.indexOf('function GroupWhy('));
+  assert.match(unread, /onClick=\{onRetry\}[\s\S]*>\s*Retry\s*<\/button>/, 'the failed group must offer Retry');
+  assert.match(screen, /const retry = \(\) => startRetry\(\(\) => router\.refresh\(\)\);/, 'Retry is a fresh server render of the ONE resolver');
+  for (const what of ['your suppliers', 'your purchases', 'your expenses']) {
+    assert.match(screen, new RegExp(`<GroupUnread what="${what}" onRetry=\\{onRetry\\}`), `"${what}" lost its Retry`);
+  }
+});
+
+test('a filtered or searched group is drawn from `shown`, and only after the refusal was answered', () => {
+  const screen = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx'), 'utf8'),
+  );
+  assert.match(screen, /filterBudgetList\(list, filter, query\)/, 'the list on screen is the pure filter of the ONE list');
+  for (const group of ['SupplierGroup', 'OrderGroup', 'ExpenseGroup']) {
+    const at = screen.indexOf(`function ${group}(`);
+    const end = screen.indexOf('\nfunction ', at + 10);
+    const body = screen.slice(at, end > 0 ? end : screen.length);
+    const refusal = body.indexOf('rows === null ?');
+    const why = body.indexOf('<GroupWhy');
+    assert.ok(refusal > 0 && why > refusal, `${group}: "why it is empty" must come AFTER the refusal is answered`);
+    assert.doesNotMatch(body, /\brows\.map\(/, `${group}: draws the unfiltered rows — the filter would do nothing`);
+  }
+});
+
+test('an Owed floor is drawn with its "+", and a partial ledger says so where "left of target" would be', () => {
+  const summary = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'), 'utf8'),
+  );
+  assert.match(summary, /<Figure value=\{owedPhp\} id="budget-owed" tone=\{styles\.vWine\} atLeast=\{owedAtLeast\} \/>/);
+  const figure = summary.slice(summary.indexOf('function Figure('));
+  assert.match(figure, /<Peso value=\{value\} id=\{id\} \/>\s*\{atLeast \? '\+' : null\}/, 'a floor printed without its "+" reads as the whole');
+  assert.match(summary, /\{partial \? \(\s*<span[^>]*>\s*part of this couldn&rsquo;t load/, 'the legend must say the ledger is partial');
+  assert.match(summary, /couldn&rsquo;t check/, 'a partial ledger draws "couldn\'t check" for Next — an absent line reads "nothing due"');
 });

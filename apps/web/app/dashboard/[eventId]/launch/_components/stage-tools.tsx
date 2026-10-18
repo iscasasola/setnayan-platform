@@ -1987,6 +1987,7 @@ export function StageTools({
           order={ordered()}
           picked={picked}
           onPick={(k) => pickPartRef.current(k)}
+          tools={edits}
         />
       ) : null}
       {desk && shellEl

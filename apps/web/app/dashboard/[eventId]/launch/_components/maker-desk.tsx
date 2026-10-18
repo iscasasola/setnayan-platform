@@ -51,6 +51,14 @@ export function MakerDesk() {
   );
 }
 
+/**
+ * 🖱 THE HOVER RING — one soft gold ring, 2 px, on pressable things only (the desktop system sheet's piece 6,
+ * `event_hub_one_page_and_desktop_2026-10-15_fable.html`, approved 2026-10-15: "the Maker desktop's ring"). Read-only
+ * text never reacts. The keyboard's focus ring stays the app's own.
+ */
+export const DESK_GOLD = '#A9834B';
+export const DESK_HOVER_RING = 'hover:shadow-[0_0_0_2px_#A9834B]';
+
 /** The width of the tools column and of the parts column (answer 5: "Fixed"). */
 export const DESK_TOOLS_PX = 384;
 export const DESK_PARTS_PX = 264;

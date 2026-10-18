@@ -13,6 +13,7 @@ import { egiftFieldsThisScreenChanged } from './egift-method-merge';
 import { floorPlanFieldsOf, floorPlanRowFrom } from './floor-plan-row';
 import { floorItemsThisScreenChanged } from './floor-items-merge';
 import { changedFields } from './merge-from-base';
+import { writeWidgetConfig, type WidgetConfigClient } from './widget-config-write';
 
 const WEB = join(__dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -110,4 +111,68 @@ test('post event · saveEditorial: only the story keys THIS screen changed move,
   assert.match(editor, /const r = await saveEditorial\(eventId, sent, savedInput\.current\);/, 'the story editor sends no base');
   assert.match(editor, /if \(savedInput\.current === null\) savedInput\.current = composeInput\(form\.audience\);/);
   assert.match(editor, /savedInput\.current = sent;/, 'a second save is still based on the form as it first opened');
+});
+
+/** A one-row `invitation_widgets` in memory, with the trigger's version — and a hook that lands another screen's write. */
+function fakeWidgets(start: Record<string, unknown>) {
+  const row = { config_json: start as unknown, updated_at: 'v0' };
+  let n = 0;
+  let between: (() => void) | null = null;
+  const q = (filters: Record<string, unknown>, then: () => unknown) => {
+    const o = {
+      eq(c: string, v: unknown) {
+        filters[c] = v;
+        return o;
+      },
+      maybeSingle: async () => ({ data: then() as Record<string, unknown> | null, error: null }),
+      select: async () => ({ data: then() as unknown[] | null, error: null }),
+    };
+    return o;
+  };
+  const client = {
+    from: () => ({
+      select: () => q({}, () => ({ ...row })),
+      update: (values: Record<string, unknown>) => {
+        const filters: Record<string, unknown> = {};
+        return q(filters, () => {
+          if (between) {
+            const b = between;
+            between = null;
+            b(); // another screen's write lands between this writer's read and its write
+          }
+          if (filters.updated_at !== row.updated_at) return [];
+          row.config_json = values.config_json;
+          row.updated_at = `v${++n}`;
+          return [{ widget_id: 'w' }];
+        });
+      },
+    }),
+  } as unknown as WidgetConfigClient;
+  return {
+    client,
+    row,
+    otherScreen(config: Record<string, unknown>) {
+      between = () => {
+        row.config_json = config;
+        row.updated_at = `v${++n}`;
+      };
+    },
+  };
+}
+
+test('live sections · a write merges from the bag it READ onto the bag as it is NOW — another screen’s crop is kept', async () => {
+  const read = { canvas: { focal: 50, zoom: 1 }, stage_order: { before: 2 } };
+  const db = fakeWidgets(read);
+  // Claire's crop lands after Indalecio's background write read the bag.
+  db.otherScreen({ canvas: { focal: 20, zoom: 1.5 }, stage_order: { before: 2 } });
+  const out = await writeWidgetConfig(db.client, { eventId: 'e', widgetId: 'w' }, read, { ...read, canvas: { ...read.canvas, bg: 'r2://x' } });
+  assert.deepEqual(db.row.config_json, { canvas: { focal: 20, zoom: 1.5, bg: 'r2://x' }, stage_order: { before: 2 } }, 'the other screen’s crop was overwritten (before: the whole bag went back)');
+  assert.equal(out.moved, true);
+  const actions = src('app/dashboard/[eventId]/website/widgets/actions.ts');
+  assert.doesNotMatch(actions, /\.update\(\{ config_json/, 'a live widget writer writes the whole bag again');
+  assert.equal((actions.match(/writeWidgetConfig\(supabase as unknown as WidgetConfigClient/g) ?? []).length, 6, 'motion ×2 · background · crop · own scene · stage move');
+  assert.match(src('app/dashboard/[eventId]/studio/save-the-date/actions.ts'), /await writeWidgetConfig\(supabase as unknown as WidgetConfigClient, \{ eventId, widgetId: w\.widget_id as string \}, config,/);
+  assert.match(src('app/dashboard/[eventId]/website/hub-draft-actions.ts'), /await writeWidgetConfig\(supabase as unknown as WidgetConfigClient, \{ eventId, widgetId \}, row\.config_json, nextConfig as Record<string, unknown>\);/, 'Apply writes the section bag from its stale read');
+  const wizard = src('app/dashboard/[eventId]/wizard-actions.ts');
+  assert.equal((wizard.match(/column: 'role_palette', what: 'The palette' \}/g) ?? []).length, 2, 'the mood-board palette slot writes the board’s colours back whole');
 });

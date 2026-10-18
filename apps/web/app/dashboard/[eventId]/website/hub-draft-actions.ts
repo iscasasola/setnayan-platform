@@ -106,6 +106,7 @@ import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebas
 import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
 import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
 import { hostFirstName } from '@/lib/host-first-name.server';
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
 import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
@@ -953,15 +954,28 @@ export async function hubDraftAction(
         }
       }
       (snapshot.widgets as Record<string, unknown>)[row.widget_type] = before;
-      const { data: wRows, error: wErr } = await supabase
-        .from('invitation_widgets')
-        .update(patch)
-        .eq('widget_id', widgetId)
-        .eq('event_id', eventId)
-        .select('widget_id');
-      if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
-        // Earlier writes landed; the draft is untouched, so Apply again finishes it.
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      /* 👥 The section's bag is written ONE AT A TIME, merged from the bag Apply read onto the bag as it is now
+         (`lib/widget-config-write.ts`, owner 2026-10-18: two hosts never overwrite each other) — a live write another
+         screen made while Apply ran (a crop, a venue card) is kept. The section's other columns as before. */
+      const { config_json: nextConfig, ...rowColumns } = patch as Record<string, unknown>;
+      if (nextConfig !== undefined) {
+        try {
+          await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, row.config_json, nextConfig as Record<string, unknown>);
+        } catch {
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
+      }
+      if (Object.keys(rowColumns).length > 0) {
+        const { data: wRows, error: wErr } = await supabase
+          .from('invitation_widgets')
+          .update(rowColumns)
+          .eq('widget_id', widgetId)
+          .eq('event_id', eventId)
+          .select('widget_id');
+        if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
+          // Earlier writes landed; the draft is untouched, so Apply again finishes it.
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
       }
     }
 

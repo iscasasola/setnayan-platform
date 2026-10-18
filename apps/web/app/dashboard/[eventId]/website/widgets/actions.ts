@@ -1,5 +1,6 @@
 'use server';
 
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { NEW_SCENE_TOKEN, PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, readOwnScenePlace } from '@/lib/own-scene-place';
 import { stageOrderPatch } from '@/lib/maker-reorder';
 import { redirect } from 'next/navigation';
@@ -547,18 +548,15 @@ async function moveWithinStage(
     return finishDraftSave(formData, eventId);
   }
 
-  // Live: each row's `config_json` keeps every sibling key (its canvas above all).
-  const results = await Promise.all(
+  // Live: each row's `config_json` keeps every sibling key (its canvas above all) — 👥 one write at a time per row,
+  // merged from what was read, so another screen's write to that row is kept (`lib/widget-config-write.ts`).
+  await Promise.all(
     places.map(({ row, place }) =>
-      supabase
-        .from('invitation_widgets')
-        .update({ config_json: configWithStageOrder(row.config_json, { [stage]: place }) })
-        .eq('widget_id', row.widget_id)
-        .eq('event_id', eventId),
+      writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId: row.widget_id }, row.config_json, configWithStageOrder(row.config_json, { [stage]: place }) as Record<string, unknown>),
     ),
-  );
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw new Error(`Failed to reorder scenes: ${failed.error.message}`);
+  ).catch((e: unknown) => {
+    throw new Error(`Failed to reorder scenes: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -639,12 +637,10 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
     if (!drafting) await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
     for (const k of HUB_CANVAS_MOTION_KEYS) delete canvas[k];
     if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
-    const { error: resetErr } = await supabase
-      .from('invitation_widgets')
-      .update({ config_json: { ...existing, canvas } })
-      .eq('widget_id', widgetId)
-      .eq('event_id', eventId);
-    if (resetErr) throw new Error(`Failed to reset how this section moves: ${resetErr.message}`);
+    // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`) — another screen's write is kept.
+    await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+      throw new Error(`Failed to reset how this section moves: ${e instanceof Error ? e.message : String(e)}`);
+    });
     await revalidateForWidgetChange(eventId);
     redirect(
       resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
@@ -721,13 +717,10 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const next = { ...existing, canvas };
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: next })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, next).catch((e: unknown) => {
+    throw new Error(`Failed to save how this section moves: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -904,13 +897,10 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
   }
 
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: { ...existing, canvas } })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+    throw new Error(`Failed to save this section's background: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -983,13 +973,10 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
 
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: { ...existing, canvas } })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save the crop: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+    throw new Error(`Failed to save the crop: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -1391,12 +1378,10 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     next = { ...existing, custom: input.value };
   }
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: next })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-  if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, next).catch((e: unknown) => {
+    throw new Error(`Failed to save your section: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');

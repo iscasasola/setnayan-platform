@@ -15,7 +15,8 @@ shaped like Principal Sponsors: Best Man + Best Woman; Maid + Matron of Honor).
 
 ## State
 - [x] code + guard written
-- [ ] targeted tests (waiting on heavy lock / install)
-- [ ] sabotage
-- [ ] shots 375 light/dark
-- [ ] PR draft
+- [x] targeted tests: 95 dress-code/attire test files, 778 tests green locally; tsc clean
+- [x] sabotage 7/7 red (log: ~/Documents/Claude/Projects/shots-2026-10-18/honour-rows/work/sabotage.log)
+- [x] shots 375 light + forced dark (Studio), light (guest Me) → ~/Documents/Claude/Projects/shots-2026-10-18/honour-rows/shots/
+- [ ] PR draft + CI green
+- Left: a best woman whose row is unset reads the Groom's Crew's "Suit" (pre-existing fallback, unchanged).

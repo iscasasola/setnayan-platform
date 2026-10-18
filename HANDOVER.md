@@ -26,3 +26,9 @@ now passes `merged` on the `elsewhere` announcement. Applied: CoverLines, CoverA
 NOT touched (#6639 owns them): stage-background.tsx, cover-words-background.tsx, element-sheet.tsx (element-sheet and
 stage-look-row already hear `hearDraftedCanvas`). post-event-shown re-reads on every render; its saves are never held.
 NEXT: test `stage-panel/follow-draft.test.ts` + sabotage → WebKit 375 walk before/after → fragment → draft PR.
+
+## STATE (builder, 2026-10-18 18:16 PHT)
+DONE: fix + 3rd cause (Date off · ↺ · Date off merged away — `lib/canvas-pick-undo.ts` forgets the sent base) + test
+(5, sabotaged 8 ways) + WebKit 375 walk before/after (U ↺ · R Reset · M merged · again) light + dark-after. Walk files:
+scratchpad/undo-switch-walk/ (walk.mjs, serve.sh, shots/). Pre-existing, NOT fixed: after the second pick the status line
+stays "Saving…" (same on main). NEXT: draft PR, CI to green.

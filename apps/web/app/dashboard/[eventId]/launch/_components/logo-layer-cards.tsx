@@ -138,7 +138,7 @@ export function LogoLayerCards({
       role="list"
       aria-label="Layers — top of the stack first. Hold a card, then drag it to reorder."
       data-logo-layer-cards=""
-      className="flex h-full min-h-0 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-contain px-3 py-0.5 [scrollbar-width:none] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-2 lg:pb-3 [&::-webkit-scrollbar]:hidden"
+      className="flex h-full min-h-0 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-contain px-3 py-[3px] [scrollbar-width:none] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-2 lg:pb-3 [&::-webkit-scrollbar]:hidden"
     >
       {topFirst.map((l) => {
         const on = l.id === selectedId;
@@ -152,7 +152,7 @@ export function LogoLayerCards({
             data-on={on ? '' : undefined}
             data-hidden={l.hidden ? '' : undefined}
             data-locked={l.locked ? '' : undefined}
-            className={`relative flex h-[74px] w-[66px] shrink-0 flex-col overflow-hidden rounded-xl bg-raised ring-1 transition-[transform,box-shadow] duration-150 motion-reduce:transition-none lg:w-full ${
+            className={`relative flex w-[66px] shrink-0 flex-col self-stretch overflow-hidden lg:h-[74px] rounded-xl bg-raised ring-1 transition-[transform,box-shadow] duration-150 motion-reduce:transition-none lg:w-full ${
               on ? 'ring-2 ring-sn-accent' : 'ring-ink/10'
             } ${drag ? 'z-10 shadow-lg' : ''}`}
             style={drag ? { transform: `${drag.down ? 'translateY' : 'translateX'}(${drag.dx}px) scale(1.06)` } : undefined}
@@ -195,7 +195,7 @@ export function LogoLayerCards({
               <span
                 aria-hidden
                 data-logo-card-state={l.locked ? 'locked' : 'hidden'}
-                className="pointer-events-none absolute left-1 top-1 inline-flex h-4 items-center gap-0.5 rounded-full bg-raised px-1 text-[9px] font-semibold text-ink/70 ring-1 ring-ink/15"
+                className="pointer-events-none absolute bottom-[22px] left-1 inline-flex h-4 items-center gap-0.5 rounded-full bg-raised px-1 text-[9px] font-semibold text-ink/70 ring-1 ring-ink/15"
               >
                 {l.locked ? <Lock className="h-2.5 w-2.5" strokeWidth={2.5} /> : 'hidden'}
               </span>
@@ -221,14 +221,14 @@ export function LogoLayerCards({
           </div>
         );
       })}
-      <div role="listitem" className="flex shrink-0 lg:w-full">
+      <div role="listitem" className="flex shrink-0 self-stretch lg:w-full">
         <button
           type="button"
           data-logo-add-card=""
           aria-pressed={addOn}
           disabled={addDisabled}
           onClick={onAdd}
-          className={`sn-press flex h-[74px] w-[66px] shrink-0 flex-col overflow-hidden rounded-xl border border-dashed disabled:opacity-50 lg:w-full ${
+          className={`sn-press flex w-[66px] shrink-0 flex-col self-stretch overflow-hidden rounded-xl border border-dashed lg:h-[74px] disabled:opacity-50 lg:w-full ${
             addOn ? 'border-sn-accent bg-ink/[0.04]' : 'border-ink/25'
           }`}
         >

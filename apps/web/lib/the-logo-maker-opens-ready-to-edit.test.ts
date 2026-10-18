@@ -74,7 +74,9 @@ test('3 · the phone layout is in the page’s flow, under the logo, and steps a
   assert.equal(LOGO_PANEL_ROW_PX, 8 + 74);
   assert.match(logo, /data-logo-cards-strip=""\s+className="mt-2 flex h-\[74px\] w-full shrink-0 flex-col /, 'the carousel changed size — LOGO_PANEL_ROW_PX is stale');
   const cards = code(`${L}/logo-layer-cards.tsx`);
-  assert.match(cards, /relative flex h-\[74px\] w-\[66px\] shrink-0 flex-col/, 'a layer card is not 74 px tall');
+  // A card fills the 74 px strip less the room its picked ring needs (3 px a side), as the prototype's `.lyrs` 2 px.
+  assert.match(cards, /overscroll-contain px-3 py-\[3px\]/, 'the strip lost the room the picked ring is drawn in');
+  assert.match(cards, /relative flex w-\[66px\] shrink-0 flex-col self-stretch /, 'a layer card does not fill the strip');
 });
 
 test('4 · no "Do you want a logo?" over the Logo studio', () => {

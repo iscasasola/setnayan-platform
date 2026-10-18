@@ -406,7 +406,12 @@ export function MakerLogoDoor({
   /* A real change saves after a short pause — never while a finger is still on the logo. */
   const later = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), PAUSE_MS);
+    const tick = () => {
+      // A finger went down on the logo since: wait for it to lift — the gesture is sent whole.
+      if (holding.current) timer.current = window.setTimeout(tick, PAUSE_MS);
+      else void flush();
+    };
+    timer.current = window.setTimeout(tick, PAUSE_MS);
   }, [flush]);
   useEffect(() => {
     if (holding.current) return;
@@ -1285,25 +1290,9 @@ export function LayerTools({
           />
         </div>
       ) : null}
-      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
-          these layers so we can identify them easier"* — two uploads arrived as
-          "monogram.005" and "monogram.006"). The carousel's card shows it.
-          🧩 On the templates (2026-10-09): the typed answer is a Form row, kept ONCE. */}
-      <FormRows data="logo-layer">
-        <TypedRow
-          key={`name:${layer.id}`}
-          name="Name"
-          value={layer.name}
-          maxLength={40}
-          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
-          clean={(t) => t.replace(/[<>"'`]/g, '')}
-          pillAttrs={{ 'data-logo-layer-name': '' }}
-          onKeep={(t) => {
-            /* A name left empty goes back to the kind's own word, as it did when the box was left. */
-            onChange({ name: t.trim() ? t : LOGO_LAYER_KIND_LABEL[layer.kind] });
-            return { ok: true };
-          }}
-        />
+      {/* The kind's own control first, as the prototype's Style opens (Frame ▾ · White). */}
+      {layer.kind !== 'text' ? (
+        <FormRows data="logo-kind">
         {layer.kind === 'image' ? (
           <SwitchRow
             name="Remove white background"
@@ -1321,7 +1310,8 @@ export function LayerTools({
             dataAttr="data-logo-frame-pick"
           />
         ) : null}
-      </FormRows>
+        </FormRows>
+      ) : null}
 
       {colour}
 
@@ -1344,6 +1334,27 @@ export function LayerTools({
           <ActionButton tone="neutral" icon={Crosshair} label="Centre it" onClick={() => onChange({ x: LOGO_FRAME / 2, y: LOGO_FRAME / 2 })} />
         </span>
       </Field>
+
+      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
+          these layers so we can identify them easier"* — two uploads arrived as
+          "monogram.005" and "monogram.006"). The carousel's card shows it.
+          🧩 On the templates (2026-10-09): the typed answer is a Form row, kept ONCE. */}
+      <FormRows data="logo-layer">
+        <TypedRow
+          key={`name:${layer.id}`}
+          name="Name"
+          value={layer.name}
+          maxLength={40}
+          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
+          clean={(t) => t.replace(/[<>"'`]/g, '')}
+          pillAttrs={{ 'data-logo-layer-name': '' }}
+          onKeep={(t) => {
+            /* A name left empty goes back to the kind's own word, as it did when the box was left. */
+            onChange({ name: t.trim() ? t : LOGO_LAYER_KIND_LABEL[layer.kind] });
+            return { ok: true };
+          }}
+        />
+      </FormRows>
 
       {/* 🙈 🔒 ⧉ ✕ — the same four as the picked card's ⋯. Taking a layer off asks once (the centred confirm box). */}
       <div className="flex flex-wrap gap-1.5" data-logo-layer-acts="">

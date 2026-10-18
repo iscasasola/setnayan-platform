@@ -11,5 +11,17 @@ and its amendment `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` (approved the s
   (`pro-panels.tsx`); Apply names it "Travels to the bar · Logo" and its Go to opens the hero. Guards re-aimed, not
   deleted: `the-mark-travels-or-sits-still`, `the-look-is-one-panel`, `the-look-sheet-is-calm`,
   `a-free-section-tries-every-look-control`. Port-control baseline regenerated (`MagicMovePick` removed on purpose).
+- **Row 6 · The Save the Date film wears the main background; its own background retires.** Guest page: the film is
+  handed the main background's picture (`mainGroundStillFor` — the SAME picture resolver as the page's layer, now one
+  `pictureOf`), else the page colour (`stdFilmOnMain`); the couple's Readability is kept. The loader no longer
+  resolves a film background of its own. The Save the Date studio's background picker (`StdBackgroundPicker`) and its
+  presign door are gone; Readability stays; the studio preview wears the main background too; its action stores only
+  "follows" (+ Readability). Launch page stops handing `filmOwnBackground`/`filmLegibility`. **Migration
+  `20271277600211_the_film_wears_the_main_background`** (pipeline only): a 30-day copy in the new
+  `events.std_background_retired` (service role only — deny-listed in `lint-events-column-grants`), a ready-made scene
+  or a public-bucket photo moved INTO the hero's main background only where none is set (the main wins), then the
+  film value cleared to "follows". Measured on prod first (read-only): 2 events hold a film background, both already
+  have a main background → nothing moves, both copied. Exposure baseline unchanged. Guards: new
+  `the-film-wears-the-main-background.test.ts`; `the-guided-steps-share-one-layout` (9) and (23) re-aimed.
 
 SPEC IMPACT: None — builds the approved restudy rows as drawn; no new decision.

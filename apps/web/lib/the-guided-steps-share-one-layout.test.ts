@@ -277,9 +277,11 @@ test('(9) the Save the Date film follows the theme unless the couple picked its 
   assert.deepEqual(stdFilmBackground(undefined, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
   const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
   assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
-  const loaders = read('app/[slug]/_lib/loaders.ts');
-  // 🎨 …the theme's paper as the Mood Board dresses it (2026-10-05, `themeColours`), Readability kept.
-  assert.match(loaders, /stdFollowsTheme\(event\.std_background\)\s*\? stdFilmBackground\(\s*event\.std_background,\s*themeColours\(/, 'the guest page does not dress an unpicked film in the theme');
+  // 🎞 RE-AIMED 2026-10-18 (Look restudy row 6): the guest film no longer resolves a background of its own — it wears
+  // the MAIN background, else the page colour as the Mood Board dresses the theme (`themeColours`), Readability kept.
+  const siteBody = read('app/[slug]/_components/site-body.tsx');
+  assert.match(siteBody, /themeColours\(sceneTheme, event\.role_palette\)\.colours\.canvas/, 'the guest page does not dress a film with no picture in the theme');
+  assert.match(siteBody, /legibility: stdFollowLegibility\(event\.std_background\)/);
 });
 
 test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {
@@ -613,7 +615,7 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.match(pm, /id=\{listId\}\s*role="listbox"/);
 });
 
-test('(23) "Same as theme": first in the film\'s background picker and the default; Look draws no line for it since 2026-10-08', async () => {
+test('(23) the film follows: "Same as theme" is the only film value left — the film wears the main background (Look restudy row 6)', async () => {
   // The draft holds ONE value for the film's background: null, the film following the theme.
   const D = await import('./hub-draft');
   assert.ok(D.isHubDraftEventColumn('std_background'), 'the film cannot be handed back into the draft');
@@ -626,35 +628,18 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   const handBack = D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd' }, null);
   assert.equal(D.eventItemIsPro('std_background', null, handBack, { kind: 'plain', value: '#e8d9bd' }), false, 'following the theme is held as Pro at Apply');
 
-  // The studio: "Same as theme" is the FIRST choice, pressed when nothing of the film's own is stored.
-  const { StdBackgroundPicker } = await import('../app/dashboard/[eventId]/_components/std-background-picker');
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const noop = () => {};
-  const picker = (follows: boolean) =>
-    renderToStaticMarkup(
-      React.createElement(StdBackgroundPicker, {
-        value: { kind: 'plain', value: '#f3ece1' },
-        onChange: noop,
-        eventId: 'e',
-        onUpload: noop,
-        followsTheme: follows,
-        onFollowTheme: noop,
-        themeCanvas: '#0b0a12',
-      }),
-    );
-  const on = picker(true);
-  assert.ok(on.indexOf('Same as theme') > 0 && on.indexOf('Same as theme') < on.indexOf('Plain colour'), '"Same as theme" is not the first choice');
-  assert.match(on, /aria-pressed="true"[^>]*data-std-bg-follows-theme=""/);
-  assert.doesNotMatch(on, /aria-label="Background colour #f3ece1" aria-pressed="true"/, 'a colour of its own reads as chosen while the film follows the theme');
-  assert.match(picker(false), /aria-pressed="false"[^>]*data-std-bg-follows-theme=""/);
+  // 🎞 THE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, 2026-10-18): the studio's background picker is gone —
+  // there is no background of the film's own to pick, so every save stores "follows" with the couple's Readability,
+  // and the preview paints the MAIN background the page resolved (`stdFilmOnMain`).
+  assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/_components/std-background-picker.tsx')), 'the film’s own background picker is back');
   const studio = read('app/dashboard/[eventId]/studio/save-the-date/page.tsx');
-  assert.match(studio, /const stdFollows = stdFollowsTheme\(event\?\.std_background\);/, 'a new event does not start on "Same as theme"');
-  assert.match(studio, /initialFollowsTheme=\{stdFollowsThemeNow\}/);
-  assert.match(studio, /themeCanvas=\{themeCanvas\}/);
+  assert.match(studio, /stdFilmOnMain\(\{\s*still: await mainGroundStillFor\(/, 'the studio preview does not wear the main background');
   const client = read('app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx');
-  assert.match(client, /backgroundFollowsTheme: followsTheme,/, 'the studio does not save "Same as theme"');
-  assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
-  assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{[\s\S]{0,260}patch\.std_background = stdFollowTheme\(/, 'the studio cannot hand the film back to the theme');
+  assert.doesNotMatch(client, /StdBackgroundPicker|presignStdBackground/, 'the studio still offers a background of the film’s own');
+  assert.match(client, /backgroundFollowsTheme: true,/, 'the studio can store a background of the film’s own again');
+  assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints something other than what guests see');
+  assert.match(action, /if \(data\.backgroundFollowsTheme === true \|\| \(data\.background !== undefined && data\.background !== null\)\) \{\s*patch\.std_background = stdFollowTheme\(/, 'the action stores a background of the film’s own again');
+  assert.doesNotMatch(action, /export async function presignStdBackground/, 'the film-background presign door is back');
 
   // 🎞 THE LOOK'S LINE LEFT (2026-10-08, the Look restudy — plan row 1: "delete `FilmFollowsTheme` from Look"). It was one
   // line (then a switch) under Look › Background while the film kept its own pick. The film's own background retires
@@ -691,9 +676,9 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   // 2026-10-08: the whole Look (`theme`) and its Background row are the one panel, with no film line (one mount at a time — `item=`).
   assert.match(details, /theme: <LookPanel item="theme" \/>,/, 'the whole Look is not the one panel');
   assert.match(details, /background: <LookPanel sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'Look › Background is not the one panel on its section');
+  // 🎞 Row 6 removed the two hand-downs the film line needed (`filmOwnBackground` · `filmLegibility`): nothing reads them.
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
-  assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');
+  assert.doesNotMatch(page + details, /filmOwnBackground|filmLegibility/, 'the launch page still hands the retired film-background facts');
 });
 
 test('(24) the Invitation page\'s sign-off reads on every theme — never the light gold over a moving ground', () => {

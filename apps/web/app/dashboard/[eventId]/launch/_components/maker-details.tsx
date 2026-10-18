@@ -272,13 +272,6 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
-    /**
-     * 🎞 The Save the Date film keeps a background of its own (draft over live), and its Readability.
-     * NOT READ since 2026-10-08: the "Same as the Event Hub" line left Look (the Look restudy, plan row 1);
-     * the launch page still hands them until the film's own background retires (plan row 6 removes both).
-     */
-    filmOwnBackground?: boolean;
-    filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
     /** 🎨 Every theme's colours as a palette — only while the Mood Board has none (`ThemePickProvider`). */

@@ -14,3 +14,16 @@ Keep the Maker first-load budget (≈0.2 KB left — lazy-load the Logo maker pi
 375 px shots light + dark + side-by-side vs the replot prototype. Never open the owner's cale-ice Maker.
 Other builders touch other Maker parts (own-section photos, two-hosts save paths) — don't touch their files.
 Own walk folder (scratchpad/logo-walk/). Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-logo-maker-l2-l4.md.
+
+## Builder log (2026-10-18, builder L2–L4)
+Plan (one PR, three commits-ish): L2 carousel (port WIP by hand: LogoLayerCards → logo-layer-cards.tsx, cardDropIndex →
+logo-maker-layout.ts, moveLayerTo → logo-layers-edit.ts [NOT logo-layers.ts — first load]) · L3 tools row
+[Character|Style|Animate]·▶·ⓘ, hidden?/locked? · L4 spacing?, split into letters, looks (Outline · Shadow).
+Decisions taken (no ruling in the record — matched to the docs):
+- Hidden layers are composed into a leading `<defs data-logo-hidden>` (not drawn by any surface; print-mark treats defs as
+  non-rendered) so a hidden IMAGE layer's shapes survive a reload; `logoInkBox`/player see only `data-logo-layer`.
+- Lock is stamped `data-locked=""` on the layer's group so a lock alone is a real change the save gate sees.
+- Hide · Lock · Duplicate · Delete: on the picked card's ⋯ (owner addendum 08 Oct) AND the Style row (doc §3/prototype).
+- Kept shipped controls the prototype does not draw: Name (rename, owner 09-28 ask) and Centre it — in Style.
+- ▶ plays the picked layer (its delay kept), the rest held still — prototype `play()`; there is always a picked layer (L1).
+- LOGO_SCALE_MIN 0.1 → 0.02: a split letter keeps its size inside the word (its own ink box is small).

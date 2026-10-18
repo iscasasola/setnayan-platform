@@ -370,10 +370,37 @@ button.row {
   background: var(--bp-danger);
   flex: none;
 }
+/* "Retry" — the prototype's quiet wine word at the row's end, with a full
+   44px thumb target that does not make the row taller (as .go does). */
+.retry {
+  margin-left: auto;
+  color: var(--bp-wine);
+  font: inherit;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0 0 0 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -12px;
+}
+.retry:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+/* The line under the summary while All ▾ is on Owing or Paid. */
+.filterline {
+  font-size: 13px;
+  color: var(--bp-mute);
+  margin-top: 10px;
+}
 
-/* ═══ the thumb row — fixed over the list, above the bottom nav ═══
-   The row has no fill of its own. B2 gives it its first control (＋ Add
-   expense, which keeps its full colour); the filter and search join it later. */
+/* ═══ the frosted thumb row — fixed over the list, above the bottom nav ═══
+   ＋ Add expense · All ▾ · search (B3). The row has no fill of its own: the
+   dropdown and the search wear `.sn-glass-row` (they blur what is behind them)
+   and Add keeps its full colour. */
 .lower {
   position: fixed;
   left: 0;
@@ -389,10 +416,18 @@ button.row {
 .lower > * {
   pointer-events: auto;
 }
+.grow {
+  flex: 1;
+}
+/* A desktop has no bottom nav and a wide column: the row floats bottom-right
+   at the page's own width (the Find thumb row's placement). */
 @media (min-width: 1024px) {
   .lower {
-    bottom: 16px;
-    justify-content: center;
+    bottom: 28px;
+    left: auto;
+    right: 28px;
+    width: min(720px, calc(100vw - 56px));
+    padding: 0;
   }
 }
 /* Room under the last row so the fixed row never sits on top of a figure. */

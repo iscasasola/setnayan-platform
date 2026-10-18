@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation';
 import { BudgetScreen, type SupplierExtras } from '@/app/dashboard/[eventId]/budget/_components/budget-screen';
 import { knownMoneyTotals, unreadEventMoney, computeEventMoney } from '@/lib/budget-truth';
 import { buildBudgetList, pickNextPayment } from '@/lib/budget-page-view';
+import { bookedBudgetBlock } from '@/lib/booked-budget';
 import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { labMoney, LAB_NOW, LAB_PAYMENTS } from './fixture';
@@ -62,6 +63,8 @@ export default async function BudgetLabPage({
   const list = buildBudgetList(money);
   // `?state=over` lowers the target under what is agreed; nothing else changes.
   const targetPhp = state === 'over' ? 1_000_000 : money.targetPhp;
+  // A refused source: Owed is the floor the page prints ("₱994,400+"), by the page's own rule.
+  const owedFloor = known.partial ? bookedBudgetBlock(money, targetPhp).owed : null;
 
   const supplierExtras: Record<string, SupplierExtras> = {};
   for (const [i, row] of (list.suppliers ?? []).entries()) {
@@ -83,7 +86,9 @@ export default async function BudgetLabPage({
           targetPhp,
           agreedPhp: known.agreedPhp,
           paidPhp: known.paidPhp,
-          owedPhp: known.partial ? null : known.owedAtLeastPhp,
+          owedPhp: known.partial ? (owedFloor?.php ?? null) : known.owedAtLeastPhp,
+          owedAtLeast: owedFloor !== null,
+          partial: known.partial,
           next: known.partial ? null : pickNextPayment(money.lines),
         }}
         list={list}

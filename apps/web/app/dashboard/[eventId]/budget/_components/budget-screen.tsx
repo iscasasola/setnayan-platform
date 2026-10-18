@@ -27,18 +27,39 @@
  * ── The sheets load when a row is first opened ────────────────────────────
  * `budget-sheets.tsx` is a dynamic import: none of its code is in the page's
  * first load.
+ *
+ * ── The frosted thumb row (plan row B3) ───────────────────────────────────
+ * ＋ Add expense (brand, full colour) · All ▾ (All · Owing · Paid — ONE
+ * `PickMenu`, never a pill row) · search. The row has no background of its
+ * own; the dropdown and the search are frosted (`.sn-glass-row`). The filter
+ * and the search narrow all three groups (`filterBudgetList`); the summary
+ * does NOT move — it is the whole ledger, and a filter is a way of looking at
+ * the list, not a different budget. An emptied group says why (`whyEmpty`).
+ * A delegate who may only read gets the row too, without Add.
+ *
+ * ── A refused group can be asked again ────────────────────────────────────
+ * "Couldn't load your purchases." carries Retry — a fresh server render
+ * (`router.refresh()`), which re-runs the ONE resolver for every group.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { Plus } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { useRouter } from 'next/navigation';
+import { Plus, Search, X } from 'lucide-react';
+import { ActionButton, useFitRow } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PaymentDoor } from '@/lib/accepted-quote-terms';
 import {
+  LIST_FILTERS,
+  filterBudgetList,
+  filterLine,
+  isListFilter,
   shortDate,
+  whyEmpty,
   type BudgetList,
   type ExpenseRow,
+  type ListFilter,
   type NextPayment,
   type OrderRow,
   type SupplierRow,
@@ -83,6 +104,9 @@ export type BudgetSheetState =
 
 const BudgetSheets = dynamic(() => import('./budget-sheets').then((m) => m.BudgetSheets), { ssr: false });
 
+/** The shipped Guests / Find search waits the same 250 ms after the last keystroke. */
+const SEARCH_DEBOUNCE_MS = 250;
+
 export function BudgetScreen({
   eventId,
   canEdit,
@@ -90,7 +114,7 @@ export function BudgetScreen({
   list,
   supplierExtras,
   categories,
-  children,
+  targetNote,
 }: {
   eventId: string;
   /** Writing money is the couple's alone; a delegate who may read sees the same rows without the verbs. */
@@ -100,15 +124,26 @@ export function BudgetScreen({
     agreedPhp: number | null;
     paidPhp: number | null;
     owedPhp: number | null;
+    /** `owedPhp` is a floor — a source was refused ("₱994,400+"). */
+    owedAtLeast?: boolean;
+    /** A source was refused — the summary says part of it couldn't load. */
+    partial?: boolean;
     next: NextPayment | null;
   };
   list: BudgetList;
   supplierExtras: Record<string, SupplierExtras>;
   categories: CostCategoryOption[];
-  /** Drawn between the summary and the list (the tradition notes, for the event types that have one). */
-  children?: ReactNode;
+  /** More words in the Target's ⓘ — the tradition notes, for the event types that have one. */
+  targetNote?: ReactNode;
 }) {
   const [sheet, setSheet] = useState<BudgetSheetState>(null);
+  const [filter, setFilter] = useState<ListFilter>('all');
+  const [query, setQuery] = useState('');
+  const shown = useMemo(() => filterBudgetList(list, filter, query), [list, filter, query]);
+  const router = useRouter();
+  const [retrying, startRetry] = useTransition();
+  const retry = () => startRetry(() => router.refresh());
+  const line = filterLine(filter);
   // Once a sheet has been opened its code stays mounted, so the next open is instant.
   const [sheetsWanted, setSheetsWanted] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -136,31 +171,59 @@ export function BudgetScreen({
         agreedPhp={summary.agreedPhp}
         paidPhp={summary.paidPhp}
         owedPhp={summary.owedPhp}
+        owedAtLeast={summary.owedAtLeast}
+        partial={summary.partial}
         next={summary.next}
         payHref="#budget-payments"
         onPay={nextIsOpenable ? onPay : undefined}
+        targetNote={targetNote}
       />
 
-      {children}
+      {line ? (
+        <div className={styles.filterline} data-budget-filterline={filter}>
+          {line}
+        </div>
+      ) : null}
 
-      <div className={`${styles.list} ${canEdit ? styles.listRoom : ''}`} id="budget-payments" data-budget-list="">
-        <SupplierGroup rows={list.suppliers} onOpen={(vendorId) => open({ kind: 'pay', vendorId })} />
-        <OrderGroup rows={list.orders} />
+      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="">
+        <SupplierGroup
+          rows={list.suppliers}
+          shown={shown.suppliers}
+          why={whyEmpty('suppliers', filter, query)}
+          onOpen={(vendorId) => open({ kind: 'pay', vendorId })}
+          onRetry={retry}
+          retrying={retrying}
+        />
+        <OrderGroup
+          rows={list.orders}
+          shown={shown.orders}
+          why={whyEmpty('orders', filter, query)}
+          onRetry={retry}
+          retrying={retrying}
+        />
         <ExpenseGroup
           rows={list.expenses}
+          shown={shown.expenses}
+          why={whyEmpty('expenses', filter, query)}
           canEdit={canEdit}
           onOpen={(costId) => open({ kind: 'expense', costId })}
+          onRetry={retry}
+          retrying={retrying}
         />
       </div>
 
       {/* The thumb row: fixed over the list, in the lower third. Portalled to
           <body> — inside the dashboard a transformed ancestor would capture a
           `position: fixed` child and it would scroll away with the page. */}
-      {canEdit && mounted
+      {mounted
         ? createPortal(
-            <div className={`${styles.page} ${styles.lower}`} data-budget-thumb="">
-              <ActionButton tone="brand" main icon={Plus} label="Add expense" onClick={() => open({ kind: 'add' })} />
-            </div>,
+            <ThumbRow
+              canEdit={canEdit}
+              filter={filter}
+              onFilter={setFilter}
+              onSearch={setQuery}
+              onAdd={() => open({ kind: 'add' })}
+            />,
             document.body,
           )
         : null}
@@ -190,12 +253,146 @@ function GroupHead({ title, count }: { title: string; count: number | null }) {
   );
 }
 
-/** A group whose read was refused. Words — never a zero, never an empty state. */
-function GroupUnread({ what }: { what: string }) {
+/**
+ * The thumb row's controls — their OWN component, mounted WITH the row, so
+ * `useFitRow` has a row to measure on its first pass (the Find thumb row's
+ * lesson: called from the parent it ran before the portal existed, and never
+ * ran again).
+ *
+ * Search opens a frosted field in the row; it keeps its own text and the list
+ * hears it 250 ms after the last keystroke. ✕ empties it and closes it. While
+ * the field is open the buttons give way by width (rule 3b: the field keeps at
+ * least 60 % of the row).
+ */
+function ThumbRow({
+  canEdit,
+  filter,
+  onFilter,
+  onSearch,
+  onAdd,
+}: {
+  canEdit: boolean;
+  filter: ListFilter;
+  onFilter: (f: ListFilter) => void;
+  onSearch: (q: string) => void;
+  onAdd: () => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useFitRow(rowRef);
+  const [searching, setSearching] = useState(false);
+  const [text, setText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => onSearch(text), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [text, onSearch]);
+  useEffect(() => {
+    if (searching) inputRef.current?.focus();
+  }, [searching]);
+
+  const close = () => {
+    setText('');
+    onSearch('');
+    setSearching(false);
+  };
+
+  return (
+    <div ref={rowRef} className={`${styles.page} ${styles.lower}`} data-budget-thumb="">
+      {canEdit ? (
+        // Full colour at every width — on glass it is the one solid thing. `filled`
+        // rather than `main`, so on a phone with the search open it may drop its
+        // word with the rest of the row (the Find thumb row's ＋ Add your own).
+        <ActionButton tone="brand" filled icon={Plus} label="Add expense" onClick={onAdd} />
+      ) : null}
+      <span className="sn-glass-row inline-flex shrink-0 rounded-full" data-glass-row="budget-filter">
+        <PickMenu
+          label="Show"
+          value={filter}
+          options={LIST_FILTERS}
+          onPick={(k) => {
+            if (isListFilter(k)) onFilter(k);
+          }}
+          dataAttr="data-budget-filter"
+          className="!border-transparent !bg-transparent"
+        />
+      </span>
+      {searching ? (
+        <label
+          data-glass-row="budget-search"
+          data-fit-field=""
+          className="sn-glass-row flex h-10 min-w-[60%] flex-1 items-center gap-2 rounded-full pl-3.5 pr-1 text-ink"
+        >
+          <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
+          <input
+            ref={inputRef}
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') close();
+            }}
+            placeholder="Search"
+            aria-label="Search the budget"
+            autoComplete="off"
+            className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
+          />
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close search"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/60"
+          >
+            <X className="h-4 w-4" strokeWidth={1.9} aria-hidden />
+          </button>
+        </label>
+      ) : (
+        <>
+          <span className={styles.grow} aria-hidden="true" />
+          <span className="sn-glass-row inline-flex shrink-0 rounded-full">
+            <ActionButton
+              tone="neutral"
+              iconOnly
+              icon={Search}
+              label="Search"
+              onClick={() => setSearching(true)}
+              className="!border-transparent"
+            />
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A group whose read was refused. Words — never a zero, never an empty state —
+ * and Retry, which re-reads the whole page.
+ */
+function GroupUnread({ what, onRetry, retrying }: { what: string; onRetry: () => void; retrying: boolean }) {
   return (
     <div className={styles.fail} role="status" data-budget-unread="">
       <span className={styles.dot} aria-hidden="true" />
       Couldn&rsquo;t load {what}.
+      <button
+        type="button"
+        className={styles.retry}
+        onClick={onRetry}
+        disabled={retrying}
+        aria-busy={retrying || undefined}
+        data-budget-retry=""
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+/** Why a group the filter or the search emptied has no rows. */
+function GroupWhy({ text }: { text: string }) {
+  return (
+    <div className={styles.empty} data-budget-why="">
+      {text}
     </div>
   );
 }
@@ -212,20 +409,36 @@ function OwedLine({ owedPhp, dueDate, id }: { owedPhp: number; dueDate: string |
   return <small className={styles.ok}>paid ✓</small>;
 }
 
+type GroupProps<R> = {
+  /** Every row the read returned — `null` when it was refused. The count is of these. */
+  rows: R[] | null;
+  /** The rows the filter and the search leave. `null` exactly when `rows` is. */
+  shown: R[] | null;
+  /** What to say when `shown` is empty (`whyEmpty`); `null` = say nothing. */
+  why: string | null;
+  onRetry: () => void;
+  retrying: boolean;
+};
+
 function SupplierGroup({
   rows,
+  shown,
+  why,
   onOpen,
-}: {
-  rows: SupplierRow[] | null;
+  onRetry,
+  retrying,
+}: GroupProps<SupplierRow> & {
   onOpen: (vendorId: string) => void;
 }) {
   return (
     <>
       <GroupHead title="Booked suppliers" count={rows === null ? null : rows.length} />
       {rows === null ? (
-        <GroupUnread what="your suppliers" />
+        <GroupUnread what="your suppliers" onRetry={onRetry} retrying={retrying} />
+      ) : (shown ?? []).length === 0 && why ? (
+        <GroupWhy text={why} />
       ) : (
-        rows.map((s) => (
+        (shown ?? []).map((s) => (
           <button
             key={s.vendorId}
             type="button"
@@ -267,14 +480,16 @@ function SupplierGroup({
   );
 }
 
-function OrderGroup({ rows }: { rows: OrderRow[] | null }) {
+function OrderGroup({ rows, shown, why, onRetry, retrying }: GroupProps<OrderRow>) {
   return (
     <>
       <GroupHead title="Bought on Setnayan" count={rows === null ? null : rows.length} />
       {rows === null ? (
-        <GroupUnread what="your purchases" />
+        <GroupUnread what="your purchases" onRetry={onRetry} retrying={retrying} />
+      ) : (shown ?? []).length === 0 && why ? (
+        <GroupWhy text={why} />
       ) : (
-        rows.map((o) => (
+        (shown ?? []).map((o) => (
           <div key={o.orderId} className={styles.row} data-budget-row="order">
             <span className={`${styles.logo} ${styles.logoS}`} aria-hidden="true">
               S
@@ -305,10 +520,13 @@ function OrderGroup({ rows }: { rows: OrderRow[] | null }) {
 
 function ExpenseGroup({
   rows,
+  shown,
+  why,
   canEdit,
   onOpen,
-}: {
-  rows: ExpenseRow[] | null;
+  onRetry,
+  retrying,
+}: GroupProps<ExpenseRow> & {
   canEdit: boolean;
   onOpen: (costId: string) => void;
 }) {
@@ -316,13 +534,15 @@ function ExpenseGroup({
     <>
       <GroupHead title="Your expenses" count={rows === null ? null : rows.length} />
       {rows === null ? (
-        <GroupUnread what="your expenses" />
+        <GroupUnread what="your expenses" onRetry={onRetry} retrying={retrying} />
       ) : rows.length === 0 ? (
         <div className={styles.empty}>
           Nothing added yet. Use ＋ Add expense for anything paid outside Setnayan.
         </div>
+      ) : (shown ?? []).length === 0 && why ? (
+        <GroupWhy text={why} />
       ) : (
-        rows.map((e) => {
+        (shown ?? []).map((e) => {
           const inner = (
             <>
               <span className={styles.logo} aria-hidden="true">

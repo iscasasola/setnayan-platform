@@ -12,3 +12,18 @@ saveAllocationSnapshot): do the ones that are small and safe; name the rest. Mon
 failed read — CLAUDE.md "reads-are-honest"). 375 px shots light + dark + side-by-side vs prototype.
 Files: apps/web/app/dashboard/[eventId]/budget/**, lib/budget-page-view.ts, lib/tours.ts (budget entry only).
 Own walk folder (scratchpad/budget-walk/). Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-budget-b3-b5.md.
+
+## STATE (builder, 2026-10-18)
+Step 1 DONE (commit below): B3 thumb row (Add · All▾ PickMenu · search, glass), filter/search pure fn + guard,
+Retry on failed group, partial summary (Owed floor "+" via bookedBudgetBlock, legend "part of this couldn't load",
+Next "couldn't check"); B5 tour words (prototype verbatim), Mahr/Chinese → notes inside Target ⓘ; dead
+saveAllocationSnapshot deleted (port + never-read baselines regenerated).
+Decisions where the record is silent: search empty copy "No match."; group count stays the unfiltered total
+(prototype); filter does not move the summary; meter draws no bar on a partial ledger (B1 rule, not the
+prototype's partial bar); Next on partial = "couldn't check" (B4's rule); tradition notes ride INSIDE the Target ⓘ
+(a second ⓘ does not fit the 160px cell).
+NEXT: walk /dev/budget-lab at 375 light+dark (states summary, failed, view, owing via filter, search) → shots
+→ draft PR → CI loop.
+Left, named: masthead .ics/CSV/Print still on the page (B4's move to Schedule/⋯ not done); share-band toggle
+still at page foot (no ⋯ menu yet); payment-plan instalments not in EventMoney (own PR, changes every money
+surface); marketing page app/(shell)/budget + lib/feature-pages/plan-a.ts still describe Save/Standard/Splurge.

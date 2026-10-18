@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import {
   readEventDayFacts,
@@ -567,6 +568,8 @@ export default async function VendorOverviewPage({
         cards={[...needsAnswer, ...nothingToAnswer]}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
+        // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
+        library={moodboardLibraryAccessForProfile(profile).allowed}
         actions={{
           acceptInquiry,
           declineInquiry,

@@ -26,6 +26,7 @@
  *                         after the owner's Apply). With `?studio=1`.
  *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
  *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
+ *   ?library=1            with `?look=1&studio=1`: Search ideas reads the supplier library lab's memory (`/dev/supplier-lab?s=library`)
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
@@ -380,7 +381,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
             ? {
                 moodBoard: studioLab ? (
                   /* 🧭 `?studio=1`: the REAL Studio › Mood Board & Dress Code on fixtures (its writes are the lab's stand-ins — `lab-mood-board-actions.tsx`; they reach no database). */
-                  <LabMoodBoardActions refuse={one('refuse') === '1'}>
+                  <LabMoodBoardActions refuse={one('refuse') === '1'} library={one('library') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
                     palette={(caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}

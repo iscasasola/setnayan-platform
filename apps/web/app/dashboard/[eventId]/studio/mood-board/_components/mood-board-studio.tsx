@@ -15,7 +15,7 @@ import { MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette, type RoomDressing } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
-import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, paletteBoardOf, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, paletteBoardOf, palettePhotoParts, type StudioInspirationSlot } from '@/lib/inspiration-slots';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
@@ -335,14 +335,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const dressKey = JSON.stringify(props.dressConfig);
   useEffect(() => setDress(draftedBoardOr(`${eventId}:dress`, props.dressConfig)), [dressKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* 🖼 "Which part?" — Venue & decor, then every part with a board, by the part's own name (Table linens, not Tables). */
-  const uploadOptions = [
-    ...STUDIO_INSPIRATION_SLOTS.filter((s) => s.slotKey === MAIN_PALETTE_BOARD).map((s) => ({ key: s.slotKey, label: s.label })),
-    ...[...ROOM_LANE_PARTS, ...FLORIST_LANE_PARTS, ...CAKE_LANE_PARTS].flatMap((p) => {
-      const b = paletteBoardOf(p.field);
-      return b ? [{ key: b.slotKey, label: p.label }] : [];
-    }),
-  ];
+  /* 🖼 "Which part?" — Venue & decor, then every part with a board, by the part's own name (Table linens, not Tables).
+     The ONE list the supplier's library reads too (`palettePhotoParts`, owner 2026-10-19), so the two never drift. */
+  const uploadOptions = palettePhotoParts().map(({ key, label }) => ({ key, label }));
 
   /* ═══ COLOURS ═══ */
   const pickMain = (index: number, hex: string) => commit(withMainColour(palette, five, index, hex), `${MAIN_COLOUR_SLOTS[index]} changed.`);

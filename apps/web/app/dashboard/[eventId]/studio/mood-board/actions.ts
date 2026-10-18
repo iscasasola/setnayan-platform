@@ -1,5 +1,7 @@
 'use server';
 
+import { extractPaletteFromBytes } from '@/lib/extract-palette.server';
+import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -974,9 +976,22 @@ export async function applyGalleryPick(input: {
   const { assets } = shapeGalleryPage(input.slotKey, [
     assetRow as unknown as RawGalleryRow,
   ]);
-  const asset = assets[0];
-  if (!asset) {
+  const shaped = assets[0];
+  if (!shaped) {
     return { status: 'error', message: 'That photo is not ready to save yet.' };
+  }
+  // 🌱🖼 A SUPPLIER PHOTO NOBODY TAGGED (2026-10-19) is shown in Search ideas, so saving it must work too: its colours
+  // are read off its OWN pixels here, on the server (`extractPaletteFromBytes` — the shipped extractor's bucketing,
+  // never its cream padding), cycled to the board's six like a tagged photo's. Pixels that yield no colour are
+  // refused in words, never filled with invented ones.
+  let asset = shaped;
+  if (shaped.swatches.length === 0) {
+    const bytes = await safeFetchImageBytes(shaped.imageUrl).catch(() => null);
+    const read = bytes ? await extractPaletteFromBytes(bytes) : [];
+    if (read.length === 0) {
+      return { status: 'error', message: 'We couldn’t read this photo’s colours just now — please try again in a moment.' };
+    }
+    asset = { ...shaped, swatches: Array.from({ length: 6 }, (_, i) => read[i % read.length]!) };
   }
 
   // Replace-in-place, mirroring uploadMoodboardSlot: soft-delete whatever holds

@@ -664,7 +664,7 @@ export function nextWho(next: SupplierNext, answer: WhatsNewCard | null): string
 }
 
 /** The icon a row wears (the prototype's round icon, `ICON_BY`) — named as data; the component draws it. */
-export type TodayRowIcon = 'chat' | 'calendar' | 'calx' | 'peso' | 'clock' | 'file' | 'star' | 'help' | 'shop' | 'chart' | 'scan' | 'people' | 'check' | 'remove' | 'gear';
+export type TodayRowIcon = 'chat' | 'calendar' | 'calx' | 'peso' | 'clock' | 'file' | 'star' | 'help' | 'shop' | 'chart' | 'scan' | 'people' | 'check' | 'remove' | 'gear' | 'image';
 
 export type TodayRowWords = {
   label: string;

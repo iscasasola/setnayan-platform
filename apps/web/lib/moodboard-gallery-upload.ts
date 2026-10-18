@@ -60,6 +60,7 @@ import {
 } from './moodboard-gallery';
 import type { MoodboardSlotKey } from './moodboard-slots';
 import { HIT_LABEL, type ContentHit } from './moodboard-screen-findings';
+import { libraryPhotoParts, type PhotoPartGroup } from './inspiration-slots';
 
 /* ══════════════════════════════════════════════════════════════════════════
    1 · THE RIGHTS WARRANTY
@@ -168,7 +169,7 @@ export function slotUploadVerdict(
   const wanted = new Set(canonicalServicesForSlot(slotKey));
   const owned = (vendorServices ?? []).filter((s) => wanted.has(s));
   if (owned.length === 0) {
-    const label = GALLERY_SLOT_LABEL[slotKey as MoodboardSlotKey] ?? 'that shelf';
+    const label = libraryPartLabel(slotKey) ?? 'that shelf';
     return {
       allowed: false,
       reason: 'wrong_trade',
@@ -178,15 +179,44 @@ export function slotUploadVerdict(
   return { allowed: true, slotKey: slotKey as MoodboardSlotKey };
 }
 
-/** Every slot this shop may upload into, in board order — drives the picker. */
+/** The supplier's dropdown group for a slot no couple's Studio part holds (the older boards still search it). */
+export type LibrarySlotGroup = PhotoPartGroup | 'more';
+
+/**
+ * 🌱🖼 THE NAME A SUPPLIER READS FOR A SLOT — the couple's part name where the couple's Studio draws that part
+ * (`libraryPhotoParts`: "Walls", "Table linens", "Venue & decor", "Bridal gown"), else this file's shelf name. One
+ * name per slot everywhere the supplier meets it: the dropdown, the "your services don't cover …" refusal and the
+ * per-category allowance line.
+ */
+export function libraryPartLabel(slotKey: string): string | null {
+  const part = libraryPhotoParts().find((p) => p.key === slotKey);
+  return part?.label ?? GALLERY_SLOT_LABEL[slotKey as MoodboardSlotKey] ?? null;
+}
+
+/**
+ * Every slot this shop may upload into — drives the picker.
+ *
+ * 🌱🖼 IN THE COUPLE'S ORDER, BY THE COUPLE'S NAMES (owner 2026-10-19, "SUPPLIERS FILL THE INSPIRATION LIBRARY
+ * WITHOUT AN EVENT"): Venue & decor → the room's parts → the flowers → Cake → the Attire boards, exactly as
+ * `libraryPhotoParts` lists them (the same list the couple's Studio upload bar reads), then any other shelf the older
+ * boards still search ("More boards"). Which of them THIS shop is offered is still the slot's trades
+ * (`slotUploadVerdict`) — the list decides the order and the words, never the access.
+ */
 export function uploadableSlotsForShop(
   vendorServices: readonly string[] | null | undefined,
-): Array<{ key: MoodboardSlotKey; label: string }> {
-  const out: Array<{ key: MoodboardSlotKey; label: string }> = [];
+): Array<{ key: MoodboardSlotKey; label: string; group: LibrarySlotGroup }> {
+  const out: Array<{ key: MoodboardSlotKey; label: string; group: LibrarySlotGroup }> = [];
+  const seen = new Set<string>();
+  for (const part of libraryPhotoParts()) {
+    if (seen.has(part.key)) continue;
+    seen.add(part.key);
+    if (slotUploadVerdict(part.key, vendorServices).allowed) out.push({ key: part.key, label: part.label, group: part.group });
+  }
   for (const k of GALLERY_SLOT_KEYS) {
+    if (seen.has(k)) continue;
     const label = GALLERY_SLOT_LABEL[k];
     if (!label) continue;
-    if (slotUploadVerdict(k, vendorServices).allowed) out.push({ key: k, label });
+    if (slotUploadVerdict(k, vendorServices).allowed) out.push({ key: k, label, group: 'more' });
   }
   return out;
 }

@@ -109,7 +109,8 @@ test('⭐ THE GUARD · the editor MOUNTS the notice with the selected row’s re
 test('the status line stops saying "pending review" about a rejected photo', () => {
   // The specific lie this session removes.
   const src = read(EDITOR);
-  const header = windowOf(src, 'selected.asset_subtype ? ` · ${selected.asset_subtype}` : \'\'', /<\/header>/);
+  /* RE-AIMED 2026-10-19: the header names the part the way the dropdown does (`assetWhere`), not by its stored key. */
+  const header = windowOf(src, '{assetWhere(selected, gallerySlots)} ·{\' \'}', /<\/header>/);
   assert.match(header, /selected\.rejected_at/);
   assert.match(header, /not published/);
 });

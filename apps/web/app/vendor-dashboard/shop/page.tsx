@@ -40,6 +40,8 @@ import { ShopSegments } from './_components/shop-segments';
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { ServicesDisclosure } from './_components/services-disclosure';
+import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
@@ -126,6 +128,8 @@ type ShopData = {
   unreadable: string[];
   recapClips: number;
   recommendedByShops: number;
+  /** 🌱🖼 The shop's trades supply an inspiration part — "Add to the inspiration library" is drawn (owner 2026-10-19). */
+  libraryOpen: boolean;
 };
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
@@ -328,6 +332,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     storiesTagged: stories.length,
     unreadable: soft.labels,
     recapClips: recapCount,
+    // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
+    libraryOpen: moodboardLibraryAccessForProfile(profile).allowed,
     recommendedByShops: partnershipsRes ?? 0,
   };
 }
@@ -524,6 +530,15 @@ async function ShopHome({
             line="Every photo and video in one place"
             href="/vendor-dashboard/collections"
           />
+          {/* 🌱🖼 The inspiration library, findable (owner 2026-10-19) — beside the photos it is filled from. */}
+          {data.libraryOpen ? (
+            <DatesRow
+              data="shop-inspiration-library"
+              title={INSPIRATION_LIBRARY_ROW.label}
+              line={INSPIRATION_LIBRARY_ROW.line}
+              href={INSPIRATION_LIBRARY_HREF}
+            />
+          ) : null}
           <DatesRow data="shop-helpers" title="Helpers" line="Who works with you on Setnayan" href="/vendor-dashboard/team" />
         </div>
         <div id="get-verified" className="scroll-mt-24 border-t border-ink/10">

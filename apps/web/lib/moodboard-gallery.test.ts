@@ -281,7 +281,7 @@ test('a slot with no supplying trade is REFUSED, not queried empty', () => {
   assert.equal(normalizeGalleryQuery({}), null);
 });
 
-/* ── shaping: two reasons a photo is withheld, both counted ─────────────── */
+/* ── shaping: one reason a photo is withheld (its shop cannot be credited), counted ─ */
 
 function row(over: Partial<RawGalleryRow> = {}): RawGalleryRow {
   return {
@@ -325,13 +325,14 @@ test('⭐ WITHHELD · a shop with a blank business_name is not a credit', () => 
   assert.equal(withheld, 1);
 });
 
-test('⭐ WITHHELD · no sampled colours means no invented colours', () => {
-  // The board row's six sampled_hex columns are NOT NULL, and the Canvas
-  // extractor returns CREAM DEFAULTS on a tainted cross-origin canvas rather
-  // than throwing — a fabricated palette that renders like a real one.
+test('⭐ SHOWN, NOT WITHHELD · no sampled colours still means no invented colours', () => {
+  // RE-AIMED 2026-10-19 (PR #6655): withholding an untagged photo made an approved supplier photo invisible —
+  // suppliers do not tag colours. It is shown with NO swatches (never padded with cream); its colours are read off
+  // its own pixels on the server when a couple saves it (`applyGalleryPick`).
   const { assets, withheld } = shapeGalleryPage('flowers', [row({ ranges: [] })]);
-  assert.equal(assets.length, 0);
-  assert.equal(withheld, 1);
+  assert.equal(assets.length, 1);
+  assert.equal(withheld, 0);
+  assert.deepEqual(assets[0]!.swatches, []);
 });
 
 /* ── MB22 · isEventLinked reaches the shaped asset, exactly as given ────── */
@@ -371,9 +372,9 @@ test('withholding is counted, not swallowed — a mixed page reports both halves
   ]);
   assert.deepEqual(
     assets.map((a) => a.assetId),
-    ['A1', 'A4'],
+    ['A1', 'A3', 'A4'],
   );
-  assert.equal(withheld, 2);
+  assert.equal(withheld, 1, 'only the uncreditable row is withheld (an untagged one is shown — 2026-10-19)');
 });
 
 /* ── the per-shop tally behind the marker ──────────────────────────────── */

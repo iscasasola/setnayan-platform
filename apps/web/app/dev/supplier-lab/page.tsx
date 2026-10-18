@@ -32,11 +32,15 @@
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
  *   ?s=money-empty    no payment plan yet           ?s=money-fail    nothing could be read — said, never ₱0 (frame 15)
+ *   ?s=library        🌱🖼 the inspiration library (owner 2026-10-19) on a lab shop — upload · from your shop's photos · the
+ *                     screen's refusal; &view=review the lab's Approve; then /dev/details-lab?look=1&studio=1&library=1
+ *                     is the couple's Search ideas on the same memory (`library-lab-server.ts`). &library=1 on ?easy=…
+ *                     draws Today's "Add to the inspiration library" row.
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
  * ⚠ The Today states mount the SHIPPED answer actions, exactly as the page
- * does — the lab adds no server action of its own. With no session every one
+ * does — the lab adds no server action of its own for them (the library state's one dev-only stand-in, `library-lab-server.ts`, holds no database). With no session every one
  * of them refuses; nothing is written from here.
  */
 import { notFound } from 'next/navigation';
@@ -69,6 +73,10 @@ import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasyS
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
 import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
+import { LibraryLab } from './library-lab';
+import { libraryLab, type LabLibraryAsset } from './library-lab-server';
+import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -265,13 +273,28 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} />;
+    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} />;
+  }
+  if (q.s === 'library') {
+    /* 🌱🖼 The inspiration library on a lab shop — its writes kept in this dev server's memory (`library-lab-server.ts`). */
+    const state = (await libraryLab({ op: 'state' })) as { assets: LabLibraryAsset[]; shopPhotos: typeof LAB_SHOP_PHOTOS };
+    return (
+      <div className="min-h-screen bg-cream text-ink">
+        <LibraryLab
+          view={q.view === 'review' ? 'review' : 'supplier'}
+          assets={state.assets}
+          shopPhotos={[...state.shopPhotos]}
+          gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services)}
+          shopName={LAB_LIBRARY_SHOP.business_name}
+        />
+      </div>
+    );
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;

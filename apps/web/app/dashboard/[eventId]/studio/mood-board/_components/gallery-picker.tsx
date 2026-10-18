@@ -154,8 +154,12 @@ export function GalleryPicker({
 
   const free = emptyPositions.length > 0 ? emptyPositions[0]! : null;
   /* 🎨 "Matches my colours" keeps the loaded photos near the five — said as a count, never a silent shrink. */
-  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !photoMatchesColours(a.swatches, studio.mainFive));
+  /* 🌱🖼 A photo nobody tagged (no swatches) is never hidden by "Matches my colours" — there is nothing to compare, and
+     hiding it made an approved supplier photo invisible (2026-10-19). With the filter on it is drawn AFTER the matches. */
+  const untagged = (a: GalleryAsset) => a.swatches.length === 0;
+  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !untagged(a) && !photoMatchesColours(a.swatches, studio.mainFive));
   const hiddenByMatch = assets.filter(hiddenAsset).length;
+  const shown = studio && matchMine ? [...assets.filter((a) => !untagged(a)), ...assets.filter(untagged)] : assets;
 
   function save(asset: GalleryAsset) {
     if (pending || free === null) return;
@@ -252,7 +256,7 @@ export function GalleryPicker({
                 : assets.length > 0
                   ? `${formatCount(total)} ${total === 1 ? 'photo' : 'photos'} from suppliers — every one credited to the shop that made it.`
                   : withheld > 0
-                    ? `${withheld} ${withheld === 1 ? 'photo is' : 'photos are'} here but not ready to show — their shop isn’t verified yet, or the photo carries no sampled colours.`
+                    ? `${withheld} ${withheld === 1 ? 'photo is' : 'photos are'} here but not ready to show — their shop isn’t verified yet.`
                     : 'No supplier has added photos for this yet. Nothing is wrong — the shelf is new.'}
           </p>
         </div>
@@ -296,7 +300,7 @@ export function GalleryPicker({
       ) : null}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {assets.map((asset) => {
+        {shown.map((asset) => {
           if (hiddenAsset(asset)) return null;
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
@@ -375,7 +379,7 @@ export function GalleryPicker({
         <p className="flex items-center gap-1.5 text-[11px] text-ink/55">
           <ImageOff className="h-3 w-3" aria-hidden />
           {withheld} more {withheld === 1 ? 'photo' : 'photos'} here {withheld === 1 ? 'is' : 'are'}{' '}
-          waiting on its shop&rsquo;s verification or its colours.
+          waiting on its shop&rsquo;s verification.
         </p>
       ) : null}
 

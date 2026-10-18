@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
-import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
+import { uploadableSlotsForShop, type LibrarySlotGroup } from '@/lib/moodboard-gallery-upload';
 
 /**
  * lib/moodboard-library-access.ts — ONE predicate for "may this account author
@@ -37,8 +37,8 @@ export type MoodboardLibraryAccess =
   | {
       allowed: true;
       profile: VendorProfileRow;
-      /** The slots this shop may upload into, already labelled. Never empty. */
-      slots: Array<{ key: string; label: string }>;
+      /** The slots this shop may upload into, already labelled, in the couple's order (`uploadableSlotsForShop`). Never empty. */
+      slots: Array<{ key: string; label: string; group: LibrarySlotGroup }>;
     }
   | { allowed: false; reason: 'not_signed_in' | 'no_shop' | 'no_supplying_trade' };
 

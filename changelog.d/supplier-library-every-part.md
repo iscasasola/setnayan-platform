@@ -17,6 +17,14 @@ supplier photos. Extended, not rebuilt:
   (`lib/shop-own-photos.server.ts`) go through the SAME `uploadStylistAsset` — the ref is checked against the shop's own
   list server-side, then the rights tick, trade gate, per-category allowance, content screen, watermark, theft scan and
   Setnayan's approval run exactly as for a file. No new server action.
+- 🔴 An approved supplier photo is never invisible for want of a colour tag (controller on this PR): the gallery used to
+  withhold a photo with no tagged colours, and suppliers do not tag them. Now (a) every supplier upload — a file or one
+  of the shop's own photos — is tagged at upload with the colours of its own pixels (`lib/extract-palette.server.ts`:
+  the shipped extractor's bucketing, server-side, never its cream padding; labelled "Auto", adjustable); (b) a photo
+  that still has none is SHOWN (`shapeGalleryPage`), never hidden by "Matches my colours" and drawn after the matches;
+  saving it reads its colours off its pixels (`applyGalleryPick`). Also found: a supplier upload's bucket path
+  (`moodboard-library/…`) was handed to `<img>` as-is — it is now its public URL (`galleryImageUrl`). Guard
+  `lib/an-untagged-supplier-photo-still-reaches-search-ideas.test.ts` (six sabotages, each red).
 - Fix found on the walk: the editor re-rendered on every colour-map report until React stopped ("Maximum update depth").
 - Guard `lib/every-palette-part-reaches-the-supplier-library.test.ts` (six sabotages, each red); lab round trip
   `/dev/supplier-lab?s=library` → lab Approve → `/dev/details-lab?…&studio=1&library=1` (in-memory, no database).

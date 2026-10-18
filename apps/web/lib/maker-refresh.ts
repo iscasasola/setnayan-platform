@@ -326,10 +326,9 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
     .then((result) => {
       announceDraftBar(result);
       // 👥 Another screen's change reached this save (the note above "the toolbar's count"): said once, pages redrawn.
-      const elsewhere = (result as { elsewhere?: { note?: string; merged?: unknown } } | null)?.elsewhere;
-      if (elsewhere?.note) {
-        // …with the merged values, which the open panels lay into the Maker's own copy (`stage-panel/follow-draft.ts`).
-        announceMakerSave({ state: 'elsewhere', text: elsewhere.note, merged: elsewhere.merged });
+      const note = (result as { elsewhere?: { note?: string } } | null)?.elsewhere?.note;
+      if (note) {
+        announceMakerSave({ state: 'elsewhere', text: note });
         requestCanvasRedraw();
       }
       return result;

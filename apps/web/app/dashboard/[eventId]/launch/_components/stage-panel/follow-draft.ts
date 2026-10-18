@@ -18,8 +18,8 @@
  *     when the pick was made; the moment the draft moves (the pick landed, ↺, Reset, Restore, another screen's
  *     change) the draft's value is shown, and the pick is dropped.
  *   · `useDraftMoves()` — every move of the Maker's own copy re-renders the panel: a noted canvas (a pick, its ↺, a
- *     refused put-back) and a merged save, whose canvases are noted into the copy here first (the pages already
- *     redrew from the draft; the copy is what every panel reads, and what the next pick builds on).
+ *     refused put-back) and a merged save, whose canvases each writer notes into the copy (`noteMergedSave` — the pages
+ *     already redrew from the draft; the copy is what every panel reads, and what the next pick builds on).
  *   Reset · Restore · a slow ↺ are Maker renders: the shell's `renderStamp` moves, and the copy owed the truth is
  *   dropped (`makerRendered`) — the panel's truth moves with it.
  *
@@ -29,7 +29,6 @@ import { useState, useSyncExternalStore } from 'react';
 import { canvasFingerprint, hearDraftedCanvas, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { onMakerSave } from '@/lib/maker-save-status';
-import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
 
 let moves = 0;
 const subs = new Set<() => void>();
@@ -38,14 +37,6 @@ let unwire: (() => void) | null = null;
 function moved(): void {
   moves += 1;
   subs.forEach((f) => f());
-}
-
-/** The canvas of `type` as the Maker's last render handed it down (the work area's door) — the base of a copy. */
-function renderedCanvas(type: string): HubSectionCanvas | null {
-  let got: MakerPartRaw | null = null;
-  window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (raw: MakerPartRaw) => (got = raw) }));
-  const raw = got as MakerPartRaw | null;
-  return (raw?.elementEditing?.canvases?.[type] ?? null) as HubSectionCanvas | null;
 }
 
 /** 👥 A merged save's canvases (`elsewhere.merged.widgets[type].canvas`) into the Maker's own copy. Returns how many. */
@@ -62,14 +53,23 @@ export function noteMergedCanvases(merged: unknown, server: (type: string) => Hu
   return n;
 }
 
+/**
+ * 👥 A save another screen's change reached (`elsewhere`, #6626): its merged canvases into the Maker's own copy. Called
+ * by each canvas writer of the Stages panel with its save's answer and the canvas it built on — here, not in
+ * `makerSave`, because `lib/maker-refresh.ts` is in the Maker's first load and its budget has no room (CI, 2026-10-18).
+ */
+export function noteMergedSave(res: unknown, server: HubSectionCanvas | null | undefined): void {
+  const merged = res && typeof res === 'object' ? (res as { elsewhere?: { merged?: unknown } }).elsewhere?.merged : null;
+  if (merged) noteMergedCanvases(merged, () => server);
+}
+
 function subscribe(f: () => void): () => void {
   subs.add(f);
   if (!unwire && typeof window !== 'undefined') {
     const a = hearDraftedCanvas(moved);
+    /* A merged save moves the draft even where it merged no canvas (the logo's answer): the panels read again. */
     const b = onMakerSave((s) => {
-      if (s.state !== 'elsewhere') return;
-      /* Noting fires `hearDraftedCanvas` (→ `moved`) per canvas; a save that merged no canvas still moves the draft. */
-      if (noteMergedCanvases(s.merged, renderedCanvas) === 0) moved();
+      if (s.state === 'elsewhere') moved();
     });
     unwire = () => {
       a();

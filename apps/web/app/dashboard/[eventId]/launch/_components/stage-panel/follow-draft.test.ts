@@ -115,7 +115,7 @@ test('Reset / Restore (a Maker render): the switch shows the render, and a pick 
 });
 
 test('a merged save (another screen): its canvas lands in the Maker copy and the panel is told', async () => {
-  const { store, refresh, follow } = await load();
+  const { store, follow } = await load();
   const server = SHOWN;
   store.noteDraftedCanvas('hero', SHOWN as never, server as never);
   const copy = () => store.draftedCanvasOr('hero', server as never) as Canvas;
@@ -123,9 +123,10 @@ test('a merged save (another screen): its canvas lands in the Maker copy and the
   assert.equal(sw.render(), true);
   let heard = 0;
   const off = follow.onDraftMoves(() => (heard += 1));
-  // This screen saved something on the cover; the answer says the other screen hid the Date meanwhile.
+  // This screen saved something on the cover; the answer says the other screen hid the Date meanwhile — the writer
+  // hands the answer to the rule (`noteMergedSave`), as each Stages-panel canvas writer does.
   const merged = { widgets: { hero: { canvas: DATE_OFF } } };
-  await refresh.makerSave(async () => ({ ok: true, intent: 'save', elsewhere: { merged, clashed: [], note: 'Changed on another screen a moment ago — showing the newest.' } }), () => {}, { held: true, undo: 'noted' });
+  follow.noteMergedSave({ ok: true, intent: 'save', elsewhere: { merged, clashed: [], note: 'Changed on another screen a moment ago — showing the newest.' } }, server as never);
   off();
   assert.ok(heard > 0, 'the merged save was not heard');
   assert.equal(sw.render(), false, 'after a merged save the switch still shows this screen’s copy, not the merged draft');
@@ -142,6 +143,8 @@ test('the panels use the rule — no copy of a draft value seeded once, no overr
   // The cover lines are read again on every move of the copy no render brings.
   const read = tools.slice(tools.indexOf('const [coverLines, setCoverLines]'));
   assert.match(read.slice(0, read.indexOf('const editOn')), /\}, \[[^\]]*\bdraftMoves\b[^\]]*\]\);/, 'the cover lines are read only on a render');
-  // And the save door hands the merged values to the panels.
-  assert.match(src('../../../../../../lib/maker-refresh.ts'), /state: 'elsewhere', text: elsewhere\.note, merged: elsewhere\.merged/);
+  // And every Stages-panel canvas writer hands its save's answer to the rule (a merged save's canvases → the copy).
+  for (const [name, text] of [['cover-lines', lines], ['cover-animate', animate], ['part-look', src('part-look.ts')]] as const) {
+    assert.match(text, /noteMergedSave\(res, /, `${name} drops a merged save's canvases`);
+  }
 });

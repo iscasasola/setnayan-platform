@@ -19,7 +19,7 @@ import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
-import { usePickUntilDraftMoves } from './follow-draft';
+import { noteMergedSave, usePickUntilDraftMoves } from './follow-draft';
 import { Dd } from './kit';
 
 /**
@@ -72,6 +72,7 @@ async function keepHero(change: (c: HubSectionCanvas) => HubSectionCanvas): Prom
   } catch {
     res = { ok: false, intent: 'save', error: '' };
   }
+  noteMergedSave(res, o.hero);
   if (res === SUPERSEDED || res.ok) return true;
   forgetCanvasSent('hero');
   noteDraftedCanvas('hero', before, o.hero);

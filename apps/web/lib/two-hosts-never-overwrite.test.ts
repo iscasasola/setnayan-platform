@@ -204,6 +204,5 @@ test('12 · every place the pattern is wired still carries it', () => {
   // Round 2: the base is the one shared map every canvas panel uses (`sendCanvasBase`, lib/maker-draft-store.ts).
   assert.match(partLook, /sendCanvasBase\(fd, t\.widgetType, server, next\);/, 'a part’s look no longer sends what it was based on');
   // One place says the note for every Maker save.
-  // (…with the merged values, which the open panels lay into the Maker's own copy — `stage-panel/follow-draft.ts`.)
-  assert.match(read('lib', 'maker-refresh.ts'), /const elsewhere = \(result as \{ elsewhere\?: \{ note\?: string; merged\?: unknown \} \} \| null\)\?\.elsewhere;\s*if \(elsewhere\?\.note\) \{\s*(?:\/\/[^\n]*\n\s*)?announceMakerSave\(\{ state: 'elsewhere', text: elsewhere\.note, merged: elsewhere\.merged \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
+  assert.match(read('lib', 'maker-refresh.ts'), /const note = \(result as \{ elsewhere\?: \{ note\?: string \} \} \| null\)\?\.elsewhere\?\.note;\s*if \(note\) \{\s*announceMakerSave\(\{ state: 'elsewhere', text: note \}\);\s*requestCanvasRedraw\(\);/, 'a Maker save no longer says another screen’s change reached it');
 });

@@ -11,7 +11,7 @@ import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
 import { SP_ROWS } from '@/lib/maker-stage-room';
 import { elementPreview } from '../../../website/editor/_components/element-preview';
 import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
-import { usePickUntilDraftMoves } from './follow-draft';
+import { noteMergedSave, usePickUntilDraftMoves } from './follow-draft';
 import { PanelSwitch } from './kit';
 
 /**
@@ -96,6 +96,8 @@ async function keepShown(el: HubElementKey, shown: boolean): Promise<boolean> {
   } catch {
     res = { ok: false, intent: 'save', error: '' };
   }
+  /* 👥 Another screen's change merged in: the Maker's copy takes the merged cover (`follow-draft.ts`). */
+  noteMergedSave(res, server);
   if (res === SUPERSEDED || res.ok) return true;
   forgetCanvasSent('hero');
   if (canvasFingerprint(draftedCanvasOr('hero', server)) === canvasFingerprint(next)) {

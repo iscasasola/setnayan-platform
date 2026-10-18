@@ -228,6 +228,22 @@ GRANT EXECUTE ON FUNCTION public.papic_record_guest_capture_and_spend(
   UUID, TEXT, BOOLEAN, TEXT, INT, TEXT, INT, TIMESTAMPTZ, UUID
 ) TO service_role;
 
+-- ── THE HAND UNWIND'S RPC GOES WITH ITS LAST CALLER ─────────────────────────
+-- `papic_release_capture_split` existed only so the route could put a booking
+-- back by hand. The route no longer books outside this function, and the seat
+-- path stopped releasing in 20271170528490, so nothing calls it; a refund door
+-- with no caller is one a future edit can wire back in to give back a spend
+-- that committed with its row (ugat-both-ends: "call it, or drop the function").
+--   ⚠ THE DEPLOY WINDOW, named rather than hidden: deploy-prod applies this
+--   BEFORE the new route is live. For the minutes of that Vercel build the OLD
+--   route still runs, and on its rare refund path (a record that refuses AFTER
+--   its booking — a ceiling or the 150 reached in a race, or a racing repeat)
+--   the release now fails. `releaseCaptureCredits` logs that and never throws,
+--   so the camera keeps working; that one shot's booking stays spent, exactly
+--   the leak the old route already had on a death. Its ordinary path is
+--   untouched (both reserves and the record are unchanged).
+DROP FUNCTION IF EXISTS public.papic_release_capture_split(UUID, UUID, INTEGER, INTEGER);
+
 -- ── REFUSE TO APPLY IF IT DID NOT DO ITS JOB ────────────────────────────────
 DO $guard$
 DECLARE
@@ -248,6 +264,9 @@ BEGIN
   END IF;
   IF NOT has_function_privilege('service_role', v_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'refusing to apply: service_role cannot EXECUTE papic_record_guest_capture_and_spend — the guest camera would stop recording';
+  END IF;
+  IF to_regprocedure('public.papic_release_capture_split(uuid,uuid,integer,integer)') IS NOT NULL THEN
+    RAISE EXCEPTION 'refusing to apply: the hand-unwind RPC papic_release_capture_split is still here';
   END IF;
   SELECT pg_get_functiondef(v_oid) INTO v_def;
   IF v_def NOT LIKE '%papic_reserve_capture_split%'

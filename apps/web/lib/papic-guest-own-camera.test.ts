@@ -174,7 +174,7 @@ test('🚨 her camera books BEFORE the row — the ceiling reads what she paid f
   // first would meter her own credits as the couple's and refuse her at her
   // own expense. Everyone else books AFTER the row, to keep the pot's lock short.
   const split = SPEND.indexOf('papic_reserve_capture_split(');
-  const record = SPEND.indexOf('public.papic_record_guest_capture(\n');
+  const record = SPEND.indexOf('v_rec := public.papic_record_guest_capture(');
   const pot = SPEND.indexOf('public.papic_reserve_event_points(v_event, v_cost)');
   assert.ok(split > -1 && record > -1 && pot > -1, 'a landmark moved — re-point this guard');
   assert.ok(split < record, 'her camera is booked after the row — the ceiling would charge her own credits to the couple');

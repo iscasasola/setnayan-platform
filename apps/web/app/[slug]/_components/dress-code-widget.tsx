@@ -265,7 +265,8 @@ export function DressCodeWidget({
   // general view (`speaksToThisReader`).
   // 🪞 Their colours are their Studio row's (`studioRowOf` — a maid of honor wears the Bridesmaids row the couple
   // dressed, never an older palette key the Studio no longer shows).
-  const readerRowKey = studioRowOf(guestRole)?.paletteKey ?? null;
+  // 👯 An honour attendant wears their own row's colours once the couple picked their Wear there (2026-10-19).
+  const readerRowKey = studioRowOf(guestRole, (config as Record<string, unknown> | null) ?? null)?.paletteKey ?? null;
   const readerRowHexes = readerRowKey ? (board[readerRowKey] ?? []).filter((h) => typeof h === 'string' && h.length > 0) : [];
   const withRowColours = <T extends { panel: { hexes: string[]; hex: string | null } | null }>(r: T): T =>
     r.panel && readerRowHexes.length > 0 ? { ...r, panel: { ...r.panel, hexes: [...readerRowHexes], hex: readerRowHexes[0] ?? null } } : r;
@@ -297,6 +298,7 @@ export function DressCodeWidget({
     palette: board,
     names: roleNames,
     person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
+    config,
   }))), generalHasContent);
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;

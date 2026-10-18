@@ -4,6 +4,16 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { findMakerSection, makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import { whenIdle } from '@/lib/maker-preload';
 import { CANVAS_REFRESH_MESSAGE, MAKER_SAVES_QUIET_EVENT, makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
+import {
+  MAKER_CANVAS_RELOAD_EVENT,
+  MAKER_CANVAS_SILENT_EVENT,
+  createCanvasBridgeWatch,
+  readCanvasDoc,
+  reportSilentCanvas,
+  type CanvasBridgeWatch,
+  type CanvasFrameBirth,
+  type MakerCanvasSilentDetail,
+} from './canvas-bridge-watch';
 
 /**
  * 🪞 THE CANVAS, DOUBLE-BUFFERED — a new render loads BEHIND the page the
@@ -284,6 +294,7 @@ export function BufferedCanvasFrame({
   onShown,
   onSwapped,
   pageFrame = false,
+  watchBridge = false,
 }: {
   /** Changes with every render that must reach the canvas. */
   frameKey: string;
@@ -317,6 +328,11 @@ export function BufferedCanvasFrame({
   onSwapped: (ready: unknown) => void;
   /** A made-once PAGE's frame (`MakerPageFrame`): the shown one is marked `data-maker-page-frame`. */
   pageFrame?: boolean;
+  /**
+   * 👂 The Maker's canvas: a frame on screen whose bridge never says `ready` is loaded again once, then SAID in the
+   * toolbar, and recorded as a fault (`canvas-bridge-watch.ts`, 2026-10-18 "cannot select again" in Safari).
+   */
+  watchBridge?: boolean;
 }) {
   const next: CanvasFrame = { key: frameKey, group, src };
   const [frames, setFrames] = useState<CanvasFrames>({ shown: next, loading: null });
@@ -335,6 +351,10 @@ export function BufferedCanvasFrame({
   const loaded = useRef(new Set<string>());
   /** Picks the bridge drew while a kept frame was still loading — posted at its `ready` (`canvasPosts` `wait`). */
   const waiting = useRef<Record<string, unknown[]>>({});
+  /** Where each frame stood when it was first mounted — a silent frame's fault says whether it was a buffered/kept one. */
+  const birthOf = useRef<Record<string, CanvasFrameBirth>>({});
+  /** 👂 The watch on the frame on screen (`watchBridge`). */
+  const watch = useRef<CanvasBridgeWatch | null>(null);
 
   useEffect(() => {
     setFrames((s) => trimWarmFrames(planCanvasFrames(s, { key: frameKey, group, src }), wantedRef.current, warmMax));
@@ -382,6 +402,7 @@ export function BufferedCanvasFrame({
       for (const [id, el] of Object.entries(els.current)) {
         if (el && event.source === el.contentWindow) {
           readyOf.current[id] = data;
+          watch.current?.ready(id);
           /* 🔥 What the bridge drew while this kept frame was loading, in order (`canvasPosts` `wait`). */
           const missed = waiting.current[id];
           delete waiting.current[id];
@@ -444,6 +465,7 @@ export function BufferedCanvasFrame({
       if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
       if (event.source !== els.current[loadingKey]?.contentWindow) return;
       readyOf.current[loadingKey] = data;
+      watch.current?.ready(loadingKey);
       window.setTimeout(() => promote(loadingKey), 0);
     };
     window.addEventListener('message', onMessage);
@@ -454,6 +476,49 @@ export function BufferedCanvasFrame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the loading frame only
   }, [loadingKey]);
+
+  /* 👂 THE FRAME ON SCREEN IS HEARD, OR SAID (`canvas-bridge-watch.ts`). Only the Maker's canvas (`watchBridge`). */
+  useEffect(() => {
+    if (!watchBridge) return;
+    const reload = (id: string) => {
+      const el = els.current[id];
+      if (!el) return;
+      loaded.current.delete(id);
+      delete readyOf.current[id];
+      try {
+        el.contentWindow?.location.reload();
+      } catch {
+        /* a document we may not reach: the same address again */
+        const at = el.getAttribute('src');
+        if (at) el.src = at;
+      }
+    };
+    const w = createCanvasBridgeWatch({
+      later: (fn, ms) => window.setTimeout(fn, ms),
+      clear: (h) => window.clearTimeout(h as number),
+      shown: () => canvasFrameId(framesRef.current.shown),
+      isReady: (id) => id in readyOf.current,
+      reload,
+      say: (silent) => window.dispatchEvent(new CustomEvent<MakerCanvasSilentDetail>(MAKER_CANVAS_SILENT_EVENT, { detail: { silent } })),
+      report: reportSilentCanvas,
+      readDoc: (id) => readCanvasDoc(els.current[id]),
+      birth: (id) => birthOf.current[id] ?? 'shown',
+    });
+    watch.current = w;
+    /* a frame that loaded before the watch began */
+    const now = canvasFrameId(framesRef.current.shown);
+    if (loaded.current.has(now)) w.loaded(now);
+    const onReload = () => w.reloadNow();
+    window.addEventListener(MAKER_CANVAS_RELOAD_EVENT, onReload);
+    return () => {
+      window.removeEventListener(MAKER_CANVAS_RELOAD_EVENT, onReload);
+      w.dispose();
+      watch.current = null;
+    };
+  }, [watchBridge]);
+  useEffect(() => {
+    watch.current?.shownNow(canvasFrameId(frames.shown));
+  }, [frames.shown]);
 
   /* After a swap — buffered, or a warm stage shown — the Maker re-marks the
      element and re-reads the bar from the new frame's own `ready`. A frame
@@ -531,6 +596,7 @@ export function BufferedCanvasFrame({
       {mounted && list.map((f) => {
         const role = f === frames.shown ? 'shown' : f === frames.loading ? 'loading' : 'warm';
         const loading = role === 'loading';
+        birthOf.current[canvasFrameId(f)] ??= role;
         return (
           <iframe
             key={canvasFrameId(f)}
@@ -545,6 +611,7 @@ export function BufferedCanvasFrame({
             data-maker-page-frame={pageFrame && role === 'shown' ? '' : undefined}
             onLoad={() => {
               loaded.current.add(canvasFrameId(f));
+              watch.current?.loaded(canvasFrameId(f));
               setWarmTick((n) => n + 1);
               if (!loading) return;
               window.setTimeout(() => {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { PillThumb } from '@/app/_components/pill-selector';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { createPortal } from 'react-dom';
-import { Check, Play, Reply, Square, X, type LucideIcon } from 'lucide-react';
+import { Check, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
@@ -93,6 +93,13 @@ import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import {
+  CANVAS_SILENT_RELOAD,
+  CANVAS_SILENT_WORDS,
+  MAKER_CANVAS_RELOAD_EVENT,
+  MAKER_CANVAS_SILENT_EVENT,
+  type MakerCanvasSilentDetail,
+} from '../../website/editor/_components/canvas-bridge-watch';
 import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
@@ -1305,6 +1312,14 @@ export function StageTools({
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  /* 👂 THE PAGE ON SCREEN DOES NOT ANSWER (`canvas-bridge-watch.ts`): said here, in plain words, with one Reload —
+     never a canvas that looks fine and takes no tap (2026-10-18, Safari, "cannot select again"). */
+  const [canvasSilent, setCanvasSilent] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => setCanvasSilent(Boolean((e as CustomEvent<MakerCanvasSilentDetail>).detail?.silent));
+    window.addEventListener(MAKER_CANVAS_SILENT_EVENT, on);
+    return () => window.removeEventListener(MAKER_CANVAS_SILENT_EVENT, on);
+  }, []);
   /** 🖼 THE ONE TAP A COVER WORD'S BACKGROUND LINE ENDS IN: "This sits on the Cover Scene." → Select the Cover Scene ›
    *  (`makerPartParent`, the approved prototype's door). It selects the group; it never navigates. */
   const whyDoor = why && why.words === MAKER_COVER_WORD_BG_WHY && !rsvpOpen ? makerPartParent(picked) : null;
@@ -1811,6 +1826,24 @@ export function StageTools({
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a
             save that failed (`scene-drag.tsx`). Laid over the four rows' own box, so it is row 4 under every tool. ══ */}
+        {/* ══ 👂 THE PAGE ISN'T ANSWERING TAPS — row 1, over whatever tool is open, until the page answers. ══ */}
+        {canvasSilent ? (
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-[3] ${SP_ROWS}`} data-stage-canvas-silent="">
+            <div role="alert" className="pointer-events-auto row-start-1 flex min-w-0 items-center justify-center gap-3 bg-[var(--sp-page)] px-1">
+              <span className="min-w-0 truncate text-[13px] font-medium text-[var(--sp-ink)]">{CANVAS_SILENT_WORDS}</span>
+              <ActionButton
+                tone="brand"
+                main
+                icon={RotateCw}
+                label={CANVAS_SILENT_RELOAD}
+                onClick={() => {
+                  setCanvasSilent(false);
+                  window.dispatchEvent(new Event(MAKER_CANVAS_RELOAD_EVENT));
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         {statusOn ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[2] ${SP_ROWS}`} data-stage-status="">
             <div className="pointer-events-auto row-start-4 flex min-w-0 items-center justify-center bg-[var(--sp-page)]">{edits.status}</div>

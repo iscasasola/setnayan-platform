@@ -28,3 +28,9 @@ Walked (lab, port 3675, stopped, .next removed): Chromium 812 17/17 · 667 17/17
 keeps the drawn area (`swapOrnament`) — the first walk showed a square leaf covering the names at the flourish's scale.
 PR #6641 DRAFT, label do-not-auto-merge, autoMergeRequest null. Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6641/
 (side-by-side-L5-375.jpg). NEXT: CI to green (one loop, 120 s), fix reds; delete this file only when fully green.
+
+## CI round 1 (18:34): ONE RED — bundle size check / Maker first-load = 507.1 KB vs 507.0 (main 831fc52 = 506.9).
+Delta from this PR ~0.1–0.2 KB although logo-layers.ts grew only ~13 B gz (esbuild estimate) — cause not yet pinned.
+Diagnosing with a local `next build` + `check-maker-js-budget.mjs` (scratchpad/logo-l5-walk/budget.txt). Fix plan: take the
+L5 bytes back out of the first load (move lazy-only `LOGO_LAYER_KIND_LABEL` into `logo-layers-edit.ts`, default name
+derived from the kind), never raise the budget. Other checks were green/pending at the time.

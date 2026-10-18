@@ -42,6 +42,7 @@ import {
 } from '@/lib/element-style';
 import { elementPreview, refusedChoiceWords } from '../../../website/editor/_components/element-preview';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
+import { noteMergedSave } from './follow-draft';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 import { CLOSING_CANVAS_KEY, CLOSING_EL, CLOSING_STORED_ON } from '@/lib/closing-line';
 
@@ -154,6 +155,7 @@ export async function keepPartLook(t: PartLookTarget, field: PartLookField, valu
   /* A later pick carried this one — its answer decides for both. */
   /* 👥 Another screen's change merged into this save: the pages redraw in place from the draft, which holds both, and
      the toolbar says so once (`makerSave`); the next pick here is merged from what this one sent. */
+  noteMergedSave(res, server);
   if (res === SUPERSEDED || res.ok) return { ok: true };
   forgetCanvasSent(t.widgetType);
   /* ↩ Refused, and nothing newer is on the Maker's copy: the page and the copy go back. */

@@ -125,7 +125,7 @@ export function MakerWelcomeGiftsEmpty({
         /* The bank card's own shape, so the kit's corner rules (`lib/art-kits.ts`, `li:has(>[data-kit-slot="gifts-card"])`)
            place the spray and the abaniko on it — no second rule. */
         <ul className="pt-6" data-maker-gifts-card="">
-          <li className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm">
+          <li className="overflow-hidden rounded-2xl bg-cream shadow-sm">
             {kit}
             <div className="space-y-1 p-4">
               <SceneSample sceneType="gifts" className="!mx-0 py-1" />

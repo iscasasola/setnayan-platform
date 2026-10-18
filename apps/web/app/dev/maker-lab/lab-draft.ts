@@ -106,16 +106,27 @@ export const LAB_OWN_SCENE = { type: 'custom_1', config: { title: 'A note from u
  * template: 20 }, stage_order: { rsvp: 2 } }`, mode Auto. His Maker drew its placeholder and *"i cannot edit this"*.
  */
 export const LAB_OWN_TPL20 = { type: 'custom_1', config: { canvas: { preset: 'still', template: 20 }, stage_order: { rsvp: 2 } } } as const;
-/** Which scene of their own the lab holds, from `lab_own`: `1` the written one, `tpl20` the owner's empty one, else none. */
-export type LabOwnKind = 'words' | 'tpl20' | null;
+/**
+ * Which scene of their own the lab holds, from `lab_own`: `1` the written one, `tpl20` the owner's empty one, else none.
+ * 🖼 `tpl<N>` (1–25, owner 2026-10-18 "every template that has picture slots must work"): the same empty row made from
+ * template N — so a walk can try every template's picture slots on the phone.
+ */
+export type LabOwnKind = 'words' | 'tpl20' | `tpl${number}` | null;
 export function labOwnKind(cookie: string | undefined): LabOwnKind {
-  return cookie === '1' ? 'words' : cookie === 'tpl20' ? 'tpl20' : null;
+  if (cookie === '1') return 'words';
+  const n = /^tpl([1-9]|1\d|2[0-5])$/.exec(cookie ?? '')?.[1];
+  return n ? (`tpl${n}` as LabOwnKind) : null;
+}
+/** The empty row made from template N, shaped as the owner's (`LAB_OWN_TPL20`). */
+function labOwnTemplateRow(kind: LabOwnKind) {
+  const n = typeof kind === 'string' && kind.startsWith('tpl') ? Number(kind.slice(3)) : 0;
+  return n === 20 || !n ? LAB_OWN_TPL20 : { type: 'custom_1', config: { canvas: { preset: 'still', template: n }, stage_order: { rsvp: 2 } } };
 }
 
 /** The sample's LIVE rows — what guests of the sample would see with no draft at all (`own`: see `LAB_OWN_COOKIE`). */
 export function labRows(own: boolean | LabOwnKind = false): InvitationWidgetRow[] {
   const now = '2026-10-05T00:00:00Z';
-  const ownScene = own === 'tpl20' ? LAB_OWN_TPL20 : own ? LAB_OWN_SCENE : null;
+  const ownScene = typeof own === 'string' && own.startsWith('tpl') ? labOwnTemplateRow(own) : own ? LAB_OWN_SCENE : null;
   const types: ReadonlyArray<[WidgetType, boolean, InvitationWidgetRow['config_json']]> = [
     ...MJ_ROWS.map(([type, alwaysOn]) => [type, alwaysOn, {}] as [WidgetType, boolean, InvitationWidgetRow['config_json']]),
     ...(ownScene ? [[ownScene.type as WidgetType, false, ownScene.config as unknown as InvitationWidgetRow['config_json']] as [WidgetType, boolean, InvitationWidgetRow['config_json']]] : []),

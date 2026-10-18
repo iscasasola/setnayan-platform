@@ -33,6 +33,20 @@ const PROGRESS = 'setnayan.spotlight.';
 /** How long the current step's element may be missing before a later visible step is taken. */
 const GRACE_MS = 1400;
 const TICK_MS = 350;
+/** After a tap on a lit LINK, how long the tour waits for the next page before it gives up waiting. */
+const NAV_WAIT_MS = 15000;
+
+/** The address a tap on this element walks to, when it is (inside) a link to another page. */
+function linkTarget(el: Element): string | null {
+  const a = el.closest('a[href]') as HTMLAnchorElement | null;
+  if (!a) return null;
+  try {
+    const to = new URL(a.href, location.href);
+    return to.pathname + to.search !== location.pathname + location.search ? to.href : null;
+  } catch {
+    return null;
+  }
+}
 
 type Box = { x: number; y: number; w: number; h: number; r: string };
 
@@ -54,8 +68,9 @@ function writeProgress(key: string, i: number | null): void {
   }
 }
 
+/** Our own layers — and Next's dev-only overlay badge, which never ships but would "cover" a tab in a lab. */
 function isOurs(el: Element | null): boolean {
-  return !!el?.closest('[data-sn-spot]');
+  return !!el?.closest('[data-sn-spot], nextjs-portal');
 }
 
 /** The safe-area insets, read once from a probe (env() is not readable from script directly). */
@@ -96,16 +111,24 @@ function candidates(anchor: string): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(`[data-tour~="${CSS.escape(anchor)}"]`));
 }
 
-/** The first match that is drawn (has a size and is not hidden by CSS). */
+/**
+ * The first match that is drawn (has a size and is not hidden by CSS) — the INNERMOST one when a match
+ * holds another: the Next card carries its step's token and so does its main button, so the button is lit
+ * when there is one and the whole card when the card's button is a different kind (Reload, Buy more).
+ */
 function drawn(anchor: string): HTMLElement | null {
-  for (const el of candidates(anchor)) {
-    const r = el.getBoundingClientRect();
-    if (r.width < 4 || r.height < 4) continue;
-    const cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) continue;
-    return el;
+  const all = candidates(anchor);
+  for (const el of all.filter((c) => !all.some((o) => o !== c && c.contains(o) && isDrawn(o)))) {
+    if (isDrawn(el)) return el;
   }
   return null;
+}
+
+function isDrawn(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  if (r.width < 4 || r.height < 4) return false;
+  const cs = getComputedStyle(el);
+  return !(cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0);
 }
 
 /** Is the element's centre actually it on screen — not under a sheet, a bar or off the edge? */
@@ -193,8 +216,12 @@ export function SpotlightTour({
   const goRef = useRef<HTMLButtonElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const missingSince = useRef<number | null>(null);
+  /** A lit link was pressed: the page it opens has not arrived yet (never skip ahead meanwhile). */
+  const navPending = useRef<{ from: string; at: number } | null>(null);
+  const lastHref = useRef<string>('');
   const scrolledFor = useRef<number>(-1);
   const insets = useRef<{ top: number; bottom: number }>({ top: 0, bottom: 0 });
+  const keyboardRef = useRef(false);
   const iRef = useRef(i);
   iRef.current = i;
 
@@ -238,7 +265,9 @@ export function SpotlightTour({
     if (done || busy) return;
     /* The Maker is a full-screen editor with its own first-visit welcome: the journey waits
        under it and comes back the moment the host exits. */
-    if (document.querySelector('[data-maker-shell]')) {
+    /* …and the cookie question comes first: it sits over the bottom of the screen, and a tour drawn over
+       it would hide the one thing the person must answer. One thing at a time. */
+    if (document.querySelector('[data-maker-shell], [data-cookie-consent]')) {
       targetRef.current = null;
       setBox(null);
       setLitFor(-1);
@@ -247,6 +276,19 @@ export function SpotlightTour({
     }
     const step = steps[iRef.current];
     if (!step) return;
+    // A new page: its elements get the full grace to arrive before anything is skipped.
+    if (location.href !== lastHref.current) {
+      lastHref.current = location.href;
+      missingSince.current = null;
+      navPending.current = null;
+    }
+    // A lit link was pressed and its page is still on its way (a slow phone): hold the ring, skip nothing.
+    if (navPending.current && Date.now() - navPending.current.at < NAV_WAIT_MS) {
+      targetRef.current = null;
+      setLitFor(-1);
+      return;
+    }
+    navPending.current = null;
     let el = drawn(step.anchor);
     if (el && !isFixedInside(el) && scrolledFor.current !== iRef.current) {
       const band = freeBand(el, insets.current);
@@ -336,7 +378,9 @@ export function SpotlightTour({
       void tip.offsetWidth;
       tip.classList.add('pop');
     }
-    goRef.current?.focus({ preventScroll: true });
+    /* Focus follows only a KEYBOARD walk (Next pressed with Enter / Space): on a phone a moved focus
+       draws the focus ring on Next for no reason. */
+    if (keyboardRef.current) goRef.current?.focus({ preventScroll: true });
     setFinger({ x: box.x + box.w + 30, y: box.y + box.h + 40, on: false, tap: false });
     const a = window.setTimeout(() => setFinger({ x: box.x + box.w / 2 - 6, y: box.y + box.h / 2 - 4, on: true, tap: false }), 700);
     const b = window.setTimeout(() => setFinger((f) => ({ ...f, tap: true })), 1500);
@@ -355,6 +399,7 @@ export function SpotlightTour({
     const onTap = (e: MouseEvent) => {
       const el = targetRef.current;
       if (busyRef.current || !el || !(e.target instanceof Node) || !el.contains(e.target)) return;
+      if (linkTarget(el)) navPending.current = { from: location.href, at: Date.now() };
       // Record where they are first — a tap that navigates must still resume on the next step.
       writeProgress(tourKey, Math.min(iRef.current + 1, steps.length - 1));
       advance(450);
@@ -368,8 +413,20 @@ export function SpotlightTour({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') (done ? onClose : finish)();
     };
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') keyboardRef.current = true;
+    };
+    const onPointer = () => {
+      keyboardRef.current = false;
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onDown, true);
+      window.removeEventListener('pointerdown', onPointer, true);
+    };
   }, [done, finish, onClose]);
 
   const onNext = () => {

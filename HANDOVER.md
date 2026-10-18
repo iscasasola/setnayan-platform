@@ -25,6 +25,16 @@ SPOTLIGHT TOUR". Contract: corpus `prototypes/spotlight_tour_sample_2026-10-02.h
 - Day + Post Event is its own short tour on Home, mounted only once the day has come (after the planning tour).
 - Supplier payday step is Today's money number (Customers › People draws no Money switch).
 
+## Walked (lab `/dev/spotlight-lab`, real components on fixtures, no database; Chromium 375×812, touch)
+- Host 8/8 steps + done, supplier 8/8 + done, day 4/4 + done — light and dark. Shots + 5 side-by-sides vs the sample:
+  `~/Documents/Claude/Projects/shots-2026-10-18/6647/`. Walk scripts: `…/6647/work/`.
+- Found and fixed on the walk: skip-ahead fired while a tapped tab's next page was still loading (now held up to 15 s
+  after a lit LINK is pressed); the cookie question covered the thumb rows (the tour now waits until it is answered);
+  Next's focus ring on a touch phone (focus moves only for a keyboard walk); the Next card's button differs by kind
+  (the card itself now carries the token; the innermost match wins).
+- Lab notes: Shop and the day-of block are drawn from the real rows/markup (the real pages read the database); the
+  suppliers thumb row needs `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` (ON in production).
+
 ## Left / next
 - Per-page MiniTours (~40) are NOT converted to spotlight steps yet (their keys stay off). Maker-internal tour untouched.
 - Home's Next card has no "Show me" button yet (ruling 2026-10-02 (2)).

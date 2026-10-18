@@ -28,7 +28,9 @@ export default function SpotlightLabLayout({ children }: { children: React.React
   if (process.env.NODE_ENV === 'production') notFound();
   return (
     <>
-      <style>{'[data-bottom-dock]:has([data-lab-dock]){display:none!important}'}</style>
+      {/* The labs' stand-in docks are hidden; a hidden dock still publishes its height (0), so the one real
+          bar's height is pinned here — the floating thumb rows sit above it, as in the app. */}
+      <style>{'[data-bottom-dock]:has([data-lab-dock]){display:none!important}html{--sn-bottomdock-h:calc(env(safe-area-inset-bottom,0px) + 64px)!important}'}</style>
       {children}
       <LabSpotlight
         host={TOURS.host_spotlight_v1.spotlight!}

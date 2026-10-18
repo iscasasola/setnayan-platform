@@ -132,7 +132,7 @@ export function StageItemMenu({
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
             {MAKER_STAGE_KEYS.map((s) => {
               /* 🚪 A stage Page ▾ does not list (this event does not need it — `needsHidesStage`) is not listed here. */
-              if (options.length > 0 && !options.some((o) => o.key === s || o.key.startsWith(`${s}:`))) return null;
+              if (options[0] && !options.some((o) => o.key.split(':')[0] === s)) return null;
               const pages = pagesOf(s);
               const on = s === stage && (bar?.here ?? true);
               const Icon = STAGE_ICON[s] ?? FileText;

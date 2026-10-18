@@ -158,8 +158,6 @@ const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
 
 /** The sheet handed down only when the new Maker is on — a plain call, never a component, so the shipped tree is unchanged. */
 const NO_ROLE_ROWS: readonly SeeAsRoleRow[] = [];
-/** 🚪 No stage hidden — a stable empty list, so the default never changes identity between renders. */
-const NO_HIDDEN_STAGES: readonly string[] = [];
 
 function withPickSheet(on: boolean, children: ReactNode): ReactNode {
   return on ? <PickSheetContext.Provider value={makerPickSheet}>{children}</PickSheetContext.Provider> : children;
@@ -194,7 +192,7 @@ export function MakerShell({
   stagesStudio = false,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
-  hiddenStages = NO_HIDDEN_STAGES,
+  hiddenStages,
   children,
 }: {
   /** 🎭 See as · Role ▾'s rows — this event's guest-list roles (`lib/preview-role.ts`, built on the server). */
@@ -728,7 +726,7 @@ export function MakerShell({
     if (sec === 'look') setLookVisit((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
-  const ltStages = MAKER_PAGE_STAGES.filter((s) => (hasWork || s !== RSVP_STAGE_KEY) && !hiddenStages.includes(s)).map((s) => ({
+  const ltStages = MAKER_PAGE_STAGES.filter((s) => (hasWork || s !== RSVP_STAGE_KEY) && !hiddenStages?.includes(s)).map((s) => ({
     key: s,
     label: makerStageLabel(s),
     ...(s === liveStage ? { dot: true } : {}),

@@ -640,7 +640,10 @@ export async function hubDraftBarAfterSave(
     const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
     let priceLabel: string | null = null;
-    if (free.proCount > 0) {
+    // 🍎 Never a web price in ANY store shell — including the one where Apple sells
+    // Pro: there the toolbar is handed `storeShell: false` for Pro (HubDraftDock),
+    // so this is the one place left that must refuse the catalogue figure itself.
+    if (free.proCount > 0 && !(await getIapGate()).storeShell) {
       const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
       priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
     }

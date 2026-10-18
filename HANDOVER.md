@@ -6,7 +6,10 @@
 - CI: 26/26 green at 5a84429ee1. Then main moved (onboarding #6636, Logo #6638) → merged origin/main again
   (conflicts in home-first-screen.tsx + dev/home-lab/page.tsx, both sides kept; home-shelf + ugat screens
   baselines regenerated with their generators). Full local unit suite 26,145 tests: 0 fail (before this merge).
-- Next step: watch CI on the merge commit; when green, delete this file in one push and push nothing more.
+- 18:45: the merge run went red ONLY on the Maker bundle (507.0 KB vs 507.0 budget, main 506.9). Fixed by moving
+  the last client delta to the server: hub-draft-bar.tsx is byte-identical to main again; HubDraftDock passes
+  `storeShell={bar.storeShell && !bar.appleIap}` and hubDraftBarAfterSave refuses the web price in any shell.
+- Next step: watch CI on the newest commit; when ALL green, delete this file in one push and push nothing more.
   If a red appears, read its log (gh api repos/iscasasola/setnayan-platform/actions/jobs/<id>/logs).
 - Swift plugin compiled locally (xcodebuild -sdk iphoneos, CODE_SIGNING_ALLOWED=NO → BUILD SUCCEEDED).
   Not run on a device; CI never compiles iOS.
@@ -19,7 +22,7 @@
   activateOrderSku by the promoting call only. REFUND (ASSN v2 /api/iap/app-store-notifications) → refunded →
   deactivateOrderSku.
 - Pro: Maker's "Unlock Pro and Apply" in the app opens /dashboard/[eventId]/apple-pro, returns with ?apply=1
-  (own page because the Maker first-load budget 507 KB is full — measured 506.8 KB with this PR).
+  (own page because the Maker first-load budget 507 KB is full; the toolbar itself carries no IAP code).
 
 ## Owner's App Store Connect steps (his, not a session's)
 1. Create 7 CONSUMABLE in-app purchases (ids are permanent):

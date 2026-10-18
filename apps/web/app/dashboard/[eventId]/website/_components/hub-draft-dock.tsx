@@ -22,6 +22,12 @@ export async function HubDraftDock({ eventId, saveError }: { eventId: string; sa
   return (
     <HubDraftToolbar
       {...bar}
+      /* 🍎 Where Apple sells Pro (owner 2026-10-18), the toolbar treats Pro as the
+         web does — Apply asks for it, and "Unlock Pro and Apply" opens Apple's page
+         (`bar.proHref`). Decided HERE, on the server, so the toolbar (the Maker's
+         first load) carries no new code. Prices stay withheld in every store shell
+         by the loaders (`priceLabel` null). */
+      storeShell={bar.storeShell && !bar.appleIap}
       saveError={hubDraftSaveFailureText(saveError)}
       /* 💎 First visit to the Apply sheet — drawn only inside the open sheet,
          which never opens in the app-store shell (no effects reach it there). */

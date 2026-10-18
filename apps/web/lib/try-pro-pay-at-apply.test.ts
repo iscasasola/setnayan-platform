@@ -304,7 +304,11 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(load, /if \(!storeShell && summary\.proCount > 0\)/);
   assert.match(load, /proHref: iap \? `\/dashboard\/\$\{eventId\}\/apple-pro\?from=maker` : storeShell \? null :/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /const asksForPro = !proShell && proHref !== null && proEffects\.length > 0;/);
+  assert.match(bar, /const asksForPro = !storeShell && proHref !== null && proEffects\.length > 0;/);
+  // 🍎 Where Apple sells Pro, the DOCK hands the toolbar `storeShell: false` for Pro (server-side, so the
+  // Maker's first load gains nothing) — and the after-save read refuses the web price in any store shell.
+  assert.match(code('app/dashboard/[eventId]/website/_components/hub-draft-dock.tsx'), /storeShell=\{bar\.storeShell && !bar\.appleIap\}/);
+  assert.match(store, /if \(free\.proCount > 0 && !\(await getIapGate\(\)\)\.storeShell\)/);
   // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px
   // icon — a mis-tap never publishes); the sheet names the Pro effects when
   // `asksForPro`, else says "Ready to apply" with the count.

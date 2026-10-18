@@ -98,8 +98,6 @@ export type HubDraftBarProps = {
   applyTour?: ReactNode;
   /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
-  /** 🍎 The store shell may sell Pro through Apple (`HubDraftBarData.appleIap`); absent/false = as before. */
-  appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -343,13 +341,8 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
-  appleIap = false,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
-  /* 🍎 With Apple In-App Purchase the app treats Pro as the web does (tried in
-     the draft, asked for at Apply); only the buy button differs. Without it the
-     store shell keeps every Pro key held, exactly as before. */
-  const proShell = storeShell && !appleIap;
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
      the bridge drew is followed by no render of the Maker (`lib/maker-refresh.ts`),
      so its save answers with the bar and `makerSave` hands it here. The render's
@@ -367,7 +360,7 @@ export function HubDraftToolbar({
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
   const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || proShell ? (proShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();
@@ -375,7 +368,7 @@ export function HubDraftToolbar({
      on apply and point out the effect chosen"*). Apply opens it — never the
      write — while the draft holds a Pro effect this event has not unlocked. */
   const [sheetOpen, setSheetOpen] = useState(false);
-  const asksForPro = !proShell && proHref !== null && proEffects.length > 0;
+  const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
@@ -515,8 +508,7 @@ export function HubDraftToolbar({
       asked: true,
       proEffects: proEffects.length,
       hasChanges: summary.hasChanges,
-      // 🍎 Where Apple sells Pro, the app returns from Apple's page like the web from its own.
-      storeShell: proShell,
+      storeShell,
     });
     if (next === 'apply') act({ intent: 'apply' });
     else if (next === 'sheet') setSheetOpen(true);
@@ -611,7 +603,7 @@ export function HubDraftToolbar({
           effects={asksForPro ? proEffects : []}
           changeCount={summary.changeCount}
           changes={summary.changes}
-          heldOnWeb={proShell ? summary.proCount : 0}
+          heldOnWeb={storeShell ? summary.proCount : 0}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}

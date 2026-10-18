@@ -78,8 +78,9 @@ test('1 · an honour row for each pair the guest list has, at the head of the en
   assert.deepEqual([moh + 1, bm + 1], [bm, maids], `the honour rows do not stand together just before the Bridesmaids: ${k.join(' ')}`);
   assert.ok(men > maids, 'the Groomsmen moved');
   const at = (key: string) => rows.find((r) => r.key === key)!;
-  /* named for who is on THIS list — no matron here, so the row is the maid of honor's alone */
-  assert.equal(at('maid_of_honor').label, 'Maid of Honor');
+  /* ALWAYS BOTH NAMES (owner 2026-10-19, "maid and matron of honor same row") — no matron on this list, and the row is
+     still the pair's */
+  assert.equal(at('maid_of_honor').label, 'Maid of Honor & Matron of Honor');
   assert.equal(at('best_man').label, 'Best Man & Best Woman');
   /* the honour attendants are counted in their own row and no longer in their group's */
   assert.equal(at('maid_of_honor').people, 2);
@@ -94,14 +95,18 @@ test('1 · an honour row for each pair the guest list has, at the head of the en
 
   /* a renamed honour role is said in the couple's word too */
   const renamed = studioAttireRows(t([['matron_of_honor', 1], ['bridesmaid', 3]]), null, { matron_of_honor: { one: 'Ate Lia' } } as never);
-  assert.equal(renamed.find((r) => r.key === 'maid_of_honor')?.label, 'Ate Lia');
+  assert.equal(renamed.find((r) => r.key === 'maid_of_honor')?.label, 'Maid of Honor & Ate Lia');
+
+  /* cale-ice's shape (2 maids of honor, no matron; 2 best men, 1 best woman) — both rows carry both names */
+  const cale = studioAttireRows(t([['maid_of_honor', 2], ['best_man', 2], ['best_woman', 1], ['bridesmaid', 12]]), null);
+  assert.deepEqual(cale.filter((r) => r.tier === 'roles' && /best_man|maid_of_honor/.test(r.key)).map((r) => r.label), ['Maid of Honor & Matron of Honor', 'Best Man & Best Woman']);
 
   /* no honour attendant, no honour row; and a group made only of honour attendants is not drawn */
   const none = keys(studioAttireRows(t([['bridesmaid', 3], ['groomsman', 3]]), null));
   assert.ok(!none.includes('roles:maid_of_honor') && !none.includes('roles:best_man'), 'an honour row with nobody in it');
   const only = studioAttireRows(t([['best_woman', 1]]), null);
   assert.deepEqual(keys(only).filter((x) => /groomsmen|best_man/.test(x)), ['roles:best_man'], 'a Groomsmen row of nobody');
-  assert.equal(only.find((r) => r.key === 'best_man')?.label, 'Best Woman');
+  assert.equal(only.find((r) => r.key === 'best_man')?.label, 'Best Man & Best Woman');
   assert.deepEqual(only.find((r) => r.key === 'best_man')?.honourColumns, [1]);
   assert.equal(only.find((r) => r.key === 'best_man')?.fallsBackTo, undefined, 'it points at a Groomsmen row that is not drawn');
 });
@@ -262,14 +267,14 @@ test('5 · the Studio draws the honour rows: a figure per column, one Wear ▾ e
   assert.doesNotMatch(moh, /data-mood-board-falls-back=/, 'a dressed row still says they dress as the Bridesmaids');
 });
 
-test('5 · the general view (the Event Hub, the prints) lists an honour row like every other, named for who it shows', () => {
+test('5 · the general view (the Event Hub, the prints) lists an honour row like every other, named for both of its pair', () => {
   const stored = sanitizeRolePalette({});
   const everyone = dressCodeForEveryone({ config: DRESSED, stored, board: resolveDisplayPalette(stored) });
   const row = (k: string) => everyone.rows.find((r) => r.rowKey === k);
   assert.equal(row('best_man')?.label, 'Best Man & Best Woman');
   assert.deepEqual(row('best_man')?.picks.map((p) => p.styleLabel), ['Tuxedo', 'Filipiniana']);
-  assert.equal(row('maid_of_honor')?.label, 'Maid of Honor / Matron of Honor');
+  assert.equal(row('maid_of_honor')?.label, 'Maid of Honor & Matron of Honor');
   const manOnly = dressCodeForEveryone({ config: { roles: { best_man: { style: 'tuxedo' } } }, stored, board: resolveDisplayPalette(stored) });
-  assert.equal(manOnly.rows.find((r) => r.rowKey === 'best_man')?.label, 'Best Man');
+  assert.equal(manOnly.rows.find((r) => r.rowKey === 'best_man')?.label, 'Best Man & Best Woman');
   assert.equal(dressCodeForEveryone({ config: BASE, stored, board: resolveDisplayPalette(stored) }).rows.some((r) => r.rowKey === 'maid_of_honor' || r.rowKey === 'best_man'), false, 'an honour row nobody dressed');
 });

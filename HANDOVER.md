@@ -23,19 +23,20 @@ stop you at any time and the work continues on a new account. Own walk folder (s
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-desktop-maker-area-1.md.
 
 ---
-## STATE (builder, 2026-10-18 ~19:40 PHT) — keep current
-Mechanism (decided, built): gate `makerDesktopColumnsEnabled` (lib/maker-desktop-columns-flag.ts — env
-`NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED` OR internal; registered in flag-chokepoint-scan). Launch page hands
-`desktopColumns`; lab `/dev/maker-lab?studio=1&desk=1`. In maker-shell: `ss = stagesStudio && (phone || desktopColumns)`,
-`desk = ss && !phone` → shell wears `data-maker-desk` and mounts lazy `MakerDesk` (maker-desk.tsx: the grid + top-bar
-words via ::after, all CSS keyed on `[data-maker-desk]`, so it can never match a phone). StageTools (lazy) at desk:
-`stage-panel/desk.tsx` — the work area's tool laid over the column's rows (phone's rule set with the column's measures,
-`--desk-rows-top` measured), phone-class visibility inside the panel, `DeskStep` (caption n of N · Previous · Next ·
-Done), `DeskParts` (left column, portal into MakerDesk's slot), "You're editing" under the page, guest tab bar at the
-page foot. editor-shell: the `stagesStudio && innerWidth<1024` checks are now `stagesStudio` (same on a phone).
-Decisions: the phone moved stage ▾ into the top bar's Stages half (owner 10-08), so the left column does not repeat it;
-"Tap a part" hint not drawn (phone retired it 10-09); default Preview = Phone at desk (prototype "Preview · Phone").
-Walk folder: scratchpad desktop-walk (scripts/serve.sh, desk.mjs, walk1.mjs); before shots in desktop-walk/before/.
-NEXT: Studio side at desk (home 4 cols, tool 760/1100), 1024 + 1440 shots, phone before/after diff, Preview ▾ rows,
-event name centre (not built), ＋/grip/🗑 on the picked parts row (not built), pop-over sheets (PR 2b), stacked
-sections (PR 3), changelog fragment, draft PR.
+## STATE (builder, 2026-10-18 ~21:30 PHT) — keep current
+DONE (slice 1, pushed): gate `makerDesktopColumnsEnabled` (env `NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED` OR internal,
+in flag-chokepoint-scan); shell `ss = stagesStudio && (phone || desktopColumns)`, `desk = ss && !phone`,
+`data-maker-desk`, `lowerThird: (phone || desk)`; `MakerDesk` (maker-desk.tsx: grid, top-bar words via ::after,
+sheets as pop-overs anchored on the press, Studio side full width) mounted by the lazy StudioSideSwitch (zero
+first-load stand-in); StageTools desk pieces (stage-panel/desk.tsx: panel over the column's rows, phone-class
+visibility inside the panel, DeskStep caption+ⓘ+Previous/Next/Done, DeskParts left column, "You're editing" under
+the page, guest bar at the page foot, the part's frame shown); editor-shell `stagesStudio && innerWidth<1024` → `stagesStudio`;
+visibleBand/centrePart count the lower third only when under the page. Guard
+`lib/the-desktop-maker-never-reaches-a-phone.test.ts` (sabotaged 3 ways, red). 7 pinned tests updated.
+Phone proof: settled shots 375/390 × Edit/Style/Animate, base code vs branch with the flag on: identical except the
+Next dev badge count and (one run) the Top line input's text scroll. Shots: scratchpad desktop-walk/shots
+(before2-*, after4-*, final-*, sbs-*).
+NEXT: open draft PR + CI; then doc PR 3 (stacked sections + 2-col preview grid), PR 4 rest (＋/grip/🗑 on the picked
+parts row, hover ring), PR 5 (Studio widths: home 4 cols, tool 760/1100, Look two columns — today Studio shows the
+old desktop Details layout full width; Mood Board's desktop controls are null when stagesStudio), event name in the
+top bar centre, Preview ▾ Desktop walk, then area 1 part 2 (guest Event Hub desktop).

@@ -93,7 +93,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerDesk, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -216,7 +216,8 @@ export function MakerShell({
   /**
    * 🖥 …ON A DESKTOP TOO, in three columns (`makerDesktopColumnsEnabled`, resolved once by the launch page;
    * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`, all "A"). From `lg` the new Maker is drawn instead of the old
-   * one: the shell wears `data-maker-desk` and its layout is the lazy `MakerDesk` (`maker-desk.tsx`). A phone is
+   * one: the shell wears `data-maker-desk` and its layout is `MakerDesk` (`maker-desk.tsx`, mounted by the lazy
+   * Stages | Studio switch — no byte of it in the Maker's first load). A phone is
    * the same either way. False: a desktop draws the shipped Maker exactly.
    */
   desktopColumns?: boolean;
@@ -1276,8 +1277,6 @@ export function MakerShell({
             never over the first open's line. */}
         {stage === 'editorial' && !hint ? postEventTour : null}
 
-        {/* 🖥 The three columns (lazy — never a phone's): the layout, the words, the parts column's place. */}
-        {desk ? <MakerDesk /> : null}
         {/* 🔁 Says "Updating Setnayan…" before the page reloads itself (a new version arriving mid-session). */}
         <MakerUpdating />
         {tour ? (

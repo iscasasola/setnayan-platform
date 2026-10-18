@@ -8,8 +8,8 @@
  *       desktop's width (`!phone`); the launch page asks the flag once and hands the boolean in.
  *   2 · EVERY DESK RULE NEEDS THAT SWITCH — every selector in the desk rule sets (`maker-desk.tsx`,
  *       `stage-panel/desk.tsx`) names `data-maker-desk`, so none can match a phone's page whatever it says.
- *   3 · THE DESK CODE IS LAZY — `MakerDesk` reaches the shell only through `details-lazy.tsx` (a phone never
- *       downloads it), and the toolbar draws its desk pieces only under `desk`.
+ *   3 · THE DESK CODE IS LAZY — `MakerDesk` is mounted only by the lazy Stages | Studio switch, under `desk` (no
+ *       stand-in in the Maker's first load), and the toolbar draws its desk pieces only under `desk`.
  *   4 · THE FIRST PAINT IS THE SAME — the server render (what a phone paints first) with the desktop columns ON is
  *       byte-identical to the render with them OFF.
  */
@@ -36,7 +36,6 @@ test('1 · one switch, never a phone’s — `desk` needs a desktop width, and t
   assert.match(shell, /const desk = ss && !phone;/, '`desk` no longer needs a desktop width');
   assert.match(shell, /data-maker-desk=\{desk \? '' : undefined\}/, 'the shell wears the desk switch without `desk`');
   assert.equal((shell.match(/data-maker-desk\b/g) ?? []).length, 1, 'the desk switch is written in more than one place');
-  assert.match(shell, /\{desk \? <MakerDesk \/> : null\}/, 'the desk layout is mounted without `desk`');
   assert.match(shell, /\bdesktopColumns = false,/, 'MakerShell no longer defaults to today’s desktop');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /const desktopColumns = stagesStudio && makerDesktopColumnsEnabled\(\{ internal: freeSwitch\.offered \}\);/);
@@ -75,8 +74,13 @@ test('2 · every desk rule needs the switch — no selector can match a phone’
 
 test('3 · the desk code is lazy — a phone never downloads it, and the toolbar draws its desk pieces only on a desktop', () => {
   const shell = read(`${L}/maker-shell.tsx`);
-  assert.doesNotMatch(shell, /from '\.\/maker-desk'|stage-panel\/desk/, 'the shell imports the desk code statically');
-  assert.match(read(`${L}/details-lazy.tsx`), /export const MakerDesk = dynamic\(\(\) => import\([^)]*'\.\/maker-desk'\)/);
+  assert.doesNotMatch(shell, /'\.\/maker-desk'|stage-panel\/desk/, 'the shell imports the desk code statically');
+  assert.doesNotMatch(read(`${L}/details-lazy.tsx`), /'\.\/maker-desk'|stage-panel\/desk/, 'the desk code gained a stand-in in the Maker’s first load');
+  /* Mounted by the lazy Stages | Studio switch, and only under `desk`. */
+  assert.match(read(`${L}/details-lazy.tsx`), /export const StudioSideSwitch = dynamic\(/);
+  const parts = read(`${L}/stages-studio-parts.tsx`);
+  assert.match(parts, /const desk = useMaker\(\)\?\.desk === true;/);
+  assert.match(parts, /\{desk \? <MakerDesk \/> : null\}/, 'the desk layout is mounted without `desk`');
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const desk = maker\?\.desk === true;/);
   assert.match(tools, /\{desk \? <DeskStep /, 'Previous · Next · Done is drawn without `desk`');

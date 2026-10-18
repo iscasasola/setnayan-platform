@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * 🖥 THE NEW MAKER ON A DESKTOP — THREE COLUMNS (owner 2026-10-07, all "A" on
@@ -14,7 +15,8 @@ import { useEffect, useSyncExternalStore } from 'react';
  * NOTHING IS ADDED: every word, control and order is the phone's — only where things sit changes. The shell is the
  * phone's own tree; on a desktop it wears `data-maker-desk` (`maker-shell.tsx`, never on a phone) and THIS rule set
  * lays that same tree out in columns. So a phone is untouched by construction: none of these rules can match a
- * phone (no `data-maker-desk` there), and this module is lazy (`details-lazy.tsx`) — a phone never downloads it.
+ * phone (no `data-maker-desk` there), and this module is mounted only under `desk` by the lazy Stages | Studio
+ * switch (`stages-studio-parts.tsx`) — it is never in the Maker's first load.
  *
  *   · 1024–1279 (an iPad landscape, a small laptop window): two columns — the parts column folds away (owner's "A"
  *     for answer 2); the page's own pages are the guests' tab bar under it, as on the phone.
@@ -27,13 +29,18 @@ import { useEffect, useSyncExternalStore } from 'react';
  */
 export function MakerDesk() {
   useDeskPopAnchor();
-  return (
+  /* Drawn INTO the shell (a grid cell of its own), wherever the switch that mounts it sits. */
+  const [shell, setShell] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setShell(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
+  if (!shell) return null;
+  return createPortal(
     <>
       <style>{MAKER_DESK_CSS}</style>
       {/* 🗂 THE PARTS OF THIS PAGE — the left column. The Stages toolbar fills it (`stage-tools.tsx` → `DeskParts`),
           because it is the one that knows the page's parts and picks them; on Studio's side it stays empty. */}
       <aside aria-label="Parts of this page" data-maker-desk-parts="" ref={setDeskPartsSlot} />
-    </>
+    </>,
+    shell,
   );
 }
 

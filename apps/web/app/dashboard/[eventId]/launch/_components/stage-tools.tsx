@@ -103,7 +103,7 @@ import type { StagePageOption } from './stage-item-menu';
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, StagePlayStatus, VenuePictureRows } from './details-lazy';
+import { BlockAnimateRows, CameraPartTools, ScenePhotoRow, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
@@ -322,6 +322,10 @@ export function StageTools({
     lastTool = t;
     setToolNow(t);
   }, []);
+  const setToolRef = useRef(setTool);
+  setToolRef.current = setTool;
+  /** 🖼 A slot of a template scene tapped on the page — `ScenePhotoRow` opens its sheet once per `n`. */
+  const [slotAsk, setSlotAsk] = useState<{ type: string; slot: number; n: number } | null>(null);
   const [picked, setPicked] = useState<MakerPartKey | null>(null);
   const [typing, setTyping] = useState(false);
   /** The words last tapped on the page (the part inside the section — `[data-el]`): Edit's rows follow it. */
@@ -637,6 +641,7 @@ export function StageTools({
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
+      setSlotAsk(null);
       if (k === 'reveal' || k === 'camera') {
         /* 🎭 🎛 Its tools are drawn here; whatever the work area had open folds. */
         openToolRef.current?.close();
@@ -693,6 +698,18 @@ export function StageTools({
           makerPartOfCanvas(where.current.stageKey, d.key);
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
+        /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
+           open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
+        const slot = (d as { slot?: unknown }).slot;
+        const ownType = k ? makerOwnSceneType(k) : null;
+        if (k && ownType && typeof slot === 'string' && /^[0-5]$/.test(slot)) {
+          setSlotAsk((was) => ({ type: ownType, slot: Number(slot), n: (was?.n ?? 0) + 1 }));
+          setToolRef.current('edit');
+          askTool('edit', k);
+          return;
+        }
+        /* Any other tap asks for no picture: a sheet asked for earlier never opens again by itself. */
+        setSlotAsk(null);
         askTool(toolFor(k), k);
       } else if (d.t === 'type' && d.phase === 'start') {
         /* 👆 A tap on the page only selects: the rule answers no for every part (`makerStageMayType`, 2026-10-09) —
@@ -1505,6 +1522,12 @@ export function StageTools({
      owner's "no go-edit-elsewhere links; put the same field right there"). Row 1 keeps the venue's own door to Suppliers
      (the place is the booking's); each card's Picture ▾ is the SAME row Details › Venues draws (`VenuePictureRows`). */
   const venuePictures = maker?.venuePictures ?? null;
+  /* 🖼 A SCENE OF THEIR OWN'S PICTURES, RIGHT HERE — Edit's row 3 (owner 2026-10-18): one tile per slot of its template,
+     each opening Upload and the couple's own media (`ScenePhotoRow`; nothing for a template with no pictures). */
+  const ownPhotoType = picked && !rsvpOpen && maker ? makerOwnSceneType(picked) : null;
+  const ownPhotoRow = ownPhotoType ? (
+    <ScenePhotoRow ask={askPartOps} type={ownPhotoType} stamp={maker?.renderStamp ?? null} open={slotAsk?.type === ownPhotoType ? slotAsk : null} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+  ) : null;
   const venuePictureRows =
     picked === 'venue' && !rsvpOpen && venuePictures && venuePictures.slots.length > 0 && maker ? (
       <VenuePictureRows eventId={maker.eventId} slots={venuePictures.slots} pro={venuePictures.pro} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
@@ -1780,7 +1803,7 @@ export function StageTools({
           /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
           <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : venuePictureRows} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : venuePictureRows} />
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a

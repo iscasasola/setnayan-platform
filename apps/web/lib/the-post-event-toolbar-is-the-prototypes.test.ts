@@ -109,7 +109,8 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   /* No step of Edit's own: a Post Event scene moves and leaves as every scene does — held on the page, or by its tag's menu. */
   assert.doesNotMatch(html, /data-stage-edit-row="place"|aria-label="(?:Earlier|Later|Remove)"/);
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
-  assert.match(edit, /const shown = orderPartWords\(fields, tapped\)\.slice\(0, second \? 1 : WORDS_ROW\.length\);/);
+  /* 🖼 RE-AIMED 2026-10-18: a part's own LAST row (a scene of their own's Photos) leaves rows 1–2 to its words. */
+  assert.match(edit, /const shown = orderPartWords\(fields, tapped\)\.slice\(0, second \? 1 : last \? WORDS_ROW\.length - 1 : WORDS_ROW\.length\);/);
 
   /* THE SWITCH — the app's one switch, its name the same on and off, in row 2. */
   const shownSrc = read(`${L}/stage-panel/post-event-shown.tsx`);

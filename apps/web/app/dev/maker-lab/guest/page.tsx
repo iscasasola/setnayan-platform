@@ -40,7 +40,7 @@ import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
-import { MakerEmptyScene, makerWordsLook } from '@/app/[slug]/_components/maker-empty-scene';
+import { MakerEmptyScene, makerOwnSlots, makerWordsLook } from '@/app/[slug]/_components/maker-empty-scene';
 import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
@@ -818,13 +818,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     if (customSectionHasContent(config)) {
       return (
         <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8 text-left">
-          {renderCustomSection({ config, facts: NO_SCENE_FACTS, mediaUrls: LAB_MEDIA, ownClipPlays: makerCanvas })}
+          {renderCustomSection({ config, facts: NO_SCENE_FACTS, mediaUrls: { ...LAB_MEDIA, ...LAB_SIGNED }, ownClipPlays: makerCanvas, makerSlots: makerCanvas })}
         </div>
       );
     }
     return makerCanvas ? (
       <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
-        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} />
+        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} ownSlots={makerOwnSlots(type, config)} />
       </div>
     ) : null;
   };

@@ -22,7 +22,7 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog
 
 ## BUILDER STATE (builder, 2026-10-18)
 Rule 0 found (all shipped, extended — nothing redrawn):
-- Template renderer `app/[slug]/_components/scene-template.tsx` `renderScene`; 16 templates have picture slots
+- Template renderer `app/[slug]/_components/scene-template.tsx` `renderScene`; 15 templates have picture slots
   (1–7, 13–15, 17–21; 5 and 14 are clip slots). Desktop picker = `SceneSlotsPanel` (Content tab). Phone Edit =
   `stage-panel/stage-edit.tsx` (rows 1–2 = Heading · Words since #6616; row 3 free).
 - Picture picker on the phone = the Background tool's Upload row (`stage-background.tsx` tiles, `FileUpload` into
@@ -47,3 +47,11 @@ Plan / decisions:
   KitSlot first (the kit's own corner CSS); `guest-welcome.tsx` Maker branch draws the divider + card kit. Lab switch
   `lab_gifts=none` (cookie) draws it in /dev/maker-lab. Guard `lib/the-empty-gifts-wears-its-accent.test.ts`
   (sabotage: kit not passed → red; restored → green). Not walked yet.
+- [x] Item 1 code: `renderScene` `makerSlots` (Maker canvas only: every slot in place, empty = template box "＋ Photo",
+  `data-scene-slot`); empty own scene placeholder shows the slots (`makerOwnSlots`); bridge sends `slot`; stage-tools
+  opens Edit + that slot's sheet; Edit row 3 = `ScenePhotoRow` (lazy, maker-details chunk) — Upload (FileUpload →
+  scene-background/) + your media (Background › Upload's set via new `MakerPartOps.sceneMedia`) + Take it off; write =
+  whole canvas, `sendCanvasBase`, `makerRedrawSave`. Apply: slot refs may be the event's scene folder (`slotIsOwn`).
+  `sceneUploadRefs` lists slot uploads. Pure helpers `lib/scene-slot-pick.ts`. Guard
+  `lib/own-scene-photos-work-on-the-phone.test.ts` (15 picture templates). 7 pinned regexes re-aimed. NOT WALKED YET.
+- Next: lints/guards, walk in the Maker lab (375 px), shots, PR.

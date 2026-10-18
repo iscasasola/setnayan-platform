@@ -8,7 +8,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { MakerEmptyScene, makerWordsLook } from './maker-empty-scene';
+import { MakerEmptyScene, makerOwnSlots, makerWordsLook } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -103,6 +103,7 @@ export function PublicHideableWidget(props: PublicHideableWidgetProps) {
         <MakerEmptyScene
           type={props.widget.widget_type}
           look={makerWordsLook(props.widget.widget_type, props.widget.config_json)}
+          ownSlots={makerOwnSlots(props.widget.widget_type, props.widget.config_json)}
           setupLocks={hubSetupApplies(props.event.event_type)}
           styleId={sceneStyleOfRow(props.widget, props.stage ?? null, props.event.event_type)}
         />
@@ -232,6 +233,9 @@ function PublicHideableWidgetBody({
         facts: sceneFactsFor(event, { solemn: words.solemn }),
         ownClipPlays,
         clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
+        /* 🖼 `ownClipPlays` IS the Maker's canvas (`site-body.tsx` passes `isMakerCanvas`): its picture slots are drawn
+           in place there, tappable (owner 2026-10-18). A guest never gets them. */
+        makerSlots: ownClipPlays,
       });
 
     case 'our_love_story':

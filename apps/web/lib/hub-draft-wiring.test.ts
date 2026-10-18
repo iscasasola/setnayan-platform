@@ -181,5 +181,9 @@ test('Apply re-checks every slot picture is the couple\'s own, not only the back
   /* …and the Cover Scene's own clip and still (`canvas.ground`, 2026-10-16) are held to the same rule. */
   assert.match(body, /\[drafted\?\.media, drafted\?\.poster, cover\?\.media, cover\?\.poster\]/);
   assert.match(body, /\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
-  assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
+  /* 🖼 RE-AIMED 2026-10-18 (owner: a scene of their own's photos on the phone, "just make them work"): the phone's slot
+     picker uploads into THIS event's scene folder, so a slot is held to the couple's pictures OR that folder — never the
+     ready-made library, never another event's (`own-scene-photos-work-on-the-phone.test.ts` P5). */
+  assert.match(body, /const slotIsOwn = \(ref: string\) => ownRefs\.has\(ref\) \|\| ref\.startsWith\(ownScenePrefix\);/);
+  assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !slotIsOwn\(r\)\)/);
 });

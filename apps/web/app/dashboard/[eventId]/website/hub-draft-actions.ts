@@ -550,7 +550,10 @@ export async function hubDraftAction(
         const cover = drafted?.ground && (drafted.ground.kind === 'photo' || drafted.ground.kind === 'snippet') ? drafted.ground : null;
         const ground = [drafted?.media, drafted?.poster, cover?.media, cover?.poster].filter((r): r is string => Boolean(r));
         const slotRefs = (drafted?.slots ?? []).map((s) => s.media).filter((r): r is string => Boolean(r));
-        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !ownRefs.has(r))) {
+        /* 🖼 A slot's picture: the couple's own (`ownRefs`) or an upload into THIS event's scene folder — the phone
+           Maker's slot picker uploads there (owner 2026-10-18), the same folder a scene background's upload uses. */
+        const slotIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix);
+        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !slotIsOwn(r))) {
           // A held scene's free part (`canvasFreePart`) is already reported,
           // and kept whole in the draft, by its refused twin — skip it quietly.
           if (!item.freePart) held.push({ item, reason: 'not_your_photo' });

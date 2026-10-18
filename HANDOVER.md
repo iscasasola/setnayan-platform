@@ -48,8 +48,8 @@ Design decisions (made from the record; listed in the PR body):
 Steps (✅ = committed + pushed):
 - [x] ✅ S1 config + gate + products (lib/iap/*) + tests
 - [x] ✅ S2 migration app_store_purchases
-- [ ] S3 server: JWS verify, intent/verify/restore actions, fulfil + refund, ASSN v2 route, tests (fixtures, sabotage)
-- [ ] S4 Swift StoreKit 2 plugin + registration + Info.plist + UA token; xcodebuild if lock allows
+- [x] ✅ S3 server: JWS verify, intent/verify/restore actions, fulfil + refund, ASSN v2 route, tests (fixtures, sabotage)
+- [x] ✅ S4 Swift (compile pending) StoreKit 2 plugin + registration + Info.plist + UA token; xcodebuild if lock allows
 - [ ] S5 web bridge lib/iap/native-store.ts
 - [ ] S6 UI: Apply sheet · Home rows (Papic + Live Watch) · Papic sheet · Live Watch sheet · states · Profile Restore
 - [ ] S7 guards + changelog fragment + PR (draft, do-not-auto-merge) + CI loop

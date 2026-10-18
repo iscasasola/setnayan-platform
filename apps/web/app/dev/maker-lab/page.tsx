@@ -248,8 +248,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
               /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
                  with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
                  drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
-              /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
-              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key) && !(labNeeds && needsHidesStudioTile(key, labNeeds))).map((key) => ({
+              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
                 key,
                 label: STUDIO_TILES[key].label,
                 short: STUDIO_TILES[key].short,
@@ -259,7 +258,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
                    so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
                 done: LAB_STUDIO_DONE[key],
                 status: STUDIO_TILES[key].sub,
-              })),
+              }))
+                /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
+                .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
             }
           : null
       }

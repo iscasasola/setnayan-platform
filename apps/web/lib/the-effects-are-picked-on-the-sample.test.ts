@@ -4,13 +4,14 @@
  * Owner, 2026-10-08 (DECISION_LOG "LOOK EFFECTS ROUND 4" · "LOOK ROUNDS 4–5"; contract
  * `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.A; the approved gallery's kinds 5 "Style card" and 20 "Pro
  * mark"): eight effects (since 2026-10-14) on top of the background, chosen from a carousel of live miniatures, with How much ▾ and
- * Colour ▾ under it; a Pro effect is tried on the sample and never applied.
+ * Colour ▾ under it; every effect is ◆ since 2026-10-16 — tried free, written to the draft, named at ✓ Apply
+ * (`every-background-effect-is-pro-at-apply.test.ts` holds that half).
  *
  *   (1) what a tap WRITES — the pure rules, run: the background under an effect is never touched; taking it off
  *       leaves no key; another background keeps it; it starts gentle over a ground that moves;
- *   (2) ◆ tried, never applied — the rule, the approved words, and the panel's own path (a try reaches no save);
- *   (3) the carousel, RENDERED: None first then the eight in the approved order, one ring, ◆ only where it is Pro and
- *       the couple has none, How much and Colour only while an effect is on, each a dropdown that opens;
+ *   (2) ◆ tried free and WRITTEN — the panel's own path has no try-only branch and no note (owner 2026-10-16);
+ *   (3) the carousel, RENDERED: None first then the eight in the approved order, one ring, ◆ on every effect while
+ *       the couple has no Pro, How much and Colour only while an effect is on, each a dropdown that opens;
  *   (4) one pick = one draft write and no whole-Maker render — read off the panel's one pick path;
  *   (5) the sample screen draws the effect through the ONE answer, and the cards are miniatures of what IT measured.
  */
@@ -23,16 +24,14 @@ import { stripComments } from './strip-comments';
 import { HUB_MAIN_EFFECTS, hubMainEffect, hubMovingBackgroundIds, sanitizeHubMainGround, type HubMainEffect, type HubMainGround } from './hub-canvas';
 import {
   EFFECT_NONE,
-  effectMayApply,
   effectPicked,
-  effectProNote,
   effectStart,
   effectWith,
   groundMoves,
   keepEffect,
   withEffect,
 } from './background-effect';
-import { AMBIENT_EFFECT_IS_PRO, AMBIENT_EFFECT_LABEL } from './ambient-effects';
+import { AMBIENT_EFFECT_LABEL } from './ambient-effects';
 import { backgroundPickRedraws, type LookGround } from './background-pick';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -114,67 +113,41 @@ test('(1c) turned on over a ground that MOVES an effect starts at its gentlest; 
   assert.deepEqual(effectWith({ kind: 'leak', intensity: 'standard' }, { colour: 'dominant' }), { kind: 'leak', intensity: 'standard', colour: 'dominant' });
 });
 
-/* ── (2) ◆ tried, never applied ───────────────────────────────────────── */
+/* ── (2) ◆ tried free, written ───────────────────────────────────────── */
 
-test('(2) a Pro effect, without Event Hub Pro, is tried and never written — the rule, the words, and the panel’s own path', () => {
-  for (const kind of HUB_MAIN_EFFECTS) {
-    assert.equal(effectMayApply(kind, true), true, `${kind}: a couple WITH Pro is refused`);
-    assert.equal(effectMayApply(kind, false), !AMBIENT_EFFECT_IS_PRO[kind], `${kind}: the free/Pro line moved`);
-  }
-  // The approved gallery's own words (kind 20).
-  assert.deepEqual(effectProNote('shimmer'), {
-    title: 'Gold shimmer is part of Pro',
-    body: 'Pro also gives you scenes, films and your own music. You can keep trying it on the preview.',
-    later: 'Not now',
-    see: 'See Pro',
-  });
-  for (const kind of HUB_MAIN_EFFECTS) assert.equal(effectProNote(kind).title, `${AMBIENT_EFFECT_LABEL[kind]} is part of Pro`);
-  // The panel asks BEFORE it writes, and a try tells the sample screen only.
+test('(2) a ◆ effect, without Event Hub Pro, is WRITTEN like any Pro choice — the panel has no try-only path and no note', () => {
   const tap = PANEL.slice(PANEL.indexOf('onPick={(k) => {\n              setNote(null);'));
-  const mayAt = tap.indexOf('if (!effectMayApply(k, !proOn)) return tryEffect(next);');
-  const writeAt = tap.indexOf('pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });');
-  assert.ok(mayAt > 0 && writeAt > mayAt, 'a Pro effect reaches the write before it is asked whether it may be applied');
-  const tryBody = /const tryEffect = \(next: HubMainEffect\) => \{([\s\S]*?)\n    \};/.exec(PANEL)?.[1] ?? '';
-  assert.match(tryBody, /setTrying\(next\);\s*tellLookSample\(eventId, \{ main: withEffect\(current, next\) \}\);/);
-  assert.doesNotMatch(tryBody, /pickLook|saveLookWrite|saveMain|makerSave|makerRedrawSave|lookGround\.draw|hubDraftAction/, 'a TRY writes, or moves the ring');
-  // How much ▾ and Colour ▾ on a tried effect stay tries.
-  assert.match(PANEL, /const next = effectWith\(on, change\);\s*if \(trying\) return tryEffect\(next\);/);
-  // "Not now", leaving the panel, and any real pick put the sample back.
-  assert.match(PANEL, /const endTry = \(\) => \{\s*if \(!tryingRef\.current\) return;\s*setTrying\(null\);\s*tellLookSample\(eventId, \{ main: current \}\);/);
-  assert.match(PANEL, /if \(tryingRef\.current\) tellLookSample\(eventId, \{ main: lookGround\.read\(lookKey, serverRef\.current\)\.main \}\);/);
-  assert.match(PANEL, /if \(tryingRef\.current\) setTrying\(null\);/);
-  // "See Pro" is a plain door, never preloaded.
-  assert.match(CARDS, /<Link href=\{proHref\} prefetch=\{false\} data-bg-effects-pro-see=""/);
-  assert.match(PANEL, /proHref=\{`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\}/);
+  const offAt = tap.indexOf('if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : undefined;');
+  const writeAt = tap.indexOf('pickLook({ main: withEffect(current, effectPicked(k, fx, current, Boolean(INVITE_THEMES[themeId]?.media))) }, FAILED, { fx: true });');
+  assert.ok(offAt > 0 && writeAt > offAt, 'a tap on an effect card does not reach the one pick path');
+  assert.doesNotMatch(PANEL, /tryEffect|setTrying|tryingRef|effectMayApply|endTry/, 'a ◆ effect is still only tried — Apply can never name it');
+  assert.doesNotMatch(CARDS, /data-bg-effects-pro|See Pro|Not now|<Link\b/, 'the strip still carries its own Pro note');
 });
 
 /* ── (3) the carousel, rendered ───────────────────────────────────────── */
 
-async function carousel(props: { effect: HubMainEffect | null; trying?: HubMainEffect | null; locked: boolean }): Promise<string> {
+async function carousel(props: { effect: HubMainEffect | null; locked: boolean }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { BgEffects } = await import(`../${E}/background-effects`);
   return renderToStaticMarkup(
     React.createElement(BgEffects, {
       eventId: 'EV',
       effect: props.effect,
-      trying: props.trying ?? null,
       locked: props.locked,
-      proHref: '/dashboard/EV/studio/website-pro',
       swatch: '#F3EEE6',
       picture: null,
       onPick: () => {},
       onChange: () => {},
-      onTryEnd: () => {},
     }),
   );
 }
 const cardsOf = (html: string) => [...html.matchAll(/<button type="button" aria-pressed="(true|false)"[^>]*data-bg-card="fx:([a-z]+)"[\s\S]*?<\/button>/g)].map((m) => ({ key: m[2]!, on: m[1] === 'true', html: m[0] }));
 
-test('(3) the carousel: None, then the eight in the approved order — one ringed, ◆ only on a Pro effect the couple cannot apply', async () => {
+test('(3) the carousel: None, then the eight in the approved order — one ringed, ◆ on every effect while the couple has no Pro', async () => {
   const none = cardsOf(await carousel({ effect: null, locked: true }));
   assert.deepEqual(none.map((c) => c.key), [EFFECT_NONE, 'haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'the cards or their order moved off the approved prototype');
   assert.deepEqual(none.filter((c) => c.on).map((c) => c.key), [EFFECT_NONE], 'with no effect, None is the one ringed card');
-  assert.deepEqual(none.filter((c) => c.html.includes('aria-label="Event Hub Pro"')).map((c) => c.key), ['dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'the ◆ marks are not the approved six');
+  assert.deepEqual(none.filter((c) => c.html.includes('aria-label="Event Hub Pro"')).map((c) => c.key), ['haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'an effect lost its ◆ (owner 2026-10-16: every effect is Pro)');
   for (const c of none) {
     assert.ok(c.html.includes('sn-phone-card'), `${c.key}: not the one style card (112 × 149)`);
     assert.ok(c.html.includes(`>${c.key === EFFECT_NONE ? 'None' : AMBIENT_EFFECT_LABEL[c.key as keyof typeof AMBIENT_EFFECT_LABEL]}<`), `${c.key}: its name is not under it`);
@@ -205,20 +178,19 @@ test('(3b) How much ▾ and Colour ▾ show only while an effect is on — each 
   assert.match(CARDS, /options=\{HUB_MAIN_EFFECT_INTENSITIES\.map\(\(k\) => \(\{ key: k, label: AMBIENT_INTENSITY_LABEL\[k\] \}\)\)\}/);
   assert.match(CARDS, /\{ key: EFFECT_COLOUR_ORIGINAL, label: EFFECT_COLOUR_ORIGINAL_LABEL,[\s\S]{0,160}\},\s*\.\.\.HUB_MAIN_EFFECT_COLOURS\.map\(\(k, i\) => \(\{ key: k, label: AMBIENT_COLOUR_LABEL\[k\], icon: dot\(worn\?\.five\[i\]\) \}\)\),/);
   assert.doesNotMatch(CARDS, /type="color"|ColourPickerSheet|StudioColourField|<input/, 'a free colour picker is in the Effects rows');
-  // While a Pro effect is tried: the note with its two answers, and the rows are about the tried one.
-  const trying = await carousel({ effect: null, trying: { kind: 'shimmer', intensity: 'standard' }, locked: true });
-  assert.ok(trying.includes('Gold shimmer is part of Pro') && trying.includes('>Not now<') && trying.includes('>See Pro<'));
-  assert.deepEqual(cardsOf(trying).filter((c) => c.on).map((c) => c.key), [EFFECT_NONE], 'a TRIED effect is ringed as if it were applied');
-  assert.ok(trying.includes('data-bg-row="effect-intensity"'));
+  // A ◆ effect put on by a couple without Pro is the drafted one: ringed, with its rows — never a note.
+  const tried = await carousel({ effect: { kind: 'shimmer', intensity: 'standard' }, locked: true });
+  assert.deepEqual(cardsOf(tried).filter((c) => c.on).map((c) => c.key), ['shimmer']);
+  assert.ok(tried.includes('data-bg-row="effect-intensity"') && !tried.includes('See Pro'));
 });
 
 /* ── (4) one pick, one write, no whole-Maker render ───────────────────── */
 
 test('(4) an effect pick is the panel’s ONE pick path: one draft write, no whole-Maker render — the page redraws itself once, when next shown', () => {
   // Every Effects write is `pickLook(…, { fx: true })` — never a save of its own, never a refresh of its own.
-  const block = PANEL.slice(PANEL.indexOf('<BgEffects'), PANEL.indexOf('/>', PANEL.indexOf('onTryEnd={endTry}')));
+  const block = PANEL.slice(PANEL.indexOf('<BgEffects'), PANEL.indexOf('treatment={{', PANEL.indexOf('<BgEffects')));
   assert.equal((block.match(/pickLook\(/g) ?? []).length, 3, 'take off · put on · change — three writes, each the one pick path');
-  assert.equal((block.match(/pickLook\(\{ main: withEffect\(current, (?:null|next)\) \}, FAILED, \{ fx: true \}\)/g) ?? []).length, 3);
+  assert.equal((block.match(/pickLook\(\{ main: withEffect\(current, (?:null|effectPicked\([^)]*\)\)|effectWith\(fx, change\))\) \}, FAILED, \{ fx: true \}\)/g) ?? []).length, 3);
   assert.doesNotMatch(block, /router\.refresh|requestMakerRefresh|makerSave|saveMain|saveLookWrite/);
   assert.doesNotMatch(CARDS, /router|makerSave|hubDraftAction|fetch\(|useEffect|setInterval|setTimeout/, 'the Effects cards ask for something, or start a timer');
   // In `pickLook`: the write is carried, and an fx write is taken as it is.

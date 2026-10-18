@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useSyncExternalStore, type ReactNode } from 'react';
-import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { AmbientEffectLayer, AmbientEffectStyle } from '@/app/[slug]/_components/ambient-effect';
 import {
@@ -23,7 +21,6 @@ import {
   EFFECT_NONE_LABEL,
   PICTURE_BLUR_LABEL,
   PICTURE_LINE,
-  effectProNote,
   effectsSummary,
   type PictureBlur,
 } from '@/lib/background-effect';
@@ -54,8 +51,8 @@ import { PickMenu } from './pick-menu';
  * control → kind (`INTERACTION_RULES.md` § 9):
  *   · the nine cards (None + the eight, 2026-10-14) → Style card: one size (112 × 149, `.sn-phone-card`), no frame, the picked
  *     one ringed and named in the accent and centred in its row — `BgCard` / `BgCards`, the shipped template;
- *   · ◆ on a Pro effect → Pro mark (kind 20): shown, tappable, TRIED on the sample, never applied; one note offers
- *     See Pro / Not now;
+ *   · ◆ on every effect → Pro mark (kind 20; owner 2026-10-16 "all … effects … are pro"): shown, tappable, tried free
+ *     like any Pro choice — written to the draft, worn by the sample, named at ✓ Apply (the #6623 pattern; no note here);
  *   · How much ▾ · Colour ▾ → Dropdown (`PickMenu`): each OPENS its choices, never cycles.
  *
  * 🔑 A CARD IS THE SAMPLE'S OWN DRAWING, SMALLER. Each miniature is `ambientEffectSpec` over the ground and the
@@ -69,14 +66,11 @@ import { PickMenu } from './pick-menu';
 export function BgEffects({
   eventId,
   effect,
-  trying,
   locked,
-  proHref,
   swatch,
   picture,
   onPick,
   onChange,
-  onTryEnd,
   treatment: treat = null,
 }: {
   /**
@@ -97,12 +91,8 @@ export function BgEffects({
   eventId: string;
   /** The effect the draft holds — the ringed card. */
   effect: HubMainEffect | null;
-  /** ◆ A Pro effect being tried on the sample screen. NOT written anywhere. */
-  trying: HubMainEffect | null;
-  /** The couple does not own Event Hub Pro: a ◆ effect is tried, never applied. */
+  /** The couple does not own Event Hub Pro: every card wears ◆ (tried free, named at ✓ Apply). */
   locked: boolean;
-  /** Where "See Pro" goes. */
-  proHref: string;
   /** The real background, as a card draws it: its CSS fallback, and its picture over that. */
   swatch: string;
   picture: ReactNode;
@@ -110,15 +100,14 @@ export function BgEffects({
   onPick: (kind: HubMainEffectKind | typeof EFFECT_NONE) => void;
   /** How much ▾ or Colour ▾ (`colour: null` = the effect's own). */
   onChange: (change: { intensity?: HubMainEffectIntensity; colour?: HubMainEffectColour | null }) => void;
-  onTryEnd: () => void;
 }) {
   const worn = useSyncExternalStore(
     subscribeLookSampleWorn,
     () => readLookSampleWorn(eventId),
     () => null,
   );
-  /* What the rows are about: the effect being tried, else the one that is on. */
-  const shown = trying ?? effect;
+  /* What the rows are about: the effect that is on (drafted). */
+  const shown = effect;
   const dark = worn ? ambientGroundIsDark(worn.ground) : false;
   const dot = (colour: string | undefined) => (
     <span aria-hidden className="block h-[18px] w-[18px] rounded-full ring-1 ring-ink/15" style={{ backgroundColor: colour }} />
@@ -135,9 +124,8 @@ export function BgEffects({
       {worn?.veil ? <span aria-hidden className="absolute inset-0" style={{ backgroundColor: worn.veil }} /> : null}
     </>
   );
-  const note = trying ? effectProNote(trying.kind) : null;
   return (
-    <div data-bg-effects={effect?.kind ?? EFFECT_NONE} {...(trying ? { 'data-bg-effects-trying': trying.kind } : {})} className="flex flex-col">
+    <div data-bg-effects={effect?.kind ?? EFFECT_NONE} className="flex flex-col">
       <BgRow label="Effects" data="effects" info={EFFECTS_INFO}>
         <span data-bg-effects-now="" className="truncate text-[13px] text-ink/60">
           {effectsSummary(effect ? AMBIENT_EFFECT_LABEL[effect.kind] : null, treat?.takes ? { parallax: treat.parallax, blur: treat.blur } : null)}
@@ -157,7 +145,6 @@ export function BgEffects({
             data={`fx:${kind}`}
             on={effect?.kind === kind}
             pro={locked && AMBIENT_EFFECT_IS_PRO[kind]}
-            {...(trying?.kind === kind ? { note: 'trying' } : {})}
             swatch={swatch}
             onPick={() => onPick(kind)}
           >
@@ -173,21 +160,6 @@ export function BgEffects({
           </BgCard>
         ))}
       </BgCards>
-      {/* ◆ TRIED, NEVER APPLIED — the approved gallery's note, in place (never a toast, never a layer over the cards). */}
-      {note ? (
-        <div role="status" data-bg-effects-pro="" className="flex flex-col gap-2 border-t border-ink/10 py-2.5">
-          <p className="text-[13.5px] font-semibold text-ink">{note.title}</p>
-          <p className="text-[12.5px] leading-snug text-ink/65">{note.body}</p>
-          <div className="flex gap-2">
-            <button type="button" data-bg-effects-pro-later="" onClick={onTryEnd} className="sn-press inline-flex h-10 min-h-0 items-center rounded-full bg-white px-4 text-[13px] font-semibold text-ink ring-1 ring-ink/15">
-              {note.later}
-            </button>
-            <Link href={proHref} prefetch={false} data-bg-effects-pro-see="" className={`sn-press inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold ${PILL_ON_CLASS}`}>
-              {note.see}
-            </Link>
-          </div>
-        </div>
-      ) : null}
       {shown ? (
         <>
           <BgRow label="How much" data="effect-intensity">

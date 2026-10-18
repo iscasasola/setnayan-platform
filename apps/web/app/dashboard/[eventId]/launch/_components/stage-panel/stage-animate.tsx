@@ -55,12 +55,18 @@ const SIZES = [
 ] as const;
 /** Move switched on with no way chosen: the prototype's default (Build in ↑ from the bottom · Build out ↑ to the top). */
 const FIRST_DIR: Record<'in' | 'out', MotionDir> = { in: 'below', out: 'above' };
-/** Row 2's four, in the prototype's order. */
+/**
+ * 💎 EVERY ANIMATE CONTROL WEARS THE SHIPPED " ◆" (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
+ * ACCENTS ARE EVENT HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). Movement ◆ and Leaves ◆ wore it
+ * first; every other named control here does now — tried free in the draft, named at ✓ Apply (`hubDraftProEffects`).
+ */
+export const animatePro = (name: string): string => (name.endsWith('◆') ? name : `${name} ◆`);
+/** Row 2's four, in the prototype's order — each an effect, each ◆. */
 const EFFECTS = [
-  { key: 'fade', label: 'Fade' },
-  { key: 'blur', label: 'Blur' },
-  { key: 'move', label: 'Move' },
-  { key: 'size', label: 'Size' },
+  { key: 'fade', label: animatePro('Fade') },
+  { key: 'blur', label: animatePro('Blur') },
+  { key: 'move', label: animatePro('Move') },
+  { key: 'size', label: animatePro('Size') },
 ] as const;
 type Effect = (typeof EFFECTS)[number]['key'];
 
@@ -199,7 +205,7 @@ export function StageAnimate({
               ✨ Three or more (a text part: Still · Drift · Shimmer — owner 2026-10-16) → ONE dropdown, the house rule
               ("any set of choices is a dropdown"). */}
           {does.options.length >= 3 ? (
-            <Dd small="While on screen" label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
+            <Dd small={animatePro('While on screen')} label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
           ) : (
             <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
           )}
@@ -216,7 +222,7 @@ export function StageAnimate({
             <span className={SP_ANIMATE_HALF} data-stage-need="move">
               <Dd
                 stacked
-                small={end === 'in' ? 'From' : 'To'}
+                small={animatePro(end === 'in' ? 'From' : 'To')}
                 label={end === 'in' ? 'Comes in from' : 'Goes out to'}
                 data={`${end}-move-dir`}
                 value={fx.move}
@@ -235,7 +241,7 @@ export function StageAnimate({
         </div>
       ) : at === 'act' && band ? (
         <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-band="">
-          <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
+          <Dd small={animatePro('Band')} label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
       ) : at === 'act' && actNote ? (
         <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-act-note="">
@@ -275,14 +281,14 @@ export function StageAnimate({
           {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
               here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
               scroll" switch is the way in). */}
-          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
-          {end === 'in' && rows ? <Dd stacked small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small={animatePro('Plays')} label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {end === 'in' && rows ? <Dd stacked small={animatePro('Rows')} label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
           {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
-          {end === 'in' && arrive ? <Dd stacked small={arrive.small ?? 'Words'} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}
+          {end === 'in' && arrive ? <Dd stacked small={animatePro(arrive.small ?? 'Words')} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}
           {end === 'in' && delay ? (
             <Dd
               stacked
-              small="Delay"
+              small={animatePro('Delay')}
               label="Delay"
               data="delay"
               value={String(delay.value)}
@@ -294,7 +300,7 @@ export function StageAnimate({
             />
           ) : null}
           {/* On a PART the hand-off is its SCENE's (a part has none of its own — Scrub and Auto scroll are scene to scene), and the name says so. */}
-          {end === 'out' && leaves ? <Dd stacked small={leaves.small ?? 'Leaves ◆'} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
+          {end === 'out' && leaves ? <Dd stacked small={animatePro(leaves.small ?? 'Leaves')} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
         </div>
       ) : null}
       {/* The reason a grey Movement gives. Drawn on the page's body, not in the four rows: the tool sits in a box

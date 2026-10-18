@@ -66,5 +66,14 @@ export function sceneUploadRefs(eventId: string, configs: readonly unknown[]): S
     const poster = g.kind === 'snippet' && g.poster?.startsWith(prefix) ? g.poster : null;
     out.set(g.media, { ref: g.media, kind: g.kind, poster });
   }
+  /* 🖼 …and every picture a template scene's SLOTS hold from this folder (owner 2026-10-18, a scene of their own's
+     photos on the phone): an upload made into a slot is one of the couple's uploads too, offered again after the save's
+     refresh — in that slot's picker and on every scene's Upload row. */
+  for (const config of configs) {
+    for (const slot of sanitizeHubCanvas(config).slots ?? []) {
+      if (!slot.media || !slot.media.startsWith(prefix) || out.has(slot.media)) continue;
+      out.set(slot.media, { ref: slot.media, kind: slot.kind === 'snippet' ? 'snippet' : 'photo', poster: null });
+    }
+  }
   return [...out.values()];
 }

@@ -68,6 +68,7 @@ import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
 import { StageText } from '../../../launch/_components/stage-panel/stage-text';
 import { FEEL_OFF, leavesOptions, SCENE_LEAVES_NAME, partFeel, partSpeedOf } from '@/lib/animate-feel';
 import { offeredTransition } from '@/lib/scrub-out-offered';
+import { LOGO_TRAVELS_ACTION, LOGO_TRAVELS_LABEL, logoTravelWrite, logoTravelsOffered, sanitizeMagicTraveller } from '@/lib/magic-move';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
@@ -196,7 +197,14 @@ export function ElementSheet({
   wordsSlot = null,
   section,
   onSection,
+  travels = null,
 }: {
+  /**
+   * ✈ `events.site_magic_traveller` as drafted (Look restudy row 9): the cover's Logo offers "Travels to the bar" in
+   * its Action ▾ — the journey Magic Move was, in the place a part's motion lives. Written through the draft, the
+   * SAME column; never copied onto the canvas.
+   */
+  travels?: string | null;
   /** Text · Motion · Arrange, held by the Maker so it survives a switch to another part. */
   section?: PartTab;
   onSection?: (section: PartTab) => void;
@@ -417,6 +425,27 @@ export function ElementSheet({
   const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
 
+  /* ✈ TRAVELS TO THE BAR (Look restudy row 9) — the cover's Logo only. One Action at a time: the journey and Drift
+     never both play, so picking it hands the part back to Still, and picking Still or Drift ends the journey. The
+     write goes through the draft (`site_magic_traveller`), unheld — the page redraws with the traveller's script. */
+  const travelOffered = logoTravelsOffered(target);
+  const [travelling, setTravelling] = useState(sanitizeMagicTraveller(travels) === 'mark');
+  useEffect(() => setTravelling(sanitizeMagicTraveller(travels) === 'mark'), [travels]);
+  const travelTo = (on: boolean) => {
+    if (on === travelling) return;
+    setTravelling(on);
+    setError(null);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ events: { site_magic_traveller: logoTravelWrite(on ? LOGO_TRAVELS_ACTION : 'still') } }));
+    start(async () => {
+      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
+      if (res?.ok) return;
+      setTravelling(!on);
+      setError(refusedChoiceWords(target.el, 'motion', res?.error || null));
+    });
+  };
+
   /* The contrast warning — measured, never blocking (a quiet accent may be meant). */
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
   const contrast = face.color ? hubElementContrast(face.color, ground) : null;
@@ -597,9 +626,20 @@ export function ElementSheet({
                  ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16): a cover word adds Glow ◆; the cover's photo is Still ·
                  Drift · Ken Burns · Parallax · Light leak ◆ (Parallax its own, an absence). Each new effect is marked ◆
                  exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT HUB PRO ◆"). */
-              value: motion.during ?? hubElementDuringDefault(target.el),
-              options: hubElementDuringOffered(target.el).map((v) => ({ key: v, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
-              onPick: (v) => moveTo('during', v === hubElementDuringDefault(target.el) ? null : v),
+              value: travelOffered && travelling ? LOGO_TRAVELS_ACTION : (motion.during ?? hubElementDuringDefault(target.el)),
+              options: [
+                ...hubElementDuringOffered(target.el).map((v) => ({ key: v, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
+                /* ✈ The cover's Logo: its journey to the bar, ◆ as Magic Move always was. */
+                ...(travelOffered ? [{ key: LOGO_TRAVELS_ACTION, label: `${LOGO_TRAVELS_LABEL} ◆` }] : []),
+              ],
+              onPick: (v) => {
+                if (travelOffered && v === LOGO_TRAVELS_ACTION) {
+                  if (motion.during) moveTo('during', null);
+                  return travelTo(true);
+                }
+                if (travelOffered && travelling) travelTo(false);
+                moveTo('during', v === hubElementDuringDefault(target.el) ? null : v);
+              },
             }}
             /* ✨ Words ▾ (a cover word) · Reveal ▾ (the cover's photo) — Build in's row 4, beside Movement and Delay. The
                new two of each are ◆, as Shimmer is. */

@@ -987,9 +987,6 @@ export default async function WebsiteEditorPage({
                 (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
               }
               fontKey={(drafted as { site_font_key?: string | null }).site_font_key ?? null}
-              magicTraveller={
-                (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
-              }
             />
             </>
           ),
@@ -1699,6 +1696,8 @@ export default async function WebsiteEditorPage({
           };
         })(),
         draftAction: hubDraftAction,
+        /* ✈ The cover Logo's Action "Travels to the bar" reads the drafted journey (Look restudy row 9). */
+        magicTraveller: (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null,
         /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
            used") — from the SAME draft over live the canvas draws: the theme's
            faces, the couple's typeface, every part and letter run above, and

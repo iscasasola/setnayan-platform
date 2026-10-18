@@ -3143,7 +3143,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
-  site_magic_traveller: 'Magic move',
+  site_magic_traveller: 'Your logo travelling to the bar',
   site_button_style: 'Your buttons',
   site_roles: 'Your fonts',
   invite_theme: 'Your theme',

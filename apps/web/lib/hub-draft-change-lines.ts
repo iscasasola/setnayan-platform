@@ -71,7 +71,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   site_button_style: { place: LOOK, what: LOOK_PART_LABEL.buttons },
   // 🔤 The Headings · Text · Labels & buttons fonts — Look › Elements (owner 2026-10-08).
   site_roles: { place: LOOK, what: LOOK_PART_LABEL.font },
-  site_magic_traveller: { place: LOOK, what: 'Magic move' },
+  // ✈ The cover Logo's Action since the Look restudy row 9 (it was Look's Magic Move).
+  site_magic_traveller: { place: 'Names & date', what: 'Logo · Travels to the bar' },
   site_bg_music_r2_key: { place: 'Music', what: 'Background music' },
   site_bg_music_enabled: { place: 'Music', what: 'On or off' },
   landing_page_hero_image_url: { place: 'Names & date', what: 'Photo' },

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "48b3190c6",
+  "generatedFromRef": "b7faf4169d",
   "routeCount": 447,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6571,
+  "blocks": 6575,
   "routes": {
     "/": {
       "files": [
@@ -1392,6 +1392,7 @@
         "PublicEventDetails",
         "PublicHideableWidget",
         "PublicPageActions",
+        "R",
         "ReactElement",
         "ReactNode",
         "Relive",
@@ -6232,6 +6233,7 @@
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
+        "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
@@ -6691,6 +6693,7 @@
         "CoordinatorGrantChips",
         "Link",
         "ListPageSkeleton",
+        "ModeratorPermissions",
         "PageMasthead",
         "ReadRefusedNotice",
         "SetDelegateAreaResult"
@@ -7640,6 +7643,7 @@
         "FormRows",
         "GiftWriteResult",
         "ListPageSkeleton",
+        "ManagerMethod",
         "PabuyaCardList",
         "PabuyaManager",
         "PabuyaMessageEditor",
@@ -8420,6 +8424,7 @@
         "AutoPaletteSheet",
         "BoardCardView",
         "C",
+        "CallTimeRow",
         "CarriedAttire",
         "Chip",
         "ChoiceButton",
@@ -9793,6 +9798,7 @@
         "HubDraftActionResult",
         "HubDraftBarLive",
         "HubDraftIntent",
+        "HubDraftRebased",
         "HubDraftToolbar",
         "IconPill",
         "InfoTip",
@@ -10001,7 +10007,6 @@
         "LookSample",
         "LoopPicture",
         "LoveStoryChaptersPanel",
-        "MagicMovePick",
         "MainBackgroundPanel",
         "MakerHalfSheet",
         "MakerHeroPanel",

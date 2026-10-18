@@ -252,19 +252,21 @@ test('💎 a free couple on the web sees the whole Colours row with ◆ PRO on i
       proMark: 'try',
     }),
   );
-  for (const f of ['site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+  for (const f of ['site_art_direction', 'site_font_key']) {
     assert.match(html, new RegExp(`name="${f}"`), f);
   }
+  // ✈ Magic Move is the cover Logo's Action now (Look restudy row 9) — no Colours row posts it.
+  assert.doesNotMatch(html, /name="site_magic_traveller"/, 'Magic Move came back into the Colours row');
   // 🆓 The Typeface is FREE since 2026-10-05 ("Colors, and Fonts are all free") —
-  // only Art direction and Magic Move wear ◆ PRO.
-  assert.equal(count(html, 'data-paid-mark="try"'), 2, 'Art direction · Magic Move each wear ◆ PRO — and the Typeface none');
+  // only Art direction wears ◆ PRO.
+  assert.equal(count(html, 'data-paid-mark="try"'), 1, 'Art direction wears ◆ PRO — and the Typeface none');
   assert.match(html, /name="draft" value="1"/, 'the Colours row writes live');
 });
 
 test('an owning couple sees the whole Colours row, and no lock', async () => {
   const html = await paintColors(false);
   assert.equal(count(html, LOCK), 0);
-  for (const f of ['bg_color', 'button_color', 'site_art_direction', 'site_font_key', 'site_magic_traveller']) {
+  for (const f of ['bg_color', 'button_color', 'site_art_direction', 'site_font_key']) {
     assert.match(html, new RegExp(`name="${f}"`), f);
   }
 });

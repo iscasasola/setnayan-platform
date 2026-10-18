@@ -370,6 +370,8 @@ export function MakerWork({
      */
     typeHere?: readonly SceneTypeWords[];
     ownWords?: Readonly<Record<string, { title: string; body: string }>>;
+    /** ✈ `events.site_magic_traveller` as drafted — the cover Logo's "Travels to the bar" (Look restudy row 9). */
+    magicTraveller?: string | null;
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -3246,6 +3248,7 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
+          travels={elementEditing.magicTraveller ?? null}
           resize={toolsResize}
           /* 🕯 The closing's line is ONE part of its own (stored on the hero row, drawn in the footer). */
           parts={elementTarget.key === 'f:closing' ? ['closing'] : elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}

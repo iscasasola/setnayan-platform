@@ -43,3 +43,7 @@ Plan / decisions:
   every named control via `animatePro` (Fade · Blur · Move · Size, While on screen, From/To, Band, Plays, Rows,
   Words/Reveal, Delay, Leaves). Guard `lib/every-animate-control-wears-the-mark.test.ts` (sabotage: Delay unmarked →
   red; restored → green). 9 pinned-label tests re-aimed (marked RE-AIMED 2026-10-18). Not walked yet.
+- [x] Item 3 gifts accent: `MakerWelcomeGiftsEmpty` `kit` → the prompt in one bank-card-shaped `li` with the
+  KitSlot first (the kit's own corner CSS); `guest-welcome.tsx` Maker branch draws the divider + card kit. Lab switch
+  `lab_gifts=none` (cookie) draws it in /dev/maker-lab. Guard `lib/the-empty-gifts-wears-its-accent.test.ts`
+  (sabotage: kit not passed → red; restored → green). Not walked yet.

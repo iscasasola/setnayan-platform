@@ -174,10 +174,13 @@ export function GuestWelcome({
             </WelcomeSlot>
           );
         }
+        /* 🕯 The Maker's empty E-Gifts wears the picked accent too (owner 2026-10-18) — the divider and the card's spray
+           and abaniko, the same `KitSlot`s a real way to give gets. Guests: no way to give = no card, unchanged. */
         return maker ? (
           <WelcomeSlot key="gifts">
+            {artKit ? <KitSlot kit={artKit} slot="gifts-divider" /> : null}
             {mark('f:gifts')}
-            <MakerWelcomeGiftsEmpty look={partLooks?.gifts ?? null} />
+            <MakerWelcomeGiftsEmpty look={partLooks?.gifts ?? null} kit={artKit ? <KitSlot kit={artKit} slot="gifts-card" /> : null} />
           </WelcomeSlot>
         ) : null;
       })}

@@ -737,7 +737,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubCanvasFrame>
     ),
   };
-  const giftsBlock = (
+  /* 🎁 `lab_gifts=none`: the event has no way to give yet — the Maker's empty E-Gifts, dressed in the picked accent
+     (`lab_kit` · `lab_accents`) as `guest-welcome.tsx` draws it on the host's canvas (owner 2026-10-18). */
+  const noGifts = (await cookies()).get('lab_gifts')?.value === 'none';
+  const giftsBlock = noGifts ? (
+    <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
+      {labKitView ? <KitSlot kit={labKitView} slot="gifts-divider" /> : null}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
+      <MakerWelcomeGiftsEmpty look={look('gifts')} kit={labKitView ? <KitSlot kit={labKitView} slot="gifts-card" /> : null} />
+    </div>
+  ) : (
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">

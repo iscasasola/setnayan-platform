@@ -88,6 +88,8 @@ const LOOPBACK_TIMEOUT_MS = 5 * 60_000;
 export async function signInWithProviderDesktop(
   provider: DesktopOAuthProvider,
   next: string = '/dashboard',
+  /** A typed Google address (lib/google-address.ts) — Google opens on that account. */
+  loginHint: string | null = null,
 ): Promise<void> {
   const t = tauri();
   if (!t) {
@@ -159,7 +161,11 @@ export async function signInWithProviderDesktop(
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true },
+    options: {
+      redirectTo: `http://localhost:${port}`,
+      skipBrowserRedirect: true,
+      ...(provider === 'google' && loginHint ? { queryParams: { login_hint: loginHint } } : {}),
+    },
   });
   if (error || !data?.url) {
     settled = true;

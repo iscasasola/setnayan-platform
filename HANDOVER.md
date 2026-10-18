@@ -38,4 +38,8 @@ Built so far (step 1, committed):
 - Old form: call-time inputs + CarriedAttire `_call_time` removed; `updateDressCode` `withCallTimesCarried` keeps stored
   times for a tier that posted none (a poster that still sends them is read as before).
 - Prints: no times shown today (dressCodeLines) → left alone.
-NEXT: tests (+ update each-role-wears-its-own / the-outfit-figure tests), sabotage, lab fixture times, 375 shots, PR.
+DONE: tests (new lib/each-role-has-its-call-time.test.ts; 2 updated) — 274/274 in the touched files; 12/12 sabotages red.
+Lab fixtures carry times (details-lab ?attire=shared; guest lab ?as=1&asrole=… now also draws Me › Arrive by).
+Walk (lab, Chromium touch + WebKit iPhone 13, 375, light + dark): scratchpad call-times-walk/ → shots copied to
+~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Baselines regenerated (no-card, label-contrast-dark: 2 → 1 each, mine).
+NEXT: PR, CI.

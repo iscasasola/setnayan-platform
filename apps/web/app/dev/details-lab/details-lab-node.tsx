@@ -400,7 +400,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                         : rolesAttire
                         ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)
                         : sharedAttire
-                        ? { roles: { bride: { style: 'long_gown' } }, groups: { principal_sponsors: { style: 'long_gown' }, bridesmaids: { style: 'long_gown' }, groomsmen: { style: 'suit' } } }
+                        ? /* ⏰ With call times on some rows (2026-10-18) — a set one, an empty one, and a row with no Wear yet. */
+                          { roles: { bride: { style: 'long_gown', callTime: '13:30' } }, groups: { principal_sponsors: { style: 'long_gown', callTime: '14:00' }, bridesmaids: { style: 'long_gown', callTime: '12:30' }, groomsmen: { style: 'suit' } } }
                         : { roles: { bride: { style: ATTIRE_STYLES[0] } } }
                     }
                     attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}

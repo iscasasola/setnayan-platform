@@ -157,7 +157,7 @@ test('the Accent row reads and builds through the Maker’s draft store — neve
   assert.match(store, /accentsShared\.unheld\(\);/, 'the store’s accents copy is not told of an unheld write (↺ · Apply)');
   assert.match(store, /accentsShared\.rendered\(stamp\);/, 'the store’s accents copy is not told of a Maker render');
   const action = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/website/hub-draft-actions.ts'), 'utf8'));
-  assert.match(action, /\.update\(\{ style_preferences: \{ \.\.\.\(prefs \?\? \{\}\), \.\.\.qrWrite \} \}\)/, 'Apply no longer lays the drafted keys INTO the live blob');
+  assert.match(action, /column: 'style_preferences', what: 'Your style' \},\s*\(raw\) => \(\{ next: \{ \.\.\.\(raw && typeof raw === 'object' && !Array\.isArray\(raw\) \? \(raw as Record<string, unknown>\) : \{\}\), \.\.\.qrWrite \} \}\)/, 'Apply no longer lays the drafted keys INTO the live blob');
 });
 
 test('the Apply sheet names an accent pick for what it is — "Countdown, Cover · Decorations", never "Guest’s ticket · QR look"', async () => {

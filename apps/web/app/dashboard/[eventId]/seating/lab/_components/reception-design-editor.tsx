@@ -24,7 +24,7 @@
  * the mood-board actions file either.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   RECEPTION_PARTS,
   DEFAULT_DESIGN,
@@ -234,6 +234,10 @@ export function ReceptionDesignEditor({
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /** 👥 "Changed on another screen a moment ago — showing the newest." — said once, under the rail, never a modal. */
+  const [elsewhere, setElsewhere] = useState<string | null>(null);
+  /** The newest commit — an older one's answer never redraws over a pick made since. */
+  const commits = useRef(0);
   const save = useSaveLoader();
 
   const svg = useMemo(
@@ -333,14 +337,24 @@ export function ReceptionDesignEditor({
       ...design,
       [part]: { ...DEFAULT_DESIGN[part], ...cur, [attr]: value },
     };
+    /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18): the save says what this pick was built on — the same
+       design with the part's defaults laid in, so only `attr` reads as this screen's change. What the other host
+       picked meanwhile is kept, and the editor shows it. */
+    const base: ReceptionDesign = { ...design, [part]: { ...DEFAULT_DESIGN[part], ...cur } };
+    const mine = ++commits.current;
     onChange(next);
+    setElsewhere(null);
     startTransition(async () => {
       try {
-        await save.run(() => saveReceptionDesign(eventId, next), {
+        const res = await save.run(() => saveReceptionDesign(eventId, next, base), {
           steps: ['Saving your design'],
           hint: 'Saving',
         });
         setError(null);
+        if (res?.elsewhere && mine === commits.current) {
+          onChange(res.elsewhere.design);
+          setElsewhere(res.elsewhere.note);
+        }
       } catch (err) {
         setError('Could not save — try again.');
         void trackFailure({
@@ -564,6 +578,11 @@ export function ReceptionDesignEditor({
           {error ? (
             <p role="alert" className="text-xs text-terracotta-700">
               {error}
+            </p>
+          ) : null}
+          {elsewhere && !error ? (
+            <p role="status" className="text-xs text-ink/70" data-two-screens-note="">
+              {elsewhere}
             </p>
           ) : null}
 

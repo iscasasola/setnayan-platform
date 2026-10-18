@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { ANIMATE_FEELS, ANIMATE_FEEL_LABEL, FEEL_SECONDS, partFeel, partSpeedOf, type AnimateFeel } from '@/lib/animate-feel';
 import {
   COVER_ENTRANCES,
@@ -61,6 +61,8 @@ async function keepHero(change: (c: HubSectionCanvas) => HubSectionCanvas): Prom
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: next } } }));
+          // 👥 …with the canvas this screen last sent: another host's pick on the cover meanwhile is kept.
+          sendCanvasBase(fd, 'hero', o.hero, next);
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return o.draftAction!(o.eventId, fd);
         }),
@@ -70,6 +72,7 @@ async function keepHero(change: (c: HubSectionCanvas) => HubSectionCanvas): Prom
     res = { ok: false, intent: 'save', error: '' };
   }
   if (res === SUPERSEDED || res.ok) return true;
+  forgetCanvasSent('hero');
   noteDraftedCanvas('hero', before, o.hero);
   return false;
 }

@@ -53,6 +53,7 @@ import {
   isCapacityBound,
 } from '@/lib/personalization-conflicts';
 import { formatCount } from '@/lib/format-number';
+import { eventDetailsToWrite } from '@/lib/event-details-merge';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -526,8 +527,14 @@ type UpdateMatchCriteriaResult =
 const INVALID = Symbol('invalid');
 
 export async function updateEventMatchCriteria(
-  formData: FormData,
+  posted: FormData,
 ): Promise<UpdateMatchCriteriaResult> {
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/event-details-merge.ts`). A form that says what it
+     started from (`MERGE_BASE_FIELD`) is written only where THIS screen changed it: every field it did not change is
+     left out, and an absent field is untouched below — the other host's region, feel or budget stands. */
+  const toWrite = eventDetailsToWrite(posted);
+  const formData = toWrite.fd;
+  const based = toWrite.based;
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
@@ -733,8 +740,9 @@ export async function updateEventMatchCriteria(
     .maybeSingle();
 
   const updatePatch: Record<string, unknown> = {
-    region,
-    mood_feel_key: moodFeelKey,
+    // 👥 A based post leaves out what it did not change — absent ⇒ untouched, like the budget. Unbased: written, as before.
+    ...(!based || formData.has('region') ? { region } : {}),
+    ...(!based || formData.has('mood_feel_key') ? { mood_feel_key: moodFeelKey } : {}),
     ...(namesPosted ? { bride_name: brideName, groom_name: groomName } : {}),
   };
   // Untouched when the key never arrived — the same "absent ⇒ leave it alone"
@@ -809,6 +817,8 @@ export async function updateEventMatchCriteria(
   // limitation). Sensitive data; never read on any public/guest surface.
   const beforeRow = (before ?? null) as Record<string, unknown> | null;
   if (
+    // 👥 A based post that did not change the birth data leaves it (and its consent) exactly as stored.
+    (!based || formData.has('bazi_birthdata_consent')) &&
     baziBirthDataEnabled() &&
     isChineseWedding({
       ceremony_type: (beforeRow?.ceremony_type as string | null) ?? null,
@@ -870,6 +880,9 @@ export async function updateEventMatchCriteria(
       updatePatch.bazi_birthdata_consent_at = null;
     }
   }
+
+  // 👥 A based save that changed nothing writes nothing (and logs nothing) — the page is already what is stored.
+  if (based && Object.keys(updatePatch).length === 0) return { ok: true };
 
   const { error: updateError } = await admin
     .from('events')

@@ -11,6 +11,8 @@ import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-s
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { mergeFromBase, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
 import { SeatingLockError } from './seating-lock-error';
 import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
@@ -2490,7 +2492,14 @@ export async function buildSeatingDraft(
 export async function saveReceptionDesign(
   eventId: string,
   design: ReceptionDesign,
-): Promise<void> {
+  /**
+   * 👥 The design this screen's change was BASED ON (owner 2026-10-18, two hosts never overwrite — round 2;
+   * `lib/merge-from-base.ts`). The editor sends the WHOLE design, so a screen holding a copy from before the other
+   * host's pick wiped that pick. With it, what this screen did not change keeps the stored value; absent (an older
+   * page) the design is written whole, as before.
+   */
+  base?: ReceptionDesign,
+): Promise<{ elsewhere?: { design: ReceptionDesign; note: string } }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -2508,19 +2517,24 @@ export async function saveReceptionDesign(
   }
 
   // RLS enforces host-only writes on their own events via event_members.
-  const { error } = await supabase
-    .from('events')
-    .update({
-      reception_design: clean,
-      mood_board_updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  // 👥 Merged three ways onto the design as it is NOW, written only if it is still that (`updateJsonColumn`).
+  const baseClean = base === undefined ? undefined : sanitizeReceptionDesign(base, []);
+  const wrote = await updateJsonColumn<ReceptionDesign, boolean>(
+    supabase as unknown as JsonColumnClient,
+    { table: 'events', row: { event_id: eventId }, column: 'reception_design', what: 'Your room design' },
+    (stored) => {
+      const m = mergeFromBase(baseClean, clean, stored ?? {});
+      return { next: m.value, also: { mood_board_updated_at: new Date().toISOString() }, said: m.moved };
+    },
+  );
+  if (!wrote.written) throw new Error('Your room design could not be saved.');
 
   // Both surfaces read reception_design: the lab renders it live in 3D, and
   // the Mood Board shows the compact read-only summary — revalidate both.
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+  // 👥 Another screen's pick is in what was stored: the editor shows it, with one calm line.
+  return wrote.said && wrote.value ? { elsewhere: { design: wrote.value, note: TWO_SCREENS_NOTE } } : {};
 }
 
 /**

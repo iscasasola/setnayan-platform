@@ -16,6 +16,10 @@ import { sanitizeHubDraftPatch, type HubDraft, type HubDraftPatch, type HubDraft
 /** Set-like lists inside a rebased value (a role the couple painted stays painted when the other host paints another). */
 export const HUB_DRAFT_REBASE_SET_KEYS = ['touched_roles'] as const;
 
+/** Event columns the draft holds KEY BY KEY (`mergeHubDraft`): a save is merged only against the keys it sends. */
+export const HUB_DRAFT_KEYED_COLUMNS: ReadonlyArray<string> = ['style_preferences', 'print_details'];
+const isPlainObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
 /** The live values a rebase compares with, for what the draft does not hold: `events` columns, and canvases by section. */
 export type HubDraftRebaseLive = { events: Record<string, unknown>; canvas: Record<string, unknown> };
 
@@ -56,7 +60,15 @@ export function rebaseHubDraftPatch(current: HubDraft, patch: HubDraftPatch, raw
 
   for (const col of Object.keys(mine.events) as Array<keyof HubDraftState['events']>) {
     if (!(col in base.events)) continue;
-    const theirs = col in current.events ? current.events[col] : theirsLive.events[col];
+    let theirs: unknown = col in current.events ? current.events[col] : theirsLive.events[col];
+    /* 🔑 A KEYED blob (`style_preferences`, `print_details`) is drafted KEY BY KEY (`mergeHubDraft`): a save sends only
+       its own keys, so it is merged only against THOSE keys of what is held — every other key is not this save's to
+       merge (nor news to this screen). Round 2: the blocks' looks (`useBlockLooksDraft`) send one key of
+       `style_preferences` with its base. */
+    if (HUB_DRAFT_KEYED_COLUMNS.includes(col) && isPlainObj(mine.events[col])) {
+      const held = isPlainObj(theirs) ? theirs : {};
+      theirs = Object.fromEntries(Object.keys(mine.events[col] as object).filter((k) => k in held).map((k) => [k, held[k]]));
+    }
     const m = mergeFromBase(base.events[col], mine.events[col], theirs, { setKeys: HUB_DRAFT_REBASE_SET_KEYS });
     out.events![col] = m.value;
     for (const p of m.clashed) clashed.push(`${col}.${p}`);

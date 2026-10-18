@@ -37,7 +37,6 @@ import {
   printAccess,
   storyHasMoments,
   printFileName,
-  serializePrintDetails,
   posterPhotoRefAllowed,
   posterPhotoTooSmall,
   spotLayersFor,
@@ -50,6 +49,7 @@ import { NAME_STYLES, nameStyleFrom } from '@/lib/name-style';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
+import { updatePrintDetails } from '@/lib/print-details-write';
 import { sampleView } from '@/lib/print-sample-door.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
@@ -587,6 +587,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  * never touches the words. So both first READ the stored value — and if it
  * cannot be read, nothing is written (a blind write would wipe the other half).
  */
+/**
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): every write below is a CHANGE applied to
+ * `print_details` as it is when the write lands (`updatePrintDetails`, lib/print-details-write.ts) — never the value
+ * read at the top of the request, which another save (the other host's, or this host's menu autosave beside the poster
+ * photo) may already have passed. `said` turns its answer into the `{ message }` the logs take, or null.
+ */
+const said = (r: Awaited<ReturnType<typeof updatePrintDetails>>): { message: string } | null => (r.ok ? null : { message: r.error });
+
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
   if (piece !== 'words' && piece !== 'menu' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
@@ -612,7 +620,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
     return NextResponse.redirect(back, 303);
   }
-  const stored = parsePrintDetails(current.print_details);
 
   // 🎫 THE PASS CARD'S LOOK IS NOT WRITTEN HERE ANY MORE (owner 2026-10-02 Q7,
   // "the pass look waits for Apply"; built 2026-10-05): the Ticket style ▾ saves
@@ -628,10 +635,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   if (piece === 'name-style') {
     const asked = String(form.get('style') ?? '');
     if (!(NAME_STYLES as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
-    const { error } = await admin
-      .from('events')
-      .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleFrom(asked) }) })
-      .eq('event_id', eventId);
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, nameStyle: nameStyleFrom(asked) })));
     if (error) logQueryError('hub-print.name-style', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
   }
@@ -643,7 +647,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   if (piece === 'poster-photo') {
     const ref = String(form.get('ref') ?? '').trim();
     if (!ref) {
-      const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: null }) }).eq('event_id', eventId);
+      const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, posterPhoto: null })));
       if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
       return NextResponse.json({ ok: !error, photo: null }, { status: error ? 500 : 200 });
     }
@@ -665,7 +669,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     }
     if (!w || !h) return NextResponse.json({ ok: false, error: 'That photo could not be read — try another.' }, { status: 422 });
     const photo = { ref, w, h };
-    const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: photo }) }).eq('event_id', eventId);
+    // 👥 Applied to print_details as it is NOW — the measuring above held the first read for seconds.
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, posterPhoto: photo })));
     if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error, photo, tooSmall: posterPhotoTooSmall(photo) }, { status: error ? 500 : 200 });
   }
@@ -687,10 +692,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       back.searchParams.set('menu_error', '1');
       return NextResponse.redirect(back, 303);
     }
-    const { error } = await admin
-      .from('events')
-      .update({ print_details: serializePrintDetails({ ...stored, menu: parseMenu(raw) }) })
-      .eq('event_id', eventId);
+    const menu = parseMenu(raw);
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, menu })));
     if (error) logQueryError('hub-print.menu', error, { event_id: eventId }, 'graceful_degrade');
     if (quiet) return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
     if (error) back.searchParams.set('menu_error', '1');
@@ -756,12 +759,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       return NextResponse.redirect(back, 303);
     }
   }
-  const details = { ...stored, openingLine: draftLine ? stored.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include };
-
-  const { error } = await admin
-    .from('events')
-    .update({ print_details: serializePrintDetails(details) })
-    .eq('event_id', eventId);
+  const error = said(
+    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include })),
+  );
   if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
   /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,
      owner 2026-09-28: *"it reloads the whole page. which shouldn't"*): asked

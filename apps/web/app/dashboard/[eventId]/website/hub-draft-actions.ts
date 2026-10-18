@@ -61,7 +61,9 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { parsePrintDetails } from '@/lib/print-pieces';
+import { updatePrintDetails } from '@/lib/print-details-write';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
@@ -717,25 +719,21 @@ export async function hubDraftAction(
       }
     }
     if (qrWrite !== undefined) {
-      const admin = createAdminClient();
-      const { data: prefRow, error: prefErr } = await admin
-        .from('events')
-        .select('style_preferences')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      const prefs =
-        !prefErr && prefRow?.style_preferences && typeof prefRow.style_preferences === 'object'
-          ? { ...(prefRow.style_preferences as Record<string, unknown>) }
-          : null;
-      if (!prefs && prefErr) {
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      /* 👥 Laid onto style_preferences AS IT IS when the write lands (`updateJsonColumn`, round 2) — a key another
+         feature wrote while Apply ran (a scene style, a pending inquiry) stays. Its write proves its row. */
+      let qrOk = false;
+      try {
+        qrOk = (
+          await updateJsonColumn(
+            createAdminClient() as unknown as JsonColumnClient,
+            { table: 'events', row: { event_id: eventId }, column: 'style_preferences', what: 'Your style' },
+            (raw) => ({ next: { ...(raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}), ...qrWrite } }),
+          )
+        ).written;
+      } catch {
+        qrOk = false;
       }
-      const { data: qrRows, error: qrErr } = await admin
-        .from('events')
-        .update({ style_preferences: { ...(prefs ?? {}), ...qrWrite } })
-        .eq('event_id', eventId)
-        .select('event_id');
-      if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+      if (!qrOk) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
@@ -763,29 +761,15 @@ export async function hubDraftAction(
       if (auditErr) console.error('[hub-draft] reply-by audit row not written:', auditErr.message);
     }
     if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
-      const admin = createAdminClient();
-      const { data: pdRow, error: pdErr } = await admin
-        .from('events')
-        .select('print_details')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      if (pdErr || !pdRow) {
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
-      }
-      const stored = parsePrintDetails(pdRow.print_details);
-      const { data: pdRows, error: pdWriteErr } = await admin
-        .from('events')
-        .update({
-          print_details: serializePrintDetails({
-            ...stored,
-            ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
-            ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
-            ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
-          }),
-        })
-        .eq('event_id', eventId)
-        .select('event_id');
-      if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {
+      // 👥 Applied to print_details as it is when the write lands (lib/print-details-write.ts) — never a copy read
+      // earlier, which a menu or a poster photo saved meanwhile may already have passed. A row-count proof inside.
+      const pd = await updatePrintDetails(createAdminClient(), eventId, (now) => ({
+        ...now,
+        ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
+        ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
+        ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
+      }));
+      if (!pd.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

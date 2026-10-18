@@ -19,7 +19,7 @@ import {
 import { HUB_GLASS_OPACITY_MAX, HUB_GLASS_OPACITY_MIN, HUB_GLASS_OPACITY_STEP, hubMovingBackgroundIds, sanitizeHubCanvas, type HubCoverGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
-import { noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
@@ -148,6 +148,8 @@ export function CoverSceneGroundRows({
       fd.set('intent', 'save');
       const heroPhoto = canvasNext.ground?.kind === 'photo' ? canvasNext.ground.media : null;
       fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: canvasNext } }, ...(heroPhoto ? { events: { landing_page_hero_image_url: heroPhoto } } : {}) }));
+      // 👥 …with the canvas this pick was built on: another host's pick on the cover meanwhile is kept.
+      sendCanvasBase(fd, 'hero', canvas, canvasNext, before);
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => ({
         ok: false as const,
@@ -155,6 +157,7 @@ export function CoverSceneGroundRows({
         error: 'That change could not be saved. Please try again.',
       }));
       if (!res.ok) {
+        forgetCanvasSent('hero');
         /* A shade laid ahead of this refused save comes off the canvas with it. */
         showCoverShade(null);
         if (latest.current === canvasNext) {

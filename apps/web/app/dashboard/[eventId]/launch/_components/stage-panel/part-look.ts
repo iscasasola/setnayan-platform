@@ -23,8 +23,7 @@ import { FIXED_STYLE_SCENES } from '@/lib/fixed-scene-styles';
 import { sceneStyleOptions } from '@/lib/scene-styles';
 import type { HubStage } from '@/lib/hub-canvas';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
-import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import {
@@ -123,17 +122,6 @@ function show(message: unknown): void {
 
 export type PartLookDoor = { eventId: string; draftAction: ElementDraftAction; canvases: Readonly<Record<string, HubSectionCanvas>> | null | undefined };
 
-/**
- * 👥 THE CANVAS THIS SCREEN LAST SENT, per scene — the base its next save is merged from (`lib/merge-from-base.ts`;
- * saves run in order). The canvas goes in WHOLE, so without it a screen holding a copy from before another host's pick
- * on the same scene wiped that pick. Dropped when the page brings a newer canvas (`server` moved past it).
- */
-const sentCanvas = new Map<string, { server: string; canvas: HubSectionCanvas }>();
-function baseCanvasFor(type: string, server: HubSectionCanvas | null): HubSectionCanvas | null {
-  const kept = sentCanvas.get(type);
-  return kept && kept.server === canvasFingerprint(server) ? kept.canvas : server;
-}
-
 /** KEEP a colour, a size or a width: on the page now, then ONE draft write (the latest of a burst), held. */
 export async function keepPartLook(t: PartLookTarget, field: PartLookField, value: string | number | null, door: PartLookDoor): Promise<{ ok: true } | { ok: false; error: string }> {
   const server = door.canvases?.[t.widgetType] ?? null;
@@ -150,8 +138,8 @@ export async function keepPartLook(t: PartLookTarget, field: PartLookField, valu
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ widgets: { [t.widgetType]: { canvas: next } } }));
-          fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { [t.widgetType]: { canvas: baseCanvasFor(t.widgetType, server) ?? {} } } }));
-          sentCanvas.set(t.widgetType, { server: canvasFingerprint(server), canvas: next });
+          /* 👥 …with the canvas this screen last sent: what another host changed on the scene meanwhile is kept. */
+          sendCanvasBase(fd, t.widgetType, server, next);
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return door.draftAction(door.eventId, fd);
         }),
@@ -167,7 +155,7 @@ export async function keepPartLook(t: PartLookTarget, field: PartLookField, valu
   /* 👥 Another screen's change merged into this save: the pages redraw in place from the draft, which holds both, and
      the toolbar says so once (`makerSave`); the next pick here is merged from what this one sent. */
   if (res === SUPERSEDED || res.ok) return { ok: true };
-  sentCanvas.delete(t.widgetType);
+  forgetCanvasSent(t.widgetType);
   /* ↩ Refused, and nothing newer is on the Maker's copy: the page and the copy go back. */
   if (canvasFingerprint(draftedCanvasOr(t.widgetType, server)) === canvasFingerprint(next)) {
     show(elementPreview(t.key, t.el, next, before, false));

@@ -22,7 +22,9 @@ function fakeAdmin(row: Record<string, unknown> | null, rowsWritten = 1) {
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }),
       update: (patch: unknown) => {
         writes.push(patch);
-        return { eq: () => ({ select: async () => ({ data: Array.from({ length: rowsWritten }, () => ({ event_id: 'e' })), error: null }) }) };
+        // 👥 Chainable: the write also compares the value it read (`updateJsonColumn`, 2026-10-18).
+        const w = { eq: () => w, is: () => w, select: async () => ({ data: Array.from({ length: rowsWritten }, () => ({ event_id: 'e' })), error: null }) };
+        return w;
       },
     }),
   };

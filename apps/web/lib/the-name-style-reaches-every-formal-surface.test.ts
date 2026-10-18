@@ -199,18 +199,22 @@ test('every writer of print_details carries what it does not own — the Name st
   /* 🔑 A PROPERTY, NOT A KEY LIST. The `words` save once named the keys it
      carried (menu, message, pass look) and so dropped the poster's photo; a
      key list would drop `name_style` the same way. Every write must start from
-     the stored value: `{ ...stored, … }`, or a variable built that way. */
-  const calls = callsOf(new Set(['serializePrintDetails']));
+     the stored value.
+     👥 Since 2026-10-18 (two hosts never overwrite, round 2) every write is `updatePrintDetails(admin, eventId, change)`
+     (lib/print-details-write.ts), whose change gets the value AS IT IS when the write lands — so the property is now:
+     every change starts from what it is handed, `(now) => ({ ...now, … })`, and nothing else serializes the blob. */
+  const direct = callsOf(new Set(['serializePrintDetails'])).filter((c) => c.file !== 'lib/print-pieces.ts' && c.file !== 'lib/print-details-write.ts');
+  assert.deepEqual(direct.map((c) => `${c.file}:${c.line}`), [], 'print_details is written outside updatePrintDetails — without the compare, from a copy read earlier');
+  const calls = callsOf(new Set(['updatePrintDetails']));
   const bad: string[] = [];
   for (const c of calls) {
-    if (c.file === 'lib/print-pieces.ts') continue;
-    const arg = c.args[0];
-    let text = arg ? arg.getText(c.sf) : '';
-    if (arg && ts.isIdentifier(arg)) {
-      const decl = new RegExp(`const ${arg.text}\\s*=\\s*([^;]+);`).exec(c.sf.getFullText());
-      text = decl?.[1] ?? '';
-    }
-    if (!/^\{\s*\.\.\.stored\b/.test(text.trim())) bad.push(`${c.file}:${c.line}  ${text.slice(0, 90)}`);
+    const change = c.args[2];
+    const ok =
+      change !== undefined &&
+      ts.isArrowFunction(change) &&
+      change.parameters.length === 1 &&
+      new RegExp(`^\\(\\{\\s*\\.\\.\\.${change.parameters[0]!.name.getText(c.sf)}\\b`).test(change.body.getText(c.sf).trim());
+    if (!ok) bad.push(`${c.file}:${c.line}  ${(change?.getText(c.sf) ?? '').slice(0, 90)}`);
   }
   assert.ok(calls.length >= 5, `found only ${calls.length} writes — the scan is not looking`);
   assert.deepEqual(bad, [], 'a print_details write that does not start from what is stored erases the other writers’ keys');

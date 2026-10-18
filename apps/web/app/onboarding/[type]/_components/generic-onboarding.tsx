@@ -695,7 +695,8 @@ export function GenericOnboarding(props: Props) {
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  const screen = screens[step]!;
+  // 🚪 "What do you need?" can SHORTEN the list (a resumed draft whose rows say Simple): never read past its end.
+  const screen = screens[Math.min(step, screens.length - 1)]!;
   const axisIndex = axisIds.indexOf(screen);
   const isAxis = axisIndex >= 0;
   const tqId = screen.startsWith('tq_') ? screen.slice(3) : null;

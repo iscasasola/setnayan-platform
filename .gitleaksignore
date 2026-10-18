@@ -109,3 +109,8 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # pinned by that commit because the PR range is scanned per commit.
 de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:86
 de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:87
+#
+# rd/in-app-purchase (Apple IAP db test): PAPIC_GUEST_500 asserted against the
+# order's service_key — a public catalogue product code, not a credential.
+# Pinned by its introducing commit (the PR range is scanned per commit).
+2255b14a1c8bdfba7c4c9c29dd3fd69e18d9299b:apps/web/tests/db/an-app-store-purchase-is-one-order.db.test.ts:generic-api-key:115

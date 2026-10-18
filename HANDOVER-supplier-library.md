@@ -10,5 +10,9 @@ Ruling: corpus DECISION_LOG 2026-10-19 "SUPPLIERS FILL THE INSPIRATION LIBRARY W
 - Today (Shop group) + Shop (Your shop, under Your collections): "Add to the inspiration library · Your photos help couples find you", gated by `moodboardLibraryAccessForProfile`.
 - Guard: `lib/every-palette-part-reaches-the-supplier-library.test.ts`.
 
+- Lab round trip: /dev/supplier-lab?s=library → &view=review (Approve) → /dev/details-lab?look=1&studio=1&library=1 (Search ideas). Server half `app/dev/supplier-lab/library-lab-server.ts` (one export, in-memory).
+- Walk: real supplier pages on a local fake Supabase (shots-2026-10-18/supplier-library/work/pgstub.mjs, serve.sh, walk.mjs). Shots in shots-2026-10-18/supplier-library/.
+- Sabotage: 6 runs, all red then green (work/sabotage.log).
+
 ## Left
-- sabotage runs, lab walk + 375 px shots, PR.
+- CI watch on the draft PR; delete this file once CI is green.

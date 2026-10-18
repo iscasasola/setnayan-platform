@@ -328,7 +328,15 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       en: ['3D venue layout', 'virtual reception layout', 'wedding 3D seating plan', 'walkthrough your venue'],
       tl: ['3D na layout ng venue', '3D seat plan', 'libreng 3D plan'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/3d-plan-0.jpg',
+        alt: {
+          en: 'The 3D Plan on a phone: a sample reception seen from above — round tables with seated guests, the stage and the dance floor — with Walk around and the role colours switched on',
+          tl: 'Ang 3D Plan sa telepono: isang sample na reception na tanaw mula sa itaas — mga bilog na table na may nakaupong bisita, ang stage at ang dance floor — kasama ang Walk around at nakabukas ang role colors',
+        },
+      },
+    ],
     price: { kind: 'free' },
     tryHref: '/pa3d/try',
     moreHref: '/pa3d',

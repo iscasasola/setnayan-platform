@@ -24,5 +24,7 @@ the-logo-adds-three-things-only (Ornament allowed), the-logo-is-layers (Add list
 (5 ChosenRows). 118 logo tests pass locally. Fragment `changelog.d/rd-logo-ornament-l5.md`.
 Calls made (no ruling): which-ornament lives in the body, not the config (first-load budget); names for the 6 glyphs; the
 dropdown lists names (PickMenu has no picture slot — same as Frame ▾); ornament keeps "How it's written" (prototype shows it).
-NEXT: walk (scratchpad/logo-l5-walk/walk.mjs, lab /dev/maker-lab?studio=1 › Logo, port 3675) → shots + side-by-side →
-draft PR, label do-not-auto-merge, disable auto-merge → CI watch.
+Walked (lab, port 3675, stopped, .next removed): Chromium 812 17/17 · 667 17/17 · WebKit 812 15/15. Swap fix: Ornament ▾
+keeps the drawn area (`swapOrnament`) — the first walk showed a square leaf covering the names at the flourish's scale.
+PR #6641 DRAFT, label do-not-auto-merge, autoMergeRequest null. Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6641/
+(side-by-side-L5-375.jpg). NEXT: CI to green (one loop, 120 s), fix reds; delete this file only when fully green.

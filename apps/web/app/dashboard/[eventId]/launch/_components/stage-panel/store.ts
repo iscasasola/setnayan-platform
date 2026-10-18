@@ -14,8 +14,9 @@
  * segment Animate was on (Build in | Action | Build out), so the next part opens where the couple was — the
  * prototype's `S.aphase`.
  */
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, type ComponentType } from 'react';
 import type { MakerPartTool } from '@/lib/maker-parts';
+import type { StageAnimateProps } from './stage-animate';
 
 export type StageQuiet =
   | { kind: 'info'; words: string; open: () => void }
@@ -103,4 +104,20 @@ export function useStageRevealLook(): StageRevealLook {
 export function setStageAnimatePhase(p: AnimatePhase): void {
   animatePhase = p;
   ping();
+}
+
+/**
+ * 🖥 A DESKTOP'S ANIMATE — Build in · Action · Build out STACKED under their bar (owner's "A" for answer 3 on
+ * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`). Handed in by the desktop's lazy code (`stage-panel/desk.tsx`)
+ * while its columns are on, and taken back when they go: on a phone (and in either first render) it is null and
+ * `StageAnimate` draws the phone's four rows — not a byte of the stack is in the Maker's first load.
+ */
+let deskAnimate: ComponentType<StageAnimateProps> | null = null;
+export function setDeskAnimateStack(next: ComponentType<StageAnimateProps> | null): void {
+  if (next === deskAnimate) return;
+  deskAnimate = next;
+  ping();
+}
+export function useDeskAnimateStack(): ComponentType<StageAnimateProps> | null {
+  return useSyncExternalStore(subscribe, () => deskAnimate, () => null);
 }

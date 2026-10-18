@@ -13,7 +13,7 @@ import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF, SP_ANIMATE_LINE } from '@/lib/maker-
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { Dd, PanelSwitch, Phases } from './kit';
-import { useAnimatePhase, type AnimatePhase } from './store';
+import { useAnimatePhase, useDeskAnimateStack, type AnimatePhase } from './store';
 
 /**
  * ✨ ANIMATE — FOUR ROWS, nothing scrolling (`TOOLBAR-SPEC-2026-10-09.md` § ANIMATE; it was one column of eleven rows,
@@ -78,6 +78,8 @@ export function toggleMotionFx(fx: MotionFx | null, end: 'in' | 'out', effect: E
 }
 
 const seconds = (n: number) => `${n.toFixed(1)} s`;
+/** 🖥 One phase of a desktop's stack: its rows one under the other, each a row tall (a row it has no use for is not drawn). */
+const SP_ANIMATE_STACKED = 'flex flex-col gap-[var(--sp-rg)] [&>*]:min-h-[var(--sp-rh)]';
 
 /** Movement ◆ for one phase: the feel that plays, and — when there is nothing for it to time — why (a tap says it). */
 export type AnimateMove = { value: AnimateFeel; onPick: (feel: AnimateFeel) => void; off?: string | null } | null;
@@ -90,7 +92,21 @@ const PLAYS_OPTIONS = [
   { key: 'scroll', label: 'On scroll' },
 ] as const;
 
-export function StageAnimate({
+export type StageAnimateProps = Parameters<typeof AnimateRows>[0];
+
+/**
+ * The phone's four rows (`AnimateRows`) — or, on a desktop while its columns are on, the three phases STACKED under
+ * their bar (`stage-panel/desk.tsx`, lazy; handed in through `useDeskAnimateStack`, null on a phone and in either
+ * first render). A one-phase page (`only`) keeps its four rows everywhere: it has one phase to show.
+ */
+export function StageAnimate(p: StageAnimateProps) {
+  const Stack = useDeskAnimateStack();
+  return Stack && !p.only && !p.bare ? <Stack {...p} /> : <AnimateRows {...p} />;
+}
+
+export function AnimateRows({
+  phase: forced = null,
+  bare = false,
   move,
   plays = null,
   inFx,
@@ -111,6 +127,10 @@ export function StageAnimate({
   onlyWhy,
   note = null,
 }: {
+  /** 🖥 This phase, whatever Animate's own segment is on (a desktop's stack draws each of the three). */
+  phase?: AnimatePhase | null;
+  /** 🖥 Rows 2–4 only — the stack's own bar stands over all three phases. */
+  bare?: boolean;
   /**
    * One quiet line about WHERE this Build in plays, in row 3 while that row is free (no refusal to say, and neither
    * Move nor Size is on — they need the row for their side and their way). The reply form's card says the Event
@@ -161,7 +181,7 @@ export function StageAnimate({
 }) {
   const [phase, setPhase] = useAnimatePhase();
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
-  const at: AnimatePhase = only ?? phase;
+  const at: AnimatePhase = only ?? forced ?? phase;
   const end = at === 'act' ? null : at;
   const fx = end === 'in' ? inFx : end === 'out' ? outFx : null;
   const keep = end === 'in' ? onIn : onOut;
@@ -171,9 +191,9 @@ export function StageAnimate({
   const noOut = end === 'out' && plays?.value === 'arrival';
   const feel = end ? move[end] : null;
   return (
-    <div className={`${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
+    <div className={bare ? SP_ANIMATE_STACKED : `${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
       {/* ══ ROW 1 — when (on a one-screen page: Build in, and the two it has none of, grey) ══ */}
-      <div className={`${SP_ROWS_ROW} row-start-1`}>
+      {bare ? null : <div className={`${SP_ROWS_ROW} row-start-1`}>
         <Phases<AnimatePhase>
           label="Animate"
           value={at}
@@ -186,7 +206,7 @@ export function StageAnimate({
           off={only ? (k) => (k === only ? null : () => setWhy((w) => ({ words: onlyWhy ?? '', n: (w?.n ?? 0) + 1 }))) : undefined}
           data="animate"
         />
-      </div>
+      </div>}
       {/* ══ ROW 2 — what it does ══ */}
       {noOut && plays ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-no-out="">

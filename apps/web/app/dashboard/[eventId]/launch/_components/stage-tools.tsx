@@ -118,7 +118,7 @@ import { CameraPage } from './stage-panel/camera-page';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
-import { DeskParts, DeskStep, STAGE_DESK_CSS, useDeskRowsTop } from './stage-panel/desk';
+import { DeskParts, DeskStep, STAGE_DESK_CSS, useDeskAnimate, useDeskLookInView, useDeskRowsTop } from './stage-panel/desk';
 import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
@@ -1359,6 +1359,8 @@ export function StageTools({
   const desk = useIsDesktop('lg');
   const rowsRef = useRef<HTMLDivElement>(null);
   useDeskRowsTop(desk, rowsRef);
+  useDeskAnimate(desk);
+  useDeskLookInView(desk, shownTool, picked);
   useLayoutEffect(() => setShellEl(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
   /** Where the tab row is drawn: over the foot of the stage's canvas — or, on the RSVP stage, in that stage's own
    *  column (never the shell there: the RSVP layer would cover it). */

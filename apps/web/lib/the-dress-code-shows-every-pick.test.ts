@@ -292,9 +292,12 @@ test('6 · a reader is dressed by their Studio row: the groom’s father reads t
   /* a best woman is dressed by the Groomsmen row — never by the per-role "Long gown" the older form stored */
   const bestWoman = await widget({ config: { ...config, groups: { ...config.groups, groomsmen: { style: 'suit' } } }, rolePalette: CALE.palette, guestRole: 'best_woman' });
   assert.ok(!/Long gown/.test(bestWoman.slice(bestWoman.indexOf('data-dress-code="you"'))), 'the best woman read the per-role line the Studio does not show');
-  /* and the general view draws no per-role line the Studio does not show */
+  /* and the general view draws no per-role line the Studio does not show. (👯 2026-10-19: the Studio HAS a Best Man &
+     Best Woman row and a Maid / Matron of Honor row now — `the-honour-attendants-have-their-own-rows.test.ts` — so
+     those are no longer "a row it does not have"; the old per-role "Long gown" for the best woman still is.) */
   const general = await widget({ config: CALE.config, rolePalette: CALE.palette });
-  assert.ok(!/Best Woman|Parents of the Groom|Maid \/ Matron|Wedding Party/.test(unescape(general)), 'a row or line the Studio has no row for is drawn');
+  assert.ok(!/Parents of the Groom|Maid \/ Matron|Wedding Party/.test(unescape(general)), 'a row or line the Studio has no row for is drawn');
+  assert.ok(!/For women · Long gown/.test(unescape(general.slice(general.indexOf('data-role-row="best_man"')))), 'the best woman’s old per-role line is drawn');
 });
 
 /* ── 7 · the row-size look is the full-size look, smaller ─────────────────────────────────────────────────────── */

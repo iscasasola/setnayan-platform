@@ -215,7 +215,7 @@ export function labCaleRolePalette() {
  * the groomsmen or the guests. `?attire=cale-now` is the same event after that Apply (every Studio row picked).
  * Fixture only; nothing here reaches a guest.
  */
-export function labCaleIceDressConfig(after = false) {
+export function labCaleIceDressConfig(after = false, honour = false) {
   const before = {
     dos: ['Lean into the palette'],
     donts: ['No white or ivory'],
@@ -228,11 +228,16 @@ export function labCaleIceDressConfig(after = false) {
     show_figure: true,
   };
   if (!after) return before;
+  /* 👯 `?attire=cale-honour` — after the couple dresses the two honour rows (2026-10-19): the maid of honor in a cocktail
+     dress, the best man in a tuxedo, the best woman in a Filipiniana; one call time and one note per row. */
+  const honourRoles = honour
+    ? { maid_of_honor: { style: 'cocktail_dress', callTime: '13:30', note: 'Dusty rose, not pink' }, best_man: { style: 'tuxedo', callTime: '13:00' } }
+    : {};
   return {
     ...before,
-    roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: 'suit' } },
+    roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: 'suit' }, ...honourRoles },
     women: {
-      roles: { guest: { style: 'long_gown' } },
+      roles: { guest: { style: 'long_gown' }, ...(honour ? { best_man: { style: 'filipiniana' } } : {}) },
       groups: {
         vip_family: { style: 'long_gown', colours: ['#5C0700', '#248191', '#3E3350'] },
         principal_sponsors: { style: 'long_gown', colours: ['#8B7E74', '#6C6C6C'] },
@@ -294,20 +299,31 @@ export const LAB_CALE_ICE_ROLE_NAMES = {
   principal_sponsor_ninong: { one: 'Ninong' },
 };
 /**
- * cale-ice's Studio › Attire rows — what `studioAttireRows` builds from its guest list (read SELECT-only 2026-10-17:
+ * cale-ice's guest list, by role — the shape `guestRoleTally` hands `studioAttireRows` (read SELECT-only 2026-10-17:
  * bride · groom · parents and immediate family · principal, candle, cord and veil sponsors · bridesmaids and maids of
- * honor · groomsmen, best men and a best woman · bearers and flower girls · 20 guests).
+ * honor · groomsmen, best men and a best woman · bearers and flower girls · 20 guests; five honour attendants, measured
+ * 2026-10-19). The lab builds its Attire rows from it with the Maker's own `studioAttireRows`, never a typed copy.
  */
-export const LAB_CALE_ICE_ATTIRE_ROWS = [
-  { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
-  { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
-  { tier: 'groups', key: 'vip_family', label: 'VIP · Immediate Family', paletteKey: 'parents_immediate_family', arrives: null, people: 6 },
-  { tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: null, people: 40 },
-  { tier: 'groups', key: 'secondary_sponsors', label: 'Secondary Sponsors', paletteKey: 'secondary_sponsors', arrives: null, people: 6 },
-  { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: null, people: 14 },
-  { tier: 'groups', key: 'groomsmen', label: 'Groomsmen', paletteKey: 'groomsmen', arrives: null, people: 16 },
-  { tier: 'groups', key: 'bearers_flower_girl', label: 'Bearers & Flower Girl', paletteKey: 'bearers_flower_girl', arrives: null, people: 5 },
-  { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null, people: 20 },
+export const LAB_CALE_ICE_ROLE_TALLY = [
+  { role: 'bride', count: 1 },
+  { role: 'groom', count: 1 },
+  { role: 'bride_parents', count: 2 },
+  { role: 'groom_parents', count: 2 },
+  { role: 'groom_immediate_family', count: 2 },
+  { role: 'principal_sponsor_ninong', count: 20 },
+  { role: 'principal_sponsor_ninang', count: 20 },
+  { role: 'candle_sponsor', count: 2 },
+  { role: 'cord_sponsor', count: 2 },
+  { role: 'veil_sponsor', count: 2 },
+  { role: 'maid_of_honor', count: 2 },
+  { role: 'bridesmaid', count: 12 },
+  { role: 'best_man', count: 2 },
+  { role: 'best_woman', count: 1 },
+  { role: 'groomsman', count: 13 },
+  { role: 'ring_bearer', count: 2 },
+  { role: 'bible_bearer', count: 1 },
+  { role: 'flower_girl', count: 2 },
+  { role: 'guest', count: 20 },
 ] as const;
 
 /**

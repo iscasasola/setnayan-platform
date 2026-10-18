@@ -10,7 +10,7 @@
  */
 import { ATTIRE_STYLE_LABEL, type AttireStyle, type resolveGuestDressCode } from './role-dress-code';
 import { designLabel, type FigureRole } from './attire-designs';
-import { ATTIRE_ROWS, PICK_LABEL, picksOf, type AttireTier } from './attire-rows';
+import { ATTIRE_ROWS, HONOUR_ROW_ROLES, PICK_LABEL, honourRowLabel, isHonourRowKey, picksOf, type AttireTier } from './attire-rows';
 import type { FigureWho } from './attire-figures';
 import { pickDots } from './role-figure';
 import { roleLabel } from './entourage';
@@ -165,7 +165,11 @@ export function dressCodeForEveryone(input: {
       });
     }
     if (picks.length === 0) continue;
-    const label = key ? rowLabel(key, input.names) : (roleLabel(def.key as GuestRole, input.names) ?? guestRoleLabel(def.key as GuestRole, input.names));
+    /* 👯 An honour row (2026-10-19) is listed like every other Studio row — what the Studio shows, the page shows —
+       and named for the people it shows ("Best Man & Best Woman", "Best Woman"); the maid / matron row names both. */
+    const label = isHonourRowKey(def.key) && def.tier === 'roles'
+      ? honourRowLabel(def.key, two ? new Set(picks.map((p) => HONOUR_ROW_ROLES[def.key as 'best_man'][p.who === 'm' ? 0 : 1])) : null, input.names)
+      : key ? rowLabel(key, input.names) : (roleLabel(def.key as GuestRole, input.names) ?? guestRoleLabel(def.key as GuestRole, input.names));
     const source: 'role' | 'group' = def.tier === 'roles' ? 'role' : 'group';
     const note = noteOf(config, def.tier, def.key);
     rows.push({

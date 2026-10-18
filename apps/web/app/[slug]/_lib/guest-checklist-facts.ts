@@ -56,6 +56,7 @@ export function guestChecklistItems(input: {
     roles: sanitizeRoleAttire(config?.roles, isDressableRole),
     groups: sanitizeGroupAttire(config?.groups),
     palette,
+    config,
   });
   /* 👫 The reader's OWN pick (owner 2026-10-16) — the same `readerAttire` the Dress code's "You are …" panel reads, so a
      ninong's checklist never says the women's "Long gown" a group saved for everybody before the split. */

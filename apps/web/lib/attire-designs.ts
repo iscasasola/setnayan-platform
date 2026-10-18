@@ -142,6 +142,10 @@ export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | r
   vip_family: ['father', 'mother'],
   principal_sponsors: ['ninong', 'ninang'],
   secondary_sponsors: ['sponsor_m', 'sponsor_w'],
+  /* 👯 The honour attendants' rows (owner 2026-10-19, "Best man and best woman share a row like principal sponsors.
+     same goes to maid and matron of honor"): the best man wears the groom's list, the best woman the maid of honor's. */
+  best_man: ['best_man', 'maid_of_honor'],
+  maid_of_honor: ['maid_of_honor'],
   bridesmaids: ['bridesmaid'],
   groomsmen: ['groomsman'],
   bearers_flower_girl: ['ring_bearer', 'flower_girl'],

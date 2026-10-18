@@ -617,31 +617,37 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const rolesAttire = sp.attire === 'roles';
   /* 🪞 `?attire=cale` — cale-ice's dress code exactly as production held it 2026-10-17 (`labCaleIceDressConfig`);
      `?attire=cale-now` — after the owner's Apply. `&you=<guest-list role>` reads it as them. */
-  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now';
-  const caleIceAfter = sp.attire === 'cale-now';
+  /* 👯 `?attire=cale-honour` — cale-now with the two honour rows dressed (2026-10-19); with `?as=1&asrole=maid_of_honor`
+     the Me › What to wear below reads cale-ice's dress code too (`cale-now`: her own row unset → the Bridesmaids'). */
+  const caleIce = sp.attire === 'cale' || sp.attire === 'cale-now' || sp.attire === 'cale-honour';
+  const caleIceHonour = sp.attire === 'cale-honour';
+  const caleIceAfter = sp.attire === 'cale-now' || caleIceHonour;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   /* 🎭 See as · Role ▾ (owner 2026-10-17): the canvas drawn as a sample guest in one role — `?as=` + `?asrole=`, read
      strictly by the page's own reader (`previewRoleOf`). The scene stays the general dress code (as the real page draws
      it for an identified guest); under it, that role's Me › What to wear. */
   const labRole = typeof sp.as === 'string' ? previewRoleOf(one('asrole'), WEDDING_ROLE_SET.offeredRoles) : null;
+  const roleDress = caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour) as never) : labCaleRoleDressConfig();
+  const rolePal = caleIce ? labCaleIceRolePalette(caleIceAfter) : labCaleRoleRolePalette();
+  const roleNames = caleIce ? LAB_CALE_ICE_ROLE_NAMES : null;
   const roleWear = words && labRole ? (
     <div data-lab-scene="me-wear" data-lab-role={labRole.key} className="mt-8 border-t border-ink/10 pt-6">
       <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">Me · {labRole.name}</p>
-      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="wear" />
+      <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="wear" />
       {/* ⏰ Arrive by — the role's call time, the Me part after What to wear (`GUEST_ME_PARTS`), set per row in Studio › Attire. */}
-      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} rolePalette={labCaleRoleRolePalette()} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={null} part="arrive" />
+      <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="arrive" />
     </div>
   ) : null;
   const dressCode = words && labRole ? (
     <>
-      <DressCodeWidget words={words} config={labCaleRoleDressConfig()} ceremonyType={null} genderSeparation={null} rolePalette={labCaleRoleRolePalette()} guestRole={null} roleNames={null} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={null} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
       {roleWear}
     </>
   ) : words ? (
     <DressCodeWidget
       words={words}
-      config={caleIce ? (labCaleIceDressConfig(caleIceAfter) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
       rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}

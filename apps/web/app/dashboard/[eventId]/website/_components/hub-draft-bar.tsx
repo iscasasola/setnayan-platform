@@ -13,7 +13,6 @@ import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
-import type { ApplePro } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
@@ -382,9 +381,9 @@ export function HubDraftToolbar({
      Pro in it — so the Maker's first load carries none of it. */
   const appleAsks = appleIap && asksForPro;
   const [appleKit, setAppleKit] = useState<typeof import('@/lib/iap/pro-at-apply') | null>(null);
-  const [applePrice, setApplePrice] = useState<{ state: ApplePro['priceState']; price: string | null }>({ state: 'loading', price: null });
+  const [applePrice, setApplePrice] = useState<{ state: 'loading' | 'ready' | 'silent'; price: string | null }>({ state: 'loading', price: null });
   const [appleBuying, setAppleBuying] = useState(false);
-  const [appleScreen, setAppleScreen] = useState<ApplePro['screen']>(null);
+  const [appleScreen, setAppleScreen] = useState<Awaited<ReturnType<typeof import('@/lib/iap/pro-at-apply').buyProWithApple>> | null>(null);
   useEffect(() => {
     if (!appleAsks || !sheetOpen || appleKit) return;
     let alive = true;
@@ -648,16 +647,17 @@ export function HubDraftToolbar({
           changes={summary.changes}
           heldOnWeb={proShell ? summary.proCount : 0}
           apple={
-            appleAsks
-              ? {
+            appleAsks && appleKit
+              ? appleKit.appleProParts({
                   price: applePrice.price,
                   priceState: applePrice.state,
                   buying: appleBuying,
+                  applying: pending,
                   screen: appleScreen,
+                  proCount: proEffects.length,
                   applied: appleApplied,
-                  copy: appleKit?.APPLE_PRO_COPY ?? null,
                   onBuy: () => {
-                    if (appleBuying || !appleKit) return;
+                    if (appleBuying) return;
                     setAppleBuying(true);
                     setAppleScreen(null);
                     setAppleApplied({ count: summary.changeCount, names: proEffects.map((e) => e.what) });
@@ -673,7 +673,7 @@ export function HubDraftToolbar({
                     setAppleScreen(null);
                     setSheetOpen(false);
                   },
-                }
+                })
               : null
           }
           priceLabel={priceLabel}

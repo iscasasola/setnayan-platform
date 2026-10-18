@@ -106,7 +106,7 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
     'app/_components/iap/iap-papic-sheet.tsx',
     'app/_components/iap/iap-live-watch-sheet.tsx',
     'app/_components/iap/restore-purchases-row.tsx',
-    'lib/iap/pro-at-apply.ts',
+    'lib/iap/pro-at-apply.tsx',
     'lib/iap/native-store.ts',
   ];
   for (const f of surfaces) {

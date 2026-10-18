@@ -27,3 +27,7 @@ Decisions taken (no ruling in the record — matched to the docs):
 - Kept shipped controls the prototype does not draw: Name (rename, owner 09-28 ask) and Centre it — in Style.
 - ▶ plays the picked layer (its delay kept), the rest held still — prototype `play()`; there is always a picked layer (L1).
 - LOGO_SCALE_MIN 0.1 → 0.02: a split letter keeps its size inside the word (its own ink box is small).
+State 2026-10-18 ~15:00: draft PR #6638 open (label do-not-auto-merge, autoMerge null). L2 · L3 · L4 built; L5 NOT built.
+Walks (lab, port 3671, stopped): Chromium 812 + 667 16/16, WebKit 812 14/14. Shots: ~/Documents/Claude/Projects/shots-2026-10-18/6638/.
+New guard sabotaged 6 ways (all RED → GREEN). Local full tsc OOM'd at 7 GB — CI typecheck is the gate. Corpus status line pushed (011a1e13).
+Next: watch CI to green; fix reds; delete this file when green.

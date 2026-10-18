@@ -35,7 +35,12 @@
  * exists in App Store Connect — add a new one.
  */
 
-import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+/**
+ * `COUPLE_WEBSITE_PRO_SERVICE_KEY` (lib/couple-website-pro.ts), spelled here
+ * because that module reaches the server-only admin client and this one is
+ * read by the iPhone app's client sheets. products.test.ts holds the two equal.
+ */
+const EVENT_HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
 export type IapProductKind = 'event-hub-pro' | 'live-watch' | 'papic-credits';
 
@@ -58,7 +63,7 @@ const PREFIX = 'com.setnayan.app.';
 export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
   {
     productId: `${PREFIX}event_hub_pro`,
-    serviceKey: COUPLE_WEBSITE_PRO_SERVICE_KEY,
+    serviceKey: EVENT_HUB_PRO_SERVICE_KEY,
     kind: 'event-hub-pro',
     appleType: 'consumable',
     appStoreName: 'Event Hub Pro',

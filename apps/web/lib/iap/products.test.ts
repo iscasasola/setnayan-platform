@@ -16,6 +16,7 @@ import {
   iapProductForServiceKey,
   papicCreditsMatch,
 } from './products';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -108,4 +109,8 @@ test('the Apple gate needs the store shell AND the plugin build AND the owner’
     false,
     'an old build without the plugin never sees a buy button',
   );
+});
+
+test('Event Hub Pro’s product sells THE Pro key (the client-safe spelling equals the shipped constant)', () => {
+  assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_hub_pro');
 });

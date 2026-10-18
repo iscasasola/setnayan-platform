@@ -50,7 +50,7 @@ async function newCouple(): Promise<{ userId: string; eventId: string }> {
   );
   const userId = u.rows[0]!.id;
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, slug) VALUES ('Maria & Jose', 'wedding', $1) RETURNING event_id`,
+    `INSERT INTO public.events (display_name, event_type, slug) VALUES ('Maria & Jose', 'birthday', $1) RETURNING event_id`,
     [`iap-${n}`],
   );
   const eventId = e.rows[0]!.event_id;

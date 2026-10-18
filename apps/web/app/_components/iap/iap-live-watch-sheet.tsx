@@ -102,13 +102,13 @@ export function IapLiveWatchSheet({
                 stays free.
               </p>
             )}
-            <div role="note" className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-terracotta/30 bg-terracotta/[0.06] px-3.5 py-3 text-xs leading-relaxed text-ink/80">
+            <div role="note" className="mt-3 max-h-48 space-y-2 overflow-y-auto text-xs leading-relaxed text-ink/80">
               {[YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE].map((line) => (
                 <p key={line}>{line}</p>
               ))}
             </div>
             {askReady ? (
-              <label id="iap-live-watch-ack" className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-ink/15 px-3.5 py-3 text-xs leading-relaxed text-ink/85">
+              <label id="iap-live-watch-ack" className="mt-3 flex min-h-11 cursor-pointer items-start gap-2.5 py-2 text-xs leading-relaxed text-ink/85">
                 <input
                   type="checkbox"
                   checked={accepted}

@@ -34,3 +34,8 @@ Delta from this PR ~0.1–0.2 KB although logo-layers.ts grew only ~13 B gz (esb
 Diagnosing with a local `next build` + `check-maker-js-budget.mjs` (scratchpad/logo-l5-walk/budget.txt). Fix plan: take the
 L5 bytes back out of the first load (move lazy-only `LOGO_LAYER_KIND_LABEL` into `logo-layers-edit.ts`, default name
 derived from the kind), never raise the budget. Other checks were green/pending at the time.
+Round 2 fix pushed (5000e8f986): cause = the Ornament row's lucide `Flower2`, a module other async chunks also use, so the
+one-copy-per-layout cacheGroup (minChunks 2, minSize 0, `lib/one-copy-per-layout.ts`) pulled it into the event layout's
+FIRST-LOAD chunk. Row now draws the leaf blade inline (no icon module). Kind labels also moved to lazy logo-layers-edit.ts
+(`logoKindName` default, guarded equal). If the budget is STILL red: check `bundle size check` log; the next suspect is
+anything new shared by two chunks under dashboard/[eventId].

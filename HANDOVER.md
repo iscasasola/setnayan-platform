@@ -42,4 +42,4 @@ DONE: tests (new lib/each-role-has-its-call-time.test.ts; 2 updated) — 274/274
 Lab fixtures carry times (details-lab ?attire=shared; guest lab ?as=1&asrole=… now also draws Me › Arrive by).
 Walk (lab, Chromium touch + WebKit iPhone 13, 375, light + dark): scratchpad call-times-walk/ → shots copied to
 ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Baselines regenerated (no-card, label-contrast-dark: 2 → 1 each, mine).
-NEXT: PR, CI.
+PR #6635 (draft, do-not-auto-merge, auto-merge off). NEXT: watch CI.

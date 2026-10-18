@@ -25,9 +25,18 @@ attire" · prototype `prototypes/palette_inspiration_one_list_2026-10-19.html` (
 - Old "Your main palette from ALL photos" + Compare dropped; ✨ Auto still offers "From your photos".
 - Older non-Maker Mood Board page (palette-section.tsx) unchanged.
 
-## PR B (not started): supplier inspiration by category (owner "suppliers for those categories can upload photos for
-that"; reuse #6407 category keys, vendor mood-board page, event_colour_changes actor).
+## PR B (not started — needs one owner answer first)
+Owner: "suppliers for those categories can upload photos for that" / "so does the other parts". Measured: a booked
+vendor CANNOT write event_inspiration_assets today (insert RLS = event_members only); #6407's map is view-only and has no
+photo rule. Smallest design: one migration (added_by_vendor_id + added_by_label + source_kind 'vendor_suggestion',
+provenance CHECK) + a SECURITY DEFINER RPC vendor_add_inspiration_photo (booking via current_vendor_event_vendor_ids,
+fee gate, category/services vs MOODBOARD_SLOT_TRADES with a SQL mirror + one-map db test), get_vendor_mood_board returns
+the label, couple side shows it via photoTag, vendor UI = per-part upload on the vendor mood-board page.
+OPEN OWNER QUESTION: a slot holds 3 photos; when a supplier adds one, does it (a) take a free place only (refused when
+full), or (b) wait as a suggestion the couple accepts? Replacing the couple's photo is ruled out.
 
 ## State
-- [x] code · [x] tsc local clean · [x] 858 targeted unit + 25 db green · [ ] preflight · [ ] shots · [ ] PR · [ ] CI
-- Walk: work dir ~/Documents/Claude/Projects/shots-2026-10-18/palette-circles/work (serve.sh port 3687, walk2.mjs).
+- [x] code · [x] tsc · [x] targeted tests · [x] preflight (49/50) · [x] shots 375 light+dark + side-by-sides · [x] PR #6651
+- CI: 24 pass · 2 fail = ONE cause: schema-drift "prod snapshot 41 migrations behind" (ceiling 40; main sits at 40,
+  this PR's migration is the 41st). Fix = OWNER refresh `pnpm --filter @setnayan/web schema:snapshot` + commit
+  supabase/security/prod-schema.snapshot.txt. Never raise the ceiling.

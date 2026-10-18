@@ -3,6 +3,7 @@
 import { useLayoutEffect, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Lock, X } from 'lucide-react';
+import { StageAbout } from './kit';
 import { makerPartSource, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import { makerPartLabelOn } from '@/lib/maker-part-groups';
 import { STAGE_BAR_GRID_CSS } from '@/lib/maker-stage-room';
@@ -60,6 +61,11 @@ export const STAGE_DESK_CSS =
   `${D} [data-stage-guest-bar]{display:block!important;left:0!important;right:${DESK_TOOLS_PX}px!important;bottom:0!important;transition:none!important}` +
   `${D} [data-stage-exit-preview]{display:flex!important;right:${DESK_TOOLS_PX + 12}px!important}` +
   `${D} [data-desk-editing]{left:0;right:${DESK_TOOLS_PX}px}` +
+  /* ⓘ stands at the end of the part's caption (its phone place, the "You're editing" line, is under the page here). */
+  `${D} [data-stage-tools]>[data-stage-about]{display:none}` +
+  `${D} [data-desk-step] [data-stage-about]{position:static}` +
+  /* The RSVP stage's screens are the parts column's rows (the phone's are its tab bar) — the old desktop list goes. */
+  `${D} [data-rsvp-stage-scenes],${D} [data-rsvp-stage-scene-title]{display:none!important}` +
   /* The page column keeps the room for them under the page — the page is never under its own caption. */
   `${D}>[data-maker-work]{padding-bottom:36px}` +
   `${D}:has([data-stage-guest-bar]:not([hidden]))>[data-maker-work]{padding-bottom:81px}` +
@@ -101,7 +107,8 @@ const STEP =
   'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-white px-3 text-[14px] font-semibold text-[var(--sp-ink)] transition-colors duration-sn-control ease-sn hover:border-[var(--sp-gold)] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[var(--sp-line)]';
 
 /**
- * ‹ Previous · Next › · ✕ Done — under the selector, with the picked part's caption over them ("COUNTDOWN · 7 of 8").
+ * ‹ Previous · Next › · ✕ Done — under the selector, with the picked part's caption over them ("COUNTDOWN · 7 of 8") —
+ * a line of words, never a box (a frame is only on what you press, owner 2026-10-11).
  * The phone's swipe and its ✕ (a tap on nothing), for a mouse. Nothing picked: nothing drawn.
  */
 export function DeskStep({
@@ -122,13 +129,14 @@ export function DeskStep({
   const at = order.indexOf(picked);
   return (
     <div data-desk-step="" className="flex shrink-0 flex-col gap-2 pb-2.5">
-      <p className="flex h-11 items-center justify-between rounded-xl border border-[var(--sp-gold-soft)] bg-[var(--sp-gold-wash)] px-3.5 text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--sp-ink)]">
+      <p className="flex h-11 items-center gap-1 border-b border-[var(--sp-line)] px-1 text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--sp-ink)]">
         <span className="min-w-0 truncate">{makerPartLabelOn(stage, picked)}</span>
         {at >= 0 ? (
-          <span className="shrink-0 pl-2 font-semibold normal-case tracking-normal text-[var(--sp-mute)]">
+          <span className="ml-auto shrink-0 pl-2 font-semibold normal-case tracking-normal text-[var(--sp-mute)]">
             {at + 1} of {order.length}
           </span>
         ) : null}
+        <StageAbout />
       </p>
       <div className="flex gap-2">
         <button type="button" data-desk-step-go="prev" onClick={() => onStep(-1)} className={STEP}>

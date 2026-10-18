@@ -14,7 +14,7 @@ import { pagePath, placeName, qualifyingPages, type QualifyingPage } from '@/lib
 
 const TITLE = 'Filipino event suppliers by event, category and city';
 const DESCRIPTION =
-  'Verified Filipino suppliers for weddings, debuts, christenings, birthdays and every other celebration — grouped by event, category and city, with the prices they publish themselves. 0% commission.';
+  'Verified Filipino suppliers for weddings, debuts, christenings, birthdays and every other event — grouped by event, category and city, with the prices they publish themselves. 0% commission.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const source = await loadLandingCards();

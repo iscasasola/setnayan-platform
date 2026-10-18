@@ -101,7 +101,7 @@ const APP_LD = {
     'Usapan, the group chat, where your own messages are yours to take down',
     'Group Stories — short clips recorded on your phone that are gone after 24 hours',
     'Play the day — every clip still up, watched in the order it happened',
-    'Organizers plan a reunion, an outing, a tournament or a celebration for the whole group',
+    'Organizers plan a reunion, an outing, a tournament or a party for the whole group',
     'A group that lives for as long as one person is still in it',
   ],
   areaServed: 'Philippines',
@@ -131,7 +131,7 @@ const FAQ = [
   },
   {
     q: 'Can a group plan an event?',
-    a: 'Yes. An organizer plans a reunion, an outing, a tournament or a celebration from the Events tab, and it shows up there for every member. A group cannot own a wedding or another personal milestone — those stay with the person. You open the events you have been added to; for the rest, ask an organizer to add you.',
+    a: 'Yes. An organizer plans a reunion, an outing, a tournament or a party from the Events tab, and it shows up there for every member. A group cannot own a wedding or another personal milestone — those stay with the person. You open the events you have been added to; for the rest, ask an organizer to add you.',
   },
 ];
 
@@ -207,7 +207,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Events',
     t: 'Plan the reunion from here',
-    d: 'An organizer plans the reunion, the outing, the tournament or the celebration from the Events tab, and every member finds it there. A group cannot own a wedding or another personal milestone — those stay with the person.',
+    d: 'An organizer plans the reunion, the outing, the tournament or the party from the Events tab, and every member finds it there. A group cannot own a wedding or another personal milestone — those stay with the person.',
     media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A wedding party raising their glasses over candlelight' },
   },
 ];

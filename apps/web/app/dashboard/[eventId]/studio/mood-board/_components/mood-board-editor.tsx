@@ -53,7 +53,7 @@ import {
   ThemeStudio,
   MoodBoardStudio,
 } from './mood-board-lazy';
-import type { StudioAttireRow, StudioChange } from './mood-board-studio';
+import type { StudioChange } from './mood-board-studio';
 import {
   cancelPartFinalization,
   cancelPartReopen,
@@ -105,9 +105,10 @@ import { themeSeedPalette } from '@/lib/theme-colours';
 import { allRegions, resolveRegion } from '@/lib/region-source';
 import { describeColourChange, type ColourChangeRow } from '@/lib/colour-access';
 import { frozenNow } from '@/lib/moodboard-finalization-rows';
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, formatCallTime } from '@/lib/role-dress-code';
-import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { DressCodeListsForm } from './dress-code-lists-form';
+import { studioAttireRows } from '@/lib/studio-attire-rows';
+import { readRoleNames } from '@/lib/role-names.server';
 import { incDressCodeStarter } from './inc-dress-code-starter';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -1281,42 +1282,7 @@ function guestRoleTally(guests: ReadonlyArray<{ role: GuestRole; extra_roles?: G
   return [...m].map(([role, count]) => ({ role, count }));
 }
 
-/**
- * The Attire tab's people, in the Mood Board order (owner 2026-10-06: couple →
- * parents → sponsors → entourage → bearers → guests). The couple and the guests
- * are a ROLE's own line in the shipped dress code (`roles`); everyone else is
- * their GROUP's line (`groups`) — the coarse tier the shipped editor offers.
- * Only the people this guest list has; the guests always.
- */
-const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: PaletteKey | null }> = [
-  { group: 'vip_family', paletteKey: 'parents_immediate_family' },
-  { group: 'principal_sponsors', paletteKey: 'principal_sponsors' },
-  { group: 'secondary_sponsors', paletteKey: 'secondary_sponsors' },
-  { group: 'muslim_principals', paletteKey: 'muslim_principals' },
-  { group: 'bridesmaids', paletteKey: 'bridesmaids' },
-  { group: 'groomsmen', paletteKey: 'groomsmen' },
-  { group: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl' },
-  { group: 'officiants', paletteKey: 'officiants' },
-];
-
-function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole; count?: number }>, config: DressCodeConfig | null): StudioAttireRow[] {
-  const roles = new Set(tally.map((t) => t.role));
-  const groups = new Set(tally.map((t) => roleGroupOf(t.role)));
-  /* 👗 How many hold it — "8 people" under the role's name (2026-10-14 blocks). */
-  const countOf = (match: (role: GuestRole) => boolean) => tally.reduce((n, t) => n + (match(t.role) ? (t.count ?? 0) : 0), 0) || undefined;
-  const callOf = (tier: 'roles' | 'groups', key: string) =>
-    formatCallTime(((config?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
-  const out: StudioAttireRow[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: 'The celebrant', paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
-  for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
-    if (!groups.has(group)) continue;
-    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group), people: countOf((r) => roleGroupOf(r) === group) });
-  }
-  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null, people: countOf((r) => r === 'guest') });
-  return out;
-}
+/* The Attire tab's rows — `studioAttireRows` (lib/studio-attire-rows.ts), the same function the dev lab draws. */
 
 /** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
 export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
@@ -1325,7 +1291,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   const { studio } = board;
   const supabase = await createClient();
   const [eventRes, draft, changesRes, lookRes] = await Promise.all([
-    supabase.from('events').select('invite_theme, role_palette, region').eq('event_id', eventId).maybeSingle(),
+    supabase.from('events').select('invite_theme, role_palette, region, role_names').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
       .from('event_colour_changes')
@@ -1351,7 +1317,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
   const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
   const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
-  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null };
+  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null, role_names: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null; role_names?: unknown };
   const shown = overlayHubDraftEvent(live, draft);
   /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
   const themeId = normalizeThemeId(typeof shown.invite_theme === 'string' ? shown.invite_theme : null) ?? 'house';
@@ -1376,7 +1342,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       fallbackFive={fallbackFive}
       frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
       changes={changes}
-      attire={studioAttireRows(studio.roleTally, studio.dressConfig)}
+      /* 👯 Named in the couple's own words (owner 2026-09-30) — the honour rows and the crews they renamed. */
+      attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names))}
       dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
       attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
       inspirations={studio.inspirations}

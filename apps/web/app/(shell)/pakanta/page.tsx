@@ -99,7 +99,7 @@ const APP_LD = {
     'Yours to keep, forever',
     'Becomes the music behind the videos from your day',
     'Plays on your Event Hub',
-    'Cleared for sharing — post it anywhere',
+    'Made to order — written from your story, not picked from a library',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -123,8 +123,8 @@ const FAQ = [
     a: 'Wherever your wedding is. It can play on your Event Hub, and it becomes the music behind the videos Setnayan makes from your day — so the whole wedding sounds like you instead of like stock music.',
   },
   {
-    q: 'Can we post it online?',
-    a: 'Yes. The song is cleared for sharing, so a video scored with it can go anywhere without a takedown or a licensing headache.',
+    q: 'Is it really ours?',
+    a: 'Yes. It is made to order for you, delivered inside Setnayan and yours to keep — and once it arrives it becomes the music behind the reels from your day.',
   },
   {
     q: 'When do we get it?',
@@ -153,7 +153,7 @@ const STEPS = [
   },
   {
     t: 'It plays everywhere your day does',
-    d: 'On your Event Hub, behind the videos from your wedding, and on your phone for good. Yours to keep, and cleared to share.',
+    d: 'On your Event Hub, behind the videos from your wedding, and on your phone for good. Yours to keep.',
   },
 ];
 
@@ -203,9 +203,9 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     media: { kind: 'still', src: '/add-ons/demo/stills/pakanta-3.jpg', alt: 'Music Maker — it scores every video from your day' },
   },
   {
-    chip: 'Cleared to share',
-    t: 'Post it anywhere, no takedown',
-    d: 'The song is cleared for sharing, so a video scored with it can go anywhere without a takedown or a licensing headache.',
+    chip: 'Made to order',
+    t: 'Written from your story',
+    d: 'Not a template with your names dropped in and not picked from a library — your song is made to order from the story you already shared, and it is yours to keep.',
     media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'A toast, seen over the heads of the guests watching it' },
   },
 ];

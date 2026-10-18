@@ -16,6 +16,7 @@ import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
@@ -92,18 +93,8 @@ import type { InspirationItem } from './inspiration-board';
 
 export type StudioChange = { id: string; who: string; what: string; from: string | null; to: string };
 
-export type StudioAttireRow = {
-  /** `roles` (one role's own line) or `groups` (a whole group's). */
-  tier: 'roles' | 'groups';
-  key: string;
-  label: string;
-  /** The palette key that colours them — null for one with no palette (a celebrant). */
-  paletteKey: PaletteKey | null;
-  /** The shipped call time, already in words ("2:00 PM"). */
-  arrives: string | null;
-  /** How many on the guest list hold it — "8 people" (absent: not counted). */
-  people?: number;
-};
+/** One Attire row — built by `studioAttireRows` (lib/studio-attire-rows.ts), the Maker's and the lab's one function. */
+export type StudioAttireRow = StudioAttireRowData;
 
 export type MoodBoardStudioProps = {
   eventId: string;
@@ -904,6 +895,13 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                   {arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {arrives}</small> : null}
                 </header>
                 {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
+                {/* 👯 An honour row's people keep their group's look until their Wear is picked here (`honourRowSpeaks`,
+                    2026-10-19) — said, so a colour picked first is not read as a page that ignores it. */}
+                {row.fallsBackTo && (row.honourColumns ?? [0]).some((i) => !picks[i]?.style) ? (
+                  <p className="text-[12px] leading-snug text-ink/65" data-mood-board-falls-back={row.key}>
+                    Until you pick what they wear, they dress as the {row.fallsBackTo}.
+                  </p>
+                ) : null}
                 <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={picks.length}>
                   {picks.map((pick, pi) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);

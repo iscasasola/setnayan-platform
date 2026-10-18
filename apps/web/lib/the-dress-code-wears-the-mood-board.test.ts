@@ -78,13 +78,13 @@ const CONFIG = {
   groups: { principal_sponsors: { style: 'barong_tagalog', note: 'in the wedding colours' } },
   women: { groups: { principal_sponsors: { style: 'long_gown' } } },
 };
-/* The Studio's rows the board's picked colours reach — in the Studio's order. `best_man`, `maid_of_honor` and
-   `wedding_party` are colours the Studio has no row for: they are not drawn (2026-10-17). */
+/* The Studio's rows the board's picked colours reach — in the Studio's order. `wedding_party` is a colour the Studio has
+   no row for: it is not drawn (2026-10-17). `best_man` and `maid_of_honor` colour the honour rows (2026-10-19). */
 const ROLES_ON_THE_BOARD = ATTIRE_ROWS.map((r) => r.paletteKey).filter(
   (k): k is NonNullable<typeof k> => !!k && (BOARD.touched_roles ?? []).includes(k),
 );
 /** A row's chips, per person, are its colours (no Wear picked → each colour as it is). */
-const PEOPLE: Partial<Record<string, number>> = { principal_sponsors: 2, secondary_sponsors: 2, guest: 2 };
+const PEOPLE: Partial<Record<string, number>> = { principal_sponsors: 2, secondary_sponsors: 2, best_man: 2, guest: 2 };
 
 const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 

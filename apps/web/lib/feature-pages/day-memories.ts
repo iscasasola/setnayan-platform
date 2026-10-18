@@ -80,7 +80,15 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       en: ['guest photo sharing wedding', 'QR code photo sharing', 'guests take photos no app', 'event photo app Philippines'],
       tl: ['photo sharing ng bisita', 'QR code litrato', 'litrato ng bisita sa event'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/papic-0.jpg',
+        alt: {
+          en: 'A guest’s own Papic photos on the Event Hub on a phone: Your shots, with Camera and Gallery in the menu below',
+          tl: 'Ang sariling mga litrato ng bisita sa Papic sa Event Hub sa telepono: Your shots, kasama ang Camera at Gallery sa menu sa ibaba',
+        },
+      },
+    ],
     price: {
       kind: 'free-plus',
       catalogue: 'retail',
@@ -297,7 +305,15 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       en: ['real Filipino wedding stories', 'event inspiration Philippines', 'debut stories'],
       tl: ['totoong kuwento ng kasal', 'inspirasyon sa event'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/real-stories-0.jpg',
+        alt: {
+          en: 'A Stories editorial on a phone: a sample wedding story, clearly marked as a sample, with Relive it, share links and the cover photo',
+          tl: 'Isang editorial ng Stories sa telepono: isang sample na kuwento ng kasal, malinaw na may markang sample, kasama ang Relive it, share links at ang cover photo',
+        },
+      },
+    ],
     price: { kind: 'free' },
     moreHref: '/realstories',
     evidence: ['app/(shell)/realstories/page.tsx'],

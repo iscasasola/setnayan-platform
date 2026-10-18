@@ -2044,7 +2044,8 @@ function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRA
     const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
     const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
     const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
-    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt ? lt.top : Infinity);
+    /* 🖥 …the lower third only where it lies under the page (a desktop's is the column beside it). */
+    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt && lt.left < fr.right && lt.right > fr.left ? lt.top : Infinity);
     const band = (bottom - fr.top) / k;
     if (band <= 40) return;
     doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;

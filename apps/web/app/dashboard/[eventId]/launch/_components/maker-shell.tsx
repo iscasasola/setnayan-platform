@@ -624,7 +624,8 @@ export function MakerShell({
       tool,
       setTool,
       /* 🧭 A Studio tool full screen is not a lower-third tool: its editor opens at once, beside nothing. */
-      lowerThird: phone && !studioCovers,
+      /* 🖥 A desktop's tools column IS the lower third: its tools say they are open, as on a phone. */
+      lowerThird: (phone || desk) && !studioCovers,
       ltNav: studioCovers ? null : ltNav,
       eventBar,
       setEventBar,

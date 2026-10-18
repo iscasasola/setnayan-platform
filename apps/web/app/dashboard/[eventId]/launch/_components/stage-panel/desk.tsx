@@ -64,6 +64,9 @@ export const STAGE_DESK_CSS =
   /* ⓘ stands at the end of the part's caption (its phone place, the "You're editing" line, is under the page here). */
   `${D} [data-stage-tools]>[data-stage-about]{display:none}` +
   `${D} [data-desk-step] [data-stage-about]{position:static}` +
+  /* The picked part's frame on the page — its outline, name tag, ＋ above / below, grip and 🗑 — is the phone's, drawn
+     over the page column too (it is laid on the canvas by the canvas's own measures). */
+  `html:has([data-maker-desk]) :is([data-part-edges],[data-part-error]){display:block!important}` +
   /* The RSVP stage's screens are the parts column's rows (the phone's are its tab bar) — the old desktop list goes. */
   `${D} [data-rsvp-stage-scenes],${D} [data-rsvp-stage-scene-title]{display:none!important}` +
   /* The page column keeps the room for them under the page — the page is never under its own caption. */

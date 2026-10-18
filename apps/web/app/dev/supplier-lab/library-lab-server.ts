@@ -20,8 +20,7 @@
  * The first statement of every call refuses in production; the route also 404s there.
  */
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { headers } from 'next/headers';
 import { backCatalogueQuotaVerdict, libraryPartLabel, slotUploadVerdict, RIGHTS_WARRANTY_VERSION } from '@/lib/moodboard-gallery-upload';
 import { normalizeGalleryQuery, shapeGalleryPage, type GalleryPage, type RawGalleryRow } from '@/lib/moodboard-gallery';
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
@@ -65,8 +64,6 @@ export type LibraryLabOp =
   | { op: 'approve'; assetId: string }
   | { op: 'pick'; assetId: string }
   | { op: 'gallery'; slotKey: string; offset?: number; limit?: number; q?: string; from?: string; near?: string };
-
-const WEB = process.cwd();
 
 export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<unknown> {
   if (process.env.NODE_ENV === 'production') throw new Error('The lab does not run in production.');
@@ -155,7 +152,12 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
       else {
         /* The shop's own photo: checked against the shop's OWN list, never trusted as sent. */
         if (!LAB_SHOP_PHOTOS.some((p) => p.ref === shopPhotoRef)) throw new Error('That photo isn’t one of your shop’s photos.');
-        bytes = new Uint8Array(await readFile(join(WEB, 'public', shopPhotoRef!.replace(/^\/+/, ''))));
+        /* Fetched from this dev server itself (the photo is a file it serves) — never read off disk, so the server
+           function carries no part of public/ (`no-server-file-carries-public.test.ts`). */
+        const host = (await headers()).get('host') ?? 'localhost:3000';
+        const r = await fetch(`http://${host}${shopPhotoRef}`);
+        if (!r.ok) throw new Error('That photo could not be opened.');
+        bytes = new Uint8Array(await r.arrayBuffer());
       }
 
       const screen = await screenGalleryImage({

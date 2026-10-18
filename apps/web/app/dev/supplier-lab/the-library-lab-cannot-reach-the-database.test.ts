@@ -23,6 +23,8 @@ import { stripComments } from '@/lib/strip-comments';
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
     if (request === 'server-only' || request === 'client-only') return {};
+    /* The lab fetches a shop photo from its own dev server; here that server is the repo's public/ folder. */
+    if (request === 'next/headers') return { headers: async () => new Map([['host', 'lab.test']]) };
     return load.call(this, request, ...rest);
   };
 }
@@ -43,6 +45,15 @@ test('2 · supplier adds → draft → approved → the couple’s Search ideas 
   delete process.env.ANTHROPIC_API_KEY;
   const prevCwd = process.cwd();
   process.chdir(WEB);
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL) => {
+    const path = new URL(String(url)).pathname;
+    try {
+      return new Response(new Uint8Array(readFileSync(join(WEB, 'public', path))), { status: 200 });
+    } catch {
+      return new Response('', { status: 404 });
+    }
+  }) as typeof fetch;
   try {
     const { libraryLab } = await import('./library-lab-server');
     await libraryLab({ op: 'reset' });
@@ -87,6 +98,7 @@ test('2 · supplier adds → draft → approved → the couple’s Search ideas 
     await assert.rejects(() => libraryLab({ op: 'upload' }, stranger), /isn’t one of your shop’s photos/);
   } finally {
     process.chdir(prevCwd);
+    globalThis.fetch = prevFetch;
     if (prevKey !== undefined) process.env.ANTHROPIC_API_KEY = prevKey;
   }
 });

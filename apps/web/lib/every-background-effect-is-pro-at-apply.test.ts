@@ -59,7 +59,7 @@ test('(1) all eight are Pro; the guest render still refuses only the six that we
 
 test('(2) each of the eight, put on by a free event, is held at Apply and named "Effect" — Pro is asked nothing', () => {
   for (const kind of HUB_MAIN_EFFECTS) {
-    for (const under of [null, COLOUR, THEME]) {
+    for (const under of [null, COLOUR, THEME] as (HubMainGround | null)[]) {
       const next = withEffect(under, { kind, intensity: 'standard' });
       const free = asked(under, next);
       assert.deepEqual(free.map((e) => [e.id, e.what, e.where]), [['main', 'Effect', 'Behind every scene']], `${kind} over ${JSON.stringify(under)}: Apply does not hold and name it`);
@@ -102,4 +102,6 @@ test('(4) the Maker writes every tap to the draft — no try-only path, no See P
   assert.match(block, /pickLook\(\{ main: withEffect\(current, effectPicked\(k, fx, current, Boolean\(INVITE_THEMES\[themeId\]\?\.media\)\)\) \}, FAILED, \{ fx: true \}\);/);
   assert.match(block, /if \(fx\) pickLook\(\{ main: withEffect\(current, effectWith\(fx, change\)\) \}, FAILED, \{ fx: true \}\);/);
   assert.match(cards, /pro=\{locked && AMBIENT_EFFECT_IS_PRO\[kind\]\}/);
+  // ◆ only while TRIED: `makerProMark` answers 'unlocked' (truthy) for an owner — a Pro couple sees no mark.
+  assert.match(block, /locked=\{proMark === 'try'\}/, 'an owner of Event Hub Pro is shown ◆ on every effect');
 });

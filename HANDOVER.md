@@ -32,10 +32,15 @@ Maker, named at ✓ Apply; free events keep what they published):
 5. Guards updated (the-effects-are-picked-on-the-sample, the-look-sample-is-the-guest-look, eight-and-cost-nothing)
    + a new one; sabotage each.
 
-## STATE
-- [x] 1–5 code (f604073431)  - [x] targeted tests 79/79 (10 effect/Pro guards)
-- [x] sabotage of the new guard: haze free · effect not counted at Apply · render reads IS_PRO · haze drawn only with
-      Pro · Apply line unnamed → each red; retune-free sabotage queued (scratchpad/sab4.sh)
-- [x] fragment changelog.d/rd-background-overlay-effects.md
-- [ ] walk 375 (lab, port 3657, scripts in scratchpad/overlay-walk) + shots → shots-2026-10-18/<pr>/
-- [ ] draft PR, label, auto-merge off, CI green
+## STATE (PR #6644, draft, do-not-auto-merge)
+- [x] code · fragment · guard + 6 sabotages red (S4 retune-free not run: its regex missed; queued run was stopped so it
+      could not edit hub-draft.ts under the live walk)
+- [x] CI round 1 fixes: port baseline (removed `useState<HubMainEffect>`), label-contrast dark baseline (the removed
+      note's ink-on-white), TS7022 in the new guard
+- [x] Found + fixed: `proOn = Boolean(makerProMark(...))` is TRUE for an OWNER ('unlocked') — so on main a Pro couple's
+      ◆ effect tap went down the try-only path and was never written; Effects now pass `proMark === 'try'`. The source
+      cards (`pro={proOn}`) still show ◆ to owners — not touched, reported.
+- [x] lab: Background panel follows ?pro=1 (was hard-coded false)
+- [x] walk 375 (lab 3657, scratchpad/overlay-walk): Chromium + WebKit light, Chromium dark (A only). Shots to copy to
+      shots-2026-10-18/6644/ and a side-by-side vs prototypes/maker_effects_and_attire_2026-10-14_fable.html?shot=effects
+- [ ] stop walk (touch scratchpad/overlay-walk/scripts/STOP), shots + sbs into PR body, CI green, delete HANDOVER

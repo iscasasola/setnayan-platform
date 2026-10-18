@@ -1371,7 +1371,8 @@ export function MainBackgroundPanel({
           <BgEffects
             eventId={eventId}
             effect={fx}
-            locked={proOn}
+            /* ◆ only while it is TRIED (no Event Hub Pro): `proMark` is 'unlocked' — truthy — for an owner. */
+            locked={proMark === 'try'}
             swatch={fxLay?.still ? paper : fxLay?.image ? `${fxLay.image}${fxLay.color ? `, ${fxLay.color}` : ''}` : (fxLay?.color ?? paper)}
             picture={fxLay?.still ? <StillOverSwatch src={fxLay.still} swatch="transparent" position={fxLay.position} /> : null}
             onPick={(k) => {
@@ -1387,7 +1388,7 @@ export function MainBackgroundPanel({
             treatment={{
               takes: pictureTakes(current),
               parallax: Boolean(current && 'motion' in current && current.motion === 'parallax'),
-              proMark: proOn,
+              proMark: proMark === 'try',
               onParallax: (on) => {
                 const next = withParallax(current, on);
                 if (next && next !== current) save(next, FAILED);

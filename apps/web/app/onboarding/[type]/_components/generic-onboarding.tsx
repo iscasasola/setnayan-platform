@@ -563,7 +563,7 @@ export function GenericOnboarding(props: Props) {
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, setupAnswers]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, setupAnswers, engine, preset, needs]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is

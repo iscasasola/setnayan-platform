@@ -21,15 +21,17 @@ import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-f
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
 import { garmentOfPick, pickDots, zoneColours } from '@/lib/role-figure';
 import type { AttireStyle } from '@/lib/role-dress-code';
-import { isAttireStyle } from '@/lib/role-dress-code';
+import { formatCallTime, isAttireStyle } from '@/lib/role-dress-code';
 import { RoleFigure } from '@/app/_components/role-figure';
 import {
   MAIN_COLOUR_JOBS,
   paletteFromPhotos,
   shownMainFive,
   slotsFromPhotoPalette,
+  callTimeOf,
   withAttireStyle,
   withAutoPalette,
+  withCallTime,
   withMainColour,
   withPartColour,
   withRoleColours,
@@ -404,6 +406,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const { note: _was, ...rest } = rule;
     map[row.key] = said ? { ...rest, note: said } : rest;
     saveDress({ ...dress, [row.tier]: map });
+  };
+  /* ⏰ The row's call time (owner 2026-10-18) — on the same outfit line, through the same one draft write as its Wear. */
+  const setCallTime = (row: StudioAttireRow, hhmm: string | null) => {
+    if (!dress) return;
+    const next = withCallTime(dress, row.tier, row.key, hhmm);
+    if (next !== dress) saveDress(next);
   };
   const saveDress = (next: Record<string, unknown>) => {
     if (!dress) return;
@@ -886,11 +894,14 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const two = picks.length === 2;
             const note = noteFor(row);
             const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
+            /* ⏰ What the draft holds now — so the header says a time the moment it is set, not after a reload. */
+            const callTime = dress ? callTimeOf(dress, row.tier, row.key) : null;
+            const arrives = dress ? formatCallTime(callTime) : row.arrives;
             return (
               <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
                 <header className="flex flex-wrap items-baseline gap-2">
                   <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{row.label}</h3>
-                  {row.arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {row.arrives}</small> : null}
+                  {arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {arrives}</small> : null}
                 </header>
                 {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
                 <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={picks.length}>
@@ -1071,6 +1082,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                   })}
                 </div>
                 {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of these colours — never combined. Up to five.</p> : null}
+                {/* ⏰ CALL TIME — one per row, right here where the row is dressed (owner 2026-10-18: "each role will have their
+                    call time"). Guests have none: they come at the start. */}
+                {dress && row.key !== 'guest' ? (
+                  <CallTimeRow rowKey={row.key} label={row.label} value={callTime} canSet={canNote} onSet={(t) => setCallTime(row, t)} />
+                ) : null}
                 {canNote ? (
                   <div className="flex min-h-11 items-center gap-2" data-mood-board-role-note={row.key}>
                     <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Note</span>
@@ -1290,6 +1306,50 @@ function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five:
 function Thumb({ src }: { src: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board
   return <img src={src} alt="" className="h-[34px] w-[34px] rounded-lg object-cover" />;
+}
+
+/**
+ * ⏰ A ROW'S CALL TIME — the phone's own time wheel (`type="time"`, the house time field: `HH:MM` and nothing else, so a
+ * half-read "7" can never become an alarm). It saves when the wheel is put away (blur), only when the time changed; Clear
+ * takes it back. A row with no Wear picked has no outfit line to keep a time on (`withCallTime`), and says so.
+ */
+function CallTimeRow({ rowKey, label, value, canSet, onSet }: { rowKey: string; label: string; value: string | null; canSet: boolean; onSet: (hhmm: string | null) => void }) {
+  const id = useId();
+  const [time, setTime] = useState(value ?? '');
+  useEffect(() => setTime(value ?? ''), [value]);
+  const commit = () => {
+    const next = time === '' ? null : time;
+    if (next === value) return;
+    if (next !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) return;
+    onSet(next);
+  };
+  return (
+    <div className="flex min-h-11 items-center gap-2" data-mood-board-call-time={rowKey}>
+      {canSet ? (
+        <label htmlFor={id} className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">
+          Call time
+        </label>
+      ) : (
+        <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Call time</span>
+      )}
+      {canSet ? (
+        <>
+          <input
+            id={id}
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            onBlur={commit}
+            aria-label={`${label} — call time`}
+            className="h-11 min-w-0 rounded-xl border border-ink/15 bg-raised px-3 text-[16px] text-ink" // no-card-ok: a time field, not a container
+          />
+          {value ? <ActionButton tone="neutral" quiet icon={X} label="Clear" name={`Clear the call time for ${label}`} onClick={() => { setTime(''); onSet(null); }} /> : null}
+        </>
+      ) : (
+        <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-waits="">Pick what they wear first</span>
+      )}
+    </div>
+  );
 }
 
 /** 👗 A role's note — one line, up to 120 letters, read by that role on their invitation. Keep closes it unchanged. */

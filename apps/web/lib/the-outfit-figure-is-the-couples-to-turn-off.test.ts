@@ -142,12 +142,14 @@ test('🛟 a form that cannot list the roles still posts every saved outfit back
     ['role_key', 'principal_sponsor_ninong'],
     ['role_style', 'barong_tagalog'],
     ['role_note', 'ecru'],
-    ['role_call_time', '14:30'],
     ['group_key', 'principal_sponsors'],
     ['group_style', 'filipiniana'],
   ]) {
     assert.match(html, new RegExp(`<input type="hidden" name="${name}" value="${value}"/>`), `${name}=${value} rides along`);
   }
+  /* ⏰ The call time does NOT ride along (owner 2026-10-18): the form posts none, and `updateDressCode` keeps the stored
+     time (`carryCallTimes`) — a hidden copy here would be a stale tab's time written over one the Studio set since. */
+  assert.doesNotMatch(html, /_call_time/, 'no call time is posted by this form');
 });
 
 test('👔 the Maker’s Dress code scene lists this guest list’s roles, so a host sets each outfit right there', async () => {

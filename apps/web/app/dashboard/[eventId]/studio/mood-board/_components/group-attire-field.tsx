@@ -34,12 +34,11 @@ import { formatCount } from '@/lib/format-number';
  * the next surface that edits a group inherits the warning instead of
  * rediscovering the bug.
  *
- * ⏰ CALL TIME IS THE FIRST FIELD, not the last (owner 2026-09-23: "what she
- * needs most is her call time"). Same four-parallel-array idiom the role rows
- * use — `group_key`, `group_style`, `group_note`, `group_call_time`, zipped BY
- * INDEX in `actions.ts` — so every control submits even when empty. A control
- * that vanished when blank would shift every later group's answer onto the
- * wrong people.
+ * Same parallel-array idiom the role rows use — `group_key`, `group_style`,
+ * `group_note`, zipped BY INDEX in `actions.ts` — so every control submits even
+ * when empty. A control that vanished when blank would shift every later
+ * group's answer onto the wrong people. ⏰ The call time is no longer one of
+ * them (owner 2026-10-18): it is set in Studio › Mood Board & Dress Code.
  */
 export function GroupAttireField({
   groups,
@@ -97,22 +96,8 @@ export function GroupAttireField({
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <label
-                htmlFor={`group-call-${group}`}
-                className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/55"
-              >
-                Call time
-              </label>
-              <input
-                id={`group-call-${group}`}
-                type="time"
-                name="group_call_time"
-                defaultValue={current?.callTime ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              />
-              <span className="text-xs text-ink/45">Optional</span>
-            </div>
+            {/* ⏰ No call time here (owner 2026-10-18) — set beside the group's outfit in Studio › Mood Board & Dress
+                Code; the stored one is kept by `updateDressCode` (`withCallTimesCarried`). */}
 
             <label htmlFor={`group-note-${group}`} className="sr-only">
               A note for {label}

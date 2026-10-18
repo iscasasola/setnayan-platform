@@ -79,7 +79,7 @@ export function AboutHero() {
         Tagalog <em>&ldquo;Set na &rsquo;yan.&rdquo;</em> — &ldquo;that&rsquo;s
         all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
         life-events platform — and the first built here to do the whole
-        celebration in one place: plan the event, hire from a 0%-commission
+        event in one place: plan it, hire from a 0%-commission
         marketplace of verified local vendors, and capture the day so every
         guest goes home with their own highlight reel.
       </p>

@@ -168,7 +168,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
       'Snippets — ten-second candid videos, not just photographs',
       'A recap page, a keepsake magazine and a souvenir video',
       'The live wall, included — open it on any venue screen from a browser',
-      'Lives on the couple’s own celebration page',
+      'Lives on the couple’s own Event Hub',
       'The couple receives every photo, tagged or not',
     ],
     areaServed: 'Philippines',
@@ -199,7 +199,7 @@ const FAQ = [
     a: 'Always — tagged or not, and whether or not the person in it asked to be hidden. That is the one promise with no exception.',
   },
   {
-    q: 'What happens to the photos after the celebration?',
+    q: 'What happens to the photos after the event?',
     a: 'They are kept for life, free, with nothing to renew. Nothing is ever deleted — after three months the original file is compressed, and the photograph stays.',
   },
   {
@@ -208,7 +208,7 @@ const FAQ = [
   },
   {
     q: 'Can someone opt out of face matching?',
-    a: 'Yes. A guest who never adds a selfie is never matched at all, and anyone can ask not to be shown — we blur the picture itself rather than hiding it behind a filter, and if the blurring fails the photo does not go up at all. Face data is deleted on request, and automatically three months after the celebration.',
+    a: 'Yes. A guest who never adds a selfie is never matched at all, and anyone can ask not to be shown — we blur the picture itself rather than hiding it behind a filter, and if the blurring fails the photo does not go up at all. Face data is deleted on request, and automatically three months after the event.',
   },
   {
     /* The objection the supplier channel hears most, and the page argued it
@@ -224,7 +224,7 @@ const FAQ = [
   },
   {
     q: 'How long can we shoot for?',
-    a: 'Cameras can open months before the day, so the engagement shoot and the rehearsal are already in there by the time the celebration arrives.',
+    a: 'Cameras can open months before the day, so the engagement shoot and the rehearsal are already in there by the time the day arrives.',
   },
 ];
 
@@ -269,7 +269,7 @@ const VS: readonly (readonly [string, string])[] = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
   ['Photos only', 'Photos and Snippets — ten-second candid videos'],
   ['You scroll to find yourself', 'Your photos find you'],
-  ['A separate site that expires', 'Lives on your own celebration page'],
+  ['A separate site that expires', 'Lives on your own Event Hub'],
   ['Someone always ends up in a photo they hate', 'Anyone can ask to disappear'],
 ];
 
@@ -738,7 +738,7 @@ export default async function PapicLandingPage() {
       <section className="mx-auto mt-16 max-w-2xl" aria-label="Papic, in one line">
         <PapicFreeCreditClosing read={freeGrant} />
         <p className="mt-3 text-sm text-[var(--m-slate-2)]">
-          Papic lives on the celebration page you already have, beside the guest list, the RSVP and
+          Papic lives on the Event Hub you already have, beside the guest list, the RSVP and
           the seating. There is nothing separate to buy, and nothing that expires.
         </p>
       </section>

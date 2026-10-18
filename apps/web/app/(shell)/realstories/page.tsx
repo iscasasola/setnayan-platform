@@ -81,7 +81,7 @@ export const metadata: Metadata = {
   keywords: [
     'real Filipino weddings',
     'Filipino debut stories',
-    'Filipino anniversary celebration',
+    'Filipino wedding anniversary',
     'Philippines life milestones',
     'Setnayan stories',
     'Setnayan storytellers',

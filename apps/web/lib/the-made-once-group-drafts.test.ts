@@ -58,7 +58,8 @@ test('no made-once file calls a live writer — the one draft action instead', (
 test('the logo autosaves: after a pause, on the way out, and when the tab is hidden', () => {
   const src = read(`${DIR}/maker-logo.tsx`);
   for (const [what, re] of [
-    ['a pause after a change', /setTimeout\(\(\) => void flush\(\)/],
+    /* RE-AIMED 2026-10-18 (L3): the pause's timer waits for a lifted finger, then flushes — a gesture is one save. */
+    ['a pause after a change', /const tick = \(\) => \{[\s\S]{0,200}else void flush\(\);[\s\S]{0,40}\};\s*timer\.current = window\.setTimeout\(tick, PAUSE_MS\);/],
     ['the tab hidden', /visibilitychange/],
     ['the page left', /pagehide/],
     // …and never on open: only a canvas that differs from how it stood when

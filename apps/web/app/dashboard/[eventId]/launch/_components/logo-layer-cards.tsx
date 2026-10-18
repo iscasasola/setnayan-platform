@@ -224,13 +224,13 @@ export function LogoLayerCards({
       <div role="listitem" className="flex shrink-0 self-stretch lg:w-full">
         <button
           type="button"
+          className={`sn-press flex w-[66px] shrink-0 flex-col self-stretch overflow-hidden rounded-xl border border-dashed lg:h-[74px] disabled:opacity-50 lg:w-full ${
+            addOn ? 'border-sn-accent bg-ink/[0.04]' : 'border-ink/25'
+          }`}
           data-logo-add-card=""
           aria-pressed={addOn}
           disabled={addDisabled}
           onClick={onAdd}
-          className={`sn-press flex w-[66px] shrink-0 flex-col self-stretch overflow-hidden rounded-xl border border-dashed lg:h-[74px] disabled:opacity-50 lg:w-full ${
-            addOn ? 'border-sn-accent bg-ink/[0.04]' : 'border-ink/25'
-          }`}
         >
           <span className="flex min-h-0 w-full flex-1 items-center justify-center text-sn-accent">
             <Plus aria-hidden className="h-5 w-5" />

@@ -53,6 +53,7 @@
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing
 // when it does.
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { redirect } from 'next/navigation';
@@ -1043,29 +1044,19 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   // to the Palette slot, run the Canvas-API palette extractor on it and
   // save the 6-color result to events.role_palette."
   if (slotKeyRaw === 'palette') {
-    const { data: priorRow } = await supabase
-      .from('events')
-      .select('role_palette')
-      .eq('event_id', eventIdRaw)
-      .maybeSingle();
-    const priorPalette =
-      priorRow &&
-      typeof priorRow.role_palette === 'object' &&
-      priorRow.role_palette !== null
-        ? (priorRow.role_palette as Record<string, unknown>)
-        : {};
-    const nextPalette = {
-      ...priorPalette,
-      wizard_default: {
-        colors: palette,
-        name: null,
-        picked_at: new Date().toISOString(),
+    /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): the board's colour sets live in this same
+       column — the other host's painted roles must survive this write, so it is a compare-and-set on the value as read
+       (`updateJsonColumn`): a palette that moved in between is read again and built on again. Best-effort, as before. */
+    await updateJsonColumn<Record<string, unknown> | null>(supabase as unknown as JsonColumnClient, { table: 'events', row: { event_id: eventIdRaw }, column: 'role_palette', what: 'The palette' }, (prior) => ({
+      next: {
+        ...(prior && typeof prior === 'object' ? prior : {}),
+        wizard_default: {
+          colors: palette,
+          name: null,
+          picked_at: new Date().toISOString(),
+        },
       },
-    };
-    await supabase
-      .from('events')
-      .update({ role_palette: nextPalette })
-      .eq('event_id', eventIdRaw);
+    })).catch((e: unknown) => console.error('[wizard] the palette slot could not be written:', e instanceof Error ? e.message : e));
   }
 
   // Auto-promote wizard task to in-flight on first upload across any slot.
@@ -1149,23 +1140,13 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
       .limit(1)
       .maybeSingle();
     if (!stillActive) {
-      const { data: priorRow } = await supabase
-        .from('events')
-        .select('role_palette')
-        .eq('event_id', eventIdRaw)
-        .maybeSingle();
-      if (
-        priorRow &&
-        typeof priorRow.role_palette === 'object' &&
-        priorRow.role_palette !== null
-      ) {
-        const next = { ...(priorRow.role_palette as Record<string, unknown>) };
+      // 👥 The same compare-and-set — taking `wizard_default` out never writes back a palette another host just painted.
+      await updateJsonColumn<Record<string, unknown> | null>(supabase as unknown as JsonColumnClient, { table: 'events', row: { event_id: eventIdRaw }, column: 'role_palette', what: 'The palette' }, (prior) => {
+        if (!prior || typeof prior !== 'object' || !('wizard_default' in prior)) return null;
+        const next = { ...prior };
         delete next.wizard_default;
-        await supabase
-          .from('events')
-          .update({ role_palette: next })
-          .eq('event_id', eventIdRaw);
-      }
+        return { next };
+      }).catch((e: unknown) => console.error('[wizard] the palette slot could not be cleared:', e instanceof Error ? e.message : e));
     }
   }
 

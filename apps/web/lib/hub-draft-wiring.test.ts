@@ -84,7 +84,8 @@ test('every draftable writer diverts to the draft before its first live write', 
   for (const [file, name, divert] of DRAFTABLE) {
     const body = fn(read(file), name);
     const d = body.search(divert);
-    const u = body.search(/\.update\s*\(/);
+    // RE-AIMED 2026-10-18 (round 3): a live section write is now `writeWidgetConfig(` — still a live write.
+    const u = body.search(/\.update\s*\(|writeWidgetConfig\(/);
     assert.ok(d > 0, `${name} has no draft door`);
     assert.ok(u > d, `${name} writes live before it can divert to the draft`);
     assert.match(body, /isHubDraftWrite\(formData\)/, `${name} must decide by the form's draft field`);

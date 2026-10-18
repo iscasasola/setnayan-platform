@@ -206,6 +206,8 @@ export type MakerState = {
    * Absent/false: the shipped Maker, exactly. True on a desktop too when its three columns are on (`MakerDesk`).
    */
   stagesStudio?: boolean;
+  /** 🖥 The event's name for the desktop's top bar (only when its columns are on — `MakerDesk` draws it). */
+  deskTitle?: string | null;
 };
 
 /**

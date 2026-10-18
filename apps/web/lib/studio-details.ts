@@ -129,7 +129,7 @@ export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey
  *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.) */
 const UNDER_THE_ROWS = 'calc(100dvh - 44px)';
 /** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
-const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
+export const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
 
 /**
  * 🎨 THE PROTOTYPE'S ROWS ON THE SHIPPED FIELDS (owner 2026-10-07 side-by-side: *"seems like nothing
@@ -178,10 +178,10 @@ const W = '[data-maker-studio-full] [data-details-workspace]';
  */
 export const STUDIO_INFO_HAIRLINE_INSET_PX = 16;
 const INFO_FIELDS = `${W} :is([data-details-form-field]:has([data-studio-info-rows]),[data-details-form-field]:has(> [data-studio-quiet]))`;
-const STUDIO_INFO_HAIRLINE_CSS =
+export const STUDIO_INFO_HAIRLINE_CSS =
   `${INFO_FIELDS}{border-top-color:transparent;background-image:linear-gradient(rgb(var(--color-ink)/.1),rgb(var(--color-ink)/.1));background-repeat:no-repeat;background-origin:border-box;background-position:${STUDIO_INFO_HAIRLINE_INSET_PX}px 0;background-size:calc(100% - ${STUDIO_INFO_HAIRLINE_INSET_PX * 2}px) 1px}` +
   `${INFO_FIELDS}[data-details-editor="${STUDIO_TILE_ITEM.info}"]{background-image:none}`;
-const STUDIO_SKIN_CSS =
+export const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +

@@ -370,7 +370,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date')
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date, display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -434,6 +434,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     event_type?: string | null;
     planning_mode?: string | null;
     std_invitation_launch_date?: string | null;
+    display_name?: string | null;
   } | null;
 
   /*
@@ -1926,6 +1927,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
       stagesStudio={stagesStudio}
       desktopColumns={desktopColumns}
+      /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
+      deskTitle={desktopColumns ? (eventRow?.display_name ?? null) : null}
       studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */

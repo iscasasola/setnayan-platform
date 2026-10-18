@@ -62,7 +62,18 @@ function selectorsOf(css: string): string[] {
   for (const m of css.matchAll(re)) {
     const head = m[1]!.trim();
     if (head.startsWith('@media') || head === '') continue;
-    out.push(...head.split(/,(?![^(]*\))/).map((s) => s.trim()));
+    /* Split at TOP-LEVEL commas only — a selector list nests (`:is(a:has(b),c:has(> d))`, 2026-10-19). */
+    let depth = 0;
+    let cur = '';
+    for (const ch of head) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) {
+        out.push(cur.trim());
+        cur = '';
+      } else cur += ch;
+    }
+    out.push(cur.trim());
   }
   return out;
 }

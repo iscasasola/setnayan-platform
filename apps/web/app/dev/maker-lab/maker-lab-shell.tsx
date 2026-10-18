@@ -455,6 +455,7 @@ export function MakerLabShell({
       theHost="the couple"
       stagesStudio={stagesStudio}
       desktopColumns={desktopColumns}
+      deskTitle={desktopColumns ? 'Maria & Jose' : null}
       studio={studio}
       venuePictures={venuePictures}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */

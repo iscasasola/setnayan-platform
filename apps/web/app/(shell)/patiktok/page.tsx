@@ -156,7 +156,7 @@ const STEPS = [
 const VS = [
   ['Wait weeks for the final film', 'Highlights ready the same night'],
   ['Edit it yourself in an app', 'A reel composes itself'],
-  ['Music you can’t safely post', 'Set to music cleared to share'],
+  ['Hunting for a song that fits', 'Set to music from Setnayan’s own catalogue'],
   ['One long video few rewatch', 'Short reels made to fly around'],
 
 ] as const;

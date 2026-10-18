@@ -153,7 +153,7 @@ const STEPS = [
   },
   {
     t: 'It plays everywhere your day does',
-    d: 'On your Event Hub, behind the videos from your wedding, and on your phone for good. Yours to keep, and cleared to share.',
+    d: 'On your Event Hub, behind the videos from your wedding, and on your phone for good. Yours to keep.',
   },
 ];
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Palette, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Palette, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -41,7 +41,8 @@ import { MOOD_BOARD_NOT_SAVED, dressCodeDraftFields, paletteDraftFields, slotRem
 import { STUDIO_GROUP, STUDIO_GROUP_HEAD } from '@/lib/studio-skin';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { ActionButton } from '@/components/action-button';
-import { ChosenRow, FORM_PILL_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
+import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
+import { nearestColorName } from '@/lib/color-names';
 import { Explain } from '@/app/_components/explain';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ISeg, ISegmented } from '../../../website/editor/_components/inspector-kit';
@@ -50,6 +51,7 @@ import { plainRefusal } from '../../../guests/_components/plain-refusal';
 import { useMoodBoardActions } from './mood-board-actions-context';
 import { ColourPickerSheet, StudioSheet } from './colour-picker-sheet';
 import { AutoPaletteSheet } from './auto-palette-sheet';
+import { NamedColourDot, RoleColourDot } from './colour-dot';
 import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
 import type { InspirationItem } from './inspiration-board';
@@ -141,6 +143,8 @@ const TABS: ReadonlyArray<[Tab, string]> = [
 type PickTarget =
   | { kind: 'main'; index: number }
   | { kind: 'part'; part: LanePart }
+  /** A part that only follows a main colour — its circle changes that main colour (the sheet says so). */
+  | { kind: 'follows'; part: LanePart }
   | { kind: 'role'; key: PaletteKey; label: string }
   /** One colour a role already wears — tap its dot to change it, or remove it. */
   | { kind: 'role-colour'; key: PaletteKey; label: string; index: number; zone?: ZoneDot }
@@ -148,18 +152,6 @@ type PickTarget =
   | { kind: 'second-colour'; row: StudioAttireRow; label: string; index: number | null; zone?: ZoneDot };
 /** 👔 A FIXED ZONE DOT (owner 2026-10-16, "no more add a color... since color is fixed"): the design whose zone it is. */
 type ZoneDot = { style: AttireStyle | null; label: string | null };
-
-/**
- * 🎨 THE ROLE'S COLOUR CIRCLE — the one hand-made button for a colour a role wears (a zone's dot, a guest's option, a
- * pick's colour): tap it to change the colour. 44 px to the finger, the colour on the circle inside.
- */
-function RoleColourDot({ label, colour, index, onPick, tight = false }: { label: string; colour: string; index: number; onPick: () => void; tight?: boolean }) {
-  return (
-    <button type="button" aria-label={label} data-mood-board-role-colour={index} onClick={onPick} className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${tight ? '-my-1' : ''}`}>
-      <i aria-hidden className={`${tight ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: colour }} />
-    </button>
-  );
-}
 
 /** A role's colours with one zone set — the zones before it written down as they are worn (their defaults), so a
  *  shirt picked before a tie never shifts into the tie's place. */
@@ -580,6 +572,16 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         ) : null,
       };
     }
+    if (t.kind === 'follows') {
+      const main = MAIN_COLOUR_SLOTS[t.part.follows] ?? MAIN_COLOUR_SLOTS[0]!;
+      return {
+        title: `${t.part.label} — follows ${main}`,
+        job: `This is your ${main} — every part that follows it changes too`,
+        current: five[t.part.follows] ?? five[0]!,
+        onPick: (h: string) => pickMain(t.part.follows, h),
+        extra: null,
+      };
+    }
     if (t.kind === 'role-colour' && t.zone) {
       const now = roleColours(t.key);
       const zone = t.zone;
@@ -865,7 +867,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           <div className={STUDIO_GROUP}>
             <FormRows width="short" data="mood-board-room">
               {ROOM_LANE_PARTS.map((p) => (
-                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: { kind: 'part', part: p } })} />
+                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: p.field ? { kind: 'part', part: p } : { kind: 'follows', part: p } })} />
               ))}
             </FormRows>
           </div>
@@ -873,7 +875,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           <div className={STUDIO_GROUP}>
             <FormRows width="short" data="mood-board-flowers">
               {FLORIST_LANE_PARTS.map((p) => (
-                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: { kind: 'part', part: p } })} />
+                <LaneRow key={p.label} part={p} five={five} palette={palette} frozen={Boolean(p.field && props.frozenDressing.includes(p.field))} onTap={() => setSheet({ kind: 'picker', target: p.field ? { kind: 'part', part: p } : { kind: 'follows', part: p } })} />
               ))}
             </FormRows>
           </div>
@@ -1265,41 +1267,30 @@ function Swatches({ colours, label, wide = false }: { colours: readonly string[]
   );
 }
 
-/** The answer of a colour row: the colour, its code and the arrow — the Form row's pill, opening the one colour picker. */
-function ColourPill({ hex, name, onTap, data }: { hex: string; name: string; onTap: () => void; data: string }) {
-  const width = usePillWidth();
-  return (
-    <button type="button" data-mood-board-colour={data} aria-haspopup="dialog" aria-label={`${name}: ${hex}. Tap to change`} onClick={onTap} className={`${FORM_PILL_CLASS} ${width} border-ink/15`}>
-      <span className="flex min-w-0 items-center gap-2">
-        <i aria-hidden className="h-5 w-5 flex-none rounded-full ring-1 ring-inset ring-ink/15" style={{ background: hex }} />
-        <span className="truncate font-mono text-[12.5px] text-ink/70">{hex}</span>
-      </span>
-      <ChevronDown aria-hidden data-form-row-mark="arrow" className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
-    </button>
-  );
-}
-
-function ColourRow({ hex, name, line, onTap, data, disabled = false }: { hex: string; name: string; line: string; onTap?: () => void; data: string; disabled?: boolean }) {
+/**
+ * 🎨 A COLOUR ROW (owner 2026-10-19: *"no need for code. just name if it has name. and just the circle like attire"*): its
+ * name and its job, and the colour as the Studio's ONE circle (`colour-dot.tsx`, the Attire dots' own) with the colour's
+ * name under it when it has one — no code, no arrow. A tap opens the one colour picker; `onTap` absent = shown only.
+ */
+function ColourRow({ hex, name, line, onTap, data }: { hex: string; name: string; line: string; onTap?: () => void; data: string }) {
+  const word = nearestColorName(hex);
+  const said = `${name}: ${word ?? 'its colour'}`;
   return (
     <FormRow name={name} line={line} attrs={{ 'data-mood-board-row': data }}>
-      {onTap && !disabled ? (
-        <ColourPill hex={hex} name={name} onTap={onTap} data={data} />
-      ) : (
-        /* Agreed with a supplier, or following a main colour: shown, not tappable — so nothing here looks as if it could be pressed. */
-        <span data-mood-board-colour={data} className="inline-flex items-center gap-2 pr-1">
-          <i aria-hidden className="h-5 w-5 flex-none rounded-full ring-1 ring-inset ring-ink/15" style={{ background: hex }} />
-          <span className="font-mono text-[12.5px] text-ink/50">{hex}</span>
-        </span>
-      )}
+      <NamedColourDot label={onTap ? `${said} — change it` : said} colour={hex} name={word} onPick={onTap} data={data} />
     </FormRow>
   );
 }
 
+/**
+ * A room or flower part. Its own colour (a part with a `room_dressing` field) opens the picker for that part; a part that
+ * only FOLLOWS a main colour opens the picker for the main colour it follows (owner: *"all colors can be edited on
+ * palette"* — the sheet says which one it changes); one a supplier has agreed is shown, not changeable.
+ */
 function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five: readonly string[]; palette: RolePalette; frozen: boolean; onTap: () => void }) {
   const c = lanePartColour(part, five, palette);
   const line = frozen ? 'Agreed with your supplier' : c.setByYou ? 'Set by you' : `Follows ${c.followsLabel}`;
-  /* Only a part with a colour of its own to store can be set; the rest follow their main colour. */
-  return <ColourRow hex={c.hex} name={part.label} line={line} onTap={part.field ? onTap : undefined} disabled={frozen} data={`part-${part.label}`} />;
+  return <ColourRow hex={c.hex} name={part.label} line={line} onTap={frozen ? undefined : onTap} data={`part-${part.label}`} />;
 }
 
 /** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */

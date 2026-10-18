@@ -186,11 +186,11 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     group: 'plan',
     icon: 'team',
     name: { en: 'Suppliers', tl: 'Suppliers' },
-    line: { en: 'Find, build and book your whole team on one screen.', tl: 'Hanapin, buuin at i-book ang buong team sa isang screen.' },
+    line: { en: 'Find, build and book every supplier on one screen.', tl: 'Hanapin, buuin at i-book ang bawat supplier sa isang screen.' },
     title: { en: 'Your Event’s Suppliers: Find, Build, Booked', tl: 'Suppliers ng Event Mo: Find, Build, Booked' },
     description: {
-      en: 'One screen for every supplier at your event: shortlist by category, build your team against your budget, then book and track each payment.',
-      tl: 'Iisang screen para sa bawat supplier ng event mo: mag-shortlist ayon sa category, buuin ang team laban sa budget, tapos i-book at bantayan ang bawat bayad.',
+      en: 'One screen for every supplier at your event: shortlist by category, build your picks against your budget, then book and track each payment.',
+      tl: 'Iisang screen para sa bawat supplier ng event mo: mag-shortlist ayon sa category, buuin ang mga pili laban sa budget, tapos i-book at bantayan ang bawat bayad.',
     },
     answer: {
       en: 'Your event’s Suppliers page holds every supplier in three parts: Find, Build and Booked. Find is your shortlist by category. Build is one pick per category, totalled against your budget. Booked is everyone you hired, with their next payment and where to pay them. Your date and venue sit at the top.',

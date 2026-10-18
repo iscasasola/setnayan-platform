@@ -396,7 +396,7 @@ test('every lab capture in public/feature-shots is on a page — no orphan pictu
   */
   const dir = join(PUBLIC, 'feature-shots');
   const onDisk = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.jpg')) : [];
-  const used = new Set(FEATURE_PAGES.flatMap((f) => f.shots.map((s) => s.src)));
+  const used = new Set<string>(FEATURE_PAGES.flatMap((f) => f.shots.map((s) => s.src)));
   const orphans = onDisk.filter((f) => !used.has(`/feature-shots/${f}`));
   assert.deepEqual(orphans, [], `public/feature-shots holds pictures no feature page shows:\n  ${orphans.join('\n  ')}`);
 });

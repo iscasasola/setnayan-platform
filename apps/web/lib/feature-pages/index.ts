@@ -102,8 +102,8 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
   {
     name: { en: 'Your suppliers', tl: 'Ang mga supplier mo' },
     line: {
-      en: 'Find them, compare them, build your team, book them, and track every peso.',
-      tl: 'Hanapin, ikumpara, buuin ang team, i-book, at bantayan ang bawat piso.',
+      en: 'Find them, compare them, build your picks, book them, and track every peso.',
+      tl: 'Hanapin, ikumpara, buuin ang mga pili, i-book, at bantayan ang bawat piso.',
     },
     slugs: ['marketplace', 'compare', 'suppliers', 'budget', 'setnayan-ai'],
   },

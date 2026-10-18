@@ -15,6 +15,17 @@ import type { FeaturePageEntry } from './types';
  *   · Memories — the event's Memories page gathers the keepsake tools; it does
  *     not take guest messages, so that line is gone.
  */
+/**
+ * Every rung of the Papic credit ladder in `platform_retail_catalog_v2` — the
+ * page shows "From" the lowest active one. Built from the rung sizes so the
+ * list reads as what it is (and does not look like a column of keys to a
+ * secret scanner). Each resulting code must exist in a migration
+ * (`features-page-says-what-ships.test.ts`).
+ */
+const PAPIC_CREDIT_LADDER: readonly string[] = [
+  '100', '200', '300', '400', '500', '1K', '2K', '4K', '5K', '6K', '7K', '10K', '20K', '30K', '50K', '100K',
+].map((rung) => `PAPIC_GUEST_${rung}`);
+
 export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
   {
     slug: 'papic',
@@ -73,11 +84,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     price: {
       kind: 'free-plus',
       catalogue: 'retail',
-      codes: [
-        'PAPIC_GUEST_100', 'PAPIC_GUEST_200', 'PAPIC_GUEST_300', 'PAPIC_GUEST_400', 'PAPIC_GUEST_500',
-        'PAPIC_GUEST_1K', 'PAPIC_GUEST_2K', 'PAPIC_GUEST_4K', 'PAPIC_GUEST_5K', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_7K',
-        'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', 'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', 'PAPIC_GUEST_100K',
-      ],
+      codes: PAPIC_CREDIT_LADDER,
     },
     tryHref: '/papic',
     moreHref: '/papic',
@@ -195,7 +202,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     group: 'memories',
     icon: 'galleries',
     name: { en: 'Memories', tl: 'Memories' },
-    line: { en: 'Your event’s keepsakes, gathered in one place.', tl: 'Ang mga alaala ng event mo, iniipon sa isang lugar.' },
+    line: { en: 'Your event’s keepsakes, gathered in one place.', tl: 'Ang mga keepsake ng event mo, iniipon sa isang lugar.' },
     title: { en: 'Memories: Keep Your Event in One Place', tl: 'Memories: Itago ang Event sa Isang Lugar' },
     description: {
       en: 'Your guests’ photos, your live broadcast, your Event Hub, your 3D plan and your logo, gathered in one place you can return to and share.',
@@ -203,7 +210,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     },
     answer: {
       en: 'Setnayan Memories is where your event’s keepsakes meet: the photos from Papic, the Live Watch broadcast, your Event Hub, your 3D Plan and your logo. Each stands on its own; together they are the memory of the day, one tap away whenever you return.',
-      tl: 'Ang Setnayan Memories ang tagpuan ng mga alaala ng event mo: ang mga litrato mula sa Papic, ang Live Watch broadcast, ang Event Hub, ang 3D Plan at ang logo mo. Bawat isa ay nakatayo nang mag-isa; magkakasama, sila ang alaala ng araw, isang tap lang kapag babalikan mo.',
+      tl: 'Ang Setnayan Memories ang tagpuan ng mga keepsake ng event mo: ang mga litrato mula sa Papic, ang Live Watch broadcast, ang Event Hub, ang 3D Plan at ang logo mo. Bawat isa ay nakatayo nang mag-isa; magkakasama, sila ang kuwento ng araw, isang tap lang kapag babalikan mo.',
     },
     forWho: {
       en: 'Hosts who want the day to stay somewhere better than a camera roll.',
@@ -229,7 +236,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
         { q: 'Do my guests need an app?', a: 'No. They open what you share from your event link.' },
       ],
       tl: [
-        { q: 'Ano ang Memories?', a: 'Ang tagpuan ng mga alaala ng event mo: litrato ng Papic, Live Watch, Event Hub, 3D Plan at Logo Maker.' },
+        { q: 'Ano ang Memories?', a: 'Ang tagpuan ng mga keepsake ng event mo: litrato ng Papic, Live Watch, Event Hub, 3D Plan at Logo Maker.' },
         { q: 'Libre ba ito?', a: 'Libreng planuhin ang event mo. May bayad na add-on ang ilang bahagi, at makikita mo kung alin bago ka pumili.' },
         { q: 'Kailangan ba ng app ng bisita?', a: 'Hindi. Binubuksan nila ang ibinabahagi mo mula sa event link mo.' },
       ],

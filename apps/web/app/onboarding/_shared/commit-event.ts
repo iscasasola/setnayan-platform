@@ -20,6 +20,7 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
+import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
@@ -160,9 +161,23 @@ export async function commitOnboardingEvent(
   // engine, and re-read key by key against that type's own view — the theme
   // fence, the reply default and the rows offered come from the profile, never
   // from the wire.
-  const setup = profile.onboardingEngine
+  const sanitizedSetup = profile.onboardingEngine
     ? sanitizeSetupAnswers(payload.setup, setupViewForProfile(profile))
     : null;
+
+  // 🚪 What the event needs (Level 1, owner 2026-10-08). Re-read against the TYPE — the wire is never
+  // trusted — then the answers that already have a home follow it: no guest list = "Will guests
+  // reply? No" + one QR + no guests card; a list = replies on (+ requests when One QR is on too).
+  // Papic is always on from that screen. Absent (the engine did not run) = nothing written: NULL = on.
+  const needsScope = { marketplace: profile.marketplaceEnabled === true };
+  const needs =
+    profile.onboardingEngine && payload.needs !== undefined
+      ? sanitizeNeeds(payload.needs, defaultNeedsFor(payload.eventType, needsScope), needsScope)
+      : null;
+  const setup =
+    sanitizedSetup && needs
+      ? applyNeedsToSetup(sanitizedSetup, needs)
+      : sanitizedSetup;
 
   const displayName =
     payload.displayName?.trim() ||
@@ -189,7 +204,7 @@ export async function commitOnboardingEvent(
   // the internal bigserial). The on_event_created trigger mints the join token.
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
-    .insert(row)
+    .insert(needs ? { ...row, ...needsColumns(needs) } : row)
     .select('event_id')
     .single();
   if (insertError || !insertedEvent) {

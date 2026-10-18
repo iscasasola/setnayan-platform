@@ -4,6 +4,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { needsHiddenNavKeys } from '@/lib/event-needs';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -351,6 +353,9 @@ export default async function EventLayout({ children, params }: Props) {
       : 0,
   );
 
+  // 🚪 What THIS event needs (Level 1) — its own small read, degrading to "everything on".
+  const needsRead = readEventNeedsFor(supabase, eventId, 'EventLayout');
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { unreadCount },
@@ -365,6 +370,7 @@ export default async function EventLayout({ children, params }: Props) {
     storeShell,
     owned,
     aiPricePhp,
+    eventNeeds,
   ] = await Promise.all([
     shellRead,
     eventRead,
@@ -378,6 +384,7 @@ export default async function EventLayout({ children, params }: Props) {
     storeShellRead,
     ownedRead,
     aiPriceRead,
+    needsRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -456,7 +463,15 @@ export default async function EventLayout({ children, params }: Props) {
     `referHref` below. A key left here would hide nothing — the handle-with-no-
     gate trap the referral note above describes.
   */
-  const navHideKeys = [...(profile.marketplaceEnabled ? [] : ['explore'])];
+  // 🚪 …and what THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`): a need switched
+  // off at onboarding is ABSENT from the bar — Guests without a guest list, Suppliers without suppliers.
+  // NULL (never asked, every event before) hides nothing.
+  const navHideKeys = [
+    ...new Set([
+      ...(profile.marketplaceEnabled ? [] : ['explore']),
+      ...needsHiddenNavKeys(eventNeeds),
+    ]),
+  ];
   // Gates the Event Hub Maker row to event types whose profile enables the
   // public website. Threaded to the desktop rail + the phone's bottom bar.
   const websiteEnabled = surfaceEnabled(profile, 'website');

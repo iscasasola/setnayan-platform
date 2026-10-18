@@ -36,13 +36,26 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 /** The three bottom-bar tabs a doorway opens — the bar's own keys (4g's `HomeDoorwayKey`). */
 export type HomeDoorKey = HomeDoorwayKey;
 
-/** The three doors — `href:` literals, so the port-controls scan sees each destination. */
-function doorsFor(eventId: string): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
+/**
+ * The three doors — `href:` literals, so the port-controls scan sees each destination.
+ * 🚪 A door whose need this event switched off is ABSENT (owner 2026-10-08, Level 1 —
+ * `needsHiddenNavKeys`, the bar's own keys); "cover + photos only" names the Hub door
+ * as the prototype draws it (frame 2: "Your Event Hub · cover + photos").
+ */
+function doorsFor(
+  eventId: string,
+  hide: readonly string[] = [],
+  hubOnlyCover = false,
+): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
   return [
-    { key: 'guests', label: 'Edit your Guest list', href: `/dashboard/${eventId}/guests` },
-    { key: 'explore', label: 'Edit your Suppliers', href: `/dashboard/${eventId}/vendors` },
-    { key: 'launch', label: 'Edit your Event Hub', href: `/dashboard/${eventId}/launch` },
-  ];
+    { key: 'guests' as const, label: 'Edit your Guest list', href: `/dashboard/${eventId}/guests` },
+    { key: 'explore' as const, label: 'Edit your Suppliers', href: `/dashboard/${eventId}/vendors` },
+    {
+      key: 'launch' as const,
+      label: hubOnlyCover ? 'Your Event Hub · cover + photos' : 'Edit your Event Hub',
+      href: `/dashboard/${eventId}/launch`,
+    },
+  ].filter((d) => !hide.includes(d.key));
 }
 
 /**
@@ -71,10 +84,16 @@ export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
 export function HomeDoorways({
   eventId,
   navSlots,
+  hide = [],
+  hubOnlyCover = false,
 }: {
   eventId: string;
   /** The bar's registry slots (plain data from the server; null = the code icons). */
   navSlots: Record<string, NavSlotLite> | null;
+  /** 🚪 The bar keys this event drops (`needsHiddenNavKeys`) — their doors are absent too. */
+  hide?: readonly string[];
+  /** 🚪 The event's Hub is cover + photos only (`hub_details_on = false`). */
+  hubOnlyCover?: boolean;
 }) {
   const row = useRef<HTMLDivElement | null>(null);
   const run = useCallback(() => {
@@ -88,7 +107,7 @@ export function HomeDoorways({
   }, [run]);
   return (
     <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
-      {doorsFor(eventId).map((d) => {
+      {doorsFor(eventId, hide, hubOnlyCover).map((d) => {
         const Icon = homeDoorwayIcon(d.key, navSlots);
         return (
           <ActionButton

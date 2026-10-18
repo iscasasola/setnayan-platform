@@ -110,10 +110,13 @@ const ESSENTIAL_CARD: Record<SetupEssential, SetupCardId | null> = {
  * flow-config.test.ts then proves the engine stops asking it.
  */
 export const CREATION_ASKS = {
-  /** /onboarding/[type] — the name screen and the date calendar. */
-  generic: ['name', 'when'],
-  /** /onboarding/simple — one form: name + date. */
-  simple: ['name', 'when'],
+  /**
+   * /onboarding/[type] — "What do you need?" (name · where; owner 2026-10-08, Level 1) and the date
+   * calendar (or the needs screen's own "When", on the Simple shape).
+   */
+  generic: ['name', 'when', 'where'],
+  /** /onboarding/simple — one form: "What do you need?" (name · where · when). */
+  simple: ['name', 'when', 'where'],
   /** /onboarding/wedding — the couple's names and the date. */
   wedding: ['name', 'when'],
 } as const satisfies Record<string, readonly SetupEssential[]>;
@@ -217,11 +220,33 @@ export function genericFlowScreens(input: {
   axisIds: readonly string[];
   services: boolean;
   setupSteps: readonly SetupCardId[];
+  /**
+   * 🚪 What the event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). With the engine on,
+   * "What do you need?" is the FIRST screen (it asks the name and the place, so neither `welcome`
+   * nor `name` nor the `setup_where` card is drawn). `only` — the Simple shape: that screen is the
+   * whole onboarding ("Make the event" commits there). `guestList` false drops the "Add your
+   * guests" card. Absent = yesterday's engine list (a caller that never drew the screen).
+   */
+  needs?: { only: boolean; guestList: boolean } | null;
 }): string[] {
   const typeSteps = [
     ...(input.asksHonoree ? ['honoree'] : []),
     ...(input.isAnniversary ? ['anchor'] : []),
   ];
+  if (input.engine && input.needs) {
+    if (input.needs.only) return ['needs'];
+    const cards = input.setupSteps.filter((c) => c !== 'setup_where' && (input.needs!.guestList || c !== 'setup_guests'));
+    return [
+      'needs',
+      ...typeSteps,
+      'date',
+      ...(input.showRecurToggle ? ['recurs'] : []),
+      ...(input.hasSpecialty ? ['specialty'] : []),
+      ...cards,
+      ...(input.services ? ['services'] : []),
+      'congrats',
+    ];
+  }
   if (input.engine) {
     return [
       'welcome',

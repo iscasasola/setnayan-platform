@@ -13,3 +13,17 @@ Prove: CI bundle check numbers before → after in the PR body; the Maker's touc
 Maker opens and the lazy pieces load on tap.
 Commit + push after every step; HANDOVER current — the account may stop you any time; this is the top item for the next
 controller if unfinished. Fragment changelog.d/rd-maker-first-load-headroom.md.
+
+## STATE (builder, 2026-10-18 ~22:00 PHT)
+BASELINE measured locally on 1e5178d (CI env, `pnpm build`): Maker first load 507.0KB gz / 507.0 budget (0.0 headroom),
+52 chunks; shared bundle 201.8 / 202KB (0.2KB headroom — so every NEW async chunk name costs runtime bytes there; prefer
+the existing named groups `maker-details` / `maker-mood-board`).
+HOW MEASURED: a LOCAL-ONLY next.config.ts hook (never committed) writes per-chunk module lists + `hidden-source-map`, then
+source-map byte attribution per source scaled to each chunk's gz (scripts kept in the builder's scratchpad: smap.mjs,
+excl.mjs = exclusive cost per client boundary of the Maker's first-load entries).
+TOP EXCLUSIVE CANDIDATES (gz KB, not needed for first paint): media-panels (Maker rows' panels, only drawn when a row
+opens) 4.3 · NFC write button inside QrActions (editor-shell "Scan to view") 4.6 · LaunchStdButton (⋯ Go live row) 2.5 ·
+dress-code attire fields 4.9 (SKIPPED: form fields inside a server-rendered form — a field not yet arrived would be
+missing from a save) · moment-sheet 4.8 (SKIPPED: earlier measured trade-off, see details-lazy.tsx).
+PLAN step 1: media panels + LaunchStdButton → stand-ins in details-lazy.tsx (chunk maker-details); NFC → QrActions renders
+a lazy NfcWriteButton only when NFC is on (useNfcEnabled), chunk `nfc-write`.

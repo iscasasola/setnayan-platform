@@ -140,6 +140,9 @@ const EMBED = /^([a-z_][a-z0-9_]*):([a-z_][a-z0-9_]*)!([a-z_][a-z0-9_]*)\(([a-z0
 
 class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   private eqs: Array<[string, unknown]> = [];
+  /** `.in(col, values)` and `.is(col, null)` — added 2026-10-18 for lib/iap/fulfil.server.ts's conditional writes. */
+  private ins: Array<[string, readonly unknown[]]> = [];
+  private nulls: string[] = [];
   private limitN: number | null = null;
   private orderBy: { column: string; ascending: boolean } | null = null;
   private projection: string | null;
@@ -164,6 +167,20 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     return this;
   }
 
+  in(column: string, values: readonly unknown[]): this {
+    assertModelled(this.op !== 'insert' && this.op !== 'upsert', `.in() on an ${this.op} into ${this.table}`);
+    assertModelled(IDENT.test(column) && Array.isArray(values), `.in() column ${column}`);
+    this.ins.push([column, values]);
+    return this;
+  }
+
+  is(column: string, value: null): this {
+    assertModelled(this.op !== 'insert' && this.op !== 'upsert', `.is() on an ${this.op} into ${this.table}`);
+    assertModelled(IDENT.test(column) && value === null, `.is() column ${column} (only IS NULL is modelled)`);
+    this.nulls.push(column);
+    return this;
+  }
+
   order(column: string, opts: { ascending?: boolean } = {}): this {
     assertModelled(this.op === 'select', `.order() on a ${this.op} of ${this.table}`);
     assertModelled(IDENT.test(column), `.order() column ${column}`);
@@ -177,9 +194,9 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     return this;
   }
 
-  /** Post-insert `.select(cols)` → RETURNING cols. */
+  /** Post-insert / post-update `.select(cols)` → RETURNING cols. */
   select(cols: string): this {
-    assertModelled(this.op === 'insert', `.select() chained onto a ${this.op}`);
+    assertModelled(this.op === 'insert' || this.op === 'update', `.select() chained onto a ${this.op}`);
     this.projection = cols;
     return this;
   }
@@ -283,11 +300,23 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   private async run(): Promise<{ data: Row[] | null; error: PgError }> {
     const params: unknown[] = [];
     const where = () => {
-      if (this.eqs.length === 0) return '';
+      if (this.eqs.length === 0 && this.ins.length === 0 && this.nulls.length === 0) return '';
       const parts = this.eqs.map(([c, v]) => {
         params.push(v);
         return `"${c}" = $${params.length}`;
       });
+      for (const [c, vs] of this.ins) {
+        if (vs.length === 0) {
+          parts.push('FALSE');
+          continue;
+        }
+        const ph = vs.map((v) => {
+          params.push(v);
+          return `$${params.length}`;
+        });
+        parts.push(`"${c}"::text IN (${ph.map((x) => `${x}::text`).join(', ')})`);
+      }
+      for (const c of this.nulls) parts.push(`"${c}" IS NULL`);
       return ` WHERE ${parts.join(' AND ')}`;
     };
 
@@ -312,7 +341,10 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       assertModelled(this.eqs.length > 0, `.update() of ${this.table} with no .eq()`);
       const sets: string[] = [];
       for (const [c, v] of entries) sets.push(`"${c}" = ${await this.bind(c, v, params)}`);
-      sql = `UPDATE public."${this.table}" SET ${sets.join(', ')}` + where();
+      sql =
+        `UPDATE public."${this.table}" SET ${sets.join(', ')}` +
+        where() +
+        (this.projection ? ` RETURNING ${this.cols()}` : '');
     } else if (this.op === 'upsert') {
       const entries = Object.entries(this.payload ?? {});
       assertModelled(entries.length > 0, `.upsert({}) into ${this.table}`);
@@ -350,7 +382,7 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     try {
       const res = await this.pg.query(sql, params);
       // supabase-js: an insert with no .select() resolves with data === null.
-      if (this.op === 'insert' && !this.projection) return { data: null, error: null };
+      if ((this.op === 'insert' || this.op === 'update') && !this.projection) return { data: null, error: null };
       return { data: (res.rows ?? []) as Row[], error: null };
     } catch (e) {
       return { data: null, error: asPgError(e) };

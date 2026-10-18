@@ -455,6 +455,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   drafted = labScrubCanvases(scrub, drafted);
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
+  /* 👂 A `lab_nobridge=1` cookie: the canvas draws WITHOUT its bridge — the page the owner's Safari got on 2026-10-18
+     ("cannot select again"), so the Maker's silent-canvas watch (`canvas-bridge-watch.ts`) can be walked. */
+  const labNoBridge = (await cookies()).get('lab_nobridge')?.value === '1';
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
   const labCast = (await cookies()).get('lab_cast')?.value === 'standin' ? 'standin' : 'sample';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
@@ -912,7 +915,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           /* Every node the lab has (`stageGiven`): the day's own five, and any scene ticked onto The Day. */
           given={stageGiven}
         />
-        {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {sp.editor === '1' && !preview && !labNoBridge ? <EditorBridge /> : null}
         {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
         {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
@@ -1238,7 +1241,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         </footer>
       )}
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
-      {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+      {sp.editor === '1' && !preview && !labNoBridge ? <EditorBridge /> : null}
         {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
         {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each

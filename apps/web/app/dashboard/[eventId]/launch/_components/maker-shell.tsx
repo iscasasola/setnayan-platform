@@ -158,6 +158,8 @@ const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
 
 /** The sheet handed down only when the new Maker is on — a plain call, never a component, so the shipped tree is unchanged. */
 const NO_ROLE_ROWS: readonly SeeAsRoleRow[] = [];
+/** 🚪 No stage hidden — a stable empty list, so the default never changes identity between renders. */
+const NO_HIDDEN_STAGES: readonly string[] = [];
 
 function withPickSheet(on: boolean, children: ReactNode): ReactNode {
   return on ? <PickSheetContext.Provider value={makerPickSheet}>{children}</PickSheetContext.Provider> : children;
@@ -192,10 +194,17 @@ export function MakerShell({
   stagesStudio = false,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
+  hiddenStages = NO_HIDDEN_STAGES,
   children,
 }: {
   /** 🎭 See as · Role ▾'s rows — this event's guest-list roles (`lib/preview-role.ts`, built on the server). */
   seeAsRoles?: readonly SeeAsRoleRow[];
+  /**
+   * 🚪 THE STAGES THIS EVENT DOES NOT NEED (owner 2026-10-08, Level 1 — `needsHidesStage` in
+   * lib/event-needs.ts): absent from Page ▾ and the stage lists. Cover + photos only = The Day alone;
+   * no guest list = no Save the Date and no RSVP stage. Empty = every stage (yesterday's Maker).
+   */
+  hiddenStages?: readonly string[];
   /**
    * 🧭 THE NEW MAKER — "Stages | Studio" (`makerStagesStudioEnabled`, resolved
    * ONCE by the launch page; nothing here reads the env). On a phone: ✕ ·
@@ -649,6 +658,7 @@ export function MakerShell({
     theHost,
     /* 📍 Look · Event Details · Prints cover the stage: Page ▾ names that page. */
     openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
+    hiddenStages,
   });
   /* 📱 Frame G's top line names the stage — or the Maker page that covers it. */
   /* 🏷 In the guided flow: ONE title per stage (owner 2026-10-05) — the stage being walked, never Look/Event Details by turns. */
@@ -718,7 +728,7 @@ export function MakerShell({
     if (sec === 'look') setLookVisit((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
-  const ltStages = MAKER_PAGE_STAGES.filter((s) => hasWork || s !== RSVP_STAGE_KEY).map((s) => ({
+  const ltStages = MAKER_PAGE_STAGES.filter((s) => (hasWork || s !== RSVP_STAGE_KEY) && !hiddenStages.includes(s)).map((s) => ({
     key: s,
     label: makerStageLabel(s),
     ...(s === liveStage ? { dot: true } : {}),

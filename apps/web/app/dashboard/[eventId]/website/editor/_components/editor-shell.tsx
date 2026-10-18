@@ -2139,7 +2139,13 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, undoDrawn, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = {
+    eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, undoDrawn, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate,
+    /* 🖼 A scene of their own's picture slots offer the Background › Upload row's own pictures (`maker-part-ops.ts`). */
+    sceneMedia: sceneFormat
+      ? { photoChoices: sceneFormat.photoChoices, videoChoice: sceneFormat.videoChoice, sceneUploads: sceneFormat.sceneUploads, ownsPro, storeShell: sceneFormat.hideLocked }
+      : null,
+  };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);

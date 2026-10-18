@@ -312,11 +312,13 @@ export function ElementSheet({
      owned. In the store shell a couple without Pro is not shown them at all. */
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
-  /* 🔤 A part's Font ▾ is FREE since 2026-10-06 (owner, "EVENT DETAILS IS REBUILT") — no mark, never hidden. */
-  const fontMark = null;
   const animateMark = proMark ? (
     <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
   ) : null;
+  /* 🔤 A part's Font ▾ is Event Hub Pro again (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS
+     ARE EVENT HUB PRO ◆" — everything in Style): it wears the sheet's ONE mark, the same node Animate wears, and the
+     store shell hides it from a couple without Pro like every Pro row. Apply already names it ("Font · …"). */
+  const fontMark = animateMark;
   const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
 
   const commit = (elements: HubSectionCanvas['elements'] | null, choice?: string, scene?: (c: HubSectionCanvas) => void) => {
@@ -751,7 +753,7 @@ export function ElementSheet({
               contrast={contrast}
               eventId={eventId}
               fontMark={fontMark}
-              hideFont={false}
+              hideFont={hidePro}
               threeControls={stagesStudio}
             />
             {range && run ? (

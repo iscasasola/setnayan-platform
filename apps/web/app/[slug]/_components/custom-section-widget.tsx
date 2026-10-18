@@ -59,6 +59,8 @@ export function renderCustomSection(input: {
   ownClipPlays?: boolean;
   /** The still a guest sees for a slot clip that may not play (the hero photo). */
   clipStillRef?: string | null;
+  /** 🖼 The Maker's canvas: every picture slot drawn in its place, tappable (`renderScene` `makerSlots`). */
+  makerSlots?: boolean;
 }): ReactElement | null {
   const canvas = sanitizeHubCanvas(input.config);
   if (canvas.template) {
@@ -69,6 +71,7 @@ export function renderCustomSection(input: {
       facts: input.facts,
       ownClipPlays: input.ownClipPlays,
       clipStillRef: input.clipStillRef,
+      makerSlots: input.makerSlots,
     });
   }
   if (!sanitizeCustomSection(input.config).body) return null;

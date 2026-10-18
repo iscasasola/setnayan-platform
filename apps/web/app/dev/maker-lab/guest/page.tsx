@@ -40,7 +40,7 @@ import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
-import { MakerEmptyScene, makerWordsLook } from '@/app/[slug]/_components/maker-empty-scene';
+import { MakerEmptyScene, makerOwnSlots, makerWordsLook } from '@/app/[slug]/_components/maker-empty-scene';
 import { SceneSample } from '@/app/[slug]/_components/maker-scene-samples';
 import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
 import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
@@ -739,7 +739,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubCanvasFrame>
     ),
   };
-  const giftsBlock = (
+  /* 🎁 `lab_gifts=none`: the event has no way to give yet — the Maker's empty E-Gifts, dressed in the picked accent
+     (`lab_kit` · `lab_accents`) as `guest-welcome.tsx` draws it on the host's canvas (owner 2026-10-18). */
+  const noGifts = (await cookies()).get('lab_gifts')?.value === 'none';
+  const giftsBlock = noGifts ? (
+    <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
+      {labKitView ? <KitSlot kit={labKitView} slot="gifts-divider" /> : null}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
+      <MakerWelcomeGiftsEmpty look={look('gifts')} kit={labKitView ? <KitSlot kit={labKitView} slot="gifts-card" /> : null} />
+    </div>
+  ) : (
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
@@ -811,13 +820,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     if (customSectionHasContent(config)) {
       return (
         <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8 text-left">
-          {renderCustomSection({ config, facts: NO_SCENE_FACTS, mediaUrls: LAB_MEDIA, ownClipPlays: makerCanvas })}
+          {renderCustomSection({ config, facts: NO_SCENE_FACTS, mediaUrls: { ...LAB_MEDIA, ...LAB_SIGNED }, ownClipPlays: makerCanvas, makerSlots: makerCanvas })}
         </div>
       );
     }
     return makerCanvas ? (
       <div data-lab-scene={type} className="border-t border-ink/10 px-4 py-8">
-        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} />
+        <MakerEmptyScene type={type as never} look={makerWordsLook(type, config)} ownSlots={makerOwnSlots(type, config)} />
       </div>
     ) : null;
   };

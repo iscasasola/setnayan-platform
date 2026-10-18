@@ -216,7 +216,8 @@ test('a schedule MOMENT tapped on a stage opens Details › Schedule with that m
   assert.match(widget, /data-schedule-moment=\{b\.block_id\}/, 'the guest schedule does not name its moments');
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   assert.match(bridge, /closest\?\.\('\[data-schedule-moment\]'\)/);
-  assert.match(bridge, /t: 'edit', key, \.\.\.empty, \.\.\.moment \}/, 'the tap does not carry the moment');
+  // 🖼 RE-AIMED 2026-10-18: the same message also names a template scene's tapped picture slot (`...slot`).
+  assert.match(bridge, /t: 'edit', key, \.\.\.empty, \.\.\.moment(?:, \.\.\.slot)? \}/, 'the tap does not carry the moment');
   const shell = read(SHELL);
   const at = shell.indexOf("if (data.key === 'w:schedule' && typeof moment === 'string'");
   assert.ok(at > 0, 'the Maker does not act on a tapped moment');

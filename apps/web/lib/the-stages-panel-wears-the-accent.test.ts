@@ -185,7 +185,7 @@ test('(3) Move draws ONE dropdown (no button per arrow) and Size draws the app�
     assert.match(move, new RegExp(`data-stage-dd="${end}-move-dir"`), `${end}: Move has no dropdown`);
     assert.equal((move.match(/aria-haspopup="listbox"/g) ?? []).length, 1, `${end}: Move’s direction is not one dropdown`);
     assert.equal((move.match(/<button\b/g) ?? []).length, 1, `${end}: Move draws more than its dropdown`);
-    assert.match(move, new RegExp(`>${end === 'in' ? 'From' : 'To'}</span>`), 'the dropdown does not say From / To');
+    assert.match(move, new RegExp(`>${end === 'in' ? 'From' : 'To'} ◆</span>`) /* 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ */, 'the dropdown does not say From / To');
     assert.match(move, /the bottom/, 'the dropdown does not say the way in words');
     assert.doesNotMatch(html, /data-stage-dir=/, 'a button per arrow is back');
     /* Size: the shared selector, two choices, the picked one the accent — and nothing ink. */

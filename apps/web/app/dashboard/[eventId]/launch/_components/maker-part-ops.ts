@@ -53,6 +53,21 @@ export type MakerPartRaw = {
   postEventPresets: WorkProps['postEventPresets'];
   sceneFacts: WorkProps['sceneFacts'];
   onPickTemplate: () => void;
+  /** 🖼 The couple's pictures a scene can take (the Background's Upload row's own) — null: the work area has none. */
+  sceneMedia: MakerSceneMedia | null;
+};
+
+/**
+ * 🖼 THE PICTURES A SCENE OF THEIR OWN'S SLOTS OFFER — the same set the scene's Background › Upload offers
+ * (`scene-background-row.tsx`): the hero and the gallery (`photoChoices`), the one video (`videoChoice`), and every
+ * scene's own upload (`sceneUploads`) — and who may try them (`ownsPro`, the store shell).
+ */
+export type MakerSceneMedia = {
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  sceneUploads: readonly { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null }[];
+  ownsPro: boolean;
+  storeShell: boolean;
 };
 
 export type MakerPartOps = {
@@ -105,4 +120,6 @@ export type MakerPartOps = {
     | null;
   /** A template tile was tapped — the work area waits for the scene and selects it. */
   onPickTemplate: () => void;
+  /** 🖼 What a scene's picture slot may take (`MakerSceneMedia`) — null: none handed. */
+  sceneMedia: MakerSceneMedia | null;
 };

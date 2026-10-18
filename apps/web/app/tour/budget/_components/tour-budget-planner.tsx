@@ -6,7 +6,7 @@
 // the public Maria & Jose tour.
 //
 // Why a fork (not a reuse): the dashboard BudgetAllocationPlanner imports
-// `saveAllocationSnapshot` from ../allocation-actions (a SERVER ACTION) — which
+// `saveAllocationSnapshot` from ../allocation-actions (a SERVER ACTION, deleted 2026-10-18 with no caller left) — which
 // would trip the app/tour/** no-restricted-imports guard and persist behavioral
 // data from an anonymous visitor. This fork keeps the EXACT same client-only
 // interaction model — the PURE engine (computeBudgetAllocation +

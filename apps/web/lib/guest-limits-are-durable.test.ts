@@ -17,6 +17,12 @@
  *     would black out galleries at exactly the moment they are opened together.
  *   · app/api/vendor/qr-guard/route.ts — a signed-in SUPPLIER's own pre-save
  *     check on their showcase media; not a guest or public door.
+ *   · app/api/sign-in/google-domain/route.ts — "is this DOMAIN's mail Google?",
+ *     asked while a person types an address on the sign-in / sign-up card
+ *     (2026-10-18). It reads only public DNS, answers are cached in the process
+ *     and at the edge, and it writes nothing; a durable count would turn every
+ *     typing pause on every sign-in card into a `rate_limit_hits` write for a
+ *     question anyone can ask DNS directly.
  * (login / forgot-password / csp-report / client-fault were not in the audit's
  * list and are unchanged.)
  *
@@ -43,6 +49,7 @@ const DURABLE = [
 const BARE_ON_PURPOSE = new Set([
   'app/papic/media/[...key]/route.ts',
   'app/api/vendor/qr-guard/route.ts',
+  'app/api/sign-in/google-domain/route.ts',
   // not in the audit's list:
   'app/login/actions.ts',
   'app/forgot-password/actions.ts',

@@ -727,10 +727,14 @@ export function EditorBridge() {
         // schedule-widget.tsx), so the Maker opens THAT moment in Details.
         const momentId = (e.target as Element | null)?.closest?.('[data-schedule-moment]')?.getAttribute('data-schedule-moment');
         const moment = momentId ? { moment: momentId } : {};
+        // 🖼 A tap on one of a template scene's pictures names its slot (`data-scene-slot`, scene-template.tsx), so the
+        // Maker opens THAT picture in Edit (owner 2026-10-18).
+        const slotAt = (e.target as Element | null)?.closest?.('[data-scene-slot]')?.getAttribute('data-scene-slot');
+        const slot = slotAt ? { slot: slotAt } : {};
         window.parent?.postMessage(
           part
-            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment }
-            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment },
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment, ...slot }
+            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment, ...slot },
           origin,
         );
       };

@@ -13,7 +13,8 @@ import { slotCanvasNext, slotName, slotTakesClips } from '@/lib/scene-slot-pick'
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
-import { makerProMark, makerProUsable } from '@/lib/paid-mark';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_TONE, SP_LOOK_ROW_LABEL, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { MakerSheet } from '../stages-studio-parts';
 import type { MakerPartOps } from '../maker-part-ops';
@@ -112,7 +113,8 @@ export function ScenePhotoRow({
   const t = template ? SCENE_TEMPLATES[template] : null;
   const media = ops?.sceneMedia ?? null;
   if (!ops || !t || t.media === 0 || !media || !makerProUsable({ owns: media.ownsPro, storeShell: media.storeShell })) return null;
-  const mark = makerProMark({ owns: media.ownsPro, storeShell: media.storeShell }) ? ' ◆' : '';
+  /* 💎 The shipped Pro mark beside the row's name — ◆ while tried, the diamond once owned (`makerProMark`). */
+  const mark = makerProMark({ owns: media.ownsPro, storeShell: media.storeShell });
   const clips = slotTakesClips(t.id);
   const choices = choicesOf(ops, clips, local);
   const urlOf = (ref: string | undefined) => (ref ? (choices.find((c) => c.ref === ref)?.url ?? local[ref] ?? null) : null);
@@ -165,9 +167,9 @@ export function ScenePhotoRow({
   return (
     <>
       <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-edit-row="photos" data-scene-photos={type} aria-busy={busy || undefined}>
-        <span className={SP_LOOK_ROW_LABEL}>
+        <span className={`${SP_LOOK_ROW_LABEL} inline-flex items-center gap-1`}>
           {label}
-          {mark}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" bare /> : null}
         </span>
         <div role="group" aria-label={`${label} of this scene`} className={SP_BG_STRIP}>
           {Array.from({ length: t.media }, (_, i) => {

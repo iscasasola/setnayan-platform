@@ -55,3 +55,9 @@ Plan / decisions:
   `sceneUploadRefs` lists slot uploads. Pure helpers `lib/scene-slot-pick.ts`. Guard
   `lib/own-scene-photos-work-on-the-phone.test.ts` (15 picture templates). 7 pinned regexes re-aimed. NOT WALKED YET.
 - Next: lints/guards, walk in the Maker lab (375 px), shots, PR.
+- [x] Walked (Maker lab, Chromium 375×812, no-db env): all 15 picture templates (tap slot → sheet → pick → canvas →
+  Photos tile → Take it off → free ✓ names "Photo in the scene"); clip templates 5/14 take a clip; tpl20 with Pro →
+  ✓ Apply → guest page shows the picture, no empty boxes. Animate ◆ and gifts accent shot. Shots
+  ~/Documents/Claude/Projects/shots-2026-10-18/6634/. Lab fixes: own scene is live in the lab's merge/bar.
+- CI round 2: typecheck (gifts test), G6 undo list (scene-photos › write listed, slow ↺), scrub regex, paid-mark guard
+  (Photos row now draws the shipped PaidMark glyph).

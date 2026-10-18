@@ -20,7 +20,8 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers, setupLanding } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { setupColumns } from '@/lib/onboarding/event-insert';
-import { SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
+import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
+import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -46,7 +47,12 @@ export async function commitSimpleEvent(formData: FormData) {
   }
   // YYYY-MM-DD from <input type="date">. Reject anything else so a hand-crafted
   // post can't write garbage into the date column.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(event_date)) {
+  // 🚪 With "What do you need?" posted (owner 2026-10-08, Level 1) the date is
+  // "When (optional)" — frame 3 — so an EMPTY date is an answer; anything else
+  // that is not a date is still refused.
+  const needsPosted = formData.get(SIMPLE_NEEDS_FIELD) !== null;
+  const dated = /^\d{4}-\d{2}-\d{2}$/.test(event_date);
+  if (!dated && !(needsPosted && event_date === '')) {
     return redirect('/onboarding/simple?error=missing_date');
   }
 
@@ -101,9 +107,24 @@ export async function commitSimpleEvent(formData: FormData) {
   } catch {
     setupRaw = null;
   }
-  const setupAnswers = profile.onboardingEngine
+  const sanitizedSetup = profile.onboardingEngine
     ? sanitizeSetupAnswers(setupRaw, setupViewForProfile(profile))
     : null;
+  // 🚪 What the event needs — re-read against the type (a vendor-free type can
+  // never switch Suppliers on); the answers that already have a home follow it,
+  // exactly as `commitOnboardingEvent` does.
+  const needsScope = { marketplace: profile.marketplaceEnabled === true };
+  let needsRaw: unknown = undefined;
+  try {
+    needsRaw = needsPosted ? JSON.parse(String(formData.get(SIMPLE_NEEDS_FIELD) ?? 'null')) : undefined;
+  } catch {
+    needsRaw = null;
+  }
+  const needs =
+    profile.onboardingEngine && needsPosted
+      ? sanitizeNeeds(needsRaw, defaultNeedsFor('simple_event', needsScope), needsScope)
+      : null;
+  const setupAnswers = sanitizedSetup && needs ? applyNeedsToSetup(sanitizedSetup, needs) : sanitizedSetup;
   const setup = setupAnswers ? setupColumns(setupAnswers) : null;
 
   const { data: insertedEvent, error: insertError } = await admin
@@ -111,9 +132,11 @@ export async function commitSimpleEvent(formData: FormData) {
     .insert({
       event_type: 'simple_event',
       display_name,
-      event_date,
       // We have an exact date → day precision (the column DEFAULTs to 'year').
-      event_date_precision: 'day',
+      // No date ("When" is optional on the needs screen) → an undated event,
+      // the generic commit's shape.
+      ...(dated ? { event_date, event_date_precision: 'day' } : {}),
+      ...(needs ? needsColumns(needs) : {}),
       venue_name: setup?.venue_name ?? null,
       venue_address: null,
       ...(setup ? { invite_theme: setup.invite_theme, style_preferences: { setup: setup.setup } } : {}),

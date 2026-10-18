@@ -123,6 +123,13 @@ export type HomeNextInput = {
   papic?: { moment: PapicMoment; left: number; total: number } | null;
   /** An AI offer exists AND may be shown here (never in the store shell). */
   aiOffer: boolean;
+  /**
+   * 🚪 What THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need
+   * on (yesterday's Home). No guest list → never "Add your guests" / "Send N invitations", and an
+   * unread guest list is not this Home's to report. Cover + photos only → never "Finish your Event
+   * Hub" (its steps — venues, attire, what to ask — are the details this event said it does not need).
+   */
+  needs?: { guestList: boolean; hubDetails: boolean } | null;
 };
 
 /**
@@ -134,7 +141,10 @@ export type HomeNextInput = {
  * the guided flow's `?tool=details&guide=1` first read as "lost".
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { guide, hasDate, guests, noun, papicReady, papic = null, aiOffer } = input;
+  const { hasDate, noun, papicReady, papic = null, aiOffer, needs = null } = input;
+  const guide = needs && !needs.hubDetails ? null : input.guide;
+  const noList = needs?.guestList === false;
+  const guests = input.guests;
   if (guide) {
     /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
        the first stage still to do with its own count. */
@@ -164,7 +174,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
      H3). It used to fall through to papic → ai → plan, so a couple whose list could
      not be read was told "You are on track — Nothing is waiting on you". The card
      says what happened and offers the read again; it never guesses past it. */
-  if (guests === null) {
+  if (guests === null && !noList) {
     return {
       kind: 'unread',
       title: 'We couldn’t read your guest list',
@@ -204,7 +214,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: `Open ${SERVICE_NAMES.papic.brand}`,
     };
   }
-  if (guests.total === 0) {
+  if (!noList && guests && guests.total === 0) {
     return {
       kind: 'guests',
       title: 'Add your guests',
@@ -212,7 +222,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Add guests',
     };
   }
-  if (guests.unsent > 0) {
+  if (!noList && guests && guests.unsent > 0) {
     const n = formatCount(guests.unsent);
     return {
       kind: 'invite',

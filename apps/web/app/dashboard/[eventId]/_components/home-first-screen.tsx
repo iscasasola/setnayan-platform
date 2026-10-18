@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import { BookOpen, Camera, CalendarDays, Check, ListChecks, Mail, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -13,6 +13,9 @@ import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
+import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
@@ -144,6 +147,18 @@ export type HomeFirstScreenProps = {
   papicLeft?: number | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
+  /**
+   * 🍎 THE IPHONE APP SELLS THROUGH APPLE HERE (owner 2026-10-18; prototype
+   * `in_app_purchase_screens_2026-10-17_fable.html` frames 2 · 11). Set ONLY
+   * when the page's `getIapGate().iap` is true — the store shell, a StoreKit
+   * build, the owner's switch. Then "Your services" carries Papic (Buy more →
+   * Apple) and Live Watch (Activate → Apple, or "On" once owned, whichever side
+   * paid). No row links to a controller the app still sends to /web-only.
+   */
+  apple?: {
+    papic: { status: string; buy: boolean } | null;
+    liveWatch: { status: string; owned: boolean; askReady: boolean } | null;
+  } | null;
 };
 
 /** Only the three slots the doorways read cross to the client — not the whole registry. */
@@ -178,6 +193,7 @@ export function HomeFirstScreen({
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  apple = null,
 }: HomeFirstScreenProps) {
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
@@ -319,10 +335,30 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        {services.length > 0 ? (
+        {services.length > 0 || apple?.papic || apple?.liveWatch ? (
           <nav aria-label="Your services" data-home-services className="flex flex-col">
             <p className="home-k2 !mt-1">Your services</p>
             <div className="home-svc">
+              {apple?.papic ? (
+                <AppleServiceRow
+                  marker="papic"
+                  name={SERVICE_NAMES.papic.plain}
+                  brand={SERVICE_NAMES.papic.brand}
+                  icon={<Camera aria-hidden strokeWidth={1.9} />}
+                  status={apple.papic.status}
+                  action={apple.papic.buy ? <IapPapicSheet eventId={eventId} left={papicLeft} /> : null}
+                />
+              ) : null}
+              {apple?.liveWatch ? (
+                <AppleServiceRow
+                  marker="live-watch"
+                  name={SERVICE_NAMES['live-studio'].plain}
+                  brand={SERVICE_NAMES['live-studio'].brand}
+                  icon={<Radio aria-hidden strokeWidth={1.9} />}
+                  status={apple.liveWatch.status}
+                  action={apple.liveWatch.owned ? null : <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />}
+                />
+              ) : null}
               {services.map((svc) => {
                 const Icon = SERVICE_ICON[svc.key];
                 if (svc.key === 'papic' && svc.papic) {
@@ -388,5 +424,40 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
     />
+  );
+}
+
+/**
+ * 🍎 A service row in the iPhone app when Apple sells it — the plain tile's
+ * words (name · brand · status) with its ONE control in place (prototype frame
+ * 2), and no link: the controller pages are still web-only in the app.
+ */
+function AppleServiceRow({
+  marker,
+  name,
+  brand,
+  icon,
+  status,
+  action,
+}: {
+  marker: string;
+  name: string;
+  brand: string;
+  icon: ReactNode;
+  status: string;
+  action: ReactNode;
+}) {
+  return (
+    <div data-home-service={marker} data-home-apple-row="" className="home-tile flex items-center gap-3">
+      <span className="min-w-0 flex-1">
+        <span className="home-t">
+          {icon}
+          <span className="truncate">{name}</span>
+        </span>
+        <span className="block truncate text-[11px] text-ink/50">{brand}</span>
+        <span className="block truncate text-[12.5px] text-ink/60">{status}</span>
+      </span>
+      {action}
+    </div>
   );
 }

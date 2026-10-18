@@ -82,6 +82,8 @@ import {
   forgetMyFaceEverywhere,
 } from './face-profile-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
+import { getIapGate } from '@/lib/request-platform';
 
 export const metadata = { title: 'Profile' };
 
@@ -235,6 +237,8 @@ export default async function ProfilePage({ searchParams }: Props) {
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
   const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
   const tr = makeT(activeLocale);
+  /* 🍎 Restore purchases is shown only where the app sells through Apple (lib/iap/iap-gate.ts). */
+  const appleIap = (await getIapGate()).iap;
   const isAdmin =
     profile?.is_internal ||
     profile?.is_team_member ||
@@ -1354,6 +1358,8 @@ export default async function ProfilePage({ searchParams }: Props) {
             API keys
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
           </Link>
+          {/* 🍎 Restore purchases — only where the iPhone app sells through Apple (owner 2026-10-18). */}
+          {appleIap ? <RestorePurchasesRow className={ACCOUNT_ROW} /> : null}
           <form action={restartTour}>
             <SubmitButton pendingLabel="Restarting…" className={`${ACCOUNT_ROW} w-full text-left`}>
               <span className="inline-flex items-center gap-2">

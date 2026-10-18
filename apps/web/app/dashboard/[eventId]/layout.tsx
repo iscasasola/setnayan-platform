@@ -36,7 +36,8 @@ import {
 } from './_components/event-rail-match-rows';
 import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -332,6 +333,10 @@ export default async function EventLayout({ children, params }: Props) {
     `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
   */
   const storeShellRead = isStoreShellRequest();
+  /* 🍎 Apple In-App Purchase's net on the phone: in an app that may sell
+     through Apple, every unfinished App Store transaction is handed to our
+     server on arrival (lib/iap/native-store.ts). Nothing anywhere else. */
+  const iapRead = getIapGate().then((g) => g.iap);
   /*
     📂 MORE SERVICES' FIVE (owner 2026-09-30) — the row opens to the SAME cards
     the More Services page draws, so the two reads that decide WHICH cards and
@@ -636,8 +641,10 @@ export default async function EventLayout({ children, params }: Props) {
     services,
   };
 
+  const appStoreNet = await iapRead;
   return (
     <>
+      {appStoreNet ? <AppStoreTransactions /> : null}
       {/*
         ─── ONE SHELL, SLICE 1 (owner 2026-08-13) ────────────────────────────
         *"the sidebar should stay. look at here as we navigate around. what you

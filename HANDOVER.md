@@ -23,3 +23,14 @@ Shots of the named note + greyed ↺ at 375 → ~/Documents/Claude/Projects/shot
   "Nothing of yours to undo". Test `lib/two-hosts-name-and-own-undo.test.ts` (9). 5 guards re-aimed.
   Decision: a step with no recorded author (pre-existing drafts, admin-client writers) stays undoable by anyone — greying
   it would strand every existing draft. Live-column writers (no who-record) keep the neutral "another screen" line.
+- [x] Step 2 · host answers + e-gift edit (`lib/host-answers-merge.ts`, `lib/egift-method-merge.ts`).
+- [x] Step 3 · seating floor/booths/signs (`lib/floor-plan-row.ts`, `lib/floor-items-merge.ts`; editor + 3D lab send base).
+- [x] Step 4 · Post Event `saveEditorial` (buildDraft for input+baseInput, only changed keys onto a fresh re-read).
+- [x] Step 5 · live widget config_json (`lib/widget-config-write.ts`, CAS on updated_at) + Apply's section write + STD
+  venue card + wizard palette slot (`updateJsonColumn`). wizard_state LEFT (SELECT-denied column, no events version col;
+  prod value `{}` everywhere per #6629).
+- [x] Step 6 · Maker writers: part-words, type-in-place, details-bound, scene-background-row (multi), post-event panel,
+  editor-shell saveCanvasWith, use-scene-canvas→shared map; rebase learns `custom` + `editorial`. Main background NOT
+  merged (its kinds share no fields — a pick there is whole) — decided, in PR body.
+- [x] Step 7 · lab `?as=` hosts. Fragment written.
+- [ ] Step 8 · open draft PR, CI, walk shots (named note + greyed ↺, 375), sabotage runs, bundle.

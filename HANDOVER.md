@@ -51,3 +51,5 @@ maker-pro-controls-wear-the-paid-mark) and its "for all nine" docblock (the-invi
 strip moves (`scan-qr-strip.tsx` → `ScanQrStrip` stand-in in details-lazy); MoreExtras stays in editor-shell;
 lower-third guard back to main's text; strip guard counts scan-qr-strip.tsx (sabotage red → green).
 MEASURED after rework: Maker 493.6KB gz · 51 chunks · 13.4KB headroom; shared 201.8/202 (unchanged). Preflight #2 running.
+RE-WALK after rework (same lab, Chromium + WebKit, 375×812): Settings › Who can view → Scan to view; the lazy
+ScanQrStrip draws Download QR · Copy link (NFC flag off in the lab, as in prod default). Pictures: walk-headroom/*-5-strip.png.

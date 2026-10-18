@@ -118,7 +118,7 @@ test('5 · only the frame on screen is judged; a kept one says where it came fro
   const r = rig('A');
   r.watch.loaded('W');
   r.advance(CANVAS_BRIDGE_GRACE_MS * 2);
-  assert.deepEqual(r.log, { reloads: [], says: [], reports: [] }, 'a frame behind is not judged');
+  assert.equal(r.log.reloads.length + r.log.says.length + r.log.reports.length, 0, 'a frame behind is not judged');
   r.state.shown = 'W';
   r.watch.shownNow('W');
   r.advance(CANVAS_BRIDGE_GRACE_MS);

@@ -3057,6 +3057,8 @@ export function MakerWork({
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
+            /* 👂 a canvas that never answers is loaded again once, then said in the toolbar (`canvas-bridge-watch.ts`) */
+            watchBridge
             style={bothFit ? scaledFrame(bothFit.desktop) : undefined}
             className={
               both

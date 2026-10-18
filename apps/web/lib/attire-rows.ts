@@ -37,6 +37,7 @@ import type { GuestAttire, GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { roleGroupOf } from './role-groups';
 import { roleLabel } from './entourage';
+import type { RoleNames } from './role-names';
 
 const roleGroupOfRole = (role: GuestRole): string | null => {
   const g = roleGroupOf(role);
@@ -73,6 +74,12 @@ export const ATTIRE_ROWS: readonly AttireRowDef[] = [
   { tier: 'groups', key: 'principal_sponsors', paletteKey: 'principal_sponsors', who: ['m', 'f'] },
   { tier: 'groups', key: 'secondary_sponsors', paletteKey: 'secondary_sponsors', who: ['m', 'f'] },
   { tier: 'groups', key: 'muslim_principals', paletteKey: 'muslim_principals', who: ['m'], either: true },
+  /* 👯 THE HONOUR ATTENDANTS, at the head of the entourage (owner 2026-10-19: *"Best man and best woman share a row like
+     principal sponsors. same goes to maid and matron of honor"*). Each row is keyed by the role it is named for and
+     coloured by the Mood Board slot that already covers the pair (`maid_of_honor` "Maid / Matron of Honor", `best_man`
+     "Best Man / Best Woman"); the matron of honor and the best woman read it too (`HONOUR_ROW_OF`). */
+  { tier: 'roles', key: 'maid_of_honor', paletteKey: 'maid_of_honor', who: ['f'] },
+  { tier: 'roles', key: 'best_man', paletteKey: 'best_man', who: ['m', 'f'] },
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
   { tier: 'groups', key: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl', who: ['boy', 'girl'] },
@@ -87,15 +94,66 @@ export function attireRowOfPalette(paletteKey: string): AttireRowDef | null {
   return ATTIRE_ROWS.find((r) => r.paletteKey === paletteKey) ?? null;
 }
 /**
+ * 👯 THE HONOUR ATTENDANTS' ROWS (owner 2026-10-19): each honour role → the row it is dressed by and its column there.
+ * The best man is the men's column of "Best Man & Best Woman", the best woman its women's; the maid and the matron of
+ * honor share one row of one person.
+ */
+export const HONOUR_ROW_OF: Readonly<Partial<Record<GuestRole, { key: 'best_man' | 'maid_of_honor'; index: 0 | 1 }>>> = {
+  maid_of_honor: { key: 'maid_of_honor', index: 0 },
+  matron_of_honor: { key: 'maid_of_honor', index: 0 },
+  best_man: { key: 'best_man', index: 0 },
+  best_woman: { key: 'best_man', index: 1 },
+};
+/** The honour roles each honour row is named for, in its order (the row is labelled with the ones on the guest list). */
+export const HONOUR_ROW_ROLES: Readonly<Record<'best_man' | 'maid_of_honor', readonly [GuestRole, GuestRole]>> = {
+  maid_of_honor: ['maid_of_honor', 'matron_of_honor'],
+  best_man: ['best_man', 'best_woman'],
+};
+/**
+ * An honour row's heading in the couple's own words (owner 2026-09-30, "THE COUPLE NAMES THEIR ROLES"): the names of
+ * the pair's roles that are `present` ("Best Man & Best Woman", or just "Maid of Honor" when the guest list has no
+ * matron). `present` null — a reader who cannot see the guest list — names both, as the Mood Board slot does
+ * ("Maid of Honor / Matron of Honor").
+ */
+export function honourRowLabel(key: 'best_man' | 'maid_of_honor', present: ReadonlySet<string> | null, names?: RoleNames | null): string {
+  const pair = HONOUR_ROW_ROLES[key];
+  const said = (r: GuestRole) => roleLabel(r, names) ?? r;
+  if (!present) return pair.map(said).join(' / ');
+  const here = pair.filter((r) => present.has(r));
+  return (here.length > 0 ? here : pair).map(said).join(' & ');
+}
+export const isHonourRowKey = (key: string): key is 'best_man' | 'maid_of_honor' => key === 'best_man' || key === 'maid_of_honor';
+export const isHonourRole = (role: string | null | undefined): boolean => Boolean(role && HONOUR_ROW_OF[role as GuestRole]);
+
+/**
+ * 🔑 AN HONOUR ROW SPEAKS FOR ITS PERSON ONCE THEIR WEAR IS PICKED. Until the couple picks what the reader's column
+ * wears, an honour attendant keeps their group's look (the Bridesmaids, the Groomsmen) — exactly what they read before
+ * the row existed, so no event loses what it has. Colours alone do not switch it: the two palette slots were the old
+ * dress-code panel's, and a guest is not moved off their group by a colour nobody picked in this row.
+ */
+export function honourRowSpeaks(config: Config, role: GuestRole | null | undefined): boolean {
+  const at = role ? HONOUR_ROW_OF[role] : undefined;
+  if (!at) return false;
+  const row = attireRow('roles', at.key);
+  return Boolean(row && picksOf(config, row)[at.index]?.style);
+}
+
+/**
  * 🪞 THE STUDIO ROW A GUEST-LIST ROLE IS DRESSED BY (2026-10-17, "ONE FACT"): its own row for the four the Studio
  * lists by role (the celebrant, the bride, the groom, the guests), else its group's row (a ninang → Principal
- * Sponsors, a best man → Groomsmen, the groom's parents → VIP · Immediate Family). Null for a role the Studio has no
- * row for. Every reader of "what does this person wear" goes through it, so the guest page answers from the row the
- * couple picked on — never from a second store the editor does not show.
+ * Sponsors, the groom's parents → VIP · Immediate Family). Null for a role the Studio has no row for. Every reader of
+ * "what does this person wear" goes through it, so the guest page answers from the row the couple picked on — never
+ * from a second store the editor does not show.
+ *
+ * 👯 An honour attendant (2026-10-19) is dressed by their honour row once `config` shows their Wear picked there
+ * (`honourRowSpeaks`), else by their group's row — the Bridesmaids, the Groomsmen. Without `config` (a caller that
+ * asks only which group a role belongs to) it is the group's row, as before.
  */
-export function studioRowOf(role: GuestRole | null | undefined): AttireRowDef | null {
+export function studioRowOf(role: GuestRole | null | undefined, config?: Config): AttireRowDef | null {
   if (!role) return null;
-  const own = attireRow('roles', role);
+  const honour = HONOUR_ROW_OF[role];
+  if (honour && config !== undefined && honourRowSpeaks(config, role)) return attireRow('roles', honour.key);
+  const own = honour ? null : attireRow('roles', role);
   if (own) return own;
   const group = roleGroupOfRole(role);
   return group ? attireRow('groups', group) : null;
@@ -275,6 +333,8 @@ export function guestAttireOf(guest: { attire?: unknown } | null | undefined): G
 const ROLE_WHO: Partial<Record<GuestRole, FigureWho>> = {
   principal_sponsor_ninang: 'f',
   principal_sponsor_ninong: 'm',
+  best_man: 'm',
+  best_woman: 'f',
   flower_girl: 'girl',
   ring_bearer: 'boy',
   bible_bearer: 'boy',
@@ -324,11 +384,13 @@ export function readerAttire(input: {
   const say = (p: { style: AttireStyle | null; role?: FigureRole | null }) => (p.style ? (p.role ? designLabel(p.role, p.style) : label(p.style)) : null);
   /* 🪞 The reader's Studio row (`studioRowOf`, 2026-10-17) — whether or not the row's FIRST pick is stored: a ninang
      whose couple picked only the women's Wear still reads it. */
-  const studioRow = studioRowOf(role);
+  const studioRow = studioRowOf(role, config ?? null);
   const groupRow = studioRow && studioRow.tier === 'groups' ? studioRow : null;
-  if (groupRow && isTwoPick(groupRow)) {
-    const picks = picksOf(config, groupRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
-    const r = readerPick(groupRow, role, attire);
+  /* 👯 A two-pick row the reader is dressed by — a group's, or the honour row "Best Man & Best Woman" (2026-10-19). */
+  const pairRow = studioRow && isTwoPick(studioRow) && (groupRow || isHonourRole(role)) ? studioRow : null;
+  if (pairRow) {
+    const picks = picksOf(config, pairRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
+    const r = readerPick(pairRow, role, attire);
     if (r !== null) {
       const one = picks[r]!;
       return { styleLabel: say(one), hexes: one.colours, picks: [one] };

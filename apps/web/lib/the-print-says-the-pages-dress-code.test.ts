@@ -27,7 +27,9 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PALETTE = { principal_sponsors: ['#7a1f2b', '#c9a227'], reception: ['#7a1f2b'], touched_roles: ['principal_sponsors'] };
 const CONFIG = {
   groups: { principal_sponsors: { style: 'barong_tagalog', note: 'ivory, not white' }, groomsmen: { style: 'suit' } },
-  roles: { maid_of_honor: { style: 'long_gown' }, bride: { style: 'ball_gown' } },
+  /* 👯 `matron_of_honor` — a per-role line no Studio row reads (2026-10-19: the matron is dressed by the shared "Maid of
+     Honor & Matron of Honor" row, `roles.maid_of_honor`; her own key is the old form's). */
+  roles: { matron_of_honor: { style: 'long_gown' }, bride: { style: 'ball_gown' } },
   women: { groups: { principal_sponsors: { style: 'filipiniana' } } },
 };
 const page = (config: unknown, ceremonyType: string | null = null) => {
@@ -42,7 +44,7 @@ test("(1) paper's dress code is the page's rows — both picks of a row of two, 
   assert.ok(sponsors, `no Principal Sponsors line: ${JSON.stringify(lines)}`);
   assert.match(sponsors.line, /^For men: [^·]+ · For women: [^,]+, ivory, not white$/, `the row's two picks and its note: ${sponsors.line}`);
   assert.match(sponsors.line, /Filipiniana/, "the women's pick (stored only in `women`) is not on paper");
-  assert.ok(!lines.some((l) => /maid of honor/i.test(l.label)), 'a per-role line the page no longer draws is printed');
+  assert.ok(!lines.some((l) => /matron of honor/i.test(l.label)), 'a per-role line the page no longer draws is printed');
   /* Every row the page shows with a Wear is on paper, in the page's order, under the page's label. */
   const withWear = everyone.rows.filter((r) => r.picks.some((p) => p.styleLabel));
   assert.deepEqual(lines.map((l) => l.label), withWear.map((r) => r.label));

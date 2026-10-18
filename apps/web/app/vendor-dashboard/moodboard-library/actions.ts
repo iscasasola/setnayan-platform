@@ -326,7 +326,9 @@ async function readShopOwnPhoto(
     const { bytes, contentType } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
     return { bytes, contentType };
   }
-  return { bytes: await safeFetchImageBytes(parsed.url), contentType: null };
+  const bytes = await safeFetchImageBytes(parsed.url);
+  if (!bytes) throw new Error('That photo could not be opened.');
+  return { bytes, contentType: null };
 }
 
 export async function uploadStylistAsset(

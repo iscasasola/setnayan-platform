@@ -38,6 +38,9 @@ test('every shipping type has its own preset and limit line — none falls throu
     assert.ok(LIMIT_LINE_BY_TYPE[t], `${t} has no limit line`);
   }
   assert.equal(Object.keys(DEFAULT_PRESET_BY_TYPE).length, SHIPPING_TYPES.length);
+  // A limit line names only what ships — never a type we do not have (controller 2026-10-18: no "Memorial").
+  assert.equal(LIMIT_LINE_BY_TYPE.anniversary, 'Yearly by itself — the years are counted for you.');
+  for (const t of SHIPPING_TYPES) assert.doesNotMatch(LIMIT_LINE_BY_TYPE[t]!, /memorial/i, `${t}'s limit line points at a type that does not exist`);
 });
 
 test('the matrix §2 defaults: simple · open · list · full', () => {

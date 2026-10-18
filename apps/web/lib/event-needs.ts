@@ -298,7 +298,7 @@ export const LIMIT_LINE_BY_TYPE: Readonly<Record<string, string>> = {
   debut: '18 Roses · Candles · Treasures are guest roles; the dance order is not timed.',
   birthday: 'One QR for everyone by default. Face tagging is on — turn it off for a child’s party if you prefer.',
   christening: 'Ninong and Ninang are on the list. No sponsor letters or counts yet.',
-  anniversary: 'Yearly by itself. A memorial anniversary is a different event — make a Memorial.',
+  anniversary: 'Yearly by itself — the years are counted for you.',
   corporate: 'Replies and seats work. No name badges or check-in desk beyond the QR.',
   celebration: 'A party with one QR. Switch on a guest list or suppliers any time.',
   hangout: 'Name, place, Papic. That’s it — switch more on if the night grows.',

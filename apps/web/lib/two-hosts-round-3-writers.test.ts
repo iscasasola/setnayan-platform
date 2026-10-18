@@ -10,6 +10,9 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { hostAnswersThisScreenChanged } from './host-answers-merge';
 import { egiftFieldsThisScreenChanged } from './egift-method-merge';
+import { floorPlanFieldsOf, floorPlanRowFrom } from './floor-plan-row';
+import { floorItemsThisScreenChanged } from './floor-items-merge';
+import { changedFields } from './merge-from-base';
 
 const WEB = join(__dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -50,4 +53,45 @@ test('e-gifts · editing a way writes only the fields this screen changed — ne
   assert.match(action, /if \(qrR2Key && writesQr\) \{/, 'a stale QR is checked and redrawn as if it were new');
   const manager = src('app/dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx');
   assert.match(manager, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ method_kind, label, account_name, handle, qr_r2_key, note \}\)\)/, 'the E-Gifts page sends no base');
+});
+
+test('seating · the floor: a stale editor writes only the columns IT changed — the stage the other host moved stays', () => {
+  const stored = {
+    stage_x: 50, stage_y: 6, stage_w: 24, stage_h: 7, entrance_enabled: true, entrance_x: 50, entrance_y: 94, entrance_kind: 'door',
+    entrance_depth_m: 3, dance_enabled: false, dance_x: 50, dance_y: 55, dance_w: 22, dance_h: 18, service_entrance_enabled: false,
+    service_entrance_x: 97, service_entrance_y: 50, cocktail_enabled: false, cocktail_x: 50, cocktail_y: 40, cocktail_w: 30, cocktail_h: 22,
+    cocktail_label: 'Cocktail Area', cocktail_vendor_edit: true, cocktail_linked: true, venue_width_m: null, venue_length_m: null,
+  };
+  const base = floorPlanFieldsOf(stored);
+  // The editor's own copy reads back as exactly the stored row (anti-vacuity: a base that misreads changes everything).
+  assert.deepEqual(changedFields(floorPlanRowFrom((k) => base[k] ?? null), stored), new Set());
+  // This screen turns the dance floor on; everything else it sends is its stale copy.
+  const mine = { ...base, dance_enabled: 'true' };
+  const changed = changedFields(floorPlanRowFrom((k) => base[k] ?? null), floorPlanRowFrom((k) => mine[k as keyof typeof mine] ?? null));
+  assert.deepEqual([...changed], ['dance_enabled'], 'the floor save writes columns this screen never touched');
+  const action = src('app/dashboard/[eventId]/seating/actions.ts');
+  assert.match(action, /changed = changedFields\(floorPlanRowFrom\(\(k\) => \(typeof base\[k\] === 'string' \? base\[k\] : null\)\), row\)/);
+  assert.match(action, /Object\.entries\(row\)\.filter\(\(\[k\]\) => changed!\.has\(k\)\)/, 'the floor save writes every column again');
+  const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(floorBase\.current\)\);\s*await saveFloorPlan\(fd\);/, 'the 2D editor sends no floor base');
+  const lab = src('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx');
+  assert.match(lab, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(floorBase\.current\)\);/, 'the 3D lab sends no floor base');
+});
+
+test('seating · booths and signs: a row this screen never saw is never deleted; only changed fields are written', () => {
+  const B = (id: string | null, x: number, label = 'Bar') => ({ booth_id: id, label, x_pos: x, sort_order: 0 });
+  // Opened with b1 + b2. Claire then added b3 and renamed b2. This screen moves b1 and removes nothing.
+  const w = floorItemsThisScreenChanged('booth_id', [B('b1', 10), B('b2', 20)], [B('b1', 15), B('b2', 20), B(null, 30)]);
+  assert.deepEqual(w.remove, [], 'a booth the other host added was deleted (before: replace-all deleted b3)');
+  assert.deepEqual(w.updates, [{ id: 'b1', fields: { x_pos: 15 } }], 'an untouched booth was written back from the stale copy');
+  assert.equal(w.inserts.length, 1);
+  // Taking a booth out IS a delete — of one this screen had.
+  assert.deepEqual(floorItemsThisScreenChanged('booth_id', [B('b1', 10), B('b2', 20)], [B('b2', 20)]).remove, ['b1']);
+  const action = src('app/dashboard/[eventId]/seating/actions.ts');
+  assert.match(action, /floorItemsThisScreenChanged\('booth_id', base, booths\)/);
+  assert.match(action, /floorItemsThisScreenChanged\('sign_id', base, signs\)/);
+  assert.match(action, /\.delete\(\)\.eq\('event_id', eventId\)\.in\('booth_id', w\.remove\)/, 'a based save still deletes by "not in my list"');
+  const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, boothsPayload\(boothsBase\.current\)\);\s*await saveBooths\(fd\);/);
+  assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, signsPayload\(signsBase\.current\)\);\s*await saveSigns\(fd\);/);
 });

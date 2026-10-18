@@ -207,7 +207,8 @@ test('the sheet holds no write of its own — its one write is the Apply its par
 
 test('wired: the loader and the after-save read fill summary.changes from the ONE reader; the bar hands it to the sheet', () => {
   const store = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-store.ts'), 'utf8'));
-  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !proShell\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, false\)/, 'the after-save read (free) does not name the changes');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, true\)/, 'the after-save read (owned) does not name the changes');
   const lines = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-change-lines.ts'), 'utf8'));

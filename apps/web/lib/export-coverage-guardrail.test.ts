@@ -182,6 +182,14 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
+  app_store_purchases:
+    'The subject IS the buyer here, and every purchase is already in their export as an ' +
+    'ordinary `orders` row (platform ios) + `payments` row (channel app_store, reference = ' +
+    'Apple’s transaction id, amount = what Apple charged). This table repeats those facts ' +
+    'beside the one-time token we minted for Apple to sign — an internal key, not ' +
+    'information about the person — and is service-role only. Same decision as ' +
+    'lib/export-completeness.ts.',
   // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
   event_wish_items:
     'What an EVENT’s hosts would love as a gift — a name, an optional ' +

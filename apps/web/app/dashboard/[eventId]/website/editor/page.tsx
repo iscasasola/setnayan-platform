@@ -28,7 +28,7 @@ import {
   type MakerScene,
   type RailGroup,
 } from './_components/editor-shell';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId, themeBackgroundName } from '@/lib/invite-themes';
 import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, hubMovingBackgroundIds, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
@@ -289,7 +289,13 @@ export default async function WebsiteEditorPage({
     redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
   }
   // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.
-  const storeShell = await isStoreShellRequest();
+  const iapGate = await getIapGate();
+  const storeShell = iapGate.storeShell;
+  /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
+     2026-10-18): then a Pro control is TRIED in the draft and Apply asks for Pro
+     through Apple's sheet — the web's rule. `proShell` is the store shell FOR
+     PRO TRYING only; every price, pitch, web link and tour keeps `storeShell`. */
+  const proShell = storeShell && !iapGate.iap;
 
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
@@ -301,8 +307,8 @@ export default async function WebsiteEditorPage({
      Pro pick and the Apply sheet names it. It stays locked (so HIDDEN) only in
      the app-store shell. Rows whose writer is still LIVE (music, the gallery)
      keep `lockedIf`: unlocking them would be a save the server refuses. */
-  const draftedRowLockedIf = (hasContent: boolean) => storeShell && lockedIf(hasContent);
-  const proMark = makerProMark({ owns: ownsPro, storeShell });
+  const draftedRowLockedIf = (hasContent: boolean) => proShell && lockedIf(hasContent);
+  const proMark = makerProMark({ owns: ownsPro, storeShell: proShell });
   const proUnlockHref = `${base}/studio/website-pro`;
   /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA.
    *  Nothing at all in the store shell — no pitch, no price (App Review 3.1.1). */
@@ -1499,7 +1505,7 @@ export default async function WebsiteEditorPage({
       only={row.widget_id}
       makerPart={makerPart}
       returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
-      hideLocked={storeShell}
+      hideLocked={proShell}
       eventId={eventId}
       rows={sectionRows}
       contentMap={sectionContent}
@@ -1741,7 +1747,7 @@ export default async function WebsiteEditorPage({
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,
-        hideLocked: storeShell,
+        hideLocked: proShell,
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
         eventType: (event.event_type as string | null) ?? null,
         /* The hero is the invitation card unless there is a hero photo/video or
@@ -1799,18 +1805,18 @@ export default async function WebsiteEditorPage({
          store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
          Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
       postEventPresets={
-        !makerProUsable({ owns: ownsPro, storeShell })
+        !makerProUsable({ owns: ownsPro, storeShell: proShell })
           ? null
           : {
               action: addCustomSection,
               returnTo: `/dashboard/${eventId}/launch`,
               used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
               ownsPro,
-              storeShell,
+              storeShell: proShell,
             }
       }
       addScene={
-        storeShell
+        proShell
           ? null
           : /* 💎 Open to every couple on the web (owner 2026-09-28): the scene is
                added HIDDEN and shown in the draft; Apply asks for Pro to show it. */

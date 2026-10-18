@@ -78,7 +78,7 @@ export function featureHref(slug: FeatureSlug, locale: FeatureLocale): string {
  * shared fresh stamp as freshness fraud; see `app/sitemap.xml/route.ts`).
  * Bump it in the same commit as any copy change in this folder.
  */
-export const FEATURES_LASTMOD = '2026-10-01';
+export const FEATURES_LASTMOD = '2026-10-18';
 
 /**
  * THE ECOSYSTEM, AS A MAP (DECISION_LOG 2026-10-01 "EVERY FEATURE PAGE SAYS WHY
@@ -102,10 +102,10 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
   {
     name: { en: 'Your suppliers', tl: 'Ang mga supplier mo' },
     line: {
-      en: 'Find them, compare them, book them, and track every peso.',
-      tl: 'Hanapin, ikumpara, i-book, at bantayan ang bawat piso.',
+      en: 'Find them, compare them, build your picks, book them, and track every peso.',
+      tl: 'Hanapin, ikumpara, buuin ang mga pili, i-book, at bantayan ang bawat piso.',
     },
-    slugs: ['marketplace', 'compare', 'budget', 'setnayan-ai'],
+    slugs: ['marketplace', 'compare', 'suppliers', 'budget', 'setnayan-ai'],
   },
   {
     name: { en: 'Your day', tl: 'Ang araw mo' },
@@ -113,6 +113,6 @@ export const ECOSYSTEM_CHAINS: readonly Readonly<{
       en: 'One look and one timeline, carried from the plan to the party.',
       tl: 'Iisang itsura at iisang timeline, mula sa plano hanggang sa handaan.',
     },
-    slugs: ['mood-board', 'logo-maker', 'schedule', 'live-watch'],
+    slugs: ['mood-board', 'dress-code', 'schedule', 'live-watch'],
   },
 ];

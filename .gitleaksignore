@@ -120,3 +120,9 @@ de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-wri
 # against an order column — not a credential.
 # Pinned by its introducing commit (the PR range is scanned per commit).
 2255b14a1c8bdfba7c4c9c29dd3fd69e18d9299b:apps/web/tests/db/an-app-store-purchase-is-one-order.db.test.ts:generic-api-key:115
+# 2026-10-18 rd/features-pages-refresh: the Papic credit-ladder price CODES
+# (PAPIC_GUEST_100 … _100K, catalogue keys, not credentials) were listed one
+# per line in commit fe4801ab; the file now builds them from rung sizes.
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:77
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:78
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:79

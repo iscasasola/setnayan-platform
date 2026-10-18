@@ -145,6 +145,36 @@ export function formatCallTime(hhmm: string | null | undefined): string | null {
   return `${h12}:${v.slice(3)} ${suffix}`;
 }
 
+/**
+ * ⏰ THE CALL TIMES A SAVE DID NOT SEND, KEPT (owner 2026-10-18: *"each role will have their call time"*, set beside each
+ * row's outfit in Studio › Mood Board & Dress Code). The older dress-code form no longer posts a time, and it rebuilds
+ * `roles` / `groups` whole — so for a tier that posted NO times (`posted[tier]` false) each line takes its time from the
+ * config the save replaces (`base`): never wiped by a Save made there, and never a stale tab's time written over one the
+ * Studio set since. A tier that did post times is left as posted. A line the save removed carries nothing — a time with
+ * no outfit line is read by nobody.
+ */
+export function carryCallTimes<C extends { roles: object; groups: object }>(
+  next: C,
+  base: unknown,
+  posted: { roles: boolean; groups: boolean },
+): C {
+  const was = base && typeof base === 'object' && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
+  const carry = (tier: 'roles' | 'groups'): object => {
+    const map = next[tier] as Record<string, RoleAttireRule | undefined>;
+    if (posted[tier]) return map;
+    const stored = (was[tier] && typeof was[tier] === 'object' ? was[tier] : {}) as Record<string, { callTime?: unknown } | undefined>;
+    const out: Record<string, RoleAttireRule | undefined> = {};
+    for (const [key, rule] of Object.entries(map)) {
+      if (!rule) continue;
+      const { callTime: _sent, ...rest } = rule;
+      const time = sanitizeCallTime(stored[key]?.callTime);
+      out[key] = time ? { ...rest, callTime: time } : rest;
+    }
+    return out;
+  };
+  return { ...next, roles: carry('roles'), groups: carry('groups') };
+}
+
 /** `dress_code_config.roles` — role key → what that role wears. */
 export type RoleAttireMap = Partial<Record<GuestRole, RoleAttireRule>>;
 

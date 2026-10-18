@@ -13,7 +13,6 @@ import {
   planHubDraftApply,
   sanitizeHubDraft,
   summarizeHubDraft,
-  undoHubDraft,
   type HubDraft,
   type HubDraftActionResult,
   type HubDraftBarLive,
@@ -26,6 +25,18 @@ import {
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { rebaseHubDraftPatch } from '@/lib/hub-draft-rebase';
 import { TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
+import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+
+/**
+ * 👥 THE LAB'S TWO HOSTS (owner 2026-10-18, rulings A + B). A tab opened with `?as=indalecio` or `?as=claire` is that
+ * host: its steps carry their id, its ↺ takes back only its own, and the note names the other — as the real action.
+ * No `as`: nobody in particular (every step undoable, the shipped "another screen" note), the lab as it always was.
+ */
+export const LAB_HOSTS: Readonly<Record<string, { id: string; name: string }>> = {
+  indalecio: { id: '11111111-1111-4111-8111-111111111111', name: 'Indalecio' },
+  claire: { id: '22222222-2222-4222-8222-222222222222', name: 'Claire' },
+};
+const labHostName = (id: string | undefined) => Object.values(LAB_HOSTS).find((h) => h.id === id)?.name ?? null;
 import { hubDraftProEffects, hubProEffectView } from '@/lib/hub-pro-effects';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
@@ -46,7 +57,7 @@ import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
  * them (`website/hub-draft-actions.ts` is the door they stand behind for a real event):
  *
  *   save     `mergeHubDraft`        — the state before goes onto `history`
- *   undo     `undoHubDraft`         — one state back
+ *   undo     `undoOwnHubDraftStep`  — one state back (this tab's host's own, `?as=`)
  *   restore  `emptyHubDraft`        — the draft thrown away
  *   reset    `hubResetPatch` merged — into the draft, undoable
  *   the ✓    `summarizeHubDraft`    — keys that DIFFER FROM LIVE (Fade on, then off, is no change)
@@ -164,19 +175,19 @@ export function labLive(scrub: boolean, published: HubDraftState | null = null):
 }
 
 /** The ✓ bar for the lab's draft — the SAME summary, named changes and Pro effects the real save answers with. */
-export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftBarLive {
+export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, me?: string): HubDraftBarLive {
   const live = labLive(scrub, published);
   return {
-    free: { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) },
-    owned: { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) },
+    free: { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) },
+    owned: { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) },
     proEffects: hubDraftProEffects(draft, live, false).map(hubProEffectView),
     priceLabel: null,
   };
 }
 
 /** The bar a RENDER of the lab is drawn with — the count AND its named lines, as the real render's bar carries them. */
-export function labRenderedSummary(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftSummary {
-  return labDraftBar(draft, scrub, published).free;
+export function labRenderedSummary(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, as?: unknown): HubDraftSummary {
+  return labDraftBar(draft, scrub, published, typeof as === 'string' ? LAB_HOSTS[as]?.id : undefined).free;
 }
 
 /** A stored published state, read back through the real sanitiser — anything unreadable is nothing published. */
@@ -220,12 +231,14 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
 export function labDraftStep(
   current: HubDraft,
   /** `pro` — 💎 `?pro=1`: the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown },
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown; as?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
 ): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } {
   const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
+  /* 👥 This tab's host (`?as=`), if any — `LAB_HOSTS`. */
+  const me = typeof fields.as === 'string' ? LAB_HOSTS[fields.as]?.id : undefined;
   if (!intent) return { draft: current, published, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
   const done = (draft: HubDraft, withBar = false): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } => {
     let fitted: HubDraft;
@@ -236,19 +249,20 @@ export function labDraftStep(
       return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
     /* ↺ …with the stamp of the state it left, as the real action answers (`lib/hub-draft-stamp.ts`). */
-    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published, me) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
   if (intent === 'undo') {
     /* ↺ A drawn undo says the state it expects to step back from — answered `matched`, as the real action does. */
     const matched = hubDraftUndoMatched(current, fields.expect);
-    const step = done(undoHubDraft(current), fields.bar === '1');
+    // ↺ Only this tab's host's own steps (ruling B) — with no host, the newest step, as before.
+    const step = done(undoOwnHubDraftStep(current, me), fields.bar === '1');
     return matched === undefined || !step.result.ok ? step : { ...step, result: { ...step.result, matched } };
   }
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
-    return done(mergeHubDraft(current, hubResetPatch(fields.stage)), fields.bar === '1');
+    return done(mergeHubDraft(current, hubResetPatch(fields.stage), me), fields.bar === '1');
   }
   if (intent === 'save') {
     let patch: HubDraftPatch;
@@ -274,8 +288,11 @@ export function labDraftStep(
     }
     const rebased = rebaseHubDraftPatch(current, patch, base, { events: live.events as Record<string, unknown>, canvas });
     /* ⚡ The bar comes back with the save only when the save asked for it (`HUB_DRAFT_BAR_FIELD`) — as the real one. */
-    const step = done(mergeHubDraft(current, rebased.patch), fields.bar === '1');
-    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed, note: TWO_SCREENS_NOTE } } } : step;
+    const step = done(mergeHubDraft(current, rebased.patch, me), fields.bar === '1');
+    // 👥 Ruling A: the note names the host whose step this save met — the real action's rule, with the lab's two names.
+    const met = rebased.moved ? hubDraftStepAuthorOf(current, rebased.merged) : { found: false };
+    const note = !me ? TWO_SCREENS_NOTE : twoScreensNoteFor(met.by === me ? { self: true } : { self: false, name: labHostName(met.by) });
+    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed, note } } } : step;
   }
   if (intent === 'apply') {
     /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a

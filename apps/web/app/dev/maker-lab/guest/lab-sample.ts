@@ -364,9 +364,10 @@ export function labCaleRoleDressConfig() {
     roles: { best_man: { style: 'suit' }, best_woman: { style: 'long_gown' } },
     groups: {
       vip_family: { style: 'barong_tagalog' },
-      principal_sponsors: { style: 'barong_tagalog' },
+      /* ⏰ Call times, as Studio › Attire sets them per row (2026-10-18) — read as a ninang / a bridesmaid via See as. */
+      principal_sponsors: { style: 'barong_tagalog', callTime: '14:00' },
       secondary_sponsors: { style: 'long_gown' },
-      bridesmaids: { style: 'long_gown' },
+      bridesmaids: { style: 'long_gown', callTime: '12:30' },
     },
     women: { groups: { vip_family: { style: 'filipiniana', colours: ['#E6C0B3', '#F3E5B9'] }, principal_sponsors: { style: 'long_gown' } } },
     show_figure: true,

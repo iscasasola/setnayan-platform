@@ -187,7 +187,8 @@ test('4 · the detector can fire: followed like a plain import, that one import 
   const leaked = browserReach(true);
   assert.ok(leaked.seen.has(LAB_ENGINE));
   for (const f of ['lib/hub-draft-change-lines.ts', 'lib/hub-pro-effects.ts']) assert.ok(leaked.seen.has(f), `${f} was not reached through the lab’s engine`);
-  for (const n of ['mergeHubDraft', 'sanitizeHubDraft', 'summarizeHubDraft', 'undoHubDraft', 'planHubDraftApply']) {
+  // RE-AIMED 2026-10-18 round 3: the lab's ↺ is now `undoOwnHubDraftStep` (lib/hub-draft-authors.ts), which takes `fitHubDraftHistory` — the reducer the walk must see.
+  for (const n of ['mergeHubDraft', 'sanitizeHubDraft', 'summarizeHubDraft', 'fitHubDraftHistory', 'planHubDraftApply']) {
     assert.ok(leaked.taken.has(n), `${n} was not seen — the walk cannot tell a reducer from a constant`);
     assert.ok(!WIRE.includes(n));
   }

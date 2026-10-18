@@ -252,7 +252,8 @@ test('⛔ save gates every intent, and a delete counts what it removed', () => {
   assert.match(body, /customSectionIntent\(formData\.get\('intent'\)\)/);
   const gate = body.indexOf('refuseCustomSectionWithoutPro(');
   assert.ok(gate > 0, 'the Pro line is consulted');
-  for (const write of ['.delete()', '.update(']) {
+  // RE-AIMED 2026-10-18 round 3: the live update is now the one-at-a-time section writer (`writeWidgetConfig(`).
+  for (const write of ['.delete()', 'writeWidgetConfig(']) {
     const at = body.indexOf(write);
     assert.ok(at > gate, `${write} happens only after the Pro line`);
   }

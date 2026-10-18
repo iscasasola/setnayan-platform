@@ -7,7 +7,8 @@ import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, forgetCanvasSent, noteDraftedCanvas, noteDraftedOwnWords, sendCanvasBase } from '@/lib/maker-draft-store';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
@@ -98,10 +99,11 @@ function withOwnFieldsFrom(now: HubSectionCanvas, from: HubSectionCanvas, el: Hu
   return next;
 }
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
-async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch) {
+async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch, based?: (fd: FormData) => void) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(patch));
+  based?.(fd);
   fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
 }
@@ -244,15 +246,23 @@ export function TypeBar(p: TypeBarProps) {
     onRefused: (reason: string) => void,
     /** ↺ How this write is drawn back at once (`lib/maker-drawn-undo.ts`) — absent: its ↺ takes the slow path. */
     undo?: UndoStep,
+    /** 👥 What a scene's own words were built on (its `custom`, the other half kept) — two hosts never overwrite. */
+    wordsBase?: HubDraftPatch,
   ) => {
     postToCanvas(shown.messages, shown.typedIn);
     const { draftAction, eventId } = props.current;
     const tap = ++newest.current;
+    /* 👥 A canvas goes in WHOLE: it says what it was built on (the hero's, or this scene's — two hosts never overwrite). */
+    const canvases = Object.entries(patch.widgets ?? {}).filter(([, v]) => v?.canvas);
+    const based = (fd: FormData) => {
+      for (const [t, v] of canvases) sendCanvasBase(fd, t, t === 'hero' ? props.current.heroCanvas : props.current.sceneCanvas, v!.canvas!);
+      if (wordsBase) fd.set(MERGE_BASE_FIELD, JSON.stringify(wordsBase));
+    };
     void (async () => {
       let res: HubDraftActionResult | typeof SUPERSEDED;
       try {
         res = await makerSave(
-          () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch)),
+          () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch, based)),
           // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
           requestMakerRefresh,
           { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(undo ? { undo } : {}) },
@@ -265,6 +275,7 @@ export function TypeBar(p: TypeBarProps) {
         onSaved();
         return;
       }
+      for (const [t] of canvases) forgetCanvasSent(t);
       if (tap !== newest.current) return;
       onRefused(res.error);
     })();
@@ -367,6 +378,8 @@ export function TypeBar(p: TypeBarProps) {
         setError(said);
         announceMakerSave({ state: 'error', text: said });
       },
+      undefined,
+      custom ? { widgets: { [sceneType]: { custom: own } } } : undefined,
     );
   };
 

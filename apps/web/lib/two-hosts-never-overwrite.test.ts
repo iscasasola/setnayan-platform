@@ -190,14 +190,16 @@ test('12 · every place the pattern is wired still carries it', () => {
   // Every draft write in the one action goes through the compare-and-set door.
   const action = read('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts');
   assert.doesNotMatch(action, /\bwriteHubDraft\(/, 'hubDraftAction writes the draft without the compare-and-set again');
-  assert.match(action, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur\) => \{\s*const c = cur \?\? emptyHubDraft\(\);\s*const rebased = await rebaseOnDraft\(supabase, eventId, c, patch, base\);/, 'a save is no longer merged from its base onto the draft as it is now');
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(action, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur, by\) => \{\s*const c = cur \?\? emptyHubDraft\(\);\s*const rebased = await rebaseOnDraft\(supabase, eventId, c, patch, base\);/, 'a save is no longer merged from its base onto the draft as it is now');
   const store = read('lib', 'hub-draft-store.ts');
   assert.match(store, /if \(expect\) q = q\.eq\(expect\.column, expect\.value\);/, 'the draft write no longer asks whether the row is still the one read');
   assert.match(store, /\.select\('draft_json, revision'\)/, 'the draft is no longer read with its version');
   assert.match(store, /await writeHubDraft\(supabase, eventId, built\.next, appliedSnapshot, row\.stamp\);/, 'updateHubDraft no longer writes against the version it read');
   // The Maker's two whole-canvas writers (a scene's tabs and Style rows; a part's Colour · Size · Width) carry their base.
   const sceneCanvas = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'use-scene-canvas.ts');
-  assert.match(sceneCanvas, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(\{ widgets: \{ \[widgetType\]: \{ canvas: base \} \} \}\)\);/, 'a scene’s canvas no longer sends what it was based on');
+  // RE-AIMED 2026-10-18 round 3: the scene's tabs now send their base through the ONE shared map too (it kept its own).
+  assert.match(sceneCanvas, /sendCanvasBase\(fd, widgetType, canvas, next, before\);/, 'a scene’s canvas no longer sends what it was based on');
   const partLook = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-panel', 'part-look.ts');
   // Round 2: the base is the one shared map every canvas panel uses (`sendCanvasBase`, lib/maker-draft-store.ts).
   assert.match(partLook, /sendCanvasBase\(fd, t\.widgetType, server, next\);/, 'a part’s look no longer sends what it was based on');

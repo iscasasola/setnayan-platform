@@ -263,23 +263,18 @@ test('⏰ the time reaches the PANEL, and it reads BEFORE the outfit', () => {
   assert.ok(timeAt < outfitAt, 'the call time must come first in the panel');
 });
 
-test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip', async () => {
+test('⛔ the old dress-code form posts NO call time for any role, so the zip cannot slip (owner 2026-10-18)', async () => {
   /*
-    `actions.ts` zips FOUR parallel arrays by index — role_key, role_style,
-    role_note, role_call_time. A control that vanished when blank would shift
-    every later role's time onto the wrong person: a ninang told the bearer's
-    call time, silently, with nothing red anywhere.
+    `actions.ts` zips the parallel arrays by index — role_key, role_style,
+    role_note (and role_call_time, from a poster that still sends one). A
+    call-time control posted for SOME rows and not others would shift every
+    later role's time onto the wrong person.
 
-    🪤 THIS WAS A SOURCE GREP AND THE SABOTAGE WALKED STRAIGHT PAST IT. The
-    first version took a window from `<input` FORWARD to `name="role_call_time"`
-    and asserted no ternary sat inside it. But a conditional wrapper sits
-    BEFORE the tag — `{current?.callTime ? <input …}` — so the window faced away
-    from the exact mutation it was written to catch, and the sabotage run came
-    back green. Precedent: a source-guard's window must face the sabotage.
-
-    So it RENDERS the component and counts. One role with a time, one without;
-    both must emit an input. A wrapper that hides the blank one drops the count
-    to 1 and this fails, which is the entire point.
+    Since 2026-10-18 the call time is set beside each row's outfit in Studio ›
+    Mood Board & Dress Code ("each role will have their call time"), and this
+    form posts NONE — the action keeps the stored times (`carryCallTimes`,
+    held in `each-role-has-its-call-time.test.ts`). It RENDERS and counts: a
+    time input brought back for one row lifts the count off zero.
   */
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
@@ -303,19 +298,15 @@ test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip'
 
   const count = (name: string) => html.split(`name="${name}"`).length - 1;
   assert.equal(count('role_key'), 2, 'precondition: two roles rendered');
-  assert.equal(
-    count('role_call_time'),
-    2,
-    'BOTH roles submit a call time — the one with a value and the one without',
-  );
-  assert.equal(count('role_style'), 2, 'and the arrays it is zipped against are the same length');
+  assert.equal(count('role_call_time'), 0, 'NO role posts a call time from this form');
+  assert.doesNotMatch(html, /type="time"/, 'and no time field is drawn here');
+  assert.equal(count('role_style'), 2, 'the arrays it is zipped against are the same length');
   assert.equal(count('role_note'), 2);
-  assert.match(html, /value="13:00"/, 'the set time is the one that comes back');
 
   const actions = readFileSync(
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', 'dress-code-actions.ts'),
     'utf8',
   );
-  assert.match(actions, /getAll\('role_call_time'\)/, 'the action reads the fourth array');
+  assert.match(actions, /getAll\('role_call_time'\)/, 'a poster that still sends times is read');
   assert.match(actions, /sanitizeCallTime\(roleCallTimes\[i\]\)/, 'by the SAME index as the style');
 });

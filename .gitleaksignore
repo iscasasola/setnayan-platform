@@ -109,6 +109,12 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # pinned by that commit because the PR range is scanned per commit.
 de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:86
 de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:87
+# studio-egifts-posts-the-same.test.ts test 3b — the stored QR field is read off the test's own fixture object (its value
+# is null; no literal at all); gitleaks' generic-api-key matched the field's name. The second line pins the first wording
+# of THIS comment, which quoted the field and was flagged itself. Pinned by commit: the PR range is scanned per commit
+# (#6632, two hosts never overwrite — round 3).
+37de04dc48b3e05334509e62d36f6bb7a51338ee:apps/web/lib/studio-egifts-posts-the-same.test.ts:generic-api-key:76
+85b5faaf2fbd92a113cdd931e54ebc790b39183f:.gitleaksignore:generic-api-key:112
 #
 # rd/in-app-purchase (Apple IAP db test): a public catalogue product code asserted
 # against an order column — not a credential.

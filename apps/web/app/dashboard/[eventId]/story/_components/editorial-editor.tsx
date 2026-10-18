@@ -7,7 +7,7 @@
 // photos, thank-you note) and writes content + section visibility to draft_json.
 // ============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { StoryRail, STORY_STEPS, type StoryStep, type StoryStepKey } from './story-rail';
 import Link from 'next/link';
@@ -695,25 +695,34 @@ export function EditorialEditor({
   const rungFacts = { hasBeenPublished, current: form.audience };
   const rungsOffered = STORY_AUDIENCES.filter((c) => rungIsOffered(c, rungFacts));
 
+  const composeInput = (next: StoryAudience): EditorialEditorInput => ({
+    ...form,
+    chapterOverrides: buildChapterOverrides(),
+    sectionOrder: buildSectionOrder(),
+    // Untitled or empty columns are dropped server-side by the same reader
+    // the page renders through, so a half-written one is never published.
+    customColumns: columns,
+    reviews: buildReviews(),
+    theme,
+    audience: next,
+    // The tick as it stands right now. The server keeps the record and
+    // re-reads it, so this is the host's live intent, not a permission slip.
+    publishConsent: consentTicked,
+  });
+  /* 👥 THE FORM AS IT OPENED (then as last saved) — sent beside every save, so only what THIS screen changed is written
+     and another host's newer words, cover or columns are never put back (owner 2026-10-18: two hosts never overwrite
+     each other; `saveEditorial`'s `baseInput`). Taken at the first render, from the same builders a save uses. */
+  const savedInput = useRef<EditorialEditorInput | null>(null);
+  if (savedInput.current === null) savedInput.current = composeInput(form.audience);
+
   const persist = async (next: StoryAudience): Promise<boolean> => {
     setPhase('saving');
     setError(null);
     try {
-      const r = await saveEditorial(eventId, {
-        ...form,
-        chapterOverrides: buildChapterOverrides(),
-        sectionOrder: buildSectionOrder(),
-        // Untitled or empty columns are dropped server-side by the same reader
-        // the page renders through, so a half-written one is never published.
-        customColumns: columns,
-        reviews: buildReviews(),
-        theme,
-        audience: next,
-        // The tick as it stands right now. The server keeps the record and
-        // re-reads it, so this is the host's live intent, not a permission slip.
-        publishConsent: consentTicked,
-      });
+      const sent = composeInput(next);
+      const r = await saveEditorial(eventId, sent, savedInput.current);
       if (!r.ok) throw new Error(r.error);
+      savedInput.current = sent;
       setHeld(new Set(r.heldForPro ?? []));
       // Direct setForm (not `set`) so choosing an audience doesn't re-mark dirty.
       setForm((f) => ({ ...f, audience: next }));

@@ -94,7 +94,6 @@ import {
   heldStageShow,
   planHubDraftApply,
   presetSceneOf,
-  undoHubDraft,
   type HubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
@@ -104,7 +103,10 @@ import {
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, rebaseOnDraft, updateHubDraft } from '@/lib/hub-draft-store';
 import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebase';
-import { MERGE_BASE_FIELD, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
+import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
+import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+import { hostFirstName } from '@/lib/host-first-name.server';
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
 import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
@@ -151,7 +153,9 @@ export async function hubDraftAction(
     return { ok: false, intent, error: 'That did not look like an Event Hub change.' };
   }
 
-  await requireHostMembershipOrThrow(eventId, FORBIDDEN);
+  /* 👥 `me` — the host making this step: recorded on it (`by`, ruling A names them to the other host) and the one whose
+     steps ↺ takes back (ruling B). */
+  const me = await requireHostMembershipOrThrow(eventId, FORBIDDEN);
   const supabase = await createClient();
   const done = (applied = 0, held: Array<{ label: string; reason: HubDraftRefusal }> = []) =>
     ({ ok: true, intent, applied, held }) as const;
@@ -200,17 +204,17 @@ export async function hubDraftAction(
        draft, by the reader a save's answer uses — so ✓ and ↺ show the step the moment the action answers. */
     /* 👥 Built on the draft AS IT IS when the write lands (`updateHubDraft`: compare-and-set, built again if another
        screen saved in between) — never on the copy read at the top, which a second host's save may already have passed. */
-    const answerWithBar = async (build: (cur: HubDraft) => HubDraft, matchedOf?: (cur: HubDraft) => boolean | undefined): Promise<HubDraftActionResult> => {
+    const answerWithBar = async (build: (cur: HubDraft, by: string | undefined) => HubDraft, matchedOf?: (cur: HubDraft) => boolean | undefined): Promise<HubDraftActionResult> => {
       let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
       let matched: boolean | undefined;
-      const wrote = await updateHubDraft(supabase, eventId, (cur) => {
+      const wrote = await updateHubDraft(supabase, eventId, (cur, by) => {
         const c = cur ?? emptyHubDraft();
-        const next = build(c);
+        const next = build(c, by);
         matched = matchedOf?.(c);
         // ⚡ The bar is read BESIDE the write, for the draft this round builds (a lost round reads it again).
-        if (formData.get(HUB_DRAFT_BAR_FIELD) === '1') barP = hubDraftBarAfterSave(supabase, eventId, next);
+        if (formData.get(HUB_DRAFT_BAR_FIELD) === '1') barP = hubDraftBarAfterSave(supabase, eventId, next, me);
         return { next };
-      });
+      }, undefined, me);
       const next = wrote.draft ?? emptyHubDraft();
       const bar = await barP;
       /* ↺ …and the STAMP of the state it left (`lib/hub-draft-stamp.ts`): the Maker's ↺ proves with it that the step it
@@ -279,18 +283,28 @@ export async function hubDraftAction(
         base = undefined;
       }
       let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
-      const wrote = await updateHubDraft<HubDraftRebased>(supabase, eventId, async (cur) => {
+      let met: { found: boolean; by?: string } = { found: false };
+      const wrote = await updateHubDraft<HubDraftRebased>(supabase, eventId, async (cur, by) => {
         const c = cur ?? emptyHubDraft();
         const rebased = await rebaseOnDraft(supabase, eventId, c, patch, base);
-        const next = mergeHubDraft(c, rebased.patch);
+        const next = mergeHubDraft(c, rebased.patch, by);
         /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure), so asking for it adds no round trip
            after the save; a round lost to another screen reads it again for the draft that round builds. */
-        if (wantsBar) barP = hubDraftBarAfterSave(supabase, eventId, next);
+        if (wantsBar) barP = hubDraftBarAfterSave(supabase, eventId, next, me);
+        // 👥 Whose change this save met (ruling A): the newest drafted step that touched what the screen must now show.
+        met = rebased.moved ? hubDraftStepAuthorOf(c, rebased.merged) : { found: false };
         return { next, said: rebased };
-      });
-      const written = wrote.draft ?? mergeHubDraft(current, patch);
+      }, undefined, me);
+      const written = wrote.draft ?? mergeHubDraft(current, patch, me);
       const bar = await barP;
-      const elsewhere = wrote.said?.moved ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed, note: TWO_SCREENS_NOTE } } : {};
+      /* 👥 RULING A — the note NAMES the person: "Claire changed this a moment ago — showing the newest." Your own other
+         screen keeps the shipped line; a step nobody is recorded for (or a live change) is "Someone". */
+      const note = !wrote.said?.moved
+        ? null
+        : met.by === me
+          ? twoScreensNoteFor({ self: true })
+          : twoScreensNoteFor({ self: false, name: met.by ? await hostFirstName(eventId, met.by) : null });
+      const elsewhere = wrote.said?.moved && note ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed, note } } : {};
       /* ↺ The stamp of the state this save left — the Maker's journal keeps it beside the step (`lib/hub-draft-stamp.ts`). */
       const stamp = hubDraftStamp(written);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
@@ -318,13 +332,16 @@ export async function hubDraftAction(
       const scope = formData.get('stage');
       if (!isHubResetScope(scope)) return { ok: false, intent, error: 'Choose which stage to reset.' };
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return answerWithBar((cur) => mergeHubDraft(cur, hubResetPatch(scope)));
+      return answerWithBar((cur, by) => mergeHubDraft(cur, hubResetPatch(scope), by));
     }
     if (intent === 'undo') {
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       /* ↺ A DRAWN UNDO says which state it expects to step back from (`HUB_DRAFT_EXPECT_FIELD`): the undo ALWAYS runs —
          one press is one step — and the answer says whether it was that one (`matched`; `lib/hub-draft-stamp.ts`). */
-      return answerWithBar((cur) => undoHubDraft(cur), (cur) => hubDraftUndoMatched(cur, formData.get(HUB_DRAFT_EXPECT_FIELD)));
+      /* ↺ RULING B (owner 2026-10-18): ↺ takes back only YOUR newest step — the other host's later steps stay, and
+         are still theirs to take back (`undoOwnHubDraftStep`). With no step of yours left ↺ is greyed (the bar's
+         `canUndo`) and a press reaching here anyway changes nothing. */
+      return answerWithBar((cur) => undoOwnHubDraftStep(cur, me), (cur) => hubDraftUndoMatched(cur, formData.get(HUB_DRAFT_EXPECT_FIELD)));
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the
@@ -338,10 +355,10 @@ export async function hubDraftAction(
       const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
       if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
       // 👥 Recomputed on the draft as it is when the write lands (another screen may have saved since the read above).
-      await updateHubDraft(supabase, eventId, (cur) => {
+      await updateHubDraft(supabase, eventId, (cur, by) => {
         const remove = hubDraftProEffects(cur ?? emptyHubDraft(), live, false).find((e) => e.id === id)?.remove;
-        return remove ? { next: mergeHubDraft(cur ?? emptyHubDraft(), remove) } : null;
-      });
+        return remove ? { next: mergeHubDraft(cur ?? emptyHubDraft(), remove, by) } : null;
+      }, undefined, me);
       return done();
     }
 
@@ -941,15 +958,28 @@ export async function hubDraftAction(
         }
       }
       (snapshot.widgets as Record<string, unknown>)[row.widget_type] = before;
-      const { data: wRows, error: wErr } = await supabase
-        .from('invitation_widgets')
-        .update(patch)
-        .eq('widget_id', widgetId)
-        .eq('event_id', eventId)
-        .select('widget_id');
-      if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
-        // Earlier writes landed; the draft is untouched, so Apply again finishes it.
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      /* 👥 The section's bag is written ONE AT A TIME, merged from the bag Apply read onto the bag as it is now
+         (`lib/widget-config-write.ts`, owner 2026-10-18: two hosts never overwrite each other) — a live write another
+         screen made while Apply ran (a crop, a venue card) is kept. The section's other columns as before. */
+      const { config_json: nextConfig, ...rowColumns } = patch as Record<string, unknown>;
+      if (nextConfig !== undefined) {
+        try {
+          await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, row.config_json, nextConfig as Record<string, unknown>);
+        } catch {
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
+      }
+      if (Object.keys(rowColumns).length > 0) {
+        const { data: wRows, error: wErr } = await supabase
+          .from('invitation_widgets')
+          .update(rowColumns)
+          .eq('widget_id', widgetId)
+          .eq('event_id', eventId)
+          .select('widget_id');
+        if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
+          // Earlier writes landed; the draft is untouched, so Apply again finishes it.
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
       }
     }
 

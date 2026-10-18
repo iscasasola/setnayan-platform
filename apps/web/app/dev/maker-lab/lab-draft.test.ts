@@ -306,11 +306,12 @@ test('R01 — the bar a render brings lists exactly as many changes as it counts
   assert.deepEqual(rendered(d).changes, [], 'nothing waiting, and something is still listed');
   /* …and the shell hands the bar THIS, not the cookie's count alone. */
   const shell = read('maker-lab-shell.tsx');
-  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub, readLabPublished\(scrub\)\)\);/);
+  // RE-AIMED 2026-10-18 round 3: …for this tab's host (`?as=`, ruling B — ↺ greys when none of the steps are theirs).
+  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub, readLabPublished\(scrub\), new URLSearchParams\(window\.location\.search\)\.get\('as'\)\)\);/);
   assert.match(shell, /<HubDraftToolbar eventId=\{eventId\} summary=\{bar\}/);
   /* The REAL Maker's render has always named them (this is the lab's fault alone): one reader, right after the count. */
   const store = readFileSync(join(process.cwd(), 'lib', 'hub-draft-store.ts'), 'utf8');
-  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !proShell\);/);
+  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell, me\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !proShell\);/);
 });
 
 test('leaving and coming back keeps the draft — its count, its history and what the page draws', () => {

@@ -11,6 +11,7 @@
  * Pure: no React, no I/O, no server import (this file rides the lazy Maker-details chunk with its caller, never the first load).
  */
 import { EGIFT_KIND_META, type EgiftMethodKind } from './egift-kinds';
+import { MERGE_BASE_FIELD } from './merge-base-field';
 
 /** The stored way as the page reads it — only what the writer carries forward. */
 export type EgiftStored = { egift_method_id: string; label: string | null; note: string | null; qr_r2_key: string | null } | null;
@@ -35,6 +36,18 @@ export function egiftMethodFields(a: {
     handle: a.handle,
     note: a.stored?.note ?? '',
     qr_r2_key: a.qrRef !== undefined ? a.qrRef : (a.stored?.qr_r2_key ?? ''),
+    /* 👥 What it carries forward UNSEEN — the label, the note and (unless it is being set now) the QR — is sent as the
+       edit's base too, so it is never written back over the other host's newer one (`lib/egift-method-merge.ts`,
+       owner 2026-10-18). What the row shows (the number, the name, the kind) has no base: written as typed. */
+    ...(a.stored
+      ? {
+          [MERGE_BASE_FIELD]: JSON.stringify({
+            label: a.stored.label,
+            note: a.stored.note,
+            ...(a.qrRef === undefined ? { qr_r2_key: a.stored.qr_r2_key } : {}),
+          }),
+        }
+      : {}),
   };
 }
 

@@ -39,6 +39,7 @@ import {
   type StoryProExtraKey,
 } from '@/lib/story-pro-extras';
 import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { sameValue } from '@/lib/merge-from-base';
 import type { PostEventDraft } from '@/lib/post-event-draft';
 import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { sanitizeStoryTheme } from '@/lib/story-theme';
@@ -269,9 +270,28 @@ async function freezeTheSeating(
   }
 }
 
+/** 👥 Every key of the story's draft the editor's form writes (`buildDraft` in `saveEditorial`) — the rest are other writers'. */
+const EDITORIAL_FORM_KEYS = [
+  'headline',
+  'deck',
+  'super',
+  'byline',
+  'pull_quote',
+  'lead_paragraphs',
+  'heroUpload',
+  'galleryUploads',
+  'storyTheme',
+  'sections',
+  'chapterOverrides',
+  'customColumns',
+  'reviews',
+  'sectionOrder',
+] as const;
+
 export async function saveEditorial(
   eventId: string,
   input: EditorialEditorInput,
+  baseInput?: EditorialEditorInput | null,
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
@@ -313,76 +333,6 @@ export async function saveEditorial(
   const isPro = await isEditorialProActive(admin, eventId);
 
 
-  const t = (s: string) => s.trim();
-  const draft: Record<string, unknown> = { ...base };
-  // Only persist non-empty overrides — blank fields let the engine auto-write.
-  const setOrDrop = (key: string, value: string) => {
-    const v = t(value);
-    if (v) draft[key] = v;
-    else delete draft[key];
-  };
-  setOrDrop('headline', input.headline);
-  setOrDrop('deck', input.deck);
-  setOrDrop('super', input.superKicker);
-  setOrDrop('byline', input.byline);
-  setOrDrop('pull_quote', input.pullQuote);
-
-  const paras = input.leadParagraphs
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (paras.length) draft.lead_paragraphs = paras;
-  else delete draft.lead_paragraphs;
-
-  // FREE couple-uploaded imagery (no Papic required, no PRO gate). Hero cover
-  // (single ref) + editorial gallery (≤30 refs, capped server-side). Empty →
-  // delete the key so a no-Papic editorial reverts cleanly to the auto paths.
-  const heroUpload = isStoredAssetRef(input.heroUpload) ? input.heroUpload.trim() : '';
-  if (heroUpload) draft.heroUpload = heroUpload;
-  else delete draft.heroUpload;
-
-  const galleryUploads = sanitizeGalleryUploads(input.galleryUploads);
-  if (galleryUploads.length) draft.galleryUploads = galleryUploads;
-  else delete draft.galleryUploads;
-
-  // The story's colours. FREE — see the note on `theme` above. Stored as the
-  // sanitized {mode, colors} pair; 'board' carries no colours at all, because
-  // the whole promise of that mode is that it re-reads the board on every
-  // render rather than holding a copy that can go stale.
-  draft.storyTheme = sanitizeStoryTheme(input.theme);
-
-  // Section visibility map (only `false` hides; default-on otherwise).
-  const sections: Record<string, boolean> = {};
-  for (const key of EDITORIAL_SECTION_KEYS) sections[key] = input.sections[key] !== false;
-  draft.sections = sections;
-
-  // ── Editorial PRO authorship (server-side enforcement — never trust client) ──
-  // The "Editor's Desk" — per-chapter curation (chapterOverrides), section order,
-  // and the manual guest-wishes list — is PRO. Word fields + section toggles above
-  // stay FREE (today's editor). When the couple is NOT PRO these three keys never
-  // reach the LIVE story, so a hand-crafted request can't author them there — and
-  // we do NOT delete any values already saved on `base` (a formerly-PRO couple
-  // keeps their existing overrides/wishes). What they wrote goes to the Event
-  // Hub draft instead (the block after this one), to be asked for at Apply.
-  // `draft` starts as a spread of `base`, so leaving a key untouched preserves
-  // it. (isPro resolved once at the top of this action.)
-  if (isPro) {
-    // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
-    // set; an empty result deletes the key so the chapters revert to pure auto.
-    const chapterOverrides = sanitizeChapterOverrides(input.chapterOverrides);
-    if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
-    else delete draft.chapterOverrides;
-
-    // Their own columns (PRO authorship).
-    const customColumns = sanitizeCustomColumns(input.customColumns);
-    if (customColumns.length) draft.customColumns = customColumns;
-    else delete draft.customColumns;
-
-    // Manual guest-wishes (PRO). Empty → delete the key.
-    const reviews = sanitizeReviews(input.reviews);
-    if (reviews.length) draft.reviews = reviews;
-    else delete draft.reviews;
-  }
   /* 💎 NOT PRO — TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29, "try first,
      pay at Apply"). The live story keeps exactly what it had (`draft` is a
      spread of `base`), so a hand-crafted request still cannot author a Pro
@@ -420,15 +370,99 @@ export async function saveEditorial(
   // where moving a scene is never Pro). The order may only name the columns
   // the story HOLDS after the block above — a free couple cannot author a
   // column by naming it in the order. null → delete (revert to default order).
-  /* A column the couple is TRYING (held for Pro, above) keeps its place in the
-     order too — harmless on live, where the page admits a `custom:<id>` key
-     only when its column exists — so after Apply it lands where they put it. */
-  const sectionOrder = sanitizeSectionOrder(input.sectionOrder, [
-    ...sanitizeCustomColumns(draft.customColumns).map((c) => c.id),
-    ...(heldPatch?.customColumns?.map((c) => c.id) ?? []),
-  ]);
-  if (sectionOrder) draft.sectionOrder = sectionOrder;
-  else delete draft.sectionOrder;
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3). The story's draft is built from the form ONE
+     way (`buildDraft`) — for what this screen sends AND for what it STARTED FROM (`baseInput`, the form as it opened or
+     last saved). Only the keys that differ between the two are this save's: every other key keeps whatever is in the
+     row when the write lands (re-read just before it), so a form opened before the other host's edit — or before the
+     cover pick, the "what's next" line, the compiled scenes — never writes their old value back. No base (an older
+     page): every key the form manages, laid onto the row as it is then — never the copy read at the top. */
+  const heldColumnIds = heldPatch?.customColumns?.map((c) => c.id) ?? [];
+  const buildDraft = (inp: EditorialEditorInput): Record<string, unknown> => {
+    const t = (s: string) => s.trim();
+    const draft: Record<string, unknown> = { ...base };
+    // Only persist non-empty overrides — blank fields let the engine auto-write.
+    const setOrDrop = (key: string, value: string) => {
+      const v = t(value);
+      if (v) draft[key] = v;
+      else delete draft[key];
+    };
+    setOrDrop('headline', inp.headline);
+    setOrDrop('deck', inp.deck);
+    setOrDrop('super', inp.superKicker);
+    setOrDrop('byline', inp.byline);
+    setOrDrop('pull_quote', inp.pullQuote);
+
+    const paras = inp.leadParagraphs
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (paras.length) draft.lead_paragraphs = paras;
+    else delete draft.lead_paragraphs;
+
+    // FREE couple-uploaded imagery (no Papic required, no PRO gate). Hero cover
+    // (single ref) + editorial gallery (≤30 refs, capped server-side). Empty →
+    // delete the key so a no-Papic editorial reverts cleanly to the auto paths.
+    const heroUpload = isStoredAssetRef(inp.heroUpload) ? inp.heroUpload.trim() : '';
+    if (heroUpload) draft.heroUpload = heroUpload;
+    else delete draft.heroUpload;
+
+    const galleryUploads = sanitizeGalleryUploads(inp.galleryUploads);
+    if (galleryUploads.length) draft.galleryUploads = galleryUploads;
+    else delete draft.galleryUploads;
+
+    // The story's colours. FREE — see the note on `theme` above. Stored as the
+    // sanitized {mode, colors} pair; 'board' carries no colours at all, because
+    // the whole promise of that mode is that it re-reads the board on every
+    // render rather than holding a copy that can go stale.
+    draft.storyTheme = sanitizeStoryTheme(inp.theme);
+
+    // Section visibility map (only `false` hides; default-on otherwise).
+    const sections: Record<string, boolean> = {};
+    for (const key of EDITORIAL_SECTION_KEYS) sections[key] = inp.sections[key] !== false;
+    draft.sections = sections;
+
+    // ── Editorial PRO authorship (server-side enforcement — never trust client) ──
+    // The "Editor's Desk" — per-chapter curation (chapterOverrides), section order,
+    // and the manual guest-wishes list — is PRO. Word fields + section toggles above
+    // stay FREE (today's editor). When the couple is NOT PRO these three keys never
+    // reach the LIVE story, so a hand-crafted request can't author them there — and
+    // we do NOT delete any values already saved on `base` (a formerly-PRO couple
+    // keeps their existing overrides/wishes). What they wrote goes to the Event
+    // Hub draft instead (the block after this one), to be asked for at Apply.
+    // `draft` starts as a spread of `base`, so leaving a key untouched preserves
+    // it. (isPro resolved once at the top of this action.)
+    if (isPro) {
+      // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
+      // set; an empty result deletes the key so the chapters revert to pure auto.
+      const chapterOverrides = sanitizeChapterOverrides(inp.chapterOverrides);
+      if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
+      else delete draft.chapterOverrides;
+
+      // Their own columns (PRO authorship).
+      const customColumns = sanitizeCustomColumns(inp.customColumns);
+      if (customColumns.length) draft.customColumns = customColumns;
+      else delete draft.customColumns;
+
+      // Manual guest-wishes (PRO). Empty → delete the key.
+      const reviews = sanitizeReviews(inp.reviews);
+      if (reviews.length) draft.reviews = reviews;
+      else delete draft.reviews;
+    }
+    /* A column the couple is TRYING (held for Pro, above) keeps its place in the
+       order too — harmless on live, where the page admits a `custom:<id>` key
+       only when its column exists — so after Apply it lands where they put it. */
+    const sectionOrder = sanitizeSectionOrder(inp.sectionOrder, [
+      ...sanitizeCustomColumns(draft.customColumns).map((c) => c.id),
+      ...heldColumnIds,
+    ]);
+    if (sectionOrder) draft.sectionOrder = sectionOrder;
+    else delete draft.sectionOrder;
+
+    return draft;
+  };
+  const draft = buildDraft(input);
+  const baseDraft = baseInput ? buildDraft(baseInput) : null;
+  const keysOfThisSave = EDITORIAL_FORM_KEYS.filter((k) => (isPro || !STORY_PRO_EXTRA_KEYS.includes(k as StoryProExtraKey)) && (!baseDraft || !sameValue(baseDraft[k], draft[k])));
 
   // Fails closed: anything this build does not recognise reads as 'only me'.
   const audience = storyAudienceOf(input.audience);
@@ -519,10 +553,20 @@ export async function saveEditorial(
   }
 
   const nowIso = new Date().toISOString();
+  /* 👥 …laid onto the row AS IT IS NOW (the gate, the desk and the stamps above took seconds; another writer may have
+     landed in them): only this save's keys move. */
+  const { data: fresh, error: freshError } = await admin.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle();
+  if (freshError) return { ok: false, error: 'Could not save. Please try again.' };
+  const written: Record<string, unknown> =
+    fresh?.draft_json && typeof fresh.draft_json === 'object' ? { ...(fresh.draft_json as Record<string, unknown>) } : {};
+  for (const k of keysOfThisSave) {
+    if (k in draft) written[k] = draft[k];
+    else delete written[k];
+  }
   const { error } = await admin.from('event_editorial').upsert(
     {
       event_id: eventId,
-      draft_json: draft,
+      draft_json: written,
       status: audience,
       edited_by_couple: true,
       // Stamped the first time it is shared with ANYBODY — the celebration

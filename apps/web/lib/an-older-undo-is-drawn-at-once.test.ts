@@ -145,7 +145,8 @@ test('G2 an undo with the expected stamp is matched; a wrong one still steps bac
   const actions = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const undo = actions.slice(actions.indexOf("if (intent === 'undo') {"), actions.indexOf("if (intent === 'drop')"));
   /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
-  assert.match(undo, /return answerWithBar\(\(cur\) => undoHubDraft\(cur\), \(cur\) => hubDraftUndoMatched\(cur, formData\.get\(HUB_DRAFT_EXPECT_FIELD\)\)\);/, 'the undo ALWAYS runs — one press, one step — and says matched');
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(undo, /return answerWithBar\(\(cur\) => undoOwnHubDraftStep\(cur, me\), \(cur\) => hubDraftUndoMatched\(cur, formData\.get\(HUB_DRAFT_EXPECT_FIELD\)\)\);/, 'the undo ALWAYS runs — one press, one step — and says matched');
   assert.doesNotMatch(undo, /if \(matched === false\) return/, 'never refused on a mismatch');
   /* RE-AIMED 2026-10-18: the stamp of the draft the save WROTE (built on the draft as it was when the write landed). */
   assert.match(actions, /const stamp = hubDraftStamp\(written\);/, 'every save answers with its stamp');

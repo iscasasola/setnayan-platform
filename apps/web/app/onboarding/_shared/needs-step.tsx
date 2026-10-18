@@ -68,8 +68,8 @@ type Props = {
 const LABEL = 'block text-[11px] font-bold uppercase tracking-[0.08em] text-ink/55';
 // no-card-ok: the edge of an <input> — a field you type into is a pressable thing
 const INPUT = 'mt-1 h-11 w-full rounded-xl border border-ink/20 bg-paper px-3.5 text-[15px] text-ink outline-none placeholder:text-ink/40 focus:border-mulberry'; // no-card-ok: <input> field edge
-/** A row is a <button role="switch"> — framed because it is pressed (owner 2026-10-11, frames only on what you press). */
-const ROW = 'flex min-h-[48px] w-full items-center gap-2.5 rounded-xl border bg-paper px-3 py-2.5 text-left text-[14px] text-ink'; // no-card-ok: a <button role="switch">
+/** A row is a <button role="checkbox"> (frame 3 draws ticks, not switches) — framed because it is pressed (owner 2026-10-11). */
+const ROW = 'flex min-h-[48px] w-full items-center gap-2.5 rounded-xl border bg-paper px-3 py-2.5 text-left text-[14px] text-ink'; // no-card-ok: a <button role="checkbox">
 
 export function NeedsStep({
   title,
@@ -164,7 +164,7 @@ export function NeedsStep({
             <li key={row}>
               <button
                 type="button"
-                role="switch"
+                role="checkbox"
                 aria-checked={on}
                 aria-disabled={locked || undefined}
                 onClick={() => (locked ? undefined : onToggle(row))}

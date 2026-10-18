@@ -18,16 +18,15 @@
  *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
  *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
  *   ?needs=simple|open|list|full     🚪 what the event needs (owner 2026-10-08, Level 1 —
- *                                    `lib/event-needs.ts`): the Home and the phone's bottom bar
- *                                    drop what the preset leaves off, the One QR card and ONE
+ *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
+ *                                    off (the bar's own drop is held by its test), the One QR card and ONE
  *                                    "Switch on more" row (prototype frame 2, a hangout after)
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { notFound } from 'next/navigation';
-import { CustomerBottomNav } from '@/app/dashboard/[eventId]/_components/customer-bottom-nav';
-import { NEED_PRESETS, needsColumns, needsForPreset, needsHiddenNavKeys, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
+import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -189,7 +188,7 @@ export default async function HomeLab({
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
   return (
-    <div className={`min-h-screen bg-cream px-4 pt-3 ${labNeeds ? 'pb-28' : 'pb-6'}`}>
+    <div className={`min-h-screen bg-cream px-4 pt-3 pb-6`}>
       <HomeFirstScreen
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name }}
@@ -237,10 +236,6 @@ export default async function HomeLab({
           ai: aiStatus(unread ? null : false),
         })}
       />
-      {/* 🚪 The phone's bar, with what this event left off dropped (the layout's own hideKeys). */}
-      {labNeeds ? (
-        <CustomerBottomNav eventId={E} navSlots={slots ?? undefined} hideKeys={needsHiddenNavKeys(labNeeds)} websiteEnabled />
-      ) : null}
     </div>
   );
 }

@@ -296,7 +296,7 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     title: { en: 'Setnayan AI Event Planner', tl: 'Setnayan AI: Event Planner na Nagbabantay' },
     description: {
       en: 'Setnayan AI suggests a supplier team by best fit, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next.',
-      tl: 'Nagmumungkahi ang Setnayan AI ng supplier team ayon sa pinakabagay, tapos binabantayan ang deadlines, bayarin, budget at petsa at sinasabi ang susunod na gagawin.',
+      tl: 'Nagmumungkahi ang Setnayan AI ng supplier team ayon sa pinakabagay, tapos binabantayan ang deadlines, bayarin, budget at petsa, at sinasabi ang susunod.',
     },
     answer: {
       en: 'Setnayan AI is a paid planner, not a chatbot. It suggests a team of verified suppliers by how well they fit your event, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next. One unlock covers your event.',

@@ -27,7 +27,7 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
     },
     answer: {
       en: 'Setnayan Budget is a free budget tracker in Philippine pesos for any event. Type your target, and four numbers stay current: Target, Agreed, Paid and Owed. Your booked suppliers, what you bought on Setnayan and your own expenses sit in one list, with the next payment always on top.',
-      tl: 'Ang Setnayan Budget ay libreng budget tracker sa piso para sa kahit anong event. I-type ang target mo, at laging updated ang apat na numero: Target, Agreed, Paid at Owed. Nasa iisang listahan ang na-book mong supplier, ang binili mo sa Setnayan at ang sarili mong gastos, at laging nasa taas ang susunod na bayarin.',
+      tl: 'Ang Setnayan Budget ay libreng budget tracker sa piso para sa kahit anong event. I-type ang target mo, at laging tama ang apat na numero: Target, Agreed, Paid at Owed. Nasa iisang listahan ang na-book mong supplier, ang binili mo sa Setnayan at ang sarili mong gastos, at laging nasa taas ang susunod na bayarin.',
     },
     forWho: {
       en: 'Anyone planning a wedding, debut, birthday or any other event who wants one honest number instead of a spreadsheet only they update.',

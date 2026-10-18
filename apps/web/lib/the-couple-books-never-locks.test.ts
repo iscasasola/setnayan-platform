@@ -77,7 +77,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/panood/control/', why: 'a venue screen locked with the Live Watch purchase' },
   { prefix: 'app/_components/app-store/studio-card-demo.tsx', text: /locked to your wedding/, why: 'a song kept to one wedding' },
   { prefix: 'app/[slug]/_components/tier-comparison-widget.tsx', why: 'a guest’s +1 count is locked once registered' },
-  { prefix: 'lib/feature-pages/plan-b.ts', why: '"Nothing is locked" — nothing is committed' },
   { prefix: 'lib/hub-setup-locks.ts', why: 'a Maker step locked until its prerequisite is done' },
   { prefix: 'lib/paid-mark.ts', why: 'a paid-add-on mark in the Maker' },
   { prefix: 'lib/nfc-tag.ts', why: 'a locked NFC sticker' },

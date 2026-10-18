@@ -276,7 +276,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     group: 'invite',
     icon: 'refer',
     name: { en: 'E-Gifts', tl: 'E-Gifts' },
-    line: { en: 'Gifts go straight to you — with a wish list guests can follow.', tl: 'Diretso sa iyo ang regalo — may wish list na masusundan ng bisita.' },
+    line: { en: 'Gifts go straight to you, with a wish list to follow.', tl: 'Diretso sa iyo ang regalo, may wish list na masusundan.' },
     title: { en: 'E-Gifts and Wish List for Your Event', tl: 'E-Gifts at Wish List para sa Event Mo' },
     description: {
       en: 'Guests send gifts straight to your own GCash, Maya, bank or PayPal, and follow your wish list. Setnayan never touches the money. Free.',

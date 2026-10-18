@@ -127,6 +127,50 @@ const BANNED: ReadonlyArray<{ phrase: RegExp; why: string }> = [
       '/receipts/[receiptId], reached from its order. "Together" promises a bundle that ' +
       'does not exist.',
   },
+  /* ── ADDED 2026-10-18, the features refresh ──────────────────────────────
+     Each of these was printed on a /features page written 2026-10-01 and had
+     stopped being true (or was never provable) by the time the screens it
+     described were rebuilt. Same shape as every entry above: a plausible
+     version of a real feature, one rebuild out of date. */
+  {
+    phrase: /weekly digest|lingguhang digest/i,
+    why:
+      'No weekly digest is sent. `assembleWeeklyDigest` exists in `lib/setnayan-ai-triggers.ts`, ' +
+      'but its only wrapper `computeUserAiDigest` has no caller, so nothing delivers it. Wire a ' +
+      'sender (and a surface that shows it) before promising a digest.',
+  },
+  {
+    phrase: /Save, Standard or Splurge|Save, Standard o Splurge|\bSplurge\b/i,
+    why:
+      'The Budget page has no spending levels any more. The suggested-split planner was removed ' +
+      'in the B2 redo (`app/dashboard/[eventId]/budget/_components/budget-screen.tsx`); the three ' +
+      'levels survive only in the public demo fork under `app/tour/budget/`.',
+  },
+  {
+    phrase: /typical range/i,
+    why:
+      'No budget surface shows a "typical range" per category. The redo lists Target · Agreed · ' +
+      'Paid · Owed and three groups; the old per-category range table went with the split planner.',
+  },
+  {
+    phrase: /Allow plus-one/i,
+    why:
+      'There is no "Allow plus-one" tick. The shipped control is a Plus-ones pick (None, +1, +2…) ' +
+      'that creates linked rows (`lib/extra-seats-sync.ts`). Describe the pick, not the old box.',
+  },
+  {
+    phrase: /Yes, No or Maybe|Yes, No o Maybe/i,
+    why:
+      'Guests cannot answer Maybe: it was switched off by the owner on 2026-09-30 (`lib/rsvp-ask.ts`). ' +
+      'A reply is yes or no.',
+  },
+  {
+    phrase: /cleared for sharing|cleared ito para sa pagbabahagi|musikang cleared/i,
+    why:
+      'Nothing in the code can show a sharing licence. Patiktok uses a Setnayan-owned music ' +
+      'catalogue and Music Maker songs are produced by our music team; whether either is cleared ' +
+      'for every platform is a contract fact, not a code fact. Say "Setnayan-owned music".',
+  },
 ];
 
 /**
@@ -282,9 +326,9 @@ test('every picture on a feature page is a real file, never a banned frame', () 
   assert.deepEqual(bad, [], bad.join('\n'));
 });
 
-test('the copy follows the house words — supplier, Event Hub, and no typed prices', () => {
+test('the copy follows the house words — supplier, Event Hub, event, and no typed prices', () => {
   /*
-    MUTATION: write "vendor" or "website" or "₱500" into any entry → this fails.
+    MUTATION: write "vendor", "website", "site", "celebration" or "₱500" into any entry → this fails.
     "supplier" never "vendor" and "Event Hub" never "website" are owner rules
     for every word a person reads; a typed peso figure is a price nothing
     watches (prices come from the catalogue through `price`).
@@ -305,6 +349,10 @@ test('the copy follows the house words — supplier, Event Hub, and no typed pri
     for (const text of words(f)) {
       if (/\bvendors?\b/i.test(text)) bad.push(`${f.slug}: says "vendor" — "${text}"`);
       if (/\bwebsites?\b/i.test(text)) bad.push(`${f.slug}: says "website" — "${text}"`);
+      // 2026-10-18: "invitation site" slipped past the rule above for two weeks. The Event Hub is never a site.
+      if (/\bsites?\b/i.test(text)) bad.push(`${f.slug}: says "site" — "${text}"`);
+      // Owner 2026-10-04: say "event", never "celebration" (or its Tagalog, "pagdiriwang").
+      if (/\bcelebrations?\b|pagdiriwang/i.test(text)) bad.push(`${f.slug}: says "celebration" — "${text}"`);
       if (/₱\s*\d|\bPHP\s*\d/.test(text)) bad.push(`${f.slug}: types a price — "${text}"`);
     }
   }
@@ -337,4 +385,18 @@ test('a feature with a product page carries that product’s own name', () => {
     if (app && app.name !== f.name.en) bad.push(`${f.slug}: "${f.name.en}" but ${app.href} calls it "${app.name}"`);
   }
   assert.deepEqual(bad, [], `\n  ${bad.join('\n  ')}`);
+});
+
+test('every lab capture in public/feature-shots is on a page — no orphan pictures', () => {
+  /*
+    2026-10-18: the refresh added real 375 px captures under /feature-shots/.
+    A capture nobody references is a picture of a screen that may have moved on
+    with nothing to say so; a page that names a missing one fails the test above.
+    MUTATION: drop one `shots` entry that points at /feature-shots/ → this fails.
+  */
+  const dir = join(PUBLIC, 'feature-shots');
+  const onDisk = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.jpg')) : [];
+  const used = new Set(FEATURE_PAGES.flatMap((f) => f.shots.map((s) => s.src)));
+  const orphans = onDisk.filter((f) => !used.has(`/feature-shots/${f}`));
+  assert.deepEqual(orphans, [], `public/feature-shots holds pictures no feature page shows:\n  ${orphans.join('\n  ')}`);
 });

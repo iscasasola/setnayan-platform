@@ -8,11 +8,12 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
-import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine } from 'lucide-react';
+import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import type { RowStatus } from './rail-rows';
+import { unlockLabel } from './unlock-label';
 import {
   MAKER_MORE_ROWS_ID,
   MAKER_OPEN_PART_EVENT,
@@ -97,6 +98,8 @@ import {
   isHubElementKey,
   type HubElementKey,
 } from '@/lib/element-style';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
@@ -108,7 +111,7 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, MoreExtras, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, ScanQrStrip, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
@@ -3754,6 +3757,65 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
       </header>
       {row.node}
     </section>
+  );
+}
+
+/**
+ * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
+ * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
+ * serves, with the one control strip every link-QR carries. The CTA is the
+ * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * only while they do not own it, and never in the store shell.
+ */
+function MoreExtras({
+  liveHref,
+  proUnlockHref,
+  proPriceLabel,
+  showProCta,
+}: {
+  liveHref: string | null;
+  proUnlockHref: string;
+  proPriceLabel: string | null;
+  showProCta: boolean;
+}) {
+  return (
+    <>
+      {liveHref ? (
+        <section className="rounded-md bg-white/70 px-3 py-3">
+          <p className="flex items-center gap-1.5 text-[14px] font-semibold text-ink">
+            <QrCode aria-hidden className="h-4 w-4" strokeWidth={2} /> Scan to view
+          </p>
+          <p className="text-[12.5px] text-ink/65">Point a phone camera here to open your Event Hub.</p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic same-origin PNG from our QR route */}
+          <img
+            src={`/api/website/qr${liveHref}`}
+            alt="QR code that opens your live Event Hub"
+            width={168}
+            height={168}
+            className="mt-2 h-auto w-40 rounded-md"
+          />
+          {/* ⚡ The strip (Download · Write to NFC · Copy link) loads with the sheet, not the Maker (`scan-qr-strip.tsx`). */}
+          <ScanQrStrip liveHref={liveHref} />
+        </section>
+      ) : null}
+      {showProCta ? (
+        <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
+          <p className="text-[13px] font-semibold text-cream">
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Event Hub Pro" size="md" tone="current" />
+          </p>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
+            One unlock for every stage — the look, the reveal, your own photos and film, music and the
+            animated logo.
+          </p>
+          <Link
+            href={proUnlockHref}
+            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 px-4 text-[13px] font-semibold text-ink hover:bg-amber-300"
+          >
+            {unlockLabel(proPriceLabel)}
+          </Link>
+        </section>
+      ) : null}
+    </>
   );
 }
 

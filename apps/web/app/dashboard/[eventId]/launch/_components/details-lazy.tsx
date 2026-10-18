@@ -224,5 +224,5 @@ export const OpenBrowsePanel = dynamic(() => import(/* webpackChunkName: "maker-
 export const LaunchPhasePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.LaunchPhasePanel), { loading: SlotRows });
 export const RsvpBackdropPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.RsvpBackdropPanel), { loading: SlotRows });
 export const LaunchStdButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../studio/save-the-date/_components/launch-std-button').then((m) => m.LaunchStdButton), { loading: SlotButton });
-/* ⋯ Scan to view (the QR strip, with its NFC writer) and the one Pro CTA under the ⋯ sheet's rows (`more-extras.tsx`). */
-export const MoreExtras = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/more-extras').then((m) => m.MoreExtras), { loading: SlotRows });
+/* ⋯ Scan to view's strip (Download · Write to NFC · Copy link — the NFC writer is the weight) under the ⋯ sheet's rows. */
+export const ScanQrStrip = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scan-qr-strip').then((m) => m.ScanQrStrip), { loading: SlotNone });

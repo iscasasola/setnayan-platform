@@ -321,10 +321,7 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
   assert.ok(nav.length > 2000, 'the navigator was not found — this scan is blind');
   assert.equal(linkOuts(nav), 0, 'a tile’s note links out of the Maker');
   // Settings › Who can view (the "Your Event Hub" tool): its rows, portalled from the work area — the Pro unlock only.
-  // MoreExtras lives in its own module since 2026-10-18 (lazy, `details-lazy.tsx`) — editor-shell mounts the stand-in.
-  assert.match(work, /<MoreExtras\b/, 'the ⋯ sheet no longer draws the Your Event Hub rows');
-  const moreSrc = read(`${E}/more-extras.tsx`);
-  const more = moreSrc.slice(moreSrc.indexOf('function MoreExtras('), moreSrc.indexOf('\n}\n', moreSrc.indexOf('function MoreExtras(')));
+  const more = work.slice(work.indexOf('function MoreExtras('), work.indexOf('\n}\n', work.indexOf('function MoreExtras(')));
   assert.ok(more.length > 400, 'the Your Event Hub rows were not found — this scan is blind');
   assert.equal(linkOuts(more), 1, 'the Your Event Hub tool links out beyond its Pro unlock');
   // The fixed scenes' "where it comes from" is said, never linked.

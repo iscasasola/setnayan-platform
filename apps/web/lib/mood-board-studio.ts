@@ -33,6 +33,7 @@ import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board'
 import { nearestColorName } from './color-names';
 import { recentColoursToShow } from './colour-picker-recent';
 import { AA_BODY, AA_LARGE, contrastRatio, relativeLuminance } from './hub-legibility';
+import { sanitizeCallTime } from './role-dress-code';
 
 const HEX = /^#[0-9A-F]{6}$/i;
 
@@ -281,5 +282,41 @@ export function withAttireStyle<C extends { roles?: unknown; groups?: unknown }>
   const map = { ...((config[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
   if (style === null) delete map[key];
   else map[key] = { ...(map[key] ?? {}), style };
+  return { ...config, [tier]: map };
+}
+
+/* ══ ATTIRE — Call time ════════════════════════════════════════════════════ */
+
+/**
+ * ⏰ WHEN A ROW'S PEOPLE ARRIVE — `HH:MM`, or null (owner 2026-10-18: *"each role will have their call time"*).
+ *
+ * ONE HOME: the same `dress_code_config[tier][key].callTime` the guest page reads (`resolveAttireFor` → the reader's
+ * own row → "Call time" above their outfit) and the older desktop dress-code form wrote — so every time already set
+ * there is the time shown here, with nothing moved.
+ */
+export function callTimeOf(config: { roles?: unknown; groups?: unknown } | null | undefined, tier: 'roles' | 'groups', key: string): string | null {
+  const rule = ((config?.[tier] ?? {}) as Record<string, { callTime?: unknown } | undefined>)[key];
+  return sanitizeCallTime(rule?.callTime);
+}
+
+/**
+ * The row's call time set (`HH:MM`) or cleared (null or anything unreadable), the rest of the dress code kept exactly.
+ *
+ * 🔑 A TIME LIVES ON THE ROW'S OUTFIT LINE, so a row with no Wear picked has nowhere to keep one — every reader drops a
+ * line with no style (`sanitizeRoleAttire` / `sanitizeGroupAttire`), and a time written there would be a save that
+ * changes nothing anyone reads. Returned UNCHANGED then; the Studio says "Pick what they wear first".
+ */
+export function withCallTime<C extends { roles?: unknown; groups?: unknown }>(
+  config: C,
+  tier: 'roles' | 'groups',
+  key: string,
+  hhmm: string | null,
+): C {
+  const map = { ...((config[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
+  const rule = map[key];
+  if (!rule) return config;
+  const time = sanitizeCallTime(hhmm);
+  const { callTime: _was, ...rest } = rule;
+  map[key] = time ? { ...rest, callTime: time } : rest;
   return { ...config, [tier]: map };
 }

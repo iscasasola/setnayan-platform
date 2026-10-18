@@ -1,5 +1,6 @@
 'use server';
 
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
 import { stdBackgroundChanged } from '@/lib/std-background-changed';
@@ -496,13 +497,17 @@ export async function saveAllStdContent(
     // door neither sets nor clears it: the card keeps whatever the row holds.
     delete choice.drawing;
     if (readVenueChoices(config, eventId)[slot]?.drawing === true) choice.drawing = true;
-    // A zero-row UPDATE is success-shaped (RLS refuses silently): ask for the row back.
-    const { data: wrote, error: ue } = await supabase
-      .from('invitation_widgets')
-      .update({ config_json: { ...config, [VENUE_CHOICES_KEY]: { ...venue, [slot]: choice } } })
-      .eq('widget_id', w.widget_id)
-      .select('widget_id');
-    if (ue || !wrote?.length) return { ok: false, error: 'db-error' };
+    /* A zero-row UPDATE is success-shaped (RLS refuses silently): the writer asks for the row back.
+       👥 One write at a time, merged from what was read — the other card, or another screen's write to this scene, is
+       kept (`lib/widget-config-write.ts`, owner 2026-10-18: two hosts never overwrite each other). */
+    try {
+      await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId: w.widget_id as string }, config, {
+        ...config,
+        [VENUE_CHOICES_KEY]: { ...venue, [slot]: choice },
+      });
+    } catch {
+      return { ok: false, error: 'db-error' };
+    }
   }
 
   // Backfill the canonical wedding date from the Save-the-Date date when the

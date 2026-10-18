@@ -24,8 +24,9 @@ import { drawnNow, type UndoStep } from '@/lib/maker-drawn-undo';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { partWords, sceneTypeField } from '@/app/[slug]/_components/type-in-place-canvas';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, forgetCanvasSent, noteDraftedCanvas, noteDraftedOwnWords, sendCanvasBase } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
 import { HUB_ELEMENT_LABEL, HUB_PART_LINE_MAX, type HubElementKey } from '@/lib/element-style';
 import { SCENE_TYPE_MULTILINE, isTypeCaretPart, type SceneTypeField } from '@/lib/hub-part-words';
@@ -170,7 +171,7 @@ export type PartWordsDoor = {
 };
 
 export type PartWordsWrite =
-  | { ok: true; writeKey: string; patch: HubDraftPatch | null; words: string; undo: () => void; /** ↺ the Maker's copy as this write left it (a refused ↺) — null: no copy to keep (the names). */ redo: (() => void) | null }
+  | { ok: true; writeKey: string; patch: HubDraftPatch | null; base?: HubDraftPatch; words: string; undo: () => void; /** ↺ the Maker's copy as this write left it (a refused ↺) — null: no copy to keep (the names). */ redo: (() => void) | null }
   | { ok: false; reason: string };
 
 /**
@@ -190,6 +191,8 @@ export function partWordsWrite(f: PartWordsField, typed: string, door: Pick<Part
       ok: true,
       writeKey: w.writeKey,
       patch: w.patch,
+      // 👥 A scene's own words go in whole: what they were built on (two hosts never overwrite).
+      ...(custom ? { base: { widgets: { [type]: { custom: own } } } } : {}),
       words: w.words,
       undo: () => (custom ? noteDraftedOwnWords(type, own, server) : undefined),
       redo: () => (custom ? noteDraftedOwnWords(type, custom, server) : undefined),
@@ -268,6 +271,9 @@ export async function keepPartWords(f: PartWordsField, typed: string, door: Part
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify(patch));
+          // 👥 A cover line is the WHOLE hero canvas: it says what it was built on (two hosts never overwrite).
+          if (patch.widgets?.hero?.canvas) sendCanvasBase(fd, 'hero', door.heroCanvas, patch.widgets.hero.canvas);
+          else if (w.base) fd.set(MERGE_BASE_FIELD, JSON.stringify(w.base));
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return door.draftAction(door.eventId, fd);
         }),
@@ -281,6 +287,7 @@ export async function keepPartWords(f: PartWordsField, typed: string, door: Part
     res = { ok: false, intent: 'save', error: '' };
   }
   if (res === SUPERSEDED || res.ok) return { ok: true };
+  if (patch.widgets?.hero?.canvas) forgetCanvasSent('hero');
   w.undo();
   showPartWords(f, f.text);
   return { ok: false, error: res.error || 'That did not save. The words are back as they were.' };

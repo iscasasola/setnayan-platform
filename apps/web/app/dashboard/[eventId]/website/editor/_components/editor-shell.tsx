@@ -1,5 +1,6 @@
 'use client';
 
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { MakerHalfSheet } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
@@ -3272,6 +3273,8 @@ export function MakerWork({
                 const fd = new FormData();
                 fd.set('intent', 'save');
                 fd.set('patch', JSON.stringify({ editorial: patch ?? {} }));
+                // 👥 The scenes' looks it was built on (the render's) — another host's other scenes are kept.
+                fd.set(MERGE_BASE_FIELD, JSON.stringify({ editorial: { sceneLooks: pe.arrangement.sceneLooks } }));
                 return elementEditing.draftAction(eventId, fd);
               },
               wordsSlot:

@@ -564,7 +564,7 @@ export function HubDraftToolbar({
           bar="icon"
           phone={{ width: MAKER_BAR_PHONE.undoTop }}
           disabled={pending || !summary.canUndo}
-          disabledReason={working === 'undo' ? 'Undoing — one moment' : 'Nothing to undo yet'}
+          disabledReason={working === 'undo' ? 'Undoing — one moment' : 'Nothing of yours to undo'}
           working={working === 'undo'}
           onClick={() => act({ intent: 'undo' })}
         />

@@ -76,13 +76,13 @@ waits	events	app/dashboard/[eventId]/vendors/actions.ts	1
 waits	events	app/dashboard/[eventId]/website/hero-photo/actions.ts	2
 waits	events	app/dashboard/[eventId]/website/hub-draft-actions.ts	3
 waits	events	app/dashboard/[eventId]/website/living-hero/actions.ts	1
-waits	events	app/dashboard/[eventId]/wizard-actions.ts	3
+waits	events	app/dashboard/[eventId]/wizard-actions.ts	1
 waits	events	lib/date-narrowing.server.ts	1
 waits	events	lib/palette-fill-write.ts	1
 waits	events	lib/release-forced-date.ts	1
-waits	invitation_widgets	app/dashboard/[eventId]/studio/save-the-date/actions.ts	1
-waits	invitation_widgets	app/dashboard/[eventId]/website/widgets/actions.ts	7
+waits	invitation_widgets	app/dashboard/[eventId]/website/widgets/actions.ts	1
 waits	invitation_widgets	lib/own-scene-delete.ts	1
+waits	invitation_widgets	lib/widget-config-write.ts	1
 waits	orders	app/admin/custom-plans/actions.ts	2
 waits	orders	app/admin/event-deletions/actions.ts	1
 waits	orders	app/admin/payments/actions.ts	4

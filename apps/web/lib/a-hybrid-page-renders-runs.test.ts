@@ -283,14 +283,15 @@ test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll �
     /const step = nextTransition\(canvas, transitionRaw, autoSpeedRaw\);\s*if \((?:!drafting && )?step\.needsPro && !\(await eventCoupleWebsiteProActive\(createAdminClient\(\), eventId\)\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\);/,
   );
   // …and the gate runs BEFORE the row is written.
-  assert.ok(body.indexOf('step.needsPro') < body.indexOf('.update({ config_json: next })'));
+  // RE-AIMED 2026-10-18 round 3: the live write is now the one-at-a-time section writer (`writeWidgetConfig`).
+  assert.ok(body.indexOf('step.needsPro') < body.indexOf('existing, next).catch('));
   // 💾 Event Hub Maker Phase 2: the gate is skipped ONLY for a DRAFT save
   // (`draft=1`), which diverts to the draft BEFORE this live update and never
   // reaches it — the Pro gate for a draft is `hubDraftAction` apply
   // (`lib/hub-draft-wiring.test.ts` holds both halves).
   if (/!drafting && step\.needsPro/.test(body)) {
     const divert = body.indexOf('if (drafting) return saveCanvasToDraft(', body.indexOf('step.needsPro'));
-    assert.ok(divert > 0 && divert < body.indexOf('.update({ config_json: next })'), 'a skipped gate must divert to the draft before the live write');
+    assert.ok(divert > 0 && divert < body.indexOf('existing, next).catch('), 'a skipped gate must divert to the draft before the live write');
   }
 });
 

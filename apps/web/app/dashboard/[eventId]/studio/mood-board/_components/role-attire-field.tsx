@@ -66,32 +66,9 @@ export function RoleAttireField({
                 {wear?.[`roles:${role}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
               </span>
             </div>
-            {/* ⏰ CALL TIME (owner 2026-09-23: “what she needs most is her call
-                time”). `type="time"` so a phone offers its own wheel and the
-                value is always `HH:MM` — never “1pm”, “1:00” or “one”, which
-                `sanitizeCallTime` would drop on the floor rather than repair.
-
-                ⚠ IT SUBMITS EVEN WHEN EMPTY, and it has to: this row is one of
-                FOUR parallel arrays (`role_key`, `role_style`, `role_note`,
-                `role_call_time`) that the action zips BY INDEX. A control that
-                vanished when blank would shift every later role's time onto the
-                wrong person. */}
-            <div className="flex items-center gap-3">
-              <label
-                htmlFor={`role-call-${role}`}
-                className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/55"
-              >
-                Call time
-              </label>
-              <input
-                id={`role-call-${role}`}
-                type="time"
-                name="role_call_time"
-                defaultValue={current?.callTime ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              />
-              <span className="text-xs text-ink/45">Optional</span>
-            </div>
+            {/* ⏰ NO CALL TIME HERE (owner 2026-10-18: "each role will have their call time") — it is set beside the
+                role's outfit in Studio › Mood Board & Dress Code. This row posts none, and `updateDressCode` keeps the
+                stored time (`withCallTimesCarried`), so a Save here never wipes one set there. */}
             <label htmlFor={`role-note-${role}`} className="sr-only">
               A note for {label}
             </label>

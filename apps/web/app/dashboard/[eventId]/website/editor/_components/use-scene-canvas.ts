@@ -3,12 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
-import { noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { scenePictureUndo, shownSectionPicture, styleTap } from '@/lib/maker-scene-look';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { hubDraftAnswer } from '@/lib/hub-draft';
 import type { ElementDraftAction } from './element-sheet';
-import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
 /*
  * 💾 ONE SCENE'S CANVAS → THE DRAFT. Used by the scene inspector's tabs
@@ -41,14 +40,10 @@ export function useSceneCanvas(
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(canvas);
-  /* 👥 The canvas this panel last SENT — the base its next save is merged from (`lib/merge-from-base.ts`; saves run in
-     order), so a facet another host changed on this scene meanwhile is kept, not overwritten by this panel's copy. */
-  const sent = useRef(canvas);
   const [shown, setShown] = useState(canvas);
   const json = JSON.stringify(canvas);
   useEffect(() => {
     latest.current = canvas;
-    sent.current = canvas;
     setShown(canvas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [json, widgetType]);
@@ -77,9 +72,9 @@ export function useSceneCanvas(
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
-    const base = sent.current;
-    fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { [widgetType]: { canvas: base } } }));
-    sent.current = next;
+    /* 👥 The canvas it was built on — this panel's own copy — through the ONE map every canvas writer shares (round 3:
+       it kept its own until now), so a facet another host changed on this scene meanwhile is kept. */
+    sendCanvasBase(fd, widgetType, canvas, next, before);
     /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
     if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     const send = () => draftAction(eventId, fd);
@@ -101,7 +96,7 @@ export function useSceneCanvas(
       /* 👥 Another screen's change merged into this save: the pages redraw in place from the draft (which holds both)
          and the toolbar says so once (`makerSave`); this panel's next pick is merged from what this one sent. */
       if (!res.ok) {
-        sent.current = base;
+        forgetCanvasSent(widgetType);
         setError(res.error);
       }
     });

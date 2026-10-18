@@ -435,7 +435,7 @@ test('d · 🔝 nothing in the Maker scrolls the canvas after a tab tap — no s
   assert.ok(body.length > 200 && body.length < 2500, `precondition: jumpToPage was found (${body.length})`);
   assert.doesNotMatch(body, /t: 'scrollTo'/, 'jumpToPage posts a scroll itself');
   // Its only scrolls go through `scrollPreviewTo`, which under Stages on a phone sends nothing at all…
-  assert.match(SHELL, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'scrollTo', key: anchor \}\);/);
+  assert.match(SHELL, /if \(!anchor \|\| stagesStudioRef\.current\) return;\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'scrollTo', key: anchor \}\);/);
   assert.doesNotMatch(SHELL, /pageAskRef|takePageAsk/, 'the page pick is exempt from the skip again — it scrolls to its first tile');
   // …and should one arrive anyway, the canvas holds the fresh page's top against it.
   assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(pageTop\.held\(\)\) return;/);

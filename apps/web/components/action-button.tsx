@@ -91,6 +91,8 @@ type Common = {
   className?: string;
   title?: string;
   'data-testid'?: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
+  tour?: string;
 };
 
 type AsButton = Common & {
@@ -177,6 +179,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           data-tone={tone}
           data-main={main ? '' : undefined}
           data-testid={props['data-testid']}
+          data-tour={props.tour}
         >
           {inner}
         </Link>
@@ -204,6 +207,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         data-tone={tone}
         data-main={main ? '' : undefined}
         data-testid={p['data-testid']}
+        data-tour={p.tour}
       >
         {inner}
       </button>

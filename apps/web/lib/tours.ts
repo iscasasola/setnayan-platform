@@ -3,11 +3,15 @@
 // future content changes can bump the version without disturbing users who
 // already dismissed the V1.
 //
-// Tour mechanics: a centered modal slide carousel (NOT Driver.js spotlight).
-// The iteration 0030 spec leans toward Driver.js, but the team picked the
-// simpler centered-modal pattern in the MVP — it works well for orientation
-// (telling someone the lay of the land) and avoids brittle DOM-coupling.
-// Mini-tours follow the same pattern.
+// Tour mechanics — TWO SKINS, ONE SYSTEM (one key space, one "seen" store:
+// `users.tour_seen_keys`, written by the shipped `completeTour`):
+//   · `slides` — the centred carousel (`GuidedTour` / `MiniTour`). SWITCHED OFF
+//     (`lib/tip-popups.ts`, owner 2026-10-03); its words stay as the script.
+//   · `spotlight` — 🔦 THE SPOTLIGHT TOUR (owner-approved 2026-10-02, corpus
+//     `prototypes/spotlight_tour_sample_2026-10-02.html`): the screen dims and a
+//     white ring glides to the REAL button, found by its `data-tour` token.
+//     Drawn by `app/_components/spotlight-tour.tsx`, mounted by
+//     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
 
@@ -85,6 +89,24 @@ export type TourSlide = {
   sells?: boolean;
 };
 
+/**
+ * 🔦 ONE STEP OF A SPOTLIGHT TOUR. Both words are PLAIN TEXT (rendered as `{…}`,
+ * never as HTML — unlike a slide body), so type the real character: ’ — …
+ */
+export type SpotlightStep = {
+  /** The token on the real element: `data-tour="…"` (matched as `[data-tour~="…"]`). Never a line number, never a label. */
+  anchor: string;
+  title: string;
+  body: string;
+  /** A doorway (a tab, a link to the next page): Next walks through it too, as the sample's Next did. */
+  go?: boolean;
+};
+
+/** The "You're set" card at the end, with the sample's confetti. */
+export type SpotlightFinale = { title: string; body: string; button: string };
+
+export type SpotlightScript = { steps: ReadonlyArray<SpotlightStep>; finale: SpotlightFinale };
+
 export type TourKey =
   // Role welcomes — fire once per user on first signed-in session for that role.
   | 'couple_welcome_v1'
@@ -134,7 +156,14 @@ export type TourKey =
   // § 4 NEW 1): one slide each for Shop and the Event Hub. Registered in S-PR0;
   // each MOUNTS with the page it describes (S-PR6 · S-PR11), never before.
   | 'vendor_shop_v1'
-  | 'vendor_hub_v1';
+  | 'vendor_hub_v1'
+  // 🔦 The spotlight journeys (DECISION_LOG 2026-10-02 "NOBODY SHOULD LEAVE
+  // BECAUSE THEY DON'T UNDERSTAND THE APP"): the host from creating the event
+  // to Post Event, the supplier from shop set-up to payday. NEW keys, so a
+  // person who skipped the old carousel still meets the spotlight once.
+  | 'host_spotlight_v1'
+  | 'host_day_spotlight_v1'
+  | 'supplier_spotlight_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -174,6 +203,9 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'vendor_customers_v1',
   'vendor_shop_v1',
   'vendor_hub_v1',
+  'host_spotlight_v1',
+  'host_day_spotlight_v1',
+  'supplier_spotlight_v1',
 ];
 
 export type TourDefinition = {
@@ -181,6 +213,8 @@ export type TourDefinition = {
   label: string;
   blurb: string;
   slides: ReadonlyArray<TourSlide>;
+  /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
+  spotlight?: SpotlightScript;
 };
 
 export const TOURS: Record<TourKey, TourDefinition> = {
@@ -1227,6 +1261,163 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Scan, schedule, shot list, headcount — for this event only.',
       },
     ],
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔦 THE SPOTLIGHT JOURNEYS. Each step's `anchor` is a `data-tour` token on
+  // the real element (`lib/spotlight-anchors-exist.test.ts` fails if one is not
+  // in the tree). Words come from the slides above where they fit — the
+  // sample's own where they do not. Plain English · "event", never
+  // "celebration" · "Event Hub", never "website".
+  host_spotlight_v1: {
+    key: 'host_spotlight_v1',
+    label: 'Host — spotlight tour',
+    blurb: 'Create the event, make the Event Hub, add guests, find suppliers.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'create-event',
+          title: 'Start with your event',
+          body: 'Tap here and pick what kind of event it is. It takes a minute.',
+          go: true,
+        },
+        {
+          anchor: 'home-next',
+          title: 'Start here, every time',
+          body: 'The Next card always shows the one thing to do next.',
+        },
+        {
+          anchor: 'home-launch',
+          title: 'Your Event Hub',
+          body: 'Tap words on the page to type over them. Your guests see nothing until you press Apply.',
+        },
+        {
+          anchor: 'tab-guests',
+          title: 'Your guests',
+          body: 'Your guests, your hosts and, on the day, check-in.',
+          go: true,
+        },
+        {
+          anchor: 'guests-add',
+          title: 'Search or add',
+          body: 'Type a name to find a guest — or, if they are not on your list yet, to add them. Each guest gets their own invitation and QR.',
+        },
+        {
+          anchor: 'guests-setup',
+          title: 'Send invitations, see replies',
+          body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+        },
+        {
+          anchor: 'tab-vendors',
+          title: 'Suppliers',
+          body: 'The suppliers you book and your budget, in one place.',
+          go: true,
+        },
+        {
+          anchor: 'suppliers-find',
+          title: 'Find a supplier',
+          body: 'Type what you need. Chat with them here — every message, quote and booking stays with your event.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Whenever you’re unsure, the Next card on Home shows the one thing to do. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
+  },
+  host_day_spotlight_v1: {
+    key: 'host_day_spotlight_v1',
+    label: 'Host — event day and Post Event spotlight',
+    blurb: 'Home on the day, then the story after it.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'day-live',
+          title: 'Your event day',
+          body: 'Announcements, the photo wall and what is happening now — all from here.',
+        },
+        {
+          anchor: 'day-planning',
+          title: 'Planning is still here',
+          body: 'Your lists and tools stay one tap away if you need them today.',
+        },
+        {
+          anchor: 'post-story',
+          title: 'Post Event',
+          body: 'The story after your day is written for you from what happened. Open it to see it and make it yours.',
+        },
+        {
+          anchor: 'post-photos',
+          title: 'The photos',
+          body: 'Every photo from your day, in one place.',
+        },
+      ],
+      finale: {
+        title: 'That’s the whole journey 🎉',
+        body: 'From creating your event to the story after it. The Next card on Home still shows the one thing to do.',
+        button: 'Done',
+      },
+    },
+  },
+  supplier_spotlight_v1: {
+    key: 'supplier_spotlight_v1',
+    label: 'Supplier — spotlight tour',
+    blurb: 'Set up the shop, add services, answer customers, get paid.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'today-next',
+          title: 'One thing at a time',
+          body: 'The Next card is the most urgent thing waiting on you. Answer it and the next one takes its place.',
+        },
+        {
+          anchor: 'tab-shop',
+          title: 'Shop is your storefront',
+          body: 'Your details, your page and what you sell.',
+          go: true,
+        },
+        {
+          anchor: 'shop-details',
+          title: 'Set up your shop',
+          body: 'Your name, photos and where you work. Your shop goes live to couples once Setnayan approves it.',
+        },
+        {
+          anchor: 'shop-add-service',
+          title: 'Add what you sell',
+          body: 'Build service cards with photos, prices and what’s included.',
+        },
+        {
+          anchor: 'tab-customers',
+          title: 'Customers',
+          body: 'Requests and bookings land here, and replying costs nothing on any plan.',
+          go: true,
+        },
+        {
+          anchor: 'customers-list',
+          title: 'Who is waiting comes first',
+          body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+        },
+        {
+          anchor: 'tab-vendor-dashboard',
+          title: 'Back to Today',
+          body: 'Every day starts here.',
+          go: true,
+        },
+        {
+          anchor: 'today-money',
+          title: 'Get paid',
+          body: 'What is still to come in from your bookings. Tap it to see every payment and when it is due.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
   },
 };
 

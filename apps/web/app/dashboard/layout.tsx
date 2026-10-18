@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Spotlight } from '@/app/_components/spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
@@ -223,6 +224,10 @@ export default async function DashboardLayout({
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
         <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔦 The host's spotlight journey — create the event → Event Hub → guests → suppliers (owner
+          2026-10-02). Here in the layout so it survives a page change and the ring glides on to the
+          next page. The old welcome above stays off (`lib/tip-popups.ts`). */}
+      {!termsAsk ? <Spotlight tourKey="host_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay /> : null}
     </div>
   );
 }

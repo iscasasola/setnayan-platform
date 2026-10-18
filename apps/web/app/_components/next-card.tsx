@@ -115,6 +115,7 @@ export function NextCard({
     return (
       <div
         {...{ [marker]: kind }}
+        data-tour={marker === 'data-home-next' ? 'home-next' : 'today-next'}
         data-next-bad={bad ? '' : undefined}
         data-next-day={day ? '' : undefined}
         data-next-bare={bad || day ? undefined : ''}
@@ -152,7 +153,8 @@ export function NextCard({
     );
   }
   return (
-    <div {...{ [marker]: kind }} className="sn-glass-bare rounded-2xl p-4">
+    <div {...{ [marker]: kind }}
+        data-tour={marker === 'data-home-next' ? 'home-next' : 'today-next'} className="sn-glass-bare rounded-2xl p-4">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Your next step</p>
       <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{title}</h2>
       <p className="mt-1 text-sm text-ink/65">{body}</p>

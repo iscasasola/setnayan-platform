@@ -732,10 +732,11 @@ test('(8) the desktop Maker that ships today is untouched: the drag is the phone
      and take off a scene in the navigator (drag a tile · right-click → Move up · Move down · Hide · the tile's eye),
      and this change touches none of it. Held as a property, so it stays true of whatever is changed next. */
   const shell = src(`${L}/maker-shell.tsx`);
-  /* (a) The panel that holds the drag is drawn under `ss` only — and `ss` is never true at desktop width. */
+  /* (a) The panel that holds the drag is drawn under `ss` only — and `ss` is never true at desktop width unless the
+     desktop's three columns are on (`desktopColumns`, dark for couples: `lib/maker-desktop-columns-flag.ts`). */
   assert.match(shell, /const wide = useIsDesktop\('lg'\);/);
   assert.match(shell, /const phone = !wide;/);
-  assert.match(shell, /const ss = stagesStudio && phone;/);
+  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/);
   assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1, 'the Stages panel is drawn in more than one place');
   assert.match(shell, /grab=\{ss \? side === 'stages' \? <StageTools /);
   /* (b) Every Maker file this change wrote or rewrote is reached only through that panel. (The drag's own files and

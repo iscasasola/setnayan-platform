@@ -86,7 +86,7 @@ export function studioAttireRows(
         out.push({
           tier: 'roles',
           key,
-          label: honourRowLabel(key, roles, names),
+          label: honourRowLabel(key, names),
           paletteKey: row.paletteKey,
           arrives: callOf('roles', key),
           people: countOf((r) => pair.includes(r)),

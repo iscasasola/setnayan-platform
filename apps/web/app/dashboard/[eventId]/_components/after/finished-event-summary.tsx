@@ -67,15 +67,18 @@ function Card({
   title,
   children,
   cta,
+  tour,
 }: {
   href: string;
   Icon: typeof Users;
   title: string;
   children: React.ReactNode;
   cta: string;
+  /** 🔦 A spotlight tour's `data-tour` token (`lib/tours.ts`). */
+  tour?: string;
 }) {
   return (
-    <Link href={href} className="sn-tile sn-press group flex flex-col gap-2 text-left">
+    <Link href={href} className="sn-tile sn-press group flex flex-col gap-2 text-left" data-tour={tour}>
       <span className="flex items-center gap-2">
         <Icon aria-hidden className="h-4 w-4 flex-none text-terracotta" strokeWidth={1.75} />
         <span className="text-[13px] font-semibold uppercase tracking-wide text-ink/55">
@@ -183,7 +186,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos">
+        <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos" tour="post-photos">
           <Figure value={summary.photos} unit="photo" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.photos === 0
@@ -199,6 +202,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
         <Link
           href={`${base}/story`}
           className="sn-tile sn-press group flex flex-col gap-2 border-mulberry/30 bg-mulberry/[0.05] text-left"
+          data-tour="post-story"
         >
           <span className="flex items-center gap-2">
             <Newspaper aria-hidden className="h-4 w-4 flex-none text-mulberry" strokeWidth={1.75} />

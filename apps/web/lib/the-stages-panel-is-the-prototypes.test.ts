@@ -192,7 +192,7 @@ test('in Stages a canvas tap only picks — no door to Studio, Details, the Logo
   const at = src.indexOf("data.t !== 'edit' || typeof data.key !== 'string') return;");
   const end = src.indexOf('window.addEventListener(\'message\', onMessage);', at);
   const handler = src.slice(at, end);
-  assert.match(handler, /const stagesTap = stagesStudioRef\.current && window\.innerWidth < 1024;/);
+  assert.match(handler, /const stagesTap = stagesStudioRef\.current;/);
   /* Every branch that opens something other than the part itself is closed to a Stages tap. */
   const doors = [
     /if \(([^)]*)openWordsOnTap\(/,
@@ -250,7 +250,7 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
      a scroll to its first scene (the `pageAskRef` this test used to pin is gone): it swaps the page (`hubTab`), and
      on a phone `scrollPreviewTo` skips for it as it does for a picked part. STRONGER, not weaker: the canvas is
      still taken to the page, and never away from its top. */
-  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;/, 'under Stages the Maker never scrolls the canvas to a scene — a page pick included');
+  assert.match(shell, /if \(!anchor \|\| stagesStudioRef\.current\) return;/, 'under Stages the Maker never scrolls the canvas to a scene — a page pick included');
   assert.doesNotMatch(shell, /pageAskRef|takePageAsk/, 'a page pick asks for a scroll to its first tile again');
   const jump = shell.slice(shell.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
   assert.match(jump.slice(0, 400), /if \(maker\?\.stagesStudio\) postToShownCanvases\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);/, 'jumpToPage opens the page');

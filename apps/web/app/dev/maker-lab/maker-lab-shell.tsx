@@ -185,6 +185,7 @@ export function MakerLabShell({
   typeHere = [],
   renderStamp = 'lab',
   stagesStudio = false,
+  desktopColumns = false,
   hiddenStages = [],
   studio = null,
   venuePictures = null,
@@ -216,6 +217,8 @@ export function MakerLabShell({
   kitTheme?: 'vintage' | null;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
+  /** 🖥 `?studio=1&desk=1` — the new Maker on a desktop too, in three columns (`makerDesktopColumnsEnabled`). */
+  desktopColumns?: boolean;
   /** 🚪 `?needs=` — the stages this event does not need (`needsHidesStage`). */
   hiddenStages?: readonly string[];
   studio?: { tiles: readonly StudioTileModel[] } | null;
@@ -451,6 +454,7 @@ export function MakerLabShell({
       hasWork
       theHost="the couple"
       stagesStudio={stagesStudio}
+      desktopColumns={desktopColumns}
       studio={studio}
       venuePictures={venuePictures}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */

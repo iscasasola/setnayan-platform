@@ -77,7 +77,7 @@ test('(1) a tap never types: nothing picked, another part picked, the part itsel
   assert.match(refused, /t: 'typeStop'/, 'the tap’s caret is not taken back');
   assert.match(refused, /MAKER_STAGE_PICK_EVENT/, 'the tap is not handed to the toolbar as a pick');
   assert.match(refused, /return;/);
-  assert.match(shell.slice(read0, gate), /if \(stagesStudioRef\.current && window\.innerWidth < 1024\) \{/, 'the rule is asked outside the new Maker on a phone — the shipped Maker types as it did');
+  assert.match(shell.slice(read0, gate), /if \(stagesStudioRef\.current\) \{/, 'the rule is asked outside the new Maker (a phone, or a desktop in three columns) — the shipped Maker types as it did');
   /* …and the reply pages on the page itself. */
   const bridge = read('app/[slug]/_components/rsvp-canvas-bridge.tsx');
   assert.match(bridge, /if \(wordEl && part\.word && rsvpWordIsTyped\(part\.word\) && makerStageMayType\(picked, part\.key, part\.el\)\) \{\s*beginTyping\(/);

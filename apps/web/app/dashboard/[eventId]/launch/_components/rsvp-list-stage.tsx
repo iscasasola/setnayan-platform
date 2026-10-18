@@ -145,7 +145,8 @@ function bringAddedIntoView(frameSel: string, part: RsvpLookCard, name: string):
     const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
     const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
     const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
-    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt ? lt.top : Infinity);
+    /* 🖥 …the lower third only where it lies under the page (a desktop's is the column beside it) — centrePart's. */
+    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt && lt.left < fr.right && lt.right > fr.left ? lt.top : Infinity);
     const band = (bottom - fr.top) / k;
     if (band <= 40) return;
     const r = node.getBoundingClientRect();

@@ -229,7 +229,9 @@ function visibleBand(frameSel: string = SHOWN_FRAME): { top: number; bottom: num
   /* The guest's tab bar is drawn over the foot of the page (`stage-tools.tsx`). */
   const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
   const top = fr ? fr.top : 0;
-  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
+  /* 🖥 The lower third ends the band only where it lies UNDER the page — on a desktop it is the column beside it. */
+  const under = lt && fr ? lt.left < fr.right && lt.right > fr.left : Boolean(lt);
+  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt && under ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
   return { top, bottom };
 }
 

@@ -142,6 +142,7 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
@@ -1076,6 +1077,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      refused read must never pick a product (`makerChoiceIsUnread`, incident 2026-10-08). */
   if (hasWork && makerChoiceIsUnread({ internalRead: freeSwitch.measured })) throw schemaBlipError('LaunchPage.makerChoice');
   const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
+  /* 🖥 …and on a desktop too, in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`) — dark for couples while it is built. */
+  const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
   let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
@@ -1922,6 +1925,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
       stagesStudio={stagesStudio}
+      desktopColumns={desktopColumns}
       studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */

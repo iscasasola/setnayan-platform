@@ -190,6 +190,7 @@ export function MakerShell({
   theHost = 'the host',
   postEventTour = null,
   stagesStudio = false,
+  desktopColumns = false,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
@@ -212,6 +213,14 @@ export function MakerShell({
    * Maker exactly; a desktop is unchanged either way this round.
    */
   stagesStudio?: boolean;
+  /**
+   * 🖥 …ON A DESKTOP TOO, in three columns (`makerDesktopColumnsEnabled`, resolved once by the launch page;
+   * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`, all "A"). From `lg` the new Maker is drawn instead of the old
+   * one: the lazy `MakerDesk` marks the shell `data-maker-desk` and lays it out (`maker-desk.tsx`, mounted by the lazy
+   * Stages | Studio switch — no byte of it in the Maker's first load). A phone is
+   * the same either way. False: a desktop draws the shipped Maker exactly.
+   */
+  desktopColumns?: boolean;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -313,7 +322,8 @@ export function MakerShell({
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
-  const ss = stagesStudio && phone;
+  /* 🖥 …and on a desktop's width when its three columns are on (`MakerDesk`, lazy: it marks the shell itself). */
+  const ss = stagesStudio && (phone || desktopColumns);
   const studioOn = ss && side === 'studio';
   const studioHomeOn = studioOn && studioAt === 'home';
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
@@ -366,7 +376,7 @@ export function MakerShell({
     }
     if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
     if (isMakerDevice(saved?.device)) setDevice(saved.device);
-    else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
+    else if (desktopColumns || window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
     if (openedOnGuide.current && saved && 'selection' in saved) {
@@ -390,7 +400,7 @@ export function MakerShell({
       if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
     restored.current = true;
-  }, [memoryKey, stagesStudio]);
+  }, [memoryKey, stagesStudio, desktopColumns]);
   useEffect(() => {
     if (!restored.current) return;
     try {
@@ -614,7 +624,8 @@ export function MakerShell({
       tool,
       setTool,
       /* 🧭 A Studio tool full screen is not a lower-third tool: its editor opens at once, beside nothing. */
-      lowerThird: phone && !studioCovers,
+      /* 🖥 A desktop's tools column IS the lower third: its tools say they are open, as on a phone. */
+      lowerThird: (phone || ss) && !studioCovers,
       ltNav: studioCovers ? null : ltNav,
       eventBar,
       setEventBar,

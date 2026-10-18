@@ -45,3 +45,9 @@ errors are the expected no-database supabase ones). NOTE: MoreSheet is kept moun
 (`maker-details`) is requested right after hydration — not before it; the same chunk the Maker's mounted stand-ins
 (LowerThirdGrab/StageTools/MakerSheet) already pull at mount. The lab imports SiteChromePanel directly, so the media-panel
 stand-ins were not walked (typecheck + guards only). Pictures + tools: controller-2026-10-12/walk-headroom/.
+## REWORK (2026-10-18 ~22:30 PHT) — commit 1b4e8ded7f
+Preflight #1 FAILED 2 guards: moving all of MoreExtras took editor-shell's only `<PaidMark` (it reads ownsPro →
+maker-pro-controls-wear-the-paid-mark) and its "for all nine" docblock (the-invite-look-is-finished). Fix: only the QR
+strip moves (`scan-qr-strip.tsx` → `ScanQrStrip` stand-in in details-lazy); MoreExtras stays in editor-shell;
+lower-third guard back to main's text; strip guard counts scan-qr-strip.tsx (sabotage red → green).
+Rebuild + preflight #2 running (numbers to follow; expect ≈13.5KB headroom).

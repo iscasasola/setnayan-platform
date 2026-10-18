@@ -9,13 +9,13 @@ before a tap were moved behind the existing `maker-details` lazy group (`details
   `OpenBrowsePanel` · `LaunchPhasePanel` · `RsvpBackdropPanel`) — drawn only when a row / look page opens; each is a
   whole panel with its own form, so a panel not yet arrived is a slot, never half a form;
 - the ⋯ sheet's "Go live" control (`LaunchStdButton`);
-- the ⋯ sheet's Scan to view + Pro CTA (`MoreExtras`, moved out of `editor-shell.tsx` into `more-extras.tsx`), which
-  carried the QR strip's NFC writer and tag codec (~4.6KB gz alone).
+- the ⋯ sheet's Scan to view control strip (Download · Write to NFC · Copy link — `ScanQrStrip`, moved out of
+  `editor-shell.tsx`'s `MoreExtras` into `scan-qr-strip.tsx`), which carried the NFC writer and tag codec (~4.6KB gz
+  alone). `MoreExtras` itself (the heading, the QR image, the Pro CTA with its PaidMark) stays where it was.
 
-Result (CI env build): Maker first load 507.0KB → 493.2KB gz (13.8KB headroom, budget unchanged at 507KB); shared
+Result (CI env build): Maker first load 507.0KB → RESULT_KB gz (budget unchanged at 507KB); shared
 bundle unchanged at 201.8KB / 202KB (no new async chunk name, so the every-page runtime gains no entry). No behaviour
 change: the same components, props and places; the standalone save-the-date page still imports `LaunchStdButton`
-directly. Guards that read `MoreExtras` / the QR strip (`every-qr-carries-the-strip.test.ts`,
-`the-maker-lower-third-holds-every-tool.test.ts`) now read `more-extras.tsx` (sabotage: red → restored green).
+directly. `every-qr-carries-the-strip.test.ts` now counts the strip in `scan-qr-strip.tsx` (sabotage: red → restored green).
 
 SPEC IMPACT: None.

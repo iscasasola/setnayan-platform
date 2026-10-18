@@ -47,7 +47,7 @@ Design decisions (made from the record; listed in the PR body):
 
 Steps (✅ = committed + pushed):
 - [x] ✅ S1 config + gate + products (lib/iap/*) + tests
-- [ ] S2 migration app_store_purchases
+- [x] ✅ S2 migration app_store_purchases
 - [ ] S3 server: JWS verify, intent/verify/restore actions, fulfil + refund, ASSN v2 route, tests (fixtures, sabotage)
 - [ ] S4 Swift StoreKit 2 plugin + registration + Info.plist + UA token; xcodebuild if lock allows
 - [ ] S5 web bridge lib/iap/native-store.ts

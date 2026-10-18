@@ -45,8 +45,8 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog
 
 ### Steps (commit + push after each)
 1. [x] lib/event-needs.ts (pure) + test — 9 tests green
-2. [ ] migration: needs columns + grants + events_host rebuild; seed the 15 types' setup five; Ugat
-3. [ ] onboarding: needs screen (generic + simple); commit writes the columns; per-type end-to-end tests (20)
-4. [ ] per-event hiding: bottom bar · Home (doors · numbers · money · Next · One QR · Switch on more) · Maker stages · Studio tiles
-5. [ ] Mood Board level + per-type dress default (only if it avoids the Dress Code editor builder's files)
-6. [ ] fragment · shots (375 light+dark, side-by-side) · draft PR · CI
+2. [x] migration 20271276545380: needs columns + grants + events_host rebuild; seed the 15 types' setup five
+3. [x] onboarding: needs screen (generic + simple); commits write the columns; tests: setup-engine (20 types), every-type-commits (19 + source guard, sabotaged)
+4. [x] per-event hiding: bar · Home · Maker stages · Studio tiles (guard lib/what-the-event-left-off-is-absent.test.ts, sabotaged x3); own small read lib/event-needs-read.server.ts
+5. [—] Mood Board level + per-type dress default: NOT built (no prototype frame; the Dress Code editor is in flight by the call-times builder) → PR body, owner
+6. [~] fragment ✓ · draft PR #6636 ✓ (label ✓, autoMerge null ✓) · CI loop running · shots: walk lane queued (scratchpad/onboarding-walk/serve.sh + shots.cjs; labs /dev/onboarding-lab, /dev/home-lab?needs=, /dev/maker-lab?studio=1&needs=)

@@ -93,7 +93,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { LowerThirdGrab, MakerDesk, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -190,6 +190,7 @@ export function MakerShell({
   theHost = 'the host',
   postEventTour = null,
   stagesStudio = false,
+  desktopColumns = false,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
@@ -212,6 +213,13 @@ export function MakerShell({
    * Maker exactly; a desktop is unchanged either way this round.
    */
   stagesStudio?: boolean;
+  /**
+   * 🖥 …ON A DESKTOP TOO, in three columns (`makerDesktopColumnsEnabled`, resolved once by the launch page;
+   * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`, all "A"). From `lg` the new Maker is drawn instead of the old
+   * one: the shell wears `data-maker-desk` and its layout is the lazy `MakerDesk` (`maker-desk.tsx`). A phone is
+   * the same either way. False: a desktop draws the shipped Maker exactly.
+   */
+  desktopColumns?: boolean;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -313,7 +321,9 @@ export function MakerShell({
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
-  const ss = stagesStudio && phone;
+  const ss = stagesStudio && (phone || desktopColumns);
+  /** 🖥 The new Maker on a desktop's width — its three columns (`MakerDesk`). */
+  const desk = ss && !phone;
   const studioOn = ss && side === 'studio';
   const studioHomeOn = studioOn && studioAt === 'home';
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
@@ -366,7 +376,7 @@ export function MakerShell({
     }
     if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
     if (isMakerDevice(saved?.device)) setDevice(saved.device);
-    else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
+    else if (desktopColumns || window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
     if (openedOnGuide.current && saved && 'selection' in saved) {
@@ -390,7 +400,7 @@ export function MakerShell({
       if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
     restored.current = true;
-  }, [memoryKey, stagesStudio]);
+  }, [memoryKey, stagesStudio, desktopColumns]);
   useEffect(() => {
     if (!restored.current) return;
     try {
@@ -620,10 +630,11 @@ export function MakerShell({
       setEventBar,
       setLtWhere,
       stagesStudio: ss,
+      desk,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, desk],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -907,7 +918,7 @@ export function MakerShell({
     selection?.kind === 'scene' ||
     (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event'].includes(selection.key)) ||
     (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'));
-  const bothView = makerViewOptions(wide).find((o) => o.key === 'both') ?? null;
+  const bothView = desk ? null : (makerViewOptions(wide).find((o) => o.key === 'both') ?? null);
 
   /* 🎨 LOOK · 🗂 EVENT DETAILS — the desktop's top bar (on a phone: the lower
      third's Theme and Details, owner 2026-10-05). */
@@ -1048,6 +1059,7 @@ export function MakerShell({
            (the effect above). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
         className="fixed inset-x-0 top-0 z-[80] flex h-[100dvh] flex-col bg-cream text-ink"
         data-maker-shell=""
+        data-maker-desk={desk ? '' : undefined}
         data-maker-studio-full={studioFull ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */
@@ -1166,7 +1178,7 @@ export function MakerShell({
         {viewAsFree?.on ? <ViewAsFreeKeeper /> : null}
 
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1" data-maker-work="">
           {children}
           {/* 👋 The first open's one quiet line — never a dialog, never a tap target. */}
           {hint ? (
@@ -1263,6 +1275,8 @@ export function MakerShell({
             never over the first open's line. */}
         {stage === 'editorial' && !hint ? postEventTour : null}
 
+        {/* 🖥 The three columns (lazy — never a phone's): the layout, the words, the parts column's place. */}
+        {desk ? <MakerDesk /> : null}
         {/* 🔁 Says "Updating Setnayan…" before the page reloads itself (a new version arriving mid-session). */}
         <MakerUpdating />
         {tour ? (

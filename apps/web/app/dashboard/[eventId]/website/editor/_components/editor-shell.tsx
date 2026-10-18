@@ -570,7 +570,7 @@ export function MakerWork({
       /* 🧭 THE NEW MAKER: a FIRST tap on a part's words picks the part (the panel opens on it); only a
          tap on the words of the part already picked types — and the date and the place never do
          (`makerStageMayType`, DECISION_LOG 2026-10-07 rule 1). The caret the tap put there is taken back. */
-      if (stagesStudioRef.current && window.innerWidth < 1024) {
+      if (stagesStudioRef.current) {
         const picked = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
         if (!makerStageMayType(picked, start.key, start.el)) {
           (start.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
@@ -592,7 +592,7 @@ export function MakerWork({
         return;
       }
       setElementTarget(null);
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 1024 && !stagesStudioRef.current) {
         const picked = selectionForCanvasKey(start.key, scenes);
         if (picked) select?.(picked);
       }
@@ -612,7 +612,7 @@ export function MakerWork({
   endTypingRef.current = endTyping;
   useEffect(() => {
     const t = typeRef.current;
-    if (!t || window.innerWidth >= 1024) return;
+    if (!t || (window.innerWidth >= 1024 && !stagesStudioRef.current)) return;
     if (!elementTarget || elementTarget.key !== t.key || elementTarget.el !== t.el) endTypingRef.current();
   }, [elementTarget]);
   /* The Text tools' slot the phone's type rows are drawn into (`TypeBar` `inline`). */
@@ -1072,7 +1072,7 @@ export function MakerWork({
      scrolled to its first scene (measured 08 Oct: a tab tap ended 959 px down the Details page). */
   const scrollPreviewTo = useCallback(
     (anchor?: string) => {
-      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024)) return;
+      if (!anchor || stagesStudioRef.current) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -1197,7 +1197,7 @@ export function MakerWork({
       /* 🧰 THE PART'S TOOLS ON A PHONE ARE THE LOWER THIRD'S (owner 2026-10-05,
          "approve"): a tap on the canvas that hits no part CLOSES them — the
          navigator comes back — and the tap goes on to select what it hit. */
-      const phoneSheet = window.innerWidth < 1024 && elementRef.current !== null;
+      const phoneSheet = (window.innerWidth < 1024 || stagesStudioRef.current) && elementRef.current !== null;
       if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
         const was = elementRef.current!;
         sheetDo({ t: 'close' });
@@ -1215,7 +1215,7 @@ export function MakerWork({
          and not the preview panel"; prototype: "Tapping a part never leaves the stage"). None of the doors below —
          the words' Content, the Logo maker, a schedule moment's Details, a fact's editor — opens from a tap; the
          part's Style bar ("Edit the … ›") is the one door. */
-      const stagesTap = stagesStudioRef.current && window.innerWidth < 1024;
+      const stagesTap = stagesStudioRef.current;
       /* ✍ THE MAKER IS THE EDITOR (owner 2026-09-27: "this is the editor, so we
          can edit here"): a tap on a words scene's words — or anywhere on it
          while it is empty — opens its Content with the box focused
@@ -1504,7 +1504,7 @@ export function MakerWork({
       // 🧭 The stage's Event Bar, as this canvas drew it — the navigator's tabs.
       setCanvasBar(parseNavigatorBar(data.bar));
       const key = selectedKeyRef.current;
-      if (key && !(stagesStudioRef.current && window.innerWidth < 1024)) {
+      if (key && !stagesStudioRef.current) {
         frameRef.current?.contentWindow?.postMessage(
           { source: 'setnayan-editor', t: 'scrollTo', key },
           window.location.origin,

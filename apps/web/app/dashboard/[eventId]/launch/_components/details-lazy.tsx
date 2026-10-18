@@ -209,5 +209,7 @@ export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-
 /** 🧱 A fixed block's own Animate (`lib/block-looks.ts`) — with the toolbar, never in the first load. */
 export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/block-animate').then((m) => m.BlockAnimateRows), { loading: SlotRows });
 
+/* 🖥 The new Maker on a desktop — its three columns' layout (`maker-desk.tsx`), mounted only at a desktop's width. */
+export const MakerDesk = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-desk').then((m) => m.MakerDesk), { loading: SlotNone });
 /* ✕ The Maker's way out — Back to this event · All events (`maker-exit-sheet.tsx`), drawn when ✕ is pressed. */
 export const MakerExitSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-exit-sheet').then((m) => m.MakerExitSheet), { loading: SlotNone });

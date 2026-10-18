@@ -599,7 +599,8 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   assert.match(src(`${L}/maker-rsvp-stage.tsx`), /\$\{rsvpToolPart\(pickedPart, pickedLine\) \? 'flex' : 'hidden'\}/);
   /* The toolbar's Animate has ONE new option and is otherwise as it was: every other caller draws its three phases. */
   const ANIMATE = src(`${L}/stage-panel/stage-animate.tsx`);
-  assert.match(ANIMATE, /const at: AnimatePhase = only \?\? phase;\s*const end = at === 'act' \? null : at;/);
+  /* 🖥 (2026-10-19) A desktop's stack hands each section its phase (`forced`) — `only` still wins over both. */
+  assert.match(ANIMATE, /const at: AnimatePhase = only \?\? forced \?\? phase;\s*const end = at === 'act' \? null : at;/);
   /* 🔁 RE-AIMED 2026-10-10 (the same list, item 4): row 1 is drawn for every caller; with `only` the other phases are
      handed to `Phases` as OFF — each with the caller's one line — and a pick does nothing. */
   assert.match(ANIMATE, /<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>[\s\S]{0,360}?onPick=\{only \? \(\) => \{\} : setPhase\}\s*off=\{only \? \(k\) => \(k === only \? null : \(\) => setWhy\(\(w\) => \(\{ words: onlyWhy \?\? '', n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\) : undefined\}/);

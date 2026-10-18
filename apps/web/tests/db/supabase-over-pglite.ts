@@ -194,9 +194,9 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     return this;
   }
 
-  /** Post-insert / post-update `.select(cols)` → RETURNING cols. */
+  /** Post-insert / post-update / post-delete `.select(cols)` → RETURNING cols. */
   select(cols: string): this {
-    assertModelled(this.op === 'insert' || this.op === 'update', `.select() chained onto a ${this.op}`);
+    assertModelled(this.op === 'insert' || this.op === 'update' || this.op === 'delete', `.select() chained onto a ${this.op}`);
     this.projection = cols;
     return this;
   }
@@ -333,7 +333,7 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
           : ` ORDER BY "${this.orderBy.column}" ${this.orderBy.ascending ? 'ASC' : 'DESC'}`) +
         (this.limitN === null ? '' : ` LIMIT ${Number(this.limitN)}`);
     } else if (this.op === 'delete') {
-      sql = `DELETE FROM public."${this.table}"` + where();
+      sql = `DELETE FROM public."${this.table}"` + where() + (this.projection ? ` RETURNING ${this.cols()}` : '');
     } else if (this.op === 'update') {
       const entries = Object.entries(this.payload ?? {});
       assertModelled(entries.length > 0, `.update({}) of ${this.table}`);
@@ -382,7 +382,7 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     try {
       const res = await this.pg.query(sql, params);
       // supabase-js: an insert with no .select() resolves with data === null.
-      if ((this.op === 'insert' || this.op === 'update') && !this.projection) return { data: null, error: null };
+      if ((this.op === 'insert' || this.op === 'update' || this.op === 'delete') && !this.projection) return { data: null, error: null };
       return { data: (res.rows ?? []) as Row[], error: null };
     } catch (e) {
       return { data: null, error: asPgError(e) };

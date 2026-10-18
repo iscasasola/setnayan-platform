@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { AmbientEffectLayer, AmbientEffectStyle } from '@/app/[slug]/_components/ambient-effect';
 import {
   AMBIENT_COLOUR_LABEL,
@@ -20,7 +21,11 @@ import {
   EFFECT_COLOUR_ORIGINAL_LABEL,
   EFFECT_NONE,
   EFFECT_NONE_LABEL,
+  PICTURE_BLUR_LABEL,
+  PICTURE_LINE,
   effectProNote,
+  effectsSummary,
+  type PictureBlur,
 } from '@/lib/background-effect';
 import {
   HUB_MAIN_EFFECTS,
@@ -32,7 +37,10 @@ import {
   type HubMainEffectKind,
 } from '@/lib/hub-canvas';
 import { readLookSampleWorn, subscribeLookSampleWorn } from '@/lib/look-sample-store';
-import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
+import { STUDIO_ROW, STUDIO_ROW_PICK } from '@/lib/studio-skin';
+
+/** A Studio row holding a name with its line under it — the hairline row, the control at its end. */
+const STUDIO_ROW_FLAT = `${STUDIO_ROW} justify-between gap-3`;
 import { BgCard, BgCards, BgRow } from './background-cards';
 import { PickMenu } from './pick-menu';
 
@@ -69,7 +77,23 @@ export function BgEffects({
   onPick,
   onChange,
   onTryEnd,
+  treatment: treat = null,
 }: {
+  /**
+   * 🖼 THE PICTURE (Look restudy row 8; the approved amendment's Effects sheet "The picture"): Parallax ◆ · Blur ▾ —
+   * the background's OWN motion and softness, beside the overlays. On a background with no picture (a colour, a
+   * pattern) both are SHOWN OFF with the reason, never hidden. Null: not offered here (the shipped Maker's panel).
+   */
+  treatment?: {
+    /** The background has a picture to move and blur. */
+    takes: boolean;
+    parallax: boolean;
+    /** ◆ on Parallax while tried (no Event Hub Pro) — tried free, named at Apply. */
+    proMark: boolean;
+    onParallax: (on: boolean) => void;
+    blur: PictureBlur;
+    onBlur: (blur: PictureBlur) => void;
+  } | null;
   eventId: string;
   /** The effect the draft holds — the ringed card. */
   effect: HubMainEffect | null;
@@ -116,7 +140,7 @@ export function BgEffects({
     <div data-bg-effects={effect?.kind ?? EFFECT_NONE} {...(trying ? { 'data-bg-effects-trying': trying.kind } : {})} className="flex flex-col">
       <BgRow label="Effects" data="effects" info={EFFECTS_INFO}>
         <span data-bg-effects-now="" className="truncate text-[13px] text-ink/60">
-          {effect ? AMBIENT_EFFECT_LABEL[effect.kind] : 'Off'}
+          {effectsSummary(effect ? AMBIENT_EFFECT_LABEL[effect.kind] : null, treat?.takes ? { parallax: treat.parallax, blur: treat.blur } : null)}
         </span>
       </BgRow>
       <BgCards label="Effect" source="effects">
@@ -190,6 +214,55 @@ export function BgEffects({
               onPick={(k) => k !== (shown.colour ?? EFFECT_COLOUR_ORIGINAL) && onChange({ colour: k === EFFECT_COLOUR_ORIGINAL ? null : (k as HubMainEffectColour) })}
             />
           </BgRow>
+        </>
+      ) : null}
+      {treat ? (
+        <>
+          <p data-bg-picture-head="" className="pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/50">
+            The picture
+          </p>
+          {/* Parallax ◆ — a two-state control is a switch (INTERACTION_RULES § 9, kind 3), the app's ONE drawing. */}
+          <div data-bg-row="parallax" data-bg-picture-off={treat.takes ? undefined : ''} className={`${STUDIO_ROW_FLAT} ${treat.takes ? '' : 'opacity-55'}`}>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="text-[14px] text-ink">
+                Parallax{treat.proMark ? <span aria-label="Event Hub Pro" className="ml-1 text-[12px] text-ink/50">◆</span> : null}
+              </span>
+              <small className="text-[11.5px] text-ink/55">{treat.takes ? PICTURE_LINE.parallax : PICTURE_LINE.parallaxOff}</small>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={treat.takes && treat.parallax}
+              aria-label="Parallax"
+              data-bg-parallax=""
+              disabled={!treat.takes}
+              onClick={() => treat.onParallax(!treat.parallax)}
+              className={SWITCH_BUTTON}
+            >
+              <SwitchTrack on={treat.takes && treat.parallax} />
+            </button>
+          </div>
+          {/* Blur ▾ — a set of word choices is ONE dropdown that OPENS (owner round 4: "open choices"). */}
+          <div data-bg-row="blur" data-bg-picture-off={treat.takes ? undefined : ''} className={`${STUDIO_ROW_FLAT} ${treat.takes ? '' : 'opacity-55'}`}>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="text-[14px] text-ink">Blur</span>
+              <small className="text-[11.5px] text-ink/55">{treat.takes ? PICTURE_LINE.blur : PICTURE_LINE.blurOff}</small>
+            </span>
+            {treat.takes ? (
+              <PickMenu
+                label="Blur"
+                dataAttr="data-studio-blur-pick"
+                className={STUDIO_ROW_PICK}
+                value={treat.blur}
+                options={(Object.keys(PICTURE_BLUR_LABEL) as PictureBlur[]).map((k) => ({ key: k, label: PICTURE_BLUR_LABEL[k] }))}
+                onPick={(k) => k !== treat.blur && treat.onBlur(k as PictureBlur)}
+              />
+            ) : (
+              <span data-bg-blur-off="" className="text-[13px] text-ink/45">
+                {PICTURE_BLUR_LABEL.none}
+              </span>
+            )}
+          </div>
         </>
       ) : null}
     </div>

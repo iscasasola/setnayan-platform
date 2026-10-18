@@ -23,5 +23,17 @@ and its amendment `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` (approved the s
   film value cleared to "follows". Measured on prod first (read-only): 2 events hold a film background, both already
   have a main background → nothing moves, both copied. Exposure baseline unchanged. Guards: new
   `the-film-wears-the-main-background.test.ts`; `the-guided-steps-share-one-layout` (9) and (23) re-aimed.
+- **Row 8 · The Effects block gets "The picture": Parallax ◆ · Blur ▾.** Under the shipped overlay carousel, How much
+  and Colour, Look › Background › Effects now draws the approved amendment's "The picture" section — Parallax ◆ (the
+  app's one switch) and Blur ▾ (one dropdown that opens), each with the prototype's line — on EVERY source; on a
+  colour or a pattern both are shown OFF with the reason ("Needs a picture — a plain colour has nothing to move /
+  blur"), never hidden. The closed Effects row says what is on ("Lanterns · Parallax · Blur · Soft"). The Studio's
+  separate Motion and Blur rows are gone (one control, one place). Parallax is widened from an own photo to every
+  picture — a scene, a video of ours, the couple's clip, the cover — on the shipped page-scroll parallax: the
+  sanitiser keeps `motion` on every picture (`readMainLook`), the resolver draws it, a theme loop carries it, and
+  `MainGround` moves the still AND the clip in one wrapper outside the blur's own scale. Adding it is Pro at Apply on
+  any picture (`mainGroundChange`). No new key, no migration. Guard: new `the-picture-is-an-effect.test.ts`;
+  `the-background-has-one-source` and `the-main-background-offers-every-choice` re-aimed (a clip may now move).
+  Port-control baseline regenerated for row 6's deliberate removal of `StdBackgroundPicker`.
 
 SPEC IMPACT: None — builds the approved restudy rows as drawn; no new decision.

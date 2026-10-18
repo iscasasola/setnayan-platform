@@ -2145,7 +2145,8 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
     isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
-  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
+  /* 🌄 Parallax on ANY picture is Pro to add (Look restudy row 8 widened it past an own photo). */
+  const motion = (m: HubMainGround | null) => (m && 'motion' in m && m.motion === 'parallax' ? 'parallax' : null);
   if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
   return combineChanges(
     refChange(ref(live), ref(next)),

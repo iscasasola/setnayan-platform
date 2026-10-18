@@ -61,9 +61,12 @@ export function MainGround({
   /** `adaptiveThemeVars(adaptive, …)` — `{}` when the couple keeps the theme's colours. */
   vars: Record<string, string>;
   /**
-   * 🌄 Parallax on the couple's own photo — the SHIPPED hero parallax: the
-   * layer wears `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts
-   * it with the PAGE's scroll (this layer is fixed, so its own box never moves).
+   * 🌄 Parallax on the picture — the SHIPPED hero parallax: the layer wears
+   * `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts it with the
+   * PAGE's scroll (this layer is fixed, so its own box never moves). One wrapper
+   * around the still AND the clip (Look restudy row 8: a clip and a video of ours
+   * move too), outside the blur's own scale so the two never fight over one
+   * `transform`.
    */
   parallax?: boolean;
   /**
@@ -98,11 +101,11 @@ export function MainGround({
         data-main-ground-tint={adaptive.tint ? 'match' : 'theme'}
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       >
+        <div className="absolute inset-0" {...(parallax ? { 'data-pahina-parallax': 'page' } : {})}>
         {still ? (
           <div
             className="absolute inset-0 bg-cover"
             style={{ backgroundImage: `url(${JSON.stringify(still)})`, backgroundPosition: position, ...blurStyle }}
-            {...(parallax && !clip ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
         {clip ? (
@@ -124,6 +127,7 @@ export function MainGround({
             />
           </div>
         ) : null}
+        </div>
         {veil ? (
           <div
             data-main-ground-scrim=""

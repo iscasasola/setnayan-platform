@@ -53,7 +53,8 @@ test('1 · "the theme\'s own" and "none" are stored choices on the one Main key 
   assert.deepEqual(hubMainGround({ main: { ground: 'none' } }), { ground: 'none' });
   // Parallax is kept on the couple's own PHOTO only.
   assert.equal((sanitizeHubMainGround({ kind: 'photo', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, 'parallax');
-  assert.equal((sanitizeHubMainGround({ kind: 'snippet', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, undefined);
+  // 🌄 A clip moves too since the Look restudy row 8 ("parallax is an effect also") — on the same shipped parallax.
+  assert.equal((sanitizeHubMainGround({ kind: 'snippet', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, 'parallax');
 });
 
 test('1b · a choice beats the hero: with a measured hero up, "the theme\'s own" draws NO picture', () => {

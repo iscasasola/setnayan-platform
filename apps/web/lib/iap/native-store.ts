@@ -100,21 +100,23 @@ export async function buyWithApple(input: { eventId: string; productId: string }
   } catch {
     return screenFor('failed', null);
   }
-  const sheet: IapSheetResult =
-    answer?.result === 'purchased' || answer?.result === 'cancelled' || answer?.result === 'pending' ? answer.result : 'failed';
+  const r = answer?.result;
+  const sheet: IapSheetResult = r === 'purchased' || r === 'cancelled' || r === 'pending' ? r : 'failed';
   if (sheet !== 'purchased') return screenFor(sheet, null);
   // Apple charged but handed us nothing to verify: it stays unfinished and
   // Apple re-delivers it — "switching it on", never "failed".
-  if (typeof answer.jws !== 'string') return screenFor('purchased', null);
+  const jws = answer?.jws;
+  const transactionId = answer?.transactionId;
+  if (typeof jws !== 'string') return screenFor('purchased', null);
 
   let server: IapConfirmResult | null = null;
   try {
-    server = await confirmAppStorePurchase({ jws: answer.jws });
+    server = await confirmAppStorePurchase({ jws });
   } catch {
     server = null; // network: Apple re-delivers; the screen says "switching it on"
   }
-  if (server && settled(server) && answer.transactionId) {
-    await call('finish', { transactionId: answer.transactionId }).catch(() => undefined);
+  if (server && settled(server) && transactionId) {
+    await call('finish', { transactionId }).catch(() => undefined);
   }
   return screenFor('purchased', server);
 }

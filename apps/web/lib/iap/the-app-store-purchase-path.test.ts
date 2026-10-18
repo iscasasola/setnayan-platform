@@ -98,7 +98,7 @@ test('the phone finishes a transaction ONLY after our server settled it', () => 
   const src = code('lib/iap/native-store.ts');
   const finishes = [...src.matchAll(/call\('finish'/g)].length;
   assert.equal(finishes, 2);
-  assert.equal([...src.matchAll(/settled\(server\) && (answer|t)\.transactionId\) /g)].length, 2, 'a finish is not gated on the server');
+  assert.equal([...src.matchAll(/settled\(server\) && (transactionId|t\.transactionId)\) /g)].length, 2, 'a finish is not gated on the server');
 });
 
 test('the app shows no web price, no GCash/BDO, no web link on an Apple surface', () => {

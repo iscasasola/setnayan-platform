@@ -558,9 +558,12 @@ export default async function EventHomePage({
      the web and every other shell never start them. */
   const appleRead = getIapGate().then(async ({ iap }) => {
     if (!iap) return null;
+    // The one host-surface entitlement client — a co-host reads what the EVENT owns.
+    const ent = await eventEntitlementClient(eventId).catch(() => null);
+    if (!ent) return { liveActive: null, liveOwned: null, acked: null };
     const [liveActive, liveOwned, ack] = await Promise.all([
-      eventSkuActive(adminClient, eventId, 'LIVE_STUDIO').catch((): null => null),
-      eventOwnsSku(adminClient, eventId, 'LIVE_STUDIO').catch((): null => null),
+      eventSkuActive(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
+      eventOwnsSku(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
       supabase
         .from('users')
         .select('youtube_live_ready_ack_at')
@@ -569,7 +572,7 @@ export default async function EventHomePage({
         .then(({ data, error }) => (error ? null : Boolean((data as { youtube_live_ready_ack_at?: string | null } | null)?.youtube_live_ready_ack_at))),
     ]);
     return { liveActive, liveOwned, acked: ack };
-  });
+  }).catch(() => null); // never the reason Home fails to draw
 
   // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
   // one Next card. Authorised by the viewer's role, so it chains on that read.

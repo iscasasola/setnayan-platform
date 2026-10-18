@@ -5,8 +5,8 @@
  *
  *   1 · the lab's server half imports no Supabase client and exports ONE function (one Vercel route), whose first
  *       statement refuses in production;
- *   2 · behaviour: a photo uploaded to a part through the lab is a DRAFT the couple cannot see; after the lab's
- *       Approve (and its colours tagged, as the shipped gallery requires) the couple's Search ideas on THAT part lists
+ *   2 · behaviour: a photo uploaded to a part through the lab is a DRAFT the couple cannot see, tagged with its own
+ *       colours at upload; after the lab's Approve (even with no tags at all) the couple's Search ideas on THAT part lists
  *       it, credited to the shop — and another part's Search ideas does not; a part outside the shop's trades and an
  *       unticked rights box are refused with the shipped sentences;
  *   3 · the editor takes its writes from the page in the app (none handed in), so only the lab swaps them.
@@ -72,14 +72,24 @@ test('2 · supplier adds → draft → approved → the couple’s Search ideas 
 
     const up = (await libraryLab({ op: 'upload' }, form('chairs'))) as { assetId: string; textScreen: string };
     assert.equal(up.textScreen, 'unavailable', 'the lab claimed it read the text it cannot read');
-    type Page = { assets: { assetId: string; credit: string }[]; total: number };
+    type Page = { assets: { assetId: string; credit: string; swatches: string[] }[]; total: number };
     const gallery = (slotKey: string) => libraryLab({ op: 'gallery', slotKey }) as Promise<Page>;
     assert.equal((await gallery('chairs')).total, 0, 'a draft reached the couple');
 
+    /* Tagged at upload with the photo's own colour (a flat #7A8B6F square reads as itself, never as cream). */
+    const ranges = Object.values((up as unknown as { colorRanges: Record<number, { sampledHex: string }> }).colorRanges);
+    assert.ok(ranges.length > 0, 'the upload arrived untagged');
+    /* Within a JPEG's rounding of #7A8B6F (the photo travels as a JPEG). */
+    const near = (hex: string) => [1, 3, 5].every((i, k) => Math.abs(parseInt(hex.slice(i, i + 2), 16) - [0x7a, 0x8b, 0x6f][k]!) <= 4);
+    assert.ok(near(ranges[0]!.sampledHex), `the photo's own colour was not read: ${ranges.map((r) => r.sampledHex)}`);
+
     await libraryLab({ op: 'approve', assetId: up.assetId });
+    /* Even with its tags cleared, an approved photo still reaches the couple (shown untagged, never withheld). */
+    await libraryLab({ op: 'tags', assetId: up.assetId, map: {} });
     const untagged = await gallery('chairs');
     assert.equal(untagged.total, 1);
-    assert.equal(untagged.assets.length, 0, 'an approved photo with no colours was shown (the shipped gallery withholds it)');
+    assert.equal(untagged.assets.length, 1, 'an approved photo with no colours was hidden from the couple');
+    assert.deepEqual(untagged.assets[0]!.swatches, [], 'an untagged photo was given invented colours');
 
     await libraryLab({ op: 'tags', assetId: up.assetId, map: { 1: { slotId: 1, sampledHex: '#7A8B6F', toleranceDe: 12 } } });
     const page = await gallery('chairs');

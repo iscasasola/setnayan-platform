@@ -26,6 +26,7 @@ import { normalizeGalleryQuery, shapeGalleryPage, type GalleryPage, type RawGall
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
 import { markVariantForSource, watermarkImageBytes } from '@/lib/watermark-server';
 import { tierCaps } from '@/lib/vendor-tier-caps';
+import { autoColourRanges } from '@/lib/extract-palette.server';
 import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { ColorRangeMap } from '@/lib/color-recolor';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
@@ -172,6 +173,8 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
       });
       if (screen.blocked) throw new Error(screen.message);
       const marked = await watermarkImageBytes(bytes, markVariantForSource(null));
+      /* The photo's own colours, tagged at upload — the same `autoColourRanges` the shipped action writes. */
+      const colorRanges = await autoColourRanges(bytes);
       s.seq += 1;
       const assetId = `lab-asset-${s.seq}`;
       s.assets.unshift({
@@ -187,11 +190,11 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
         created_at: new Date().toISOString(),
         source_event_id: null,
         public_url: `data:${marked.contentType};base64,${Buffer.from(marked.bytes).toString('base64')}`,
-        color_ranges: {},
+        color_ranges: colorRanges,
         screen_findings: screen.findings,
         rights_warranty_version: RIGHTS_WARRANTY_VERSION,
       });
-      return { assetId, textScreen: screen.textScreen };
+      return { assetId, textScreen: screen.textScreen, colorRanges };
     }
   }
 }

@@ -75,6 +75,7 @@ import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { shopOwnPhotoRefs } from '@/lib/shop-own-photos.server';
+import { autoColourRanges } from '@/lib/extract-palette.server';
 
 const BUCKET = 'moodboard-library';
 
@@ -185,7 +186,7 @@ async function storeScreenedAsset(args: {
     source: string;
     source_event_id: string | null;
   };
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   // ⚠ THE SHOP IS STAMPED ON GALLERY ROWS ONLY, AND THAT IS NOT AN OVERSIGHT.
   // MB10's shape CHECK REQUIRES `vendor_profile_id` on a 'supplier_gallery'
   // row — it is the credit the couple reads. The three Setnayan-template types
@@ -276,6 +277,30 @@ async function storeScreenedAsset(args: {
     throw new Error(`db insert failed: ${insErr.message}`);
   }
 
+  // 2b · 🌱🖼 THE PHOTO'S OWN COLOURS, TAGGED FOR IT (2026-10-19). The couple's gallery needs sampled colours to
+  //     save a photo onto a board, and suppliers do not tag them — an approved photo with none was invisible. Read
+  //     from the ORIGINAL pixels (the mark is not the photo's colour) by the shipped extractor's own bucketing,
+  //     labelled "Auto" so a person adjusting them in the tagger can tell. Best-effort: a failed read or write leaves
+  //     the photo untagged, which the gallery still shows (`shapeGalleryPage`) and the pick reads at save time.
+  let colorRanges: ColorRangeMap = {};
+  if (isGalleryRow) {
+    colorRanges = await autoColourRanges(args.bytes);
+    const rangeRows = Object.values(colorRanges).map((r) => ({
+      asset_id: row.asset_id as string,
+      slot_id: r.slotId,
+      sampled_hex: r.sampledHex,
+      tolerance_de: r.toleranceDe,
+      region_label: r.regionLabel ?? null,
+    }));
+    if (rangeRows.length > 0) {
+      const { error: rangeErr } = await admin.from('moodboard_asset_color_ranges').insert(rangeRows);
+      if (rangeErr) {
+        logQueryError('moodboardLibrary.autoColourRanges', rangeErr, { assetId: row.asset_id }, 'graceful_degrade');
+        colorRanges = {};
+      }
+    }
+  }
+
   // 3 · THE THEFT SCAN, on the bytes we actually stored. Best-effort by
   //     contract (it swallows its own failures) — an un-hashed image is
   //     re-attempted by the admin "Rescan all" backfill, and a hashing hiccup
@@ -287,7 +312,7 @@ async function storeScreenedAsset(args: {
     bytesByRef: { [storagePath]: marked.bytes },
   });
 
-  return { assetId: row.asset_id as string, textScreen: screen.textScreen };
+  return { assetId: row.asset_id as string, textScreen: screen.textScreen, colorRanges };
 }
 
 /** The shop's own logo bytes, or null when it has no logo on file. */
@@ -333,7 +358,7 @@ async function readShopOwnPhoto(
 
 export async function uploadStylistAsset(
   formData: FormData,
-): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
@@ -534,7 +559,7 @@ export async function importEditorialMediaToGallery(input: {
   mediaId: string;
   slotKey: string;
   rightsWarranted: boolean;
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 

@@ -217,7 +217,7 @@ export function StylistLibraryEditor({
         // bytes (see the file docblock). Adding one back prints it twice.
         setActionError(null);
         setNotice(null);
-        const { assetId, textScreen } = await uploadStylistAsset(formData);
+        const { assetId, textScreen, colorRanges } = await uploadStylistAsset(formData);
         const label = String(formData.get('label') ?? '');
         const uploadedType = String(
           formData.get('assetType') ?? '',
@@ -238,10 +238,11 @@ export function StylistLibraryEditor({
           created_at: new Date().toISOString(),
           source_event_id: null,
           public_url: blobUrl,
-          color_ranges: {},
+          // 🌱🖼 The colours the server read off the photo itself (2026-10-19) — tagged already, adjustable here.
+          color_ranges: colorRanges ?? {},
         };
         setAssets((prev) => [placeholder, ...prev]);
-        setLocalMaps((prev) => ({ ...prev, [assetId]: {} }));
+        setLocalMaps((prev) => ({ ...prev, [assetId]: colorRanges ?? {} }));
         setSelectedId(assetId);
         // usedInSelectedSlot recomputes off `assets` itself (MB19) — the
         // placeholder just pushed above already carries the right

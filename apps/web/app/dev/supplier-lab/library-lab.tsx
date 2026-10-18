@@ -94,7 +94,7 @@ export function LibraryLab({
         importableEditorialFailed={false}
         actions={{
           uploadStylistAsset: async (fd) => {
-            return (await libraryLab({ op: 'upload' }, fd)) as { assetId: string; textScreen: 'ran' | 'unavailable' };
+            return (await libraryLab({ op: 'upload' }, fd)) as { assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: Record<number, { slotId: number; sampledHex: string; toleranceDe: number; regionLabel?: string }> };
           },
           saveStylistColorRanges: async (assetId, map) => {
             await libraryLab({ op: 'tags', assetId, map });

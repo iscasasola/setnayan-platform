@@ -26,7 +26,8 @@ Step 2 DONE: walked /dev/budget-lab 375 light+dark, Chromium + WebKit; shots in 
 Walk fixes: search input type=text (native ✕ doubled ours); row controls all 44px; Target field lifted above the
 (pointer:coarse) 16px input floor (it drew 16px on phones since B1); TraditionNotes moved to its own component +
 lab ?state=traditions.
-NEXT: draft PR → copy shots → CI loop.
+Step 3 DONE: draft PR #6633 (label do-not-auto-merge, autoMergeRequest null); shots → ~/Documents/Claude/Projects/shots-2026-10-18/6633/.
+NEXT: CI loop to green; delete this file when green.
 Left, named: masthead .ics/CSV/Print still on the page (B4's move to Schedule/⋯ not done); share-band toggle
 still at page foot (no ⋯ menu yet); payment-plan instalments not in EventMoney (own PR, changes every money
 surface); marketing page app/(shell)/budget + lib/feature-pages/plan-a.ts still describe Save/Standard/Splurge.

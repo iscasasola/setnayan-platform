@@ -39,9 +39,11 @@ import { flattenSvgMark, parseTransform, partsBounds } from './print-mark';
 /** The logo's square frame, in SVG units. */
 export const LOGO_FRAME = 1000;
 
-export const LOGO_LAYER_KINDS = ['image', 'text', 'frame'] as const;
+/* ❦ 'ornament' (L5, owner 2026-10-08 "approve add ornament"): which one lives in its shapes (`lib/logo-ornaments.ts`,
+   lazy), so this first-load file grows by the kind alone. */
+export const LOGO_LAYER_KINDS = ['image', 'text', 'frame', 'ornament'] as const;
 export type LogoLayerKind = (typeof LOGO_LAYER_KINDS)[number];
-export const LOGO_LAYER_KIND_LABEL: Record<LogoLayerKind, string> = { image: 'Image', text: 'Text', frame: 'Frame' };
+export const LOGO_LAYER_KIND_LABEL: Record<LogoLayerKind, string> = { image: 'Image', text: 'Text', frame: 'Frame', ornament: 'Ornament' };
 
 /* ── HOW ONE LAYER MOVES ─────────────────────────────────────────────────────
    The Maker's own element words (In · During — `lib/element-style.ts`'s

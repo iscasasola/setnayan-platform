@@ -181,7 +181,8 @@ test('3 · the typed answers are Form rows in one list; a choice is the one drop
   assert.match(s.toolsImage, /<button[^>]*role="switch"[^>]*data-form-row-switch=""/, 'Remove white background is not the Form row’s switch');
   const src = read(LOGO);
   assert.doesNotMatch(src, /<PickMenu\b/, 'the page draws a dropdown of its own');
-  assert.equal((src.match(/<ChosenRow\b/g) ?? []).length, 4, 'Frame · In · During · Out');
+  /* RE-AIMED 2026-10-18 (L5, DECISION_LOG 2026-10-08 "approve add ornament"): Style's Ornament ▾ is the fifth. */
+  assert.equal((src.match(/<ChosenRow\b/g) ?? []).length, 5, 'Frame · Ornament · In · During · Out');
   assert.equal((src.match(/<TypedRow\b/g) ?? []).length, 2, 'Words · Name');
 });
 

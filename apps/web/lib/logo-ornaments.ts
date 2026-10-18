@@ -109,12 +109,12 @@ function blossom(): Drawn {
     const a = -90 + 72 * k;
     const p0 = polar(c, c, 24, a - 26);
     d +=
-      `M${pt(p0)}C${pt(polar(c, c, 70, a - 44))} ${pt(polar(c, c, 104, a - 16))} ${pt(polar(c, c, 96, a))}` +
-      `C${pt(polar(c, c, 104, a + 16))} ${pt(polar(c, c, 70, a + 44))} ${pt(polar(c, c, 24, a + 26))}` +
+      `M${pt(p0)}C${pt(polar(c, c, 70, a - 44))} ${pt(polar(c, c, 98, a - 16))} ${pt(polar(c, c, 92, a))}` +
+      `C${pt(polar(c, c, 98, a + 16))} ${pt(polar(c, c, 70, a + 44))} ${pt(polar(c, c, 24, a + 26))}` +
       `A24 24 0 0 0 ${pt(p0)}Z`;
   }
   // The open centre: a ring, so the petals read as a flower and not a star.
-  const ring = (r: number, sweep: 0 | 1) => `M${R(c - r)} ${c}a${r} ${r} 0 1 ${sweep} ${2 * r} 0a${r} ${r} 0 1 ${sweep} ${-2 * r} 0Z`;
+  const ring = (r: number, sweep: 0 | 1) => `M${c - r} ${c}A${r} ${r} 0 1 ${sweep} ${c + r} ${c}A${r} ${r} 0 1 ${sweep} ${c - r} ${c}Z`;
   return { ds: [d, ring(17, 1) + ring(9, 0)], w: 200, h: 200 };
 }
 

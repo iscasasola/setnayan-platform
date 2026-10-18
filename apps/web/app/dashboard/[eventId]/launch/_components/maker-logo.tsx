@@ -87,6 +87,7 @@ import {
   type LogoGlyphCut,
   type LogoLook,
 } from '@/lib/logo-layers-edit';
+import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, type LogoOrnamentKind } from '@/lib/logo-ornaments';
 import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
@@ -533,6 +534,25 @@ export function MakerLogoDoor({
     });
   };
 
+  /* ❦ L5 (owner 2026-10-08 "approve add ornament"): the prototype's new ornament — the flourish, in the frame's gold,
+     small and above the centre, Drawing on after the layer below it. Its colour, size, place, turn and motion are any
+     layer's; which ornament it is lives in its shapes (`ornamentOf`). */
+  const addOrnament = () => {
+    const i = layers.length;
+    addLayer({
+      id: newLayerId(),
+      kind: 'ornament',
+      name: LOGO_ORNAMENT_LABEL.flourish,
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME * 0.2,
+      scale: 0.4,
+      color: '#C5A059',
+      motion: defaultMotion(i),
+      autoDelay: true,
+      ...ornamentBody('flourish'),
+    });
+  };
+
   const fileRef = useRef<HTMLInputElement>(null);
   const addImage = async (file: File | undefined) => {
     if (!file) return;
@@ -567,6 +587,7 @@ export function MakerLogoDoor({
   const onAdd = (kind: LogoAddKind) => {
     if (kind === 'text') addText();
     else if (kind === 'frame') addFrame();
+    else if (kind === 'ornament') addOrnament();
     else fileRef.current?.click();
   };
 
@@ -1308,6 +1329,15 @@ export function LayerTools({
             options={LOGO_FRAME_KINDS.map((k) => ({ key: k, label: LOGO_FRAME_LABEL[k] }))}
             onPick={(k) => onChange({ frame: k as LogoFrameKind, name: LOGO_FRAME_LABEL[k as LogoFrameKind], ...frameBody(k as LogoFrameKind) })}
             dataAttr="data-logo-frame-pick"
+          />
+        ) : null}
+        {layer.kind === 'ornament' ? (
+          <ChosenRow
+            name="Ornament"
+            value={ornamentOf(layer.body)}
+            options={LOGO_ORNAMENT_KINDS.map((k) => ({ key: k, label: LOGO_ORNAMENT_LABEL[k] }))}
+            onPick={(k) => onChange({ name: LOGO_ORNAMENT_LABEL[k as LogoOrnamentKind], ...ornamentBody(k as LogoOrnamentKind) })}
+            dataAttr="data-logo-ornament-pick"
           />
         ) : null}
         </FormRows>

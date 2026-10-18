@@ -44,7 +44,7 @@ Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog
 - Wedding keeps its own wizard (matrix §3).
 
 ### Steps (commit + push after each)
-1. [ ] lib/event-needs.ts (pure) + test
+1. [x] lib/event-needs.ts (pure) + test — 9 tests green
 2. [ ] migration: needs columns + grants + events_host rebuild; seed the 15 types' setup five; Ugat
 3. [ ] onboarding: needs screen (generic + simple); commit writes the columns; per-type end-to-end tests (20)
 4. [ ] per-event hiding: bottom bar · Home (doors · numbers · money · Next · One QR · Switch on more) · Maker stages · Studio tiles

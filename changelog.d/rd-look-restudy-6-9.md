@@ -35,5 +35,13 @@ and its amendment `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` (approved the s
   any picture (`mainGroundChange`). No new key, no migration. Guard: new `the-picture-is-an-effect.test.ts`;
   `the-background-has-one-source` and `the-main-background-offers-every-choice` re-aimed (a clip may now move).
   Port-control baseline regenerated for row 6's deliberate removal of `StdBackgroundPicker`.
+- **Row 7 · A part's own background offers the main background's sources — Video ◆ joins.** "Same as main" shipped
+  with the 2026-10-09 toolbar in the owner's later words (`Maker_Two_Bars_LOCKED_2026-10-09.md` § BACKGROUND: Source ▾
+  first choice "The Event Hub's"; picking it is "Back to main"), with Colour · Scene ◆ · Upload ◆ — but not the
+  lock's **Video ◆**. A part's Source now offers it between Scene and Upload: Setnayan's own theme loops as moving
+  cards (their stills), stored as the clip each part already keeps (`{kind:'snippet', media, poster}`) — no new
+  shape — and read back as Video. Apply admits exactly our loops by a closed list (`lib/theme-loop-refs.ts`
+  `isThemeLoopRef`, as `isStdLibrarySrc` does for scenes), never a folder pattern. Guard: new
+  `a-part-wears-our-videos.test.ts`; `scene-upload-media` (7) re-aimed.
 
 SPEC IMPACT: None — builds the approved restudy rows as drawn; no new decision.

@@ -16,6 +16,7 @@ import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
+import { themeLoopChoices, themeLoopOf } from '@/lib/theme-loop-refs';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
 import {
   HUB_DEFAULT_FOCAL,
@@ -173,6 +174,7 @@ function SceneBackgroundRows({
   mediaUsedBytes,
   ownsPro,
   storeShell = false,
+  loopPosters,
   onPreview,
   onSaving,
   hubTheme,
@@ -229,6 +231,8 @@ function SceneBackgroundRows({
    * only the shell hides it from a free couple (`makerProUsable`).
    */
   storeShell?: boolean;
+  /** 🎞 Each theme loop's still, by theme id — the part's Video ◆ cards (Look restudy row 7). Absent = no Video source. */
+  loopPosters?: Readonly<Record<string, string | null>>;
 }) {
   const router = useRouter();
   /* 🧭 The new Maker draws these same saves as the prototype's three rows (`stage-panel/stage-background.tsx`). */
@@ -613,7 +617,21 @@ function SceneBackgroundRows({
        No "Use this background on every scene?" (owner: *"it is meant for just this element"*). */
     const scopeNow = sceneBackgroundScope(scenes, widgetType, shown);
     const stored: StageBgSource =
-      !bg || scopeNow === 'every' ? 'hub' : bg.kind === 'photo' ? (isStdLibrarySrc(bg.media) ? 'scene' : 'own') : bg.kind === 'snippet' ? 'own' : 'colour';
+      !bg || scopeNow === 'every'
+        ? 'hub'
+        : bg.kind === 'photo'
+          ? isStdLibrarySrc(bg.media)
+            ? 'scene'
+            : 'own'
+          : bg.kind === 'snippet'
+            ? /* 🎞 One of OUR loops, stored as a clip (Look restudy row 7) — its own source, never "Upload". */
+              themeLoopOf(bg.media)
+              ? 'video'
+              : 'own'
+            : 'colour';
+    /* 🎞 VIDEO ◆ — the theme loops as cards (the 2026-10-09 lock's row 1: "Scene ◆ · Video ◆ · Upload ◆"); offered
+       where the mount handed their stills. */
+    const loops = loopPosters ? themeLoopChoices() : [];
     /* The source on SHOW: the one just picked in the dropdown until a choice of it is taken, else the stored one. */
     const source: StageBgSource = sourceView && sourceView.of === widgetType && sourceView.from === stored ? sourceView.show : stored;
     const worn = source === stored;
@@ -638,6 +656,8 @@ function SceneBackgroundRows({
         ? COLOUR_TILES.map(colourTile)
         : source === 'scene'
           ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src), ...tileNameOnPhoto(TILE_FOOT[b.id] ?? null) }))
+          : source === 'video'
+            ? loops.map((l) => ({ key: l.loop, name: l.name, moving: true, picture: cover(loopPosters?.[l.id] ?? null), ...tileNameOnPhoto(null) }))
           : source === 'own'
             ? [
                 /* The couple's own: nothing is measured (reading a picture's pixels needs a second, cross-origin fetch), so the dark default. */
@@ -654,7 +674,9 @@ function SceneBackgroundRows({
         sources={[
           { key: 'hub', pro: false },
           { key: 'colour', pro: false },
-          ...(offerMedia ? (['scene', 'own'] as const).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] })) : []),
+          ...(offerMedia
+            ? (loops.length > 0 ? (['scene', 'video', 'own'] as const) : (['scene', 'own'] as const)).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] }))
+            : []),
         ]}
         onSource={(next) => {
           if (next === 'hub') {
@@ -680,6 +702,11 @@ function SceneBackgroundRows({
             return setAsking(false);
           }
           if (source === 'scene') return put(photoBg(key), false);
+          /* 🎞 One of our loops: stored as the clip it is, with its still — the shape every part's clip has. */
+          if (source === 'video') {
+            const l = loops.find((c) => c.loop === key);
+            return l ? put(clipBg(l.loop, l.poster), false) : undefined;
+          }
           const clip = key === videoChoice?.ref ? { poster: videoChoice.poster } : uploads.find((u) => u.ref === key && u.kind === 'snippet');
           put(clip ? clipBg(key, clip.poster) : photoBg(key), false);
         }}

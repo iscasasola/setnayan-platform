@@ -2258,6 +2258,7 @@ export function MakerWork({
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
               mediaUsedBytes={sceneFormat.mediaUsedBytes}
+              loopPosters={sceneFormat.loopPosters}
               ownsPro={ownsPro}
               storeShell={sceneFormat.hideLocked}
               hubTheme={sceneFormat.hubTheme as never}

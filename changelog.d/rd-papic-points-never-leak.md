@@ -13,7 +13,7 @@ by #6621.
 - **Route** (`app/api/papic/guest-capture/route.ts`): the reserve, the 9→2 signature ladder and the hand unwind are
   replaced by the one call (no fallback ladder — the seat path's measured reasoning). `reserveGuestOwnCameraCapture`,
   `papicReserveEventPoolForCapture`, `lib/papic-release-capture.ts` and the now caller-less
-  `papic_release_capture_split` RPC are deleted.
+  `papic_release_capture_split` and `papic_release_event_points` RPCs are dropped.
 - **Proofs** — `tests/db/a-guest-shot-spends-with-its-row.db.test.ts`: (a) a fault injected after the row and after the
   booking leaves every balance as it was, on both ledgers, with a control showing the same fault leaks on the old
   two-call shape; (b) one shot spends exactly once ("spend 2 and take 6" intact); (c) a retry with the same shutter id

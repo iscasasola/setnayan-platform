@@ -243,6 +243,9 @@ GRANT EXECUTE ON FUNCTION public.papic_record_guest_capture_and_spend(
 --   the leak the old route already had on a death. Its ordinary path is
 --   untouched (both reserves and the record are unchanged).
 DROP FUNCTION IF EXISTS public.papic_release_capture_split(UUID, UUID, INTEGER, INTEGER);
+-- …and the pool release it was the last caller of (ugat-both-ends named it the
+-- moment the split release went). Nothing in the app or in SQL calls it.
+DROP FUNCTION IF EXISTS public.papic_release_event_points(UUID, INTEGER);
 
 -- ── REFUSE TO APPLY IF IT DID NOT DO ITS JOB ────────────────────────────────
 DO $guard$
@@ -265,8 +268,9 @@ BEGIN
   IF NOT has_function_privilege('service_role', v_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'refusing to apply: service_role cannot EXECUTE papic_record_guest_capture_and_spend — the guest camera would stop recording';
   END IF;
-  IF to_regprocedure('public.papic_release_capture_split(uuid,uuid,integer,integer)') IS NOT NULL THEN
-    RAISE EXCEPTION 'refusing to apply: the hand-unwind RPC papic_release_capture_split is still here';
+  IF to_regprocedure('public.papic_release_capture_split(uuid,uuid,integer,integer)') IS NOT NULL
+     OR to_regprocedure('public.papic_release_event_points(uuid,integer)') IS NOT NULL THEN
+    RAISE EXCEPTION 'refusing to apply: a hand-unwind release RPC is still here';
   END IF;
   SELECT pg_get_functiondef(v_oid) INTO v_def;
   IF v_def NOT LIKE '%papic_reserve_capture_split%'

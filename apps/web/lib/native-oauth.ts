@@ -158,11 +158,16 @@ async function systemBrowser(
   provider: NativeOAuthProvider,
   next: string,
   accountType: OAuthIntentAccountType,
+  loginHint: string | null,
 ): Promise<boolean> {
   const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: nativeRedirectTo(next, accountType), skipBrowserRedirect: true },
+    options: {
+      redirectTo: nativeRedirectTo(next, accountType),
+      skipBrowserRedirect: true,
+      ...(provider === 'google' && loginHint ? { queryParams: { login_hint: loginHint } } : {}),
+    },
   });
   if (error || !data?.url) {
     fail(error?.message ?? `${provider} sign-in could not start.`, next);
@@ -202,6 +207,8 @@ export async function signInWithProviderNative(
   provider: NativeOAuthProvider,
   next: string,
   accountType: OAuthIntentAccountType = 'customer',
+  /** A typed Google address (lib/google-address.ts) — Google opens on that account. */
+  loginHint: string | null = null,
 ): Promise<boolean> {
   const platform = nativePlatform();
   if (!platform) {
@@ -211,7 +218,7 @@ export async function signInWithProviderNative(
   try {
     return nativeOAuthPlan(provider, platform) === 'apple-sheet'
       ? await appleSheet(next, accountType)
-      : await systemBrowser(provider, next, accountType);
+      : await systemBrowser(provider, next, accountType, loginHint);
   } catch {
     fail('Sign-in failed. Please try again.', next);
     return true;

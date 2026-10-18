@@ -38,6 +38,7 @@ import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
+import { GoogleAddressDoor, googleDoorShell } from '@/app/_components/auth/google-address-door';
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -263,7 +264,11 @@ export function SignInCard({
             className="hr-si-input"
           />
         </div>
-        <div className="hr-si-field">
+        {/* A TYPED Google address takes the Google button's own door, address
+            pre-filled (owner 2026-10-18). Folds away every `data-password-only`
+            part below; where this shell hides the Google button it never shows. */}
+        <GoogleAddressDoor enabled={showOAuth} shell={googleDoorShell(desktopOAuth, nativeOAuth)} next={next} />
+        <div className="hr-si-field" data-password-only="">
           <label htmlFor="hr-si-password" className="hr-si-label">
             Password
           </label>
@@ -279,7 +284,7 @@ export function SignInCard({
         </div>
         {/* "Stay signed in" defaults CHECKED — explicit opt-out only (the server
             action downgrades sb-* cookies to session-only when unchecked). */}
-        <div className="hr-si-row">
+        <div className="hr-si-row" data-password-only="">
           <label htmlFor="hr-si-remember" className="hr-si-remember">
             <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
             <span>Stay signed in</span>
@@ -288,7 +293,7 @@ export function SignInCard({
             Forgot password?
           </Link>
         </div>
-        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…">
+        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…" data-password-only="">
           Continue
         </SubmitButton>
       </form>

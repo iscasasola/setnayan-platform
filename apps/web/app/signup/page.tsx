@@ -62,6 +62,7 @@ import { accountTypeForSignup } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
+import { GoogleAddressDoor, googleDoorShell } from '@/app/_components/auth/google-address-door';
 import '@/app/_components/home/home-reskin.css';
 
 export const metadata: Metadata = {
@@ -251,7 +252,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 className="hr-si-input"
               />
             </div>
-            <div className="hr-si-field">
+            {/* A TYPED Google address takes the Google button's own door (owner
+                2026-10-18) — same verb, same account type as the row above. */}
+            <GoogleAddressDoor
+              enabled={showOAuth}
+              shell={googleDoorShell(desktopOAuth, nativeOAuth)}
+              next={next}
+              accountType={accountType}
+              verb={SIGNUP_OAUTH_VERB}
+            />
+            <div className="hr-si-field" data-password-only="">
               <label htmlFor="hr-su-password" className="hr-si-label">
                 Create your password
               </label>
@@ -269,7 +279,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
             {/* THE AGREEMENT — clickwrap, above the submit, UNTICKED (CTRL-B3).
                 `required` is the browser's half; `signUp` refuses without it. */}
-            <label htmlFor="hr-su-terms" className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
+            <label htmlFor="hr-su-terms" className="hr-si-remember" style={{ alignItems: 'flex-start' }} data-password-only="">
               <input id="hr-su-terms" name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
               <span>
                 I agree to the{' '}
@@ -286,14 +296,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
             {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
                 action downgrades sb-* cookies to session-only when unchecked. */}
-            <div className="hr-si-row">
+            <div className="hr-si-row" data-password-only="">
               <label htmlFor="hr-su-remember" className="hr-si-remember">
                 <input id="hr-su-remember" name="remember" type="checkbox" defaultChecked />
                 <span>Stay signed in</span>
               </label>
             </div>
 
-            <SubmitButton className="hr-si-submit" pendingLabel="Creating account…">
+            <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
               Create user account · free
             </SubmitButton>
           </form>

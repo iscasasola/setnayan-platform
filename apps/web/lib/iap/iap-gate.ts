@@ -1,6 +1,6 @@
 /**
  * 🍎 MAY THIS SCREEN SELL THROUGH APPLE? — one pure rule, read by the server
- * (`getIapGate` in lib/request-platform.ts) and the browser (`useIapShell`).
+ * (`getIapGate` in lib/request-platform.ts), which hands its answer to every Apple surface.
  *
  * All three must hold:
  *   1 · the STORE SHELL — the Capacitor app Apple reviews (lib/store-shell.ts).

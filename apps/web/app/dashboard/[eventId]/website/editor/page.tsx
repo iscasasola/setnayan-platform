@@ -21,7 +21,7 @@ import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
-import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
+import { LaunchStdButton } from '../../launch/_components/details-lazy';
 import {
   MakerWork,
   type MakerRowPanel,
@@ -56,12 +56,13 @@ import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
 } from '@/lib/invitation-words-draft';
+/* ⚡ The rows' panels load when a row opens — stand-ins with the same names and props (details-lazy.tsx). */
 import {
   HeroPhotoPanel,
   GalleryPanel,
   SiteChromePanel,
   VisibilityPanel,
-} from './_components/media-panels';
+} from '../../launch/_components/details-lazy';
 import { updateSiteColors } from '../colors/actions';
 import { uploadHeroPhoto } from '../hero-photo/actions';
 import {
@@ -90,7 +91,7 @@ import {
 import {LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
-  } from './_components/media-panels';
+  } from '../../launch/_components/details-lazy';
 import { launchPhaseLabel } from './_components/launch-phase-choices';
 import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } from './actions';
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';

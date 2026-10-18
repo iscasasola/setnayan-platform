@@ -168,6 +168,24 @@ export function setupPatchFromNeeds(n: EventNeeds): {
   return { reply: 'yes', entry: 'personal', requests: n.oneQr, papic: 'yes' };
 }
 
+/**
+ * The setup answers as the needs leave them — the one merge the wizard, the Get-together form and
+ * both commits share (the commits re-run it on what they re-read, never trusting the client's).
+ */
+export function applyNeedsToSetup<
+  T extends { reply: 'yes' | 'no'; entry: 'personal' | 'one_qr' | 'both'; requests: boolean; papic: 'yes' | 'no'; guests: string | null },
+>(a: T, n: EventNeeds): T {
+  const patch = setupPatchFromNeeds(n);
+  return {
+    ...a,
+    reply: patch.reply,
+    entry: patch.entry,
+    requests: patch.requests,
+    papic: patch.papic,
+    ...(patch.guests ? { guests: patch.guests } : {}),
+  };
+}
+
 /** The needs → their columns. */
 export function needsColumns(n: EventNeeds): { guest_list_on: boolean; suppliers_on: boolean; hub_details_on: boolean } {
   return { guest_list_on: n.guestList, suppliers_on: n.suppliers, hub_details_on: n.hubDetails };
@@ -175,6 +193,14 @@ export function needsColumns(n: EventNeeds): { guest_list_on: boolean; suppliers
 
 export const EVENT_NEEDS_COLUMNS = ['guest_list_on', 'suppliers_on', 'hub_details_on'] as const;
 export type EventNeedsColumn = (typeof EVENT_NEEDS_COLUMNS)[number];
+
+/**
+ * The Simple shape — no list, cover + photos only: the needs screen IS the whole onboarding
+ * (matrix §0b AFTER: "Onboarding: ONE screen — Name · Where · When (optional) · What do you need?").
+ */
+export function needsAreTheWholeOnboarding(n: Pick<EventNeeds, 'guestList' | 'hubDetails'>): boolean {
+  return !n.guestList && !n.hubDetails;
+}
 
 /** The wire is never trusted: three booleans or the preset's defaults. */
 export function sanitizeNeeds(raw: unknown, fallback: EventNeeds, scope: NeedsScope): EventNeeds {

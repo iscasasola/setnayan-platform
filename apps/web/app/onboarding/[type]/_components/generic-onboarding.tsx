@@ -73,6 +73,19 @@ import {
   type SetupView,
 } from '@/lib/onboarding/setup-answers';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
+import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
+import {
+  defaultPresetFor,
+  limitLineFor,
+  needRows,
+  needsAreTheWholeOnboarding,
+  needsForPreset,
+  applyNeedsToSetup,
+  toggleNeed,
+  type EventNeeds,
+  type NeedPreset,
+  type NeedRow,
+} from '@/lib/event-needs';
 // Same reporter the wedding flow uses for a rejected commit — one failure, one
 // place to read it, rather than a silent console line on the customer's phone.
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -201,6 +214,9 @@ type Draft = {
   specialtyValues: Record<string, unknown>;
   /** The setup cards' answers (G1). Optional so an older draft still parses. */
   setup?: Partial<SetupAnswers>;
+  /** "What do you need?" (Level 1). Optional so an older draft still parses. */
+  preset?: NeedPreset;
+  needs?: EventNeeds;
 };
 
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -342,6 +358,20 @@ export function GenericOnboarding(props: Props) {
     (patch: Partial<SetupAnswers>) => setSetupAnswers((a) => (a ? { ...a, ...patch } : a)),
     [],
   );
+  // 🚪 "What do you need?" (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). The type picks the
+  // starting preset; each row flips alone. Only drawn with the engine on.
+  const needsScope = useMemo(() => ({ marketplace: !vendorFree }), [vendorFree]);
+  const [preset, setPreset] = useState<NeedPreset>(() => defaultPresetFor(eventType));
+  const [needs, setNeeds] = useState<EventNeeds>(() => needsForPreset(defaultPresetFor(eventType), { marketplace: !vendorFree }));
+  const needsOnly = engine && needsAreTheWholeOnboarding(needs);
+  const pickPreset = useCallback(
+    (p: NeedPreset) => {
+      setPreset(p);
+      setNeeds(needsForPreset(p, needsScope));
+    },
+    [needsScope],
+  );
+  const flipNeed = useCallback((row: NeedRow) => setNeeds((n) => toggleNeed(n, row, needsScope)), [needsScope]);
   const [hydrated, setHydrated] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -418,16 +448,22 @@ export function GenericOnboarding(props: Props) {
         axisIds, // for_whom · feel · energy · roots · effort
         services: Boolean(servicesStepView),
         setupSteps,
+        needs: engine ? { only: needsOnly, guestList: needs.guestList } : null,
       }),
     [
       engine, questions, axisIds, specialtyFields, prefillDetails, servicesStepView,
-      asksHonoree, isAnniversary, showRecurToggle, setupSteps,
+      asksHonoree, isAnniversary, showRecurToggle, setupSteps, needsOnly, needs.guestList,
     ],
   );
 
   // -- Hydrate the localStorage draft (30-day TTL). On ?resume=1 (post sign-in)
   //    jump to the final screen so the visitor can finish in one tap. --
+  // 🔁 ONCE. "What do you need?" changes the screen list as the person taps (`screens` is a dep of this
+  //    effect), and a second run would read back the draft saved one render earlier — undoing the tap.
+  const hydratedOnce = useRef(false);
   useEffect(() => {
+    if (hydratedOnce.current) return;
+    hydratedOnce.current = true;
     // Seed from the self-profile prefill first; a saved draft then overrides
     // per-key so a resumed session and any user edit always win over the prefill.
     let seededDetails: Record<string, string> = { ...prefillDetails };
@@ -456,7 +492,12 @@ export function GenericOnboarding(props: Props) {
             const saved = d.setup;
             setSetupAnswers({ ...setupDefaults(setupView), ...saved });
           }
-          if (resume) setStep(screens.indexOf('congrats'));
+          if (d.preset && d.needs && setupView) {
+            setPreset(d.preset);
+            setNeeds(d.needs);
+          }
+          // On the Simple shape the needs screen holds the create button — there is no congrats.
+          if (resume) setStep(Math.max(0, screens.indexOf('congrats')));
         } else {
           localStorage.removeItem(draftKey);
         }
@@ -517,7 +558,7 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}) };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}), ...(engine ? { preset, needs } : {}) };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
@@ -724,7 +765,7 @@ export function GenericOnboarding(props: Props) {
   }, [plan, extraPicks, tiles]);
 
   const canContinue = (() => {
-    if (screen === 'name') return displayName.trim().length > 0;
+    if (screen === 'name' || screen === 'needs') return displayName.trim().length > 0;
     if (screen.startsWith('setup_') && setupAnswers) return setupCardAnswered(screen as SetupCardId, setupAnswers);
     if (isAxis) return Boolean(axes[axisIds[axisIndex]!]);
     return true; // welcome / date / pax / region / reveal are skippable
@@ -890,6 +931,16 @@ export function GenericOnboarding(props: Props) {
     setDetails((d) => ({ ...d, [questionId]: key }));
   };
 
+  /**
+   * The setup answers as the needs screen left them: its "Where" is the place, and its rows decide
+   * the reply / the one QR / the guests card (`setupPatchFromNeeds`) — the same answers the shipped
+   * cards write, never a second store.
+   */
+  function needsSetup(a: SetupAnswers): SetupAnswers {
+    const place = a.whereText.trim();
+    return applyNeedsToSetup({ ...a, where: place ? 'place' : a.where === 'place' ? null : a.where, whereText: place }, needs);
+  }
+
   async function handleCreate() {
     // Terminal life-event-cap dead end (owner report 2026-09-11): this type has
     // no honoree field to disambiguate with, so a life_event_exists refusal can
@@ -961,7 +1012,9 @@ export function GenericOnboarding(props: Props) {
       servicesSelection,
       // The setup cards (G1) — a CLAIM only; the commit re-reads every key
       // against this type's own view before writing anything.
-      ...(engine && setupAnswers ? { setup: setupAnswers } : {}),
+      ...(engine && setupAnswers ? { setup: needsSetup(setupAnswers) } : {}),
+      // 🚪 What the event needs (Level 1) — a CLAIM; the commit re-reads it against the type.
+      ...(engine ? { needs } : {}),
     };
     /*
       🔴 EVERY AWAIT BELOW IS INSIDE THIS TRY, AND THAT IS THE WHOLE POINT.
@@ -1019,7 +1072,7 @@ export function GenericOnboarding(props: Props) {
         // The guests card picks the landing (`setupLanding`): a way to add
         // them opens the Guest list; "later" lands on Home.
         router.replace(
-          res.paymentPath ?? nextPath ?? setupLanding(res.eventId, engine ? setupAnswers : null),
+          res.paymentPath ?? nextPath ?? setupLanding(res.eventId, engine && setupAnswers ? needsSetup(setupAnswers) : null),
         );
         return;
       }
@@ -1084,8 +1137,77 @@ export function GenericOnboarding(props: Props) {
   );
 
   function renderScreen() {
+    if (screen === 'needs' && setupView && setupAnswers) {
+      return (
+        <NeedsStep
+          title={`New ${label.toLowerCase()}`}
+          limitLine={limitLineFor(eventType)}
+          solemn={register === 'solemn'}
+          name={displayName}
+          onName={setDisplayName}
+          where={setupAnswers.whereText}
+          onWhere={(v) => patchSetup({ whereText: v, where: v.trim() ? 'place' : null })}
+          when={needsOnly ? { value: dateValue, onChange: (v) => { setDateMode('specific'); setDateCandidates([]); setDateValue(v); } } : null}
+          preset={preset}
+          onPreset={pickPreset}
+          needs={needs}
+          rows={needRows(needsScope)}
+          onToggle={flipNeed}
+          notice={
+            blockedBy ? (
+              <div className="rounded-[var(--m-r-md)] border border-[color:var(--sn-gold-300)] bg-[color:var(--sn-gold-100)]/70 px-4 py-3 text-left text-sm text-ink/75">
+                <p>
+                  You already have a {label.toLowerCase()} in planning
+                  {blockedBy.displayName ? ` — “${blockedBy.displayName}”` : ''}.
+                </p>
+                <Link
+                  className="mt-2 inline-block font-medium text-mulberry underline underline-offset-2"
+                  href={`/dashboard/${blockedBy.eventId}`}
+                >
+                  Go to {blockedBy.displayName || `your ${label.toLowerCase()}`}
+                </Link>
+              </div>
+            ) : null
+          }
+          cta={
+            <>
+              <button
+                type="button"
+                data-needs-cta=""
+                onClick={() => (needsOnly ? void handleCreate() : go(1))}
+                disabled={!canContinue || committing}
+                className="h-12 w-full rounded-full bg-mulberry text-[15px] font-semibold text-paper transition hover:opacity-90 disabled:opacity-40"
+              >
+                {needsOnly
+                  ? blockedTerminal
+                    ? 'Go to my dashboard'
+                    : committing
+                      ? 'Making…'
+                      : 'Make the event'
+                  : 'Continue'}
+              </button>
+              {needsOnly && error ? (
+                <p className="mt-2 text-sm text-mulberry">
+                  {error === 'sign_in' ? (
+                    <>
+                      Please{' '}
+                      <a className="underline" href={`/login?next=${encodeURIComponent(`/onboarding/${eventType}?resume=1`)}`}>
+                        sign in
+                      </a>{' '}
+                      to save your plan — we’ll bring you right back.
+                    </>
+                  ) : (
+                    error
+                  )}
+                </p>
+              ) : null}
+            </>
+          }
+        />
+      );
+    }
     if (screen.startsWith('setup_') && setupView && setupAnswers) {
-      const counted = screens.filter((s) => s !== 'welcome' && s !== 'congrats');
+      const counted = screens.filter((s) => s !== 'welcome' && s !== 'congrats' && s !== 'needs');
       return (
         <SetupCard
           card={screen as SetupCardId}
@@ -1700,17 +1822,17 @@ export function GenericOnboarding(props: Props) {
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-10">
         {/* "n of N" on every question once the engine runs (the approved phone
             design); the setup cards print their own. */}
-        {engine && screen !== 'welcome' && screen !== 'congrats' && !screen.startsWith('setup_') ? (
+        {engine && screen !== 'welcome' && screen !== 'congrats' && screen !== 'needs' && !screen.startsWith('setup_') ? (
           <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-            {screens.filter((s) => s !== 'welcome' && s !== 'congrats').indexOf(screen) + 1} of{' '}
-            {screens.filter((s) => s !== 'welcome' && s !== 'congrats').length}
+            {screens.filter((s) => s !== 'welcome' && s !== 'congrats' && s !== 'needs').indexOf(screen) + 1} of{' '}
+            {screens.filter((s) => s !== 'welcome' && s !== 'congrats' && s !== 'needs').length}
           </p>
         ) : null}
         {renderScreen()}
       </div>
 
-      {/* nav */}
-      <div data-glass-row="onboarding-nav" className="sn-glass-row sticky bottom-0">
+      {/* nav — absent on "What do you need?", whose button sits under its rows (frame 3) */}
+      <div data-glass-row="onboarding-nav" className="sn-glass-row sticky bottom-0" hidden={screen === 'needs'}>
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-5 py-4">
           <button
             type="button"

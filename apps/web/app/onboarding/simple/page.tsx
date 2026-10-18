@@ -57,7 +57,8 @@ export default async function SimpleOnboardingPage({
 
   // If the type isn't live in the create-roster, send them back to the picker.
   const creatable = await getCreatableEventTypes();
-  if (!creatable.some((t) => t.key === 'simple_event')) {
+  const typeRow = creatable.find((t) => t.key === 'simple_event');
+  if (!typeRow) {
     redirect('/dashboard/create-event');
   }
 
@@ -91,21 +92,24 @@ export default async function SimpleOnboardingPage({
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
+      <header className={setupView ? 'mb-4 space-y-2' : 'mb-8 space-y-2'}>
         <Link
           href="/dashboard/create-event"
           className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
         >
           ‹ Back
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Let’s set the date.
-        </h1>
-        <p className="text-base text-ink/60">
-          {setupView
-            ? 'A name and a date, then a few quick picks.'
-            : 'A name and a date are all we need — everything else is Setnayan’s in-app services.'}
-        </p>
+        {/* 🚪 With the engine on, "What do you need?" carries its own title (owner 2026-10-08, frame 3). */}
+        {setupView ? null : (
+          <>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Let’s set the date.
+            </h1>
+            <p className="text-base text-ink/60">
+              A name and a date are all we need — everything else is Setnayan’s in-app services.
+            </p>
+          </>
+        )}
       </header>
 
       {errorMessage ? (
@@ -123,6 +127,8 @@ export default async function SimpleOnboardingPage({
         <SimpleSetupFlow
           view={setupView}
           steps={setupSteps}
+          label={typeRow?.label ?? 'Get-together'}
+          marketplace={profile.marketplaceEnabled === true}
           start={
             <>
               <div className="space-y-1.5">

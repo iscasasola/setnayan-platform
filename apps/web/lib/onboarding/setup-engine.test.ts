@@ -53,6 +53,7 @@ import { setupColumns } from './event-insert';
 import { readGuestsReply, sanitizeRsvpAskConfig } from '../rsvp-ask';
 import { rsvpGate } from '../guest-one-path';
 import { guestGroupsFor, resolveRoleSet } from '../role-sets';
+import { defaultNeedsFor, needsAreTheWholeOnboarding, type EventNeeds } from '../event-needs';
 
 /** The seed of migration 20271258536791, as rows. Base columns as prod carries them. */
 function row(eventType: string, extra: Partial<ProfileRow>): ProfileRow {
@@ -84,15 +85,45 @@ const SEEDED: Record<string, EventTypeProfile> = {
   simple_event: toProfile(row('simple_event', { guest_word: 'guests', gifts_mode: 'none', look_set: ['house', 'galeriya', 'cyber'], camera_default: 'on' })),
 };
 
+/**
+ * 🚪 THE FIFTEEN THAT JOINED (Level 1, migration 20271276545380 — owner 2026-10-08 "ONBOARDING FOR THE
+ * EVENT TYPES WE ALREADY HAVE MOVES INTO LEVEL 1"). Mirrors that seed; the db test proves the mirror.
+ */
+const JOINED: Record<string, EventTypeProfile> = {
+  debut: toProfile(row('debut', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['cinderella', 'regency', 'velvet', 'house', 'galeriya'], camera_default: 'on' })),
+  gender_reveal: toProfile(row('gender_reveal', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['whimsical', 'house', 'galeriya'], camera_default: 'on' })),
+  celebration: toProfile(row('celebration', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['house', 'galeriya', 'whimsical', 'cyber'], camera_default: 'on' })),
+  travel: toProfile(row('travel', { guest_word: 'travellers', gifts_mode: 'ambag', look_set: ['house', 'galeriya'], camera_default: 'on' })),
+  corporate: toProfile(row('corporate', { guest_word: 'attendees', gifts_mode: 'none', look_set: ['galeriya', 'house', 'gatsby'], camera_default: 'on' })),
+  tournament: toProfile(row('tournament', { guest_word: 'players', gifts_mode: 'none', look_set: ['cyber', 'galeriya', 'house'], camera_default: 'on' })),
+  christening: toProfile(row('christening', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['house', 'whimsical', 'vintage'], camera_default: 'on' })),
+  anniversary: toProfile(row('anniversary', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['vintage', 'velvet', 'house', 'galeriya'], camera_default: 'on' })),
+  graduation: toProfile(row('graduation', { guest_word: 'guests', gifts_mode: 'gifts', look_set: ['galeriya', 'house', 'regency'], camera_default: 'on' })),
+  reunion: toProfile(row('reunion', { guest_word: 'guests', gifts_mode: 'ambag', look_set: ['house', 'galeriya', 'vintage'], camera_default: 'on' })),
+  gala_night: toProfile(row('gala_night', { guest_word: 'guests', gifts_mode: 'donations', look_set: ['gatsby', 'velvet', 'regency', 'house'], camera_default: 'on' })),
+  wake: toProfile(row('wake', { terminology: { register: 'solemn' }, guest_word: 'family & friends', gifts_mode: 'abuloy', look_set: ['vintage', 'galeriya', 'house'], camera_default: 'quiet' })),
+  concert: toProfile(row('concert', { guest_word: 'guests', gifts_mode: 'none', look_set: ['cyber', 'galeriya', 'house'], camera_default: 'on' })),
+  open_house: toProfile(row('open_house', { guest_word: 'guests', gifts_mode: 'none', look_set: ['house', 'galeriya', 'cyber'], camera_default: 'on' })),
+  grand_opening: toProfile(row('grand_opening', { guest_word: 'guests', gifts_mode: 'none', look_set: ['galeriya', 'house', 'cyber'], camera_default: 'on' })),
+};
+
+/** All twenty that ship (prod `event_type_vocab`, measured 2026-10-18). */
+const ALL: Record<string, EventTypeProfile> = { ...SEEDED, ...JOINED };
+
 function viewOf(p: EventTypeProfile): SetupView {
   // The same composition as lib/onboarding/setup-view.ts: the wedding fence
   // lets a wedding wear Pro looks; nobody else.
   return setupViewFor(p, profileSetup(p), pickableInviteThemes());
 }
 
-/** The generic wizard's screens for a type with the engine on — the inputs exactly as generic-onboarding.tsx derives them. */
-function genericScreens(eventType: string): string[] {
-  const p = SEEDED[eventType]!;
+/**
+ * The generic wizard's screens for a type with the engine on — the inputs exactly as
+ * generic-onboarding.tsx derives them, with the type's starting needs (`defaultNeedsFor`) unless a
+ * test flips them.
+ */
+function genericScreens(eventType: string, needsOverride?: EventNeeds): string[] {
+  const p = ALL[eventType]!;
+  const n = needsOverride ?? defaultNeedsFor(eventType, { marketplace: p.marketplaceEnabled === true });
   return genericFlowScreens({
     engine: true,
     asksHonoree: eventTypeAcceptsHonoreeLink(eventType),
@@ -103,50 +134,76 @@ function genericScreens(eventType: string): string[] {
     axisIds: ['exp_for_whom', 'exp_feel', 'exp_energy', 'exp_roots', 'exp_effort'],
     services: false,
     setupSteps: resolveSetupSteps(viewOf(p), CREATION_ASKS.generic),
+    needs: { only: needsAreTheWholeOnboarding(n), guestList: n.guestList },
   });
 }
 
 // ⚖ Owner d24 (2026-10-02): sign-up no longer asks "How do guests get in?" — five cards, not six.
 const CARDS = ['setup_where', 'setup_photo', 'setup_look', 'setup_guests', 'setup_more'];
+// 🚪 Level 1 (owner 2026-10-08): "What do you need?" asks the place, so its card never follows.
+const AFTER_NEEDS = ['setup_photo', 'setup_look', 'setup_guests', 'setup_more'];
+const AFTER_NEEDS_NO_LIST = ['setup_photo', 'setup_look', 'setup_more'];
 
 // ── 1 · per type, the exact step list ─────────────────────────────────────
 
-test('the seed admits exactly the five types; a code fallback never does', () => {
-  for (const [type, p] of Object.entries(SEEDED)) assert.equal(p.onboardingEngine, true, type);
+test('the seeds admit every shipping type; a code fallback never does', () => {
+  for (const [type, p] of Object.entries(ALL)) assert.equal(p.onboardingEngine, true, type);
+  assert.equal(Object.keys(ALL).length, 20);
   assert.equal(WAKE_PROFILE.onboardingEngine ?? false, false);
-  // A row without a look set (wake · corporate · the rest, until G5) stays on yesterday's onboarding.
+  // A row without a look set (a type an admin adds later, until its own seed) stays on yesterday's onboarding.
   assert.equal(toProfile(row('corporate', {})).onboardingEngine, false);
   assert.equal(toProfile(row('corporate', { look_set: [] })).onboardingEngine, false);
 });
 
-test('birthday — exact screens (honoree is its type step; the quiz is gone)', () => {
+test('birthday — exact screens: "What do you need?" (Open · one QR), its celebrant, the date, the cards with no guest list', () => {
   assert.deepEqual(genericScreens('birthday'), [
-    'welcome', 'name', 'honoree', 'date',
+    'needs', 'honoree', 'date',
     ...(getSpecialtyFields('birthday').length > 0 ? ['specialty'] : []),
-    ...CARDS, 'congrats',
+    ...AFTER_NEEDS_NO_LIST, 'congrats',
   ]);
+  // …and with a guest list switched on, "Add your guests" comes back.
+  const withList = { ...defaultNeedsFor('birthday', { marketplace: true }), guestList: true };
+  assert.ok(genericScreens('birthday', withList).includes('setup_guests'));
 });
 
-test('hangout — exact screens', () => {
-  assert.deepEqual(genericScreens('hangout'), [
-    'welcome', 'name', 'date',
+test('hangout and date — the Simple shape: "What do you need?" is the whole onboarding (matrix §0b AFTER)', () => {
+  assert.deepEqual(genericScreens('hangout'), ['needs']);
+  assert.deepEqual(genericScreens('date'), ['needs']);
+  // Switch the Event Hub's details on and the shipped path follows.
+  const more = { ...defaultNeedsFor('hangout', { marketplace: true }), hubDetails: true };
+  assert.deepEqual(genericScreens('hangout', more), [
+    'needs', 'date',
     ...(canToggleRecur('hangout') ? ['recurs'] : []),
     ...(getSpecialtyFields('hangout').length > 0 ? ['specialty'] : []),
-    ...CARDS, 'congrats',
+    ...AFTER_NEEDS_NO_LIST, 'congrats',
   ]);
 });
 
-test('date — exact screens', () => {
-  assert.deepEqual(genericScreens('date'), [
-    'welcome', 'name', 'date',
-    ...(canToggleRecur('date') ? ['recurs'] : []),
-    ...(getSpecialtyFields('date').length > 0 ? ['specialty'] : []),
-    ...CARDS, 'congrats',
-  ]);
+test('get-together (simple_event) — its one form asks name · where · when, then the remaining cards', () => {
+  assert.deepEqual(resolveSetupSteps(viewOf(SEEDED.simple_event!), CREATION_ASKS.simple), AFTER_NEEDS);
 });
 
-test('get-together (simple_event) — its one form asks name + date, then the same five cards', () => {
-  assert.deepEqual(resolveSetupSteps(viewOf(SEEDED.simple_event!), CREATION_ASKS.simple), CARDS);
+test('🚪 EVERY ONE OF THE TWENTY completes onboarding: "What do you need?" first, a finish last, no quiz', () => {
+  for (const t of Object.keys(ALL)) {
+    if (t === 'wedding' || t === 'simple_event') continue; // their own routes, pinned above and below
+    const s = genericScreens(t);
+    assert.equal(s[0], 'needs', `${t} does not open on "What do you need?"`);
+    const n = defaultNeedsFor(t, { marketplace: ALL[t]!.marketplaceEnabled === true });
+    if (needsAreTheWholeOnboarding(n)) {
+      assert.deepEqual(s, ['needs'], t);
+    } else {
+      assert.equal(s.at(-1), 'congrats', `${t} never reaches the create button`);
+      assert.ok(s.includes('date'), `${t} never asks the date`);
+      assert.ok(!s.includes('setup_where'), `${t} asks the place twice`);
+      assert.equal(s.includes('setup_guests'), n.guestList, `${t}: "Add your guests" must follow the Guest list row`);
+    }
+    for (const gone of ['welcome', 'name', 'pax', 'region', 'reveal', 'exp_for_whom', 'exp_effort']) {
+      assert.ok(!s.includes(gone), `${t} still asks ${gone}`);
+    }
+    // A FREE look is pre-selected for every type (owner 2026-10-01).
+    const v = viewOf(ALL[t]!);
+    assert.equal(v.looks.find((l) => l.id === setupDefaults(v).look)?.pro, false, `${t} pre-selects a Pro look`);
+  }
 });
 
 test('wedding — the five cards, slotted into its own shell before the services step', () => {
@@ -221,10 +278,11 @@ test('🔁 NEVER ASKS TWICE — what a creation flow collected never comes back 
     // The same rule against the whole wizard: a creation screen that asks an
     // essential is never followed by the card that asks it again.
     if (flow === 'generic') {
-      for (const t of ['birthday', 'hangout', 'date']) {
+      for (const t of Object.keys(JOINED).concat(['birthday', 'hangout', 'date'])) {
         const s = genericScreens(t);
-        assert.equal(s.filter((x) => x === 'name').length, 1, `${t} asks the name twice`);
-        assert.equal(s.filter((x) => x === 'date').length, 1, `${t} asks the date twice`);
+        // The name is asked on "What do you need?" — never a second time.
+        assert.equal(s.filter((x) => x === 'name' || x === 'needs').length, 1, `${t} asks the name twice`);
+        assert.ok(s.filter((x) => x === 'date').length <= 1, `${t} asks the date twice`);
       }
     }
   }

@@ -153,7 +153,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each group wears</p>
         <p className="text-xs text-ink/55">
-          What each group wears is picked in Studio › Mood Board &amp; Dress Code. Here: when they arrive, and a note.
+          What each group wears, and when they arrive, are set in Studio › Mood Board &amp; Dress Code. Here: a note.
         </p>
         <GroupAttireField
           groups={eventGroups}
@@ -174,7 +174,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each role wears</p>
         <p className="text-xs text-ink/55">
-          Their outfit is picked in Studio › Mood Board &amp; Dress Code. Here: when they arrive, and a note.
+          Their outfit and call time are set in Studio › Mood Board &amp; Dress Code. Here: a note.
         </p>
         <RoleAttireField roles={ownRowRoles} saved={config.roles} compact={compact} wear={wearOf} />
         {/* 🛟 Every other role's stored line rides along unchanged — the Studio dresses those people by their group's
@@ -205,9 +205,10 @@ export function DressCodeFields({
 
 /**
  * The saved outfits this form is not showing, posted back exactly as stored —
- * the same four parallel arrays the visible rows post (`<prefix>_key`,
- * `_style`, `_note`, `_call_time`, zipped BY INDEX in `actions.ts`), so they
- * pass through the one validator on the way back in.
+ * the same parallel arrays the visible rows post (`<prefix>_key`, `_style`,
+ * `_note`, zipped BY INDEX in `actions.ts`), so they pass through the one
+ * validator on the way back in. ⏰ No `_call_time` (owner 2026-10-18): this form
+ * posts no call time anywhere, and `updateDressCode` keeps every stored one.
  */
 function CarriedAttire({
   prefix,
@@ -224,7 +225,6 @@ function CarriedAttire({
             <input type="hidden" name={`${prefix}_key`} value={key} />
             <input type="hidden" name={`${prefix}_style`} value={rule.style} />
             <input type="hidden" name={`${prefix}_note`} value={rule.note ?? ''} />
-            <input type="hidden" name={`${prefix}_call_time`} value={rule.callTime ?? ''} />
           </span>
         ) : null,
       )}

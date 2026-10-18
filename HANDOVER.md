@@ -24,3 +24,18 @@ Own walk folder (scratchpad/call-times-walk/). Other builders running: Google si
 Maker own-section photos, Papic capture — do not touch their files. Never open the owner's cale-ice Maker.
 Shots → ~/Documents/Claude/Projects/shots-2026-10-18/<pr>/. Fragment changelog.d/rd-call-time-per-role.md (SPEC IMPACT: the
 controller records the DECISION_LOG row).
+
+## STATE (builder, 2026-10-18)
+Rule 0 found: the call time ALREADY has one home — `dress_code_config[roles|groups][key].callTime` (`RoleAttireRule.callTime`,
+lib/role-dress-code.ts). The guest page reads it through `resolveAttireFor` (the reader's Studio row) → dress-code-widget
+`mine.callTime`. The Studio (mood-board-studio.tsx) already SHOWED it read-only ("Arrives 2:00 PM" in each row's header).
+The old desktop form (`DressCodeFields` → RoleAttireField/GroupAttireField, Maker Dress code scene) was the only writer.
+No migration needed: same field, so every old time shows in the Studio as-is.
+Built so far (step 1, committed):
+- lib/mood-board-studio.ts: `callTimeOf`, `withCallTime` (a row with no Wear has no line → unchanged).
+- Studio: `CallTimeRow` per row (not guests) — native time field (house pattern), saves on blur via `saveDress`; Clear;
+  "Pick what they wear first" when no Wear. Header "Arrives …" now reads the live draft.
+- Old form: call-time inputs + CarriedAttire `_call_time` removed; `updateDressCode` `withCallTimesCarried` keeps stored
+  times for a tier that posted none (a poster that still sends them is read as before).
+- Prints: no times shown today (dressCodeLines) → left alone.
+NEXT: tests (+ update each-role-wears-its-own / the-outfit-figure tests), sabotage, lab fixture times, 375 shots, PR.

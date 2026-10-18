@@ -101,6 +101,30 @@ function withPaletteCarried<C extends DressCodeConfig>(next: C, base: unknown, f
   return { ...next, palette: was };
 }
 
+/**
+ * ⏰ THE CALL TIMES THIS FORM NO LONGER SETS (owner 2026-10-18: *"each role will have their call time"*, set beside each
+ * row's outfit in Studio › Mood Board & Dress Code). The dress-code form posts no `role_call_time` / `group_call_time`,
+ * so a tier that posted none takes each line's time from the config it replaces — never wiped by a Save made here, and
+ * never a stale tab's time written over one the Studio set since. A poster that still sends a tier's times is read as
+ * before. A line this save removed (its Wear unset) carries nothing: a time with no outfit line is read by nobody.
+ */
+function withCallTimesCarried<C extends DressCodeConfig>(next: C, base: unknown, formData: FormData): C {
+  const was = base && typeof base === 'object' && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
+  const carry = <M extends Partial<Record<string, RoleAttireRule>>>(tier: 'roles' | 'groups', map: M): M => {
+    if (formData.has(tier === 'roles' ? 'role_call_time' : 'group_call_time')) return map;
+    const stored = (was[tier] && typeof was[tier] === 'object' ? was[tier] : {}) as Record<string, { callTime?: unknown } | undefined>;
+    const out = { ...map } as Record<string, RoleAttireRule | undefined>;
+    for (const [key, rule] of Object.entries(out)) {
+      if (!rule) continue;
+      const { callTime: _posted, ...rest } = rule;
+      const time = sanitizeCallTime(stored[key]?.callTime);
+      out[key] = time ? { ...rest, callTime: time } : rest;
+    }
+    return out as M;
+  };
+  return { ...next, roles: carry('roles', next.roles), groups: carry('groups', next.groups) };
+}
+
 async function liveDressCode(eventId: string): Promise<unknown> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('events').select('dress_code_config').eq('event_id', eventId).maybeSingle();
@@ -180,7 +204,9 @@ export async function updateDressCode(
   // ⏰ The fourth parallel array (owner 2026-09-23). `sanitizeCallTime` accepts
   // `HH:MM` and NOTHING else — a half-read "7" repaired into 07:00 is a wrong
   // alarm, which is worse than no alarm. An unreadable value drops to null and
-  // the role simply carries no time.
+  // the role simply carries no time. Since 2026-10-18 the dress-code form posts
+  // NONE (the time is set in Studio › Mood Board & Dress Code) — a tier that
+  // posted no times keeps the stored ones (`withCallTimesCarried`, below).
   const roleCallTimes = formData.getAll('role_call_time').map((v) => String(v));
   const roles: RoleAttireMap = {};
   for (let i = 0; i < roleKeys.length; i += 1) {
@@ -265,7 +291,7 @@ export async function updateDressCode(
     const drafted = await draftedEventColumn(eventId, 'dress_code_config');
     let base: unknown = drafted.drafted ? drafted.value : null;
     if (!drafted.drafted) base = await liveDressCode(eventId);
-    const config = withPaletteCarried(withSecondPicksCarried(built, base), base, formData);
+    const config = withCallTimesCarried(withPaletteCarried(withSecondPicksCarried(built, base), base, formData), base, formData);
     return draftEventsAndReturn(
       eventId,
       { dress_code_config: config },
@@ -277,7 +303,7 @@ export async function updateDressCode(
   // ----- Persist ----------------------------------------------------------
   const supabase = await createClient();
   const live = await liveDressCode(eventId);
-  const config = withPaletteCarried(withSecondPicksCarried(built, live), live, formData);
+  const config = withCallTimesCarried(withPaletteCarried(withSecondPicksCarried(built, live), live, formData), live, formData);
   const { data: written, error } = await supabase
     .from('events')
     .update({

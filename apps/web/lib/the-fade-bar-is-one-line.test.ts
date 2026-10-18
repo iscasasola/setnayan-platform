@@ -210,7 +210,8 @@ test('(6) a ▾ in the Studio’s Background always opens its choices — the ho
   const panel = read(`${E}/main-background-panel.tsx`);
   const studio = panel.slice(panel.indexOf('if (studio) {'), panel.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
   // Every row of word choices is a PickMenu with its whole list and the current value.
-  const menus = [...studio.matchAll(/<PickMenu\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  // 🖼 (+ the Effects block's own — Blur ▾ moved there with Parallax, Look restudy row 8 — read with them.)
+  const menus = [...(studio + read(`${E}/background-effects.tsx`)).matchAll(/<PickMenu\b[\s\S]*?\/>/g)].map((m) => m[0]);
   assert.ok(menus.length >= 4, `anti-vacuity: only ${menus.length} dropdowns read`);
   for (const m of menus) {
     assert.match(m, /\bvalue=\{/, 'a dropdown does not show the current choice');

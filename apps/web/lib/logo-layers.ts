@@ -117,9 +117,13 @@ export type LogoFrameKind = (typeof LOGO_FRAME_KINDS)[number];
 export const LOGO_DEFAULT_INK = '#5C2542';
 
 export const LOGO_MAX_LAYERS = 12;
-export const LOGO_SCALE_MIN = 0.1;
+/* 0.02, not 0.1 (L4 2026-10-18): a letter split out of its word keeps its size there, and a single letter's own box is
+   small, so its scale is small — a floor of 0.1 would have grown every split letter on the next open. */
+export const LOGO_SCALE_MIN = 0.02;
 export const LOGO_SCALE_MAX = 1.5;
 const MAX_NAME = 40;
+export const LOGO_SPACING_MIN = -10;
+export const LOGO_SPACING_MAX = 50;
 const MAX_TEXT = 40;
 
 /** What the config stores for a layer (its shapes live in the composed SVG). */
@@ -151,6 +155,14 @@ export type LogoLayerMeta = {
   keepWhite?: boolean;
   /** How it is written (image · text) — the path "Draw on" reveals along. */
   write?: LogoWritePath;
+  /** 🙈 Off the logo, still in the list (LOGO_MAKER_REPLOT L3). Absent = shown. */
+  hidden?: true;
+  /** 🔒 Not moved by a drag or a pinch on the logo (L3). Absent = free. */
+  locked?: true;
+  /** Text: room between the letters, in hundredths of the size (L4). Absent = the face's own. */
+  spacing?: number;
+  /** Text: how the letters are drawn (L4). Absent = solid. */
+  look?: 'outline' | 'shadow';
 };
 
 /** A layer with its shapes: `body` is SVG paths in its own `w × h` box.
@@ -253,7 +265,12 @@ export function sanitizeLogoLayers(raw: unknown): LogoLayerMeta[] {
       // the italic; a face with no italic outlines is always upright.
       const italic = typeof o.italic === 'boolean' ? o.italic : font === 'cardo';
       layer.italic = italic && Boolean(LOGO_FONT_OUTLINE_ITALIC[font]);
+      const spacing = Math.round(clampNum(o.spacing, LOGO_SPACING_MIN, LOGO_SPACING_MAX, 0));
+      if (spacing) layer.spacing = spacing;
+      if (o.look === 'outline' || o.look === 'shadow') layer.look = o.look;
     }
+    if (o.hidden === true) layer.hidden = true;
+    if (o.locked === true) layer.locked = true;
     if (kind === 'frame') layer.frame = pick(o.frame, LOGO_FRAME_KINDS, 'ring');
     if (kind === 'image' && o.keepWhite === true) layer.keepWhite = true;
     if (kind !== 'frame') {

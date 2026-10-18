@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5ce498d0ad",
+  "generatedFromRef": "b73d4524cb",
   "routeCount": 448,
   "destinations": 993,
   "actions": 664,
-  "blocks": 6598,
+  "blocks": 6597,
   "routes": {
     "/": {
       "files": [
@@ -9992,7 +9992,6 @@
         "HeroPhotoPanel",
         "HubDraftActionResult",
         "HubDraftField",
-        "HubMainEffect",
         "HubMusicButton",
         "HubSavesImmediately",
         "HubSectionCanvas",

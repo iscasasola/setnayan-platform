@@ -13,7 +13,6 @@ import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invit
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
-  HUB_MAIN_BLURS,
   HUB_MAIN_FOCUSES,
   HUB_MAIN_PATTERNS,
   HUB_MAIN_PATTERN_LABEL,
@@ -25,7 +24,6 @@ import {
   isHubMainLoop,
   isHubMainOwn,
   mainGroundPosition,
-  type HubMainEffect,
   type HubMainFocus,
   type HubMainGround,
   type HubMainOwn,
@@ -52,7 +50,7 @@ import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from '
 import { BgColourWells } from './background-colour-wells';
 import { BgFadeBar } from './background-fade-bar';
 import { BgEffects } from './background-effects';
-import { EFFECT_NONE, effectMayApply, effectPicked, effectWith, keepEffect, withEffect } from '@/lib/background-effect';
+import { EFFECT_NONE, effectPicked, effectWith, keepEffect, pictureTakes, withBlur, withEffect, withParallax, type PictureBlur } from '@/lib/background-effect';
 import { fadeMain, fadeOf } from '@/lib/background-fade';
 import {
   BACKGROUND_PICK_CANCELLED,
@@ -153,7 +151,6 @@ const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' 
 const NO_PICTURE: HubMainGround = { ground: 'none' };
 /** A card with no picture of its own yet — paper, never a blank. */
 const PAPER_SWATCH = 'rgb(var(--color-ink) / 0.05)';
-const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
 /** The Colour row's ⓘ and the line a tap on a faint Plain says — the approved prototype's words. */
 const COLOUR_INFO =
   'The first circle is your page colour. Add a second and Dawn · Diagonal · Glow blend from the first to the second. Plain uses one colour — remove the second to pick it.';
@@ -474,20 +471,8 @@ export function MainBackgroundPanel({
   const ground = studio ? lookGround.read(lookKey, server) : server;
   /** ⚡ The pick on its way — which card is ringed and marked, and what the one line says. */
   const [pick, setPick] = useState<BackgroundPick | null>(null);
-  /** ✨◆ A Pro effect being TRIED on the sample screen by a couple without Event Hub Pro — never written (`lib/background-effect.ts`). */
-  const [trying, setTrying] = useState<HubMainEffect | null>(null);
-  const tryingRef = useRef(trying);
-  tryingRef.current = trying;
   /** What "Try again" does: the refused pick, once more. */
   const retry = useRef<(() => void) | null>(null);
-  /* ◆ Leaving the panel ends a try: the sample goes back to what the draft holds (a tried effect is never left on a
-     screen that no longer says it is only being tried). */
-  useEffect(
-    () => () => {
-      if (tryingRef.current) tellLookSample(eventId, { main: lookGround.read(lookKey, serverRef.current).main });
-    },
-    [eventId, lookKey],
-  );
   /** The card just tapped (`data-bg-card`) — the strip says it before the card's own handler runs. */
   const tapped = useRef<string | null>(null);
   /** 🥧 The strip on screen (`data-bg-cards`) — a pick whose file loads holds THAT strip, and no other. */
@@ -642,8 +627,6 @@ export function MainBackgroundPanel({
     /* ✨ ANOTHER BACKGROUND KEEPS THE EFFECT THAT WAS ON — it lies on whatever is there. A write that is ABOUT the effect
        (`fx`: put on, changed, taken off) is taken as it is. */
     const write: LookWrite = 'main' in asked && !opts.fx ? { ...asked, main: keepEffect(asked.main ?? null, ground.main) } : asked;
-    /* ◆ A real pick ends a try: the sample is told what the draft holds, below. */
-    if (tryingRef.current) setTrying(null);
     const next: LookGround = {
       main: 'main' in write ? (write.main ?? null) : ground.main,
       bg: write.events && 'site_bg_color' in write.events ? (write.events.site_bg_color ?? null) : ground.bg,
@@ -964,16 +947,6 @@ export function MainBackgroundPanel({
        follow's photo is gone — what guests see). */
     const fx = hubMainEffect(current);
     const fxLay = backgroundLayOf({ main: current && isHubMainFollow(current) && !follow ? { ground: 'theme' } : (current ?? { ground: 'theme' }), bg: ground.bg }, lookPictures);
-    /** ◆ Tried on the sample screen — told, never written; the ring stays where the draft is. */
-    const tryEffect = (next: HubMainEffect) => {
-      setTrying(next);
-      tellLookSample(eventId, { main: withEffect(current, next) });
-    };
-    const endTry = () => {
-      if (!tryingRef.current) return;
-      setTrying(null);
-      tellLookSample(eventId, { main: current });
-    };
     const storedSource = backgroundSourceOf(current, {
       themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
       followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
@@ -1340,34 +1313,7 @@ export function MainBackgroundPanel({
                 onCommit={(at) => pickLook({ main: fadeTo(at) }, FAILED)}
               />
             ) : null}
-            {own?.kind === 'photo' ? (
-              <BgRow label="Motion" data="motion" info="Parallax: the picture moves a little slower than the page as guests scroll. Off under “reduce motion”.">
-                <PickMenu
-                  label="How the photo moves"
-                  dataAttr="data-main-ground-motion-pick"
-                  className={STUDIO_ROW_PICK}
-                  value={own.motion ?? 'still'}
-                  options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m], ...(proOn && m === 'parallax' ? { trail: PRO_TRAIL } : {}) }))}
-                  onPick={(k) => {
-                    if (k === (own.motion ?? 'still')) return;
-                    const { motion: _m, ...rest } = own;
-                    save(k === 'parallax' ? { ...rest, motion: 'parallax' } : rest, FAILED);
-                  }}
-                />
-              </BgRow>
-            ) : null}
-            {takes.blur ? (
-              <BgRow label="Blur" data="blur">
-                <PickMenu
-                  label="Blur"
-                  dataAttr="data-studio-blur-pick"
-                  className={STUDIO_ROW_PICK}
-                  value={extra('blur') ?? 'none'}
-                  options={[{ key: 'none', label: 'None' }, ...HUB_MAIN_BLURS.map((k) => ({ key: k, label: BLUR_LABEL[k] }))]}
-                  onPick={(k) => k !== (extra('blur') ?? 'none') && save(withExtra('blur', k === 'none' ? null : k), FAILED)}
-                />
-              </BgRow>
-            ) : null}
+            {/* 🌄 Parallax · 🌫 Blur live in the Effects block below, under "The picture" (Look restudy row 8). */}
             {takes.focus ? (
               <BgRow label="Focus" data="focus" info={FOCUS_INFO}>
                 <PickMenu
@@ -1418,32 +1364,41 @@ export function MainBackgroundPanel({
         ) : null}
 
         {/* ✨ EFFECTS — on top of whatever the background is, on every source (owner 2026-10-08). Drawn where the sample
-            screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render; a ◆ effect, for
-            a couple without Event Hub Pro, is tried on the sample and never written. */}
+            screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render. Every effect is ◆
+            (owner 2026-10-16): without Event Hub Pro it is tried free like any Pro choice — written to the draft, worn by
+            the sample, and named at ✓ Apply (`mainGroundChange`). */}
         {onSample ? (
           <BgEffects
             eventId={eventId}
             effect={fx}
-            trying={trying}
-            locked={proOn}
-            proHref={`/dashboard/${eventId}/studio/website-pro`}
+            /* ◆ only while it is TRIED (no Event Hub Pro): `proMark` is 'unlocked' — truthy — for an owner. */
+            locked={proMark === 'try'}
             swatch={fxLay?.still ? paper : fxLay?.image ? `${fxLay.image}${fxLay.color ? `, ${fxLay.color}` : ''}` : (fxLay?.color ?? paper)}
             picture={fxLay?.still ? <StillOverSwatch src={fxLay.still} swatch="transparent" position={fxLay.position} /> : null}
             onPick={(k) => {
               setNote(null);
-              if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : endTry();
-              const next = effectPicked(k, trying ?? fx, current, Boolean(INVITE_THEMES[themeId]?.media));
-              if (!effectMayApply(k, !proOn)) return tryEffect(next);
-              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+              if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : undefined;
+              pickLook({ main: withEffect(current, effectPicked(k, fx, current, Boolean(INVITE_THEMES[themeId]?.media))) }, FAILED, { fx: true });
             }}
             onChange={(change) => {
-              const on = trying ?? fx;
-              if (!on) return;
-              const next = effectWith(on, change);
-              if (trying) return tryEffect(next);
-              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+              if (fx) pickLook({ main: withEffect(current, effectWith(fx, change)) }, FAILED, { fx: true });
             }}
-            onTryEnd={endTry}
+            /* 🖼 THE PICTURE (Look restudy row 8): Parallax ◆ · Blur ▾ on every source — off, with the reason, where the
+               background has no picture. Each a write of the main background, every other key kept. */
+            treatment={{
+              takes: pictureTakes(current),
+              parallax: Boolean(current && 'motion' in current && current.motion === 'parallax'),
+              proMark: proMark === 'try',
+              onParallax: (on) => {
+                const next = withParallax(current, on);
+                if (next && next !== current) save(next, FAILED);
+              },
+              blur: ((current as { blur?: PictureBlur } | null)?.blur ?? 'none') as PictureBlur,
+              onBlur: (b) => {
+                const next = withBlur(current, b);
+                if (next && next !== current) save(next, FAILED);
+              },
+            }}
           />
         ) : null}
 

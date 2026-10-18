@@ -3,7 +3,7 @@ import 'server-only';
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { hubMainEffect, hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
-import { AMBIENT_EFFECT_IS_PRO } from '@/lib/ambient-effects';
+import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO } from '@/lib/ambient-effects';
 import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
@@ -98,14 +98,8 @@ export async function mainGroundLayerFor(input: MainGroundInput): Promise<ReactN
 }
 
 /** The background alone — exactly as it was resolved before effects existed. */
-async function mainGroundOf({
-  theme,
-  heroConfig,
-  event,
-  viewerIsHost,
-  signed = {},
-  tryOn = false,
-}: MainGroundInput): Promise<ReactNode> {
+async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
+  const { theme, heroConfig, event, viewerIsHost } = input;
   const main = hubMainGround(heroConfig);
   /* 🖼 "NONE — JUST THE COLOUR" (owner 2026-09-29, *"the background animated
      video cannot be unpicked"*): the theme's loop is switched off and nothing
@@ -137,13 +131,7 @@ async function mainGroundOf({
      loop's own lightest and darkest clusters (`media.samples`) with the page's
      inks — the same legibility rule an uploaded clip gets (`tint.match` off:
      a loop never recolours the page). */
-  const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
-  // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07).
-  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
-  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
-  const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
-  // The ONE answer to "what is behind the event", shared with Discover's card.
-  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
+  const { mainGround, urls } = await pictureOf(main, input, ownsPro);
   if (mainGround) {
     // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
     const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
@@ -173,6 +161,48 @@ async function mainGroundOf({
     );
   }
   return null;
+}
+
+/**
+ * 🖼 THE PICTURE BEHIND THE EVENT — a moving background of ours (as viewed: Pro, or tried on the host's canvas), else
+ * the ONE answer shared with Discover's card (`guestMainGround`). Shared by the page's layer and the film's
+ * (`mainGroundStillFor`), so the two can never disagree about what the background is.
+ */
+async function pictureOf(
+  main: ReturnType<typeof hubMainGround>,
+  input: Pick<MainGroundInput, 'theme' | 'heroConfig' | 'event' | 'signed' | 'tryOn'>,
+  ownsPro: boolean,
+): Promise<{ mainGround: ResolvedMainGround | null; urls: Record<string, string> }> {
+  const { theme, heroConfig, event, signed = {}, tryOn = false } = input;
+  const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
+  // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07) — and Parallax (Look restudy row 8).
+  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
+  if (loop && isHubMainLoop(main) && main.motion === 'parallax') loop.ground.parallax = true;
+  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
+  const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
+  // The ONE answer to "what is behind the event", shared with Discover's card.
+  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
+  return { mainGround, urls };
+}
+
+/**
+ * 🎞 THE SAVE THE DATE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08: *"Save the
+ * date should adapt to the main background as well. we stay 1 design for all."*). The film is a full-screen layer
+ * of its own over the page, which draws a PICTURE behind its words (`StdBackgroundLayer`) — so it is handed the
+ * main background's picture as one still URL: the couple's photo or scene, a clip's or a moving background's still,
+ * else the theme's own loop's still (what the page wears with nothing stored). `null` = no picture (a colour, a
+ * pattern, "just the colour"): the film then wears the page colour — the caller's `stdFilmOnMain`.
+ */
+export async function mainGroundStillFor(input: MainGroundInput): Promise<string | null> {
+  const { theme, heroConfig, event, signed = {} } = input;
+  const main = hubMainGround(heroConfig);
+  if (mainGroundIsNone(main) || (main && 'ground' in main && main.ground === 'pattern')) return null;
+  const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
+  const { mainGround, urls } = await pictureOf(main, input, ownsPro);
+  const ref = mainGround?.stillRef ?? null;
+  if (ref) return urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
+  /* Nothing of theirs: the theme's own loop, as its still — the page's own ground. */
+  return movingBackground(theme)?.urls[INVITE_THEMES[theme]?.media?.poster ?? ''] ?? null;
 }
 
 /**
@@ -268,8 +298,10 @@ function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls
  * one where a layer was resolved for it, else null — the page's own ground (nothing drawn for a follow with no photo,
  * or for media this viewer is not shown).
  *
- * ◆ A Pro effect is drawn for a guest only while the event OWNS Event Hub Pro (the request's cached read — asked only
- * when a Pro effect is stored), and on the host's own canvas as it WOULD look (`tryOn`). A free one asks nothing.
+ * ◆ One of the six ALWAYS-Pro effects (`AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO`) is drawn for a guest only while the event
+ * OWNS Event Hub Pro (the request's cached read — asked only when one is stored), and on the host's own canvas as it
+ * WOULD look (`tryOn`). Soft haze and Bokeh lights became Pro on 2026-10-16 and are gated at ✓ Apply instead, so one a
+ * free event published before that keeps drawing (*"free events keep what they already published"*) and asks nothing.
  * It wears the COUPLE's colours only. Returning a layer also tells the page to drop its opaque paper (`ownGround`),
  * which is what lets the effect show on a plain colour.
  */
@@ -277,7 +309,7 @@ async function effectOver(ground: ReactNode, { theme, heroConfig, event, tryOn =
   const main = hubMainGround(heroConfig);
   const effect = hubMainEffect(main);
   if (!effect) return ground;
-  if (AMBIENT_EFFECT_IS_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
+  if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
   const shown = ground === null ? null : main;
   const spec = lookSampleEffect(effect, lookEffectOn(shown, lookRowOf(event), theme, true));
   if (!spec) return ground;

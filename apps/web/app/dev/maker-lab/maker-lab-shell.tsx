@@ -369,7 +369,7 @@ export function MakerLabShell({
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
-          ownsPro={false}
+          ownsPro={ownsPro}
           loops={loops}
           /* 🖼🎬 "Your photo or video" — a photo and a hero video of the lab's own (`lab-own-media.ts`), so Focus can be walked. */
           photoChoices={LAB_PHOTO_CHOICES}
@@ -397,7 +397,7 @@ export function MakerLabShell({
     colors: {
       label: 'Colours',
       node: (
-        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />
       ),
     },
     /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */

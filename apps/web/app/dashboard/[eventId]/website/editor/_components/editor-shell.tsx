@@ -10,7 +10,6 @@ import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState
 import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
 import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import type { RowStatus } from './rail-rows';
@@ -112,7 +111,7 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, ScanQrStrip, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
@@ -370,6 +369,8 @@ export function MakerWork({
      */
     typeHere?: readonly SceneTypeWords[];
     ownWords?: Readonly<Record<string, { title: string; body: string }>>;
+    /** ✈ `events.site_magic_traveller` as drafted — the cover Logo's "Travels to the bar" (Look restudy row 9). */
+    magicTraveller?: string | null;
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -2262,6 +2263,7 @@ export function MakerWork({
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
               mediaUsedBytes={sceneFormat.mediaUsedBytes}
+              loopPosters={sceneFormat.loopPosters}
               ownsPro={ownsPro}
               storeShell={sceneFormat.hideLocked}
               hubTheme={sceneFormat.hubTheme as never}
@@ -3252,6 +3254,7 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
+          travels={elementEditing.magicTraveller ?? null}
           resize={toolsResize}
           /* 🕯 The closing's line is ONE part of its own (stored on the hero row, drawn in the footer). */
           parts={elementTarget.key === 'f:closing' ? ['closing'] : elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
@@ -3775,10 +3778,6 @@ function MoreExtras({
   proPriceLabel: string | null;
   showProCta: boolean;
 }) {
-  const [liveUrl, setLiveUrl] = useState<string | null>(null);
-  useEffect(() => {
-    setLiveUrl(liveHref ? new URL(liveHref, window.location.origin).toString() : null);
-  }, [liveHref]);
   return (
     <>
       {liveHref ? (
@@ -3795,13 +3794,8 @@ function MoreExtras({
             height={168}
             className="mt-2 h-auto w-40 rounded-md"
           />
-          {liveUrl ? (
-            <QrActions
-              url={liveUrl}
-              download={{ href: `/api/website/qr${liveHref}`, filename: 'setnayan-event-qr.png' }}
-              className="mt-2 flex flex-wrap gap-1.5"
-            />
-          ) : null}
+          {/* ⚡ The strip (Download · Write to NFC · Copy link) loads with the sheet, not the Maker (`scan-qr-strip.tsx`). */}
+          <ScanQrStrip liveHref={liveHref} />
         </section>
       ) : null}
       {showProCta ? (

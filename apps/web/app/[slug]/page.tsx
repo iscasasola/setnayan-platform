@@ -950,8 +950,6 @@ async function invitationBody({
     heroPhotoUrl,
     heroVideoUrl,
     bgMusicUrl,
-    stdBackground,
-    stdBackgroundUrl,
     stdVideoUrl,
     stdVideoPosterUrl,
     stdVenues,
@@ -1583,8 +1581,6 @@ async function invitationBody({
     // 📸 Back from the camera: how many shots landed (`cameraExitHref`).
     shotsAdded: addedShots(search[CAMERA_ADDED_PARAM]),
     stdFilm,
-    stdBackground,
-    stdBackgroundUrl,
     stdVideoUrl,
     stdVideoPosterUrl,
     stdVenues,

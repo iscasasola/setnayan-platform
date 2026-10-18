@@ -89,18 +89,18 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'You’re planning a celebration — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
+        who: 'You’re planning an event — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
         where: [
-          'Guest list, invitation site, suppliers, budget, seating, mood board',
-          'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, more)',
+          'Home · Guests · Suppliers · Event Hub · More — the guest list, seat plan, budget, schedule and mood board live here',
+          'The Event Hub Maker: five stages, drafted until you press Apply',
+          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, more)',
         ],
       },
       {
-        label: 'Vendor',
+        label: 'Supplier',
         who: 'You sell to hosts. Free profile, optional paid tier for more reach.',
         where: [
-          'Services, bookings inbox, team roles, earnings rollup',
+          'Today · Customers · Shop · More — the next thing to answer, your people and dates, your services and page',
           'Reply-only chat — hosts reach out, you reply with quotes + files',
           'Verification badge, reviews from completed events',
         ],
@@ -109,8 +109,8 @@ const COPY: Record<
         label: 'Guest',
         who: 'You got invited. No sign-up needed — just open your link.',
         where: [
-          'Save-the-Date → Invitation → Logistics → Post-event (4 phases)',
-          'RSVP, meal preference, plus-one naming',
+          'Save the Date → RSVP → Invitation → The Day → Post Event (5 stages)',
+          'Reply, meal preference, plus-one naming',
           'Day-of: find your table, see the live schedule, upload photos',
         ],
       },
@@ -120,23 +120,23 @@ const COPY: Record<
         where: [
           'Users, suppliers, orders, reviews — the day-to-day moderation',
           'Funnels, force-majeure escalations, verification queue',
-          'Website editor for marketing-site widgets',
+          'The editor for the public pages’ widgets',
         ],
       },
       {
         label: 'Public landing',
-        who: 'The marketing site at setnayan.com. Where you’re standing now.',
+        who: 'The public pages at setnayan.com. Where you’re standing now.',
         where: [
-          'Host-side sign-up + vendor-side registration',
+          'Host sign-up + supplier sign-up',
           'Browse the marketplace, read features, see pricing, get help',
           'No login needed — bookmark and share',
         ],
       },
       {
-        label: 'Event landing',
+        label: 'Event Hub',
         who: 'The event’s own public page. The link you share with everyone.',
         where: [
-          'Auto-shifts through 4 phases as the date approaches',
+          'Moves through 5 stages as the date approaches',
           'Each guest gets their own slug for personalised RSVP',
           'Activates day-of mode from T-1h on the day itself',
         ],
@@ -146,11 +146,11 @@ const COPY: Record<
     flow: [
       {
         from: 'Host',
-        to: 'Vendors',
+        to: 'Suppliers',
         what: 'Host browses the marketplace at /explore and opens a chat thread with one (suppliers cannot DM cold).',
       },
       {
-        from: 'Vendor',
+        from: 'Supplier',
         to: 'Host',
         what: 'Supplier replies with a quote + files. Both sides see the same thread.',
       },
@@ -184,18 +184,18 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'Nagpaplano ka ng pagdiriwang — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
+        who: 'Nagpaplano ka ng event — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
         where: [
-          'Guest list, invitation site, suppliers, budget, seating, mood board',
-          'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, at iba pa)',
+          'Home · Guests · Suppliers · Event Hub · More — nandito ang guest list, seat plan, budget, schedule at mood board',
+          'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
+          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, at iba pa)',
         ],
       },
       {
-        label: 'Vendor',
+        label: 'Supplier',
         who: 'Nagbebenta ka sa mga host. Free profile, optional na bayad na tier para sa mas maraming reach.',
         where: [
-          'Services, bookings inbox, team roles, earnings rollup',
+          'Today · Customers · Shop · More — ang susunod na sasagutin, ang mga tao at petsa mo, ang services at page mo',
           'Reply-only chat — ang host ang lalapit, ikaw ang sasagot with quotes + files',
           'Verification badge, reviews from completed events',
         ],
@@ -204,8 +204,8 @@ const COPY: Record<
         label: 'Guest',
         who: 'Na-invite ka. No sign-up needed — buksan mo lang ang link mo.',
         where: [
-          'Save-the-Date → Invitation → Logistics → Post-event (4 phases)',
-          'RSVP, meal preference, plus-one naming',
+          'Save the Date → RSVP → Invitation → The Day → Post Event (5 stages)',
+          'Sagot, meal preference, plus-one naming',
           'Day-of: hanapin ang table mo, tingnan ang live schedule, mag-upload ng photos',
         ],
       },
@@ -215,23 +215,23 @@ const COPY: Record<
         where: [
           'Users, suppliers, orders, reviews — ang araw-araw na moderation',
           'Funnels, force-majeure escalations, verification queue',
-          'Website editor para sa marketing-site widgets',
+          'Ang editor para sa widgets ng public pages',
         ],
       },
       {
         label: 'Public landing',
-        who: 'Ang marketing site sa setnayan.com. Kung nasaan ka ngayon.',
+        who: 'Ang public pages sa setnayan.com. Kung nasaan ka ngayon.',
         where: [
-          'Host-side sign-up + vendor-side registration',
+          'Host sign-up + supplier sign-up',
           'I-browse ang marketplace, basahin ang features, tingnan ang pricing, humingi ng help',
           'No login needed — i-bookmark at i-share',
         ],
       },
       {
-        label: 'Event landing',
+        label: 'Event Hub',
         who: 'Ang sariling public page ng event. Ang link na i-share mo sa lahat.',
         where: [
-          'Auto-shift sa 4 phases habang papalapit ang date',
+          'Dumadaan sa 5 stages habang papalapit ang date',
           'May sariling slug ang bawat guest para sa personalised RSVP',
           'Nag-a-activate ng day-of mode from T-1h sa mismong araw',
         ],
@@ -241,11 +241,11 @@ const COPY: Record<
     flow: [
       {
         from: 'Host',
-        to: 'Vendors',
+        to: 'Suppliers',
         what: 'Nagba-browse ang host sa marketplace sa /explore at nagbubukas ng chat thread sa isa (hindi pwedeng mag-cold-DM ang suppliers).',
       },
       {
-        from: 'Vendor',
+        from: 'Supplier',
         to: 'Host',
         what: 'Sumasagot ang supplier with a quote + files. Iisang thread ang nakikita ng dalawa.',
       },

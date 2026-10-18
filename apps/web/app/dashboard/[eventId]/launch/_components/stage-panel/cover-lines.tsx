@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
@@ -11,6 +11,7 @@ import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
 import { SP_ROWS } from '@/lib/maker-stage-room';
 import { elementPreview } from '../../../website/editor/_components/element-preview';
 import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
+import { noteMergedSave, usePickUntilDraftMoves } from './follow-draft';
 import { PanelSwitch } from './kit';
 
 /**
@@ -95,6 +96,8 @@ async function keepShown(el: HubElementKey, shown: boolean): Promise<boolean> {
   } catch {
     res = { ok: false, intent: 'save', error: '' };
   }
+  /* 👥 Another screen's change merged in: the Maker's copy takes the merged cover (`follow-draft.ts`). */
+  noteMergedSave(res, server);
   if (res === SUPERSEDED || res.ok) return true;
   forgetCanvasSent('hero');
   if (canvasFingerprint(draftedCanvasOr('hero', server)) === canvasFingerprint(next)) {
@@ -120,12 +123,13 @@ async function keepLogo(on: boolean): Promise<boolean> {
 }
 
 export function CoverLines({ lines, onPick, onSay }: { lines: readonly CoverLine[]; onPick: (part: MakerPartKey) => void; onSay: (words: string) => void }) {
-  /* What a switch says until the page that shows it comes back (the canvas redraws, then `lines` follows). */
-  const [own, setOwn] = useState<Partial<Record<MakerPartKey, boolean>>>({});
+  /* ↺ What a switch says until the draft moves (`follow-draft.ts`): the pick's own value until `lines` follows it —
+     and from then on the draft's, so ↺ · Reset · Restore · another screen's change turn the switch back with the page. */
+  const [shown, pick] = usePickUntilDraftMoves(Object.fromEntries(lines.map((l) => [l.part, l.shown])) as Partial<Record<MakerPartKey, boolean>>);
   const [pending, start] = useTransition();
-  const shownOf = (l: CoverLine) => own[l.part] ?? l.shown;
+  const shownOf = (l: CoverLine) => shown[l.part] ?? l.shown;
   const flip = (l: CoverLine, on: boolean) => {
-    setOwn((m) => ({ ...m, [l.part]: on }));
+    pick({ ...shown, [l.part]: on });
     start(async () => {
       const el = MAKER_PARTS[l.part].el;
       let ok = false;
@@ -135,7 +139,8 @@ export function CoverLines({ lines, onPick, onSay }: { lines: readonly CoverLine
         ok = false;
       }
       if (!ok) {
-        setOwn((m) => ({ ...m, [l.part]: !on }));
+        /* Refused: the draft was put back — show it. */
+        pick(null);
         onSay(NOT_SAVED);
       }
     });

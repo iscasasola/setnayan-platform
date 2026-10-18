@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 298,
+  "total": 297,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -161,7 +161,6 @@
     "app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx · white on mulberry": 1,
     "app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · ink on white": 2,
     "app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · white on mulberry": 4,
-    "app/dashboard/[eventId]/website/editor/_components/background-effects.tsx · ink on white": 1,
     "app/dashboard/[eventId]/website/editor/_components/background-fade-bar.tsx · ink on white": 1,
     "app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx · ink on white": 2,
     "app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx · ink on white": 1,

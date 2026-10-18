@@ -10,7 +10,8 @@ import { AccessRequestsDoorway } from './_components/access-requests-doorway';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -37,7 +38,7 @@ import { formatEventDate } from '@/lib/events';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { eventNoun } from '@/lib/event-noun';
 import { FinishedEventSummary } from './_components/after/finished-event-summary';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
@@ -557,6 +558,27 @@ export default async function EventHomePage({
   // dashboard is the planning surface the store shell exists for; only the
   // purchase pitch is withheld. See lib/store-shell.ts.
   const storeShellRead = isStoreShellRequest();
+  /* 🍎 APPLE IN-APP PURCHASE (owner 2026-10-18): where the iPhone app may sell
+     through Apple, "Your services" carries Papic and Live Watch with their one
+     control (lib/iap/iap-gate.ts). Three small reads, made ONLY in that app —
+     the web and every other shell never start them. */
+  const appleRead = getIapGate().then(async ({ iap }) => {
+    if (!iap) return null;
+    // The one host-surface entitlement client — a co-host reads what the EVENT owns.
+    const ent = await eventEntitlementClient(eventId).catch(() => null);
+    if (!ent) return { liveActive: null, liveOwned: null, acked: null };
+    const [liveActive, liveOwned, ack] = await Promise.all([
+      eventSkuActive(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
+      eventOwnsSku(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
+      supabase
+        .from('users')
+        .select('youtube_live_ready_ack_at')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data, error }) => (error ? null : Boolean((data as { youtube_live_ready_ack_at?: string | null } | null)?.youtube_live_ready_ack_at))),
+    ]);
+    return { liveActive, liveOwned, acked: ack };
+  }).catch(() => null); // never the reason Home fails to draw
 
   // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
   // one Next card. Authorised by the viewer's role, so it chains on that read.
@@ -603,6 +625,7 @@ export default async function EventHomePage({
     { now: moneyNow, guard: guardMoney },
     papicTile,
     homeNavSlots,
+    appleFacts,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -615,6 +638,7 @@ export default async function EventHomePage({
     moneyRead,
     papicTileRead,
     navSlotsRead,
+    appleRead,
   ]);
 
   /*
@@ -743,6 +767,11 @@ export default async function EventHomePage({
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
   const homeFirstScreen = (
+    <>
+    {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
+        lands — every unfinished Apple purchase is handed to our server. Only
+        where the app sells through Apple; never on the Maker's first load. */}
+    {appleFacts ? <AppStoreTransactions /> : null}
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
@@ -755,6 +784,27 @@ export default async function EventHomePage({
       figures={facts.figures}
       services={homeServiceRow}
       papicLeft={papicNow.count}
+      apple={
+        appleFacts
+          ? {
+              // Papic credits are the couple's to buy, as on the web; its status is the row's own.
+              papic: canViewPapicCounts ? { status: papicNow.status, buy: viewerMemberType === 'couple' } : null,
+              // A read that failed is "—" and offers nothing — never "Not on yet" over a refusal.
+              liveWatch:
+                appleFacts.liveActive === null || appleFacts.liveOwned === null
+                  ? { status: '—', owned: true, askReady: false }
+                  : {
+                      status: appleFacts.liveActive
+                        ? 'On'
+                        : appleFacts.liveOwned
+                          ? 'Being switched on'
+                          : 'Not on yet · one camera is free',
+                      owned: appleFacts.liveActive || appleFacts.liveOwned,
+                      askReady: appleFacts.acked !== true,
+                    },
+            }
+          : null
+      }
       ground={homeCover}
       navSlots={homeNavSlots}
       needs={homeNeeds}
@@ -776,6 +826,7 @@ export default async function EventHomePage({
         </Suspense>
       }
     />
+    </>
   );
 
   // Home-injected overlays — the cultural / set-date cards that the dashboard

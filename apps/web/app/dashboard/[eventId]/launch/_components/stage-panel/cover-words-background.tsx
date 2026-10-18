@@ -45,7 +45,8 @@ function showCoverShade(look: ReturnType<typeof coverShadeLook> | null): void {
 
 /** The toolbar's source keys ↔ the Cover Scene's (`lib/cover-scene.ts`): the first source is The theme's own. */
 const TO_BG: Readonly<Record<CoverSceneSource, StageBgSource>> = { theme: 'hub', colour: 'colour', scene: 'scene', own: 'own' };
-const FROM_BG: Readonly<Record<StageBgSource, CoverSceneSource>> = { hub: 'theme', colour: 'colour', scene: 'scene', own: 'own' };
+/* The Cover's own Scene ◆ IS our loops — a part's Video ◆ source (Look restudy row 7) maps onto it, never offered here. */
+const FROM_BG: Readonly<Record<StageBgSource, CoverSceneSource>> = { hub: 'theme', colour: 'colour', scene: 'scene', video: 'scene', own: 'own' };
 const COLOUR_KINDS = ['color', 'diagonal', 'glow', 'glass', 'frost'] as const;
 type ColourKind = (typeof COLOUR_KINDS)[number];
 const COLOUR_NAME: Readonly<Record<ColourKind, string>> = { color: 'Plain', diagonal: 'Diagonal', glow: 'Glow', glass: 'Opaque', frost: 'Frosted' };

@@ -190,7 +190,8 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   const page = read(PAGE);
   assert.match(
     page,
-    /addScene=\{\s*storeShell\s*\?\s*null\s*:\s*!nextFreeCustomSlot\(/,
+    // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+    /addScene=\{\s*proShell\s*\?\s*null\s*:\s*!nextFreeCustomSlot\(/,
     'the store shell must get nothing, and every other couple the sheet (or the six-cap note)',
   );
   assert.doesNotMatch(page, /Scenes of your own, from 25 templates, come with Event Hub Pro/, 'a free couple is still turned away at the door');

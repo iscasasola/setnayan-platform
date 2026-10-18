@@ -54,6 +54,9 @@ import {
   FIXED_STYLE_LABEL,
   heldStageShow,
   blockMotionsGrowing,
+  mainEffectChange,
+  mainGroundChange,
+  withoutEffect,
   cameraLookOfDraft,
   rsvpLookGrowing,
   stylePreferencesProParts,
@@ -194,7 +197,8 @@ function eventEffect(
     case 'site_art_direction':
       return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_magic_traveller':
-      return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'look' } };
+      /* ✈ The cover Logo's Action (Look restudy row 9) — named and jumped to where it now lives. */
+      return { what: 'Travels to the bar', where: 'Logo', jump: { kind: 'tool', key: 'hero' } };
     case 'site_bg_color':
       return { what: 'Ombré background', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'rsvp_backdrop':
@@ -248,6 +252,20 @@ function mainWhat(main: HubMainGround | null): string {
   if (!main || isHubMainChoice(main)) return 'Background';
   if (isHubMainFollow(main)) return 'Adaptive theme';
   return main.kind === 'snippet' ? 'Video background' : 'Photo background';
+}
+
+/**
+ * ✨ The Main background's line: its name, and "Effect" when the effect on it is new or changed (owner 2026-10-16: every
+ * effect is Pro) — "Effect" alone when that is all that changed, "Photo background · Effect" when both did. The word,
+ * not the effect's own name: the names live with the engine (`lib/ambient-effects.ts`), which the Maker's first load
+ * does not carry (the Animate line says "Animation" for the same reason).
+ */
+function mainLineWhat(live: HubMainGround | null, next: HubMainGround | null): string {
+  const fx = mainEffectChange(live, next);
+  if (fx !== 'add' && fx !== 'change') return mainWhat(next);
+  const bare = (m: HubMainGround | null) => (m ? withoutEffect(m) : m);
+  const rest = mainGroundChange(bare(live), bare(next));
+  return rest === 'add' || rest === 'change' ? `${mainWhat(next)} · Effect` : 'Effect';
 }
 
 /* ── THE LIST ────────────────────────────────────────────────────────────── */
@@ -373,7 +391,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       const liveMain = row ? hubMainGround(row.config_json) : null;
       push({
         id: 'main',
-        what: mainWhat(item.value as HubMainGround | null),
+        what: mainLineWhat(liveMain, item.value as HubMainGround | null),
         where: 'Behind every scene',
         jump: { kind: 'look' },
         remove: { widgets: { [item.widgetType]: { main: liveMain } } as HubDraftPatch['widgets'] },

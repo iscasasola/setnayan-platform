@@ -82,6 +82,7 @@ import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase,
 import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
 import { CoverLines, type CoverLine } from './stage-panel/cover-lines';
+import { useDraftMoves } from './stage-panel/follow-draft';
 import { CoverAnimate } from './stage-panel/cover-animate';
 import type { HubHeroElementKey } from '@/lib/element-style';
 import { draftedCanvasOr, draftedOwnWordsOr } from '@/lib/maker-draft-store';
@@ -1492,7 +1493,9 @@ export function StageTools({
   );
   /* ✏️ THE COVER'S LINES, for Cover Scene › Edit — read off the page (what it drew, and what it drew hidden) and the
      Maker's own copy of the hero row (each line's `hidden`), again after every render. The Logo is the event's
-     "Show the logo" answer: on while the page draws the mark. */
+     "Show the logo" answer: on while the page draws the mark. ↺ …and after every move of that copy no render brings — a
+     drawn ↺, a merged save (`useDraftMoves`, `stage-panel/follow-draft.ts`) — so the switches turn back with the page. */
+  const draftMoves = useDraftMoves();
   const [coverLines, setCoverLines] = useState<CoverLine[]>([]);
   useEffect(() => {
     /* (Animate's beats name the same lines.) */
@@ -1522,7 +1525,7 @@ export function StageTools({
     read();
     const t = window.setTimeout(read, 400);
     return () => window.clearTimeout(t);
-  }, [picked, rsvpOpen, frameSel, stageKey, shownPage, present, maker?.renderStamp]);
+  }, [picked, rsvpOpen, frameSel, stageKey, shownPage, present, maker?.renderStamp, draftMoves]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
   /* 📱 THE VENUE CARDS' PICTURE ▾, RIGHT HERE — Edit's rows 2–3 on the Venue scene (controller ruling 2026-10-17 on the

@@ -117,6 +117,7 @@ import {
 import { configWithPhotosHeading, photosHeadingOf, sanitizePhotosHeading } from '@/lib/photos-heading';
 import {
   HUB_MAIN_GROUND_KEY,
+  hubMainEffect,
   hubMainGround,
   isHubMainFollow,
   isHubMainLoop,
@@ -2145,14 +2146,36 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
     isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
-  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
-  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
+  /* 🌄 Parallax on ANY picture is Pro to add (Look restudy row 8 widened it past an own photo). */
+  const motion = (m: HubMainGround | null) => (m && 'motion' in m && m.motion === 'parallax' ? 'parallax' : null);
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null), mainEffectChange(live, null));
   return combineChanges(
     refChange(ref(live), ref(next)),
     refChange(poster(live), poster(next)),
     refChange(tint(live), tint(next)),
     refChange(motion(live), motion(next)),
+    mainEffectChange(live, next),
   );
+}
+
+/**
+ * ✨ The effect on the main background, live → drafted (owner 2026-10-16: *"all animate, effects, styles, accents are
+ * pro"* — every one of the eight, `AMBIENT_EFFECT_IS_PRO`). The whole effect is one reference — its kind, How much and
+ * Colour — so putting one on, swapping it or retuning it is Pro, and taking it off is free. An effect already LIVE
+ * compares as no change: a free event keeps what it published (`refChange`), the #6623 grandfather.
+ */
+export function mainEffectChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
+  const fx = (m: HubMainGround | null) => {
+    const e = hubMainEffect(m);
+    return e ? `${e.kind}:${e.intensity}:${e.colour ?? ''}` : null;
+  };
+  return refChange(fx(live), fx(next));
+}
+
+/** The background with its effect taken off — every other key as it was (what the Apply line compares the rest by). */
+export function withoutEffect(main: HubMainGround): HubMainGround {
+  const { effect: _fx, ...rest } = main as HubMainGround & { effect?: unknown };
+  return rest as HubMainGround;
 }
 
 /**
@@ -3143,7 +3166,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
-  site_magic_traveller: 'Magic move',
+  site_magic_traveller: 'Your logo travelling to the bar',
   site_button_style: 'Your buttons',
   site_roles: 'Your fonts',
   invite_theme: 'Your theme',

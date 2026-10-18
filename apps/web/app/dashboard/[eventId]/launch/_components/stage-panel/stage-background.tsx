@@ -30,7 +30,7 @@ import { Dd, Swatch } from './kit';
  * just this element"*): In frame, How close, "Use this background on every scene?", "Remove this scene's photo" (pick
  * another source) and the ⓘ's sentence. What was stored for them is still honoured by the page.
  */
-export type StageBgSource = 'hub' | 'colour' | 'scene' | 'own';
+export type StageBgSource = 'hub' | 'colour' | 'scene' | 'video' | 'own';
 /** One choice of row 2: its key, its name, the picture it wears (CSS), and whether it moves (a clip). */
 /**
  * One choice of row 2 — a picture tile with its name written on it. `tone` and `fade` are the tile's own reading

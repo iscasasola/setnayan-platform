@@ -72,6 +72,19 @@ type FlagSpec = {
 
 const FLAGS: FlagSpec[] = [
   {
+    // 🍎 Apple In-App Purchase in the iPhone app (owner 2026-10-18, DECISION_LOG
+    // "IN-APP PURCHASE — THE FIVE DECISIONS"). Registered the day it shipped dark.
+    // ONE of three conditions — the store shell and the StoreKit build's UA token
+    // are the others — so the gate itself is the pure `iapAvailable`, handed the
+    // flag; the server wrapper (getIapGate) is the one asker.
+    env: 'NEXT_PUBLIC_APPLE_IAP_ENABLED',
+    helper: 'lib/apple-iap-flag.ts',
+    fn: 'isAppleIapEnabled',
+    gates: ['lib/request-platform.ts'],
+    pureCores: ['lib/iap/iap-gate.ts'],
+    locals: ['appleIap'],
+  },
+  {
     // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
     // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
     // the day it shipped dark. Also on for an internal viewer — handed in.

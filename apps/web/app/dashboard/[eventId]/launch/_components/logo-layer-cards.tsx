@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CircleDashed, ImagePlus, Lock, Plus, Type } from 'lucide-react';
-import { LOGO_LAYER_KIND_LABEL, type LogoLayer } from '@/lib/logo-layers';
-import { layerShapes } from '@/lib/logo-layers-edit';
+import type { LogoLayer } from '@/lib/logo-layers';
+import { LOGO_LAYER_KIND_LABEL, layerShapes } from '@/lib/logo-layers-edit';
 import { cardDropIndex, LOGO_CARD_H_PX, LOGO_CARD_HALF_PX } from '@/lib/logo-maker-layout';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
@@ -247,6 +247,8 @@ export const LOGO_ADD_KINDS = [
   { kind: 'text', label: 'Text', hint: 'Words in one of your fonts' },
   { kind: 'image', label: 'Image', hint: 'From your phone — white is removed' },
   { kind: 'frame', label: 'Frame', hint: 'Ring · Diamond · Arch · Cartouche…' },
+  /* ❦ L5 (owner 2026-10-08 "approve add ornament") — the prototype's fourth row, its words. */
+  { kind: 'ornament', label: 'Ornament', hint: 'A flourish, a leaf, a star' },
 ] as const;
 export type LogoAddKind = (typeof LOGO_ADD_KINDS)[number]['kind'];
 
@@ -254,11 +256,17 @@ const ADD_ICON: Record<LogoAddKind, ReactNode> = {
   text: <Type aria-hidden className="h-4 w-4" />,
   image: <ImagePlus aria-hidden className="h-4 w-4" />,
   frame: <CircleDashed aria-hidden className="h-4 w-4" />,
+  /* The prototype's ❦ — drawn here as the leaf's own blade (no new icon module: the Maker's first load had 0.1 KB left). */
+  ornament: (
+    <svg aria-hidden viewBox="0 0 200 200" className="h-4 w-4" fill="currentColor">
+      <path d="M100 58C84 34 48 26 30 52C12 80 34 120 62 146C76 160 90 172 100 196C110 172 124 160 138 146C166 120 188 80 170 52C152 26 116 34 100 58Z" />
+    </svg>
+  ),
 };
 
 /**
  * ＋ ADD A LAYER (L2) — drawn IN the tools panel, under the carousel (nothing opens over the workspace): one row per
- * kind, the kind's icon, its name and its one line, as the prototype's sheet lists them. The ornament waits for L5.
+ * kind, the kind's icon, its name and its one line, as the prototype's sheet lists them: Text · Image · Frame · Ornament.
  */
 export function LogoAddLayer({ disabled, onAdd, children }: { disabled: boolean; onAdd: (kind: LogoAddKind) => void; children?: ReactNode }) {
   return (

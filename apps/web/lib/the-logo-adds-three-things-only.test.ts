@@ -11,8 +11,9 @@
  *       saved file alike (`layerTransform`);
  *   3 · Out in Motion — saved (`data-out`) and PLAYED by the guest player.
  * And nothing else: no starting designs (a "Monogram" or "Crest" to start
- * from), no ornaments, no split-into-letters, no hide / lock / duplicate, no
- * download. Sabotage any one of those into the editor and this goes red.
+ * from), no download. Sabotage either into the editor and this goes red.
+ * (Split, hide / lock / duplicate came back with the 2026-10-08 replot, L2–L4;
+ * the ornament with L5 — see the re-aimed note on the last-but-one test.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,10 +81,13 @@ test('3 · Out is in Motion, saved, and played', () => {
 
 /* RE-AIMED 2026-10-18: the owner APPROVED the replot on 2026-10-08 (DECISION_LOG "LOGO MAKER REPLOT APPROVED, WITH
    ORNAMENT"), which brings split into letters, hide / lock / duplicate, letter spacing and looks back (L2–L4). What it
-   does NOT bring stays out: starting designs and download — and the ornament waits for its own PR (L5). */
-test('nothing else: no starting designs, ornaments (L5, not built) or download', () => {
+   does NOT bring stays out: starting designs and download.
+   RE-AIMED 2026-10-18 (L5): the same 10-08 row, owner verbatim *"approve add ornament"*, REVERSES the 2026-10-06
+   ornament removal — ＋ Add layer = Text · Image · Frame · Ornament. Ornament is allowed now (its own guard:
+   `the-logo-adds-ornaments.test.ts`); starting designs and download stay banned. */
+test('nothing else: no starting designs or download', () => {
   const src = editor() + stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/launch/_components/logo-layer-cards.tsx'), 'utf8'));
-  for (const banned of [/\bCrest\b/, /['"`>]\s*Monogram\s*['"`<]/, /Starting design/i, /Start from/i, /Ornament/i, /Download/i]) {
+  for (const banned of [/\bCrest\b/, /['"`>]\s*Monogram\s*['"`<]/, /Starting design/i, /Start from/i, /Download/i]) {
     assert.doesNotMatch(src, banned, `the Logo editor gained ${banned}`);
   }
 });

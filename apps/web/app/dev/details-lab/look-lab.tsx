@@ -83,7 +83,7 @@ export function LookLab({ children }: { children: ReactNode }) {
         background: null,
         font: <ColorsPanel action={labDraft} eventId="lab" rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} />,
         colours: (
-          <ColorsPanel action={labDraft} eventId="lab" rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} magicTraveller={null} />
+          <ColorsPanel action={labDraft} eventId="lab" rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} />
         ),
         palette: null,
         buttons: null,

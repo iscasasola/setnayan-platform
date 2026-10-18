@@ -120,6 +120,7 @@ vendor_partnerships.admin_verified | The two-admin partnership gate was RETIRED 
 # fail on anything NEW; none has been individually researched. Clearing a line
 # here is a good small task — replace it with a real reason or a real control.
 budget_allocation_decisions.auto_reduced_for_pin | NOT INVESTIGATED (never mentioned in app code).
+budget_allocation_decisions.was_pinned | HISTORICAL SINCE BUDGET B2/B5 (2026-10-18). Its only writer was `saveAllocationSnapshot`, called only by the Budget page's allocation planner; the owner removed that planner from the page (2026-10-08, "not this one"), #6516 deleted the component, and Budget B5 (#6633) deleted the then-callerless action. The rows already written stay readable (`fetchSavedAllocationPlan`, the admin aggregate). If the planner ever returns, its save action returns with it and this line goes.
 editorial_vendor_media.hidden_by_couple | NOT INVESTIGATED (read-only).
 events.papic_vendor_challenges_enabled | NOT INVESTIGATED (never mentioned in app code).
 guest_claims.requested_role | NOT INVESTIGATED (never mentioned in app code).

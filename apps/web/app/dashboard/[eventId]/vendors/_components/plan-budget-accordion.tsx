@@ -1936,7 +1936,7 @@ function InAppServiceCard({
       <div className="svc-top">
         <span className="svc-badge">✦ Setnayan</span>
         {soon ? (
-          <span className="svc-pill">Coming soon</span>
+          <span className="svc-pill" data-coming-soon>Coming soon</span>
         ) : addon.status === 'web_v1' ? (
           <span className="svc-pill">Web V1</span>
         ) : null}
@@ -1953,7 +1953,10 @@ function InAppServiceCard({
   );
 
   return (
-    <div className={`card svc${soon ? ' soon' : ''}${opening ? ' opening' : ''}`}>
+    <div
+      className={`card svc${soon ? ' soon' : ''}${opening ? ' opening' : ''}`}
+      data-coming-soon={soon ? '' : undefined}
+    >
       {soon ? (
         <div className="v" aria-label={`${addon.label} — coming soon`}>
           {inner}

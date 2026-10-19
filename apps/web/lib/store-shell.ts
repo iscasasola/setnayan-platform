@@ -346,3 +346,39 @@ export function storeShellRefusesPayable(
 export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean): boolean {
   return !storeShell || !paywallEnabled;
 }
+
+/**
+ * 🚧 THE STORE SHELL SHOWS NO "COMING SOON". App Review reads a "Coming soon"
+ * pill as an unfinished app (guideline 2.1 / 2.3) — sweep 2026-10-19 counted
+ * about twelve inside the app. The web keeps them (an honest roadmap note);
+ * the app hides them.
+ *
+ * HOW: every element that says it — the pill, or the whole card when "Coming
+ * soon" is its only state — carries `data-coming-soon`, and one CSS rule in
+ * app/globals.css hides those under `html[data-store-shell]`. The attribute is
+ * set by `storeShellMarkScript` below, an inline <head> script in
+ * app/layout.tsx, so it is on <html> BEFORE THE FIRST PAINT — no flash, no
+ * hydration step, and static/ISR pages are covered too (the root layout
+ * cannot read the request without de-opting every cached route).
+ *
+ * `lib/store-shell.test.ts` holds both halves: the script answers exactly what
+ * `isStoreShellInBrowser` answers on the same table of user agents and
+ * cookies (so the .dmg is never marked), and every JSX "coming soon" in a
+ * route the store shell can open sits inside a `data-coming-soon` element.
+ */
+export const STORE_SHELL_HTML_ATTR = 'data-store-shell';
+export const COMING_SOON_ATTR = 'data-coming-soon';
+
+/**
+ * The <head> script. Plain ES5 on purpose (it runs before any bundle); it is
+ * `isStoreShellInBrowser` spelled out by hand, and the test runs THIS string
+ * against that function's own cases.
+ */
+export const storeShellMarkScript = `(function(){try{
+  var ua=navigator.userAgent||'';var ct='';
+  var parts=(document.cookie||'').split(';');
+  for(var i=0;i<parts.length;i++){var p=parts[i];var eq=p.indexOf('=');if(eq<0)continue;
+    if(p.slice(0,eq).trim()!=='${CLIENT_TYPE_COOKIE}')continue;ct=p.slice(eq+1).trim();break;}
+  var s=ct==='capacitor'?true:ct==='tauri'?false:/SetnayanApp\\/desktop/i.test(ua)?false:/SetnayanApp/i.test(ua);
+  if(s)document.documentElement.setAttribute('${STORE_SHELL_HTML_ATTR}','1');
+}catch(e){}})();`;

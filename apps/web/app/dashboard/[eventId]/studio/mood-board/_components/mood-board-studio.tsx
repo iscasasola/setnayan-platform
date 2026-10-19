@@ -433,13 +433,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const [arriveBlocks, setArriveBlocks] = useState<ArriveBlock[] | null>(props.arrival ? props.arrival.blocks : null);
   /* A render brings the programme as stored (an edit made on the Schedule since) — that read is the truth. */
   useEffect(() => setArriveBlocks(props.arrival ? props.arrival.blocks : null), [props.arrival]);
-  const setGuestsArrive = (hhmm: string | null) => {
+  /* A refusal is said right under the field, which goes back to the time that is stored (`CallTimeRow`). */
+  const setGuestsArrive = (hhmm: string | null): string | void => {
     if (!arriveBlocks || hhmm === null) return;
     const plan = guestsArriveWrite({ blocks: arriveBlocks, hhmm, eventDate: props.arrival?.eventDate ?? null });
-    if (plan.kind === 'refuse') {
-      refuse(plan.why);
-      return;
-    }
+    if (plan.kind === 'refuse') return plan.why;
     const before = arriveBlocks;
     const newId = plan.kind === 'create' ? crypto.randomUUID() : '';
     const after = afterGuestsArriveWrite(before, plan, newId);
@@ -1499,7 +1497,8 @@ function CallTimeRow({
   label: string;
   value: string | null;
   canSet: boolean;
-  onSet: (hhmm: string | null) => void;
+  /** Returns words when the time is refused: they are said under the field, and the field shows the stored time again. */
+  onSet: (hhmm: string | null) => string | void;
   /** Said in place of the field while it cannot be set. */
   waits?: string;
   /** Said beside an empty field (the Guests row: "Set when guests arrive"). */
@@ -1509,14 +1508,18 @@ function CallTimeRow({
 }) {
   const id = useId();
   const [time, setTime] = useState(value ?? '');
+  const [refused, setRefused] = useState<string | null>(null);
   useEffect(() => setTime(value ?? ''), [value]);
   const commit = () => {
     const next = time === '' ? null : time;
     if (next === value) return;
     if (next !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) return;
-    onSet(next);
+    const no = onSet(next);
+    setRefused(no || null);
+    if (no) setTime(value ?? '');
   };
   return (
+    <div className="flex flex-col gap-1">
     <div className="flex min-h-11 items-center gap-2" data-mood-board-call-time={rowKey}>
       {canSet ? (
         <label htmlFor={id} className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">
@@ -1546,6 +1549,12 @@ function CallTimeRow({
       ) : (
         <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-waits="">{waits}</span>
       )}
+    </div>
+    {refused ? (
+      <p role="alert" className="text-[12px] leading-snug text-ink/75" data-mood-board-call-time-refused={rowKey}>
+        {refused}
+      </p>
+    ) : null}
     </div>
   );
 }

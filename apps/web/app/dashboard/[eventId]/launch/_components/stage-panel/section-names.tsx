@@ -72,7 +72,21 @@ export function SectionNames({
     read();
     // The canvas marks its parts a moment after it is ready.
     const t = window.setTimeout(read, 400);
-    return () => window.clearTimeout(t);
+    /* …and it is drawn AGAIN after a kept heading (the save is not held): read when the canvas says it is ready, so the
+       row shows the heading the page now draws — never the words from before the redraw. */
+    let late: number | undefined;
+    const onReady = (e: MessageEvent) => {
+      const d = e.data as { source?: string; t?: string } | null;
+      if (e.origin !== window.location.origin || d?.source !== 'setnayan-site' || d.t !== 'ready') return;
+      window.clearTimeout(late);
+      late = window.setTimeout(read, 250);
+    };
+    window.addEventListener('message', onReady);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(late);
+      window.removeEventListener('message', onReady);
+    };
   }, [readDoc, stamp]);
   if (sections.length === 0) return null;
   const on = sections.find((s) => s.key === picked) ?? sections[0]!;

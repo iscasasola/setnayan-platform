@@ -73,7 +73,7 @@ import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressC
 import { previewRoleOf } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
-import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind } from '../lab-draft';
+import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, LAB_SECTIONS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind, labSectionsFrom } from '../lab-draft';
 import { siteFontLook } from '@/lib/site-role-look';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
@@ -691,7 +691,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
           the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-      <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+      <EntourageSection groups={labEntourage(labCast, labSectionsFrom((await cookies()).get(LAB_SECTIONS_COOKIE)?.value))} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
   const labPictures = (await cookies()).get('lab_pictures')?.value === '1';

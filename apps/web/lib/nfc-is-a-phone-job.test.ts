@@ -23,8 +23,13 @@ const IPAD =
 test('a phone is a phone, by user-agent or by touch', () => {
   assert.equal(nfcDeviceKind({ coarsePointer: true, maxTouchPoints: 5, userAgent: IPHONE, screenWidth: 393 }), 'phone');
   assert.equal(nfcDeviceKind({ coarsePointer: true, maxTouchPoints: 5, userAgent: ANDROID, screenWidth: 412 }), 'phone');
-  // iPadOS claims to be a Mac; touch + a tablet-sized screen gives it away.
-  assert.equal(nfcDeviceKind({ coarsePointer: true, maxTouchPoints: 5, userAgent: IPAD, screenWidth: 1024 }), 'phone');
+});
+
+test('an iPad is a tablet — it claims to be a Mac, its touch points give it away, and no iPad has an NFC radio', () => {
+  // Was 'phone' until 2026-10-19 (iPad + Duo audit W6): the sheet then sent an
+  // iPad to "the Setnayan app", where the write can only fail.
+  assert.equal(nfcDeviceKind({ coarsePointer: true, maxTouchPoints: 5, userAgent: IPAD, screenWidth: 1024 }), 'tablet');
+  assert.match(nfcWrongDeviceCopy('tablet', true), /iPad has no NFC writer/);
 });
 
 test('a laptop is a desktop, even a touchscreen one that is too wide', () => {

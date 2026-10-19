@@ -17,7 +17,8 @@
  *      (G21), the open one pinned under the sticky block (G13) — its first tap
  *      goes back to its first row, a tap at the top folds it (rule 6, G23);
  *      rows `💬 Message` (only with a Setnayan account, G35) · `✎ Edit` ·
- *      `✕ Remove` — no Invite (G34), no Nudge (G28), every row ONE state (G36);
+ *      `✕ Remove` — no Invite (G34), no Nudge (G28), every row ONE state (G36),
+ *      at the right end of the name's own line (owner 2026-10-20; icons under 701);
  *   3. Map: the canvas IS the screen (`guest-map-canvas.tsx`, G38/G39);
  *   4. the thumb row, floating on glass, sliding in and out (rules 5 and 7):
  *      List `⇕ Expand/Collapse all · ☑ Select · Search or add (≥ 60 %) · ⫶ Sort`
@@ -147,8 +148,8 @@ export type GuestsScreenProps = {
   hasSides: boolean;
   /** guest_id → their custom groups' labels, alphabetical. */
   groupsByGuest: Record<string, string[]>;
-  /** The event's custom groups — Set… ▾ › Group. */
-  groups: { group_id: string; label: string }[];
+  /** The event's custom groups — Set… ▾ › Group; `team_side` lets the Add card's Group follow its Side (owner 2026-10-20). */
+  groups: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[];
   /** The seat plan's tables — Set… ▾ › Table. */
   tables: { tableId: string; label: string }[];
   /** guest_id → the table they are placed at. */
@@ -619,7 +620,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // What stopped the last Enter, for the line it was said about — typing a new line hides it (no render per key).
   // The Add card's four sticky picks (owner 2026-10-20) — read by every Enter, kept for the next names.
   const [picks, setPicks] = useAddPicks(hasSides);
-  const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string }[]>([]);
+  const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[]>([]);
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
@@ -1269,8 +1270,11 @@ function GuestRowLine({
       <button type="button" className={styles.who} onClick={act} data-row-name="">
         <div className={styles.nm}>
           <span aria-hidden className={`${styles.dot} ${sideCls}`} />
-          {name}
-          {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
+          {/* ✂ The name gives way, never the buttons: one line, an ellipsis when Edit · Remove need the room. */}
+          <span className={styles.nmt} data-row-name-text="">
+            {name}
+            {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
+          </span>
           {plus > 0 ? <span className={styles.pill}>+{plus}</span> : null}
         </div>
         <div className={styles.meta}>
@@ -1286,15 +1290,18 @@ function GuestRowLine({
           )}
         </div>
       </button>
+      {/* ➡ The buttons END the name's line (owner 2026-10-20: "edit and remove button can be in a row? on the right
+          side?") — one line per guest. From 701 they keep their words; under 701 they are 44 × 44 icons, so each is
+          named for its guest. Held by guest-row-actions-share-the-name-line.test.ts. */}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
           {verbs.includes('message') && chatHref ? (
-            <ActionButton tone="info" icon={MessageCircle} label="Message" href={chatHref} />
+            <ActionButton tone="info" icon={MessageCircle} label="Message" name={`Message ${name}`} href={chatHref} />
           ) : null}
           {verbs.includes('edit') ? (
-            <ActionButton tone="neutral" icon={Pencil} label="Edit" onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
+            <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Edit ${name}`} onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
           ) : null}
-          {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" onClick={onRemove} /> : null}
+          {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
         </span>
       )}
     </div>

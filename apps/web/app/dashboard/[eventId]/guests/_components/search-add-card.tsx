@@ -38,7 +38,7 @@ export { picksForAdd, type AddPicks } from './guest-add-queue';
  *
  * The picks live in the Guests screen (`useAddPicks`), so the box's Enter reads them.
  */
-type GroupOpt = { group_id: string; label: string };
+type GroupOpt = { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' };
 
 const SIDE_SHORT: Record<GuestSide, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' };
 const LABEL = 'block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45';
@@ -112,16 +112,18 @@ export function AddCardPicks({
             dataAttr="data-add-pick-role"
           />
         </div>
-        {/* 👥 THE one Group picker (the guest card's): the pill in its cell, its list full width under the four picks. */}
+        {/* 👥 THE one Group picker (the guest card's): the pill in its cell, its list full width under the four picks. Its
+            "Your groups" follows the Side pick (owner 2026-10-20 — "THE GROUP LIST FOLLOWS THE GUEST'S SIDE"). */}
         <GuestGroupPicker
           eventId={eventId}
           label="Group"
           picked={[...(picks.category ? [picks.category] : []), ...picks.groupIds]}
           onPick={pickGroup}
           standard={standard}
-          groups={groups.map((g) => ({ groupId: g.group_id, label: g.label }))}
+          groups={groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side }))}
+          side={hasSides ? picks.side : undefined}
           onGroupsChange={(next) => {
-            for (const g of next) if (!groups.some((x) => x.group_id === g.groupId)) onMadeGroup({ group_id: g.groupId, label: g.label });
+            for (const g of next) if (!groups.some((x) => x.group_id === g.groupId)) onMadeGroup({ group_id: g.groupId, label: g.label, team_side: g.teamSide });
             router.refresh();
           }}
           emptyText="No group"

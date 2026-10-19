@@ -85,9 +85,11 @@ export type CardGroupProps = {
   /** The standard groups, in their order. */
   standard: readonly PickOption[];
   /** The couple's own groups, sorted. Null = they could not be read: only the standard group is offered, nothing posts `group_ids`. */
-  own: readonly { groupId: string; label: string }[] | null;
+  own: readonly { groupId: string; label: string; teamSide: 'bride' | 'groom' | 'both' }[] | null;
   /** The own groups this guest is in. */
   ownPicked: readonly string[];
+  /** 👥 The guest's side (`guests.side`) — the own groups follow the card's Side row (owner 2026-10-20). Undefined = no sides. */
+  side?: 'bride' | 'groom' | 'both' | null;
 };
 /**
  * 🎭 THE ONE ROLE DROPDOWN (owner 2026-10-20: *"Roles doesn't need also serves as… they can have multiple row in that Role

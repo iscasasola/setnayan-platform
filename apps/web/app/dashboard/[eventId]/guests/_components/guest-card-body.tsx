@@ -618,6 +618,7 @@ export function GuestCardBody({
               standard={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
               own={ownGroups}
               ownPicked={ownPicked}
+              side={hasSides ? guest.side : undefined}
             />
             {/* The memberships post only while they could be READ — a refusal can never unTick them (`*_posted`). */}
             {groupChoices ? (

@@ -364,7 +364,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
         the bar is covering, and dismisses on its own tap — no click-away layer
         to fight the tabs underneath it. */}
     {openReason ? (
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 pb-2">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-2">
         <button
           type="button"
           onClick={() => setOpenReason(null)}
@@ -416,7 +416,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
         rather than trusted. */}
     <nav
       aria-label="Site sections"
-      className="fixed left-[max(0.75rem,calc(50%-46.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
+      className="fixed left-[max(0.75rem,calc(50%-46.5rem),var(--sn-safe-l))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
     >
       <ul className="flex w-[7rem] flex-col gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 p-2 shadow-sm backdrop-blur">
         {slots.map(renderRailSlot)}
@@ -424,7 +424,8 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
     </nav>
     <nav
       aria-label="Site sections"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
+      data-safe-x=""
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
     >
       <ul className="mx-auto flex h-[3.5rem] max-w-md items-stretch justify-around px-1">
         {before.map(renderSlot)}

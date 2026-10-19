@@ -89,7 +89,7 @@ export function HomePillNav({
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
     >
       <div className="flex w-full max-w-md items-center gap-1 rounded-2xl border border-ink/15 bg-white/80 p-1.5 shadow-[0_24px_50px_-24px_rgba(30,26,18,0.55)] backdrop-blur-[20px]">
         <Link href="/dashboard" aria-current={here('/dashboard', true)} className={slot('/dashboard', true)}>

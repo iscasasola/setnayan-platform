@@ -58,7 +58,7 @@ export function NavFab({
     <Link
       href={href}
       aria-label={label}
-      className="sn-vt-fab fixed right-[14px] z-30 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-95 motion-reduce:transition-none lg:hidden"
+      className="sn-vt-fab fixed right-[max(14px,var(--sn-safe-r))] z-30 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-95 motion-reduce:transition-none lg:hidden"
       style={{
         // Centered in the bar row: the bar is the ANCHORED dock's bottom row
         // (2026-09-25), sitting directly on the safe-area inset, and is

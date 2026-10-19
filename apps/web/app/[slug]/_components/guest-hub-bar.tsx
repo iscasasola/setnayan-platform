@@ -160,7 +160,7 @@ export function GuestHubBar({
           no-scroll toggle-menu hub. The hub is a separate route, so the long
           event page stays intact; this is its doorway from the day-of bar. */}
       {hubHref ? (
-        <div className="fixed left-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
+        <div className="fixed left-[max(0.75rem,var(--sn-safe-l))] top-3 z-40 [padding-top:env(safe-area-inset-top)]">
           <Link
             href={hubHref}
             aria-label="Open the live hub"
@@ -174,7 +174,7 @@ export function GuestHubBar({
 
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
-      <div data-top-corner className="fixed right-3 top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
+      <div data-top-corner className="fixed right-[max(0.75rem,var(--sn-safe-r))] top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
         {/* The music button portals in HERE (background-music.tsx), left of the
             account control — one cluster, never two fixed things stacked. */}
         <div id={TOP_CORNER_SLOT_ID} className="contents" />
@@ -208,6 +208,7 @@ export function GuestHubBar({
       {menuOn ? null : (
       <nav
         aria-label="Your event controls"
+        data-safe-x=""
         className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
       >
         <div className="mx-auto flex max-w-md items-end justify-between gap-3 px-5 pb-3 pt-2">

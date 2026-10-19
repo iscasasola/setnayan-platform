@@ -8,7 +8,7 @@ import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { keepRsvpPictureUrl } from './rsvp-picture-urls';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_KEY_BAR, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_KEY_BAR_FIXED, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,
@@ -391,7 +391,7 @@ export function RsvpPanelTypingBar({ name }: { name: string }) {
   }, []);
   if (!here) return null;
   return createPortal(
-    <div role="toolbar" aria-label={`${name} — words`} data-type-bar="rsvp-panel" data-rsvp-panel-keys="" style={{ bottom }} className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}>
+    <div role="toolbar" aria-label={`${name} — words`} data-type-bar="rsvp-panel" data-rsvp-panel-keys="" style={{ bottom }} className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR_FIXED}`}>
       <style>{PANEL_KEYS_RULE}</style>
       <span className="min-w-0 truncate">Typing · {name}</span>
       <span data-type-done="" className={SP_KEY_DONE}>

@@ -221,6 +221,23 @@ export function genderOfRow(row: TitleRow): TitleGender | null {
 }
 
 /**
+ * 👤 WOMAN OR MAN, FOR ONE PERSON — THE ONE READING (owner 2026-10-19, on cale-ice's Me page for the groom's mother:
+ * *"shouldn't it identify that she is the female mother of the groom"* · *"not both gender to show?"*).
+ *
+ *   gender (the "Atty. (Woman)" pick) → a title word that says it (Mr. · Ms. · Mrs. · Miss) → the guest card's
+ *   "Attire · 3D seat plan" pick (gown → woman, suit → man) → null (unknown: a surface shows both).
+ *
+ * Every per-person reader goes through here: the parent word (`parentWordOf`, "Mother of the Groom"), and the reader's
+ * own column of a two-pick dress-code row (`readerPick` / `readerAttire`: Me › What to wear, the checklist). Nothing is
+ * guessed from a first name.
+ */
+export function womanOrManOf(
+  row: Pick<TitleRow, 'name_prefix' | 'display_name' | 'gender'> & { attire?: string | null },
+): TitleGender | null {
+  return genderOfRow(row) ?? (row.attire === 'gown' ? 'woman' : row.attire === 'suit' ? 'man' : null);
+}
+
+/**
  * This person's printed word is waiting on woman or man: they hold a role above (their own or an extra one), and
  * neither a picked gender nor their title says which. Exactly the people the Guests page lists.
  */

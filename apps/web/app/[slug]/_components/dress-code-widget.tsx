@@ -14,7 +14,7 @@ import {
 } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { PICK_LABEL, isDressableRole, isTwoPick, readerAttire, studioRowOf, type GuestGender, type ReadPick as ReaderPick } from '@/lib/attire-rows';
+import { PICK_LABEL, isDressableRole, isTwoPick, readerAttire, studioRowOf, type GuestNameParts, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
@@ -113,7 +113,6 @@ export function DressCodeWidget({
   makerSample = false,
   mark = null,
   readerOnly = false,
-  guestGender = null,
 }: {
   /**
    * 👗 ONLY THIS READER'S OWN CARD (owner 2026-10-19, DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE":
@@ -126,8 +125,6 @@ export function DressCodeWidget({
    * False (default) = every role: the couple and their hosts on their own Event Hub, and the Maker's canvas.
    */
   readerOnly?: boolean;
-  /** ⚧ `guests.gender` (woman · man) — when said, the reader sees only their own column (owner 2026-10-19). */
-  guestGender?: GuestGender | null;
   /**
    * 🧱 WHAT TO WEAR'S OWN LOOK (`lib/block-looks.ts`, block `look`): the block's hidden mark, drawn right BEFORE this
    * widget's root — and only for the reader's own panel (`'you'` on Welcome, `'wear'` in Me), and only when that
@@ -185,8 +182,10 @@ export function DressCodeWidget({
    * their own). Unknown → the reader is shown both picks.
    */
   guestAttire?: GuestAttire | null;
-  /** 👪 The reader's typed title / shown name — with `guestAttire`, what names a parent per person ("You are Father of the Bride", `kinWordOfReader`). */
-  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
+  /** 👪 The reader's typed title / shown name and their "Atty. (Woman)" pick (`guests.gender`) — with `guestAttire`, what
+   *  names a parent per person ("Mother of the Groom", `kinWordOfReader`) and which column of a two-pick row is theirs
+   *  (`readerAttire`): gender → title → attire, `womanOrManOf`. */
+  guestNameParts?: GuestNameParts | null;
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
@@ -296,7 +295,7 @@ export function DressCodeWidget({
     readerAttire({
       role: guestRole,
       attire: guestAttire,
-      gender: guestGender,
+      person: guestNameParts ?? null,
       source,
       config: config as Record<string, unknown> | null,
       style: panel.style,
@@ -327,7 +326,7 @@ export function DressCodeWidget({
     groups,
     palette: board,
     names: roleNames,
-    person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
+    person: guestRole ? { ...guestNameParts, gender: guestNameParts?.gender ?? null, attire: guestAttire } : null,
     config,
   }))), readerOnly || generalHasContent));
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;

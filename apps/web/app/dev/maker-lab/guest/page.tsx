@@ -733,7 +733,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const labGender = one('gender') === 'woman' || one('gender') === 'man' ? (one('gender') as 'woman' | 'man') : null;
   const dressCode = words && labRole ? (
     <>
-      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' || one('gender') === 'unknown' ? null : labRole.attire} guestGender={dressReader === 'host' ? null : labGender} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' || one('gender') === 'unknown' ? null : labRole.attire} guestNameParts={dressReader === 'host' ? null : { gender: labGender }} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
       {roleWear}
     </>
   ) : words ? (

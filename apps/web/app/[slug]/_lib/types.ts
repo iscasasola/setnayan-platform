@@ -438,7 +438,7 @@ export type GuestRow = {
   role: GuestRole;
   /** 👗 What the couple marked them as wearing on the guest list (gown · suit · neutral) — `guestAttireOf`. Absent on an older read. */
   attire?: string | null;
-  /** ⚧ Woman · man, picked with the title (`guests.gender`) — the dress code shows them their own column (`guestGenderOf`). Absent on an older read. */
+  /** 👤 The "Atty. (Woman)" pick (`guests.gender`: woman · man · null) — never printed; `guestNamePartsOf`. Absent on an older read. */
   gender?: string | null;
   side: 'bride' | 'groom' | 'both';
   group_category: string;

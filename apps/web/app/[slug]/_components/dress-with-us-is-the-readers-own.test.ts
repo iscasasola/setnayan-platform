@@ -103,17 +103,17 @@ test('2 · gender known ⇒ ONE column; unknown ⇒ both', () => {
     const unknown = youPanel(render({ guestRole: role, readerOnly: true }));
     assert.ok(bothColumns(unknown), `${role}, gender unknown: both columns`);
     for (const g of ['woman', 'man'] as const) {
-      const panel = youPanel(render({ guestRole: role, guestGender: g, readerOnly: true }));
+      const panel = youPanel(render({ guestRole: role, guestNameParts: { gender: g }, readerOnly: true }));
       assert.ok(panel.length > 0, `${role} (${g}): the card is drawn`);
       assert.ok(!bothColumns(panel), `${role} (${g}): one column only`);
       const swatches = (panel.match(/data-your-colours=""/g) ?? []).length;
       assert.equal(swatches, 1, `${role} (${g}): one set of colours`);
     }
     /* The gender beats the clothing: a woman the seat plan put in a suit is still shown the women's column. (The
-       "You are …" word is cut: the role word reading gender is rd/me-reads-their-gender's.) */
+       "You are …" word is cut: it reads the title and gender, held by me-reads-their-gender.test.ts.) */
     const look = (m: string) => m.replace(/You are [^<]*/, '');
-    const woman = look(youPanel(render({ guestRole: role, guestGender: 'woman', guestAttire: 'suit', readerOnly: true })));
-    const womanOnly = look(youPanel(render({ guestRole: role, guestGender: 'woman', readerOnly: true })));
+    const woman = look(youPanel(render({ guestRole: role, guestNameParts: { gender: 'woman' }, guestAttire: 'suit', readerOnly: true })));
+    const womanOnly = look(youPanel(render({ guestRole: role, guestNameParts: { gender: 'woman' }, readerOnly: true })));
     assert.equal(woman, womanOnly, `${role}: gender wins over attire`);
   }
 });
@@ -159,7 +159,7 @@ test('6 · the dispatchers wire it: a guest view is reader-only unless the host 
     assert.equal(lines.length, 1, `${name}: one dress-code mount`);
     assert.match(lines[0]!, /readerOnly=\{guestView && !dressCodeEveryRole\}/, `${name}: a guest view is reader-only`);
   }
-  assert.match(guestPath.split('\n').find((l) => l.includes('<DressCodeWidget'))!, /guestGender=\{guestView && !dressCodeEveryRole && guest \? guestGenderOf\(guest\) : null\}/);
+  assert.match(guestPath.split('\n').find((l) => l.includes('<DressCodeWidget'))!, /guestNameParts=\{guestView && !dressCodeEveryRole && guest \? guestNamePartsOf\(guest\) : null\}/);
   const body = read('app/[slug]/_components/site-body.tsx');
   const every = [...body.matchAll(/dressCodeEveryRole=\{([^}]*)\}/g)].map((m) => m[1]!);
   assert.ok(every.length >= 2, 'both doors are told who is reading');

@@ -270,16 +270,15 @@ export function isSearchVocabulary(query: string, roleNames?: RoleNames | null):
   const add = (w: string | null | undefined) => {
     if (w && w.trim()) words.add(normalizeSearchText(w));
   };
+  // The usual words AND the couple's own (a filter they would type is either) — vocabulary to match, never drawn.
+  for (const w of Object.values(ROLE_LABELS)) add(w);
   for (const r of Object.keys(ROLE_LABELS) as GuestRow['role'][]) {
-    add(ROLE_LABELS[r]);
     add(guestRoleLabel(r, roleNames));
     add(r.replace(/_/g, ' '));
     for (const a of ROLE_ALIASES[r] ?? []) add(a);
   }
-  for (const g of Object.keys(ROLE_GROUP_LABELS) as (keyof typeof ROLE_GROUP_LABELS)[]) {
-    add(ROLE_GROUP_LABELS[g]);
-    add(roleGroupLabel(g, roleNames));
-  }
+  for (const w of Object.values(ROLE_GROUP_LABELS)) add(w);
+  for (const g of Object.keys(ROLE_GROUP_LABELS) as (keyof typeof ROLE_GROUP_LABELS)[]) add(roleGroupLabel(g, roleNames));
   for (const w of Object.values(SIDE_LABELS)) add(w);
   for (const w of Object.values(GROUP_CATEGORY_LABELS)) add(w);
   for (const w of Object.values(MEAL_LABELS)) add(w);

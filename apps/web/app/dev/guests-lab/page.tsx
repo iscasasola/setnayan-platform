@@ -66,7 +66,7 @@ import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_compo
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
-import { LabShell } from '@/app/dev/_lab-shell/lab-shell';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';

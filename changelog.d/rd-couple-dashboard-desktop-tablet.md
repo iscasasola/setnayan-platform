@@ -20,7 +20,7 @@ Owner-approved 2026-10-19 (DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP +
 - **Hover ring only under `(hover: hover) and (pointer: fine)`** on the rail rows from 701 (a finger never leaves a
   stuck wash).
 - **Labs:** `&shell=1` on `/dev/home-lab`, `/dev/guests-lab?part=screen|setup`, `/dev/suppliers-lab`,
-  `/dev/budget-lab` draws the REAL One Shell (`app/dev/_lab-shell/lab-shell.tsx`) so the band can be walked with no
+  `/dev/budget-lab` draws the REAL One Shell (`app/dev/_components/lab-shell.tsx`) so the band can be walked with no
   sign-in and no database.
 - **Unchanged on purpose (areas 3–4, not designed):** the front door, the doorways, the launcher, the account spokes,
   the supplier dashboard and HQ keep the off-canvas drawer and their bottom bars below 1024.

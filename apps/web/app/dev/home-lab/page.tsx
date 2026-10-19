@@ -31,7 +31,7 @@
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
-import { LabShell } from '@/app/dev/_lab-shell/lab-shell';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';

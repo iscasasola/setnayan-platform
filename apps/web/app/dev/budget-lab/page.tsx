@@ -20,7 +20,7 @@
  *                    Record a payment goes to Amount to pay
  *   ?state=traditions a Muslim + Chinese event: the Target's ⓘ carries both notes
  */
-import { LabShell } from '@/app/dev/_lab-shell/lab-shell';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { notFound } from 'next/navigation';
 import { BudgetScreen, type SupplierExtras } from '@/app/dashboard/[eventId]/budget/_components/budget-screen';
 import { knownMoneyTotals, unreadEventMoney, computeEventMoney } from '@/lib/budget-truth';

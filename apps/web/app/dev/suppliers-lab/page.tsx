@@ -61,7 +61,7 @@ import { popularTilesFor } from '@/lib/supplier-find';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
 import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
-import { LabShell } from '@/app/dev/_lab-shell/lab-shell';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {

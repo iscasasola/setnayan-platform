@@ -22,6 +22,10 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   applyGalleryPick: async () => ({ status: 'error', message: 'The lab has no supplier gallery.' }),
   fetchGalleryAssets: async () => ({ assets: [], total: 0, hiddenCount: 0 }) as never,
   updateDressCodeLists: async () => undefined,
+  /* 🤝🖼 A supplier's suggestion kept / declined / its Keep undone — answered here; the Palette moves the photo itself. */
+  keepInspirationSuggestion: async () => ({ status: 'ok', slotPosition: 0, replaced: false }),
+  declineInspirationSuggestion: async () => ({ status: 'ok' }),
+  undoKeptInspirationSuggestion: async () => ({ status: 'ok' }),
 };
 
 /** `?refuse=1`: the writes REFUSE with the database's own words (or throw), on purpose. */
@@ -33,4 +37,7 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   updateDressCodeLists: async () => {
     throw new Error('permission denied for table events');
   },
+  keepInspirationSuggestion: async () => ({ status: 'error' }),
+  declineInspirationSuggestion: async () => ({ status: 'error' }),
+  undoKeptInspirationSuggestion: async () => ({ status: 'error' }),
 };

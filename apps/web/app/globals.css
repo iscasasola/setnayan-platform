@@ -7468,6 +7468,19 @@ header[data-cover-tone='cream'] [data-cover-foot] .button-primary {
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
+/* 📜 …EXCEPT HOME ON THE ONE PAGE: IT LANDS WITH THE COVER FULLY GONE (owner 2026-10-15, Q3 approved: "Home lands
+   on the welcome line, so the bar never re-hides itself"; and 2026-10-16: the bars come only once the cover is FULLY
+   gone — one pixel left is still the cover). Home's mark (`data-home-after-cover`, site-body.tsx) sits exactly at the
+   cover's foot, so a jump that stops ABOVE it (the root's 4.5rem plus the 5rem the mark used to carry: 152 px, seen
+   live 2026-10-19 at 375 and on the iPhone 13 engine) put the cover's door back on screen and both bars left with
+   the guest's own tap. The mark cancels the root's padding and lands 2 px past the cover's edge (2, not 0: an
+   observer counts an edge that only touches as on screen). Held by `the-invitation-is-one-page.test.ts` 7. */
+[data-home-after-cover] {
+  scroll-margin-top: -2px;
+}
+html:has([data-sticky-top]) [data-home-after-cover] {
+  scroll-margin-top: calc(-4.5rem - 2px);
+}
 
 
 /* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──

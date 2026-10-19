@@ -36,6 +36,10 @@
  *                     screen's refusal; &view=review the lab's Approve; then /dev/details-lab?look=1&studio=1&library=1
  *                     is the couple's Search ideas on the same memory (`library-lab-server.ts`). &library=1 on ?easy=…
  *                     draws Today's "Add to the inspiration library" row.
+ *   ?s=suggest        🤝🖼 a booked florist on a lab couple's Palette (owner 2026-10-19, prototype
+ *                     `supplier_inspiration_suggestions_2026-10-19.html` frames 1–2): "＋ Suggest a photo" on its own parts
+ *                     only · upload or "Choose from your shop's photos" · &sent=1 one waiting · &sup=stylist|gown
+ *                     (`suggest-lab.tsx`, stand-in writes; /dev/details-lab?look=1&studio=1&suggest=1 is the couple's side)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -77,6 +81,12 @@ import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
+import { SuggestLab } from './suggest-lab';
+import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
+import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
+import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
+import { supplierRoleLine } from '@/lib/inspiration-suggestions';
+import { canonicalServicesForTile } from '@/lib/vendor-counts';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -273,13 +283,35 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
     return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} />;
+  }
+  if (q.s === 'suggest') {
+    /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;
+       `&sup=stylist|gown` the same board for a stylist or a gown maker. Stand-in writes only (`suggest-lab.tsx`). */
+    const services = canonicalServicesForTile(q.sup === 'stylist' ? 'stylist_decorator' : q.sup === 'gown' ? 'brides_attire' : 'florist');
+    const parts = suggestablePartsForShop(services);
+    const board = buildSupplierBoard({
+      palette: { reception: LAB_SUGGEST_FIVE },
+      five: LAB_SUGGEST_FIVE,
+      /* Prototype frame 1: the couple has no photos on these parts yet. */
+      photosBySlot: {},
+      suggestable: new Set(parts.map((p) => p.key)),
+    });
+    return (
+      <SuggestLab
+        board={board}
+        couple={LAB_SUGGEST_COUPLE}
+        eventLine="Sat, Mar 13, 2027 · Tagaytay"
+        roleLine={supplierRoleLine(supplierTradeWord(services, firstOwnPart(board)), ownLaneWords(board))}
+        sent={q.sent === '1'}
+      />
+    );
   }
   if (q.s === 'library') {
     /* 🌱🖼 The inspiration library on a lab shop — its writes kept in this dev server's memory (`library-lab-server.ts`). */

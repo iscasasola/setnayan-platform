@@ -15,7 +15,17 @@ import { MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette, type RoomDressing } from '@/lib/mood-board';
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
-import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, paletteBoardOf, palettePhotoParts, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, libraryPhotoParts, paletteBoardOf, palettePhotoParts, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import {
+  DECIDE_NOT_SAVED,
+  coupleCountLine,
+  keepPlan,
+  keptToast,
+  shopInitial,
+  suggestionFor,
+  suggestionFrom,
+  type CoupleSuggestion,
+} from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
@@ -55,6 +65,7 @@ import { AutoPaletteSheet } from './auto-palette-sheet';
 import { NamedColourDot, RoleColourDot } from './colour-dot';
 import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
+import { KeepFullSheet, SuggestionsNotice } from './suggestion-parts';
 import type { InspirationItem } from './inspiration-board';
 
 /**
@@ -120,6 +131,12 @@ export type MoodBoardStudioProps = {
   dosLookCanvas?: HubSectionCanvas | null;
   /** The section it opens on (the Maker opens on Palette; a guard draws each section). */
   startTab?: Tab;
+  /**
+   * 🤝🖼 Photos the couple's booked suppliers suggested, WAITING for ✓ Keep · ✕ No thanks (owner 2026-10-19, option (b);
+   * prototype `supplier_inspiration_suggestions_2026-10-19.html`). `null` = the read was refused — said on the page, never
+   * drawn as "nothing waiting". Absent = none (the shipped Mood Board page).
+   */
+  suggestions?: CoupleSuggestion[] | null;
 };
 
 export type Tab = 'colours' | 'attire' | 'dos';
@@ -158,9 +175,11 @@ type Sheet =
   | { kind: 'browse'; slot: StudioInspirationSlot }
   /** 👗 A role's note — "Ivory, not white" (`dress_code_config[tier][key].note`, read on their invitation). */
   | { kind: 'note'; row: StudioAttireRow }
+  /** 🤝🖼 Keep on a part that already holds three — which photo does it replace? (prototype frame 3b) */
+  | { kind: 'full'; s: CoupleSuggestion }
   | null;
 
-type Tile = { url: string; credit: string | null; swatches: string[] };
+type Tile = { url: string; credit: string | null; swatches: string[]; fromShop?: string | null; fromSuggestionId?: string | null };
 
 const SAVE_AFTER_MS = 600;
 
@@ -203,7 +222,7 @@ function boardUndo(put: (undone: boolean) => void): UndoStep {
 export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const { eventId } = props;
   const router = useRouter();
-  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets } = useMoodBoardActions();
+  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion } = useMoodBoardActions();
   const [tab, setTab] = useState<Tab>(props.startTab ?? 'colours');
   const [sheet, setSheet] = useState<Sheet>(null);
   useOneOpen(sheet !== null, () => setSheet(null));
@@ -322,7 +341,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const m: Record<string, Array<Tile | undefined>> = {};
     for (const it of props.inspirations) {
       const row = (m[it.slot_key] ??= []);
-      row[it.slot_position - 1] = { url: it.image_url, credit: it.credit ?? null, swatches: it.swatches ?? [] };
+      row[it.slot_position - 1] = { url: it.image_url, credit: it.credit ?? null, swatches: it.swatches ?? [], fromShop: it.fromShop ?? null, fromSuggestionId: it.fromSuggestionId ?? null };
     }
     return m;
   });
@@ -547,6 +566,90 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
   const openChanges = props.changes.filter((c) => !settled.has(c.id));
 
+  /* ═══ SUPPLIERS' PHOTOS — ✓ Keep · ✕ No thanks (owner 2026-10-19, option (b); prototype frames 3 · 3b · 4 · 5) ═══
+     A booked supplier's photo WAITS under the part's own photos; nothing on the board moves until one is tapped. Keep takes
+     the part's first free place; on a part holding three it asks which photo it replaces — "Keep all three for now"
+     sends nothing and the photo keeps waiting. A kept photo carries its shop ("3 photos · 1 from Bloom & Co."), and the
+     toast's Undo puts the board back. Every check is the database's (`suggestion-actions.ts`). */
+  const [waiting, setWaiting] = useState<CoupleSuggestion[]>(() => props.suggestions ?? []);
+  const waitingIn = (slot: string) => waiting.filter((w) => w.slotKey === slot);
+  const partLabelOf = (slot: string) =>
+    libraryPhotoParts().find((p) => p.key === slot)?.label ?? STUDIO_INSPIRATION_SLOTS.find((x) => x.slotKey === slot)?.label ?? 'this part';
+  const keep = async (sg: CoupleSuggestion, replace: number | null) => {
+    /* 🔑 A full part ASKS which photo it replaces — nothing is sent until one is named (`keepPlan`). */
+    if (keepPlan(freeIn(sg.slotKey), replace).kind === 'ask') {
+      setSheet({ kind: 'full', s: sg });
+      return;
+    }
+    setSheet(null);
+    try {
+      const r = await keepInspirationSuggestion(eventId, sg.id, replace);
+      if (r.status === 'full') {
+        setSheet({ kind: 'full', s: sg });
+        return;
+      }
+      if (r.status === 'gone') {
+        setWaiting((w) => w.filter((x) => x.id !== sg.id));
+        failed('That photo was already answered — nothing changed.');
+        return;
+      }
+      if (r.status !== 'ok') {
+        failed(DECIDE_NOT_SAVED);
+        return;
+      }
+      /* The lab answers no position (0): the first free place, or the one named — where the database put it. */
+      const pos = r.slotPosition || replace || freeIn(sg.slotKey)[0] || 1;
+      const before = tiles[sg.slotKey]?.[pos - 1];
+      setTile(sg.slotKey, pos, { url: sg.url, credit: null, swatches: sg.swatches, fromShop: sg.shop, fromSuggestionId: sg.id });
+      setWaiting((w) => w.filter((x) => x.id !== sg.id));
+      tell(keptToast(sg.shop), () => void undoKeep(sg, pos, before));
+    } catch {
+      failed(DECIDE_NOT_SAVED);
+    }
+  };
+  const undoKeep = async (sg: CoupleSuggestion, pos: number, before: Tile | undefined) => {
+    try {
+      const r = await undoKeptInspirationSuggestion(eventId, sg.id);
+      if (r.status !== 'ok') {
+        failed(DECIDE_NOT_SAVED);
+        return;
+      }
+      setTile(sg.slotKey, pos, before);
+      setWaiting((w) => (w.some((x) => x.id === sg.id) ? w : [...w, sg]));
+      setProblem(null);
+    } catch {
+      failed(DECIDE_NOT_SAVED);
+    }
+  };
+  const noThanks = async (sg: CoupleSuggestion) => {
+    try {
+      const r = await declineInspirationSuggestion(eventId, sg.id);
+      if (r.status === 'error') {
+        failed(DECIDE_NOT_SAVED);
+        return;
+      }
+      setWaiting((w) => w.filter((x) => x.id !== sg.id));
+      setProblem(null);
+    } catch {
+      failed(DECIDE_NOT_SAVED);
+    }
+  };
+  /* A row of the top notice jumps to the suggestion beside the couple's photos — in Attire for an attire board. */
+  const [jumpTo, setJumpTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!jumpTo) return;
+    const el = document.querySelector(`[data-mood-board-suggestion="${jumpTo}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setJumpTo(null);
+    }
+  }, [jumpTo, tab]);
+  const jump = (sg: CoupleSuggestion) => {
+    const attire = STUDIO_INSPIRATION_SLOTS.find((x) => x.slotKey === sg.slotKey)?.attire;
+    setTab(attire ? 'attire' : 'colours');
+    setJumpTo(sg.id);
+  };
+
   /* ═══ the picker's target, as words ═══ */
   const pickerFor = (t: PickTarget) => {
     if (t.kind === 'main') {
@@ -672,7 +775,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const row = tiles[slot.slotKey] ?? [];
     const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
     const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
-    const count = photos.length === 0 ? 'No photos yet' : `${formatCount(photos.length)} ${photos.length === 1 ? 'photo' : 'photos'}`;
+    /* "3 photos · 1 from Bloom & Co." — a photo kept from a supplier is credited to its shop (prototype frame 5). */
+    const count = coupleCountLine(photos.length, photos.map((x) => x.tile!.fromShop));
+    const suggested = waitingIn(slot.slotKey);
     return (
       <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
         <div className="flex min-h-11 items-center gap-1.5">
@@ -683,20 +788,43 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 tone="neutral"
                 quiet
                 iconOnly
-                icon={<Thumb src={tile!.url} />}
-                label={`Remove this photo from ${slot.label}`}
+                icon={<Thumb src={tile!.url} badge={tile!.fromShop ? shopInitial(tile!.fromShop) : null} />}
+                label={tile!.fromShop ? `Remove this photo from ${slot.label} (from ${tile!.fromShop})` : `Remove this photo from ${slot.label}`}
                 onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })}
               />
             ) : (
               <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-lg bg-ink/10" />
             ),
           )}
-          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{named ? `${slot.label} · ${count}` : count}</span>
+          {/* A full part's count drops to its own line under the photos (prototype frame 5), so "3 photos · 1 from …" is read whole. */}
+          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{photos.length >= MOODBOARD_SLOT_POSITIONS.length ? '' : named ? `${slot.label} · ${count}` : count}</span>
           <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} />
           <span data-mood-board-search={slot.slotKey}>
             <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
           </span>
         </div>
+        {photos.length >= MOODBOARD_SLOT_POSITIONS.length ? (
+          <p className="-mt-0.5 text-[12px] text-ink/55" data-mood-board-count={slot.slotKey}>
+            {named ? `${slot.label} · ${count}` : count}
+          </p>
+        ) : null}
+        {/* 🤝🖼 A SUPPLIER'S PHOTO, WAITING beside the couple's own (prototype frame 3): "From Bloom & Co." · "A photo for
+            Bridal bouquet", then the shipped notice's two buttons — ✓ Keep · ✕ No thanks. Nothing moves until one is tapped. */}
+        {suggested.map((sg) => (
+          <div key={sg.id} data-mood-board-suggestion={sg.id} className="flex flex-col">
+            <div className="flex min-h-12 items-center gap-2.5 pt-1.5">
+              <Thumb src={sg.url} />
+              <span className="min-w-0 flex-1 text-[14px] leading-tight">
+                <b className="block text-[15px] font-medium text-ink">{suggestionFrom(sg.shop)}</b>
+                <span className="text-ink/60">{suggestionFor(slot.label)}</span>
+              </span>
+            </div>
+            <div className="flex gap-2 pb-0.5 pt-1.5 [&>*]:min-w-0 [&>*]:flex-1 [&_.ab]:w-full" data-mood-board-suggestion-answer={sg.id}>
+              <ActionButton tone="neutral" label="Keep" icon={Check} name={`Keep ${sg.shop}’s photo for ${slot.label}`} onClick={() => void keep(sg, null)} />
+              <ActionButton tone="neutral" label="No thanks" icon={X} name={`No thanks to ${sg.shop}’s photo for ${slot.label}`} onClick={() => void noThanks(sg)} />
+            </div>
+          </div>
+        ))}
         {slotPalette.length > 0 && offer ? (
           <div className="flex min-h-11 items-center gap-2" data-mood-board-offer={slot.slotKey}>
             <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
@@ -818,6 +946,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
 
       {tab === 'colours' ? (
         <div className="flex flex-col" data-mood-board-colours="">
+          {/* 🤝🖼 WHAT IS WAITING, AT THE TOP OF PALETTE (prototype frame 4), in the shipped notice's place and shape: "2
+              suggestions from your suppliers", one row each — a tap jumps to its block, where Keep / No thanks sits beside
+              the couple's own photos. A refused read is said, never drawn as nothing waiting. */}
+          {waiting.length > 0 ? <SuggestionsNotice waiting={waiting} partLabelOf={partLabelOf} onJump={jump} /> : null}
+          {props.suggestions === null ? (
+            <p role="status" className="px-1.5 pb-2 text-[12.5px] text-ink/65" data-mood-board-suggestions-unread="">
+              We couldn’t check for photos your suppliers suggested just now — reopen this in a moment.
+            </p>
+          ) : null}
           {openChanges.length > 0 ? (
             <div className={STUDIO_GROUP}>
               <FormRows data="mood-board-changes">
@@ -1189,6 +1326,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             );
           })()
         : null}
+      {sheet?.kind === 'full' ? (
+        <KeepFullSheet
+          suggestion={sheet.s}
+          part={partLabelOf(sheet.s.slotKey)}
+          photos={MOODBOARD_SLOT_POSITIONS.map((p) => tiles[sheet.s.slotKey]?.[p - 1]?.url ?? null)}
+          onReplace={(p) => void keep(sheet.s, p)}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
       {sheet?.kind === 'note' ? <NoteSheet label={`${sheet.row.label} · a note`} start={noteFor(sheet.row)} onClose={() => setSheet(null)} onSave={(text) => { const row = sheet.row; setSheet(null); writeNote(row, text); }} /> : null}
       {sheet?.kind === 'auto' ? (
         <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={takeAuto} onClose={() => setSheet(null)} />
@@ -1262,10 +1408,20 @@ function Swatches({ colours, label, wide = false }: { colours: readonly string[]
   );
 }
 
-/** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */
-function Thumb({ src }: { src: string }) {
-  // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board
-  return <img src={src} alt="" className="h-[34px] w-[34px] rounded-lg object-cover" />;
+/** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box).
+ *  `badge` — the shop's initial on a photo kept from a supplier (prototype frame 5's small "B"). */
+function Thumb({ src, badge = null, big = false }: { src: string; badge?: string | null; big?: boolean }) {
+  return (
+    <span className={`relative block flex-none ${big ? 'h-11 w-11' : 'h-[34px] w-[34px]'}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board */}
+      <img src={src} alt="" className={`${big ? 'h-11 w-11 rounded-xl' : 'h-[34px] w-[34px] rounded-lg'} object-cover`} />
+      {badge ? (
+        <span aria-hidden data-mood-board-credit-mark="" className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-ink/15 bg-white text-[9px] font-bold text-ink dark:bg-raised">
+          {badge}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 /**

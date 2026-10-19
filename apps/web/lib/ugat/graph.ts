@@ -3114,8 +3114,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       {
         kind: 'check',
         table: 'event_inspiration_assets',
-        name: 'event_inspiration_assets_source_kind_check_v3',
-        mentions: 'source_kind',
+        name: 'event_inspiration_assets_source_kind_check_v4',
+        mentions: 'supplier_suggestion',
       },
       {
         kind: 'check',
@@ -3158,6 +3158,54 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 29-key slot CHECK (last widened by 20271278232574 \u2014 the Palette\u2019s five parts with photos)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
+  },
+  {
+    /**
+     * 🤝🖼 A BOOKED SUPPLIER'S PHOTO WAITS FOR THE COUPLE'S KEEP (owner 2026-10-19, DECISION_LOG "SUPPLIERS ADD
+     * INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE INCLUDED" + "FIVE CONTROLLER RECOMMENDATIONS APPROVED" item 4,
+     * option (b); migration 20271279311294).
+     *
+     * ⚠ THE BOARD'S INSERT POLICY DID NOT MOVE. A supplier still cannot write event_inspiration_assets; its photo lives
+     * HERE until the couple keeps it, and the Keep is a SECURITY DEFINER function that writes the board row with
+     * source_kind = 'supplier_suggestion' paired to from_suggestion_id by a CHECK biconditional (J46's shape).
+     */
+    id: 'J54',
+    claims: [
+      { kind: 'table', table: 'event_inspiration_suggestions' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'shop_label' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'slot_key' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'state' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_suggestions',
+        name: 'event_inspiration_suggestions_screened_has_photo',
+        mentions: 'image_url',
+      },
+      { kind: 'fk', table: 'event_inspiration_assets', column: 'from_suggestion_id', references: 'event_inspiration_suggestions' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_suggestion_has_provenance',
+        mentions: 'from_suggestion_id',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Booked supplier \u2194 Event board (a suggested photo, kept by the couple)',
+    joint: 'event_inspiration_suggestions',
+    cardinality:
+      'Up to three WAITING per (event, part, shop) \u2014 counted inside vendor_begin_inspiration_suggestion under an advisory lock; any number kept, declined or withdrawn',
+    implementedBy:
+      'event_inspiration_suggestions.event_vendor_id \u2192 event_vendors (the booking) + vendor_profile_id \u2192 vendor_profiles, the shop name kept in shop_label as it read; a Keep writes event_inspiration_assets.from_suggestion_id \u2192 this row',
+    writtenBy:
+      'suggestInspirationPhoto (app/vendor-dashboard/clients/[eventId]/mood-board/suggestion-actions.ts: vendor_begin_inspiration_suggestion under the supplier\u2019s session, then the content screen, then the service-role move to waiting) and the couple\u2019s keep/decline/undo (studio/mood-board/suggestion-actions.ts \u2192 couple_decide_inspiration_suggestion, couple_undo_kept_inspiration_suggestion)',
+    guardedBy:
+      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services, the SQL mirror of MOODBOARD_SLOT_TRADES) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
+    traps:
+      'inspiration_suggestion_services is a COPY of canonicalServicesForSlot \u2014 a taxonomy change re-lists it in a NEW migration (the db test names the slot that drifted). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
   },
   {
     /**

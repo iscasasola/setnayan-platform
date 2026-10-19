@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { HUB_ELEMENT_FIELDS, hubElementDeclarations, sanitizeHubElementStyle } from './element-style';
-import { MAKER_COVER_SCENE, MAKER_PARTS, makerPartParent, makerPartToolWorks } from './maker-parts';
+import { MAKER_COVER_SCENE, MAKER_PARTS, makerCoverLineParts, makerPartParent, makerPartToolWorks } from './maker-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const WEB = join(__dirname, '..');
@@ -31,7 +31,11 @@ test('(1) the Cover Scene’s Edit is live, and its rows are the cover’s lines
   assert.ok(makerPartToolWorks(MAKER_COVER_SCENE, 'edit'), 'Cover Scene › Edit is grey');
   assert.ok(makerPartToolWorks(MAKER_COVER_SCENE, 'bg'));
   assert.match(TOOLS, /\{editOn && picked === MAKER_COVER_SCENE && !rsvpOpen \? \(\s*<CoverLines lines=\{coverLines\}/, 'the toolbar does not draw the cover’s lines on its Edit');
-  assert.match(TOOLS, /\.filter\(\(k\) => makerPartParent\(k\) === MAKER_COVER_SCENE\)/, 'the list is not the cover’s own words');
+  /* 📜 2026-10-20: the list is `makerCoverLineParts` (the page ON SCREEN — the one page's, whichever tab its bar names;
+     `the-cover-keeps-its-tools-on-the-one-page.test.ts`). Its rows are the cover's own words, driven here. */
+  assert.match(TOOLS, /const next = makerCoverLineParts\(stageKey, shownPage\)/, 'the list is not the cover’s own words');
+  const lines = makerCoverLineParts('rsvp', 'home');
+  assert.ok(lines.length >= 3 && lines.every((k) => makerPartParent(k) === MAKER_COVER_SCENE), `the list is not the cover’s own words: ${lines.join(',')}`);
   // The RSVP button is one of them.
   assert.equal(MAKER_PARTS.rsvpbutton.label, 'RSVP button');
   assert.equal(makerPartParent('rsvpbutton'), MAKER_COVER_SCENE);

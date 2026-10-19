@@ -25,6 +25,7 @@ import {
 import {
   isIosBrowser,
   nativeNfc,
+  nativeNfcWithHardware,
   readDeviceEnv,
   type ListenerHandle,
   type NativeNfc,
@@ -45,6 +46,11 @@ import type { NfcDevice } from '@/lib/nfc-tag';
  *   web ....... Chrome on Android (installed PWA included), through Web NFC.
  *   none ...... iPhone Safari, desktop: the sheet says so and offers the link
  *               to copy into a free NFC app.
+ *   absent .... NO NFC RADIO ON THIS DEVICE: the app whose plugin answers
+ *               `isSupported` false (every iPad — measured on the iPad
+ *               simulator 2026-10-19), or iPad Safari. The button is not drawn
+ *               at all: there is nothing to offer, here or in the app (iPad +
+ *               Duo audit W6 · App Store 2.1).
  *
  * The sheet has one waiting state and four exits:
  *   Tag written ..... ONLY after the tag is read back and holds this exact link
@@ -67,7 +73,7 @@ import type { NfcDevice } from '@/lib/nfc-tag';
  * (use-nfc-enabled.ts). Download + Copy on the same strip are not.
  */
 
-type Writer = 'app' | 'web' | 'none';
+type Writer = 'app' | 'web' | 'none' | 'absent';
 
 type SheetState =
   | { kind: 'closed' }
@@ -103,10 +109,25 @@ export function NfcWriteButton({
 
   // Decided after mount so the server and the first client paint agree.
   useEffect(() => {
-    setDevice(nfcDeviceKind(readDeviceEnv()));
-    if (nativeNfc()) setWriter('app');
-    else if (nfcWriteSupported(typeof window === 'undefined' ? null : window)) setWriter('web');
-    else setWriter('none');
+    let live = true;
+    const kind = nfcDeviceKind(readDeviceEnv());
+    setDevice(kind);
+    void (async () => {
+      // 🍎 The app is asked whether the RADIO is here, not only the plugin.
+      const next: Writer = nativeNfc()
+        ? (await nativeNfcWithHardware())
+          ? 'app'
+          : 'absent'
+        : nfcWriteSupported(typeof window === 'undefined' ? null : window)
+          ? 'web'
+          : kind === 'tablet'
+            ? 'absent'
+            : 'none';
+      if (live) setWriter(next);
+    })();
+    return () => {
+      live = false;
+    };
   }, []);
 
   const stop = useCallback(() => {
@@ -131,7 +152,7 @@ export function NfcWriteButton({
 
   const run = useCallback(
     async (mode: 'write' | 'check') => {
-      if (!eligibility.eligible || !writer) return;
+      if (!eligibility.eligible || !writer || writer === 'absent') return;
       const target = eligibility.url;
       if (writer === 'none') {
         setState({ kind: 'unsupported' });
@@ -180,7 +201,7 @@ export function NfcWriteButton({
     [eligibility, writer, settle, stop],
   );
 
-  if (!nfcOn || !eligibility.eligible) return null;
+  if (!nfcOn || !eligibility.eligible || writer === 'absent') return null;
 
   const open = state.kind !== 'closed';
 

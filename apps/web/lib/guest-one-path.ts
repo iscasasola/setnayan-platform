@@ -26,6 +26,8 @@
  * 📵 Saving the reply sends NOTHING (owner 2026-09-29, "NO EMAIL TO GUESTS").
  */
 
+import { isAppleTouchDevice } from './apple-device';
+
 /** The shape `lib/guest-session.ts` signs. Re-declared so this stays pure. */
 export type GuestSessionLike = {
   guest_id: string;
@@ -218,7 +220,13 @@ export function rsvpGate(input: {
  *     webviews (`disallowed_useragent`), and most invitations are opened in one.
  *     The button copies the guest's OWN link and says how to paste it into
  *     Safari or Chrome, where Apple / Google is one tap;
- *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple;
+ *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple. The iPad
+ *     app's user-agent says `Macintosh` (measured 2026-10-19), so "Apple
+ *     device" is `isAppleTouchDevice` (lib/apple-device.ts), never a bare
+ *     `/iPhone|iPad/`: on that test the iPad app offered Google with no Sign
+ *     in with Apple — an App Store 4.8 rejection. iPad SAFARI cannot be told
+ *     from a Mac by a server at all; `SaveToAccount` lets the browser correct
+ *     it (`AppleOnTouch`);
  *   · everything else (Android Chrome, a desktop browser) → Google.
  *
  * A provider the deployment has not switched on falls back to the other; with
@@ -232,7 +240,6 @@ export type SaveMethod = 'apple' | 'google' | 'browser' | 'link';
 
 const IN_APP_WEBVIEW =
   /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|\bLine\/|MicroMessenger|Snapchat|musical_ly|BytedanceWebview/i;
-const APPLE_DEVICE = /iPhone|iPad|iPod/i;
 
 export function isInAppWebview(userAgent: string | null | undefined): boolean {
   return IN_APP_WEBVIEW.test(userAgent ?? '');
@@ -244,7 +251,7 @@ export function saveMethodFor(
 ): SaveMethod {
   const ua = userAgent ?? '';
   if (isInAppWebview(ua)) return 'browser';
-  if (APPLE_DEVICE.test(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'link';
+  if (isAppleTouchDevice(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'link';
   return providers.google ? 'google' : providers.apple ? 'apple' : 'link';
 }
 

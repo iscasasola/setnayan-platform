@@ -27,6 +27,7 @@
  * component) imports the pop-up rule from here.
  */
 import { isInAppWebview } from '@/lib/guest-one-path';
+import { deviceOs } from '@/lib/apple-device';
 import { defaultInviteTemplate, formatInviteDate, inviteEventPhrase, sanitizeInviteTemplate, type InviteEventFacts } from '@/lib/guest-invite-message';
 
 /** The landing page, top to bottom (the prototype's frame 1 and frame 3).
@@ -307,8 +308,6 @@ export type InAppHandoff =
   | { kind: 'android'; href: string }
   | { kind: 'ios'; safariHref: string; appHref: string };
 
-const ANDROID = /Android/i;
-const APPLE = /iPhone|iPad|iPod/i;
 
 export function inAppHandoff(userAgent: string | null | undefined, personalLink: string): InAppHandoff {
   const ua = userAgent ?? '';
@@ -321,13 +320,14 @@ export function inAppHandoff(userAgent: string | null | undefined, personalLink:
   }
   if (url.protocol !== 'https:') return { kind: 'none' };
   const rest = `${url.host}${url.pathname}${url.search}`;
-  if (ANDROID.test(ua)) {
+  const os = deviceOs(ua);
+  if (os === 'android') {
     return {
       kind: 'android',
       href: `intent://${rest}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url.toString())};end`,
     };
   }
-  if (APPLE.test(ua)) {
+  if (os === 'iphone' || os === 'ipad') {
     return {
       kind: 'ios',
       safariHref: `x-safari-${url.toString()}`,

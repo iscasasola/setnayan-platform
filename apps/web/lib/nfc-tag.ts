@@ -25,6 +25,8 @@
  * and asked by the button component. Nothing in here reads it.
  */
 
+import { deviceOs } from './apple-device';
+
 // ── Eligibility ────────────────────────────────────────────────────────────
 
 export type NfcEligibility =
@@ -249,13 +251,23 @@ export function guestTokenFromTag(
 // NFC writer the web can reach. So a desktop is not "unsupported browser",
 // it is the wrong device, and the sheet should say so.
 
-export type NfcDevice = 'phone' | 'desktop';
+export type NfcDevice = 'phone' | 'tablet' | 'desktop';
 
 /**
  * Pure: is this a phone-shaped device? Takes what the caller read from the
  * browser so it can be tested without one. A coarse pointer (finger) plus a
  * small screen is the honest signal; the user-agent is the fallback for
  * desktop browsers that lie about neither.
+ *
+ * 🍎 AN iPAD IS NOT A PHONE HERE (iPad + Duo audit W6, 2026-10-19). No iPad has
+ * an NFC radio, so it can write a tag in no browser and not in our app either —
+ * yet a finger plus a ≤1180 px screen used to call it a phone, and the sheet
+ * sent it to "the Setnayan app", which on an iPad can only fail. `tablet` is
+ * the answer the write button hides itself on. The iPad is told apart by the
+ * one guarded reading of Apple's Macintosh user-agent (`deviceOs`,
+ * lib/apple-device.ts) — the only device name read here. Everywhere the app
+ * runs, the plugin's own `isSupported` decides (nfc-runtime.ts
+ * `nativeNfcWithHardware`).
  */
 export function nfcDeviceKind(env: {
   coarsePointer: boolean;
@@ -264,10 +276,11 @@ export function nfcDeviceKind(env: {
   screenWidth: number;
 }): NfcDevice {
   const ua = env.userAgent;
-  if (/iPhone|iPod|Android.*Mobile/i.test(ua)) return 'phone';
-  // iPadOS reports a Mac user-agent; it is still a touch device, and it can
-  // run the app. Treat any touch device with a phone/tablet-sized screen as
-  // a phone for this purpose.
+  const os = deviceOs(ua, env.maxTouchPoints);
+  if (os === 'ipad') return 'tablet';
+  if (os === 'iphone' || (os === 'android' && /Mobile/i.test(ua))) return 'phone';
+  // Any other touch device with a phone/tablet-sized screen (an Android tablet,
+  // which may carry NFC) is treated as a phone for this purpose.
   if (env.coarsePointer && env.maxTouchPoints > 0 && env.screenWidth <= 1180) return 'phone';
   return 'desktop';
 }
@@ -278,6 +291,9 @@ export function nfcDeviceKind(env: {
  * went wrong, the job simply belongs on the phone in your pocket.
  */
 export function nfcWrongDeviceCopy(device: NfcDevice, isIos: boolean): string {
+  if (device === 'tablet') {
+    return 'Writing an NFC tag happens on a phone — an iPad has no NFC writer. Copy the link below, open this page on your phone, and write the tag there.';
+  }
   if (device === 'desktop') {
     return 'Writing an NFC tag happens on a phone — a computer has no NFC writer. Copy the link below, open this page on your phone, and write the tag there.';
   }

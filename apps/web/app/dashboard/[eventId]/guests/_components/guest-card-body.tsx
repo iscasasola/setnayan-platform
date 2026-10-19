@@ -127,12 +127,22 @@ const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
  */
 export function guestCardEyebrow(
   guest: Pick<GuestCardData['guest'], 'role' | 'side'>,
-  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames'] },
+  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames']; plusOneOf?: GuestCardData['plusOneOf'] },
 ): string {
   const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : 'Guest', opts.hasSides && !isCouple ? SIDE_LABELS[guest.side] : null]
+  // 🤝 A +1 is "+1 of Rose Marie Buanhug", on their guest's side (lib/plus-one-of.ts) — never a plain "Guest".
+  const of = isCouple ? null : (opts.plusOneOf ?? null);
+  const side = of ? of.side : guest.side;
+  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : (of?.of ?? 'Guest'), opts.hasSides && !isCouple ? SIDE_LABELS[side] : null]
     .filter(Boolean)
     .join(' · ');
+}
+/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
+export function guestCardTitle(
+  guest: Parameters<typeof guestDisplayName>[0],
+  plusOneOf?: GuestCardData['plusOneOf'],
+): string {
+  return plusOneOf?.name ?? guestDisplayName(guest);
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
@@ -415,11 +425,12 @@ export function GuestCardBody({
               cards have no such header, so they draw them here. */}
           {headerShown ? null : (
             <p className="sn-eye">
-              {guestCardEyebrow(guest, { hasSides, roleNames })}
+              {guestCardEyebrow(guest, { hasSides, roleNames, plusOneOf: data.plusOneOf })}
             </p>
           )}
           {variant === 'page' ? (
-            <h1 className="truncate font-display text-2xl tracking-tight text-ink">{name}</h1>
+            /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
+            <h1 className={`${data.plusOneOf?.name ? 'break-words' : 'truncate'} font-display text-2xl tracking-tight text-ink`}>{guestCardTitle(guest, data.plusOneOf)}</h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (

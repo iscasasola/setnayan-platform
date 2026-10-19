@@ -28,6 +28,7 @@ import { offersThisIsMe } from '@/lib/creator-couple-row';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
+import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -104,6 +105,11 @@ export type GuestCardData = {
   /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
    *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
   nameLinked: boolean;
+  /**
+   * 🤝 Whose +1 this row is — the card's title and eyebrow name them (2026-10-20: the card on Rose Marie Buanhug's
+   * seat read "+1 · TBA" under "GUEST · BRIDE'S SIDE"). Null for everyone who is not a +1, or when the read failed.
+   */
+  plusOneOf?: PlusOneOf | null;
   /**
    * The account this row is bound to (`event_members.guest_id`), shown to the
    * couple with an Unlink (lib/seat-unlink.ts). Null when nobody holds it, or
@@ -320,7 +326,7 @@ export async function loadGuestCard(
 
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
-  const [accessMap, viewerMembership, nameLinked] = await Promise.all([
+  const [accessMap, viewerMembership, nameLinked, plusOneOf] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return null;
@@ -352,6 +358,37 @@ export async function loadGuestCard(
           return Boolean(data);
         })()
       : Promise.resolve(false),
+    // 🤝 The guest who brings them, and that guest's seats in order — the card names the seat as the List does.
+    guest.plus_one_of_guest_id
+      ? (() => {
+          // Both reads leave together, beside the access pair (no extra wait: `.then`, never a queued `await`).
+          const hostId = guest.plus_one_of_guest_id as string;
+          return Promise.all([
+            supabase
+              .from('guests')
+              .select('guest_id, first_name, last_name, display_name, side')
+              .eq('event_id', eventId)
+              .eq('guest_id', hostId)
+              .is('deleted_at', null)
+              .maybeSingle(),
+            supabase
+              .from('guests')
+              .select('guest_id')
+              .eq('event_id', eventId)
+              .eq('plus_one_of_guest_id', hostId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: true }),
+          ]).then(([{ data: host, error: hostErr }, { data: seatIds, error: seatErr }]) => {
+            if (hostErr || seatErr) {
+              logQueryError('loadGuestCard.plusOneOf', hostErr ?? seatErr, { eventId, guestId }, 'graceful_degrade');
+              return null;
+            }
+            if (!host) return null;
+            const seatIndex = ((seatIds ?? []) as { guest_id: string }[]).findIndex((r) => r.guest_id === guest.guest_id);
+            return plusOneOfWords(guest, host as never, Math.max(0, seatIndex));
+          });
+        })()
+      : Promise.resolve(null),
   ]);
 
   const canManageAccess = viewerMembership !== null;
@@ -427,6 +464,7 @@ export async function loadGuestCard(
     canManageAccess,
     offersThisIsMe: thisIsMe,
     nameLinked,
+    plusOneOf,
     linkedAccount,
     profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };

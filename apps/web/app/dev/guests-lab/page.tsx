@@ -56,6 +56,7 @@ import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { plusOneOfWords } from '@/lib/plus-one-of';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
@@ -288,8 +289,16 @@ function withPlusOnes(roster: GuestRow[]): GuestRow[] {
     seat('g-p1-0114', 'g-mj-14'),
     seat('g-p1-0024', 'g-mj-24'),
     seat('g-p1-0002', 'g-mj-2', { first_name: 'Paulo', last_name: 'Reyes', display_name: null, rsvp_status: 'attending', invitation_sent_at: '2026-09-20T00:00:00Z' }),
+    /* 🪑 2026-10-20, live cale-ice, read-only: two of the groom's immediate family (`groom_immediate_family`, groom's side)
+       whose "+1" seat rows were REMOVED (soft-deleted 2026-10-14) while their "+1" stayed — so the List drew a +1 pill
+       over a seat with no row. Stand-in names, the same roles, sides and numbers; no seat row for either. */
+    guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
   ];
 }
+
+/** 🤝 `?part=card&plusone=1` — the card opened on a plain guest's unnamed seat (live: Rose Marie Buanhug's), bride's side. */
+const LAB_SEAT_HOST = { guest_id: 'g-mj-14', first_name: 'Rosa', last_name: 'Santos', display_name: null, side: 'bride' as const };
 
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
 function DockStandIn() {
@@ -388,9 +397,13 @@ export default async function GuestsLabPage({
        `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
        is refused by the host fence, so the after-state is drawn from these fixture words. */
     const labRole = typeof sp.role === 'string' && sp.role ? (sp.role as GuestRow['role']) : null;
+    const seatCard = sp.plusone === '1';
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
-      : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
+      : seatCard
+        ? guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+        : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
+    const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
        also the Candle Sponsor, in Family and two of the couple's own groups — the ONE Group / ONE Role dropdowns' after-state. */
@@ -445,7 +458,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(cardGuest, host), ...protoData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+                  data={{ ...cardData(cardGuest, host), ...protoData, ...seatOf, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"

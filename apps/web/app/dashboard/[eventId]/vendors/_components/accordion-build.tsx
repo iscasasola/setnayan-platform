@@ -143,12 +143,12 @@ export function AccordionBuildButton({
               ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 focus:outline-none sm:items-center sm:p-4"
+              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 focus:outline-none tab:items-center tab:p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setConfirm(false);
               }}
             >
-              <div className="w-full max-w-md rounded-t-2xl bg-cream p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl ring-1 ring-ink/10 sm:rounded-2xl">
+              <div className="w-full max-w-md rounded-t-2xl bg-cream p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl ring-1 ring-ink/10 tab:rounded-2xl">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-display text-xl italic text-ink">Replace on your build?</h3>
                   <button

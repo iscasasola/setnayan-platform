@@ -37,6 +37,10 @@
  *                   and the ticket are a real event's, so they do not draw here.
  *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
  *                   same fixture, so the two doors can be compared side by side
+ *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
+ *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
+ *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
+ *                   (default bride) and the guest is already in College (groom's side)
  */
 import { notFound } from 'next/navigation';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
@@ -71,6 +75,16 @@ import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group. */
+const SIDE_GROUPS: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[] = [
+  { group_id: 'lab-sg-barkada', label: 'Barkada', team_side: 'both' },
+  { group_id: 'lab-sg-childhood', label: 'Childhood', team_side: 'groom' },
+  { group_id: 'lab-sg-college', label: 'College', team_side: 'groom' },
+  { group_id: 'lab-sg-family-b', label: 'Family', team_side: 'bride' },
+  { group_id: 'lab-sg-family-g', label: 'Family', team_side: 'groom' },
+  { group_id: 'lab-sg-relatives-b', label: 'Relatives', team_side: 'bride' },
+  { group_id: 'lab-sg-relatives-g', label: 'Relatives', team_side: 'groom' },
+];
 /** A stand-in Event Hub address for the run's personal links (the shipped builder makes the link). */
 const LAB_HUB = 'https://setnayan.com/maria-and-jose';
 
@@ -400,10 +414,10 @@ export default async function GuestsLabPage({
           groupOptions: ['family', 'friends', 'work', 'school', 'officiant', 'other'],
           groupChoices: {
             options: [
-              { groupId: 'lab-g1', label: 'College Friends' },
-              { groupId: 'lab-g3', label: 'Cebu cousins' },
-              { groupId: 'lab-g4', label: 'Office — Makati' },
-              { groupId: 'lab-g2', label: 'Out of town' },
+              { groupId: 'lab-g1', label: 'College Friends', teamSide: 'both' },
+              { groupId: 'lab-g3', label: 'Cebu cousins', teamSide: 'both' },
+              { groupId: 'lab-g4', label: 'Office — Makati', teamSide: 'both' },
+              { groupId: 'lab-g2', label: 'Out of town', teamSide: 'both' },
             ],
             memberIds: ['lab-g1', 'lab-g2'],
           },
@@ -411,6 +425,20 @@ export default async function GuestsLabPage({
             { label: 'College Friends', teamSide: 'both' },
             { label: 'Out of town', teamSide: 'both' },
           ],
+        }
+      : {};
+    /* 👥 `&sides=1` — a guest on `&side=` (default bride) with cale-ice's groups, already in College (groom's side). */
+    const sides = sp.sides === '1';
+    const labSide: GuestRow['side'] = sp.side === 'groom' ? 'groom' : sp.side === 'both' ? 'both' : 'bride';
+    const sidesGuest = sides ? guest({ first_name: 'Lea', last_name: 'Ramos', side: labSide, group_category: 'friends', role: 'guest' }) : null;
+    const sidesData = sides
+      ? {
+          groupOptions: ['family', 'friends', 'work', 'school', 'officiant', 'other'],
+          groupChoices: {
+            options: SIDE_GROUPS.map((x) => ({ groupId: x.group_id, label: x.label, teamSide: x.team_side })).sort((x, y) => x.label.localeCompare(y.label)),
+            memberIds: ['lab-sg-college'],
+          },
+          customGroups: [{ label: 'College', teamSide: 'groom' }],
         }
       : {};
     return (
@@ -424,7 +452,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(protoGuest ?? g, host), ...protoData, roleNames: labWords } as GuestCardData}
+                  data={{ ...cardData(sidesGuest ?? protoGuest ?? g, host), ...protoData, ...sidesData, roleNames: labWords } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"
@@ -527,10 +555,14 @@ export default async function GuestsLabPage({
                     measured={!fail}
                     hasSides
                     groupsByGuest={GROUPS}
-                    groups={[
-                      { group_id: 'grp-b', label: 'Barkada' },
-                      { group_id: 'grp-c', label: 'Choir' },
-                    ]}
+                    groups={
+                      sp.sides === '1'
+                        ? SIDE_GROUPS
+                        : [
+                            { group_id: 'grp-b', label: 'Barkada', team_side: 'both' },
+                            { group_id: 'grp-c', label: 'Choir', team_side: 'both' },
+                          ]
+                    }
                     tables={tables}
                     tableByGuest={tableByGuest}
                     songsByGuest={{}}

@@ -930,7 +930,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       notLoaded={guestListUnreadLine(sideReads)}
       hasSides={hasSides}
       groupsByGuest={groupsByGuest}
-      groups={groups.map((g) => ({ group_id: g.group_id, label: g.label }))}
+      groups={groups.map((g) => ({ group_id: g.group_id, label: g.label, team_side: g.team_side }))}
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}

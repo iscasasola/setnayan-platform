@@ -103,12 +103,12 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   );
   // 👥 The couple's own groups, for the ONE Group dropdown (owner 2026-10-20). Refused → null: the dropdown offers the
   // standard groups only and posts no memberships — never an empty "None yet." it did not measure.
-  const { data: ownRows, error: ownError } = await supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId);
+  const { data: ownRows, error: ownError } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
   if (ownError) logQueryError('NewGuestPage.ownGroups', ownError, { eventId }, 'graceful_degrade');
   const ownGroups = ownError
     ? null
-    : ((ownRows ?? []) as { group_id: string; label: string | null }[])
-        .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group' }))
+    : ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[])
+        .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : ('both' as const) }))
         .sort((a, b) => a.label.localeCompare(b.label));
 
   // Existing-guest pool for live duplicate detection on the name fields.
@@ -173,6 +173,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             eventId={eventId}
             standard={guestGroupsFor(roleSet.key).map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
             groups={ownGroups}
+            hasSides={hasSides}
           />
         </div>
 

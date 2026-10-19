@@ -15,8 +15,8 @@
  *      measured in production (4 of 19 live +1s on "both" under a "bride" guest) stops at the source.
  *
  * SABOTAGE (2026-10-20, each seen red, then restored):
- *   · `roleBucket(at(g))` → `roleBucket(g)` in `rosterSections`  → tests 1, 4 red (the +1s fall to "Guests");
- *   · `guests: beside(list)` → `guests: list`                    → test 1 red (a +1 not after its guest);
+ *   · `roleBucket(at(g))` → `roleBucket(g)` in `rosterSections`  → tests 1–4 red (the +1s fall to "Guests");
+ *   · `guests: beside(list)` → `guests: list`                    → tests 1, 3 red (a +1 not after its guest);
  *   · `plusWords?.name ??` dropped from `GuestRowLine`            → test 4 red ("+1 · TBA" again);
  *   · the `carrySideToTheirPlusOnes` call dropped from `setGuestSide` → test 6 red.
  */

@@ -84,7 +84,7 @@ export function withBookedByPayment<T extends BookedByPaymentRow>(
 ): Array<T & { stored_status?: T['status'] }> {
   const paid = payments instanceof Set ? (payments as ReadonlySet<string>) : paidSupplierIds(payments as ReadonlyArray<PaymentFact>);
   return rows.map((r) =>
-    bookedByPaymentOnly(r, paid) ? { ...r, status: BOOKED_BY_PAYMENT_STATUS as T['status'], stored_status: r.status } : r,
+    bookedByPaymentOnly(r, paid) ? { ...r, status: BOOKED_BY_PAYMENT_STATUS as unknown as T['status'], stored_status: r.status } : r,
   );
 }
 

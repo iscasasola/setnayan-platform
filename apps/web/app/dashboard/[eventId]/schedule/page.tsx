@@ -76,7 +76,7 @@ import {
   type RosMetaMap,
 } from '@/lib/schedule-ros';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { readScheduleSuppliers } from '@/lib/schedule-suppliers';
+import { readScheduleSuppliers } from '@/lib/schedule-suppliers-read';
 import { templatesForEventType } from '@/lib/schedule-templates';
 import {
   BulkRetimePanel,

@@ -4,6 +4,8 @@
  * card and the server read share it; the read is `claim-access-asks.server.ts`.
  */
 
+import { formatCount } from '@/lib/format-number';
+
 export type ClaimAccessAsk = {
   requestId: string;
   /** The shop's name — or, before they have one, the name the couple gave them. */
@@ -26,5 +28,5 @@ export function claimAskLine(ask: Pick<ClaimAccessAsk, 'coordinator' | 'category
 export function claimAsksDoorwayTitle(asks: ReadonlyArray<Pick<ClaimAccessAsk, 'name'>>): string | null {
   if (asks.length === 0) return null;
   if (asks.length === 1) return `${asks[0]!.name} joined from your link`;
-  return `${asks.length} suppliers joined from your link`;
+  return `${formatCount(asks.length)} suppliers joined from your link`;
 }

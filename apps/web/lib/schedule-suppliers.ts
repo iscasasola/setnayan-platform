@@ -1,13 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  BOOKED_BY_PAYMENT_EMBED,
   paidSupplierIds,
   supplierStandingWord,
   type SupplierStandingWord,
 } from '@/lib/booked-by-payment';
 
 /**
- * schedule-suppliers.ts — WHO THE SCHEDULE NAMES ON AN ITEM, AND HOW THEY STAND.
+ * schedule-suppliers.ts (pure; the read is `schedule-suppliers-read.ts`) — WHO THE SCHEDULE NAMES ON AN ITEM, AND HOW THEY STAND.
  *
  * Owner, 2026-10-20 (DECISION_LOG "A CLAIMED SUPPLIER ARRIVES BOOKED IF PAID…"):
  * *"Schedule will have booked or shortlisted if there is no booking yet."* ⇒
@@ -33,7 +31,7 @@ export type ScheduleSupplier = {
   standing: SupplierStandingWord;
 };
 
-type Row = {
+export type ScheduleSupplierRow = {
   vendor_id: string;
   vendor_name: string | null;
   status: string | null;
@@ -44,7 +42,7 @@ type Row = {
 
 /** Pure: rows (+ shop names by shop id) → what the schedule names. Booked first, then by name. */
 export function scheduleSuppliersFrom(
-  rows: ReadonlyArray<Row>,
+  rows: ReadonlyArray<ScheduleSupplierRow>,
   shopNames: ReadonlyMap<string, string>,
 ): ScheduleSupplier[] {
   const paid = paidSupplierIds(
@@ -61,37 +59,4 @@ export function scheduleSuppliersFrom(
   return named.sort(
     (a, b) => Number(b.standing === 'Booked') - Number(a.standing === 'Booked') || a.vendor_name.localeCompare(b.vendor_name),
   );
-}
-
-/** The read the schedule page makes (couple / delegate session). Empty on a refusal, said in the log. */
-export async function readScheduleSuppliers(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<ScheduleSupplier[]> {
-  const { data, error } = await supabase
-    .from('event_vendors')
-    .select(`vendor_id, vendor_name, status, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}`)
-    .eq('event_id', eventId)
-    .is('archived_at', null)
-    .order('vendor_name', { ascending: true });
-  if (error) {
-    console.error('[supabase-error] lib/schedule-suppliers.ts · from:event_vendors.select', error.message, { event_id: eventId });
-    return [];
-  }
-  const rows = (data ?? []) as unknown as Row[];
-  const shopIds = [...new Set(rows.map((r) => r.marketplace_vendor_id).filter((x): x is string => !!x))];
-  const names = new Map<string, string>();
-  if (shopIds.length > 0) {
-    const { data: shops, error: shopsErr } = await supabase
-      .from('vendor_profiles')
-      .select('vendor_profile_id, business_name')
-      .in('vendor_profile_id', shopIds);
-    if (shopsErr) {
-      console.error('[supabase-error] lib/schedule-suppliers.ts · from:vendor_profiles.select', shopsErr.message, { event_id: eventId });
-    }
-    for (const s of (shops ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>) {
-      if (s.business_name) names.set(s.vendor_profile_id, s.business_name);
-    }
-  }
-  return scheduleSuppliersFrom(rows, names);
 }

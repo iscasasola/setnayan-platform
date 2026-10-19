@@ -78,7 +78,8 @@ const LOADERS: Array<[string, string, RegExp]> = [
   ['Budget · fetchBudgetSnapshot', 'lib/budget.ts', /export async function fetchBudgetSnapshot[\s\S]*?withBookedByPayment\(/],
   ['Budget · the money resolver', 'lib/budget-truth.ts', /vendorRows = withBookedByPayment\(vendorRows, paymentRows\)/],
   ['Home · EventDashboard', 'app/dashboard/[eventId]/_components/event-dashboard.tsx', /const eventVendors = withEmbeddedPayments\(/],
-  ['Schedule · readScheduleSuppliers', 'lib/schedule-suppliers.ts', /supplierStandingWord\(r, paid\)/],
+  ['Schedule · scheduleSuppliersFrom', 'lib/schedule-suppliers.ts', /supplierStandingWord\(r, paid\)/],
+  ['Schedule · readScheduleSuppliers', 'lib/schedule-suppliers-read.ts', /return scheduleSuppliersFrom\(rows, names\)/],
 ];
 
 test('A6 · every couple read that draws a supplier\'s standing goes through the resolver', () => {
@@ -136,5 +137,6 @@ test('C2 · the schedule reads its suppliers through that, and draws them with o
   const inspector = read('app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx');
   assert.match(inspector, /\{supplierOnItem\(s\)\}/, "the item's sheet no longer shows the standing");
   assert.match(read('app/dashboard/[eventId]/schedule/_components/day-rail.tsx'), /data-rail-supplier[\s\S]{0,200}supplierOnItem\(s\)/, 'the rail row no longer names the supplier');
-  assert.match(read('lib/schedule-suppliers.ts'), /\.is\('archived_at', null\)/, 'a merged (archived) record is offered again');
+  assert.match(read('lib/schedule-suppliers-read.ts'), /\.is\('archived_at', null\)/, 'a merged (archived) record is offered again');
+  assert.match(read('lib/schedule-suppliers-read.ts'), /\$\{BOOKED_BY_PAYMENT_EMBED\}/, 'the schedule reads no payments, so nothing is booked by one');
 });

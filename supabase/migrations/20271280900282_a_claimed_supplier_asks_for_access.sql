@@ -445,4 +445,53 @@ COMMENT ON FUNCTION public.answer_claim_access_request(UUID, UUID, BOOLEAN, JSON
 REVOKE ALL ON FUNCTION public.answer_claim_access_request(UUID, UUID, BOOLEAN, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.answer_claim_access_request(UUID, UUID, BOOLEAN, JSONB) TO service_role;
 
+-- ── 5 · the two new columns are READ-ONLY to browsers ──────────────────────
+-- `kind` and `event_vendor_id` inherited INSERT + UPDATE from the table-level
+-- grant (a new column always does). RLS is row-level and cannot hold a value:
+-- the couple's UPDATE policy would let them re-kind an ask or re-point it at
+-- another record. Only the server writes them (claim_ask_for_access /
+-- answer_claim_access_request). A column revoke against a table grant is a
+-- no-op, so the table's INSERT/UPDATE is re-cut to an allow-list computed from
+-- LIVE privileges minus the two columns (the 20271009210000 shape); SELECT is
+-- untouched (the couple's card and the doorway read both).
+DO $$
+DECLARE
+  rle     TEXT;
+  priv    TEXT;
+  allowed TEXT;
+  new_cols CONSTANT TEXT[] := ARRAY['kind', 'event_vendor_id'];
+BEGIN
+  FOREACH rle IN ARRAY ARRAY['authenticated'] LOOP
+    FOREACH priv IN ARRAY ARRAY['INSERT', 'UPDATE'] LOOP
+      SELECT string_agg(quote_ident(c.column_name), ', ' ORDER BY c.ordinal_position)
+        INTO allowed
+        FROM information_schema.columns c
+       WHERE c.table_schema = 'public'
+         AND c.table_name   = 'event_access_requests'
+         AND c.column_name <> ALL (new_cols)
+         AND has_column_privilege(rle, 'public.event_access_requests', c.column_name, priv);
+      EXECUTE format('REVOKE %s ON public.event_access_requests FROM %I', priv, rle);
+      IF allowed IS NOT NULL THEN
+        EXECUTE format('GRANT %s (%s) ON public.event_access_requests TO %I', priv, allowed, rle);
+      END IF;
+    END LOOP;
+  END LOOP;
+  EXECUTE 'GRANT ALL ON public.event_access_requests TO service_role';
+END $$;
+
+DO $$
+BEGIN
+  IF has_column_privilege('authenticated', 'public.event_access_requests', 'kind', 'UPDATE')
+     OR has_column_privilege('authenticated', 'public.event_access_requests', 'kind', 'INSERT')
+     OR has_column_privilege('authenticated', 'public.event_access_requests', 'event_vendor_id', 'UPDATE')
+     OR has_column_privilege('authenticated', 'public.event_access_requests', 'event_vendor_id', 'INSERT') THEN
+    RAISE EXCEPTION 'post-condition: a browser can still write event_access_requests.kind / event_vendor_id';
+  END IF;
+  IF NOT has_column_privilege('authenticated', 'public.event_access_requests', 'status', 'UPDATE')
+     OR NOT has_column_privilege('authenticated', 'public.event_access_requests', 'requested_areas', 'INSERT')
+     OR NOT has_column_privilege('authenticated', 'public.event_access_requests', 'kind', 'SELECT') THEN
+    RAISE EXCEPTION 'post-condition: the shipped asks lost a privilege they need';
+  END IF;
+END $$;
+
 COMMIT;

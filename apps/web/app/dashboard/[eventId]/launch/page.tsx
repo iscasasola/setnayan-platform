@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Suspense, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { readMakerDeskTitle } from '@/lib/maker-desk-title.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1079,6 +1080,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
   /* 🖥 …and on a desktop too, in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`) — dark for couples while it is built. */
   const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
+  /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
+  const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
   let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
@@ -1926,6 +1929,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
       stagesStudio={stagesStudio}
       desktopColumns={desktopColumns}
+      /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
+      deskTitle={deskTitle}
       studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */

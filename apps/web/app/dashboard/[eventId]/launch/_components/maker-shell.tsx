@@ -191,6 +191,7 @@ export function MakerShell({
   postEventTour = null,
   stagesStudio = false,
   desktopColumns = false,
+  deskTitle = null,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
@@ -221,6 +222,8 @@ export function MakerShell({
    * the same either way. False: a desktop draws the shipped Maker exactly.
    */
   desktopColumns?: boolean;
+  /** 🖥 The event's name, for the desktop's top bar — handed in only with the columns on (`MakerDesk` draws it). */
+  deskTitle?: string | null;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -631,10 +634,11 @@ export function MakerShell({
       setEventBar,
       setLtWhere,
       stagesStudio: ss,
+      deskTitle,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page

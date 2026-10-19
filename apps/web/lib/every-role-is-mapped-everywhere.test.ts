@@ -285,7 +285,7 @@ test('E · the Studio, the guest page and the prints dress each honour attendant
     assert.equal(r.source, 'role', `${role}: the guest page answers from their group, not their row`);
     assert.equal(r.panel?.callTime, studio!.arrives, `${role}: Arrive by is not the Studio row's call time`);
     assert.equal(r.panel?.callTime, formatCallTime(((DRESSED.roles as Record<string, { callTime: string }>)[key]!).callTime));
-    const own = readerAttire({ role, attire: null, source: r.source, config: DRESSED, style: r.panel!.style, hexes: r.panel!.hexes, label: (s) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf });
+    const own = readerAttire({ role, attire: null, person: null, source: r.source, config: DRESSED, style: r.panel!.style, hexes: r.panel!.hexes, label: (s) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf });
     assert.equal(own.styleLabel, said, `${role}: the guest page says "${own.styleLabel}", the Studio "${said}"`);
     assert.equal(own.picks.length, 1);
     assert.equal(own.picks[0]!.role, pick.role, `${role}: the guest page draws another person`);

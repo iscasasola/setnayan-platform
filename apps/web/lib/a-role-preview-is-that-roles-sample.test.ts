@@ -162,7 +162,7 @@ test('3 · "You are Father of the Bride" — the preview by the half picked, a r
   assert.equal(await youAre('principal_sponsor_ninang', { name_prefix: 'Mrs.', display_name: 'Ana' }, 'gown'), 'Ninang');
   /* …and the guest page hands every "you" panel the reader's own title and name (Welcome, Me, the scene). */
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.equal(body.match(/guestNameParts: \{ name_prefix: guest\.name_prefix \?\? null, display_name: guest\.display_name \}/g)?.length ?? 0, 2, 'a "you" look lost the reader’s name parts');
+  assert.equal(body.match(/guestNameParts: guestNamePartsOf\(guest\)/g)?.length ?? 0, 2, 'a "you" look lost the reader’s name parts');
   for (const f of ['guest-me-parts.tsx', 'guest-welcome.tsx', 'hideable-widget-render.tsx']) {
     assert.match(read(`app/[slug]/_components/${f}`), /guestNameParts=\{/, `${f} drops the reader’s name parts`);
   }

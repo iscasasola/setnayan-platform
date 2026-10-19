@@ -222,8 +222,19 @@ test('6 · the pages read the one resolver — Event Details, the guest page, th
 
   const site = src('app/[slug]/_components/site-body.tsx');
   assert.match(site, /const guestsArriveBy = guestsArriveTime\(scheduleBlocks\);/, 'the guest page does not read the one arrival');
-  assert.match(site, /guestMeFacts\(\{[^}]*guestsArriveBy,/s, 'Me’s parts are not told when guests arrive');
-  assert.match(site, /const guestLook = \{[^}]*guestsArriveBy,/s, 'Me › Arrive by is not handed when guests arrive');
+  /** The object literal that opens at `anchor`'s last `{`, braces balanced — the call's own fields, nothing after it. */
+  const objectAt = (anchor: string) => {
+    const i = site.indexOf(anchor);
+    assert.ok(i >= 0, `${anchor} is gone`);
+    let depth = 0;
+    for (let k = i + anchor.lastIndexOf('{'); k < site.length; k += 1) {
+      if (site[k] === '{') depth += 1;
+      else if (site[k] === '}' && --depth === 0) return site.slice(i, k + 1);
+    }
+    return '';
+  };
+  assert.match(objectAt('facts: guestMeFacts({'), /\bguestsArriveBy,/, 'Me’s parts are not told when guests arrive');
+  assert.match(objectAt('const guestLook = {'), /\bguestsArriveBy,/, 'Me › Arrive by is not handed when guests arrive');
   assert.match(site, /firstStartAt: scheduleBlocks\[0\]\?\.start_at \?\? null,/, 'the invitation card is unchanged: the first moment');
 
   const me = src('app/[slug]/_components/guest-me-parts.tsx');

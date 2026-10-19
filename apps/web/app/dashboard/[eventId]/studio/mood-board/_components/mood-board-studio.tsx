@@ -431,6 +431,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
      OWN writers (`updateScheduleBlock` / `createScheduleBlock`, the fields `guestsArriveWrite` names), quiet like Studio ›
      Schedule's, then the canvas pages redraw. Live at once, like every schedule edit; never written into the dress code. */
   const [arriveBlocks, setArriveBlocks] = useState<ArriveBlock[] | null>(props.arrival ? props.arrival.blocks : null);
+  /* A render brings the programme as stored (an edit made on the Schedule since) — that read is the truth. */
+  useEffect(() => setArriveBlocks(props.arrival ? props.arrival.blocks : null), [props.arrival]);
   const setGuestsArrive = (hhmm: string | null) => {
     if (!arriveBlocks || hhmm === null) return;
     const plan = guestsArriveWrite({ blocks: arriveBlocks, hhmm, eventDate: props.arrival?.eventDate ?? null });

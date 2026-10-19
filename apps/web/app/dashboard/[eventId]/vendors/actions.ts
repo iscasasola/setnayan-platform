@@ -22,6 +22,7 @@ import { revalidatePath } from 'next/cache';
 import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { readCoverCatalog, type CoverCatalogRead } from '@/lib/cover-catalog.server';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
@@ -5501,6 +5502,17 @@ export async function locateAddressPin(query: string): Promise<AddressPinResult>
 //   · updateSelfAddedSupplier — COMPOSES the writers that already exist.
 //   · readSupplierInvite     — READ-ONLY lookup of an existing claim link.
 // ============================================================================
+
+/**
+ * The card sheet's "Also covers" list — the Suppliers page's own rows for this
+ * event (`readCoverCatalog`: the same `buildShortlistFolders` call the page
+ * draws them with). READ-ONLY; owner 2026-10-20, "we do not have the
+ * categories synced properly". `{ ok: false }` is said in the sheet, never
+ * shown as an empty list.
+ */
+export async function loadCoverCatalog(eventId: string): Promise<CoverCatalogRead> {
+  return readCoverCatalog(eventId);
+}
 
 export type SelfAddedSupplierPrefill = {
   vendorId: string;

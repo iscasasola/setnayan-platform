@@ -24,12 +24,20 @@ export function LabCard({ initial }: { initial: CanvasInitial | null }) {
   );
 }
 
-export function LabRecord({ eventId, edit }: { eventId: string; edit: SelfAddedSupplierPrefill }) {
+export function LabRecord({
+  eventId,
+  edit,
+  categoryLabel = 'Catering',
+}: {
+  eventId: string;
+  edit: SelfAddedSupplierPrefill;
+  categoryLabel?: string;
+}) {
   return (
     <NewManualVendorModal
       eventId={eventId}
       category={edit.category}
-      categoryLabel="Catering"
+      categoryLabel={categoryLabel}
       edit={edit}
       onClose={() => {}}
       onCreated={() => {}}

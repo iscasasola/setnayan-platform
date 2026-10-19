@@ -61,19 +61,23 @@ export default async function AddYourOwnLabPage({
   }
 
   if (s === 'record') {
+    // `&who=dunkin` — the owner's own card (2026-10-20): a doughnut cart filed
+    // under Everything else that already "also covers" Guest booths.
+    const dunkin = sp.who === 'dunkin';
     return (
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
           eventId={LAB_EVENT}
+          categoryLabel={dunkin ? 'Everything else' : 'Catering'}
           edit={{
             vendorId: LAB_EVENT_VENDOR,
-            category: 'catering',
-            name: SUPPLIER,
+            category: dunkin ? 'misc' : 'catering',
+            name: dunkin ? "Dunkin' Donuts" : SUPPLIER,
             contactPerson: 'Maria Santos',
             contactNumber: '',
             address: '',
             pin: null,
-            covers: [],
+            covers: dunkin ? ['guest_booth'] : [],
             inclusions: '',
             price: '',
             planRows: [],

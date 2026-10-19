@@ -231,7 +231,7 @@ import { useSuppliersMode } from './suppliers-mode';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
-import { categoryForTile } from '@/lib/shortlist-taxonomy';
+import { categoryForTile, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
 import { planGroupForCategory } from '@/lib/wedding-plan-groups';
 import {
   railEndIsAddAnother,
@@ -4508,6 +4508,7 @@ export function ShortlistCategories({
           eventId={eventId}
           category={manual.category}
           categoryLabel={manual.label}
+          coverCatalog={coverCatalogFromFolders(foldersFromServer)}
           onClose={() => setManual(null)}
           onCreated={() => {
             setManual(null);

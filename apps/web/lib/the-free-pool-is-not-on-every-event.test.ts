@@ -120,9 +120,11 @@ test('the honest condition is the one the corrected copy uses', () => {
   assert.equal(PAPIC_FREE_CREDIT_CONDITION, 'on your first celebration');
   for (const rel of ['lib/help.ts', 'lib/llms-txt.ts']) {
     const src = readFileSync(join(WEB, rel), 'utf8');
+    // Either the wording itself, or — better — the constant interpolated, so
+    // the file follows the moment the condition is reworded (2026-10-19).
     assert.match(
       src,
-      /first celebration/,
+      /first celebration|\$\{PAPIC_FREE_CREDIT_CONDITION\}/,
       `${rel} no longer names the condition at all — silence is not honesty here, ` +
         `the reader still has to know the pool comes once`,
     );

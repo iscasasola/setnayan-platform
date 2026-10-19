@@ -23,12 +23,12 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Download Setnayan for Mac or Windows',
   description:
-    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window. iOS and Android shells on the V1.5 roadmap.',
+    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window.',
   alternates: { canonical: '/download' },
   openGraph: {
     title: 'Download Setnayan for Mac or Windows',
     description:
-      'A native desktop app for Mac or Windows that opens straight to your Setnayan account. iOS and Android on the V1.5 roadmap.',
+      'A native desktop app for Mac or Windows that opens straight to your Setnayan account.',
     url: '/download',
   },
 };

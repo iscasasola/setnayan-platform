@@ -52,9 +52,17 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 
-/** The published body of the "what needs two-admin approval" article. */
+/**
+ * The body of the "what needs two-admin approval" article.
+ *
+ * ⚠ IT IS NO LONGER ON /help (2026-10-19, sweep B3): the operations guides were
+ * being published to strangers, so they moved to lib/help-admin.ts, which no
+ * public route imports. The article — and every promise in it — is kept and
+ * still counted here; only who can read it changed. The Vendor Agreement § 9.1
+ * itself is unchanged.
+ */
 function publishedBody(): string {
-  const src = readFileSync(join(WEB, 'lib/help.ts'), 'utf8');
+  const src = readFileSync(join(WEB, 'lib/help-admin.ts'), 'utf8');
   const at = src.indexOf("slug: 'what-needs-two-admins'");
   assert.ok(at > 0, 'the two-admin help article has moved or been renamed');
   const body = src.slice(at, src.indexOf('},', at));

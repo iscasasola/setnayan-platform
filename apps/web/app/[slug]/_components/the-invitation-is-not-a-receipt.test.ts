@@ -212,7 +212,10 @@ test('🎬 the film’s lettering left the terminal face — and stopped exactly
   for (const shape of [
     /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-white\/90'/,
     /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-black\/80'/,
-    /px-5 py-2\.5 font-serif text-sm uppercase tracking-\[0\.16em\] text-cream\/90/,
+    /* The hold cue: the approved face, size, case and tracking. Its pill (`bg-black/35`, `px-5 py-2.5`) and the
+       cream type it forced went on 2026-10-19 (sweep C7 — it read as a button and measured ~2:1 on a cream film);
+       the cue now takes the film's own text colour. The lettering is what this site holds, and it is unchanged. */
+    /<p data-film-hold-hint="" className="[^"]*\bfont-serif text-sm uppercase tracking-\[0\.16em\]"/,
     /px-5 py-3 font-serif text-sm uppercase tracking-\[0\.16em\] text-white/,
   ]) {
     assert.match(film, shape, `the film lost an approved lettering site: ${shape}`);

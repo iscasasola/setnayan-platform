@@ -928,6 +928,8 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
       plus_one_name: null,
       dietary_restrictions: null,
       guest_note: null,
+      // 💌 The hosts' note was written to the OLD person — the new one never reads it (owner 2026-10-20).
+      host_note_for_guest: null,
       meal_preference: 'no_preference',
       rsvp_responded_at: null,
       invitation_sent_at: null,

@@ -287,7 +287,8 @@ test('⑩ inside the sheet the panel is plain content — no rail width, border 
   for (const decl of [/width:\s*auto/, /max-width:\s*100%/, /padding:\s*0/, /border:\s*0/, /box-shadow:\s*none/]) {
     assert.match(rule, decl, `the panel inside the sheet keeps a frame: missing ${decl}`);
   }
-  assert.match(css, /@media \(min-width: 768px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(36rem/, 'from a tablet up the sheet is the whole window again');
+  // From the couple dashboard's tablet line (701) the card is the system's 440 panel (owner 2026-10-19).
+  assert.match(css, /@media \(min-width: 701px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(27\.5rem/, 'from a tablet up the sheet is the whole window again');
 });
 
 // ── ⑪ the header stays; the × is round ──────────────────────────────────────

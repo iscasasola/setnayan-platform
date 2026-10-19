@@ -4539,7 +4539,7 @@ export function ShortlistCategories({
         reqLoading ? (
           // Lightweight loading shell while fields + saved template resolve.
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            className="fixed inset-0 z-50 flex items-end justify-center tab:items-center"
             // Transient busy indicator, not a focus-trapping modal: a live
             // region announces the load; it hands off to RequirementsModal
             // (which owns the real dialog a11y) once fields resolve.
@@ -4552,7 +4552,7 @@ export function ShortlistCategories({
               onClick={closeReqModal}
               className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
             />
-            <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 sm:w-full sm:max-w-lg sm:rounded-2xl">
+            <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
               <span
                 className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"
                 aria-hidden

@@ -92,8 +92,11 @@ const SHEET_AT: Record<
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
     panel:
       'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:h-full tab:max-h-none tab:rounded-l-3xl tab:rounded-tr-none tab:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
-    narrow: 'tab:w-[22rem]',
-    wide: 'tab:w-[min(34rem,92vw)]',
+    /* 📐 ONE PANEL WIDTH ON THE COUPLE DASHBOARD — the system's 440 (owner 2026-10-19, DECISION_LOG "APPROVED —
+       COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)", Q2: "440 · one token"). `wide` is the SAME panel here: the
+       prototype narrows the Suppliers date sheet (≈540 at 1280) to match. Other surfaces keep `lg` as shipped. */
+    narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
+    wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
   },
 };
 

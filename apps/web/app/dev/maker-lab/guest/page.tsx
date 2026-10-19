@@ -1,3 +1,4 @@
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
 import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
@@ -723,8 +724,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     <div data-lab-scene="me-wear" data-lab-role={labRole.key} className="mt-8 border-t border-ink/10 pt-6">
       <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">Me · {labRole.name}</p>
       <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="wear" />
-      {/* ⏰ Arrive by — the role's call time, the Me part after What to wear (`GUEST_ME_PARTS`), set per row in Studio › Attire. */}
-      <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="arrive" />
+      {/* ⏰ Arrive by — the role's call time, the Me part after What to wear (`GUEST_ME_PARTS`), set per row in Studio › Attire;
+          anyone without one arrives when GUESTS arrive (the run of show's arrival moment, `guestsArriveTime`, 2026-10-19). */}
+      <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="arrive" guestsArriveBy={guestsArriveTime(LAB_BLOCKS)} />
     </div>
   ) : null;
   /* 👗 DRESS WITH US IS THE READER'S OWN (owner 2026-10-19): the scene drawn as the real page draws it for that reader —

@@ -54,6 +54,8 @@ export function GuestMeParts({
     rolePalette: unknown;
     roleNames?: RoleNames | null;
     paletteLook?: PaletteLookId | null;
+    /** ⏰ When guests arrive (`guestsArriveTime`) — Arrive by for a reader whose role has no call time of its own. */
+    guestsArriveBy?: string | null;
   };
   comingWith: readonly string[];
 }) {
@@ -102,6 +104,7 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
       rolePalette={look.rolePalette}
       roleNames={look.roleNames ?? null}
       paletteLook={look.paletteLook ?? null}
+      guestsArriveBy={p === 'arrive' ? (look.guestsArriveBy ?? null) : null}
       hideWhenEmpty
       mark={mark}
     />

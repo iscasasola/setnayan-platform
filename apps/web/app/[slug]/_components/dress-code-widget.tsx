@@ -112,8 +112,14 @@ export function DressCodeWidget({
   dosLook = null,
   makerSample = false,
   mark = null,
+  guestsArriveBy = null,
   readerOnly = false,
 }: {
+  /**
+   * ⏰ WHEN GUESTS ARRIVE ("2:30 PM", `guestsArriveTime` — owner 2026-10-19): the `'arrive'` part's answer for a reader
+   * with no call time of their own role. Null (every other caller) changes nothing.
+   */
+  guestsArriveBy?: string | null;
   /**
    * 👗 ONLY THIS READER'S OWN CARD (owner 2026-10-19, DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE":
    * *"Dress with us should only show their role. and the do's and dont's"*). Set for a guest's or a visitor's page —
@@ -425,13 +431,16 @@ export function DressCodeWidget({
     );
   }
   if (part === 'arrive') {
-    if (!mine?.callTime) return null;
+    /* ⏰ The role's own call time wins; anyone else arrives when GUESTS arrive (owner 2026-10-19 — the dress code's Guests
+       call time, which is the invitation's first moment: `lib/guests-arrive.ts`). Neither set → nothing. */
+    const arriveBy = mine?.callTime ?? guestsArriveBy ?? null;
+    if (!arriveBy) return null;
     return (
       <section className="space-y-2" data-me-part="arrive">
         <p className="pahina-eyebrow">
           <span>Arrive by</span>
         </p>
-        <p className="font-pahina text-2xl font-light tracking-tight text-ink">{mine.callTime}</p>
+        <p className="font-pahina text-2xl font-light tracking-tight text-ink">{arriveBy}</p>
       </section>
     );
   }

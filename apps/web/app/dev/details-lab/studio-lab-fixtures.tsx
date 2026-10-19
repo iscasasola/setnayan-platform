@@ -45,6 +45,25 @@ const DAY: Seed[] = [
   ['m-sendoff', 'Send-off', '22:00', '22:30', 'Driveway, main entrance'],
 ];
 
+/**
+ * ⏰ The same day as Studio › Mood Board & Dress Code's Guests row reads it (`arrival`, `lib/guests-arrive.ts`): the arrival
+ * moment is the Guests' call time. `none` = the programme opens on the Ceremony (no arrival yet → "Set when guests arrive").
+ */
+const ARRIVAL_TYPES: Record<string, string> = { 'm-arrive': 'pre_ceremony', 'm-ceremony': 'ceremony', 'm-dinner': 'reception' };
+export function labArrivalBlocks(none = false) {
+  return DAY.filter(([id]) => !(none && id === 'm-arrive')).map(([id, label, start, end, , audience], i) => ({
+    block_id: id,
+    label,
+    block_type: ARRIVAL_TYPES[id] ?? 'custom',
+    start_at: `${LAB_STUDIO_DATE}T${start}:00.000Z`,
+    end_at: end ? `${LAB_STUDIO_DATE}T${end}:00.000Z` : null,
+    is_public: true,
+    sort_order: i,
+    parent_block_id: null,
+    audience: audience ?? null,
+  }));
+}
+
 function seedDay(): DayMoment[] {
   return DAY.map(([id, label, start, end, place, audience]) => ({
     block_id: id,

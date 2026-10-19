@@ -69,7 +69,7 @@ export type GuestMeFacts = {
   role: string | null;
   /** An outfit or a colour the couple set for this role. */
   wear: boolean;
-  /** The role's call time, formatted ("2:00 PM") — null when unset. */
+  /** The role's call time, formatted ("2:00 PM") — else the guests' own arrival (`guestsArriveBy`); null when neither is set. */
   arriveBy: string | null;
   /** The named companions on this guest's seats. */
   comingWith: string[];
@@ -82,6 +82,9 @@ export function guestMeFacts(input: {
   rolePalette: unknown;
   roleNames?: RoleNames | null;
   comingWith?: ReadonlyArray<string | null | undefined>;
+  /** ⏰ When GUESTS arrive ("2:30 PM", `guestsArriveTime` — the invitation's first moment, the dress code's Guests call
+   *  time, owner 2026-10-19). A plain guest's Arrive by; a role's own call time still wins. */
+  guestsArriveBy?: string | null;
   /** 👤 The reader's own row (`guestNamePartsOf` + attire) — the role word and their own Wear, as the parts draw them. */
   person?: (NonNullable<ReaderPerson> & { attire?: unknown }) | null;
 }): GuestMeFacts {
@@ -125,7 +128,7 @@ export function guestMeFacts(input: {
   return {
     role: named && named.trim() ? named : null,
     wear: Boolean(panel && own && (own.styleLabel !== null || own.hexes.length > 0)),
-    arriveBy: panel?.callTime ?? null,
+    arriveBy: panel?.callTime ?? input.guestsArriveBy ?? null,
     comingWith: (input.comingWith ?? []).map((n) => (n ?? '').trim()).filter((n) => n.length > 0),
   };
 }

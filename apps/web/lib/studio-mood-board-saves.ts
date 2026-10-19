@@ -59,4 +59,6 @@ export const MOOD_BOARD_NOT_SAVED = {
   undo: 'That did not undo. Nothing changed — please try again.',
   lists: 'Your do’s and don’ts did not save. Nothing changed — please try again.',
   look: 'That did not save. Nothing changed — please try again.',
+  /** ⏰ The guests' call time (the Schedule's arrival moment). */
+  arrive: 'The guests’ arrival time did not save. Nothing changed — please try again.',
 } as const;

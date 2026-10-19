@@ -12,7 +12,8 @@ import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
 import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set.server';
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
@@ -235,10 +236,11 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
 async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
-    const first = blocks[0];
-    // The programme's own formatter — the schedule stores the event's
-    // wall-clock parked in UTC (see site-body's pass for the 8-hour bug).
-    return first?.start_at ? formatBlockTimeRange(first.start_at, null) || null : null;
+    // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
+    // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
+    // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → the invitation's first moment (the
+    // Ceremony's time on a programme that opens on it, 2026-10-20) — the time the invitation itself prints.
+    return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');

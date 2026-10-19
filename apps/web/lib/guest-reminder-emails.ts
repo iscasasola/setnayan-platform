@@ -10,7 +10,8 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { hasReplied } from '@/lib/venue-disclosure';
 import { buildInvitationUrl } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadVenueBookings, resolveEventVenues, firstVenue } from '@/lib/event-venues';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { sanitizeTicks, daysUntil } from '@/lib/guest-checklist';
@@ -236,10 +237,8 @@ async function remindOneEvent(
   if (ticksRes.error) logQueryError('guest-reminder-emails: guest_checklist_ticks.select', ticksRes.error, { event_id: ev.event_id });
   if (seatsRes.error) logQueryError('guest-reminder-emails: event_seat_assignments.select', seatsRes.error, { event_id: ev.event_id });
 
-  // The FIRST block of the day, read with the programme's own formatter (the
-  // schedule stores the venue's wall clock parked in UTC — never re-zone it).
-  const firstBlock = blocks[0] ?? null;
-  const arriveBy = firstBlock?.start_at ? formatBlockTimeRange(firstBlock.start_at, null) || null : null;
+  // ⏰ THE guests' arrival (`guestsArriveTime`, 2026-10-19) — the one the ticket, Me and the invitation read.
+  const arriveBy = guestsArriveTime(blocks);
   const place = firstVenue({ venues: resolveEventVenues(bookings, ev) });
   const venueName = place ? place.name : ev.venue_name;
   const venueAddress = place ? place.address : ev.venue_address;

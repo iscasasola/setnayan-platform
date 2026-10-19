@@ -12,7 +12,8 @@
  *
  *   1 · `withCallTime` / `callTimeOf` — set, clear, refuse a half-read time, never a line that is not there.
  *   2 · a time set in the Studio is the one the guest in that row reads (group row and own row); none → nothing said.
- *   3 · the Studio draws one Call time field per row (none for the guests), with the stored time in it; a row with no
+ *   3 · the Studio draws one Call time field per row, with the stored time in it (the GUESTS' is not a dress-code time:
+ *       it is the Schedule's arrival moment, owner 2026-10-19 — `guests-have-one-arrival-time.test.ts`); a row with no
  *       Wear says what to do first.
  *   4 · the old form draws no time field and posts no time; a save from it KEEPS every stored time (`carryCallTimes`),
  *       and a poster that still sends times is read as before.
@@ -136,7 +137,7 @@ const section = (html: string, key: string) => {
   return end < 0 ? html.slice(at) : html.slice(at, end);
 };
 
-test('3 · Studio › Attire: one Call time field per row, holding the stored time; none for the guests', async () => {
+test('3 · Studio › Attire: one Call time field per row, holding the stored time; the guests’ is not the dress code’s', async () => {
   const html = await studio(CONFIG);
   const fields = (s: string) => s.split('type="time"').length - 1;
   for (const key of ['bride', 'groom', 'principal_sponsors', 'bridesmaids']) {
@@ -155,8 +156,10 @@ test('3 · Studio › Attire: one Call time field per row, holding the stored ti
   assert.equal(fields(groomsmen), 0);
   assert.match(groomsmen, /Pick what they wear first/);
 
+  /* The guests' call time is the Schedule's arrival moment (owner 2026-10-19), handed in as `arrival` — never a dress-code
+     time. Without the programme handed in, the Guests row draws none (`guests-have-one-arrival-time.test.ts` draws it). */
   const guests = section(html, 'guest');
-  assert.doesNotMatch(guests, /data-mood-board-call-time=/, 'guests have no call time');
+  assert.doesNotMatch(guests, /data-mood-board-call-time=/, 'the guests’ row draws a dress-code call time');
 
   /* The dress code could not be read → no field (nothing to write onto), as Wear ▾ is not offered then. */
   assert.doesNotMatch(await studio(null), /data-mood-board-call-time=/);

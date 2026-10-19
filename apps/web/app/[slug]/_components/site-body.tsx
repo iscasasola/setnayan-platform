@@ -41,7 +41,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
+import type { ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
@@ -74,6 +74,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -1031,6 +1032,9 @@ export async function SiteBody({
     firstStartAt: scheduleBlocks[0]?.start_at ?? null,
     firstLabel: scheduleBlocks[0]?.label ?? null,
   });
+  /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
+     code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */
+  const guestsArriveBy = guestsArriveTime(scheduleBlocks);
   // Which wedding-only parts this event TYPE may show. The words half of the
   // owner's ruling is done; this is the other half — a seven-year-old does not
   // need a neutrally-worded love story, he needs no love story.
@@ -2798,6 +2802,7 @@ export async function SiteBody({
               rolePalette: event.role_palette,
               roleNames,
               comingWith,
+              guestsArriveBy,
               person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
             }),
           })
@@ -2849,6 +2854,7 @@ export async function SiteBody({
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
       dosLook: dosLookOfRow(widgetByType(widgets, 'dress_code')),
+      guestsArriveBy,
     };
     const welcome = welcomeParts({
       stage: pageStage,
@@ -2919,7 +2925,9 @@ export async function SiteBody({
        A pass is read on arrival, and "next up" on a card in someone's pocket
        at 9pm would tell them to arrive at the send-off. Formatted in the
        event's own timezone, which the venue's coordinates resolve. */
-    const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    // ⏰ (2026-10-19) Since the Guests row got its call time, "when the doors open" is THE guests' arrival moment —
+    // `guestsArriveBy` (`lib/guests-arrive.ts`), the one the invitation, Event Details and the Studio read. The note
+    // below is why it is read as a wall clock (the shared resolver does exactly that).
     // 🔴 THE SCHEDULE STORES THE EVENT'S OWN WALL-CLOCK, NOT AN INSTANT.
     // `start_at` for a 1:30 PM arrival is `…T13:30:00+00` — the clock the
     // couple typed, parked in UTC. The programme reads it back with
@@ -2928,9 +2936,7 @@ export async function SiteBody({
     // the pass told a real guest to "ARRIVE 9:30 PM" for a 1:30 PM arrival
     // (seen live 2026-09-21 as a test guest on /cale-ice). One formatter, the
     // programme's, so the pass and the run of show can never disagree.
-    const firstScheduleTimeLabel = firstScheduleBlock?.start_at
-      ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
-      : null;
+    const firstScheduleTimeLabel = guestsArriveBy;
 
     /* 🎫 THE PASS IS NOT ON HOME ANY MORE — IT IS THE DIGITAL TICKET, ON ME
        (owner 2026-09-30, on `#site-pass`: "i thought this will be the digital

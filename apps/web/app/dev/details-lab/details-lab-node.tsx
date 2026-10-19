@@ -49,6 +49,7 @@ import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-
 import { labMarchSections } from './march-fixture';
 import { labOpenMarchCard } from './lab-march-cards';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
+import { LAB_ARRIVAL_DATE, labArrivalBlocks } from './arrival-fixture';
 import { LAB_LOVE_STORY } from './love-story-fixture';
 import { studioAttireRows } from '@/lib/studio-attire-rows';
 import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, LAB_MAN_OF_HONOR_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
@@ -449,6 +450,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     regions={[]}
                     dosLists={{ dos: ['Lean into the palette', 'Long gowns and ternos'], donts: ['No white or ivory (reserved for the bride)'], incStarter: false }}
                     dosLookCanvas={{}}
+                    /* ⏰ The Guests row's call time = the day's arrival moment (`&arrive=none`: no arrival yet; `&arrive=unread`: the
+                       programme could not be read). */
+                    arrival={one('arrive') === 'unread' ? null : { blocks: labArrivalBlocks(one('arrive') === 'none'), eventDate: LAB_ARRIVAL_DATE }}
                   />
                   </LabMoodBoardActions>
                 ) : (

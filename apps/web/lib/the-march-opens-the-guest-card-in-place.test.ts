@@ -38,21 +38,28 @@ const MARCH = read(`${L}/details-march.tsx`);
 const SHEET = read(`${L}/march-guest-card.tsx`);
 const ACTION = read('app/dashboard/[eventId]/launch/march-card-actions.tsx');
 
-test('1 · a tap (no lift, under the drag’s own slop) on a walking name or a tray chip opens their card; Enter too; Space still moves', () => {
+test('1 · a tap (let go where it was pressed, never having wandered) on a walking name or a tray chip opens their card; Enter too; Space still moves', () => {
   const up = MARCH.slice(MARCH.indexOf('const onUp = useCallback('), MARCH.indexOf('const onCancel = useCallback('));
-  assert.match(up, /const press = pending\.current;\s*stopAll\(\);\s*if \(!d\) \{/, 'the release no longer keeps the press it ends — a tap cannot be told from nothing');
+  assert.match(up, /const d = drag\.current;\s*const press = pending\.current;\s*stopAll\(\);/, 'the release no longer keeps the press it ends — a tap cannot be told from nothing');
+  /* Every release asks the ONE pure answer (`releaseIs`, test 7 drives it), with the press's real facts — lifted, wandered, how far. */
   assert.match(
     up,
-    /press\.source\.kind === 'name' \|\| press\.source\.kind === 'out'[\s\S]{0,200}Math\.hypot\(e\.clientX - press\.x, e\.clientY - press\.y\)[\s\S]{0,120}press\.touch \? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE[\s\S]{0,40}setCard\(\{ id: press\.source\.id/,
-    'a tap on a name does not open their card',
+    /releaseIs\(\{ kind: press\.source\.kind, touch: press\.touch, lifted: d !== null, wandered: d\?\.wandered \?\? false, moved: Math\.hypot\(e\.clientX - press\.x, e\.clientY - press\.y\) \}\)/,
+    'the release does not ask releaseIs with the press’s own facts',
   );
+  // setCard in the release happens ONLY behind releaseIs's 'card' — so a drag can never reach it.
+  const cards = [...up.matchAll(/setCard\(/g)].length;
+  assert.equal(cards, 1, `the release opens the card in ${cards} places — every one must sit behind releaseIs`);
+  assert.match(up, /if \(said === 'card' && press[^{]*\{[\s\S]{0,400}setCard\(\{ id: press\.source\.id[^;]*;\s*swallowTapClick\(\);\s*return;/, 'the card opens without releaseIs saying "card"');
+  // A held tap (lifted, never wandered) puts the lift back: no ghost left on the page, no dim.
+  assert.match(up, /if \(d\) \{[\s\S]{0,200}d\.ghost\.remove\(\);\s*setLifted\(null\);/, 'a held tap leaves its ghost on the page');
+  // The drag records wandering against the SAME slop, from the press's own start.
+  assert.match(MARCH, /if \(!d\.wandered && Math\.hypot\(e\.clientX - p\.x, e\.clientY - p\.y\) > \(p\.touch \? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE\)\) d\.wandered = true;/, 'a drag no longer remembers it wandered — a drag brought back to its start would open the card');
   // The tap's own click must not reach the sheet's scrim (a finger's pointerup opens the card, then its click closes it).
-  assert.match(up, /setCard\(\{ id: press\.source\.id[^;]*;\s*swallowTapClick\(\);/, 'the tap’s own click is not swallowed — on a phone the card closes the instant it opens');
   assert.match(MARCH, /function swallowTapClick\(\): void \{[\s\S]{0,300}addEventListener\('click', eat, true\)/, 'swallowTapClick no longer catches the next click in the capture phase');
-  assert.match(MARCH, /const TAP_SLOP_MOUSE = 4;\s*const TAP_SLOP_TOUCH = 8;/, 'the tap’s slop is no longer the drag’s own (a lift at 4 px, a scroll at 8 px)');
-  // The drag's thresholds are the same numbers, so a press is EITHER a tap or a drag, never both.
-  assert.match(MARCH, /if \(moved > 8\) stopAll\(\);/);
-  assert.match(MARCH, /if \(moved > 4\) lift\(e\.clientX, e\.clientY\);/);
+  // The drag's thresholds are the tap's slop, so a press is EITHER a tap or a drag, never both.
+  assert.match(MARCH, /if \(moved > TAP_SLOP_TOUCH\) stopAll\(\);/, "a finger’s scroll no longer starts at the tap’s slop");
+  assert.match(MARCH, /if \(moved > TAP_SLOP_MOUSE\) lift\(e\.clientX, e\.clientY\);/, "a mouse no longer lifts at the tap’s slop");
   assert.match(MARCH, /if \(e\.key === 'Enter' && !carried\) \{[\s\S]{0,400}setCard\(\{ id: source\.id/, 'Enter does not open the card');
   assert.match(MARCH, /if \(e\.key === ' ' \|\| e\.key === 'Enter'\) \{/, 'Space no longer picks a name up');
 });
@@ -90,7 +97,7 @@ test('2 · the card is the SHIPPED card — GuestCardBody, panel, no template ki
 });
 
 test('3 · the parents’ sheet, the live-save line, the card’s own Undo — and closing after a save re-reads the Maker once', () => {
-  assert.match(SHEET, /createPortal\(\s*<>\s*<Sheet open onClose=\{close\} labelledById=\{headId\} rise>/, 'the card is not the parents’ sheet on <body>');
+  assert.match(SHEET, /createPortal\(\s*<div data-march-card-layer="" className=\{MARCH_CARD_LAYER\}>\s*<Sheet open onClose=\{close\} labelledById=\{headId\} rise>/, 'the card is not the parents’ sheet on <body>, in its own layer (test 6)');
   assert.match(SHEET, /<HubSavesImmediately \/>/, 'the sheet no longer says a guest edit goes live (Apply does not cover it)');
   assert.match(SHEET, /<UndoToastHost \/>/, 'the card’s own Undo has no host in the Maker');
   assert.match(SHEET, /onSubmitCapture=\{\(\) => \{\s*saved\.current = true;\s*\}\}/);
@@ -120,4 +127,68 @@ test('5 · out of the Maker’s first load: the march is lazy and only the march
   };
   walk('app');
   assert.deepEqual(importers, [`${L}/details-march.tsx`], 'the card sheet is imported outside the (lazy) march');
+});
+
+/* ── 2026-10-19 · owner, on live: "tapping the person on the wedding march does not show the guest card as planned". ── */
+
+/** The `z-[N]` / `z-N` of a class string, as a number (null: none). */
+const zOf = (cls: string): number | null => {
+  const m = cls.match(/(?:^|\s)z-(?:\[(\d+)\]|(\d+))(?=\s|$)/);
+  return m ? Number(m[1] ?? m[2]) : null;
+};
+
+test('6 · the card is drawn OVER the Maker — its layer sits above the full-screen shell and under the card’s own dropdowns', async () => {
+  /* What failed on live: the Sheet (z-50) was portalled bare to <body>, under the Maker's fixed full-screen shell, so a tap
+     set the card open (the name wore its ring) and the screen did not change. The NUMBERS are read from each file — a
+     shell raised, a layer lowered, or the layer dropped from the portal turns this red. */
+  const SHELL = read(`${L}/maker-shell.tsx`);
+  const shellCls = SHELL.match(/className="fixed inset-x-0 top-0 (z-\[\d+\]) flex h-\[100dvh\] flex-col bg-cream text-ink"/);
+  assert.ok(shellCls, 'the Maker’s full-screen shell is no longer found — re-anchor this test on it');
+  const shellZ = zOf(shellCls[1]!)!;
+  const { MARCH_CARD_LAYER } = await import(`../${L}/march-guest-card`);
+  const layerZ = zOf(MARCH_CARD_LAYER as string);
+  assert.ok(layerZ !== null, 'the card’s layer has no z-index — the Sheet falls back under the Maker');
+  assert.match(MARCH_CARD_LAYER as string, /(?:^|\s)(?:relative|fixed|absolute)(?:\s|$)/, 'the card’s layer is not positioned — its z-index would do nothing');
+  assert.ok(layerZ! > shellZ, `the card’s layer (z ${layerZ}) is not above the Maker (z ${shellZ}) — the card opens behind it`);
+  const SHEET_SRC = read('app/_components/sheet.tsx');
+  const sheetZ = zOf(SHEET_SRC.match(/data-sheet=""\s*className="([^"]+)"/)![1]!)!;
+  assert.ok(sheetZ < shellZ, 'the Sheet itself now clears the Maker — this layer may be retired, update this test');
+  // The card's own dropdowns (portalled to <body>) must still draw over the card.
+  const PICK = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
+  const pickZ = zOf(PICK.match(/role="listbox"[\s\S]{0,700}?className="([^"]+)"/)![1]!)!;
+  assert.ok(layerZ! < pickZ, `the card’s layer (z ${layerZ}) covers its own dropdowns (z ${pickZ}) — Title / Details would open under the card`);
+  // And the layer is what holds the Sheet in the portal (not a sibling of it).
+  assert.match(SHEET, /<div data-march-card-layer="" className=\{MARCH_CARD_LAYER\}>\s*<Sheet open/);
+});
+
+test('6b · a tray chip tapped in the full "Not walking" list: the list steps aside under the card, and is back after', () => {
+  const TRAY = read(`${L}/details-march-tray.tsx`);
+  const trayZ = zOf(TRAY.match(/data-march-tray-sheet=""\s*className=\{`([^`$]+)/)![1]!.trim())!;
+  assert.ok(trayZ > 90, 'the full list no longer sits over the card’s layer — this step-aside may be retired, update this test');
+  assert.match(TRAY, /data-march-tray-sheet=""\s*className=\{`fixed inset-0 z-\[\d+\] flex flex-col justify-end \$\{lifted \|\| carded \? 'pointer-events-none invisible' : ''\}`\}/, 'the full list stays drawn over an open card');
+  assert.match(MARCH, /<MarchTray[\s\S]{0,300}carded=\{card !== null\}/, 'the march does not tell the tray a card is open');
+});
+
+test('7 · releaseIs — a drag NEVER opens the card; a tap (quick or held) on a person always does', async () => {
+  const { releaseIs, TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } = await import('./march-drag');
+  const kinds = ['name', 'out', 'walk', 'section'] as const;
+  let n = 0;
+  for (const kind of kinds)
+    for (const touch of [true, false])
+      for (const lifted of [true, false])
+        for (const wandered of [true, false])
+          for (const moved of [0, 1, 3, 4, 5, 7, 8, 9, 20, 140]) {
+            const r = releaseIs({ kind, touch, lifted, wandered, moved });
+            n++;
+            const slop = touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE;
+            const dragged = wandered || moved > slop;
+            if (dragged) assert.notEqual(r, 'card', `a drag opened the card: ${JSON.stringify({ kind, touch, lifted, wandered, moved })}`);
+            if (kind === 'walk' || kind === 'section') assert.notEqual(r, 'card', `a ${kind} opened a card`);
+            if (!dragged && (kind === 'name' || kind === 'out')) assert.equal(r, 'card', `a tap on a person did not open their card: ${JSON.stringify({ touch, lifted, moved })}`);
+            if (r !== 'card') assert.equal(r, lifted ? 'drop' : 'nothing', 'a lifted name that is not a tap must drop; an unlifted one does nothing');
+          }
+  assert.equal(n, 320);
+  // The slop is the drag's own (a mouse lifts past 4 px, a finger's press past 8 px is a scroll).
+  assert.equal(TAP_SLOP_MOUSE, 4);
+  assert.equal(TAP_SLOP_TOUCH, 8);
 });

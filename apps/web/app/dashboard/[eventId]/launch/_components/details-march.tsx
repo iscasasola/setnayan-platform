@@ -25,6 +25,9 @@ import {
   readSource,
   sectionsMoved,
   readTarget,
+  releaseIs,
+  TAP_SLOP_MOUSE,
+  TAP_SLOP_TOUCH,
   type MarchMove,
   type MarchOut,
   type MarchSection,
@@ -105,9 +108,6 @@ async function openCardShipped(eventId: string, guestId: string): Promise<MarchC
   const { openMarchGuestCard } = await import('../march-card-actions');
   return openMarchGuestCard(eventId, guestId);
 }
-/** A press that moved less than this and never lifted is a TAP (the drag's own thresholds: 4 px for a mouse, 8 for a finger). */
-const TAP_SLOP_MOUSE = 4;
-const TAP_SLOP_TOUCH = 8;
 /** 🪪 A finger's tap is a pointerup and THEN a click, at the same spot. The card opens at the pointerup, so that click
  *  would land on the sheet's scrim and close the card the instant it opened (measured in the lab: dialog 1 → 0 in 15 ms).
  *  The click that belongs to this tap is swallowed — once, and only for half a second. */
@@ -593,10 +593,10 @@ function MarchMakerBody({
         const moved = Math.hypot(e.clientX - p.x, e.clientY - p.y);
         if (p.touch) {
           // Moving before the long-press ends is a scroll — let it be one.
-          if (moved > 8) stopAll();
+          if (moved > TAP_SLOP_TOUCH) stopAll();
           return;
         }
-        if (moved > 4) lift(e.clientX, e.clientY);
+        if (moved > TAP_SLOP_MOUSE) lift(e.clientX, e.clientY);
         if (!drag.current) return;
       }
       e.preventDefault();
@@ -617,34 +617,29 @@ function MarchMakerBody({
     const d = drag.current;
     const press = pending.current;
     stopAll();
-    if (!d) {
-      /* 🪪 A TAP — pressed and let go without lifting (a finger before the long-press, a mouse before 4 px): a person's
-         name opens their guest card over the march. A press that wandered was a scroll, not a tap. */
-      if (e && press && (press.source.kind === 'name' || press.source.kind === 'out')) {
-        const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
-        if (moved <= (press.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) {
-          setCard({ id: press.source.id, name: press.el.dataset.marchName ?? '' });
-          swallowTapClick();
-        }
-      }
-      return;
-    }
-    /* 🪪 A HELD TAP — a finger that stayed past the long-press (the name lifted) and let go where it pressed, never having
-       wandered: nothing was moved, so it is a tap, and their card opens (a slow tap is still a tap). A press that left the
-       slop at any moment is a drag, and a drag never opens the card. */
-    if (e && press && !d.wandered && (d.source.kind === 'name' || d.source.kind === 'out')) {
-      const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
-      if (moved <= (press.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) {
+    /* 🪪 A TAP OR A DRAG (`releaseIs`, lib/march-drag.ts — one answer): a name let go where it was pressed, never having
+       wandered, is a TAP and opens their guest card over the march — lifted by the long-press or not (a slow finger
+       still taps). A press that left the slop at any moment is a drag, and a drag never opens the card. */
+    const said =
+      e && press
+        ? releaseIs({ kind: press.source.kind, touch: press.touch, lifted: d !== null, wandered: d?.wandered ?? false, moved: Math.hypot(e.clientX - press.x, e.clientY - press.y) })
+        : d
+          ? 'drop'
+          : 'nothing';
+    if (said === 'card' && press && (press.source.kind === 'name' || press.source.kind === 'out')) {
+      if (d) {
+        // The lift is undone where it began: no ghost, no dim, no drop.
         drag.current = null;
         target.current = null;
         setOver(null);
         d.ghost.remove();
         setLifted(null);
-        setCard({ id: d.source.id, name: press.el.dataset.marchName ?? '' });
-        swallowTapClick();
-        return;
       }
+      setCard({ id: press.source.id, name: press.el.dataset.marchName ?? '' });
+      swallowTapClick();
+      return;
     }
+    if (!d) return;
     drag.current = null;
     const zone = target.current;
     target.current = null;

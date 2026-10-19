@@ -209,7 +209,7 @@ export function StickyMarketplaceHeader({
           ⚠ The PHONE branch (`fixed bottom-0`, z-30) is untouched — down there
           this bar is at the opposite edge of the screen and never meets it.
         */
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-[var(--fd-bar,0px)] sm:z-[8] sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-[var(--fd-bar,0px)] sm:z-[8] sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         {/* Applied-count chip. Concise replacement for the retired

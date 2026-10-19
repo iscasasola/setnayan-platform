@@ -53,7 +53,7 @@ export function PublicEventDayBar({
       {/* Top-left "Live hub" entry (event-day only) — public panels only for a
           no-guest viewer (candid Camera + public Photos), mirroring this bar. */}
       {hubHref ? (
-        <div className="fixed left-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
+        <div className="fixed left-[max(0.75rem,var(--sn-safe-l))] top-3 z-40 [padding-top:env(safe-area-inset-top)]">
           <Link
             href={hubHref}
             aria-label="Open the live hub"
@@ -69,6 +69,7 @@ export function PublicEventDayBar({
         <nav
           aria-label="Event controls"
           className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
+          data-safe-x=""
         >
           <div className="mx-auto flex max-w-md items-end justify-center gap-6 px-5 pb-3 pt-2">
             {/* Bottom-center: the couple's candid camera (prominent action). */}

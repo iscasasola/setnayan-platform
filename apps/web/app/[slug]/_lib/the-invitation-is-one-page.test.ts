@@ -64,7 +64,7 @@ const STORY = {
 
 /** The pinned bottom bar's links, in order: label → href, and which one is lit. */
 function barOf(html: string) {
-  const bar = html.match(/<nav aria-label="Site sections" class="fixed inset-x-0 bottom-0[^"]*">[\s\S]*?<\/nav>/)?.[0] ?? '';
+  const bar = html.match(/<nav aria-label="Site sections" class="fixed inset-x-0 bottom-0[^"]*"[^>]*>[\s\S]*?<\/nav>/)?.[0] ?? '';
   return [...bar.matchAll(/<a href="([^"]*)"([^>]*)>[\s\S]*?<span[^>]*>([^<]*)<\/span><\/a>/g)].map((m) => ({
     label: m[3]!,
     href: m[1]!.replace(/&amp;/g, '&'),

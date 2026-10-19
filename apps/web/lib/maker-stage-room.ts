@@ -362,6 +362,10 @@ export const SP_STEP_BUTTON =
   'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--sp-line)] bg-white text-[var(--sp-ink)] disabled:opacity-35';
 /** The keyboard's bar while typing on the page (prototype `#kbd .kbar`): "Typing · Names" · Done. */
 export const SP_KEY_BAR = 'flex h-11 shrink-0 items-center justify-between border-t border-[var(--sp-line)] bg-white pl-[14px] pr-2 text-[13px] font-semibold text-[var(--sp-ink2)]';
+/** The same bar when it is FIXED to the screen above the keyboard (edge to edge): its gutters never fall under a
+ *  side safe area — `max(the bar's own, the inset)`, each side on its own (iPhone Duo points 21 · 23; held by
+ *  lib/every-bar-clears-the-side-insets.test.ts). Identical to `SP_KEY_BAR` wherever the insets are 0. */
+export const SP_KEY_BAR_FIXED = 'flex h-11 shrink-0 items-center justify-between border-t border-[var(--sp-line)] bg-white pl-[max(14px,var(--sn-safe-l))] pr-[max(0.5rem,var(--sn-safe-r))] text-[13px] font-semibold text-[var(--sp-ink2)]';
 export const SP_KEY_DONE = 'sn-press inline-flex h-11 items-center px-1';
 
 /** Every class string a tap lands on, by name — the guard walks them all. */

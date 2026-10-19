@@ -13,7 +13,7 @@ export function StagePlayStatus({ phase, skipped }: { phase: string; skipped: re
     <div
       data-stage-play-status={phase}
       role="status"
-      className="pointer-events-none fixed inset-x-4 z-[95] mx-auto max-w-[360px] rounded-xl bg-[rgba(44,42,41,.88)] px-3 py-2 text-center text-[12px] leading-snug text-white lg:hidden"
+      className="pointer-events-none fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] z-[95] mx-auto max-w-[360px] rounded-xl bg-[rgba(44,42,41,.88)] px-3 py-2 text-center text-[12px] leading-snug text-white lg:hidden"
       style={{ bottom: 'calc(var(--maker-lt-h, 62px) + 12px)' }}
     >
       <span className="block">

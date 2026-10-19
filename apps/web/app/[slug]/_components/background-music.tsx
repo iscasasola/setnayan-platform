@@ -43,7 +43,7 @@ import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
  * later without changing this component's contract.
  */
 /** The corner on its own, when the page has no top-right cluster to join. */
-const CORNER_ALONE = 'fixed right-3 top-3 z-[95] [padding-top:env(safe-area-inset-top)] print:hidden';
+const CORNER_ALONE = 'fixed right-[max(0.75rem,var(--sn-safe-r))] top-3 z-[95] [padding-top:env(safe-area-inset-top)] print:hidden';
 
 export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { src: string; /** 🎵 The couple's design (`hubMusicButton`). */ design?: HubMusicButton }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);

@@ -14,7 +14,7 @@ import {
 } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type GuestNameParts, type ReadPick as ReaderPick } from '@/lib/attire-rows';
+import { PICK_LABEL, isDressableRole, isTwoPick, readerAttire, studioRowOf, type GuestNameParts, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
@@ -112,7 +112,19 @@ export function DressCodeWidget({
   dosLook = null,
   makerSample = false,
   mark = null,
+  readerOnly = false,
 }: {
+  /**
+   * 👗 ONLY THIS READER'S OWN CARD (owner 2026-10-19, DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE":
+   * *"Dress with us should only show their role. and the do's and dont's"*). Set for a guest's or a visitor's page —
+   * never every role:
+   *   · a listed guest with a role → their own "You are …" panel (the ONE per-person resolver Me › What to wear reads),
+   *     plus the Do's & Don'ts;
+   *   · a plain guest, a visitor, or a role with nothing picked (after its group's row, `studioRowOf`) → the Guests
+   *     card, plus the Do's & Don'ts — never a bare heading; with nothing at all the scene stays hidden.
+   * False (default) = every role: the couple and their hosts on their own Event Hub, and the Maker's canvas.
+   */
+  readerOnly?: boolean;
   /**
    * 🧱 WHAT TO WEAR'S OWN LOOK (`lib/block-looks.ts`, block `look`): the block's hidden mark, drawn right BEFORE this
    * widget's root — and only for the reader's own panel (`'you'` on Welcome, `'wear'` in Me), and only when that
@@ -261,7 +273,9 @@ export function DressCodeWidget({
   // THE GENERAL VIEW — "our theme and the palettes of each role" — read from the Studio's own rows and people
   // (`dressCodeForEveryone`: `ATTIRE_ROWS` + `picksOf`, 2026-10-17 "ONE FACT").
   const everyone = dressCodeForEveryone({ config, stored, board, ceremonyType, names: roleNames });
-  const generalHasContent = everyone.rows.length > 0;
+  /* 👗 A guest's page draws no role but the Guests' (owner 2026-10-19) — the reader's own role is their panel below. */
+  const shownRows = readerOnly ? everyone.rows.filter((r) => r.tier === 'roles' && r.rowKey === 'guest') : everyone.rows;
+  const generalHasContent = shownRows.length > 0;
   // THE SPECIFIC VIEW — "if there is an account specified to this, show their
   // palette only". A panel that could only name the role stands down for the
   // general view (`speaksToThisReader`).
@@ -294,7 +308,19 @@ export function DressCodeWidget({
     const own = readerDress(r.panel, r.source).picks.find((p) => p.style)?.style ?? null;
     return own ? { ...r, panel: { ...r.panel, style: own } } : r;
   };
-  const resolved = speaksToThisReader(withOwnStyle(withRowColours(resolveGuestAttireWithGroups({
+  /* ⛔ NOTHING PICKED, NOTHING SHOWN (2026-10-17) — on a guest's page the reader's panel stands only when their Studio
+     row (their own, else their group's — `studioRowOf`) is one the general view lists for THEIR person, or it holds
+     their call time. Otherwise they read the Guests card: never a panel of colours nobody picked. */
+  const readerRow = studioRowOf(guestRole, (config as Record<string, unknown> | null) ?? null);
+  const listedRow = readerRow ? everyone.rows.find((r) => r.tier === readerRow.tier && r.rowKey === readerRow.key) ?? null : null;
+  const standsOnAGuestsPage = (r: Resolved): Resolved => {
+    if (!readerOnly || !r.panel || r.panel.callTime !== null) return r;
+    const listed = listedRow
+      ? !isTwoPick(readerRow) || readerDress(r.panel, r.source).picks.some((p) => listedRow.picks.some((lp) => lp.who === p.who))
+      : false;
+    return listed ? r : { ...r, panel: null, source: null };
+  };
+  const resolved = standsOnAGuestsPage(speaksToThisReader(withOwnStyle(withRowColours(resolveGuestAttireWithGroups({
     role: guestRole,
     roles,
     groups,
@@ -302,7 +328,7 @@ export function DressCodeWidget({
     names: roleNames,
     person: guestRole ? { ...guestNameParts, gender: guestNameParts?.gender ?? null, attire: guestAttire } : null,
     config,
-  }))), generalHasContent);
+  }))), readerOnly || generalHasContent));
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
   /* 👗 A person is drawn only in a Wear that was picked (owner 2026-10-17: "if … nothing is picked, then nothing should
@@ -520,7 +546,7 @@ export function DressCodeWidget({
   if (!mine && !march && (sceneStyle === 'palette' || sceneStyle === 'line')) {
     /* 🏷 The palette style lists the names under its bands — said by name, never a hex a couple's editor stored as one. */
     /* No "Our colours" in this scene (owner 2026-10-17) — every layout draws the roles' colours only. */
-    const general = { title: shownTitle, description: shownDescription, palette: [], rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
+    const general = { title: shownTitle, description: shownDescription, palette: [], rows: shownRows, dos, donts, genderNote, dosLook: dosIn, makerSample };
     return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
   }
 
@@ -625,7 +651,7 @@ export function DressCodeWidget({
           chips on the right, wrapping under on a narrow phone), in the Mood
           Board's own order. Roles with no colours and no outfit are left out
           by `dressCodeForEveryone`, never drawn empty. */}
-      {part !== 'you' && !mine && everyone.rows.length > 0 ? (
+      {part !== 'you' && !mine && shownRows.length > 0 ? (
         /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
            part after another" scene — the run of show's mechanism, not its own. */
         /* 👗 EACH ROLE, PRESENTED BY ITS FIGURE AND ITS COLOURS (owner 2026-10-17: *"dress code must present a better
@@ -635,7 +661,7 @@ export function DressCodeWidget({
            side by side. Nothing picked → not here (`dressCodeForEveryone`). No frames (nothing here is pressed): a
            hairline above each block. One per row on a phone; two across from `sm`, three from `lg`. */
         <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3" data-dress-code="roles" data-hub-rows="">
-          {everyone.rows.map((row) => {
+          {shownRows.map((row) => {
             const options = row.meaning === 'options';
             /* 🧍 ONE LOOK, CENTRED — like a lone person in the wedding march (owner 2026-10-18: *"dresscode should also
                adapt center like wedding march"*; `entourage-section.tsx` `PairRow`, held by

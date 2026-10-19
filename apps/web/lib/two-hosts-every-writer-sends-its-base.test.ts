@@ -241,9 +241,14 @@ test('5b · every print_details writer goes through the one door', () => {
 /* ── 7 · the role words and a guest's extra roles ─────────────────────────── */
 
 test('7a · renameRole · addRoleToGuest · setGuestPrimaryRole change the value AS IT IS when the write lands', () => {
-  const names = code('app', 'dashboard', '[eventId]', 'guests', 'role-name-actions.ts');
+  /* 🏷 (2026-10-19) The column's ONE writer moved to `lib/role-names.server.ts` (`writeRoleNames`): the Guest list's
+     role AND section renames and the Maker's section headings at ✓ Apply all write through it. */
+  const actions = code('app', 'dashboard', '[eventId]', 'guests', 'role-name-actions.ts');
+  assert.match(actions, /writeRoleNames\(/, 'a rename no longer goes through the one writer of role_names');
+  assert.doesNotMatch(actions, /role_names/, 'a rename writes role_names on its own, beside the one writer');
+  const names = code('lib', 'role-names.server.ts');
   assert.match(names, /column: 'role_names'/, 'renameRole writes the whole map from the copy it read again');
-  assert.match(names, /\{ \.\.\.readRoleNames\(stored\) \}/, 'a rename is no longer built on the names as they are now');
+  assert.match(names, /let next: RoleNames = readRoleNames\(stored\);/, 'a rename is no longer built on the names as they are now');
   assert.doesNotMatch(names, /\.update\(\{ role_names/, 'renameRole writes role_names around the compare');
   const quick = code('app', 'dashboard', '[eventId]', 'guests', 'quick-add-actions.ts');
   assert.equal((quick.match(/column: 'extra_roles', what: 'That role', spell: pgArrayLiteral/g) ?? []).length, 2, 'an extra-roles writer no longer compares the list it read');

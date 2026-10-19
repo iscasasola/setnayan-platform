@@ -9,7 +9,7 @@
  * chunks past the 202KB shared budget).
  */
 import { roleGroupLabel } from './role-groups';
-import { roleNameMany, type RoleNames } from './role-names';
+import { roleNameMany, sectionName, type RoleNames } from './role-names';
 import { ROLE_SEATING_SETS, type RoleSeatingKey } from './role-seating';
 
 /** The toggle's words for one set, in this couple's role words. */
@@ -17,8 +17,11 @@ export function roleSeatingLabel(key: RoleSeatingKey, names?: RoleNames | null):
   switch (key) {
     case 'principal_sponsors':
       return roleGroupLabel('principal_sponsors', names);
-    case 'immediate_family':
-      return 'Immediate family (both sides)';
+    case 'immediate_family': {
+      // 🏷 The couple's word for the entourage's Immediate Family section (owner 2026-10-19: "change it to VIP").
+      const word = sectionName('immediate_family', names);
+      return word ? `${word} (both sides)` : 'Immediate family (both sides)';
+    }
     case 'wedding_party':
       return `${roleGroupLabel('bridesmaids', names)} & ${roleGroupLabel('groomsmen', names)}`;
     case 'secondary_sponsors':

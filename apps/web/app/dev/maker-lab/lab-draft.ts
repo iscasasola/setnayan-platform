@@ -384,6 +384,17 @@ export function labFontsFrom(value: string | undefined): { site_font_key?: unkno
 }
 /** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
 export const LAB_PASS_COOKIE = 'lab_pass';
+/** 🏷 The drafted section headings (`events.role_names`, section keys only) — the canvas's entourage wears them. */
+export const LAB_SECTIONS_COOKIE = 'lab_sections';
+/** The drafted section words the lab's canvas lays on — null for none or an unreadable cookie. */
+export function labSectionsFrom(value: string | undefined): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(decodeURIComponent(value)) as unknown;
+  } catch {
+    return null;
+  }
+}
 /** The names the lab's cover draws: the drafted line, else the sample's. */
 export function labNamesFrom(value: string | undefined, sample: string): string {
   if (!value) return sample;
@@ -443,6 +454,9 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_PASS_COOKIE]: labPassDesignOf(draft.events.print_details),
     [LAB_FONTS_LIVE_COOKIE]: fontsOf(published),
     [LAB_FONTS_COOKIE]: FONT_COLUMNS.some((c) => c in draftOnly.events) ? fontsOf(draft) : null,
+    /* 🏷 The entourage's section headings named in the Wedding March's Edit (2026-10-19) — the canvas's entourage is
+       drawn with them, as the real host canvas draws them (`lib/drafted-role-names.ts`). */
+    [LAB_SECTIONS_COOKIE]: draft.events.role_names && typeof draft.events.role_names === 'object' ? json(draft.events.role_names) : null,
   };
 }
 

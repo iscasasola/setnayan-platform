@@ -73,7 +73,7 @@ import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressC
 import { previewRoleOf } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
-import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind } from '../lab-draft';
+import { LAB_FONTS_COOKIE, LAB_FONTS_LIVE_COOKIE, LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, LAB_SECTIONS_COOKIE, labDraftedRows, labFontsFrom, labNamesFrom, labOwnKind, labSectionsFrom } from '../lab-draft';
 import { siteFontLook } from '@/lib/site-role-look';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
@@ -464,7 +464,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   }
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
-    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.cast === 'man' ? 'man' : sp.titles === '1' ? 'titles' : 'lone');
+    /* 🏷 `&sections=vip` — Immediate Family renamed "VIP" (owner 2026-10-19); `&sections=usual` — the same cast, no word. */
+    const groups = labEntourage(sp.sections === 'vip' ? 'vip' : sp.sections === 'usual' ? 'vip-usual' : sp.cast === 'cale' ? 'cale' : sp.cast === 'man' ? 'man' : sp.titles === '1' ? 'titles' : 'lone');
     const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
     const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (
@@ -726,9 +727,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="arrive" />
     </div>
   ) : null;
+  /* 👗 DRESS WITH US IS THE READER'S OWN (owner 2026-10-19): the scene drawn as the real page draws it for that reader —
+     `&gender=woman|man` is their `guests.gender` (`&gender=unknown`: nothing on their row says it — no attire either); `&reader=host` is the couple on their own Event Hub (every role);
+     `?reader=visitor` (no `as`) a visitor not on the list (the Guests card). */
+  const dressReader = one('reader');
+  const labGender = one('gender') === 'woman' || one('gender') === 'man' ? (one('gender') as 'woman' | 'man') : null;
   const dressCode = words && labRole ? (
     <>
-      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={null} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' || one('gender') === 'unknown' ? null : labRole.attire} guestNameParts={dressReader === 'host' ? null : { gender: labGender }} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
       {roleWear}
     </>
   ) : words ? (
@@ -739,11 +745,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       genderSeparation={null}
       rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
       guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : (rolesAttire || caleIce) && one('you') ? (one('you') as never) : null}
+      readerOnly={dressReader === 'visitor'}
       roleNames={caleIce ? LAB_CALE_ICE_ROLE_NAMES : null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
       dosLook={dosLookOfRow(rowOf('dress_code'))}
-      makerSample
+      makerSample={dressReader !== 'visitor'}
+      hideWhenEmpty={dressReader === 'visitor'}
     />
   ) : null;
   /* 🚶 The REAL Wedding March (`EntourageSection`, as `site-body.tsx` mounts it): the sample entourage, in its picked Style. */
@@ -752,7 +760,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
           the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-      <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+      <EntourageSection groups={labEntourage(labCast, labSectionsFrom((await cookies()).get(LAB_SECTIONS_COOKIE)?.value))} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
   const labPictures = (await cookies()).get('lab_pictures')?.value === '1';

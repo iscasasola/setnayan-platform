@@ -6,7 +6,7 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
+import { invitationReentryHref, isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
@@ -53,7 +53,6 @@ import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
-import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
 import { meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
@@ -138,6 +137,7 @@ import {
   overlayHubDraftWidgets,
   type HubDraft,
 } from '@/lib/hub-draft';
+import { holdDraftedRoleNames } from '@/lib/drafted-role-names';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
 import {
@@ -188,6 +188,8 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
     invite?: string;
+    /** 🔁 The redeem's 30-minute re-entry code (`REENTRY_PARAM`) — `invitationReentryHref`. */
+    k?: string;
     invite_error?: string;
     phase?: string;
     // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit
@@ -914,6 +916,9 @@ async function invitationBody({
      written; `theme_try_on` lets the one theme gate paint a Pro theme the
      couple does not own yet (the fence still answers). */
   const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* 🏷 The entourage's section headings named in the Wedding March's Edit (owner 2026-10-19) — drafted, so the host's
+     canvas reads them through the guest tree's ONE reader of the couple's words (`lib/drafted-role-names.ts`). */
+  if (hostDraft && 'role_names' in hostDraft.events) holdDraftedRoleNames(liveEvent.event_id, hostDraft.events.role_names);
   /* 💎 A THEME PICKED INTO THE DRAFT IS WORN ON THE HOST'S CANVAS, Pro or not
      (owner 2026-09-28: *"they can edit it with pro features. but need to
      upgrade to pro when clicked on apply"*). `hostDraft` is non-null only for a
@@ -1010,6 +1015,19 @@ async function invitationBody({
   const passStandingNow = await passStandingAhead;
   const session = passStandingNow.session;
   timer.mark('guest-session');
+
+  /* 🔁 THE PERSONAL LINK NOW OPENS HERE, CARRYING ITS 30-MINUTE CODE (`?k=`, owner 2026-10-19 — see
+     `personalLinkLandingPath`). This browser holds no pass for THIS event (a chat app's "Open in Safari" opened the
+     bare address bar): spend the code once at the redeem, which comes back to the bare `/{slug}`. BEFORE the private
+     gate, so a guest holding a good code never meets the lock screen. A link-preview fetcher spends nothing — the
+     redeem answers it in place. No code (the plain address) or this event's pass → nothing happens here. */
+  const reentryHref = invitationReentryHref({
+    slug: event.slug ?? slug,
+    code: search.k,
+    passEventId: session?.event_id ?? null,
+    eventId: event.event_id,
+  });
+  if (reentryHref) redirect(reentryHref);
 
   // Private-mode gate (CLAUDE.md 2026-05-22 owner directive).
   //
@@ -1973,6 +1991,7 @@ async function invitationBody({
     redirect(`/${slug}/welcome`);
   }
 
+  // ⚠ ITS REDIRECT WAS RETIRED 2026-10-19 (owner: the reply opens only from the cover's button) — see 💌 below.
   // ── THE KEY GATE (owner 2026-09-26, "NOBODY WITHOUT A KEY"): *"if they enter.
   // using QR and they do not have the proper information, that should be filled
   // first until they are all answered."* A guest holding their key (link = QR =
@@ -2024,14 +2043,12 @@ async function invitationBody({
       // 📬 …nor while the couple's replies are not open (owner 2026-10-14): never sent to a form that refuses.
       repliesNow.state === 'open',
   });
-  // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
-  // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing
-  // page itself leads with "Reply to the invitation", so the answers are still
-  // asked first. Only that link carries the mark (`openBeforeReplyHref`).
-  const openedFromLanding = search[LANDING_OPEN_PARAM] === LANDING_OPEN_VALUE;
-  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding) {
-    redirect(inviteReplyPath(event.slug ?? slug));
-  }
+  // 💌 THE EVENT HUB NEVER SENDS A KEY TO THE REPLY PAGE (owner 2026-10-19, 21:40 — "why am i at rsvp. we should
+  // be at the invitation page and not here" — and, the same evening: "so their QR code should not directly go to
+  // RSVP. they only go there when they click to the button on the cover"). This overrides the 2026-09-26 key gate's
+  // redirect: every personal link / QR opens the invitation, and the reply page opens only from the cover's own
+  // Reply button. `keyGate` still decides the "Didn't reply" mark below, and the reply page asks `rsvpGate` itself
+  // for which questions to show. 🛡 app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts
 
   const {
     guest,

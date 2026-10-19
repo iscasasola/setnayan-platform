@@ -102,7 +102,7 @@ export function FindThumbRow({
       data-find-thumb=""
       data-on={up ? 'true' : 'false'}
       inert={!up}
-      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-[max(1.75rem,var(--sn-safe-r))] lg:w-[720px] lg:px-0 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
         up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}

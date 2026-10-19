@@ -636,6 +636,8 @@ export function GuestCardBody({
                     limited to one pair. Member sponsors aren&rsquo;t capped.
                   </p>
                 ) : null}
+                {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
+                {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
               </K.Cols>
             )}
             {/* ✓ Checkmark dropdowns (owner 2026-09-30 "yes"): extra roles and

@@ -85,6 +85,12 @@ type PublicHideableWidgetProps = {
   /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
    *  resolved for it. Absent → every widget keeps its shipped look. */
   stage?: HubStage | null;
+  /**
+   * 👗 The couple / their hosts reading their own Event Hub: the dress code keeps every role (they set them). Every
+   * other reader of this path — a visitor not on the list — sees the Guests card and the Do's & Don'ts only (owner
+   * 2026-10-19, DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE").
+   */
+  dressCodeEveryRole?: boolean;
 };
 
 /**
@@ -128,6 +134,7 @@ function PublicHideableWidgetBody({
   guestView = false,
   stage = null,
   artKit = null,
+  dressCodeEveryRole = false,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
@@ -199,7 +206,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} readerOnly={guestView && !dressCodeEveryRole} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

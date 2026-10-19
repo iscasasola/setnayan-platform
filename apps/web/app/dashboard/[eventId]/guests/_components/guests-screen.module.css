@@ -284,6 +284,17 @@ button.ico {
 .g.plus {
   margin-left: 20px;
 }
+/* 🤝 A +1 drawn right after their guest is part of that guest's line — no divider between them (dividers sit
+   between topics; a guest and their +1 are one). The indent above says whose it is. */
+.g.joined {
+  border-top: 0;
+  padding-top: 0;
+}
+/* "· +1 of Juanita Sacdalan" — after a named +1's own name, quieter than the name. */
+.of {
+  font-weight: 400;
+  color: var(--gs-mute);
+}
 .ava {
   font-size: 12px;
   font-weight: 600;
@@ -474,7 +485,8 @@ button.ico {
 .lower > * {
   pointer-events: auto;
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+@media (min-width: 701px) {
   .lower {
     bottom: 16px;
     left: var(--gs-left, 0px);

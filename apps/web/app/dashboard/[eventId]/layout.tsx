@@ -671,6 +671,11 @@ export default async function EventLayout({ children, params }: Props) {
         merely "styled back to the same place".
       */}
       <AppRailShell
+        /* 📱→🖥 THE COUPLE DASHBOARD IS A TABLET FROM 701 (owner 2026-10-19,
+           DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"):
+           the rail's 72-px strip comes down to 701 and the dock below goes with
+           it — ONE boundary, given to both. `shell-boundary.tsx`. */
+        boundary="tab"
         /* The Studio group stays in the rail inside an event (owner
            2026-08-21) and its rows open THIS wedding's tools. Verified against
            the person's own organiser events inside the resolver. */
@@ -851,10 +856,11 @@ export default async function EventLayout({ children, params }: Props) {
         Event Hub Maker · More Services — anchored flush to the bottom edge, and
         NOTHING docks above it: the section sub-nav / moment strip that used
         to ride on top is retired, and each pillar picks its own parts inside
-        its page. The dock is `lg:hidden`; the rail is the menu from 1024 up.
+        its page. The dock is `tab:hidden`; the rail is the menu from 701 up
+        (owner 2026-10-19 — the same `boundary="tab"` the shell above is given).
         `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
-      <BottomDock>
+      <BottomDock boundary="tab">
         <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
       </BottomDock>
       {/*

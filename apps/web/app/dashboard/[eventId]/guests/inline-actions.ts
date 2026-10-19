@@ -23,7 +23,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
+import { carrySideToTheirPlusOnes, checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 import {
   type GuestRole,
   type GuestSide,
@@ -65,6 +65,9 @@ export async function setGuestSide(
     .eq('event_id', eventId)
     .eq('guest_id', guestId);
   if (error) return { ok: false, error: error.message };
+  // 🤝 Their +1s take the same side (lib/extra-seats-sync.ts `carrySideToTheirPlusOnes`).
+  const carried = await carrySideToTheirPlusOnes(supabase, eventId, [guestId], side);
+  if (!carried.ok) return carried;
 
   revalidatePath(guestsPath(eventId));
   return { ok: true };

@@ -3,6 +3,7 @@ import {
   fetchGuestsByEvent,
   fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
+  SINGLETON_GUEST_ROLES,
   MEAL_LABELS,
   guestRolePickLabel,
   RSVP_LABELS,
@@ -25,6 +26,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
+import { NewGuestGroupField, NewGuestRolesField } from '../_components/new-guest-group-role';
+import { pickItems } from '@/lib/role-alternatives';
 import { createGuest } from './actions';
 
 export const metadata = { title: 'Add guest' };
@@ -98,6 +101,15 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
+  // 👥 The couple's own groups, for the ONE Group dropdown (owner 2026-10-20). Refused → null: the dropdown offers the
+  // standard groups only and posts no memberships — never an empty "None yet." it did not measure.
+  const { data: ownRows, error: ownError } = await supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId);
+  if (ownError) logQueryError('NewGuestPage.ownGroups', ownError, { eventId }, 'graceful_degrade');
+  const ownGroups = ownError
+    ? null
+    : ((ownRows ?? []) as { group_id: string; label: string | null }[])
+        .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group' }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
   // Existing-guest pool for live duplicate detection on the name fields.
   // Mapped down to the slim NamePoolGuest shape so guest PII (email /
@@ -157,22 +169,22 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
               options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
             />
           ) : null}
-          <Select
-            id="group_category"
-            label="Group *"
-            required
-            options={guestGroupsFor(roleSet.key).map((v) => ({
-              value: v,
-              label: GROUP_CATEGORY_LABELS[v],
-            }))}
+          <NewGuestGroupField
+            eventId={eventId}
+            standard={guestGroupsFor(roleSet.key).map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+            groups={ownGroups}
           />
         </div>
 
-        <Select
-          id="role"
+        {/* 🎭 ONE Role dropdown, several ticked — the first is their main role (owner 2026-10-20). */}
+        <NewGuestRolesField
           label={hasSides ? 'Role in wedding' : 'Role'}
-          defaultValue="guest"
-          options={availableRoles.map((v) => ({ value: v, label: guestRolePickLabel(v, roleNames) }))}
+          options={pickItems(availableRoles).flatMap((it) =>
+            it.kind === 'pair'
+              ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+              : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+          )}
+          solo={SINGLETON_GUEST_ROLES}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -21,6 +21,7 @@ export function PickMenu({
   compact = false,
   stickyGroups = false,
   grid,
+  doneNote,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
@@ -137,7 +138,7 @@ export function PickMenu({
             }}
             className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
           >
-            <span>Tick as many as apply.</span>
+            <span>{doneNote ?? 'Tick as many as apply.'}</span>
             <span className="font-semibold text-ink">Done ✓</span>
           </button>
         </li>

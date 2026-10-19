@@ -68,12 +68,24 @@ const EXEMPT: Record<string, string> = {
   return_to: 'tells the action where an error lands',
 };
 
+/**
+ * 👥 Columns posted by a LEAF the body names rather than by a literal input (owner 2026-10-20: one Group dropdown, one Role
+ * dropdown — each posts the two columns its two old rows posted; `card-fields.tsx` › `useSplitPick`). That they really are
+ * posted, by both kits, in every state, is `the-card-posts-the-same-form.test.ts`'s golden; this only reads that the leaf is there.
+ */
+const LEAF_POSTS: Record<string, RegExp> = {
+  group_category: /<K\.Group\b/,
+  group_ids: /<K\.Group\b/,
+  role: /<K\.Roles\b/,
+  extra_roles: /<K\.Roles\b/,
+};
+
 test('every column updateGuest writes is represented on the card', () => {
   const missing: string[] = [];
   for (const key of columnsUpdateGuestWrites()) {
     if (key in EXEMPT) continue;
     const present =
-      CARD.includes(`id="${key}"`) || CARD.includes(`name="${key}"`);
+      CARD.includes(`id="${key}"`) || CARD.includes(`name="${key}"`) || Boolean(LEAF_POSTS[key]?.test(CARD));
     if (!present) missing.push(key);
   }
   assert.deepEqual(

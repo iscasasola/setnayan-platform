@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { maybeAutoSurfaceEventForGuest } from '@/lib/account-autosurface';
 import {
   INVITED_TO_BLOCKS,
+  SINGLETON_GUEST_ROLES,
   singletonRoleDuplicateMessage,
   singletonRoleFromIndexError,
   type GuestGroupCategory,
@@ -138,6 +139,19 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (!roleSet.offeredRoles.includes(role)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
   }
+  /* 🎭 ONE Role dropdown, several ticked (owner 2026-10-20): the first ticked posts as `role`, the rest as `extra_roles` —
+     the same rule `updateGuest` keeps: offered roles only, never the main one twice, never Guest, never a one-per-event role. */
+  const extra_roles: GuestRole[] = [
+    ...new Set(
+      clean(formData.get('extra_roles'))
+        .split(',')
+        .map((v) => v.trim() as GuestRole)
+        .filter((r) => r !== role && r !== 'guest' && roleSet.offeredRoles.includes(r) && !SINGLETON_GUEST_ROLES.includes(r)),
+    ),
+  ];
+  /* 👥 ONE Group dropdown (owner 2026-10-20): the couple's own groups ticked here — joined after the insert, only groups of
+     THIS event (the same gate the card's `syncCardGroups` keeps). */
+  const groupIds = [...new Set(clean(formData.get('group_ids')).split(',').map((v) => v.trim()).filter(Boolean))];
   if (!RSVP_VALUES.includes(rsvp_status)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_rsvp`);
   }
@@ -176,6 +190,7 @@ export async function createGuest(eventId: string, formData: FormData) {
       side,
       group_category,
       role,
+      ...(extra_roles.length ? { extra_roles } : {}),
       email,
       mobile,
       meal_preference,
@@ -207,6 +222,18 @@ export async function createGuest(eventId: string, formData: FormData) {
     return redirect(
       `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(friendly)}`,
     );
+  }
+
+  if (groupIds.length > 0) {
+    const { data: ours, error: oursError } = await supabase.from('guest_groups').select('group_id').eq('event_id', eventId).in('group_id', groupIds);
+    const rows = (ours ?? []).map((g) => ({ group_id: g.group_id as string, guest_id: inserted.guest_id }));
+    const { error: joinError } = oursError || rows.length === 0
+      ? { error: oursError }
+      : await supabase.from('guest_group_memberships').upsert(rows, { onConflict: 'group_id,guest_id', ignoreDuplicates: true });
+    // The guest is on the list; a group that did not take is SAID, never shown as joined.
+    if (joinError) {
+      return redirect(`/dashboard/${eventId}/guests?added=1&error=${encodeURIComponent('Added — but their groups could not be saved. Tick them on their card.')}`);
+    }
   }
 
   // A NAMED plus-one (an older form that still posts the name fields) gets its

@@ -27,10 +27,10 @@ import {
   guestHasTicket,
 } from '@/lib/guests';
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
-import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
-import { FormPick } from './card-fields';
+import { FormPick, FormSplitPick } from './card-fields';
+import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
 /* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
    by the pages that draw them (the Guest list, the standalone card). The Maker's
    parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
@@ -48,7 +48,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
-import type { CardBoxProps, CardFieldProps, CardFoldProps, CardInvitedToProps, CardKit, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
+import type { CardBoxProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -327,10 +327,16 @@ export function GuestCardBody({
 
   // ── the one-line summaries of the closed rows ──
   const roleWord = guestRoleLabel(guest.role, roleNames);
+  // 🎭 Their extra roles — offered roles only, never the main one twice, never plain "Guest" nor a one-per-event role
+  // (the same set "Also serves as" offered; `updateGuest` keeps that rule). With the main one they are ONE dropdown now.
+  const extraRolesNow = isCouple
+    ? []
+    : (guest.extra_roles ?? []).filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r) && availableRoles.includes(r));
+  const rolesWords = [roleWord, ...extraRolesNow.map((r) => guestRoleLabel(r, roleNames))].map(rolePillWord).join(' · ');
   const detailsSummary = [
     hasSides ? SIDE_LABELS[guest.side] : null,
-    GROUP_CATEGORY_LABELS[guest.group_category],
-    isCouple ? `${roleWord} · locked` : roleWord,
+    [GROUP_CATEGORY_LABELS[guest.group_category], ...customGroups.map((g) => g.label)].join(' · '),
+    isCouple ? `${roleWord} · locked` : rolesWords,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -361,20 +367,19 @@ export function GuestCardBody({
     ...customGroups.map((g) => g.label),
   ].filter((t): t is string => Boolean(t));
 
-  // "Also serves as" — every offered role but the one they hold, the one-per-event
-  // roles and plain "Guest", under the Role picker's own headings in the couple's words.
-  const extraRoleOptions = availableRoles
-    .filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r))
-    .map((r) => {
-      const g = roleGroupOf(r);
-      return {
-        key: r,
-        label: guestRoleLabel(r, roleNames),
-        group: g === 'guest' ? 'Other roles' : roleGroupLabel(g, roleNames),
-      };
-    })
-    .sort((a, b) => a.group.localeCompare(b.group));
-  const extraRolesNow = (guest.extra_roles ?? []).filter((r) => extraRoleOptions.some((o) => o.key === r));
+  /* 🎭 ONE Role dropdown (owner 2026-10-20: "Roles doesn't need also serves as… they can have multiple row in that Role in
+     Wedding"): the Role picker's own list — each either-or pair under ONE heading (owner 2026-09-30) — with several ticked.
+     Their own role is always on it, so the first tick can never be a role the list cannot draw. */
+  const roleChoices = availableRoles.includes(guest.role) ? availableRoles : [guest.role, ...availableRoles];
+  const roleOptions = pickItems(roleChoices).flatMap((it) =>
+    it.kind === 'pair'
+      ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+      : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+  );
+  /* 👥 ONE Group dropdown (owner 2026-10-20: "there are 2 groups."): the standard groups, then the couple's own — their
+     memberships in the list's order, so the posted value never depends on what the database read first. */
+  const ownGroups = groupChoices ? groupChoices.options : null;
+  const ownPicked = groupChoices ? groupChoices.options.map((g) => g.groupId).filter((id) => groupChoices.memberIds.includes(id)) : [];
 
   return (
     <div className="space-y-4">
@@ -591,24 +596,32 @@ export function GuestCardBody({
         </section>
 
         <div className="border-y border-ink/10">
-          {/* ── DETAILS — side, group, role, extra roles, groups ───────────── */}
+          {/* ── DETAILS — side, ONE group dropdown, ONE role dropdown ──────── */}
           <K.Fold summary="Details" value={detailsSummary}>
-            <K.Cols className="grid grid-cols-2 gap-2.5">
-              {hasSides ? (
-                <K.Pick
-                  name="side"
-                  label="Side"
-                  value={guest.side}
-                  options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
-                />
-              ) : null}
+            {hasSides ? (
               <K.Pick
-                name="group_category"
-                label="Group"
-                value={guest.group_category}
-                options={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+                name="side"
+                label="Side"
+                value={guest.side}
+                options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
               />
-            </K.Cols>
+            ) : null}
+            {/* 👥 ONE Group dropdown, several ticked (owner 2026-10-20): Standard · one of these (`group_category`) → Your
+                groups · as many as apply (memberships, `group_ids`) → ＋ New group… — the "Groups" row is gone. */}
+            <K.Group
+              eventId={eventId}
+              label="Group"
+              std={guest.group_category}
+              standard={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+              own={ownGroups}
+              ownPicked={ownPicked}
+            />
+            {/* The memberships post only while they could be READ — a refusal can never unTick them (`*_posted`). */}
+            {groupChoices ? (
+              <input type="hidden" name="groups_posted" value="1" />
+            ) : customGroups.length > 0 ? (
+              <p className="text-sm text-ink/70">Groups: {customGroups.map((g) => g.label).join(', ')}</p>
+            ) : null}
             {isCouple ? (
               <>
                 <K.Locked label={hasSides ? 'Role in wedding' : 'Role'} value={roleWord} note="Foundation · locked" />
@@ -616,19 +629,15 @@ export function GuestCardBody({
               </>
             ) : (
               <K.Cols className="space-y-1">
-                <K.Pick
-                  name="role"
+                {/* 🎭 ONE Role dropdown, several ticked (owner 2026-10-20): the first is `role` (main — it decides the
+                    section), the rest `extra_roles` — "Also serves as" is gone. */}
+                <input type="hidden" name="extra_roles_posted" value="1" />
+                <K.Roles
                   label={hasSides ? 'Role in wedding' : 'Role'}
                   about={isIncWedding ? 'INC note: non-member principal sponsors (Ninong/Ninang) are limited to one pair. Member sponsors aren’t capped.' : undefined}
-                  value={guest.role}
-                  /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
-                     matron of honour — each pair sits under ONE heading so
-                     the two words read as the alternatives they are. */
-                  options={pickItems(availableRoles).flatMap((it) =>
-                    it.kind === 'pair'
-                      ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
-                      : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
-                  )}
+                  value={[guest.role, ...extraRolesNow].join(',')}
+                  options={roleOptions}
+                  solo={SINGLETON_GUEST_ROLES}
                 />
                 {isIncWedding && !templated ? (
                   <p className="text-xs text-ink/55">
@@ -640,38 +649,6 @@ export function GuestCardBody({
                 {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
               </K.Cols>
             )}
-            {/* ✓ Checkmark dropdowns (owner 2026-09-30 "yes"): extra roles and
-                the couple's own groups, editable right here. */}
-            {isCouple ? null : (
-              <>
-                <input type="hidden" name="extra_roles_posted" value="1" />
-                <K.Pick
-                  name="extra_roles"
-                  label="Also serves as"
-                  value={extraRolesNow.join(',')}
-                  options={extraRoleOptions}
-                  multi
-                />
-              </>
-            )}
-            {groupChoices ? (
-              groupChoices.options.length > 0 ? (
-                <>
-                  <input type="hidden" name="groups_posted" value="1" />
-                  <K.Pick
-                    name="group_ids"
-                    label="Groups"
-                    value={groupChoices.memberIds.join(',')}
-                    options={groupChoices.options.map((g) => ({ key: g.groupId, label: g.label }))}
-                    multi
-                  />
-                </>
-              ) : (
-                <p className="text-xs text-ink/55">No groups yet — make one from the Guest list&rsquo;s Group dropdown.</p>
-              )
-            ) : customGroups.length > 0 ? (
-              <p className="text-sm text-ink/70">Groups: {customGroups.map((g) => g.label).join(', ')}</p>
-            ) : null}
             {/* ✉ Carried, never shown: no email to guests (owner 2026-09-30).
                 `updateGuest` writes every column it reads, so a dropped input
                 would erase the address a guest's own account linked with. */}
@@ -1048,6 +1025,27 @@ function OldPick({ about, ...pick }: CardPickProps) {
 function OldTitle({ label, value, options, unlisted }: CardTitleProps) {
   return <FormPick name="name_title" label={label} value={value} options={options} unlisted={unlisted} dataAttr="data-title-pick" />;
 }
+/** 👥 The Maker's one Group dropdown: the same list as the shipped checkmark PickMenu, ticks only (no editors — no room). */
+function OldGroup({ label, std, standard, own, ownPicked }: CardGroupProps) {
+  const options = [
+    ...standard.map((o) => ({ ...o, group: GROUP_STANDARD_HEADING })),
+    ...(own ?? []).map((g) => ({ key: g.groupId, label: g.label, group: GROUP_OWN_HEADING })),
+  ];
+  return (
+    <FormSplitPick
+      kind="group"
+      label={label}
+      names={['group_category', own ? 'group_ids' : null]}
+      value={[std, ...ownPicked].join(',')}
+      options={options}
+      one={standard.map((o) => o.key)}
+    />
+  );
+}
+/** 🎭 The Maker's one Role dropdown: several ticked, the first the main one. */
+function OldRoles({ label, value, options, solo }: CardRolesProps) {
+  return <FormSplitPick kind="role" label={label} names={['role', 'extra_roles']} value={value} options={options} one={solo} emptyText="Guest" doneNote={ROLE_DONE_NOTE} />;
+}
 function OldInvitedTo({ roleSelectId, initialRole, initialBlocks }: CardInvitedToProps) {
   return (
     <div className="space-y-1">
@@ -1100,6 +1098,8 @@ const OLD_KIT: CardKit = {
   Toggle,
   Fold,
   Pick: OldPick,
+  Group: OldGroup,
+  Roles: OldRoles,
   Title: OldTitle,
   InvitedTo: OldInvitedTo,
   Locked: OldLocked,

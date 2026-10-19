@@ -69,6 +69,40 @@ export type CardTitleProps = {
   /** Only the stored title's own entries — a linked person's name is theirs, so only its woman / man is picked here. */
   narrow?: boolean;
 };
+/**
+ * 👥 THE ONE GROUP DROPDOWN (owner 2026-10-20: *"there are 2 groups."* → one list, several ticked; prototype
+ * `guest_group_and_fast_add_2026-10-20.html` A1–A6). Standard groups first — ONE of these (`group_category`, one column:
+ * ticking another swaps it) — then the couple's own groups, ticked freely (`guest_group_memberships`, posted as `group_ids`
+ * with its `groups_posted` marker, which the BODY draws). Posts the same two hidden inputs the two old rows did.
+ * The Guests pages' kit adds ＋ New group…, ✎ rename and 🗑 delete in place (`guest-group-picker.tsx`); the Maker's
+ * hand-drawn kit ticks only (its first load has no room for the editors — the same call as the Title's "Other title…").
+ */
+export type CardGroupProps = {
+  eventId: string;
+  label: string;
+  /** The standard group this guest is in (`guests.group_category`). */
+  std: string;
+  /** The standard groups, in their order. */
+  standard: readonly PickOption[];
+  /** The couple's own groups, sorted. Null = they could not be read: only the standard group is offered, nothing posts `group_ids`. */
+  own: readonly { groupId: string; label: string }[] | null;
+  /** The own groups this guest is in. */
+  ownPicked: readonly string[];
+};
+/**
+ * 🎭 THE ONE ROLE DROPDOWN (owner 2026-10-20: *"Roles doesn't need also serves as… they can have multiple row in that Role
+ * in Wedding"*; prototype A7). Several ticked; the FIRST is `guests.role` (marked "main" — it decides the section), the
+ * rest post as `extra_roles` (its `extra_roles_posted` marker is the BODY's). Untick the main → the next becomes main.
+ */
+export type CardRolesProps = {
+  label: string;
+  /** `guests.role` then the extra roles, comma-joined — the first is the main role. */
+  value: string;
+  options: readonly PickOption[];
+  /** The one-per-event roles — never an extra (`guests_extra_roles_no_singletons`). */
+  solo: readonly string[];
+  about?: string;
+};
 export type CardInvitedToProps = { roleSelectId: string; initialRole: string; initialBlocks?: string[] };
 export type CardLockedProps = { label: string; value: string; note: string };
 export type CardBoxProps = { className?: string; children: ReactNode };
@@ -95,6 +129,10 @@ export type CardKit = {
   Toggle: ComponentType<CardToggleProps>;
   Fold: ComponentType<CardFoldProps>;
   Pick: ComponentType<CardPickProps>;
+  /** 👥 The ONE Group dropdown — standard (one of) + own groups (several) (`CardGroupProps`). */
+  Group: ComponentType<CardGroupProps>;
+  /** 🎭 The ONE Role dropdown — several roles, the first the main one (`CardRolesProps`). */
+  Roles: ComponentType<CardRolesProps>;
   /** The name's Title — the pick carries woman or man (`CardTitleProps`). */
   Title: ComponentType<CardTitleProps>;
   InvitedTo: ComponentType<CardInvitedToProps>;

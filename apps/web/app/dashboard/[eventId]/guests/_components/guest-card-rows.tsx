@@ -17,10 +17,12 @@ import type {
   CardBoxProps,
   CardFieldProps,
   CardFoldProps,
+  CardGroupProps,
   CardInvitedToProps,
   CardLockedProps,
   CardPickProps,
   CardRenameProps,
+  CardRolesProps,
   CardSubmitProps,
   CardTitleProps,
   CardTipProps,
@@ -29,6 +31,9 @@ import type {
 import { useAutosaveOutcome } from './guest-card-autosave';
 import { isPlainSentence } from './plain-refusal';
 import { TitlePicker } from './title-picker';
+import { splitPickText, useSplitPick, withMainMark } from './card-fields';
+import { ROLE_DONE_NOTE } from '@/lib/guest-group-role-pick';
+import { GuestGroupPicker, type OwnGroup } from './guest-group-picker';
 import { renameRole, renameSection, type RenameRoleResult } from '../role-name-actions';
 import { useSetRoleNames } from './role-names-context';
 
@@ -141,6 +146,67 @@ export function CardPick({ name, label, value, options, multi = false, emptyText
     <FormRow name={label} about={about ? { words: about } : null} data={`card-${name}`} attrs={{ 'data-card-field': name }}>
       <PickMenu label={label} value={multi ? null : current} options={options} onPick={pick} picked={picked} buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)} className={`${FORM_PICK_CLASS} ${width}`} />
       <input ref={ref} type="hidden" id={name} name={name} value={current} data-form-pick="" />
+    </FormRow>
+  );
+}
+
+/**
+ * 👥 The ONE Group dropdown, as a Form row (owner 2026-10-20; prototype A1–A6): the pill on the row, the list IN FLOW under
+ * it (`GuestGroupPicker` — standard one-of, own groups several, ＋ New group…, ✎ rename / 🗑 delete in place). Posts the two
+ * hidden inputs the two old rows posted — `group_category`, and `group_ids` while the own groups could be read.
+ */
+export function CardGroup({ eventId, label, std, standard, own, ownPicked }: CardGroupProps) {
+  const width = usePillWidth();
+  const [list, setList] = useState<OwnGroup[] | null>(own ? [...own] : null);
+  const fromServer = JSON.stringify(own);
+  useEffect(() => {
+    setList(own ? [...own] : null);
+    // `own` is read through `fromServer`, its stable key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromServer]);
+  const stdKeys = standard.map((o) => o.key);
+  const { picked, pick, inputs } = useSplitPick('group', ['group_category', own ? 'group_ids' : null], [std, ...ownPicked].join(','), stdKeys, (list ?? []).map((g) => g.groupId));
+  return (
+    <GuestGroupPicker
+      eventId={eventId}
+      label={label}
+      picked={picked}
+      onPick={pick}
+      standard={standard}
+      groups={list}
+      onGroupsChange={setList}
+      className={`${FORM_PICK_CLASS} ${width}`}
+      layout={(button, panel) => (
+        <FormRow name={label} data="card-group_category" attrs={{ 'data-card-field': 'group_category' }} below={panel}>
+          {button}
+          {inputs}
+        </FormRow>
+      )}
+    />
+  );
+}
+
+/**
+ * 🎭 The ONE Role dropdown, as a Form row (owner 2026-10-20; prototype A7): the shipped checkmark PickMenu with the
+ * honour-pair headings, several ticked, the first marked "main". Posts `role` (the main one — "Invited to" snaps to it) and
+ * `extra_roles` (the rest), as the Role and "Also serves as" rows did.
+ */
+export function CardRoles({ label, value, options, solo, about }: CardRolesProps) {
+  const width = usePillWidth();
+  const { picked, pick, inputs } = useSplitPick('role', ['role', 'extra_roles'], value, solo, options.map((o) => o.key));
+  return (
+    <FormRow name={label} about={about ? { words: about } : null} data="card-role" attrs={{ 'data-card-field': 'role' }}>
+      <PickMenu
+        label={label}
+        value={null}
+        options={withMainMark(options, picked[0])}
+        onPick={pick}
+        picked={picked}
+        buttonText={splitPickText('role', picked, options) || 'Guest'}
+        doneNote={ROLE_DONE_NOTE}
+        className={`${FORM_PICK_CLASS} ${width}`}
+      />
+      {inputs}
     </FormRow>
   );
 }

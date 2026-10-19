@@ -38,8 +38,8 @@ const FIELD_LABELS: Record<string, string> = {
   name_suffix: 'Name',
   display_name: 'Display name',
   seniority_rank: 'Tea-ceremony order',
-  extra_roles: 'Also serves as',
-  group_ids: 'Groups',
+  extra_roles: 'Role',
+  group_ids: 'Group',
   table_id: 'Table',
   passed_away: 'Passed away',
 };

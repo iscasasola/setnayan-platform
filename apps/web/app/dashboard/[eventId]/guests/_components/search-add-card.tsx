@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Users, X } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import {
@@ -17,9 +17,7 @@ import { resolveRoleSet } from '@/lib/role-sets';
 import { SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 import type { RoleNames } from '@/lib/role-names';
-import { useGuestActions } from './guest-actions-context';
-import { hearAction } from './hear-action';
-import { plainRefusal } from './plain-refusal';
+import { GuestGroupPicker } from './guest-group-picker';
 import type { AddPicks } from './guest-add-queue';
 export { picksForAdd, type AddPicks } from './guest-add-queue';
 
@@ -32,7 +30,9 @@ export { picksForAdd, type AddPicks } from './guest-add-queue';
  *     couple's own words). Side is absent on an event with no sides.
  *   · Group — ONE multi list: a standard group (one of Family · Friends · Work · School · Officiant · Other — writes
  *     `group_category`), then the couple's own groups (tick freely — memberships), then ＋ New group…, made in place.
- *     🔗 Built to the same behaviour as the guest card's one Group picker (rd/card-one-group-one-role) — fold into it.
+ *     🔗 FOLDED (2026-10-20): it IS the guest card's one Group picker — `GuestGroupPicker` (guest-group-picker.tsx), the
+ *     same list, ＋ New group…, ✎ rename and 🗑 delete in place. Only the tick rule differs, and it is this card's: here
+ *     the standard group may be left unticked ("No group" — the add stores 'other', as Quick add always did).
  *   · Plus — the card's "Extra seats" words: None · +1 … +4. A +N makes the same linked "+1 · TBA" seat rows the app
  *     already makes (`syncExtraSeats`).
  *
@@ -41,8 +41,6 @@ export { picksForAdd, type AddPicks } from './guest-add-queue';
 type GroupOpt = { group_id: string; label: string };
 
 const SIDE_SHORT: Record<GuestSide, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' };
-const CAT = 'cat:';
-const NEW = '__new__';
 const LABEL = 'block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45';
 
 export function useAddPicks(hasSides: boolean) {
@@ -70,52 +68,21 @@ export function AddCardPicks({
   onMadeGroup: (g: GroupOpt) => void;
 }) {
   const router = useRouter();
-  const { quickCreateGroup } = useGuestActions();
   const offeredRoles = resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles;
-  const [naming, setNaming] = useState(false);
-  const [name, setName] = useState('');
-  const [groupError, setGroupError] = useState<string | null>(null);
-  const [making, startMaking] = useTransition();
+  const standard = (Object.keys(GROUP_CATEGORY_LABELS) as GuestGroupCategory[]).map((c) => ({ key: c, label: GROUP_CATEGORY_LABELS[c] }));
+  /* The picks as of the tap — a group made in place answers after an await, and must not undo a tick made meanwhile. */
+  const latest = useRef(picks);
+  latest.current = picks;
 
-  const groupWords = [
-    ...(picks.category ? [GROUP_CATEGORY_LABELS[picks.category]] : []),
-    ...picks.groupIds.map((id) => groups.find((g) => g.group_id === id)?.label).filter(Boolean),
-  ].join(' · ');
-
+  /* This card's tick rule: a standard group is one-of AND may be left unticked; an own group toggles. */
   const pickGroup = (key: string) => {
-    if (key === NEW) {
-      setGroupError(null);
-      setName('');
-      setNaming(true);
+    const now = latest.current;
+    if (key in GROUP_CATEGORY_LABELS) {
+      const c = key as GuestGroupCategory;
+      setPicks({ ...now, category: now.category === c ? null : c });
       return;
     }
-    if (key.startsWith(CAT)) {
-      const c = key.slice(CAT.length) as GuestGroupCategory;
-      setPicks({ ...picks, category: picks.category === c ? null : c });
-      return;
-    }
-    setPicks({ ...picks, groupIds: picks.groupIds.includes(key) ? picks.groupIds.filter((g) => g !== key) : [...picks.groupIds, key] });
-  };
-
-  const makeGroup = () => {
-    const label = name.trim();
-    if (!label) {
-      setNaming(false);
-      return;
-    }
-    setGroupError(null);
-    startMaking(async () => {
-      const res = await hearAction(() => quickCreateGroup(eventId, label));
-      if (!res.ok) {
-        setGroupError(plainRefusal(res.error, 'Couldn’t make that group. Try again.'));
-        return;
-      }
-      onMadeGroup({ group_id: res.group.group_id, label: res.group.label });
-      setPicks({ ...picks, groupIds: picks.groupIds.includes(res.group.group_id) ? picks.groupIds : [...picks.groupIds, res.group.group_id] });
-      setNaming(false);
-      setName('');
-      router.refresh();
-    });
+    setPicks({ ...now, groupIds: now.groupIds.includes(key) ? now.groupIds.filter((g) => g !== key) : [...now.groupIds, key] });
   };
 
   return (
@@ -145,23 +112,30 @@ export function AddCardPicks({
             dataAttr="data-add-pick-role"
           />
         </div>
-        <div className="space-y-1">
-          <span className={LABEL}>Group</span>
-          <PickMenu
-            label="Group"
-            value={null}
-            buttonText={groupWords || 'No group'}
-            picked={[...(picks.category ? [`${CAT}${picks.category}`] : []), ...picks.groupIds]}
-            options={[
-              ...(Object.keys(GROUP_CATEGORY_LABELS) as GuestGroupCategory[]).map((c) => ({ key: `${CAT}${c}`, label: GROUP_CATEGORY_LABELS[c], group: 'Standard — one of these' })),
-              ...groups.map((g) => ({ key: g.group_id, label: g.label, group: 'Your groups' })),
-              { key: NEW, label: '＋ New group…', group: 'Your groups' },
-            ]}
-            onPick={pickGroup}
-            className="w-full justify-between"
-            dataAttr="data-add-pick-group"
-          />
-        </div>
+        {/* 👥 THE one Group picker (the guest card's): the pill in its cell, its list full width under the four picks. */}
+        <GuestGroupPicker
+          eventId={eventId}
+          label="Group"
+          picked={[...(picks.category ? [picks.category] : []), ...picks.groupIds]}
+          onPick={pickGroup}
+          standard={standard}
+          groups={groups.map((g) => ({ groupId: g.group_id, label: g.label }))}
+          onGroupsChange={(next) => {
+            for (const g of next) if (!groups.some((x) => x.group_id === g.groupId)) onMadeGroup({ group_id: g.groupId, label: g.label });
+            router.refresh();
+          }}
+          emptyText="No group"
+          className="w-full justify-between"
+          layout={(button, list) => (
+            <>
+              <div className="space-y-1" data-add-pick-group="">
+                <span className={LABEL}>Group</span>
+                {button}
+              </div>
+              {list ? <div className="order-last col-span-2">{list}</div> : null}
+            </>
+          )}
+        />
         <div className="space-y-1">
           <span className={LABEL}>Plus</span>
           <PickMenu
@@ -174,40 +148,6 @@ export function AddCardPicks({
           />
         </div>
       </div>
-      {naming ? (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setGroupError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  makeGroup();
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setNaming(false);
-                }
-              }}
-              placeholder="New group name"
-              autoComplete="off"
-              maxLength={64}
-              className="input-field min-w-0 flex-1"
-            />
-            <ActionButton tone="brand" main icon={Check} label={making ? 'Creating…' : 'Create'} onClick={makeGroup} disabled={making || !name.trim()} />
-            <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel new group" onClick={() => setNaming(false)} disabled={making} />
-          </div>
-          {groupError ? (
-            <p role="alert" className="text-xs text-danger-700">
-              {groupError}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
       <p className="text-xs text-ink/55">All four stay as picked for the next names.</p>
     </div>
   );

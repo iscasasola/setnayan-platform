@@ -289,7 +289,7 @@ test('6 · a reader is dressed by their Studio row: the groom’s father reads t
   const config = { ...CALE.config, groups: { ...CALE.config.groups, vip_family: { style: 'suit' } } };
   assert.equal(studioRowOf('groom_parents')?.key, 'vip_family');
   assert.equal(studioRowOf('best_woman')?.key, 'groomsmen');
-  const father = readerAttire({ role: 'groom_parents', attire: 'suit', source: 'group', config, style: 'suit', hexes: ['#2C2A29'], label: (s: AttireStyle) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf });
+  const father = readerAttire({ role: 'groom_parents', attire: 'suit', person: null, source: 'group', config, style: 'suit', hexes: ['#2C2A29'], label: (s: AttireStyle) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf });
   assert.equal(father.styleLabel, 'Suit and tie');
   const html = await widget({ config, rolePalette: CALE.palette, guestRole: 'groom_parents', guestAttire: 'suit' });
   assert.ok(!/Long gown/.test(html.slice(html.indexOf('data-dress-code="you"'))), 'the father was told "Long gown"');

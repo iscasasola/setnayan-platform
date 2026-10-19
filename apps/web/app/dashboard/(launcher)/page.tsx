@@ -1616,7 +1616,7 @@ function ShelfInfo({ children }: { children: string }) {
           (its static position, just under the ⓘ) and spans the screen with a
           16 px gutter; `sm` and up keep the anchored bubble. The summary's
           `before:` layer widens the tap area to 40 px without changing the look. */}
-      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:inset-x-4 max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
         {children}
       </p>
     </details>

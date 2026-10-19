@@ -27,6 +27,7 @@ import {
   untickedItems,
   type ReminderMilestone,
 } from '@/lib/guest-reminder-emails-core';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 
 /**
  * GUEST REMINDER EMAILS — 30 · 7 · 1 DAYS BEFORE THE EVENT. The sender.
@@ -131,6 +132,10 @@ type ReminderGuestRow = StdGuestRow & {
   role: GuestRole | null;
   rsvp_status: string | null;
   qr_token: string | null;
+  /** 👤 Read for their own Wear (`guestNamePartsOf` · `guestAttireOf`). */
+  name_prefix?: string | null;
+  attire?: string | null;
+  gender?: string | null;
 };
 
 const num = (v: number | string | null | undefined): number | null => {
@@ -201,7 +206,7 @@ async function remindOneEvent(
 
   const { data: guestsRaw, error: guestsErr } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, role, rsvp_status, qr_token')
+    .select('guest_id, first_name, last_name, name_prefix, display_name, email, role, attire, gender, rsvp_status, qr_token')
     .eq('event_id', ev.event_id)
     .is('deleted_at', null)
     // 🕯 Never to a guest the couple marked "Passed away".
@@ -279,6 +284,8 @@ async function remindOneEvent(
       const replied = hasReplied(g.rsvp_status as 'pending' | 'attending' | 'declined' | 'maybe' | null);
       const items = guestChecklistItems({
         role: g.role,
+        // 👤 Their own Wear (gender → title → attire, `readerAttire`) and their own arrive-by (`guestArriveBy`).
+        person: { ...guestNamePartsOf(g), attire: guestAttireOf(g) },
         dressCodeConfig: ev.dress_code_config ?? null,
         rolePalette: ev.role_palette,
         arriveBy,

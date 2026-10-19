@@ -1,7 +1,7 @@
-import { guestFullName, type GuestRole } from '@/lib/guests';
+import { guestFullName, guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, sectionName, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
-import { genderOfTitleWords, type TitleGender } from '@/lib/guest-title';
+import { genderOfTitleWords, womanOrManOf, type TitleGender } from '@/lib/guest-title';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -707,10 +707,28 @@ function parentBesideOne(person: EntouragePerson, names: RoleNames | null | unde
  */
 export function kinWordOfReader(
   role: GuestRole,
-  person: Pick<EntourageGuestRow, 'name_prefix' | 'display_name' | 'attire'>,
+  /* 👤 `gender` too (owner 2026-10-19, cale-ice: an "Atty. (Woman)" mother of the groom read "Parent of the Groom" on
+     her Me page because only title and attire reached here) — the same row the entourage prints with. */
+  person: Pick<EntourageGuestRow, 'name_prefix' | 'display_name' | 'attire'> & { gender: string | null | undefined },
   names?: RoleNames | null,
 ): string | null {
   return parentBesideOne({ role, parentWord: parentWordOf(person as EntourageGuestRow) } as EntouragePerson, names);
+}
+
+/**
+ * 👪 ONE GUEST'S OWN ROLE WORD, as every "you" line says it (the Welcome's "You're joining us as …", Event details'
+ * "Your role") — their kin word by the one per-person resolver (`kinWordOfReader`: gender → title → attire), else the
+ * role's own word. Owner 2026-10-19: the groom's "Atty. (Woman)" mother is "Mother of the Groom" on every line.
+ */
+export function roleWordOfGuest(
+  guest: { role: GuestRole; name_prefix?: string | null; display_name?: string | null; gender?: string | null; attire?: string | null },
+  names?: RoleNames | null,
+): string {
+  const g = guest.gender === 'woman' || guest.gender === 'man' ? guest.gender : null;
+  return (
+    kinWordOfReader(guest.role, { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name ?? null, attire: guest.attire ?? null, gender: g }, names) ??
+    guestRoleLabel(guest.role, names)
+  );
 }
 
 /**
@@ -1245,20 +1263,9 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
  * (lib/guest-title.ts) lists exactly the people steps 0–1 leave null.
  */
 export function parentWordOf(row: EntourageGuestRow): KinWord | null {
-  return ownKinWordOf(row) ?? attireKinWordOf(row);
-}
-
-/** Steps 0–1: the picked gender, else a title word that says it — what the couple entered about THIS person. */
-function ownKinWordOf(row: EntourageGuestRow): KinWord | null {
-  const said = row.gender === 'woman' || row.gender === 'man' ? row.gender : genderOfTitleWords(row);
+  /* 👤 Steps 0–2 are the one per-person reading (`womanOrManOf`, lib/guest-title.ts): gender → title → attire. */
+  const said = womanOrManOf(row);
   return said === 'woman' ? 'mother' : said === 'man' ? 'father' : null;
-}
-
-/** The last step before the neutral word: the guest card's "Attire · 3D seat plan" pick (clothing, not a gender). */
-function attireKinWordOf(row: EntourageGuestRow): KinWord | null {
-  if (row.attire === 'gown') return 'mother';
-  if (row.attire === 'suit') return 'father';
-  return null;
 }
 
 export type KinWord = 'father' | 'mother';

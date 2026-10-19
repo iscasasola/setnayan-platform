@@ -2,8 +2,8 @@ import type { EventWords } from '../_lib/event-words';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { guestRoleLabel } from '@/lib/guests';
-import { guestAttireOf } from '@/lib/attire-rows';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
+import { roleWordOfGuest } from '@/lib/entourage';
 import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 import type { RoleNames } from '@/lib/role-names';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -143,6 +143,11 @@ function HideableWidgetBody({
      null draws the shipped look. */
   const sceneStyle = sceneStyleOfRow(widget, stage, event.event_type);
 
+  /* 👪 "Your role" in Event details names a parent per person too — the one resolver the Me page and the entourage read
+     (`roleWordOfGuest` → `kinWordOfReader`: gender → title → attire), so the groom's "Atty. (Woman)" mother reads "Mother of the Groom"
+     here as on Me (owner 2026-10-19), never "Parents of the Groom". */
+  const yourRole = roleWordOfGuest(guest, roleNames);
+
   switch (widget.widget_type) {
     case 'event_details':
       if (sceneStyle === 'big-date' || sceneStyle === 'card') {
@@ -154,9 +159,8 @@ function HideableWidgetBody({
             ? [{ role: 'both' as const, name: event.venue_name ?? null, address: event.venue_address ?? null, latitude: null, longitude: null }]
             : [];
         // The list's own two labels, "Your role" and "Side", kept word for word.
-        const roleLabel = guestRoleLabel(guest.role, roleNames);
         const footnote = [
-          roleLabel ? `Your role: ${roleLabel}` : null,
+          yourRole ? `Your role: ${yourRole}` : null,
           sideLabel ? `Side: ${sideLabel}` : null,
         ].filter(Boolean).join(' · ');
         const Styled = sceneStyle === 'card' ? DetailsCard : DetailsBigDate;
@@ -195,7 +199,7 @@ function HideableWidgetBody({
                 ) : null}
               </>
             )}
-            <Detail label="Your role" value={guestRoleLabel(guest.role, roleNames)} />
+            <Detail label="Your role" value={yourRole} />
             {sideLabel ? <Detail label="Side" value={sideLabel} /> : null}
           </dl>
         </section>
@@ -266,7 +270,7 @@ function HideableWidgetBody({
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
          guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} guestNameParts={guestView && !dressCodeGeneral && guest ? { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name } : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} guestNameParts={guestView && !dressCodeGeneral && guest ? guestNamePartsOf(guest) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

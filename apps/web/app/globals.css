@@ -2746,6 +2746,31 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
 [data-bottom-dock] {
   view-transition-name: sn-bottomnav;
 }
+
+/* ═══ SAFE AREAS ON ALL FOUR SIDES — THE BARS CLEAR THE SENSOR AND THE ROUNDED CORNERS (2026-10-19) ═══
+   iPhone Duo readiness points 5 · 21 · 22 · 23 (corpus IPHONE_DUO_READINESS_2026-10-08.md), audit row W2: the left
+   and right safe areas are often NOT equal — a Duo's vertical system bar, a phone in landscape, an app beside another
+   in Split View — and `viewportFit: 'cover'` (app/layout.tsx) lets the page run under the sensor housing, so a full
+   width bar's end buttons sat under it. Every bar fixed to the screen now keeps its content inside the left inset AND
+   the right inset, each on its own.
+
+   🔑 TWO NAMES, NEVER `env()` IN A BAR: `--sn-safe-l` / `--sn-safe-r` ARE the insets (Ionic's long-standing pattern
+   on iOS). A walk can set them on <html> to stand in for a sensor Playwright cannot draw (it has no way to set
+   `env(safe-area-inset-*)`); in production nobody sets them and they are exactly `env(…, 0px)`.
+
+   🧱 THE ONE RULE — bars whose box carries NO side padding of its own (their rows bring their own gutter), so the
+   inset IS `max(their padding, the inset)`. On every device whose insets are 0 (desktop, a phone held upright, an
+   iPad) this rule adds 0px — not a pixel moves. A bar that HAS its own side padding names the insets in place
+   instead: `pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))]`, never this rule (it would replace that
+   padding). Both halves, and that no bar is left out, are held by lib/every-bar-clears-the-side-insets.test.ts. */
+:root {
+  --sn-safe-l: env(safe-area-inset-left, 0px);
+  --sn-safe-r: env(safe-area-inset-right, 0px);
+}
+:is([data-bottom-dock], [data-maker-shell], [data-sheet-panel], [data-sticky-top], [data-safe-x]) {
+  padding-left: var(--sn-safe-l);
+  padding-right: var(--sn-safe-r);
+}
 .sn-vt-fab {
   view-transition-name: sn-navfab;
 }
@@ -5834,7 +5859,9 @@ html.dark .sn-popup-dark {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 3.5rem;
+  /* The peek and the panel's far edge clear a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  left: max(3.5rem, var(--sn-safe-l));
+  padding-right: var(--sn-safe-r);
   z-index: var(--sn-z-panel);
   display: flex;
   flex-direction: column;
@@ -6390,7 +6417,7 @@ html.dark .sn-popup-dark {
   bottom: 0;
   /* The peek. Wide enough to read the list behind it and to be a comfortable
    * tap target; narrow enough that the card is not cramped on a 360px phone. */
-  left: 3.5rem;
+  left: max(3.5rem, var(--sn-safe-l));
   z-index: 75;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -6398,7 +6425,7 @@ html.dark .sn-popup-dark {
   border-radius: 24px 0 0 24px;
   background: var(--sn-paper, #fffdf8);
   box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
-  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, var(--sn-safe-r)) max(1.25rem, env(safe-area-inset-bottom)) 1.25rem;
   /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
    * animation ends, and a held transform — even the identity — makes this
    * element the containing block for every `position: fixed` descendant, which

@@ -101,7 +101,8 @@ test('3 · the stand-ins are the Maker canvas’s alone — never a guest’s �
   const before = body.indexOf("makerDayStandIns('before')");
   const scenes = body.indexOf('{group(scenesTab, plan.openBrowse ? (');
   const after = body.indexOf("makerDayStandIns('after')");
-  const entourage = body.indexOf('<EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} />');
+  // 🪪 The host page's mount names the host's own row since 2026-10-19 (`hostOwnGuestId`) — the same mount, found by its head.
+  const entourage = body.indexOf('<EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost');
   const last = body.indexOf("makerDayStandIns('last')");
   assert.ok(before > 0 && scenes > 0 && after > 0 && entourage > 0 && last > 0, 'every place is drawn');
   assert.ok(before < scenes && scenes < after && after < entourage && entourage < last, 'before · sections · after · entourage · last');

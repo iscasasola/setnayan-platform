@@ -40,7 +40,9 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestPassStanding } from '@/lib/guest-session';
+import { HeldPassLine } from './_components/held-pass-line';
+import { heldPassFirstNameFor } from './_lib/held-pass-name';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
@@ -714,6 +716,31 @@ async function hostCanvasDraft(
 }
 
 /**
+ * 🪪 The host's OWN guest row on this event — the groom, a co-host who is also a sponsor — the one id a host's page
+ * may mark "You" (owner ruling 2026-10-19 (a)). Their own `event_members` row only; none → no mark. A failed read is
+ * no mark (logged): marking nobody is recoverable, marking somebody else is the defect.
+ */
+async function hostOwnGuestRowFor(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('event_members')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .not('guest_id', 'is', null)
+    .limit(1);
+  if (error) {
+    console.error('[supabase-error] app/[slug]/page.tsx · from:event_members.select (host own row)', error);
+    return null;
+  }
+  const id = (data?.[0] as { guest_id?: string | null } | undefined)?.guest_id;
+  return typeof id === 'string' ? id : null;
+}
+
+/**
  * 🎴 THE LOADING SCREEN WEARS THE PAGE'S HERO DESIGN (owner: "loading skeleton =
  * the page"). It used to always draw Design 1 · The Card, so an Event Hub on
  * The Marquee, The Crest or The Letter loaded as the wrong design and jumped —
@@ -935,7 +962,7 @@ async function invitationBody({
      same `cache()`d reads the lines below await (the session's one database
      check is `cache()`d inside `readGuestSession`). */
   startAhead(loadWidgets(admin, event.event_id));
-  startAhead(readGuestSession());
+  const passStandingAhead = startAhead(readGuestPassStanding());
   startAhead(getCurrentUser());
   /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
      schedule until it knows whether coordinator prep is released — one row, the
@@ -981,7 +1008,11 @@ async function invitationBody({
   // accept a session-cookie-bearing guest without re-fetching guests
   // unnecessarily. The same `session` reference is consumed by the
   // existing guest-vs-public branch a few lines down — no extra DB call.
-  const session = await readGuestSession();
+  // 🪪 …asked AS THE ACCOUNT (owner bug 2026-10-19, lib/pass-account-rule.ts): signed in, a pass this browser holds
+  // for somebody else's row is SET ASIDE — `session` is null for it, and `passStandingNow.setAside` keeps it for the
+  // one line that says so ("This browser also holds <name>'s invitation. Viewing as you.").
+  const passStandingNow = await passStandingAhead;
+  const session = passStandingNow.session;
   timer.mark('guest-session');
 
   // Private-mode gate (CLAUDE.md 2026-05-22 owner directive).
@@ -1591,7 +1622,37 @@ async function invitationBody({
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
   // firewall) and structurally cannot carry guest-derived data.
+  /* 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19 — lib/pass-account-rule.ts). The one plain line when this
+     browser holds an invitation that is not the signed-in viewer's (or a host has opened it on purpose), and the
+     host's OWN guest row — the only id a host's page may mark "You" in the entourage. Never on the Maker's canvas or
+     a See as sample: those are the host's previews, not the host. Reads only. */
+  const heldPassAside =
+    !isEditorCanvas && search.as === undefined && passStandingNow.setAside?.pass.event_id === event.event_id
+      ? passStandingNow.setAside
+      : null;
+  const hostOpenedPass =
+    !isEditorCanvas && search.as === undefined && passStandingNow.standing === 'host_preview' && session?.event_id === event.event_id
+      ? session
+      : null;
+  const heldPassGuestId = heldPassAside?.pass.guest_id ?? hostOpenedPass?.guest_id ?? null;
+  const heldPassFirstName = heldPassGuestId ? await heldPassFirstNameFor(admin, event.event_id, heldPassGuestId) : null;
+  const heldPassNode = heldPassAside ? (
+    <HeldPassLine
+      slug={event.slug ?? slug}
+      firstName={heldPassFirstName}
+      mode={heldPassAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
+    />
+  ) : hostOpenedPass ? (
+    <HeldPassLine slug={event.slug ?? slug} firstName={heldPassFirstName} mode="host_preview" />
+  ) : null;
+  const hostOwnGuestId =
+    ownerCapability && viewerAccount?.id && !isEditorCanvas && search.as === undefined
+      ? await hostOwnGuestRowFor(admin, event.event_id, viewerAccount.id)
+      : null;
   const siteProps = {
+    // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).
+    heldPassSlot: heldPassNode,
+    hostOwnGuestId,
     // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
     // render branch spreads this object, so a branch that knows nothing about
     // the viewer's reply shows no address, no map and no directions. The guest
@@ -2210,6 +2271,8 @@ async function invitationBody({
   const myPhotosHref = partsOffHere.has('photosofyou') ? null : `/papic/me/${guest.qr_token}`;
   const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
+    {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
+    {heldPassNode ? <div className="mb-6">{heldPassNode}</div> : null}
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
         Follows the couple's own "QR card" switch, as the pass on Home did; with
         it off, Me offers "My QR" instead (GuestHubBar asks the page for the

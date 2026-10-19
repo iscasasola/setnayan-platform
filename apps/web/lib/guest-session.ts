@@ -4,6 +4,15 @@ import { insideRender } from '@/lib/request-once';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createSessionClient } from '@/lib/supabase/server';
+import {
+  HOST_PREVIEW_PASS_COOKIE_NAME,
+  hostPreviewGuestFor,
+  passIsHonoured,
+  passStanding,
+  type PassAccountFacts,
+  type PassStanding,
+} from '@/lib/pass-account-rule';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
   bookEntryForPath,
@@ -367,8 +376,48 @@ export async function signGuestSessionUntil(
  * PASS BOOK by its event id, and answered with the same DB check. With no pass
  * for this event anywhere, the answer is exactly what it was without the option
  * (the active pass, whichever event it names) — callers still compare.
+ *
+ * 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19 — lib/pass-account-rule.ts).
+ * When somebody is SIGNED IN, a pass answers here only when it is the account's own
+ * row (or a row nobody holds, for an account with no standing on that event — the
+ * claim prompt's case), or when a HOST pressed "Open as <name>". A pass that is
+ * somebody else's answers NULL — so every one of this reader's callers (the event
+ * page, Me, the reply, plus-ones, the seat, Papic, the check-in pass…) sees the
+ * account, never the other guest. ONE rule, here, because every pass reader comes
+ * through this function (held by `lib/the-account-outranks-the-pass.test.ts`, which
+ * also fails a new file that reads the pass cookies around it). Signed out, nothing
+ * changes. `readGuestPassStanding` says what was set aside, for the page's one line.
  */
 export async function readGuestSession(
+  opts?: { eventId?: string | null },
+): Promise<GuestSessionPayload | null> {
+  return (await readGuestPassStanding(opts)).session;
+}
+
+/** A pass this browser holds that was NOT allowed to speak for the signed-in viewer, and why. */
+export type SetAsidePass = { pass: GuestSessionPayload; standing: PassStanding };
+
+/**
+ * The same answer as `readGuestSession`, with what was SET ASIDE kept: the pass this
+ * browser holds that the account outranked (null when nothing was), so a page can say
+ * "This browser also holds <name>'s invitation. Viewing as you." `standing` is also
+ * returned for an honoured pass ('own' · 'claimant' · 'host_preview' · 'signed_out').
+ */
+export async function readGuestPassStanding(
+  opts?: { eventId?: string | null },
+): Promise<{ session: GuestSessionPayload | null; standing: PassStanding | null; setAside: SetAsidePass | null }> {
+  const held = await readHeldPass(opts);
+  if (!held) return { session: null, standing: null, setAside: null };
+  const standing = await standingOfPass(held);
+  if (passIsHonoured(standing)) return { session: held, standing, setAside: null };
+  return { session: null, standing, setAside: { pass: held, standing } };
+}
+
+/**
+ * The pass as the COOKIES say it — before the account is asked. Only this file reads it
+ * raw: for clearing (sign-out everywhere) and for the account rule itself.
+ */
+async function readHeldPass(
   opts?: { eventId?: string | null },
 ): Promise<GuestSessionPayload | null> {
   const cookieStore = await cookies();
@@ -400,6 +449,89 @@ export async function readGuestSession(
     qr_token: entry.qr_token,
   });
   return fromBook ?? active;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The signed-in account's id — `null` signed out, `undefined` when it could not be told
+ * (a transport fault). A refused/expired session (any 4xx) is SIGNED OUT, never "unknown":
+ * a guest whose old Setnayan sign-in lapsed must keep their invitation.
+ */
+const signedInAccountId = cache(async (): Promise<string | null | undefined> => {
+  try {
+    const supabase = await createSessionClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      const status = (error as { status?: number }).status;
+      if (error.name === 'AuthSessionMissingError' || (typeof status === 'number' && status >= 400 && status < 500)) {
+        return null;
+      }
+      console.error('[guest-session] auth.getUser failed — a held pass is set aside for this request', error.name);
+      return undefined;
+    }
+    return data.user?.id ?? null;
+  } catch (err) {
+    console.error('[guest-session] auth.getUser threw — a held pass is set aside for this request', err);
+    return undefined;
+  }
+});
+
+/**
+ * What the database says about this account and this pass, on the PASS's own event — two
+ * primary-key-shaped reads (memoized per request), or null when either failed.
+ */
+const passAccountFacts = cache(
+  async (eventId: string, guestId: string, userId: string): Promise<PassAccountFacts | null> => {
+    if (!UUID.test(eventId) || !UUID.test(guestId) || !UUID.test(userId)) return null;
+    const admin = createAdminClient();
+    const [members, moderators] = await Promise.all([
+      admin
+        .from('event_members')
+        .select('user_id, guest_id, member_type')
+        .eq('event_id', eventId)
+        .or(`user_id.eq.${userId},guest_id.eq.${guestId}`),
+      admin
+        .from('event_moderators')
+        .select('moderator_id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .not('accepted_at', 'is', null)
+        .is('removed_at', null)
+        .limit(1),
+    ]);
+    if (members.error || moderators.error) {
+      console.error(
+        '[supabase-error] lib/guest-session.ts · pass-account facts',
+        members.error ?? moderators.error,
+      );
+      return null;
+    }
+    const rows = (members.data ?? []) as Array<{ user_id: string | null; guest_id: string | null; member_type: string | null }>;
+    const mine = rows.filter((r) => r.user_id === userId);
+    return {
+      ownGuestIds: mine.map((r) => r.guest_id).filter((g): g is string => typeof g === 'string'),
+      isHost:
+        mine.some((r) => r.member_type === 'couple' || r.member_type === 'coordinator') ||
+        (moderators.data ?? []).length > 0,
+      passRowHolders: rows
+        .filter((r) => r.guest_id === guestId)
+        .map((r) => r.user_id)
+        .filter((u): u is string => typeof u === 'string'),
+    };
+  },
+);
+
+async function standingOfPass(pass: GuestSessionPayload): Promise<PassStanding> {
+  const userId = await signedInAccountId();
+  if (userId === null) return 'signed_out';
+  if (userId === undefined) return 'set_aside_unread';
+  const facts = await passAccountFacts(pass.event_id, pass.guest_id, userId);
+  const hostPreviewGuestId = hostPreviewGuestFor(
+    (await cookies()).get(HOST_PREVIEW_PASS_COOKIE_NAME)?.value,
+    pass.event_id,
+  );
+  return passStanding({ userId, passGuestId: pass.guest_id, facts, hostPreviewGuestId });
 }
 
 async function sessionFromToken(token: string, material: string): Promise<GuestSessionPayload | null> {
@@ -750,7 +882,8 @@ export async function clearGuestSession(
 /** Every pass this browser holds that still checks out — the active one first (for "sign out everywhere"). */
 export async function readEveryGuestPass(): Promise<GuestSessionPayload[]> {
   const cookieStore = await cookies();
-  const active = await readGuestSession();
+  // RAW, on purpose: this is for CLEARING every pass the browser holds, whoever it stands for.
+  const active = await readHeldPass();
   const out: GuestSessionPayload[] = active ? [active] : [];
   for (const e of await verifyGuestPassBook(cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value)) {
     if (out.some((p) => p.event_id === e.event_id && p.guest_id === e.guest_id)) continue;

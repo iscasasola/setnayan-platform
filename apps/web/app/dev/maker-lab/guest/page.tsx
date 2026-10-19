@@ -85,6 +85,9 @@ import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { marchPlaceOf } from '@/lib/march-place';
+import { HeldPassLine } from '@/app/[slug]/_components/held-pass-line';
+import { NotYouSwitch } from '@/app/[slug]/_components/not-you-switch';
+import { passIsHonoured, passStanding, type PassAccountFacts } from '@/lib/pass-account-rule';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
@@ -400,6 +403,65 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🫵 `&me=<lab guest id>` (owner 2026-10-17, "so they can see where they are"): read as THAT guest — Me's real
      "Your role" block (with its "See where you are ↓") above, and their own name marked in the entourage below
      (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
+  /* 🪪 `?heldpass=<case>` (owner bug 2026-10-19 — "why was milagros highlighted when i was not logged in on her?"):
+     this browser holds the pass of the groom's MOTHER (the cale cast's `gp2`, in Milagros's shape — she walks 2nd,
+     beside her husband), and the REAL rule (`passStanding`, lib/pass-account-rule.ts) decides who is looking, from
+     lab facts (no database): `host` (signed in as the groom, a host) · `seat` (signed in as a bridesmaid, bound to her
+     own row) · `held` (signed in, her row bound to another account) · `signedout` · `hostpreview` (the host pressed
+     "Open as …"). Drawn: Me's line, the reply's "Not you? Switch" row, and the entourage with whoever is marked.
+     Stand-in names only. The forms are the real ones — the lab is never pressed. */
+  if (typeof sp.heldpass === 'string') {
+    const groups = labEntourage('cale');
+    const PASS = 'gp2';
+    const people = groups.flatMap((g) => g.rows.flat());
+    const nameOf = (id: string | null) => {
+      const p = people.find((x) => x?.id === id);
+      return p ? p.name : null;
+    };
+    const kase = sp.heldpass;
+    const facts: Record<string, PassAccountFacts> = {
+      host: { ownGuestIds: ['groom-row'], isHost: true, passRowHolders: [] },
+      hostpreview: { ownGuestIds: ['groom-row'], isHost: true, passRowHolders: [] },
+      seat: { ownGuestIds: ['bmaid1'], isHost: false, passRowHolders: [] },
+      held: { ownGuestIds: [], isHost: false, passRowHolders: ['another-account'] },
+    };
+    const standing = passStanding({
+      userId: kase === 'signedout' ? null : 'lab-account',
+      passGuestId: PASS,
+      facts: facts[kase] ?? null,
+      hostPreviewGuestId: kase === 'hostpreview' ? PASS : null,
+    });
+    const viewerId = passIsHonoured(standing) ? PASS : standing === 'set_aside_seat' ? 'bmaid1' : null;
+    const viewerName = kase === 'host' ? 'Jose (the groom, host)' : nameOf(viewerId) ?? 'Signed in, not on the list';
+    const line =
+      standing === 'host_preview' ? (
+        <HeldPassLine slug="maria-and-jose" firstName="Eufemia" mode="host_preview" />
+      ) : passIsHonoured(standing) ? null : (
+        <HeldPassLine slug="maria-and-jose" firstName="Eufemia" mode={standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'} />
+      );
+    return (
+      <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink" data-lab-heldpass={kase} data-lab-standing={standing}>
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <section className="mb-10" data-lab-part="me">
+          <p className="text-xs uppercase tracking-[0.16em] text-ink/60">Me</p>
+          <p className="mt-1 font-serif text-lg">{viewerName}</p>
+          {line ? <div className="mt-3">{line}</div> : null}
+        </section>
+        {viewerId ? (
+          <section className="mb-10 border-t border-ink/10 pt-6" data-lab-part="reply">
+            <p className="text-xs uppercase tracking-[0.16em] text-ink/60">Reply</p>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <p className="font-serif text-lg text-ink" data-reply-for="">{nameOf(viewerId)}</p>
+              <NotYouSwitch slug="maria-and-jose" />
+            </div>
+            {line ? <div className="mt-2">{line}</div> : null}
+          </section>
+        ) : null}
+        <EntourageSection groups={groups} id="site-entourage" sceneStyle="march" myGuestId={viewerId} />
+        <div className="h-[30vh]" aria-hidden />
+      </main>
+    );
+  }
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
     /* 🏷 `&sections=vip` — Immediate Family renamed "VIP" (owner 2026-10-19); `&sections=usual` — the same cast, no word. */
@@ -1146,9 +1208,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {sp.veil === '1' && !makerCanvas ? (
         <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
-      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
-        <span>Setnayan</span>
-        <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
+      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 border-b border-ink/10 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+        <div className="flex justify-between px-4 py-2.5">
+          <span>Setnayan</span>
+          <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
+        </div>
       </div>
       {/* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) on maria-and-jose's words — its parts carry their
           `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}

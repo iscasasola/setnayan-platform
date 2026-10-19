@@ -684,12 +684,26 @@ export function makerStepPart(input: {
 export const HERO_EL_INSIDE: Readonly<Record<string, string>> = { joiner: 'names', time: 'date' };
 
 /** The part whose canvas key (and part) a tap on the page named — the first in this page's order. */
+/**
+ * 🧭 A REGION THE CANVAS ALSO NAMES A PART BY. The guest page wraps the Love Story in its region `#site-story`
+ * (`site-body.tsx`, the menu's anchor), and the bridge listens to that region as `f:story` too
+ * (`canvas-section-binder.ts` `ID_SECTIONS`) — so a tap the region took named NO part: a blank Edit under
+ * "INVITATION › HOME" while the work area opened the region's panel (owner 2026-10-19, live). The region IS the Love
+ * Story: it names that part. Held by `lib/edit-owns-content.test.ts` (every key a tap can send names a part).
+ */
+export const MAKER_CANVAS_ALIAS: Readonly<Record<string, string>> = { 'f:story': 'w:our_love_story' };
+/** The canvas key a part is filed under, for a key the canvas sent (a region's own key, or the key itself). */
+export function makerCanvasKeyOf(key: string): string {
+  return MAKER_CANVAS_ALIAS[key] ?? key;
+}
+
 export function makerPartOfTap(
   stage: MakerStageKey,
   page: string | null | undefined,
   key: string,
   el: string | null | undefined,
 ): MakerPartKey | null {
+  key = makerCanvasKeyOf(key);
   const on = makerPartsOnPage(stage, page);
   /* A piece INSIDE a part is that part: the names' "&", the date's time. */
   el = el ? (HERO_EL_INSIDE[el] ?? el) : el;

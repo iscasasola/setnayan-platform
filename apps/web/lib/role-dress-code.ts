@@ -242,7 +242,7 @@ export function resolveGuestDressCode(input: {
    * 👪 WHO THIS READER IS, from their own row (title · attire) — a parent or grandparent is named per person, by the
    * entourage's own resolver (`kinWordOfReader`): "You are Father of the Bride". Absent: the role's word, as before.
    */
-  person?: { name_prefix?: string | null; display_name?: string | null; attire?: string | null } | null;
+  person?: { name_prefix?: string | null; display_name?: string | null; attire?: string | null; gender: string | null | undefined } | null;
 }): GuestDressCode | null {
   const role = input.role;
   if (!role || role === 'guest') return null;

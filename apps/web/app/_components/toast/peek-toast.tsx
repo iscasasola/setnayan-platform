@@ -58,7 +58,7 @@ export const PEEK_TOAST_LEAVE_MS = 420;
 export const PEEK_TOAST_SLIDE = 'transform calc(var(--sn-pill-dur) * 0.52) var(--sn-pill-spring)';
 
 /** Where it sits: top centre, under the safe area, over everything (it is a notification), taking no tap. */
-export const PEEK_TOAST_PLACE = 'pointer-events-none fixed inset-x-0 top-[calc(12px+env(safe-area-inset-top))] z-[100] flex justify-center px-3';
+export const PEEK_TOAST_PLACE = 'pointer-events-none fixed inset-x-0 top-[calc(12px+env(safe-area-inset-top))] z-[100] flex justify-center pl-[max(0.75rem,var(--sn-safe-l))] pr-[max(0.75rem,var(--sn-safe-r))]';
 /** The pill: 48 px with one line of words — and as tall as two lines need, never more. Its words are centred. */
 export const PEEK_TOAST_PILL =
   'flex min-h-12 max-w-full items-center justify-center gap-3 rounded-full px-[22px] py-1.5 text-center text-[14px] font-medium leading-[1.25] shadow-[0_14px_30px_-12px_rgba(0,0,0,.5)] motion-reduce:!transition-none';

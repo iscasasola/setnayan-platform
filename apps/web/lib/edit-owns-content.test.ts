@@ -29,6 +29,7 @@ import path from 'node:path';
 import { MAKER_PARTS, MAKER_STAGE_KEYS, makerPartOfTap, makerPartQuietRow, makerPartsOnPage, MAKER_STAGE_PAGES } from './maker-parts';
 import { makerPartOfCanvas } from './maker-part-groups';
 import { ID_SECTIONS } from '@/app/[slug]/_components/canvas-section-binder';
+import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
 import { STAGE_NOTHING_PICKED_WORDS, makerStyleLook, makerWorkAreaTab, stageRowOneLine, type MakerWorkAreaTab } from './maker-edit-owns-content';
 
 const read = (p: string) => readFileSync(path.join(process.cwd(), p), 'utf8');
@@ -39,10 +40,14 @@ test('every key a canvas tap can name — each part section and every region the
     .filter((c): c is string => typeof c === 'string' && !c.startsWith('p:'));
   const keys = [...new Set([...partKeys, ...ID_SECTIONS])];
   assert.ok(keys.includes('f:story') && keys.includes('w:our_love_story'), 'the Love Story region and its scene are both tap keys');
+  /* Resolved as the toolbar resolves a tap (`stage-tools.tsx` `onCanvas`): the page on show first, then the stage.
+     The RSVP stage's reply screens answer through their own messages (`RSVP_PICK_MESSAGE`), not this path. */
   const missing: string[] = [];
-  for (const stage of MAKER_STAGE_KEYS) {
-    for (const key of keys) {
-      if (!makerPartOfCanvas(stage, key)) missing.push(`${stage} · ${key}`);
+  for (const stage of MAKER_STAGE_KEYS.filter((s) => s !== RSVP_STAGE_KEY)) {
+    for (const page of Object.keys(MAKER_STAGE_PAGES[stage] ?? {})) {
+      for (const key of keys) {
+        if (!(makerPartOfTap(stage, page, key, null) ?? makerPartOfCanvas(stage, key))) missing.push(`${stage} › ${page} · ${key}`);
+      }
     }
   }
   assert.deepEqual(missing, [], `a tap on these names no part — the toolbar picks nothing and Edit is blank: ${missing.join(', ')}`);

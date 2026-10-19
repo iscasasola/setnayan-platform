@@ -711,16 +711,10 @@ export function StageTools({
            own section is picked, so the work area holds the scene (its looks under Style, its motion under Animate),
            never the region's panel (owner 2026-10-19, live: Style showed the Love Story's moments). */
         const own = makerCanvasKeyOf(d.key);
-        if (k && own !== d.key && readPresent().has(own)) {
-          setPicked(k);
-          setTapped(null);
-          setSlotAsk(null);
-          /* The section's own tap, said for it — the work area selects the scene as if it were tapped (no page jump:
-             the part stays on the page it was tapped on); the panel hears its own message back and lets it pass. */
-          window.postMessage({ source: 'setnayan-site', t: 'edit', key: own }, window.location.origin);
-          askTool(toolFor(k), k);
-          return;
-        }
+        /* The section's own tap, said for it — the work area selects the scene as if it were tapped (no page jump: the
+           part stays on the page it was tapped on); this panel hears its own message back and lets it pass, and the
+           pick below goes on as for any tap. */
+        if (k && own !== d.key && readPresent().has(own)) window.postMessage({ source: 'setnayan-site', t: 'edit', key: own }, window.location.origin);
         /* ✋ A tap that names NO part (a legacy row's region — `home`, `details`, …): nothing is picked, and the work
            area lets go of what it opened for it, so no tool shows a body the toolbar cannot name (the same day: Style
            drew a panel under "INVITATION › HOME"). Two frames on — after the work area has drawn the tap. */

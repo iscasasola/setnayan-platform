@@ -107,6 +107,7 @@ export function detailsLabFacts(
   words: { specialMessage: string; pabuyaMessage: string },
 ) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const pro = one('pro') === '1';
   return detailsFactEditors({
     eventId: EVENT,
     specialMessage: words.specialMessage,
@@ -114,7 +115,7 @@ export function detailsLabFacts(
     pabuyaMessage: words.pabuyaMessage,
     /* `?studio=1` draws Studio › Love Story's list on maria-and-jose's story — this words panel is handed the SAME
        one (two different stories for one event lose each other's changes; see `love-story-fixture.ts`). */
-    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: one('pro') === '1' },
+    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: pro },
   });
 }
 

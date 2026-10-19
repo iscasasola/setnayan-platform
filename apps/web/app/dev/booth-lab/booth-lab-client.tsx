@@ -68,7 +68,7 @@ function PeopleLab() {
   const x0 = -((people.length - 1) * gap) / 2;
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#efe9dd' }} data-people-lab="">
-      <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.7, 6.2], fov: 45 }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.4, 4.6], fov: 50 }}>
         <color attach="background" args={['#efe9dd']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.4} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} shadow-normalBias={0.02} />
@@ -78,7 +78,7 @@ function PeopleLab() {
         </mesh>
         {people.map((p, i) => (
           <group key={p.spec.id} position={[x0 + i * gap, 0, 0]}>
-            <Figure spec={p.spec} quality="low" name={p.word} />
+            <Figure spec={p.spec} name={p.word} />
           </group>
         ))}
         <OrbitControls target={[0, 0.9, 0]} maxPolarAngle={Math.PI / 2.05} />

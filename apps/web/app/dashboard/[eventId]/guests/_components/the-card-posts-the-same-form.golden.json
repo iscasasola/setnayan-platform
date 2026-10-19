@@ -1,8 +1,5 @@
 {
   "01 a plain guest, unclaimed, nothing set": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -68,9 +65,6 @@
     ]
   },
   "02 a guest with sides, a seat, groups, extra roles, +1 of 2": {
-    "attire": [
-      "suit"
-    ],
     "dietary_restrictions": [
       "halal"
     ],
@@ -151,9 +145,6 @@
     ]
   },
   "03 every toggle ON": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -231,9 +222,6 @@
     ]
   },
   "04 every toggle OFF": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -299,9 +287,6 @@
     ]
   },
   "05 empty texts (null and empty string)": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -367,9 +352,6 @@
     ]
   },
   "06 several Invited-to blocks ticked": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -444,9 +426,6 @@
     ]
   },
   "07 no Invited-to block ticked": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -512,9 +491,6 @@
     ]
   },
   "08 the couple (bride): locked role, always attending, no passed-away, no extra roles": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -577,9 +553,6 @@
     ]
   },
   "09 claimed by an account: the name is carried, not offered": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -645,9 +618,6 @@
     ]
   },
   "10 a declined guest: no table posted; Chinese rite shows the tea-ceremony order": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -722,9 +692,6 @@
     ]
   },
   "11 a rite without a tea ceremony: the rank is carried hidden": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       ""
     ],
@@ -805,9 +772,6 @@
     ]
   },
   "12 quotes, ampersands and a long note survive": {
-    "attire": [
-      "neutral"
-    ],
     "dietary_restrictions": [
       "no nuts, no \"shell\"fish"
     ],

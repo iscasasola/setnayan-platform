@@ -180,7 +180,10 @@ export function seatPlanOutfitOf(
   role: GuestRole,
   person: GuestOutfitPerson | null | undefined,
 ): { attire: GuestAttire; said: SeatGarment | null } {
-  const sex = womanOrManOf({ name_prefix: person?.name_prefix ?? null, display_name: person?.display_name ?? null, gender: person?.gender === 'woman' || person?.gender === 'man' ? person.gender : null, attire: guestAttireOf(person) });
+  /* Woman or man as SAID — the "Atty. (Woman)" pick or the title, never the stored `guests.attire`: that last resort
+     already had its say inside `readerPick` (it chose the column), and it never outvotes a role that says who it is
+     (a ninong is a man, whatever an old Gown pick on his row says). */
+  const sex = womanOrManOf({ name_prefix: person?.name_prefix ?? null, display_name: person?.display_name ?? null, gender: person?.gender === 'woman' || person?.gender === 'man' ? person.gender : null, attire: null });
   const sexClass = sex === 'woman' ? 'gown' : sex === 'man' ? 'suit' : null;
   let pick: ReadPick | null = o.picks.length === 1 ? o.picks[0]! : null;
   if (!pick) {

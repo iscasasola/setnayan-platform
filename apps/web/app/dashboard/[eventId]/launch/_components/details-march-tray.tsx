@@ -93,6 +93,7 @@ export function MarchTray({
   lifted,
   over,
   carried,
+  carded = false,
 }: {
   out: readonly MarchOut[];
   /** The tray could not be read — said, never drawn as an empty tray. */
@@ -103,6 +104,8 @@ export function MarchTray({
   over: boolean | null;
   /** The key the keyboard holds. */
   carried: string | null;
+  /** 🪪 A guest card is open over the march (a tapped name): the full list steps aside under it, and is back when it closes. */
+  carded?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   // Re-fit whenever the names change (a drop in or out of the tray).
@@ -179,7 +182,7 @@ export function MarchTray({
         ? createPortal(
             <div
               data-march-tray-sheet=""
-              className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted ? 'pointer-events-none invisible' : ''}`}
+              className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted || carded ? 'pointer-events-none invisible' : ''}`}
             >
               <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
               <div

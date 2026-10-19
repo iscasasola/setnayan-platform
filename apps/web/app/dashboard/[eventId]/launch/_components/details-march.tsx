@@ -151,6 +151,8 @@ type Drag = {
   y: number;
   scroller: HTMLElement;
   dir: number;
+  /** 🪪 The finger left the tap's slop at some point since the press — so a release is a drop, never a tap. */
+  wandered: boolean;
 };
 
 /** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
@@ -569,7 +571,7 @@ function MarchMakerBody({
       document.body.appendChild(ghost);
       // A tray name scrolls the MARCH near its edges (the tray itself never scrolls).
       const scroller = p.source.kind === 'out' && root.current ? scrollerOf(root.current) : scrollerOf(p.el);
-      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0 };
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0, wandered: false };
       ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
       setLifted(p.key);
       try {
@@ -601,6 +603,7 @@ function MarchMakerBody({
       const d = drag.current;
       d.x = e.clientX;
       d.y = e.clientY;
+      if (!d.wandered && Math.hypot(e.clientX - p.x, e.clientY - p.y) > (p.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) d.wandered = true;
       d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.03)`;
       hit(d);
       const [top, bottom] = edgesOf(d.scroller);
@@ -625,6 +628,22 @@ function MarchMakerBody({
         }
       }
       return;
+    }
+    /* 🪪 A HELD TAP — a finger that stayed past the long-press (the name lifted) and let go where it pressed, never having
+       wandered: nothing was moved, so it is a tap, and their card opens (a slow tap is still a tap). A press that left the
+       slop at any moment is a drag, and a drag never opens the card. */
+    if (e && press && !d.wandered && (d.source.kind === 'name' || d.source.kind === 'out')) {
+      const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+      if (moved <= (press.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) {
+        drag.current = null;
+        target.current = null;
+        setOver(null);
+        d.ghost.remove();
+        setLifted(null);
+        setCard({ id: d.source.id, name: press.el.dataset.marchName ?? '' });
+        swallowTapClick();
+        return;
+      }
     }
     drag.current = null;
     const zone = target.current;
@@ -931,6 +950,7 @@ function MarchMakerBody({
               lifted={lifted}
               over={over?.zone === 'tray' ? over.ok : null}
               carried={carried?.key ?? null}
+              carded={card !== null}
             />,
             slot,
           )

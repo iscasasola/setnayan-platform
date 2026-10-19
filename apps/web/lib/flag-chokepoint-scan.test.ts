@@ -110,6 +110,16 @@ const FLAGS: FlagSpec[] = [
     locals: ['desktopColumns'],
   },
   {
+    // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is
+    // checked; on for an internal viewer. The guest page asks once and writes the desk <style> or not.
+    env: 'NEXT_PUBLIC_GUEST_HUB_DESKTOP_ENABLED',
+    helper: 'lib/guest-hub-desktop-flag.ts',
+    fn: 'guestHubDesktopEnabled',
+    gates: ['app/[slug]/page.tsx'],
+    pureCores: [],
+    locals: ['guestDesk'],
+  },
+  {
     env: 'NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED',
     helper: 'lib/explore-replan-flag.ts',
     fn: 'isExploreReplanEnabled',

@@ -347,9 +347,10 @@ export async function loadGuestCard(
       : Promise.resolve(false),
     // 🤝 The guest who brings them, and that guest's seats in order — the card names the seat as the List does.
     guest.plus_one_of_guest_id
-      ? (async () => {
+      ? (() => {
+          // Both reads leave together, beside the access pair (no extra wait: `.then`, never a queued `await`).
           const hostId = guest.plus_one_of_guest_id as string;
-          const [{ data: host, error: hostErr }, { data: seatIds, error: seatErr }] = await Promise.all([
+          return Promise.all([
             supabase
               .from('guests')
               .select('guest_id, first_name, last_name, display_name, side')
@@ -364,14 +365,15 @@ export async function loadGuestCard(
               .eq('plus_one_of_guest_id', hostId)
               .is('deleted_at', null)
               .order('created_at', { ascending: true }),
-          ]);
-          if (hostErr || seatErr) {
-            logQueryError('loadGuestCard.plusOneOf', hostErr ?? seatErr, { eventId, guestId }, 'graceful_degrade');
-            return null;
-          }
-          if (!host) return null;
-          const seatIndex = ((seatIds ?? []) as { guest_id: string }[]).findIndex((r) => r.guest_id === guest.guest_id);
-          return plusOneOfWords(guest, host as never, Math.max(0, seatIndex));
+          ]).then(([{ data: host, error: hostErr }, { data: seatIds, error: seatErr }]) => {
+            if (hostErr || seatErr) {
+              logQueryError('loadGuestCard.plusOneOf', hostErr ?? seatErr, { eventId, guestId }, 'graceful_degrade');
+              return null;
+            }
+            if (!host) return null;
+            const seatIndex = ((seatIds ?? []) as { guest_id: string }[]).findIndex((r) => r.guest_id === guest.guest_id);
+            return plusOneOfWords(guest, host as never, Math.max(0, seatIndex));
+          });
         })()
       : Promise.resolve(null),
   ]);

@@ -31,7 +31,7 @@
  *   · the `carrySideToTheirPlusOnes` call dropped from `setGuestSide` → test 6 red;
  *   · `notAdded` forced to 0 in `GuestRowLine`                     → test 7 red;
  *   · `seatNumbersFollowTheRows` dropped from the remove           → test 8 red;
- *   · `plusOneOf` dropped from page.tsx's InspectorColumn title     → test 9 red.
+ *   · `plusOneOf` dropped from page.tsx’s InspectorColumn title, or ignored by `guestCardEyebrow` → test 9 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

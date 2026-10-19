@@ -651,7 +651,6 @@ test('"Coming soon" — the <head> mark answers exactly what isStoreShellInBrows
       cookie: c.cookie,
       documentElement: { setAttribute: (k: string, v: string) => attrs.set(k, v) },
     };
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function('navigator', 'document', storeShellMarkScript)({ userAgent: c.ua }, documentFake);
     const expected = isStoreShellInBrowser(c.ua, c.cookie);
     if (expected) sawTrue = true;
@@ -679,7 +678,6 @@ test('"Coming soon" — every one the store shell can open sits inside a [data-c
   // (/pricing, /studio/papic, the vendor subscription page…) are skipped —
   // found by asking `isStoreShellWebOnlyPath`, not by name — and so are the
   // admin console and API routes (no JSX the app shows).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const ts = require('typescript') as typeof import('typescript');
   const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
   const root = join(__dirname, '..');

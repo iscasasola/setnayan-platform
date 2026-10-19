@@ -154,11 +154,11 @@ test('(4) the event’s own page plays the cover clip (the shipped loop); a clos
     assert.match(html, /<video[^>]*>/, 'the cover clip does not play');
     assert.match(html, /muted/);
     /* The page hands the hero row's ground to this layer — the one guest-page call. */
-    assert.match(read('app/[slug]/_components/site-body.tsx'), /ground: coverSceneLayer\(heroCanvas\.ground, \{ heroPhotoUrl: heroPhotoUrl \?\? null \}\)/);
+    assert.match(read('app/[slug]/_components/site-body.tsx'), /ground: coverSceneLayer\(heroCanvas\.ground, \{ heroPhotoUrl: heroPhotoUrl \?\? null, signed: await signCoverSceneMedia\(heroCanvas\.ground\) \}\)/);
     /* The gate itself: closed, the clip is null and only the still is left to draw. */
     assert.equal(coverClipRefForGuests(CLIP, false), null);
     assert.equal(coverClipRefForGuests(CLIP, true), CLIP);
-    assert.match(read('app/[slug]/_lib/cover-scene-layer.ts'), /const clip = publicUrl\(coverClipRefForGuests\(ground\.media\)\);/, 'the cover layer plays a clip without asking the switch');
+    assert.match(read('app/[slug]/_lib/cover-scene-layer.ts'), /const clip = servedUrl\(coverClipRefForGuests\(ground\.media\), ctx\.signed\);/, 'the cover layer plays a clip without asking the switch');
   } finally {
     if (saved === undefined) delete process.env.R2_PUBLIC_URL;
     else process.env.R2_PUBLIC_URL = saved;

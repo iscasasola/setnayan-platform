@@ -57,7 +57,13 @@ function publicHelpTexts(): Array<{ where: string; text: string }> {
   for (const r of HELP_ROLES) out.push({ where: `role ${r.key}`, text: `${r.label} ${r.blurb}` });
   for (const t of HELP_TOPICS) {
     out.push({ where: `topic ${t.key}`, text: t.label });
-    for (const a of t.articles) out.push({ where: `${t.key}/${a.slug}`, text: `${a.title}\n${a.body}` });
+    for (const a of t.articles) {
+      out.push({ where: `${t.key}/${a.slug}`, text: `${a.title}\n${a.body}` });
+      // The iPhone app's own wording (Apple check 2026-10-19) is public too —
+      // held to the same rules. lib/help-in-the-app-sells-nothing.test.ts
+      // holds what it may not SELL; this holds what it may not CLAIM.
+      if (a.appBody !== undefined) out.push({ where: `${t.key}/${a.slug} (app)`, text: `${a.title}\n${a.appBody}` });
+    }
   }
   return out;
 }

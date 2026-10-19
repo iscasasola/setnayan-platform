@@ -370,6 +370,28 @@ export const STORE_SHELL_HTML_ATTR = 'data-store-shell';
 export const COMING_SOON_ATTR = 'data-coming-soon';
 
 /**
+ * 🍎 ONE PAGE, TWO READERS — for a page that is the SAME URL on the web and in
+ * the app but must say something different in the app (Apple check
+ * 2026-10-19, rows #5 · #6 · #14 · #26). The same `data-store-shell` mark
+ * drives two more CSS rules in app/globals.css:
+ *
+ *   · `data-web-only` — hidden in the store shell: the marketing header's
+ *     Prices · Download · Suppliers buttons, a help answer that points at the
+ *     web to buy.
+ *   · `data-app-only` — hidden everywhere ELSE: the store-shell wording of
+ *     that same answer.
+ *
+ * WHY CSS AND NOT `isStoreShellRequest()`: /help/<slug> is prerendered (every
+ * article, `dynamicParams = false`), and the marketing header is a client
+ * component on cached pages. A request read would de-opt both; the <head> mark
+ * is on <html> before the first paint, so neither reader sees the other's
+ * words flash. Where a page IS per-request (the /help index, /about), it picks
+ * the words on the server instead and ships only one.
+ */
+export const WEB_ONLY_ATTR = 'data-web-only';
+export const APP_ONLY_ATTR = 'data-app-only';
+
+/**
  * The <head> script. Plain ES5 on purpose (it runs before any bundle); it is
  * `isStoreShellInBrowser` spelled out by hand, and the test runs THIS string
  * against that function's own cases.

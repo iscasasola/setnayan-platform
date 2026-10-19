@@ -2416,6 +2416,18 @@ html[data-store-shell] [data-coming-soon] {
 html[data-store-shell] [data-asks-location] {
   display: none !important;
 }
+/* 🍎 One page, two readers (Apple check 2026-10-19, rows #5 · #6 · #14 ·
+   #26). `data-web-only` — the marketing header's Prices · Download ·
+   Suppliers, a help answer that points at the web to buy — is hidden in the
+   iPhone/Android app; `data-app-only` — that answer's app wording — is hidden
+   everywhere else. Same pre-paint mark as above, so neither reader sees the
+   other's words flash. Held by lib/store-shell.test.ts. */
+html[data-store-shell] [data-web-only] {
+  display: none !important;
+}
+html:not([data-store-shell]) [data-app-only] {
+  display: none !important;
+}
 
 html[data-sn-boot] #sn-init-splash {
   position: fixed;

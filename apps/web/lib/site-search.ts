@@ -3,6 +3,7 @@ import 'server-only';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { loadFeaturedChapters } from '@/lib/storytellers';
 import type { PublicSearchNoun } from '@/lib/public-search-nouns';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   IN_CODE_READ_NOUNS,
   MARKETPLACE_NOUN,
@@ -122,7 +123,7 @@ export async function searchReads(query: string, limit = 8): Promise<ReadHit[]> 
   const tokens = searchTokens(query);
   if (tokens.length === 0) return [];
 
-  const inCode = searchInCodeReads(query);
+  const inCode = searchInCodeReads(query, await isStoreShellRequest());
   let stories: ReadHit[] = [];
   try {
     stories = await storyHits(tokens, normalizedPhrase(query));

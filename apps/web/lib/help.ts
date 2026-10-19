@@ -1,7 +1,7 @@
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
-import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
+import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 
 /**
@@ -29,7 +29,51 @@ export type HelpArticle = {
   slug: string;
   title: string;
   body: string;
+  /**
+   * 🍎 WHAT THE IPHONE APP SAYS INSTEAD (Apple check 2026-10-19, rows #6 · #14
+   * — guideline 3.1.1 / 2.3.10). Present only where `body` points a reader at
+   * the web to buy ("current rate on setnayan.com/pricing", "a one-time
+   * purchase that unlocks", "Everything you buy goes into one pot"), names
+   * Android or the desktop app, or walks a couple through a part the app does
+   * not include. It says what the feature DOES, with no price, purchase or
+   * pointer — or, where the whole answer is a part the app does not include,
+   * it is `HELP_NOT_IN_THE_APP` and the app's /help index drops the question.
+   * Read through `helpBodyFor` / `helpTopicsFor`, never directly; held by
+   * lib/help-in-the-app-sells-nothing.test.ts.
+   */
+  appBody?: string;
 };
+
+/**
+ * The app's answer when the whole question is a part of Setnayan the app does
+ * not include — the /web-only page's own words, so the two never disagree.
+ * Deliberately blank about where else it lives: naming the website here is
+ * the external steering guideline 3.1.1 forbids (app/(shell)/web-only).
+ */
+export const HELP_NOT_IN_THE_APP = 'This part of Setnayan is not included in the app.';
+
+/** The answer this reader is shown: the app's own words in the store shell. */
+export function helpBodyFor(article: HelpArticle, storeShell: boolean): string {
+  return storeShell && article.appBody !== undefined ? article.appBody : article.body;
+}
+
+/**
+ * The topics as this reader sees them. Off the store shell: unchanged. In the
+ * store shell: every body is the app's answer, a question whose whole answer
+ * is `HELP_NOT_IN_THE_APP` is left out, and a topic left with no questions
+ * goes too — so the app's /help lists only what the app does.
+ */
+export function helpTopicsFor(topics: ReadonlyArray<HelpTopic>, storeShell: boolean): HelpTopic[] {
+  if (!storeShell) return [...topics];
+  return topics
+    .map((t) => ({
+      ...t,
+      articles: t.articles
+        .filter((a) => a.appBody !== HELP_NOT_IN_THE_APP)
+        .map((a) => ({ slug: a.slug, title: a.title, body: helpBodyFor(a, true) })),
+    }))
+    .filter((t) => t.articles.length > 0);
+}
 
 export type HelpTopic = {
   key: string;
@@ -93,16 +137,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
+        appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
         body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
+        appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
         body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Watch multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on supplier bookings?',
+        appBody: 'No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money.',
         // ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
         // supplier's fee. This topic is shown to couples, so the fee sentence
         // moved to the supplier-only "Fees & plans" topic below — word for
@@ -112,6 +159,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
+        appBody: 'Setnayan AI is Setnayan\'s assisted planner. It matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
         body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
@@ -132,6 +180,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'does-setnayan-have-mobile-app',
         title: 'Does Setnayan have a mobile app?',
+        appBody: mobileAppAnswerInApp(),
         // One answer for /help, /about and /llms.txt — lib/where-setnayan-runs.ts
         // says what is measured true and why the iPhone line waits on the App Store.
         body: mobileAppAnswer(),
@@ -144,16 +193,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakanta',
         title: 'What is Music Maker?',
+        appBody: 'A custom Filipino-style song written for the couple. Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
         body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
+        appBody: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive.",
         body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
       },
       {
         slug: 'what-is-panood',
         title: 'What is Live Watch?',
+        appBody: 'Live streaming for your wedding, embedded directly on your Event Hub. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
         body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
@@ -176,6 +228,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // The slug stays (it is an indexed URL); the question is the one a
         // stranger actually has, answered with what is true today.
         title: 'Is Setnayan open now?',
+        appBody: 'Yes. Anyone can sign up free and start planning any event type Setnayan offers, and suppliers can open a shop.',
         body: 'Yes. Anyone can sign up free at setnayan.com and start planning any event type Setnayan offers, and suppliers can open a shop from setnayan.com/for-suppliers.',
       },
       // ─── GEO INTENT ANSWERS (2026-09-26) ─────────────────────────────────
@@ -191,6 +244,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What is the best free Filipino wedding planner app?',
+        appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly.',
         body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional upgrades — guest photo capture, livestream, an AI planner — are priced individually at setnayan.com/pricing.',
       },
       {
@@ -216,6 +270,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'free-alternative-to-wedding-website-builders',
         title: 'What is a free alternative to paid wedding website builders in the Philippines?',
+        appBody: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan.',
         body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your guest gallery and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
       },
       {
@@ -254,6 +309,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'setnayan-vs-free-apps-and-google-sheets',
         title: 'How is Setnayan different from free wedding apps, Google Sheets or a shared Drive?',
+        appBody: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere.',
         body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one gallery, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
       },
     ],
@@ -296,6 +352,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays.`,
         body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
@@ -489,6 +546,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'Open the Orders tile from Home. Hit "New order", describe what you need, and propose a budget. The Setnayan team reviews and confirms the price; you receive a notification with the confirmed total and a reference code.',
       },
       {
@@ -589,6 +647,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: `Open your dashboard → Studio → Papic. It's already on: every wedding gets one free camera of its own. A free pool of credits also comes ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person their own camera, hand them that camera's link (or QR) from the same page; their credits come out of that camera's own balance, not the shared pool, so they can't be used up by anyone else. You can hand a camera to someone else at any time, and top up either the shared pool or a single camera whenever you want — current prices are on setnayan.com/pricing.`,
       },
       {
@@ -631,11 +690,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // link should land on the answer, not a 404.
         slug: 'papic-giving-a-camera-its-own-shots',
         title: 'How do I make sure one person never runs out of shots?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "Set some of your credits aside for their camera. Everything you buy goes into one pot that every guest shoots from, which is usually what you want — but a few enthusiastic guests can spend a lot of it, and you might have someone in mind who you'd rather not have run dry: the cousin who actually frames a photo, or your maid of honor. On your Papic page, find their camera and type how many shots are theirs alone. Those leave the shared pot and nobody else can touch them. If they don't use them all, you can take the unused ones back at any time — just type a smaller number. And if they DO use them all, their camera doesn't stop: it carries on from the shared pot like everyone else's. So setting shots aside is a guarantee, never a limit. Cameras are free and you can make as many as you like, so there's no cost to giving several people their own.",
       },
       {
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding gets one free camera with credits of its own. A free shared pool also comes ${PAPIC_FREE_CREDIT_CONDITION}. When something runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event, or reload one camera on its own. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],

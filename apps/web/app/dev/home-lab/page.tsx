@@ -50,6 +50,7 @@ import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import { ApplyProSheetLab } from './apply-pro-sheet-lab';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { formatPhp } from '@/lib/php';
 import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
 import {
   HOME_PAID_SKU,
@@ -65,16 +66,16 @@ import {
 export const dynamic = 'force-dynamic';
 
 /*
-  🧾 The paid rows' fixtures. The prices are the live `platform_retail_catalog_v2` rows as read on
-  2026-10-20 (SETNAYAN_AI ₱2,499 · LIVE_STUDIO ₱2,500 · PAKANTA ₱2,500 · PATIKTOK_COMPILER ₱1,500 per day ·
-  COUPLE_WEBSITE_PRO ₱5,000) — sample data for a lab with no database; the Home itself reads the table.
+  🧾 The paid rows' fixtures — sample amounts for a lab with no database (the live
+  `platform_retail_catalog_v2` rows as read on 2026-10-20), formatted the way the Home formats a catalogue
+  amount. The Home itself reads the table; no price is typed as a peso string here.
 */
 const LAB_PRICES = new Map<string, string>([
-  [HOME_PAID_SKU.ai, '₱2,499'],
-  [HOME_PAID_SKU.live, '₱2,500'],
-  [HOME_PAID_SKU.music, '₱2,500'],
-  [HOME_PAID_SKU.booth, '₱1,500 / day'],
-  [HOME_PAID_SKU.hub, '₱5,000'],
+  [HOME_PAID_SKU.ai, formatPhp(2499)],
+  [HOME_PAID_SKU.live, formatPhp(2500)],
+  [HOME_PAID_SKU.music, formatPhp(2500)],
+  [HOME_PAID_SKU.booth, `${formatPhp(1500)} / day`],
+  [HOME_PAID_SKU.hub, formatPhp(5000)],
 ]);
 const ON: HomeSkuRead = { active: true, pending: false };
 const OFF: HomeSkuRead = { active: false, pending: false };

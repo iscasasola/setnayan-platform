@@ -27,6 +27,8 @@ import { guestChecklistItems } from '../app/[slug]/_lib/guest-checklist-facts';
 import { LAB_DOORS, labMeDressConfig, labMeRolePalette } from '../app/dev/me-lab/lab-people';
 import type { GuestRole } from './guests';
 
+(globalThis as unknown as { React: unknown }).React = React;
+
 const WEB = join(__dirname, '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
@@ -109,8 +111,9 @@ test('2 · Me › What to wear — gender known ⇒ ONE column (no "For men" / "
     assert.notEqual(text(woman), text(man), `${role}: the woman and the man read the same Wear`);
     // Her Wear is the women's half of what the unknown reader is shown, never the men's.
     const unknownLine = text(unknown);
-    const womanWear = unknownLine.match(new RegExp(`${PICK_LABEL.f}: ([^·]+?)(?: ·|$)`))?.[1]?.trim();
-    const manWear = unknownLine.match(new RegExp(`${PICK_LABEL.m}: ([^·]+?)(?: ·|$)`))?.[1]?.trim();
+    const stop = `(?= ${PICK_LABEL.m}| ${PICK_LABEL.f}| ·|$)`;
+    const womanWear = unknownLine.match(new RegExp(`${PICK_LABEL.f}: (.+?)${stop}`))?.[1]?.trim();
+    const manWear = unknownLine.match(new RegExp(`${PICK_LABEL.m}: (.+?)${stop}`))?.[1]?.trim();
     assert.ok(womanWear && manWear, `${role}: the unknown reader's line names no columns: ${unknownLine}`);
     assert.ok(text(woman).includes(womanWear!) && !text(woman).includes(manWear!), `${role}: the woman reads ${text(woman)}`);
     assert.ok(text(man).includes(manWear!) && !text(man).includes(womanWear!), `${role}: the man reads ${text(man)}`);
@@ -132,7 +135,10 @@ test('2 · the checklist\'s "What to wear" is the reader\'s own column too', () 
       venueLatitude: null,
       venueLongitude: null,
       tableLabel: null,
-    }).find((i) => i.key === 'wear')?.title ?? '';
+    })
+      .filter((i) => i.key === 'wear')
+      .map((i) => `${i.title} ${i.sub ?? ''}`)
+      .join('');
   assert.match(wear(null), new RegExp(PICK_LABEL.f), 'anti-vacuity: an unknown reader is shown both');
   assert.doesNotMatch(wear('woman'), new RegExp(`${PICK_LABEL.m}|${PICK_LABEL.f}`));
   assert.doesNotMatch(wear('man'), new RegExp(`${PICK_LABEL.m}|${PICK_LABEL.f}`));

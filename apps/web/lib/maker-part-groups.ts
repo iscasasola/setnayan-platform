@@ -34,7 +34,7 @@
  */
 import { CUSTOM_SECTION_TYPES } from './custom-sections';
 import { formatCount } from './format-number';
-import { MAKER_PARTS, makerPartsOnPage, type MakerPartKey, type MakerStageKey } from './maker-parts';
+import { MAKER_PARTS, makerCanvasKeyOf, makerPartsOnPage, type MakerPartKey, type MakerStageKey } from './maker-parts';
 import { swapsForDrop } from './maker-scene-list';
 import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 import { postEventMove, type PostEventArrangement, type PostEventDraft } from './post-event-draft';
@@ -111,6 +111,8 @@ export function makerPartLabelOn(stage: MakerStageKey, key: MakerPartKey): strin
 
 /** The part a canvas key is ON THIS STAGE (the first that names it) — a tap on a part the page's default list does not name. */
 export function makerPartOfCanvas(stage: MakerStageKey, canvas: string): MakerPartKey | null {
+  /* 🧭 A region's own key (`f:story`) names the part it holds (`makerCanvasKeyOf`). */
+  canvas = makerCanvasKeyOf(canvas);
   for (const k of Object.keys(MAKER_PARTS) as MakerPartKey[]) {
     if (makerPartCanvasOn(stage, k) === canvas && !MAKER_PARTS[k].el) return k;
   }

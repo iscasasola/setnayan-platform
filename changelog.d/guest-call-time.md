@@ -23,3 +23,6 @@ start"): *"guest call time"* (DECISION_LOG 2026-10-19 "GUESTS GET A CALL TIME IN
 - Guard `lib/guests-have-one-arrival-time.test.ts` (one fixture, four readers equal; edits move each other; sabotaged).
 
 SPEC IMPACT: None — implements the 2026-10-19 DECISION_LOG row as written.
+- Also (main was red, not this change): `the-march-opens-the-guest-card-in-place` read the Sheet's root class from a
+  literal `className="…"`, which #6682 moved into the Sheet's layout table (`at.root`). The guard now reads every
+  `root:` class and holds the highest z under the Maker's shell (sabotaged: a root raised to z-[9999] → red).

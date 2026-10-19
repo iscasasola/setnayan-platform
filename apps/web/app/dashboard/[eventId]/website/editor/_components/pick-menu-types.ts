@@ -122,4 +122,9 @@ export type PickMenuProps = {
    * second render path there would split it into its own chunk.
    */
   grid?: boolean;
+  /**
+   * ✓ The words beside a checkmark list's "Done ✓" — default "Tick as many as apply." The guest card's Role in wedding
+   * says "Tick as many as apply. The first ticked is their main role." (owner 2026-10-20, one Role dropdown, several roles).
+   */
+  doneNote?: string;
 };

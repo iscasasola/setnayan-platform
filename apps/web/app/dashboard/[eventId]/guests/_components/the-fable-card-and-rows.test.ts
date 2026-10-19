@@ -77,13 +77,14 @@ test('card body: every choice is ONE shipped PickMenu — never a native select,
   assert.doesNotMatch(CARD, /<select\b|type="radio"/, 'a native select or a radio pill row is back on the card');
   // 🪪 The Title is its own leaf since 2026-10-17 — the pick carries woman or man ("Atty. (Woman)"), posting `name_title`.
   assert.match(CARD, /<K\.Title\s+label="Title"/, 'the Title is not a dropdown on the card');
-  for (const name of ['side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
+  for (const name of ['side', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
     assert.match(CARD, new RegExp(`<K\\.Pick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
     // ⤷ 2026-10-09 (4B): the body names the field; the kit draws it — a FormPick in the Maker's card, a Form row on the Guests pages.
   }
-  // The two "several choices" are checkmark dropdowns.
-  assert.match(CARD, /name="extra_roles"[\s\S]{0,200}\bmulti\b/);
-  assert.match(CARD, /name="group_ids"[\s\S]{0,400}\bmulti\b/);
+  /* ⤷ 2026-10-20 (owner: "there are 2 groups." · "Roles doesn't need also serves as"): `group_category` + `group_ids` are ONE
+     checkmark dropdown (`K.Group`), `role` + `extra_roles` ONE (`K.Roles`) — held in one-group-one-role.test.ts. */
+  assert.match(CARD, /<K\.Group\b/, 'the one Group dropdown is not on the card');
+  assert.match(CARD, /<K\.Roles\b/, 'the one Role dropdown is not on the card');
   const fields = read('card-fields.tsx');
   assert.match(fields, /<PickMenu\b/, 'FormPick is not the shipped PickMenu');
 });

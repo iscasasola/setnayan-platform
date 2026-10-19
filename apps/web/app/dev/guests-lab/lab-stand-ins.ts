@@ -35,6 +35,10 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
     },
   }),
   quickCreateGroup: async (_eventId, label) => ({ ok: true, group: { group_id: labId(), label }, created: true }),
+  /* 👥 The one Group dropdown's ✎ / 🗑 — local; the count is the lab's fixture size (12, as the prototype's A5). */
+  renameGuestGroupInPlace: async (_eventId, groupId, label) => ({ ok: true, group: { group_id: groupId, label: label.trim() } }),
+  deleteGuestGroupInPlace: async (_eventId, groupId) => ({ ok: true, group: { group_id: groupId, label: '' } }),
+  countGuestGroupMembers: async () => ({ ok: true, n: 12 }),
   addRoleToGuest: async (_eventId, guestId, role) => ({ ok: true, guest: { guest_id: guestId, role: role as GuestRole, extra_roles: [role as GuestRole] } }),
   setGuestPrimaryRole: async (_eventId, guestId, role) => ({ ok: true, guest: { guest_id: guestId, role: role as GuestRole, extra_roles: [] } }),
   listPeopleYouCanInvite: async () => ({

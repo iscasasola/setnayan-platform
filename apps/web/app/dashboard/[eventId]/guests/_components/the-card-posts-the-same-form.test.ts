@@ -302,7 +302,10 @@ test('anti-vacuity (4B): the templated card really IS drawn by the templates, an
   assert.match(tpl, /data-fold="card-details"/);
   assert.doesNotMatch(tpl, /class="input-field"|class="sn-switch"|<details\b|<select\b/, 'a hand-made control is left on the templated card');
   for (const f of ['first_name', 'last_name', 'mobile', 'display_name', 'notes', 'dietary_restrictions']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a typed row`);
-  for (const f of ['side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  for (const f of ['side', 'group_category', 'role', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  /* 👥 2026-10-20: `group_ids` rides the ONE Group row and `extra_roles` the ONE Role row (owner: "there are 2 groups." ·
+     "Roles doesn't need also serves as") — no rows of their own, still posted. */
+  for (const f of ['group_ids', 'extra_roles']) assert.match(tpl, new RegExp(`name="${f}"`), `${f} is not posted by the templated card`);
 });
 
 test('one list of fields: every field the card\'s body names is drawn by BOTH kits, in some state (a field added to one path appears in the other)', async () => {
@@ -311,6 +314,9 @@ test('one list of fields: every field the card\'s body names is drawn by BOTH ki
   const named = new Set<string>([
     ...[...body.matchAll(/<K\.Field\s+id="(\w+)"/g)].map((m) => m[1]!),
     ...[...body.matchAll(/<K\.(?:Pick|Toggle)\s+name="(\w+)"/g)].map((m) => m[1]!),
+    /* 👥 The one Group / one Role dropdowns name their first column through the leaf (2026-10-20). */
+    ...(/<K\.Group\b/.test(body) ? ['group_category'] : []),
+    ...(/<K\.Roles\b/.test(body) ? ['role'] : []),
   ]);
   assert.ok(named.size >= 20, `the body names only ${named.size} fields — the scan is blind`);
   const old: string[] = [];
@@ -364,4 +370,47 @@ test('anti-vacuity: the states really differ, and the form is not trivially smal
   assert.deepEqual(s('12').first_name, ['O’Brien "Bo"']);
   /* 01 · 04 · 05 · 07 are the same form on purpose (defaults off, nothing ticked, empty = absent-or-empty); the other eight differ. */
   assert.ok(new Set(all.map((f) => JSON.stringify(f))).size >= 9, 'the states are not different enough to mean anything');
+});
+
+/*
+ * 👥 ONE GROUP DROPDOWN AND ONE ROLE DROPDOWN, EACH MULTI (owner 2026-10-20: "there are 2 groups." · "Roles doesn't need also
+ * serves as… they can have multiple row in that Role in Wedding" · "several group, several roles"; DECISION_LOG row of that
+ * name; prototype `guest_group_and_fast_add_2026-10-20.html` A1–A7). A PROPERTY of the painted card, both kits, every state:
+ * exactly ONE control opens the groups and ONE the roles; the two columns each pair posted are posted exactly once.
+ *
+ * SABOTAGE (each seen RED, then restored): the old "Also serves as" K.Pick put back · the old "Groups" K.Pick put back ·
+ * the Group leaf's second hidden input dropped.
+ */
+test('the card draws exactly ONE Group control and ONE Role control — both kits, every state', async () => {
+  const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
+  for (const [name, sc] of Object.entries(SCENARIOS)) {
+    for (const withKit of [false, true]) {
+      const html = await paint(sc, withKit);
+      const where = `${name} (${withKit ? 'templated' : 'Maker'})`;
+      const form = postedForm(html);
+      assert.equal(count(html, /aria-label="Group: /g), 1, `${where}: not exactly one Group control`);
+      assert.doesNotMatch(html, /aria-label="Groups: |Also serves as/, `${where}: a second group or role control is back`);
+      assert.equal(form.group_category?.length, 1, `${where}: group_category is not posted exactly once`);
+      const couple = sc.data?.isCouple === true;
+      if (!couple) {
+        assert.equal(count(html, /aria-label="Role(?: in wedding)?: /g), 1, `${where}: not exactly one Role control`);
+        assert.equal(form.role?.length, 1, `${where}: role is not posted exactly once`);
+        assert.equal(form.extra_roles?.length, 1, `${where}: extra_roles is not posted exactly once`);
+      }
+      const groupsRead = (sc.data as { groupChoices?: unknown } | undefined)?.groupChoices !== null;
+      if (groupsRead && form.groups_posted) assert.equal(form.group_ids?.length, 1, `${where}: the own groups are not posted with their marker`);
+    }
+  }
+});
+
+test('the one Role control marks the first ticked "main"; the one Group control lists Standard before Your groups', async () => {
+  const s = SCENARIOS['02 a guest with sides, a seat, groups, extra roles, +1 of 2']!;
+  for (const withKit of [false, true]) {
+    const html = await paint(s, withKit);
+    const form = postedForm(html);
+    // Scenario 02: main = principal_sponsor_ninong, extra = groomsman, Friends + Choir — the pill reads them in that order.
+    assert.deepEqual([form.role, form.extra_roles], [['principal_sponsor_ninong'], ['groomsman']]);
+    assert.match(html, /aria-label="Role in wedding: Principal Sponsor \(Ninong\) · Groomsman"/);
+    assert.match(html, /aria-label="Group: Friends · Choir"/);
+  }
 });

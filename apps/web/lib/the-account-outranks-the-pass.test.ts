@@ -171,7 +171,7 @@ test('2 · signed-in account bound to guest X + a pass for guest Y → X', async
   assert.equal((await readGuestPassStanding({ eventId: EVENT })).setAside?.standing, 'set_aside_seat');
   const viewer = resolveGuestViewer({ eventId: EVENT, cookie, seat: { guestId: COUSIN, qrToken: 'qr_tok_cousin' } });
   assert.equal(viewer.kind, 'seat');
-  assert.equal(viewer.kind === 'anonymous' ? null : viewer.session.guest_id, COUSIN, 'the viewer is not their own seat');
+  assert.equal('session' in viewer ? viewer.session.guest_id : null, COUSIN, 'the viewer is not their own seat');
 });
 
 test('3 · signed OUT + a pass for Y → Y, unchanged — and the database is not asked about accounts', async () => {

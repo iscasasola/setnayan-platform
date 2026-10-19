@@ -161,7 +161,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
      ACCOUNT's (its own seat, or a held pass that is theirs). A pass this browser also holds for somebody else is said
      in one line beside "Not you? Switch" — never answered for. A host who opened it on purpose is told the way back. */
   const passHere = canvas ? null : await readGuestPassStanding({ eventId: event.event_id as string });
-  const heldAside = passHere?.setAside?.pass.event_id === event.event_id ? passHere.setAside : null;
+  const heldAside = passHere?.setAside && passHere.setAside.pass.event_id === event.event_id ? passHere.setAside : null;
   const hostOpened = passHere?.standing === 'host_preview' ? passHere.session : null;
   const heldPassName =
     heldAside || hostOpened

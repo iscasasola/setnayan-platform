@@ -14,6 +14,9 @@ import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
 import { NotYouSwitch } from '../../_components/not-you-switch';
+import { HeldPassLine } from '../../_components/held-pass-line';
+import { heldPassFirstNameFor } from '../../_lib/held-pass-name';
+import { readGuestPassStanding } from '@/lib/guest-session';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { OPEN_REPLY_WINDOW, replyFaceOf, replyRefusedWords, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
@@ -154,6 +157,16 @@ async function inviteReplyPage({ params, searchParams }: Props) {
       redirect(entry.href);
     }
   }
+  /* 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19, lib/pass-account-rule.ts): the reply above is the
+     ACCOUNT's (its own seat, or a held pass that is theirs). A pass this browser also holds for somebody else is said
+     in one line beside "Not you? Switch" — never answered for. A host who opened it on purpose is told the way back. */
+  const passHere = canvas ? null : await readGuestPassStanding({ eventId: event.event_id as string });
+  const heldAside = passHere?.setAside?.pass.event_id === event.event_id ? passHere.setAside : null;
+  const hostOpened = passHere?.standing === 'host_preview' ? passHere.session : null;
+  const heldPassName =
+    heldAside || hostOpened
+      ? await heldPassFirstNameFor(admin, event.event_id as string, (heldAside?.pass ?? hostOpened)!.guest_id)
+      : null;
   /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
@@ -398,6 +411,16 @@ async function inviteReplyPage({ params, searchParams }: Props) {
             </p>
             {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>
+          {heldAside ? (
+            <HeldPassLine
+              slug={home}
+              firstName={heldPassName}
+              mode={heldAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
+              className="mt-2"
+            />
+          ) : hostOpened ? (
+            <HeldPassLine slug={home} firstName={heldPassName} mode="host_preview" className="mt-2" />
+          ) : null}
         </FirstScreenOnly>
 
         {canvas ? <span hidden data-maker-section="f:rsvp" /> : null}

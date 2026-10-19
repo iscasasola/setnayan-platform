@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { clearGuestSession, eventIdForSlug, readGuestSession } from '@/lib/guest-session';
+import { clearGuestSession, eventIdForSlug, readGuestPassStanding } from '@/lib/guest-session';
+import { HOST_PREVIEW_PASS_COOKIE_NAME } from '@/lib/pass-account-rule';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie } from '@/lib/face-selfie-erase';
 
@@ -16,13 +17,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // — and so does that other event's selfie. An event that cannot be told (a
   // failed read) signs out whatever pass is active, as before.
   const eventId = await eventIdForSlug(slug).catch(() => null);
-  const session = await readGuestSession({ eventId }).catch(() => null);
-  if (session?.event_id && session.guest_id && (!eventId || session.event_id === eventId)) {
+  // 🪪 Only the pass's OWN holder's press erases the selfie (lib/pass-account-rule.ts): a pass the signed-in account
+  // outranked ("Remove it from this browser") and a host's "Open as <name>" preview are not that guest signing out.
+  const { session, standing } = await readGuestPassStanding({ eventId }).catch(() => ({ session: null, standing: null }));
+  if (standing !== 'host_preview' && session?.event_id && session.guest_id && (!eventId || session.event_id === eventId)) {
     await eraseFaceTaggingSelfie(createAdminClient(), session.event_id, session.guest_id).catch(() => null);
   }
   await clearGuestSession({ slug, eventId });
   const url = new URL(request.url);
   // Drop /sign-out segment to land back on the slug root.
   url.pathname = url.pathname.replace(/\/sign-out$/, '');
-  return NextResponse.redirect(url, { status: 303 });
+  const res = NextResponse.redirect(url, { status: 303 });
+  // The host's "Open as <name>" mark goes with the pass it named.
+  res.cookies.delete(HOST_PREVIEW_PASS_COOKIE_NAME);
+  return res;
 }

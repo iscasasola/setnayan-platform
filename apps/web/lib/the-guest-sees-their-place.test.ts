@@ -180,8 +180,19 @@ test('the event page hands the entourage the guest’s id only off the Maker’s
   const mounts = [...src.matchAll(/<EntourageSection\b[^>]*\/>/g)].map((m) => m[0]);
   assert.ok(mounts.length >= 2, `found ${mounts.length} entourage mounts`);
   const withId = mounts.filter((m) => /myGuestId=/.test(m));
-  assert.equal(withId.length, 1, 'exactly one mount (the guest tree) names a viewer');
-  assert.match(withId[0]!, /myGuestId=\{isMakerCanvas \? null : guest\.guest_id\}/, 'the canvas must pass no viewer');
+  // 🪪 Two mounts name a viewer since 2026-10-19 (owner ruling (a), lib/pass-account-rule.ts): the guest tree its own
+  // signed guest, and the HOST's page the host's OWN row — each off the canvas, and the host's never for a sample.
+  assert.equal(withId.length, 2, 'the guest tree and the host page name a viewer — nothing else');
+  assert.ok(
+    withId.some((m) => /myGuestId=\{isMakerCanvas \? null : guest\.guest_id\}/.test(m)),
+    'the guest tree: the canvas must pass no viewer',
+  );
+  assert.ok(
+    withId.some((m) =>
+      /myGuestId=\{viewerIsHost && !isEditorCanvas && sampleViewer === null \? hostOwnGuestId : null\}/.test(m),
+    ),
+    'the host page: only the host’s own row, never on the canvas or a sample',
+  );
 });
 
 /* 🔗 "See where you are ↓" is drawn under BOTH "You are …" blocks (Welcome and Me), and only when its place exists. */

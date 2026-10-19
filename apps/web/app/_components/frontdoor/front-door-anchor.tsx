@@ -58,7 +58,7 @@ export function FrontDoorAnchor() {
         Plan your Filipino event free — and never lose a photo.
       </h1>
       <ul className="fd-opening-claims">
-        <li>Every celebration, planned in one place</li>
+        <li>Every event, planned in one place</li>
         <li>Every guest&rsquo;s photo, kept in one album</li>
         <li>Verified suppliers &middot; 0% commission</li>
       </ul>
@@ -78,7 +78,7 @@ export function FrontDoorAnchor() {
           before or after?) that needs the owner, not a guess made here.
         */}
         <Link href="/onboarding/wedding?from=home" className="fd-btn-gold fd-opening-cta">
-          Start your celebration — free
+          Start your event — free
         </Link>
         {/*
           `/our-story`, NOT `/alaala`. The retired opening's secondary link

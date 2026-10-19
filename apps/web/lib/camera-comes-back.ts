@@ -32,9 +32,12 @@
  *   · NEVER MID-TAKE. While `isHeld()` is true (a clip is recording, a take is
  *     being reviewed or uploaded) the request waits and runs when it clears —
  *     a restart is NOT a new shot and must never cut, post or charge one.
- *   · NEVER A TIGHT LOOP. At most `CAMERA_RESTART_LIMIT` requests per
- *     `CAMERA_RESTART_WINDOW_MS`; past that it waits for the window to free
- *     instead of giving up, so a camera that keeps dying is retried, slowly.
+ *   · NEVER A TIGHT LOOP. A camera that dies within `CAMERA_QUICK_DEATH_MS` of
+ *     opening is a "quick death"; after `CAMERA_RESTART_LIMIT` of those inside
+ *     `CAMERA_RESTART_WINDOW_MS` it waits for the window to free instead of
+ *     giving up, so a camera that keeps dying is retried, slowly. A camera that
+ *     lived longer resets the count — turning a phone back and forth, or coming
+ *     back from the home screen five times, is never throttled.
  *
  * The page's `restart` is its OWN open path (stop the old tracks, show its
  * shipped "starting the camera" state, open with the same constraints). This
@@ -52,9 +55,11 @@ export const CAMERA_RESIZE_SETTLE_MS = 350;
 export const CAMERA_RESIZE_WIDTH_RATIO = 0.25;
 /** While held, how often to look whether the take has finished. */
 export const CAMERA_HOLD_POLL_MS = 400;
-/** At most this many automatic reopens … */
+/** A camera that dies sooner than this after opening died "young" … */
+export const CAMERA_QUICK_DEATH_MS = 2_000;
+/** … and after this many young deaths in a row … */
 export const CAMERA_RESTART_LIMIT = 3;
-/** … within this window. */
+/** … inside this window, the next reopen waits for the window to free. */
 export const CAMERA_RESTART_WINDOW_MS = 30_000;
 /**
  * If the page has not re-armed the watch this long after a request (its
@@ -94,8 +99,9 @@ export type WatchCameraOptions = {
   /** True while a reopen would destroy work (recording, review, upload). */
   isHeld: () => boolean;
   /**
-   * Request timestamps shared across watches of one page, so the loop limit
-   * survives the re-arm that every restart causes. Mutated in place.
+   * Timestamps of recent quick deaths, shared across watches of one page so
+   * the loop limit survives the re-arm that every restart causes. Mutated in
+   * place.
    */
   history: number[];
   env?: KeepAliveEnv;
@@ -136,6 +142,7 @@ export function watchCamera(opts: WatchCameraOptions): () => void {
   let requested = false; // asked the page to reopen; ignore everything else
   let pending: CameraRestartReason | null = null;
   let sawHidden = doc.hidden;
+  let armedAt = env.now();
   let base = { width: win.innerWidth, height: win.innerHeight };
 
   let muteTimer: unknown = null;
@@ -160,12 +167,14 @@ export function watchCamera(opts: WatchCameraOptions): () => void {
     requested = true;
     pending = null;
     detachTracks(); // stopping the old tracks must not echo back as 'ended'
-    opts.history.push(env.now());
+    if (env.now() - armedAt < CAMERA_QUICK_DEATH_MS) opts.history.push(env.now());
+    else opts.history.length = 0; // it lived — a fresh streak
     // Re-arm on our own if the page never answers (see CAMERA_RESTART_ANSWER_MS).
     answerTimer = env.setTimeout(() => {
       answerTimer = null;
       if (done) return;
       requested = false;
+      armedAt = env.now();
       base = { width: win.innerWidth, height: win.innerHeight };
       attachTracks();
     }, CAMERA_RESTART_ANSWER_MS);
@@ -191,7 +200,8 @@ export function watchCamera(opts: WatchCameraOptions): () => void {
     const now = env.now();
     const recent = opts.history.filter((t) => now - t < CAMERA_RESTART_WINDOW_MS);
     opts.history.splice(0, opts.history.length, ...recent);
-    if (recent.length >= CAMERA_RESTART_LIMIT) {
+    const young = now - armedAt < CAMERA_QUICK_DEATH_MS;
+    if (young && recent.length >= CAMERA_RESTART_LIMIT) {
       // Too many in a row — wait for the oldest to leave the window, then retry.
       if (limitTimer == null) {
         const wait = CAMERA_RESTART_WINDOW_MS - (now - recent[0]!) + 1;

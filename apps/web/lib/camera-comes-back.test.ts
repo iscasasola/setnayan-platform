@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import {
   CAMERA_HOLD_POLL_MS,
   CAMERA_MUTE_GRACE_MS,
+  CAMERA_QUICK_DEATH_MS,
   CAMERA_RESIZE_SETTLE_MS,
   CAMERA_RESTART_LIMIT,
   CAMERA_RESTART_WINDOW_MS,
@@ -316,6 +317,19 @@ test('a camera that keeps dying is retried slowly, not in a tight loop', () => {
   assert.equal(page.opened.length, 1 + CAMERA_RESTART_LIMIT, 'capped inside the window');
   e.tick(CAMERA_RESTART_WINDOW_MS + 1);
   assert.equal(page.opened.length, 2 + CAMERA_RESTART_LIMIT, 'and retried once the window frees');
+  assert.equal(page.liveStreams(), 1);
+});
+
+test('a camera that lived is never throttled — turning a phone five times is five reopens', () => {
+  const e = makeEnv();
+  const page = makePage(e);
+  page.open();
+  for (let i = 0; i < CAMERA_RESTART_LIMIT + 3; i++) {
+    e.tick(CAMERA_QUICK_DEATH_MS + 500); // it lived a few seconds each time
+    e.resize(i % 2 === 0 ? 812 : 375, i % 2 === 0 ? 375 : 812);
+    e.tick(CAMERA_RESIZE_SETTLE_MS + 1);
+  }
+  assert.equal(page.opened.length, 1 + CAMERA_RESTART_LIMIT + 3);
   assert.equal(page.liveStreams(), 1);
 });
 

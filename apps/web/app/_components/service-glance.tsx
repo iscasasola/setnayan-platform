@@ -17,7 +17,9 @@ import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
  * Server components with no reads and no state: every word arrives worked out
  * (`lib/papic-glance.ts`), and the two buttons arrive as elements. The mood is
  * ALWAYS in words as well as in the dot/meter colour — never colour alone.
- * The shape is the template for every paid service; only Papic wears it today.
+ * The shape is the template for every paid service — Home's six rows wear it (2026-10-14 🧾):
+ * Papic with its meter, the other five owned without one, and a service not added as the
+ * SLIM line (`slim`).
  */
 
 export function GlanceDot({ mood }: { mood: ServiceMood }) {
@@ -61,6 +63,8 @@ export function ServiceGlanceRow({
   meterLabel,
   actions,
   marker,
+  meter,
+  slim,
 }: {
   href: string;
   name: string;
@@ -74,7 +78,37 @@ export function ServiceGlanceRow({
   actions?: ReactNode;
   /** A data-* hook for guards and walks, e.g. `{ 'data-home-service': 'papic' }`. */
   marker?: Record<string, string>;
+  /** Draw the meter — only where there is a true total (Papic's credits). Default: whenever the mood is not plain. */
+  meter?: boolean;
+  /**
+   * 🧾 THE SLIM LINE — a service NOT ADDED (owner 2026-10-14 ✅, prototype `rowSlim`): ONE line —
+   * mark · name · brand · these words (its catalogue price) — with its one door (Add) on the right,
+   * and no status line or meter. The same row at its smallest, never another card.
+   */
+  slim?: string;
 }) {
+  if (slim !== undefined) {
+    return (
+      <div className="sg-row" data-slim="" data-mood={mood} {...marker}>
+        <Link href={href} className="block min-w-0 flex-1">
+          <span className="sg-head">
+            <span className="sg-mark" aria-hidden>
+              {icon}
+            </span>
+            <span className="min-w-0">
+              <span className="sg-name block truncate">{name}</span>
+              {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
+              <span className="sg-price block" data-glance-price="">
+                {slim}
+              </span>
+            </span>
+          </span>
+        </Link>
+        {actions ? <div className="sg-acts">{actions}</div> : null}
+      </div>
+    );
+  }
+  const drawMeter = meter ?? mood !== 'plain';
   return (
     <div className="sg-row" data-mood={mood} {...marker}>
       <Link href={href} className="block min-w-0">
@@ -95,7 +129,7 @@ export function ServiceGlanceRow({
             <GlanceLineText line={line} />
           </span>
         </span>
-        {mood !== 'plain' ? <GlanceMeter mood={mood} pct={pct} label={meterLabel} /> : null}
+        {drawMeter ? <GlanceMeter mood={mood} pct={pct} label={meterLabel} /> : null}
       </Link>
       {actions ? <div className="sg-acts">{actions}</div> : null}
     </div>

@@ -25,11 +25,19 @@ import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
+  HOME_PAID_SKU,
   homeGuestsRead,
   homeServices,
   nikahStatus,
   pickHomeNext,
 } from '@/lib/home-first-screen';
+import { homePaidFacts } from '@/lib/home-paid-services';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
+import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
+import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
+import { formatPhp } from '@/lib/php';
 import { nikahTrackedDone } from '@/lib/nikah-essentials';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -605,6 +613,34 @@ export default async function EventHomePage({
   // 🚪 The type's profile, for which needs can be switched on at all (a vendor-free kind has no Suppliers) —
   // React-cached, the layout's own read.
   const homeTypeProfileRead = startAhead(resolveProfile((event.event_type as string | null) ?? 'wedding'));
+  /*
+    🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14; live on cale-ice 2026-10-20: "i thought we
+    will have our other paid services here in home?"). Per SKU: is it ON — `eventSkuActive`, the feature
+    gate the service's own page reads (an internal / founder-seat host owns every feature, and the row
+    must say what the feature does) — is a payment waiting (`eventOwnsSku`), and, only where it is not
+    theirs, the catalogue's price (`platform_retail_catalog_v2`, never a figure in code). Started with the
+    rest; the store shell reads nothing (its paid pages are web-only there). A failed read is `null` → "—".
+  */
+  const homePaidRead = startAhead(
+    storeShellRead.then(async (shell) => {
+      if (shell) return null;
+      const ent = await eventEntitlementClient(eventId).catch(() => null);
+      const skus = [HOME_PAID_SKU.live, HOME_PAID_SKU.music, HOME_PAID_SKU.booth, HOME_PAID_SKU.hub];
+      const reads = await Promise.all(
+        skus.map(async (sku) => {
+          if (!ent) return [sku, null, null] as const;
+          const active = await eventSkuActive(ent, eventId, sku).catch((): null => null);
+          const pending = active === false ? await eventOwnsSku(ent, eventId, sku).catch((): null => null) : false;
+          const price = active === false && pending === false ? await getCustomerSkuPriceLabel(sku).catch((): null => null) : null;
+          return [sku, { active, pending }, price] as const;
+        }),
+      );
+      const aiPending = ent ? await eventOwnsSku(ent, eventId, HOME_PAID_SKU.ai).catch((): null => null) : null;
+      // Setnayan AI's shown price is its OWN resolver — the same switch its charge path uses (per type).
+      const aiPricePhp = await resolveSetnayanAiDisplayPricePhp(supabase, (event.event_type as string | null) ?? 'wedding').catch(() => 0);
+      return { reads, aiPending, aiPricePhp };
+    }).catch(() => null),
+  );
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -711,9 +747,51 @@ export default async function EventHomePage({
     guests: { stats: guestStats, measured: guestsMeasured, noReply: homeRoster.none, coming: homeRoster.yes },
     money: moneyNow,
   });
+  const homePaid = await homePaidRead;
+  const aiActiveNow =
+    paywallOn === null
+      ? null
+      : isSetnayanAiActiveForEvent(
+          event as {
+            planning_mode?: string | null;
+            setnayan_ai_active?: boolean | null;
+            setnayan_ai_active_until?: string | null;
+          },
+          { paywallEnabled: paywallOn },
+        );
+  const homePaidPrices = new Map<string, string>();
+  const homePaidReads: Record<string, { active: boolean | null; pending: boolean | null } | null> = {
+    [HOME_PAID_SKU.ai]: { active: aiActiveNow, pending: aiActiveNow === false ? homePaid?.aiPending ?? null : false },
+  };
+  for (const [sku, read, price] of homePaid?.reads ?? []) {
+    homePaidReads[sku] = read;
+    if (price) homePaidPrices.set(sku, price);
+  }
+  if (homePaid && homePaid.aiPricePhp > 0) homePaidPrices.set(HOME_PAID_SKU.ai, formatPhp(homePaid.aiPricePhp));
+  // 🧾 The More menu's ONE builder decides which of them this event is offered and where each opens.
+  const homePaidFactsNow = homePaid
+    ? homePaidFacts({
+        eventId,
+        catalogue: ADD_ONS,
+        reads: homePaidReads,
+        prices: homePaidPrices,
+        offered: (a) =>
+          !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
+          addOnOfferedForEvent(a, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
+        sellableNow: (e) => addOnSellableNow(e, lifecyclePhase === 'after' ? 'after' : 'plan'),
+        aiSellable: homePaid.aiPricePhp > 0,
+        refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
+        comebackHoursLeft:
+          aiOfferShown && aiOffer?.kind === 'comeback'
+            ? Math.ceil((aiOffer.expiresAt.getTime() - Date.now()) / 3_600_000)
+            : null,
+      })
+    : null;
   const homeServiceRow = homeServices({
     next: homeNext.kind,
     storeShell,
+    eventId,
+    paid: homePaidFactsNow,
     papic: papicNow.status,
     // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the
     // couple's (the purchase is couple-only); NEVER TWICE marks what the Next

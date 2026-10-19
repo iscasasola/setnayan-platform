@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, ChevronDown, ListChecks, Mail, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
-import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey, PapicRowDoors } from '@/lib/home-first-screen';
+import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey, PaidRow, PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -96,7 +96,16 @@ const NEXT_BUTTON: Record<HomeNextKind, { icon: LucideIcon; tone: ActionTone }> 
   plan: { icon: ListChecks, tone: 'ok' },
 };
 
-const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = { papic: Camera, ai: Sparkles, nikah: BookOpen };
+/* The menu's own glyphs for each service (`lib/customer-menu.ts` EVENT_MENU_ICONS); ◆ Pro wears the gem. */
+const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
+  papic: Camera,
+  ai: Sparkles,
+  live: Radio,
+  music: Music,
+  booth: Clapperboard,
+  hub: Gem,
+  nikah: BookOpen,
+};
 
 /**
  * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
@@ -384,10 +393,23 @@ export function HomeFirstScreen({
                   action={apple.liveWatch.owned ? null : <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />}
                 />
               ) : null}
-              {services.map((svc) => {
+              {services.map((svc, i) => {
                 const Icon = SERVICE_ICON[svc.key];
                 if (svc.key === 'papic' && svc.papic) {
                   return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+                }
+                if (svc.paid) {
+                  /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
+                  const firstSlim = svc.paid.state === 'add' && services[i - 1]?.paid?.state !== 'add';
+                  return (
+                    <PaidServiceRow
+                      key={svc.key}
+                      svc={svc}
+                      row={svc.paid}
+                      icon={<Icon aria-hidden strokeWidth={1.9} />}
+                      heading={firstSlim}
+                    />
+                  );
                 }
                 return (
                   <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
@@ -476,6 +498,53 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
+    />
+  );
+}
+
+/**
+ * 🧾 A PAID ROW (owner 2026-10-14 🧾 + ✅; prototype `rowFull` / `rowSlim`) — the shipped service
+ * glance, never a new card. Owned: name · brand · "On" (Event Hub Pro: "Pro on · …") and the
+ * main door where it is another page; waiting for approval: the dashed words; not added: the SLIM
+ * line — its catalogue price under the name and **Add**, which opens the service's own page,
+ * where the shipped purchase already lives. No meter: only Papic has a true total.
+ */
+function PaidServiceRow({ svc, row, icon, heading }: { svc: HomeService; row: PaidRow; icon: ReactNode; heading: boolean }) {
+  const marker = { 'data-home-service': svc.key, 'data-home-paid': row.state };
+  if (row.state === 'add') {
+    return (
+      <>
+        {heading ? <p className="home-k2 home-svc-k">Not added</p> : null}
+        <ServiceGlanceRow
+          href={row.href}
+          name={svc.name}
+          brand={svc.brand}
+          icon={icon}
+          mood="plain"
+          pct={0}
+          line={row.line}
+          meterLabel=""
+          slim={row.price ?? ''}
+          actions={<ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add" href={row.href} />}
+          marker={marker}
+        />
+      </>
+    );
+  }
+  const mood = row.state === 'owned' ? 'ok' : row.state === 'pending' ? 'wait' : 'plain';
+  return (
+    <ServiceGlanceRow
+      href={row.href}
+      name={svc.name}
+      brand={svc.brand}
+      icon={icon}
+      mood={mood}
+      pct={0}
+      meter={false}
+      line={row.line}
+      meterLabel=""
+      actions={row.door ? <ActionButton tone="neutral" icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label={row.door.label} href={row.door.href} /> : undefined}
+      marker={marker}
     />
   );
 }

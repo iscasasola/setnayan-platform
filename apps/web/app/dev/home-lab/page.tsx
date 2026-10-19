@@ -27,6 +27,10 @@
  *                                    none, so a walk injects a stand-in `window.Capacitor`.
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
+ *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
+ *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
+ *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
+ *                                    not added · pending = payments waiting · unread = the reads failed
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -45,7 +49,10 @@ import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import { ApplyProSheetLab } from './apply-pro-sheet-lab';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
 import {
+  HOME_PAID_SKU,
   aiStatus,
   glanceCount,
   glanceDays,
@@ -56,6 +63,47 @@ import {
 } from '@/lib/home-first-screen';
 
 export const dynamic = 'force-dynamic';
+
+/*
+  🧾 The paid rows' fixtures. The prices are the live `platform_retail_catalog_v2` rows as read on
+  2026-10-20 (SETNAYAN_AI ₱2,499 · LIVE_STUDIO ₱2,500 · PAKANTA ₱2,500 · PATIKTOK_COMPILER ₱1,500 per day ·
+  COUPLE_WEBSITE_PRO ₱5,000) — sample data for a lab with no database; the Home itself reads the table.
+*/
+const LAB_PRICES = new Map<string, string>([
+  [HOME_PAID_SKU.ai, '₱2,499'],
+  [HOME_PAID_SKU.live, '₱2,500'],
+  [HOME_PAID_SKU.music, '₱2,500'],
+  [HOME_PAID_SKU.booth, '₱1,500 / day'],
+  [HOME_PAID_SKU.hub, '₱5,000'],
+]);
+const ON: HomeSkuRead = { active: true, pending: false };
+const OFF: HomeSkuRead = { active: false, pending: false };
+const WAIT: HomeSkuRead = { active: false, pending: true };
+const FAILED: HomeSkuRead = { active: null, pending: null };
+function labPaid(state: string | undefined, eventId: string) {
+  if (!state) return null;
+  const all = (r: HomeSkuRead) => Object.fromEntries(Object.values(HOME_PAID_SKU).map((sku) => [sku, r]));
+  const reads =
+    state === 'cale'
+      ? all(ON)
+      : state === 'pending'
+        ? all(WAIT)
+        : state === 'unread'
+          ? all(FAILED)
+          : state === 'mix'
+            ? { ...all(OFF), [HOME_PAID_SKU.ai]: ON, [HOME_PAID_SKU.hub]: ON }
+            : all(OFF);
+  return homePaidFacts({
+    eventId,
+    catalogue: ADD_ONS,
+    reads,
+    prices: state === 'cale' ? new Map() : LAB_PRICES,
+    offered: () => true,
+    sellableNow: () => true,
+    aiSellable: true,
+    refusesPath: () => false,
+  });
+}
 
 /** Sample shots for the early-shots lab — the repo's own portraits, nothing real. */
 const LAB_PHOTOS = ['isabel-mendoza.avif', 'andres-delgado.avif', 'isabella-reyes.avif', 'miguel-santos-garden.avif'];
@@ -80,7 +128,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -261,6 +309,8 @@ export default async function HomeLab({
             whileNext: papicRowDoubled(next.kind === 'papic' ? next.papicMoment ?? null : null),
           },
           ai: aiStatus(unread ? null : false),
+          eventId: E,
+          paid: q.store === '1' ? null : labPaid(q.paid, E),
         })}
       />
     </div>

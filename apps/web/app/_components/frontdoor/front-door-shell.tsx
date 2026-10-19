@@ -715,7 +715,10 @@ export function FrontDoorShell({
     front-door.css), read through the shared hook rather than a hand-typed
     query, so the two cannot drift apart.
   */
-  const railIsInline = useIsDesktop(boundary);
+  /* 📱→🖥 …and where that is depends on the surface (owner 2026-10-19): an
+     opted-in tree (`boundary="tab"`) has the inline strip from 701 — the
+     `[data-boundary='tab']` band in front-door.css — so its drawer ends there. */
+  const railIsInline = useIsDesktop(boundary === 'tab' ? 'tab' : 'lg');
   useEffect(() => {
     if (!railIsInline || !(railOpen || railClosing)) return;
     if (railCloseTimer.current) {

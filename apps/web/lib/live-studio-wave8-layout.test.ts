@@ -344,15 +344,16 @@ test('WAVE 8 — the shared <Sheet> `wide` prop is additive (existing callers un
   // both halves. The breakpoint itself is now pinned harder than a literal ever
   // did, by app/_components/sheet-agrees-with-the-nav.test.ts, which reads it out
   // of the sheet AND the bottom nav and fails when the two disagree.
-  const ternary = /wide \? '([a-z0-9]+):w-\[min\(34rem,92vw\)\]' : '([a-z0-9]+):w-\[22rem\]'/.exec(
-    primitive,
-  );
-  assert.ok(ternary, 'the wide/narrow width ternary is gone from the sheet primitive');
-  assert.equal(
-    ternary![1],
-    ternary![2],
-    'the wide and narrow drawer widths flip at DIFFERENT breakpoints — one of them is stranded',
-  );
+  // 📱→🖥 Since 2026-10-19 the sheet has one geometry per surface boundary
+  // (`SHEET_AT.lg` / `SHEET_AT.tab`, read from `useShellBoundary()`), so the
+  // choice is `wide ? at.wide : at.narrow` and each set must still flip both
+  // widths at its OWN one breakpoint.
+  assert.match(primitive, /wide \? at\.wide : at\.narrow/, 'the wide/narrow width ternary is gone from the sheet primitive');
+  const sets = [...primitive.matchAll(/narrow: '([a-z0-9]+):w-\[[^']+\]',\s*wide: '([a-z0-9]+):w-\[min\(34rem,92vw\)\]'/g)];
+  assert.ok(sets.length >= 2, `expected a narrow/wide pair per boundary, saw ${sets.length}`);
+  for (const m of sets) {
+    assert.equal(m[1], m[2], 'the wide and narrow drawer widths flip at DIFFERENT breakpoints — one of them is stranded');
+  }
 });
 
 test('WAVE 8 — the window strip `compact` prop is additive and clamps rather than deletes', () => {

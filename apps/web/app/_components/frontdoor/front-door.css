@@ -2612,6 +2612,11 @@ button.fd-ask.quiet {
     min-height: 44px;
     align-items: center;
   }
+  /* The strip's value is the base rule's — restated so the drawer's copy of it
+     is undone here too, one-for-one (`the-tablet-band-is-the-strip.test.ts`). */
+  .fd[data-boundary='tab'] .fd-rail .fd-row-2l .fd-dot {
+    margin-top: 7px;
+  }
   /* Icon over caption, the strip's row. */
   .fd[data-boundary='tab'] .fd-row {
     flex-direction: column;

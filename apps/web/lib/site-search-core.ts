@@ -65,7 +65,7 @@ export const MARKETPLACE_NOUN: PublicSearchNoun = 'suppliers';
 type InCodeSource = {
   noun: Exclude<PublicSearchNoun, 'suppliers'>;
   /** `storeShell` — the reader is in the iPhone app (lib/store-shell.ts); a source with app wording answers in it. */
-  find: (tokens: string[], phrase: string, storeShell: boolean) => ReadHit[];
+  find: (tokens: string[], phrase: string, storeShell?: boolean) => ReadHit[];
 };
 
 /**
@@ -171,7 +171,7 @@ function guideHits(tokens: string[], phrase: string): ReadHit[] {
 }
 
 /** Help pages — also "guides" to a reader; a different shelf only to us. */
-function helpHits(tokens: string[], phrase: string, storeShell: boolean): ReadHit[] {
+function helpHits(tokens: string[], phrase: string, storeShell = false): ReadHit[] {
   const out: ReadHit[] = [];
   for (const { article, topic } of ALL_HELP_ARTICLES) {
     // 🍎 In the iPhone app a help hit is the app's own answer, and a question

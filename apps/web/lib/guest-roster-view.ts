@@ -27,7 +27,6 @@
 
 import {
   countsTowardEvent,
-  guestDisplayName,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -43,7 +42,7 @@ import {
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
-import { isPlaceholderSeat, seatPlaceholderLabel } from '@/lib/extra-seats';
+import { plusOneOfWords } from '@/lib/plus-one-of';
 
 /** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
 export const SEARCH_WAIT_MS = 250;
@@ -549,14 +548,23 @@ export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_
     if (!host) continue;
     const i = seatNo.get(hostId) ?? 0;
     seatNo.set(hostId, i + 1);
-    const hostName = guestDisplayName(host);
-    const unnamed = isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
-    out.set(g.guest_id, {
-      hostId,
-      name: unnamed ? `${hostName}’s ${seatPlaceholderLabel(i)}` : null,
-      of: unnamed ? null : `+1 of ${hostName}`,
-      side: host.side,
-    });
+    // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
+    const w = plusOneOfWords(g, host, i);
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side });
+  }
+  return out;
+}
+
+/**
+ * 🪑 How many of each guest's seats are ROWS on the list — so a "+1" whose seat row is gone (removed before
+ * 2026-10-20, when Remove left the number standing; or a number never given its seats) is SAID on the guest's row
+ * ("+1 not added yet", the card's own words) instead of drawn as a +1 nobody can find.
+ */
+export function seatRowsByGuest(roster: readonly PlusLinked[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const g of roster) {
+    const h = g.plus_one_of_guest_id;
+    if (h && h !== g.guest_id) out.set(h, (out.get(h) ?? 0) + 1);
   }
   return out;
 }

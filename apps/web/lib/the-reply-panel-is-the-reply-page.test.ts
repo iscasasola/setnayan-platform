@@ -143,5 +143,7 @@ test('5 · the panel is the system sheet’s — the shared Sheet, the 440-px ri
   assert.match(panel, /<Sheet open=\{src !== null\} onClose=\{\(\) => close\(\)\}/);
   assert.ok(GUEST_HUB_DESKTOP_CSS.includes(`${GUEST_SHEETS.shared}{width:440px!important`), 'the shared Sheet is not the 440-px panel on the desk');
   /* Esc inside the framed form closes it too (a key pressed in a frame never reaches this document). */
-  assert.match(panel, /win\.addEventListener\('keydown', \(k\) => \{\s*if \(k\.key === 'Escape' && !k\.defaultPrevented\) close\(\);/);
+  assert.match(panel, /doc\.addEventListener\('keydown', \(k\) => \{\s*if \(k\.key === 'Escape' && !k\.defaultPrevented\) close\(\);/);
+  /* …on every document the frame loads: its window object survives a full load, its listeners do not. */
+  assert.match(panel, /const heard = new WeakSet<Document>\(\);/, 'Esc is heard once per frame window — a fully loaded door (the thank-you) loses it');
 });

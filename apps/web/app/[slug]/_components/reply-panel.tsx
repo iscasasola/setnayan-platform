@@ -106,7 +106,9 @@ export function ReplyPanel({
       thanksPath,
       framePath: new URL(src, window.location.origin).pathname,
     };
-    const heard = new WeakSet<Window>();
+    /* Per DOCUMENT, never per window: a frame's window object outlives a full load (the thank-you door is one), and a
+       listener on the old document is gone with it (walked 2026-10-19: Esc died on the door). */
+    const heard = new WeakSet<Document>();
     /* A saved reply: the invitation behind is read again once, and the thank-you door stays in the panel. */
     let saved = false;
     let done = false;
@@ -136,9 +138,9 @@ export function ReplyPanel({
           style.textContent = EDITOR_CANVAS_HIDES_APP_CHROME;
           doc.head.appendChild(style);
         }
-        if (!heard.has(win)) {
-          heard.add(win);
-          win.addEventListener('keydown', (k) => {
+        if (!heard.has(doc)) {
+          heard.add(doc);
+          doc.addEventListener('keydown', (k) => {
             if (k.key === 'Escape' && !k.defaultPrevented) close();
           });
         }

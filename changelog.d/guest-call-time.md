@@ -14,6 +14,9 @@ start"): *"guest call time"* (DECISION_LOG 2026-10-19 "GUESTS GET A CALL TIME IN
 - Event Details' "Guests arrive" row reads the same resolver (it also stops counting an "Only for · Entourage" moment).
 - A guest's Me › Arrive by: the role's own call time still wins; anyone else is told when guests arrive.
 - The invitation card is unchanged (`scheduleBlocks[0]`).
+- After #6693: `guestArriveBy`'s fallback (the ticket via `passCardPass`, the checklist, the reminder email) is now
+  `guestsArriveTime` — one guests-arrive source. A role's own call time still wins. With no arrival moment (the
+  programme opens on the Ceremony) the ticket prints no ARRIVE rather than the Ceremony's time.
 - Guard `lib/guests-have-one-arrival-time.test.ts` (one fixture, four readers equal; edits move each other; sabotaged).
 
 SPEC IMPACT: None — implements the 2026-10-19 DECISION_LOG row as written.

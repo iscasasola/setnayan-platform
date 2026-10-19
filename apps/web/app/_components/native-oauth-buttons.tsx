@@ -20,6 +20,7 @@ import { Loader2 } from 'lucide-react';
 import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
 import type { NativeOAuthProvider } from '@/lib/native-oauth-plan';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { OAUTH_VERB } from '@/lib/oauth-words';
 
 const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 const APPLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED);
@@ -29,11 +30,9 @@ const BTN =
 
 export function NativeOAuthButtons({
   next,
-  verb = 'Continue with',
   accountType = 'customer',
 }: {
   next: string;
-  verb?: string;
   /** /signup and /open-shop carry the vendor intent, as the web row does. */
   accountType?: 'customer' | 'vendor';
 }) {
@@ -66,7 +65,7 @@ export function NativeOAuthButtons({
         ) : (
           <AppleIcon fill="#000000" />
         )}
-        {`${verb} Apple`}
+        {`${OAUTH_VERB} Apple`}
       </button>
       {GOOGLE_ENABLED ? (
         <button type="button" className={BTN} disabled={pending !== null} onClick={() => run('google')}>
@@ -75,7 +74,7 @@ export function NativeOAuthButtons({
           ) : (
             <GoogleGIcon />
           )}
-          {`${verb} Google`}
+          {`${OAUTH_VERB} Google`}
         </button>
       ) : null}
     </div>

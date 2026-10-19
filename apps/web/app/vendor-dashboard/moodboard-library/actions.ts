@@ -601,7 +601,7 @@ export async function importEditorialMediaToGallery(input: {
   const eligibility = await getEditorialEligibility(admin, row.event_id, profile.vendor_profile_id);
   if (!eligibility.eligible) {
     throw new Error(
-      'You’re no longer the couple’s recommended supplier on that celebration, so its photos can’t be added.',
+      'You’re no longer the couple’s recommended supplier on that event, so its photos can’t be added.',
     );
   }
 

@@ -20,8 +20,9 @@
  * ── THE ORDER (owner 2026-09-25: "When a new account is created via website
  * must be similar to the event invitation") ────────────────────────────────
  * Google / Apple first — a provider redirect under a half-filled form loses the
- * form (DECISION_LOG 2026-09-10) — through the one shared verb, so the two
- * website doors cannot drift into two wordings of the same button.
+ * form (DECISION_LOG 2026-09-10) — in the one shared wording (`OAUTH_VERB`,
+ * "Continue with", sweep C9 2026-10-19), so no door can word the same button
+ * differently.
  *
  * 🛡 Comments stripped before matching (`lib/strip-comments.ts`), so a fix's
  * own explanation is never the finding.
@@ -118,7 +119,8 @@ test('every sign-up door posts "Stay signed in", ticked by default, as a checkbo
 });
 
 // SABOTAGE: move <OAuthButtonRow> below the form on either door → RED.
-// SABOTAGE: hand-type verb="Continue with" on one door → RED.
+// SABOTAGE: hand a door's row a `verb="Sign in with"` → RED (and the prop no longer type-checks).
+// The words themselves are `OAUTH_VERB` (lib/oauth-words.ts), held by lib/one-oauth-wording.test.ts.
 test('Google / Apple come FIRST, in the one shared wording, on every sign-up door', () => {
   const offenders: string[] = [];
   for (const d of ALL) {
@@ -129,8 +131,8 @@ test('Google / Apple come FIRST, in the one shared wording, on every sign-up doo
     }
     if (oauth > d.formAt) offenders.push(`${d.where}: Google / Apple sit BELOW the email form`);
     for (const m of d.code.matchAll(/<(OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons)\b[^>]*>/g)) {
-      if (!/verb=\{SIGNUP_OAUTH_VERB\}/.test(m[0])) {
-        offenders.push(`${d.where}: ${m[1]} does not use SIGNUP_OAUTH_VERB — ${m[0]}`);
+      if (/\bverb=/.test(m[0])) {
+        offenders.push(`${d.where}: ${m[1]} is handed its own words — every door says OAUTH_VERB — ${m[0]}`);
       }
     }
   }

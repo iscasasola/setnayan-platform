@@ -53,7 +53,8 @@ import {
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
 import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { signUp } from '@/app/signup/actions';
@@ -4092,7 +4093,8 @@ export function OnboardingShell({
                 Google refuses OAuth in an embedded WebView. */}
             {!storeShell ? (
               <div className="stack">
-                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" verb={SIGNUP_OAUTH_VERB} />
+                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" />
+                {ANY_OAUTH_ENABLED ? <OAuthTermsLine /> : null}
               </div>
             ) : null}
             {ANY_OAUTH_ENABLED && !storeShell ? (
@@ -4136,7 +4138,7 @@ export function OnboardingShell({
                 enabled={!storeShell}
                 next={RESUME_NEXT}
                 accountType="customer"
-                verb={SIGNUP_OAUTH_VERB}
+                withTerms
               />
               <input
                 data-password-only=""

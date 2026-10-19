@@ -71,18 +71,21 @@ test('PERMISSION IS NOT A PERSON — the card asks for both', () => {
 
 test('ARRIVE is the FIRST block of the day, not the next one', () => {
   // A pass in a pocket at 9pm must not tell a guest to arrive at the send-off.
+  // ⏰ Since 2026-10-19 (owner: "guest call time") the doors' time is THE guests' arrival moment, `guestsArriveTime`
+  // (`lib/guests-arrive.ts`) — the programme's FIRST moment guests see, when it is an arrival of its own — the same one
+  // the invitation, Event Details and the dress code's Guests row read. Held here: it is the first moment, never a later one.
   const src = stripComments(readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8'));
-  const block = src.slice(src.indexOf('const firstScheduleBlock'), src.indexOf('const greetingBlock'));
-  assert.ok(block.length > 40, 'precondition: found the arrival-time block — re-point this guard');
-  assert.match(block, /scheduleBlocks\[0\]/, 'the first block');
-  assert.doesNotMatch(block, /nextScheduleBlock/, 'never the next one');
+  assert.match(src, /const firstScheduleTimeLabel = guestsArriveBy;/, 'the pass reads the guests’ arrival');
+  assert.match(src, /const guestsArriveBy = guestsArriveTime\(scheduleBlocks\);/);
+  assert.doesNotMatch(src, /nextScheduleBlock/, 'never the next one');
+  const lib = stripComments(readFileSync(join(__dirname, 'guests-arrive.ts'), 'utf8'));
+  assert.match(lib, /const first = guestsMoments\(blocks\)\[0\] \?\? null;/, 'the arrival is the first moment');
   // 🔴 This line used to REQUIRE `timeZone: 'Asia/Manila'` — and that was the
   // bug. The schedule stores the event's own wall-clock parked in UTC, so a
   // Manila conversion adds eight hours a second time: live on 2026-09-21 the
-  // pass said "ARRIVE 9:30 PM" for a 1:30 PM arrival. It must use the
-  // programme's own formatter, so the two can never disagree.
-  assert.match(block, /formatBlockTimeRange\(firstScheduleBlock\.start_at, null\)/, 'the programme’s formatter');
-  assert.doesNotMatch(block, /Asia\/Manila|toLocaleTimeString/, 'never a second timezone conversion');
+  // pass said "ARRIVE 9:30 PM" for a 1:30 PM arrival. It reads the wall clock as stored (`formatWallClock`).
+  assert.match(lib, /formatWallClock\(m\.start_at\)/, 'the stored wall clock, read as a wall clock');
+  assert.doesNotMatch(lib, /Asia\/Manila|toLocaleTimeString/, 'never a second timezone conversion');
 });
 
 test('the facts render on the ticket, at the anchor the action links to', () => {
@@ -94,9 +97,9 @@ test('the facts render on the ticket, at the anchor the action links to', () => 
   assert.match(ticket, /\bsrc = PASS_CARD_ROUTE,[\s\S]*<TicketPicture\s+src=\{src\}/, 'the ticket shown is the ticket route');
   const layout = stripComments(readFileSync(join(__dirname, 'print-layout.ts'), 'utf8'));
   assert.match(layout, /return guestPassFacts\(\{/, 'and the ticket draws these facts');
-  // The ticket's ARRIVE uses the programme's own formatter too.
+  // The ticket's ARRIVE is the guests' arrival too (`guestsArriveTime`, the same wall-clock reading).
   const kit = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
-  assert.match(kit, /formatBlockTimeRange\(first\.start_at, null\)/);
+  assert.match(kit, /return guestsArriveTime\(blocks\);/);
 });
 
 test('ARRIVE reads the same clock as the programme — a real stored value', () => {

@@ -51,7 +51,16 @@ export default async function FinalizeClaimPage({ params }: Props) {
     return <ErrorShell title="Invite link not found." />;
   }
   if (data.invite.status === 'claimed') {
-    redirect('/vendor-dashboard');
+    // The person who used it (a retry, a refresh) goes on to their dashboard.
+    // Anybody else holding the same link is told it was used — never dropped on
+    // a dashboard with an empty shop and no word about the couple (2026-10-19).
+    if (data.invite.claimed_by_user_id === user.id) redirect('/vendor-dashboard');
+    return (
+      <ErrorShell
+        title="This link was already used."
+        body={`Someone has already joined with it. If that wasn't you, ask ${data.event?.couple_display_name ?? 'the couple'} to send you a new link.`}
+      />
+    );
   }
   if (data.invite.status !== 'pending') {
     return (
@@ -73,6 +82,17 @@ export default async function FinalizeClaimPage({ params }: Props) {
   //        claimed_vendor_profile_id points at a row with user_id=NULL).
   //        Transfer ownership by UPDATEing user_id = claimant.
   //    (c) Default — create a fresh stub row.
+  //
+  //    🔑 2026-10-19 — (a) WAS EVERY FRESH SIGN-UP, AND IT WROTE NOTHING.
+  //    `/signup?as=vendor` makes the account a vendor, and the database trigger
+  //    `handle_new_vendor_user` opens an EMPTY shop the same instant (no name,
+  //    no service). So by the time this page ran the supplier always "had a
+  //    shop", (c) never ran, and everyone who joined from a couple's link
+  //    arrived nameless and in no category. A couple-made link now goes through
+  //    `claim_ready_the_shop` (migration 20271280303462) — find or open the
+  //    shop, fill ONLY its blank name and service from the couple's record,
+  //    make sure it has its admin seat. Proven end to end by
+  //    tests/db/a-supplier-joins-from-the-couples-link.db.test.ts.
   // ------------------------------------------------------------------
   let vendorProfileId: string;
   const { data: existingProfile } = await admin
@@ -81,7 +101,21 @@ export default async function FinalizeClaimPage({ params }: Props) {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (existingProfile) {
+  if (data.invite.source !== 'admin') {
+    const { data: readied, error: readyErr } = await admin.rpc('claim_ready_the_shop', {
+      p_user_id: user.id,
+      p_claim_token: token,
+    });
+    if (readyErr || typeof readied !== 'string' || !readied) {
+      return (
+        <ErrorShell
+          title="Couldn't set up your supplier profile."
+          body={readyErr?.message ?? 'Please try again or contact support.'}
+        />
+      );
+    }
+    vendorProfileId = readied;
+  } else if (existingProfile) {
     vendorProfileId = existingProfile.vendor_profile_id as string;
   } else if (
     data.invite.source === 'admin' &&

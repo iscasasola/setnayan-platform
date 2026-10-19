@@ -37,6 +37,8 @@ import { GoogleGIcon } from '@/app/_components/oauth-icons';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signInWithProviderDesktop } from '@/lib/desktop-oauth';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { OAUTH_VERB } from '@/lib/oauth-words';
+import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
 import {
   GOOGLE_ADDRESS_WORDS,
   emailDomain,
@@ -60,7 +62,7 @@ export function GoogleAddressDoor({
   nativeOAuth = false,
   next,
   accountType,
-  verb = 'Continue with',
+  withTerms = false,
 }: {
   /** The shell gate's `show` — false wherever the Google button is not on screen. */
   enabled: boolean;
@@ -70,8 +72,9 @@ export function GoogleAddressDoor({
   next: string;
   /** Only where the shell's Google button carries it (sign-up doors). */
   accountType?: 'customer' | 'vendor';
-  /** The words the Google button above says before "Google". */
-  verb?: string;
+  /** A sign-up door: say the Terms + Privacy agreement under the button, since the password part (with its Terms
+   *  box) folds away while this door is showing (sweep C9). */
+  withTerms?: boolean;
 }) {
   const active = enabled && GOOGLE_ENABLED;
   const shell = googleDoorShell(desktopOAuth, nativeOAuth);
@@ -203,8 +206,9 @@ export function GoogleAddressDoor({
           ? shell === 'web'
             ? GOOGLE_ADDRESS_WORDS.pendingWeb
             : GOOGLE_ADDRESS_WORDS.pendingBrowser
-          : `${verb} Google`}
+          : `${OAUTH_VERB} Google`}
       </button>
+      {withTerms ? <OAuthTermsLine /> : null}
       <button
         type="button"
         className="hr-si-link"

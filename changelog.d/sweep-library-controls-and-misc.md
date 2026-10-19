@@ -1,0 +1,12 @@
+## 2026-10-19 · fix(sweep): supplier library dropdowns + upload box · Safari Apple-silicon · one OAuth wording · Real Stories dropdown
+
+Quality-sweep batches 10 + 11 (rows B12, B4, B10, C9; C12 investigated and named).
+
+- **B12 · Supplier inspiration library** (`stylist-library-editor.tsx`): the three native `<select>`s ("Goes to", "Part", "Add to") are the shipped `PickMenu`, one per row at full width (the half-width select cut "Couples' inspirati…"), each posting the same form field through a hidden input. The bare "Choose File · no file selected" is the shipped upload box's dashed look (`FileUpload`'s drop box) with the file name + preview once picked; the input is still this form's `name="file"`, so the bytes still travel inside `uploadStylistAsset` and are marked + screened on the server (`<FileUpload>` itself would send them to storage first, unmarked). "celebrations" → "events" in the supplier copy here.
+- **B4 · /download**: `PlatformCompatBanner` reads "Apple GPU" (Safari's masked renderer) as Apple silicon via `lib/apple-silicon-renderer.ts`, so Safari on an M-series Mac is no longer told it "might be an older or Intel Mac". The "V0.0.1 · 2.7 MB · APPLE SILICON · RELEASED 2026-09-14" caps line is now "For Apple-silicon Macs and Windows 10/11 · released September 14, 2026"; the notarize / SmartScreen lines are plain sentences (the honest "Not yet notarized by Apple" stays, as its guard requires).
+- **B10 · /realstories**: the 18-pill milestone row is one `PickMenu` ("Show · All milestones ▾").
+- **C9 · sign-in words**: every Google / Apple button says `OAUTH_VERB` ("Continue with", `lib/oauth-words.ts`); the `verb` prop and `SIGNUP_OAUTH_VERB` are gone. /signup and the wedding onboarding's account screen state "By continuing with Google or Apple, you agree to the Terms and Privacy Policy" (`OAuthTermsLine`) beside the row and in the typed-Google-address door, where the Terms box folds away.
+
+Guards (each sabotaged red → restored green): `lib/apple-silicon-renderer.test.ts`, `lib/one-oauth-wording.test.ts`, `lib/choices-are-pickmenus-library-and-stories.test.ts`; `every-signup-door-agrees.test.ts` updated to the single wording.
+
+SPEC IMPACT: C9 replaces the signup button verb "Sign in with" (a constant derived from the owner's 2026-09-23 sentence) with "Continue with" everywhere — flagged for owner sign-off in the PR; the owner's sentence still opens /signup. No corpus edit.

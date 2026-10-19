@@ -50,7 +50,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { OAUTH_FLAGS, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { OAUTH_FLAGS, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
@@ -206,19 +207,22 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               form) and the approved one_door_FINAL_2026-09-22 card; then the email
               form. ⚠ This reverses the 2026-09-23 ORDER only (email first); the
               owner's WORDS from that day stay — "sign in directly with Google or
-              Apple", `SIGNUP_OAUTH_VERB` — shared with the wedding onboarding's
-              account screen so the two sign-up doors cannot drift apart again.
+              Apple" (the sentence above); the buttons say `OAUTH_VERB`
+              (lib/oauth-words.ts, "Continue with"), the one wording every door
+              uses (sweep C9, 2026-10-19). `OAuthTermsLine` states the agreement
+              on this path — the Terms box below is the email path's.
               Same components and shell gate as /login; `withAccountType` carries
               the URL's decision so a vendor arriving by Google is filed as one. */}
           {showOAuth ? (
             <div className="hr-si-oauth">
               {desktopOAuth ? (
-                <DesktopOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} />
+                <DesktopOAuthButtons next={next} />
               ) : nativeOAuth ? (
-                <NativeOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} accountType={accountType} />
+                <NativeOAuthButtons next={next} accountType={accountType} />
               ) : (
-                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb={SIGNUP_OAUTH_VERB} />
+                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
               )}
+              <OAuthTermsLine />
             </div>
           ) : null}
           {showOAuth ? (
@@ -253,14 +257,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               />
             </div>
             {/* A TYPED Google address takes the Google button's own door (owner
-                2026-10-18) — same verb, same account type as the row above. */}
+                2026-10-18) — same words, same account type as the row above. */}
             <GoogleAddressDoor
               enabled={showOAuth}
               desktopOAuth={desktopOAuth}
               nativeOAuth={nativeOAuth}
               next={next}
               accountType={accountType}
-              verb={SIGNUP_OAUTH_VERB}
+              withTerms
             />
             <div className="hr-si-field" data-password-only="">
               <label htmlFor="hr-su-password" className="hr-si-label">

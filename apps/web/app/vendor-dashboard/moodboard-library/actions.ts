@@ -50,7 +50,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseStoredAsset } from '@/lib/uploads';
 import { r2GetBytes } from '@/lib/r2';
-import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import {
   getEditorialEligibility,
@@ -74,7 +73,7 @@ import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { shopOwnPhotoRefs } from '@/lib/shop-own-photos.server';
+import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
 import { autoColourRanges } from '@/lib/extract-palette.server';
 
 const BUCKET = 'moodboard-library';
@@ -315,20 +314,9 @@ async function storeScreenedAsset(args: {
   return { assetId: row.asset_id as string, textScreen: screen.textScreen, colorRanges };
 }
 
-/** The shop's own logo bytes, or null when it has no logo on file. */
+/** The shop's own logo bytes, or null when it has no logo on file (`fetchShopLogoBytes`, shared with event suggestions). */
 async function fetchLogoBytes(logoUrl: string | null): Promise<Uint8Array | null> {
-  const parsed = parseStoredAsset(logoUrl);
-  if (!parsed) return null;
-  try {
-    if (parsed.kind === 'r2') {
-      const { bytes } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
-      return bytes;
-    }
-    return await safeFetchImageBytes(parsed.url);
-  } catch {
-    // No logo we can read → the own-logo check is SKIPPED, never guessed at.
-    return null;
-  }
+  return fetchShopLogoBytes(logoUrl);
 }
 
 /**
@@ -341,19 +329,7 @@ async function readShopOwnPhoto(
   profile: VendorProfileRow,
   ref: string,
 ): Promise<{ bytes: Uint8Array; contentType: string | null }> {
-  const supabase = await createClient();
-  const own = await shopOwnPhotoRefs(supabase, profile);
-  if (own === null) throw new Error('We couldn’t read your shop’s photos just now — please try again in a moment.');
-  if (!own.some((p) => p.ref === ref)) throw new Error('That photo isn’t one of your shop’s photos.');
-  const parsed = parseStoredAsset(ref);
-  if (!parsed) throw new Error('That photo could not be opened.');
-  if (parsed.kind === 'r2') {
-    const { bytes, contentType } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
-    return { bytes, contentType };
-  }
-  const bytes = await safeFetchImageBytes(parsed.url);
-  if (!bytes) throw new Error('That photo could not be opened.');
-  return { bytes, contentType: null };
+  return readShopOwnPhotoBytes(await createClient(), profile, ref);
 }
 
 export async function uploadStylistAsset(

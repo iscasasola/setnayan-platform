@@ -3,7 +3,8 @@
  * (2026-10-09; the pattern is `guests-lab/the-lab-cannot-reach-the-database.test.ts`).
  *
  * The dev lab (`/dev/maker-lab?studio=1`, `/dev/details-lab?studio=1`) draws the REAL page on fixtures; a colour pick, an outfit, a
- * photo, a Do's & Don'ts edit and "Undo it" used to call the real action. Now the page takes its seven writers from a context under
+ * photo, a Do's & Don'ts edit and "Undo it" used to call the real action. Now the page takes its ten writers (a supplier's suggestion
+ * kept, declined and undone since 2026-10-19) from a context under
  * their own names; the lab fills it with local stand-ins and the app never does.
  *
  * THE CLAIM, three ways: (1) every name the context carries has a stand-in (none is left real); (2) the page's call sites take their
@@ -35,7 +36,7 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   const ctx = read(join(MB, 'mood-board-actions-context.tsx'));
   const real = [...ctx.slice(ctx.indexOf('export const REAL_MOOD_BOARD_ACTIONS')).matchAll(/^\s{2}(\w+),/gm)].map((m) => m[1]);
-  assert.equal(real.length, 7, 'the context’s names could not be read');
+  assert.equal(real.length, 10, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_MOOD_BOARD_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-mood-board-stand-ins.ts', 'lab-mood-board-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|wizard-actions|hub-draft-actions|dress-code-actions/, `${f} imports a real action module`);
@@ -52,6 +53,10 @@ test('(1b) the stand-ins answer like the real ones, locally — and refuse in da
   assert.ok(up.status === 'ok' && typeof up.image_url === 'string' && up.image_url.length > 0);
   assert.equal((await a.removeMoodboardSlot!(new FormData())).status, 'ok');
   assert.equal(await a.updateDressCodeLists!('e', new FormData()), undefined);
+  /* 🤝🖼 A supplier's suggestion kept / declined / undone (2026-10-19). */
+  assert.equal((await a.keepInspirationSuggestion!('e', 's1', null)).status, 'ok');
+  assert.equal((await a.declineInspirationSuggestion!('e', 's1')).status, 'ok');
+  assert.equal((await a.undoKeptInspirationSuggestion!('e', 's1')).status, 'ok');
   const r = LAB_MOOD_BOARD_REFUSALS;
   const refused = await r.hubDraftAction!('e', new FormData());
   assert.ok(!refused.ok && !isPlainSentence(refused.error ?? ''), 'the refusal is not in the database’s words');
@@ -65,7 +70,7 @@ test('(2) the call sites take their action from the context and import no action
   for (const f of ['mood-board-studio.tsx', 'studio-dos.tsx']) {
     const src = read(join(MB, f));
     assert.match(src, /useMoodBoardActions\(\)/, `${f} does not read its writers from the context`);
-    assert.doesNotMatch(src, /from '[^']*(?:hub-draft-actions|colour-access-actions|wizard-actions|dress-code-actions|\.\.\/actions)'/, `${f} imports a real action module`);
+    assert.doesNotMatch(src, /from '[^']*(?:hub-draft-actions|colour-access-actions|wizard-actions|dress-code-actions|suggestion-actions|\.\.\/actions)'/, `${f} imports a real action module`);
   }
 });
 

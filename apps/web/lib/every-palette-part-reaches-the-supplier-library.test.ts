@@ -230,3 +230,24 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   const nav = code('app/vendor-dashboard/_components/vendor-bottom-nav.tsx');
   assert.match(nav, /'\/vendor-dashboard\/moodboard-library'/);
 });
+
+/* 🤝🖼 THE SAME CHAIN, ON AN EVENT (owner 2026-10-19, "SUPPLIERS ADD INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE
+ * INCLUDED" + "FIVE CONTROLLER RECOMMENDATIONS APPROVED" item 4): a supplier BOOKED on the event may SUGGEST a photo to
+ * every couple part its trade dresses, and to no other — the one map, the library's own `slotUploadVerdict`. */
+test('5 · every couple part takes a suggestion from a booked shop of each of its trades — and from no other trade', async () => {
+  const { suggestablePartsForShop } = await import('./inspiration-suggestion-parts');
+  const allTiles = Object.keys(WEDDING_TILE_LABEL) as WeddingTile[];
+  for (const p of COUPLE_PARTS) {
+    const trades = MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES];
+    for (const t of trades) {
+      const offered = suggestablePartsForShop(canonicalServicesForTile(t));
+      assert.ok(offered.some((x) => x.key === p.slot && x.label === p.label), `a booked ${WEDDING_TILE_LABEL[t]} shop cannot suggest a photo to ${p.label}`);
+    }
+    const wanted = new Set(trades.flatMap((t) => canonicalServicesForTile(t)));
+    for (const t of allTiles) {
+      const services = canonicalServicesForTile(t);
+      if (services.some((c) => wanted.has(c))) continue;
+      assert.ok(!suggestablePartsForShop(services).some((x) => x.key === p.slot), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to ${p.label}, which its trade does not dress`);
+    }
+  }
+});

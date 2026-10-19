@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bac4c1a778",
+  "generatedFromRef": "7c919f4839",
   "routeCount": 450,
   "destinations": 995,
   "actions": 664,
-  "blocks": 6623,
+  "blocks": 6640,
   "routes": {
     "/": {
       "files": [
@@ -8460,6 +8460,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/save-notice.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/studio-dos.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/suggestion-parts.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx",
@@ -8469,7 +8470,8 @@
         "dashboard/[eventId]/studio/mood-board/finalization-actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx",
-        "dashboard/[eventId]/studio/mood-board/render-actions.ts"
+        "dashboard/[eventId]/studio/mood-board/render-actions.ts",
+        "dashboard/[eventId]/studio/mood-board/suggestion-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]/seating/lab",
@@ -8532,6 +8534,8 @@
         "IncDressCodeStarterNote",
         "InfoTip",
         "InspirationBoard",
+        "KeepFullSheet",
+        "KeepResult",
         "Link",
         "ListField",
         "MajorsEditor",
@@ -8561,6 +8565,7 @@
         "PartRenderState",
         "PartTile",
         "PeekToast",
+        "Pic",
         "PickMenu",
         "PrintablePdfButton",
         "ReceptionMirror",
@@ -8586,6 +8591,7 @@
         "StudioPopup",
         "StudioSheet",
         "SubmitButton",
+        "SuggestionsNotice",
         "SwapSource",
         "SwatchPopover",
         "Swatches",
@@ -10915,6 +10921,8 @@
         "dev/supplier-lab/page-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx",
+        "dev/supplier-lab/suggest-lab.tsx",
+        "dev/supplier-lab/suggestion-lab-fixture.ts",
         "dev/supplier-lab/today-easy-lab.tsx"
       ],
       "destinations": [
@@ -10975,7 +10983,10 @@
         "SearchBox",
         "ShopSegments",
         "StylistLibraryEditor",
+        "SuggestBoardActions",
+        "SuggestLab",
         "SupplierSubmit",
+        "SupplierSuggestBoard",
         "SupplierThumbRow",
         "SupplierToast",
         "SupplierTodayScreen",
@@ -12821,6 +12832,7 @@
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
@@ -12871,10 +12883,12 @@
         "vendorWithdrawPaymentAsk"
       ],
       "blocks": [
+        "ActionButton",
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
         "AskSubmit",
+        "BoardPart",
         "BookingAskOutcomeLine",
         "BookingFeeBills",
         "BookingFeeNotice",
@@ -12895,17 +12909,21 @@
         "FileUpload",
         "FilesTab",
         "Fill",
+        "HTMLElement",
+        "HTMLInputElement",
         "Icon",
         "Image",
         "LedgerUnreadableNote",
         "Link",
         "LockAnswerLine",
         "LockRequestAnswer",
+        "NamedColourDot",
         "OverviewTab",
         "PaymentAsksPanel",
         "PaymentHistoryList",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PeekToast",
         "PendingPaymentAnswer",
         "Peso",
         "PipelineStrip",
@@ -12922,7 +12940,9 @@
         "ScriptTab",
         "ShopCard",
         "ShopEmpty",
+        "StudioPopup",
         "SubmitButton",
+        "SuggestSheet",
         "TheyToldYou",
         "VendorChallengeSection",
         "VendorCompletionCard",
@@ -12986,7 +13006,8 @@
     },
     "/vendor-dashboard/clients/[eventId]/mood-board": {
       "files": [
-        "vendor-dashboard/clients/[eventId]/mood-board/page.tsx"
+        "vendor-dashboard/clients/[eventId]/mood-board/page.tsx",
+        "vendor-dashboard/clients/[eventId]/mood-board/suggestion-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]?tab=details"
@@ -12996,6 +13017,8 @@
         "ColourLaneEditor",
         "EventLockedPage",
         "Link",
+        "SuggestResult",
+        "SupplierSuggestBoard",
         "VendorPartSignoff"
       ]
     },

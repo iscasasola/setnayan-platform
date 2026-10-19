@@ -45,6 +45,10 @@ export type InspirationItem = {
   credit?: string | null;
   /** The photo's own sampled colours (`sampled_hex_1…6`) — Studio reads each part's palette from them. */
   swatches?: string[];
+  /** 🤝🖼 The supplier suggestion this photo was KEPT from (`from_suggestion_id`, 2026-10-19), else null. */
+  fromSuggestionId?: string | null;
+  /** …and that supplier's shop name — the credit on the photo ("3 photos · 1 from Bloom & Co."). */
+  fromShop?: string | null;
 };
 
 type Props = {

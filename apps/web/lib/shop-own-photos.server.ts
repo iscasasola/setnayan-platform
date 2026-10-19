@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, parseStoredAsset } from '@/lib/uploads';
+import { r2GetBytes } from '@/lib/r2';
+import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 
 /**
@@ -82,4 +84,45 @@ export async function listShopOwnPhotos(
     }),
   );
   return { photos: photos.filter((p): p is ShopOwnPhoto => p !== null), failed: false };
+}
+
+/**
+ * The bytes of one of the shop's OWN photos — the library's "From your shop's photos" and a booked supplier's
+ * "Choose from your shop's photos" on an event's board (2026-10-19). 🛑 The ref must be in the list
+ * `shopOwnPhotoRefs` reads NOW, under the supplier's own session — a ref the browser made up (another shop's key, any
+ * URL) is refused before anything is fetched. A list that could not be read refuses too: we cannot prove it is theirs.
+ */
+export async function readShopOwnPhotoBytes(
+  supabase: SupabaseClient,
+  profile: Pick<VendorProfileRow, 'vendor_profile_id' | 'portfolio_r2_keys'>,
+  ref: string,
+): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  const own = await shopOwnPhotoRefs(supabase, profile);
+  if (own === null) throw new Error('We couldn’t read your shop’s photos just now — please try again in a moment.');
+  if (!own.some((p) => p.ref === ref)) throw new Error('That photo isn’t one of your shop’s photos.');
+  const parsed = parseStoredAsset(ref);
+  if (!parsed) throw new Error('That photo could not be opened.');
+  if (parsed.kind === 'r2') {
+    const { bytes, contentType } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
+    return { bytes, contentType };
+  }
+  const bytes = await safeFetchImageBytes(parsed.url);
+  if (!bytes) throw new Error('That photo could not be opened.');
+  return { bytes, contentType: null };
+}
+
+/** The shop's own logo bytes (the content screen's own-logo check), or null when it has none we can read — the check
+ *  is then SKIPPED, never guessed at. */
+export async function fetchShopLogoBytes(logoUrl: string | null): Promise<Uint8Array | null> {
+  const parsed = parseStoredAsset(logoUrl);
+  if (!parsed) return null;
+  try {
+    if (parsed.kind === 'r2') {
+      const { bytes } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
+      return bytes;
+    }
+    return await safeFetchImageBytes(parsed.url);
+  } catch {
+    return null;
+  }
 }

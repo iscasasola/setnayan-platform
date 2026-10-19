@@ -433,15 +433,15 @@ export function VendorGrowWebsite() {
     <section style={{ ...SECTION, paddingTop: 0 }}>
       <div className="m-split" style={SPLIT}>
         <ul className="m-split-flip" style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="🌐" title="A free, search-ready website" body="We build it for you — live the moment you set an address." />
+          <FeatureLI icon="🌐" title="A free, search-ready Setnayan page" body="We build it for you — live the moment you set an address." />
           <FeatureLI icon="📈" title="SEO + GEO marketing analytics" body="Ranks on Google, discoverable near your couples, tracked." />
-          <FeatureLI icon="🔎" title="Discovered without spending" body="Our site is already search-optimized — that reach is yours." />
+          <FeatureLI icon="🔎" title="Discovered without spending" body="Setnayan is already search-optimized — that reach is yours." />
         </ul>
         <div style={{ maxWidth: '60ch' }}>
           <Eyebrow>Get discovered</Eyebrow>
-          <H2>A website that ranks — no spend, all reach.</H2>
+          <H2>A page that ranks — no spend, all reach.</H2>
           <Lede>
-            You shouldn&rsquo;t pay to be found. We give you a search-optimized website with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
+            You shouldn&rsquo;t pay to be found. We give you a search-optimized Setnayan page with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
           </Lede>
         </div>
       </div>

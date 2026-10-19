@@ -45,7 +45,7 @@ export type BlogCategory = { key: BlogCategoryKey; label: string };
 // filter — see blogCategoriesInUse().
 export const BLOG_CATEGORIES: ReadonlyArray<BlogCategory> = [
   { key: 'planning', label: 'Planning' },
-  { key: 'vendors', label: 'Vendors' },
+  { key: 'vendors', label: 'Suppliers' },
   { key: 'culture', label: 'Culture' },
   { key: 'real-weddings', label: 'Real Weddings' },
   { key: 'news', label: 'Setnayan News' },

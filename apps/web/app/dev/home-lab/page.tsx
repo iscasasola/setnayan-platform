@@ -198,7 +198,11 @@ export default async function HomeLab({
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
   return (
-    <div className={`min-h-screen bg-cream px-4 pt-3 pb-6`}>
+    /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
+       sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
+       a band that overflows (sweep 2026-10-19 C13: 16 px past the right edge at 1280 — the lab's, not the Home's).
+       Held by `lib/the-home-cover-band-fits-its-gutter.test.ts`. */
+    <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name }}

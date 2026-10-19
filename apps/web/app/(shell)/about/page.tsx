@@ -219,12 +219,12 @@ export default function AboutPage() {
               cut of your supplier bills. It&rsquo;s the toolkit: a guest list,
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
-              verified Filipino wedding vendors you message directly, and
+              verified Filipino wedding suppliers you message directly, and
               in-app services — free single-camera livestreaming to YouTube
               (Live Watch), candid photo capture (Papic), a custom wedding
               song (Music Maker), and bespoke monograms. Every service is free to
               use; some have clearly priced upgrades, like Live Watch&rsquo;s
-              multicam control room. Couples and vendors
+              multicam control room. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>
@@ -307,7 +307,7 @@ export default function AboutPage() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Build your guest list, sketch your seating and budget, and browse
-              verified Filipino wedding vendors with 0% booking commission. No
+              verified Filipino wedding suppliers with 0% booking commission. No
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -319,7 +319,7 @@ export default function AboutPage() {
                 href="/explore"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
-                Browse vendors
+                Browse suppliers
               </Link>
             </div>
           </RevealSection>

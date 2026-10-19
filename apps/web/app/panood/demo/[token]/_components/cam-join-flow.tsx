@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Radio, Video, WifiOff } from 'lucide-react';
 import { claimPanoodDemoCamera, getDemoIceServers } from '@/app/_actions/demo-session-actions';
 import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 /**
  * The phone-side half of the Live Studio homepage demo (owner spec,
@@ -127,6 +128,22 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     });
     setStep('live');
   }, [sessionId, token]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo or
+  // a dead track takes the camera, go live again through goLive — the same
+  // rear camera, the slot already in sessionStorage (no second claim), a fresh
+  // publisher — behind the shipped "Starting camera…" state.
+  useCameraThatComesBack({
+    streamRef,
+    live: step === 'live',
+    restart: () => {
+      publisherRef.current?.close();
+      publisherRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      void goLive();
+    },
+  });
 
   // The preview <video> mounts with the 'live' step — attach the stream then.
   useEffect(() => {

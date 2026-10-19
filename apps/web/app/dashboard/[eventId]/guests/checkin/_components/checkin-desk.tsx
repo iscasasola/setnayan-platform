@@ -23,6 +23,7 @@ import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import { tableWords } from '@/lib/table-words';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 export type DeskGuest = {
   guestId: string;
@@ -208,6 +209,18 @@ export function CheckinDesk({
       setCameraError('Camera unavailable — check permissions, or search by name below.');
     }
   }, [stopScanner]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
 
   // Once the <video> has mounted (scanning === true), bind the live stream and
   // run the decode loop. Runs after commit, so videoRef.current is populated.

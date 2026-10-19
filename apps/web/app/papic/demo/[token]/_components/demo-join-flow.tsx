@@ -14,6 +14,7 @@ import { euclideanDistance } from '@/lib/face-match-core';
 import { PAPIC_STYLES, DEFAULT_PAPIC_STYLE } from '@/lib/papic-photo-styles';
 import { recordDemoShot } from '@/app/_actions/demo-session-actions';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 /**
  * The phone-side half of the Papic homepage demo (owner spec, DECISION_LOG
@@ -71,6 +72,10 @@ export function DemoJoinFlow({
   const [shooting, setShooting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Which camera is open, and whether it is showing — so a camera that comes
+  // back reopens the SAME one (selfie for registration, rear for the shoot).
+  const facingRef = useRef<'user' | 'environment'>('user');
+  const [camLive, setCamLive] = useState(false);
   const myVectorRef = useRef<number[] | null>(null);
   const peerVectorsRef = useRef<Partial<Record<DemoRole, number[]>>>({});
 
@@ -126,6 +131,8 @@ export function DemoJoinFlow({
 
   const openCamera = useCallback(async (facing: 'user' | 'environment', nextStep: Step) => {
     setStep(nextStep);
+    setCamLive(false);
+    facingRef.current = facing;
     try {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -137,10 +144,22 @@ export function DemoJoinFlow({
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
+      setCamLive(true);
     } catch {
       setStep('camera-error');
     }
   }, []);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): reopen the same
+  // camera on the same step when iOS, a Duo or a dead track takes it. Held
+  // while a shot is being taken or a face registered — a reopen is never a
+  // shot, so it never reaches recordDemoShot.
+  useCameraThatComesBack({
+    streamRef,
+    live: camLive && (step === 'camera' || step === 'shoot'),
+    restart: () => void openCamera(facingRef.current, step),
+    holdWhile: shooting,
+  });
 
   const registerFace = useCallback(async () => {
     const video = videoRef.current;

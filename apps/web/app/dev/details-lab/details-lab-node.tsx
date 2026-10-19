@@ -26,6 +26,8 @@
  *                         after the owner's Apply). With `?studio=1`.
  *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
  *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
+ *   ?suggest=1            with `?look=1&studio=1`: two photos a lab florist suggested, waiting on Bridal bouquet and on a full
+ *                         Centrepieces — ✓ Keep · ✕ No thanks, the "already has 3 photos" sheet, the top-of-Palette notice
  *   ?library=1            with `?look=1&studio=1`: Search ideas reads the supplier library lab's memory (`/dev/supplier-lab?s=library`)
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
@@ -57,8 +59,22 @@ import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { HUB_THEMES } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { labWishList, labWishState } from './wish-list-fixture';
+import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP, LAB_SUGGEST_SWATCHES } from '../supplier-lab/suggestion-lab-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+
+/* 🤝🖼 `&suggest=1`'s board: the couple's own photos, and what the lab florist sent (`suggestion-lab-fixture.ts`). */
+const LAB_SUGGEST_INSPIRATIONS = [
+  { slot_key: 'bridal_bouquet', slot_position: 1, image_url: LAB_SUGGEST_PHOTO.bq1, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'bridal_bouquet', slot_position: 2, image_url: LAB_SUGGEST_PHOTO.bq2, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 1, image_url: LAB_SUGGEST_PHOTO.cp1, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 2, image_url: LAB_SUGGEST_PHOTO.cp2, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 3, image_url: LAB_SUGGEST_PHOTO.cp3, swatches: LAB_SUGGEST_SWATCHES.own },
+];
+const LAB_SUGGESTIONS = [
+  { id: 'lab-s-bouquet', slotKey: 'bridal_bouquet', shop: LAB_SUGGEST_SHOP, url: LAB_SUGGEST_PHOTO.bqS, swatches: LAB_SUGGEST_SWATCHES.bqS },
+  { id: 'lab-s-centre', slotKey: 'centrepieces', shop: LAB_SUGGEST_SHOP, url: LAB_SUGGEST_PHOTO.cpS, swatches: LAB_SUGGEST_SWATCHES.cpS },
+];
 /** ⛪ `?venue=church`'s stand-in "uploaded" ceremony photo — a ref in this lab event's own scene-media folder (never fetched). */
 const LAB_VENUE_PHOTO_REF = `r2://setnayan-media-public/events/${EVENT}/scene-background/lab-venue.jpg`;
 
@@ -127,6 +143,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const sharedAttire = one('attire') === 'shared';
   /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`; `&groom=tuxedo` etc. pick a design). */
   const rolesAttire = one('attire') === 'roles';
+  /* 🤝🖼 `&suggest=1` — two photos a lab florist suggested, waiting on Bridal bouquet (2 photos of the couple's) and on
+     Centrepieces (already full, 3) — prototype `supplier_inspiration_suggestions_2026-10-19.html` frames 3 · 3b · 4 · 5. */
+  const suggestLab = one('suggest') === '1';
   /* 🪞 `?attire=cale|cale-now` — cale-ice's dress code and guest-list rows as production held them 2026-10-17 (`labCaleIceDressConfig`). */
   /* 👯 `cale-honour` — cale-now with the two honour rows dressed (`labCaleIceDressConfig`, 2026-10-19). */
   /* 🤵‍♂️ `man-honour` — cale-honour with a man of honor on the list and his FOR MEN column dressed (2026-10-19). */
@@ -410,7 +429,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                         : { roles: { bride: { style: ATTIRE_STYLES[0] } } }
                     }
                     attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
-                    inspirations={[]}
+                    inspirations={suggestLab ? LAB_SUGGEST_INSPIRATIONS : []}
+                    suggestions={suggestLab ? LAB_SUGGESTIONS : undefined}
                     autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
                     regions={[]}
                     dosLists={{ dos: ['Lean into the palette', 'Long gowns and ternos'], donts: ['No white or ivory (reserved for the bride)'], incStarter: false }}

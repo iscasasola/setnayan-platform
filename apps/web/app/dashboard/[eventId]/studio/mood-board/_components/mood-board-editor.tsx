@@ -70,6 +70,7 @@ import {
 import type { FinalizationPanelPart } from './part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import type { BoardSection, BoardCard } from './moodboard-board';
+import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -297,7 +298,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     supabase
       .from('event_inspiration_assets')
       .select(
-        `slot_key, slot_position, image_url, library_asset_id,
+        `slot_key, slot_position, image_url, library_asset_id, from_suggestion_id,
          sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6,
          asset:moodboard_library_assets (
            asset_subtype,
@@ -410,6 +411,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     slot_position: number;
     image_url: string;
     library_asset_id: string | null;
+    from_suggestion_id?: string | null;
     sampled_hex_1: string | null;
     sampled_hex_2: string | null;
     sampled_hex_3: string | null;
@@ -439,6 +441,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter(
         (h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h),
       ),
+      fromSuggestionId: r.from_suggestion_id ?? null,
       credit:
         r.library_asset_id && shopName
           ? creditLine(
@@ -1290,7 +1293,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes, lookRes] = await Promise.all([
+  const [eventRes, draft, changesRes, lookRes, suggestionsRes] = await Promise.all([
     supabase.from('events').select('invite_theme, role_palette, region, role_names').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
@@ -1309,11 +1312,34 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .eq('widget_type', 'dress_code')
       .maybeSingle(),
+    /* 🤝🖼 Suppliers' photos — the ones WAITING for Keep / No thanks, and the KEPT ones (their shop is the photo's credit). */
+    supabase
+      .from('event_inspiration_suggestions')
+      .select('suggestion_id, slot_key, shop_label, state, image_url, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6, created_at')
+      .eq('event_id', eventId)
+      .in('state', ['waiting', 'kept'])
+      .order('created_at', { ascending: true })
+      .limit(200),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
   if (changesRes.error) logQueryError('moodBoardStudio.colourChanges', changesRes.error, { eventId }, 'graceful_degrade');
   if (lookRes.error) logQueryError('moodBoardStudio.dressCodeScene', lookRes.error, { eventId }, 'graceful_degrade');
+  /* 🤝🖼 A refused suggestions read is SAID on the Palette (`suggestionsUnread`) — never drawn as "nothing waiting". */
+  if (suggestionsRes.error) logQueryError('moodBoardStudio.suggestions', suggestionsRes.error, { eventId }, 'graceful_degrade');
+  type SuggestionRow = { suggestion_id: string; slot_key: string; shop_label: string; state: string; image_url: string | null } & Record<`sampled_hex_${1 | 2 | 3 | 4 | 5 | 6}`, string | null>;
+  const suggestionRows = (suggestionsRes.data ?? []) as SuggestionRow[];
+  const keptShop = new Map(suggestionRows.filter((r) => r.state === 'kept').map((r) => [r.suggestion_id, r.shop_label]));
+  const suggestions: CoupleSuggestion[] = suggestionRows
+    .filter((r) => r.state === 'waiting' && r.image_url)
+    .map((r) => ({
+      id: r.suggestion_id,
+      slotKey: r.slot_key,
+      shop: r.shop_label,
+      url: r.image_url!,
+      swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter((h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h)),
+    }));
+  const inspirations = studio.inspirations.map((it) => (it.fromSuggestionId ? { ...it, fromShop: keptShop.get(it.fromSuggestionId) ?? null } : it));
   /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
   const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
   const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
@@ -1346,7 +1372,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names))}
       dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
       attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
-      inspirations={studio.inspirations}
+      inspirations={inspirations}
+      suggestions={suggestionsRes.error ? null : suggestions}
       autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
       regions={regions}
       dosLists={studio.dressLists ? { dos: studio.dressLists.dos, donts: studio.dressLists.donts, incStarter: studio.dressLists.incStarter } : null}

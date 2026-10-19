@@ -6,6 +6,7 @@ import { rejectColourChange } from '../../../colour-access-actions';
 import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
 import { applyGalleryPick, fetchGalleryAssets } from '../actions';
 import { updateDressCodeLists } from '../dress-code-actions';
+import { declineInspirationSuggestion, keepInspirationSuggestion, undoKeptInspirationSuggestion } from '../suggestion-actions';
 
 /**
  * The Mood Board studio's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -35,6 +36,10 @@ export type MoodBoardActions = {
   fetchGalleryAssets: typeof fetchGalleryAssets;
   /** The Do's & Don'ts lists (the form's own action; into the draft in the Maker). */
   updateDressCodeLists: typeof updateDressCodeLists;
+  /** 🤝🖼 A supplier's suggested photo: ✓ Keep (into a free place, or the one named) · ✕ No thanks · the Keep's Undo (live). */
+  keepInspirationSuggestion: typeof keepInspirationSuggestion;
+  declineInspirationSuggestion: typeof declineInspirationSuggestion;
+  undoKeptInspirationSuggestion: typeof undoKeptInspirationSuggestion;
 };
 
 export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
@@ -45,6 +50,9 @@ export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
   applyGalleryPick,
   fetchGalleryAssets,
   updateDressCodeLists,
+  keepInspirationSuggestion,
+  declineInspirationSuggestion,
+  undoKeptInspirationSuggestion,
 };
 
 export const MoodBoardActionsContext = createContext<Partial<MoodBoardActions> | null>(null);

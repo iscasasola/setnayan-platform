@@ -24,6 +24,17 @@ import { createClient } from '@/lib/supabase/server';
 export type GroupEditResult = { ok: true; group: { group_id: string; label: string } } | { ok: false; error: string };
 export type GroupCountResult = { ok: true; n: number } | { ok: false; error: string };
 
+/**
+ * 🧮 ONE exported action, three writes (the route budget: every exported server action is a Vercel route, and the repo
+ * sits at its ceiling — `scripts/lint-server-action-budget.mjs`). The helpers below are module-private.
+ */
+export type GroupEdit = { op: 'rename'; label: string } | { op: 'delete' } | { op: 'count' };
+export async function editGuestGroupInPlace(eventId: string, groupId: string, edit: GroupEdit): Promise<GroupEditResult | GroupCountResult> {
+  if (edit.op === 'rename') return renameGuestGroupInPlace(eventId, groupId, edit.label);
+  if (edit.op === 'delete') return deleteGuestGroupInPlace(eventId, groupId);
+  return countGuestGroupMembers(eventId, groupId);
+}
+
 async function signedIn() {
   const supabase = await createClient();
   const {
@@ -32,7 +43,7 @@ async function signedIn() {
   return user ? supabase : null;
 }
 
-export async function renameGuestGroupInPlace(eventId: string, groupId: string, rawLabel: string): Promise<GroupEditResult> {
+async function renameGuestGroupInPlace(eventId: string, groupId: string, rawLabel: string): Promise<GroupEditResult> {
   const label = (rawLabel ?? '').trim();
   if (!label) return { ok: false, error: 'Type a group name.' };
   if (label.length > 64) return { ok: false, error: 'Keep it under 64 characters.' };
@@ -55,7 +66,7 @@ export async function renameGuestGroupInPlace(eventId: string, groupId: string, 
   return { ok: true, group: { group_id: row.group_id, label: row.label } };
 }
 
-export async function deleteGuestGroupInPlace(eventId: string, groupId: string): Promise<GroupEditResult> {
+async function deleteGuestGroupInPlace(eventId: string, groupId: string): Promise<GroupEditResult> {
   const supabase = await signedIn();
   if (!supabase) return { ok: false, error: 'Your session expired — sign in again.' };
   const { data, error } = await supabase
@@ -76,7 +87,7 @@ export async function deleteGuestGroupInPlace(eventId: string, groupId: string):
  * guest's membership is not a person in the group). A refused read is a refusal, never a 0: the confirm then says what
  * happens without a number.
  */
-export async function countGuestGroupMembers(eventId: string, groupId: string): Promise<GroupCountResult> {
+async function countGuestGroupMembers(eventId: string, groupId: string): Promise<GroupCountResult> {
   const supabase = await signedIn();
   if (!supabase) return { ok: false, error: 'Your session expired — sign in again.' };
   const { data: group, error: groupError } = await supabase

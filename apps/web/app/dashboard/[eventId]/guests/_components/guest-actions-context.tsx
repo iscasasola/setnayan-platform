@@ -10,7 +10,7 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { setGuestListFinalized } from '../finalize-actions';
 import { releaseGuestClaim } from '../[guestId]/actions';
-import { countGuestGroupMembers, deleteGuestGroupInPlace, renameGuestGroupInPlace } from '../group-edit-actions';
+import { editGuestGroupInPlace } from '../group-edit-actions';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -46,10 +46,8 @@ export type GuestActions = {
   sendRunHref: (eventId: string, ids: string[]) => string;
   /** Guests › Setup's two doors: "Send to N" (the run, for everyone still to invite) and "Pick who" (the list, in Select mode). */
   setupDoorHref: (eventId: string, door: 'send' | 'pick-who') => string;
-  /** 👥 The ONE Group dropdown's ✎ and 🗑 (owner 2026-10-20): rename and delete a couple's own group in place, and the delete's count. */
-  renameGuestGroupInPlace: typeof renameGuestGroupInPlace;
-  deleteGuestGroupInPlace: typeof deleteGuestGroupInPlace;
-  countGuestGroupMembers: typeof countGuestGroupMembers;
+  /** 👥 The ONE Group dropdown's ✎ and 🗑 (owner 2026-10-20): rename / delete a couple's own group in place, and the delete's count. */
+  editGuestGroupInPlace: typeof editGuestGroupInPlace;
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
@@ -69,9 +67,7 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   releaseGuestClaim,
   sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
   setupDoorHref: (eventId, door) => (door === 'send' ? `/dashboard/${eventId}/guests/send` : `/dashboard/${eventId}/guests?select=to-invite`),
-  renameGuestGroupInPlace,
-  deleteGuestGroupInPlace,
-  countGuestGroupMembers,
+  editGuestGroupInPlace,
 };
 
 export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);

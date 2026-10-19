@@ -30,7 +30,7 @@ import { plainRefusal } from './plain-refusal';
  * WHY NOT `PickMenu` ITSELF: a ✎ inside a row and a name box inside the list are not options — `pick-menu.tsx` sits at its
  * inline-size line (`pick-menu-stays-inline.test.ts`) and a second render path there would split it into its own chunk.
  * The list therefore opens IN FLOW under its row (the prototype's A2), which is also where a phone keyboard can reach the
- * name box. Writes: create = the shipped `quickCreateGroup`; rename / delete / the delete's count = `group-edit-actions.ts`
+ * name box. Writes: create = the shipped `quickCreateGroup`; rename / delete / the delete's count = `editGuestGroupInPlace` (`group-edit-actions.ts`)
  * (result-returning twins of the redirecting `updateGuestGroup` / `deleteGuestGroup`). All through `useGuestActions()` so
  * the dev lab's stand-ins answer there.
  */
@@ -54,6 +54,7 @@ export function GuestGroupPicker({
   onGroupsChange,
   className = '',
   layout,
+  emptyText,
 }: {
   eventId: string;
   label?: string;
@@ -69,8 +70,10 @@ export function GuestGroupPicker({
   className?: string;
   /** Where the pill and its list go (the card puts the list under its Form row). Default: the list under the pill. */
   layout?: (button: ReactNode, list: ReactNode) => ReactNode;
+  /** The pill's words while nothing is ticked (/guests/new: "Choose…"). Default: the label. */
+  emptyText?: string;
 }) {
-  const { quickCreateGroup, renameGuestGroupInPlace, deleteGuestGroupInPlace, countGuestGroupMembers } = useGuestActions();
+  const { quickCreateGroup, editGuestGroupInPlace } = useGuestActions();
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -175,9 +178,9 @@ export function GuestGroupPicker({
     if (!was) return;
     if (!name || name === was.label) return back();
     start(async () => {
-      const res = await hearAction(() => renameGuestGroupInPlace(eventId, id, name));
-      if (!res.ok) {
-        setErr(plainRefusal(res.error, 'Couldn’t rename that group. Try again.'));
+      const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'rename', label: name }));
+      if (!res.ok || !('group' in res)) {
+        setErr(plainRefusal(res.ok ? '' : res.error, 'Couldn’t rename that group. Try again.'));
         return;
       }
       tell((own ?? []).map((g) => (g.groupId === id ? { ...g, label: res.group.label } : g)));
@@ -190,14 +193,14 @@ export function GuestGroupPicker({
     setCount(null);
     setMode({ kind: 'delete', id });
     start(async () => {
-      const res = await hearAction(() => countGuestGroupMembers(eventId, id));
-      setCount(res.ok ? res.n : 'unknown');
+      const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'count' }));
+      setCount(res.ok && 'n' in res ? res.n : 'unknown');
     });
   };
 
   const remove = (id: string) => {
     start(async () => {
-      const res = await hearAction(() => deleteGuestGroupInPlace(eventId, id));
+      const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'delete' }));
       if (!res.ok) {
         setErr(plainRefusal(res.error, 'Couldn’t delete that group. Try again.'));
         return;
@@ -233,7 +236,7 @@ export function GuestGroupPicker({
       onClick={() => (open ? close() : setOpen(true))}
       className={`${pickButtonClass(false)} ${className}`}
     >
-      <span className="min-w-0 truncate">{text || label}</span>
+      <span className="min-w-0 truncate">{text || emptyText || label}</span>
       <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
     </button>
   );
@@ -245,7 +248,7 @@ export function GuestGroupPicker({
     </p>
   );
   const strip = (danger: boolean, children: ReactNode) => (
-    <div className={`mx-1 my-1 space-y-1.5 rounded-xl border p-2.5 ${danger ? 'border-danger-700/35 bg-danger-700/5' : 'border-terracotta/40 bg-terracotta/10'}`}>{children}</div>
+    <div className={`mx-1 my-1 space-y-1.5 rounded-xl p-2.5 ${danger ? 'bg-danger-700/5' : 'bg-terracotta/10'}`}>{children}</div>
   );
 
   const ownRow = (g: OwnGroup) => {

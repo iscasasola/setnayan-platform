@@ -356,6 +356,28 @@ export default async function GuestsLabPage({
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
       : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
+    /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
+       also the Candle Sponsor, in Family and two of the couple's own groups — the ONE Group / ONE Role dropdowns' after-state. */
+    const proto = sp.proto === '1';
+    const protoGuest = proto ? guest({ first_name: 'Corazon', last_name: 'Reyes', side: 'bride', group_category: 'family', role: 'principal_sponsor_ninang', extra_roles: ['candle_sponsor'] as GuestRow['extra_roles'] }) : null;
+    const protoData = proto
+      ? {
+          groupOptions: ['family', 'friends', 'work', 'school', 'officiant', 'other'],
+          groupChoices: {
+            options: [
+              { groupId: 'lab-g1', label: 'College Friends' },
+              { groupId: 'lab-g3', label: 'Cebu cousins' },
+              { groupId: 'lab-g4', label: 'Office — Makati' },
+              { groupId: 'lab-g2', label: 'Out of town' },
+            ],
+            memberIds: ['lab-g1', 'lab-g2'],
+          },
+          customGroups: [
+            { label: 'College Friends', teamSide: 'both' },
+            { label: 'Out of town', teamSide: 'both' },
+          ],
+        }
+      : {};
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
@@ -367,7 +389,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(g, host), roleNames: labWords }}
+                  data={{ ...cardData(protoGuest ?? g, host), ...protoData, roleNames: labWords } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"

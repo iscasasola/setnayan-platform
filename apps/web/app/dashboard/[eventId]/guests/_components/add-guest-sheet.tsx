@@ -124,8 +124,8 @@ export function AddGuestSheet({
   return (
     <GuestPopup
       onClose={() => setOpen(false)}
-      rootClassName="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      panelClassName="relative max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:max-w-lg sm:rounded-3xl"
+      rootClassName="fixed inset-0 z-50 flex items-end justify-center tab:items-stretch tab:justify-end"
+      panelClassName="relative max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-3xl"
       panelData={{ 'data-add-guest-sheet': '' }}
       label="Add a guest"
       focusFirstInput

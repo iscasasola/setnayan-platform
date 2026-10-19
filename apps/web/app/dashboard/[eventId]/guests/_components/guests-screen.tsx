@@ -1161,8 +1161,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
         {newGroup ? (
         <GuestPopup
           onClose={() => setNewGroup(false)}
-          rootClassName="fixed inset-0 z-[96] flex items-end justify-center lg:items-center"
-          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:rounded-3xl"
+          rootClassName="fixed inset-0 z-[96] flex items-end justify-center tab:items-stretch tab:justify-end"
+          panelClassName="relative w-full max-w-md rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:max-w-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-3xl tab:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]"
           labelledById="gs-new-group-title"
         >
           <div className="space-y-3 p-5 text-ink">

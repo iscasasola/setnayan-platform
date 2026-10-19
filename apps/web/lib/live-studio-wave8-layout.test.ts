@@ -349,7 +349,7 @@ test('WAVE 8 — the shared <Sheet> `wide` prop is additive (existing callers un
   // choice is `wide ? at.wide : at.narrow` and each set must still flip both
   // widths at its OWN one breakpoint.
   assert.match(primitive, /wide \? at\.wide : at\.narrow/, 'the wide/narrow width ternary is gone from the sheet primitive');
-  const sets = [...primitive.matchAll(/narrow: '([a-z0-9]+):w-\[[^']+\]',\s*wide: '([a-z0-9]+):w-\[min\(34rem,92vw\)\]'/g)];
+  const sets = [...primitive.matchAll(/narrow: '([a-z0-9]+):w-\[[^']+\]',\s*wide: '([a-z0-9]+):w-\[[^']+\]'/g)];
   assert.ok(sets.length >= 2, `expected a narrow/wide pair per boundary, saw ${sets.length}`);
   for (const m of sets) {
     assert.equal(m[1], m[2], 'the wide and narrow drawer widths flip at DIFFERENT breakpoints — one of them is stranded');

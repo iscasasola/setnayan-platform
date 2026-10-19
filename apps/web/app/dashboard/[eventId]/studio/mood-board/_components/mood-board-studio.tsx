@@ -48,6 +48,8 @@ import {
   withRoleColours,
   type AutoSuggestion,
 } from '@/lib/mood-board-studio';
+import { afterGuestsArriveWrite, guestsArriveHhmm, guestsArriveTime, guestsArriveWrite, GUESTS_ARRIVE_UNSET, type ArriveBlock } from '@/lib/guests-arrive';
+import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import { MOOD_BOARD_NOT_SAVED, dressCodeDraftFields, paletteDraftFields, slotRemoveFields, slotUploadFields } from '@/lib/studio-mood-board-saves';
 import { STUDIO_GROUP, STUDIO_GROUP_HEAD } from '@/lib/studio-skin';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -137,6 +139,13 @@ export type MoodBoardStudioProps = {
    * drawn as "nothing waiting". Absent = none (the shipped Mood Board page).
    */
   suggestions?: CoupleSuggestion[] | null;
+  /**
+   * ⏰ WHEN GUESTS ARRIVE — the Guests row's CALL TIME (owner 2026-10-19, DECISION_LOG "GUESTS GET A CALL TIME IN THE DRESS
+   * CODE — THE SAME FIELD AS 'GUESTS ARRIVE'"): the programme's moments as stored and the event's date. The time is the
+   * Schedule's own arrival moment (`lib/guests-arrive.ts`), written through the Schedule's own writers — never the dress code.
+   * `null` = the programme could not be read (said on the row, never drawn as "not set"). Absent = no Guests call time.
+   */
+  arrival?: { blocks: ArriveBlock[]; eventDate: string | null } | null;
 };
 
 export type Tab = 'colours' | 'attire' | 'dos';
@@ -222,7 +231,7 @@ function boardUndo(put: (undone: boolean) => void): UndoStep {
 export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const { eventId } = props;
   const router = useRouter();
-  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion } = useMoodBoardActions();
+  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion, updateScheduleBlock, createScheduleBlock } = useMoodBoardActions();
   const [tab, setTab] = useState<Tab>(props.startTab ?? 'colours');
   const [sheet, setSheet] = useState<Sheet>(null);
   useOneOpen(sheet !== null, () => setSheet(null));
@@ -417,6 +426,37 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     if (!dress) return;
     const next = withCallTime(dress, row.tier, row.key, hhmm);
     if (next !== dress) saveDress(next);
+  };
+  /* ⏰ THE GUESTS' CALL TIME IS THE SCHEDULE'S ARRIVAL MOMENT (owner 2026-10-19) — retimed or added through the Schedule's
+     OWN writers (`updateScheduleBlock` / `createScheduleBlock`, the fields `guestsArriveWrite` names), quiet like Studio ›
+     Schedule's, then the canvas pages redraw. Live at once, like every schedule edit; never written into the dress code. */
+  const [arriveBlocks, setArriveBlocks] = useState<ArriveBlock[] | null>(props.arrival ? props.arrival.blocks : null);
+  const setGuestsArrive = (hhmm: string | null) => {
+    if (!arriveBlocks || hhmm === null) return;
+    const plan = guestsArriveWrite({ blocks: arriveBlocks, hhmm, eventDate: props.arrival?.eventDate ?? null });
+    if (plan.kind === 'refuse') {
+      refuse(plan.why);
+      return;
+    }
+    const before = arriveBlocks;
+    const newId = plan.kind === 'create' ? crypto.randomUUID() : '';
+    const after = afterGuestsArriveWrite(before, plan, newId);
+    setArriveBlocks(after);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    for (const [k, v] of Object.entries(plan.fields)) if (typeof v === 'string') fd.set(k, v);
+    if (plan.kind === 'create') fd.set('block_id', newId);
+    fd.set(MAKER_QUIET_FIELD, '1');
+    (plan.kind === 'update' ? updateScheduleBlock(fd) : createScheduleBlock(fd)).then(
+      () => {
+        tell(`Guests arrive ${guestsArriveTime(after) ?? ''}.`.replace(' .', '.'));
+        requestCanvasRedraw();
+      },
+      () => {
+        setArriveBlocks(before);
+        failed(MOOD_BOARD_NOT_SAVED.arrive);
+      },
+    );
   };
   const saveDress = (next: Record<string, unknown>) => {
     if (!dress) return;
@@ -1060,7 +1100,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
             /* ⏰ What the draft holds now — so the header says a time the moment it is set, not after a reload. */
             const callTime = dress ? callTimeOf(dress, row.tier, row.key) : null;
-            const arrives = dress ? formatCallTime(callTime) : row.arrives;
+            /* ⏰ Guests: the Schedule's arrival moment (`guestsArriveTime`), not a dress-code time. */
+            const forGuests = row.key === 'guest';
+            const arrives = forGuests ? (arriveBlocks ? guestsArriveTime(arriveBlocks) : null) : dress ? formatCallTime(callTime) : row.arrives;
             return (
               <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
                 <header className="flex flex-wrap items-baseline gap-2">
@@ -1254,8 +1296,20 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 </div>
                 {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of these colours — never combined. Up to five.</p> : null}
                 {/* ⏰ CALL TIME — one per row, right here where the row is dressed (owner 2026-10-18: "each role will have their
-                    call time"). Guests have none: they come at the start. */}
-                {dress && row.key !== 'guest' ? (
+                    call time"). Guests too (owner 2026-10-19: "guest call time") — theirs is the Schedule's arrival moment, the
+                    invitation's "Guests arrive" and Event Details' row, one field (`lib/guests-arrive.ts`). */}
+                {forGuests && props.arrival !== undefined ? (
+                  <CallTimeRow
+                    rowKey={row.key}
+                    label={row.label}
+                    value={arriveBlocks ? guestsArriveHhmm(arriveBlocks) : null}
+                    canSet={arriveBlocks !== null}
+                    waits="The programme could not be read — try again"
+                    unset={GUESTS_ARRIVE_UNSET}
+                    clearable={false}
+                    onSet={setGuestsArrive}
+                  />
+                ) : dress && !forGuests ? (
                   <CallTimeRow rowKey={row.key} label={row.label} value={callTime} canSet={canNote} onSet={(t) => setCallTime(row, t)} />
                 ) : null}
                 {canNote ? (
@@ -1429,7 +1483,28 @@ function Thumb({ src, badge = null, big = false }: { src: string; badge?: string
  * half-read "7" can never become an alarm). It saves when the wheel is put away (blur), only when the time changed; Clear
  * takes it back. A row with no Wear picked has no outfit line to keep a time on (`withCallTime`), and says so.
  */
-function CallTimeRow({ rowKey, label, value, canSet, onSet }: { rowKey: string; label: string; value: string | null; canSet: boolean; onSet: (hhmm: string | null) => void }) {
+function CallTimeRow({
+  rowKey,
+  label,
+  value,
+  canSet,
+  onSet,
+  waits = 'Pick what they wear first',
+  unset = null,
+  clearable = true,
+}: {
+  rowKey: string;
+  label: string;
+  value: string | null;
+  canSet: boolean;
+  onSet: (hhmm: string | null) => void;
+  /** Said in place of the field while it cannot be set. */
+  waits?: string;
+  /** Said beside an empty field (the Guests row: "Set when guests arrive"). */
+  unset?: string | null;
+  /** The Guests row's time is a moment on the Schedule — it is changed here, never cleared from here. */
+  clearable?: boolean;
+}) {
   const id = useId();
   const [time, setTime] = useState(value ?? '');
   useEffect(() => setTime(value ?? ''), [value]);
@@ -1459,10 +1534,15 @@ function CallTimeRow({ rowKey, label, value, canSet, onSet }: { rowKey: string; 
             aria-label={`${label} — call time`}
             className="h-11 min-w-0 rounded-xl border border-ink/15 bg-raised px-3 text-[16px] text-ink" // no-card-ok: a time field, not a container
           />
-          {value ? <ActionButton tone="neutral" quiet icon={X} label="Clear" name={`Clear the call time for ${label}`} onClick={() => { setTime(''); onSet(null); }} /> : null}
+          {value && clearable ? <ActionButton tone="neutral" quiet icon={X} label="Clear" name={`Clear the call time for ${label}`} onClick={() => { setTime(''); onSet(null); }} /> : null}
+          {!value && unset ? (
+            <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-unset="">
+              {unset}
+            </span>
+          ) : null}
         </>
       ) : (
-        <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-waits="">Pick what they wear first</span>
+        <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-waits="">{waits}</span>
       )}
     </div>
   );

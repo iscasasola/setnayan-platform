@@ -7,6 +7,7 @@ import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-action
 import { applyGalleryPick, fetchGalleryAssets } from '../actions';
 import { updateDressCodeLists } from '../dress-code-actions';
 import { declineInspirationSuggestion, keepInspirationSuggestion, undoKeptInspirationSuggestion } from '../suggestion-actions';
+import { createScheduleBlock, updateScheduleBlock } from '../../../schedule/actions';
 
 /**
  * The Mood Board studio's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -40,6 +41,9 @@ export type MoodBoardActions = {
   keepInspirationSuggestion: typeof keepInspirationSuggestion;
   declineInspirationSuggestion: typeof declineInspirationSuggestion;
   undoKeptInspirationSuggestion: typeof undoKeptInspirationSuggestion;
+  /** ⏰ The guests' call time — the Schedule's arrival moment retimed, or added (live; the Schedule's own writers). */
+  updateScheduleBlock: typeof updateScheduleBlock;
+  createScheduleBlock: typeof createScheduleBlock;
 };
 
 export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
@@ -53,6 +57,8 @@ export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
   keepInspirationSuggestion,
   declineInspirationSuggestion,
   undoKeptInspirationSuggestion,
+  updateScheduleBlock,
+  createScheduleBlock,
 };
 
 export const MoodBoardActionsContext = createContext<Partial<MoodBoardActions> | null>(null);

@@ -112,6 +112,7 @@ import { studioAttireRows } from '@/lib/studio-attire-rows';
 import { readRoleNames } from '@/lib/role-names.server';
 import { incDressCodeStarter } from './inc-dress-code-starter';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchScheduleBlocks } from '@/lib/schedule';
 
 /** The suppliers a part may be ASKED — the booked marketplace shop, named by its key (see the read). */
 export const BOOKED_SUPPLIER_SELECT = 'vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )';
@@ -1293,8 +1294,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes, lookRes, suggestionsRes] = await Promise.all([
-    supabase.from('events').select('invite_theme, role_palette, region, role_names').eq('event_id', eventId).maybeSingle(),
+  const [eventRes, draft, changesRes, lookRes, suggestionsRes, scheduleRead] = await Promise.all([
+    supabase.from('events').select('invite_theme, role_palette, region, role_names, event_date').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
       .from('event_colour_changes')
@@ -1320,6 +1321,15 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       .in('state', ['waiting', 'kept'])
       .order('created_at', { ascending: true })
       .limit(200),
+    /* ⏰ The programme — the Guests row's CALL TIME is its arrival moment (`lib/guests-arrive.ts`, owner 2026-10-19). A refused
+       read is said on the row (`arrival: null`), never drawn as "not set". */
+    fetchScheduleBlocks(supabase, eventId).then(
+      (blocks) => ({ ok: true as const, blocks }),
+      (err: unknown) => {
+        logQueryError('moodBoardStudio.schedule', { message: err instanceof Error ? err.message : String(err) }, { eventId }, 'graceful_degrade');
+        return { ok: false as const };
+      },
+    ),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
@@ -1343,7 +1353,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
   const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
   const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
-  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null, role_names: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null; role_names?: unknown };
+  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null, role_names: null, event_date: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null; role_names?: unknown; event_date?: string | null };
   const shown = overlayHubDraftEvent(live, draft);
   /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
   const themeId = normalizeThemeId(typeof shown.invite_theme === 'string' ? shown.invite_theme : null) ?? 'house';
@@ -1378,6 +1388,24 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       regions={regions}
       dosLists={studio.dressLists ? { dos: studio.dressLists.dos, donts: studio.dressLists.donts, incStarter: studio.dressLists.incStarter } : null}
       dosLookCanvas={dosLookCanvas}
+      arrival={
+        scheduleRead.ok
+          ? {
+              blocks: scheduleRead.blocks.map((b) => ({
+                block_id: b.block_id,
+                label: b.label,
+                block_type: b.block_type,
+                start_at: b.start_at,
+                end_at: b.end_at,
+                is_public: b.is_public,
+                sort_order: b.sort_order,
+                parent_block_id: b.parent_block_id,
+                audience: b.audience ?? null,
+              })),
+              eventDate: (() => { const d = (shown as { event_date?: unknown }).event_date; return typeof d === 'string' ? d : (live.event_date ?? null); })(),
+            }
+          : null
+      }
     />
   );
 }

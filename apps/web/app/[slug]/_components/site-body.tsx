@@ -74,6 +74,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -1021,6 +1022,9 @@ export async function SiteBody({
     firstStartAt: scheduleBlocks[0]?.start_at ?? null,
     firstLabel: scheduleBlocks[0]?.label ?? null,
   });
+  /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
+     code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */
+  const guestsArriveBy = guestsArriveTime(scheduleBlocks);
   // Which wedding-only parts this event TYPE may show. The words half of the
   // owner's ruling is done; this is the other half — a seven-year-old does not
   // need a neutrally-worded love story, he needs no love story.
@@ -2783,6 +2787,7 @@ export async function SiteBody({
               rolePalette: event.role_palette,
               roleNames,
               comingWith,
+              guestsArriveBy,
             }),
           })
         : [];
@@ -2833,6 +2838,7 @@ export async function SiteBody({
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
       dosLook: dosLookOfRow(widgetByType(widgets, 'dress_code')),
+      guestsArriveBy,
     };
     const welcome = welcomeParts({
       stage: pageStage,

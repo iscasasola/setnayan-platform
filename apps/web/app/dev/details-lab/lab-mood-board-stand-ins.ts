@@ -26,6 +26,9 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   keepInspirationSuggestion: async () => ({ status: 'ok', slotPosition: 0, replaced: false }),
   declineInspirationSuggestion: async () => ({ status: 'ok' }),
   undoKeptInspirationSuggestion: async () => ({ status: 'ok' }),
+  /* ⏰ The guests' call time — the Schedule's own writers answer like the real ones (they return nothing, or throw). */
+  updateScheduleBlock: async () => undefined,
+  createScheduleBlock: async () => undefined,
 };
 
 /** `?refuse=1`: the writes REFUSE with the database's own words (or throw), on purpose. */
@@ -40,4 +43,10 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   keepInspirationSuggestion: async () => ({ status: 'error' }),
   declineInspirationSuggestion: async () => ({ status: 'error' }),
   undoKeptInspirationSuggestion: async () => ({ status: 'error' }),
+  updateScheduleBlock: async () => {
+    throw new Error('new row violates check constraint "event_schedule_blocks_check"');
+  },
+  createScheduleBlock: async () => {
+    throw new Error('permission denied for table event_schedule_blocks');
+  },
 };

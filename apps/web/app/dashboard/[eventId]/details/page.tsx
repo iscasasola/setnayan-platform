@@ -32,6 +32,7 @@ import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu'
 import { CEREMONY_VENUE_SETTING_SHORT_LABEL } from '@/lib/venue-settings';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
+import { guestsArriveMoment } from '@/lib/guests-arrive';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import { computeGuestStats, fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -356,8 +357,9 @@ export default async function EventDetailsPage({
   const blocks = scheduleRead.ok ? scheduleRead.v : [];
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');
-  const firstPublic = blocks.find((b) => b.is_public && !b.parent_block_id && b.start_at) ?? null;
-  const arrive = firstPublic && firstPublic !== ceremony && firstPublic !== reception ? firstPublic : null;
+  /* ⏰ "Guests arrive" — THE one arrival moment (`lib/guests-arrive.ts`): the invitation's first moment, which the
+     dress code's Guests row reads as its CALL TIME (owner 2026-10-19). Never a rule of its own here. */
+  const arrive = guestsArriveMoment(blocks);
   /* 🕒 The ceremony time as drafted under the Date (`ceremony_time`, HH:MM on
      the venue's wall clock) — else the Ceremony block's own. */
   const draftedCeremonyTime = typeof draftEvents.ceremony_time === 'string' ? draftEvents.ceremony_time : null;

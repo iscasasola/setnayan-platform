@@ -66,6 +66,8 @@ const ANCHORS: Record<string, RegExp> = {
   user_unfollows: eqUid('follower_user_id'),
   invite_mutes: eqUid('user_id'),
   vendor_reuse_requests: eqUid('requested_by_user_id'),
+  /* 🤝🖼 Photos the subject suggested to a couple's board as a booked supplier — the author's act (2026-10-19). */
+  event_inspiration_suggestions: eqUid('suggested_by_user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),

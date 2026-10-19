@@ -32,6 +32,9 @@ import type { MarchCardResult } from '../march-card-actions';
  */
 export type MarchCardPerson = { id: string; name: string };
 
+/** The card's layer on <body>: above the Maker's full-screen shell (`z-[80]`), under the card's own dropdowns (`z-[95]`). */
+export const MARCH_CARD_LAYER = 'relative z-[90]';
+
 export function MarchGuestCard({
   eventId,
   person,
@@ -71,8 +74,13 @@ export function MarchGuestCard({
   }, [onClose, onSaved]);
 
   if (!body) return null;
+  /* 🪜 OVER THE MAKER, NOT UNDER IT (owner 2026-10-19, on live: *"tapping the person on the wedding march does not show the
+     guest card as planned"*). The Maker is a full-screen layer (`maker-shell.tsx`, `fixed … z-[80]`) and `Sheet` is
+     `z-50`: drawn on <body> bare, the card opened BEHIND the Maker — the tapped name wore its ring and nothing else
+     changed. Lifted the way the Studio's own sheets are (`WishSheet`, `relative z-[90]`): above the Maker and its bars,
+     still under what the card itself opens — its dropdowns (`PickMenu`, z-[95]), its ⓘ notes (z-[96]), its toasts. */
   return createPortal(
-    <>
+    <div data-march-card-layer="" className={MARCH_CARD_LAYER}>
       <Sheet open onClose={close} labelledById={headId} rise>
         <div
           data-march-card={person.id}
@@ -101,7 +109,7 @@ export function MarchGuestCard({
         </div>
       </Sheet>
       <UndoToastHost />
-    </>,
+    </div>,
     body,
   );
 }

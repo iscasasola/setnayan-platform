@@ -2,6 +2,7 @@ import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/gues
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import type { MarchCardResult } from '@/app/dashboard/[eventId]/launch/march-card-actions';
 import type { GuestRow } from '@/lib/guests';
+import { parseTitleKey } from '@/lib/guest-title';
 import { LAB_MARCH_RENAMES, labMarchPerson } from './march-fixture';
 
 /**
@@ -102,7 +103,8 @@ export async function labOpenMarchCard(eventId: string, guestId: string): Promis
     const first = String(formData.get('first_name') ?? '').trim();
     const last = String(formData.get('last_name') ?? '').trim();
     if (!first || !last) return { refused: 'missing_name' };
-    const prefix = String(formData.get('name_prefix') ?? '').trim();
+    /* The card's Title posts ONE key now (`name_title`, "Mr.|man" — `updateGuest` reads it the same way); an older form, `name_prefix`. */
+    const prefix = formData.has('name_title') ? (parseTitleKey(formData.get('name_title')).name_prefix ?? '') : String(formData.get('name_prefix') ?? '').trim();
     LAB_MARCH_RENAMES.set(id, { prefix: prefix || null, first, last });
   }
   async function labRelease() {

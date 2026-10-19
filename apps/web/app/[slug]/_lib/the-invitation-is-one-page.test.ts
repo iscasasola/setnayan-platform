@@ -27,6 +27,10 @@
  *       cover's edge with the top bar and without it.
  *       And where it lands, what follows the cover starts 8 px clear of the top bar.
  *   8 · a short page still gets its bars at its end, and a tap on a bar never takes them away.
+ *   9 · (owner 2026-10-19 21:45, live cale-ice on his phone: both bars over the cover just after the unveil) a guest
+ *       who arrives by a CLIENT-SIDE navigation still gets the wait — React inserts the server's script without running
+ *       it, so the client re-runs that same text — and the page's end counts only where the cover cannot scroll away,
+ *       after the guest's own move (never a load, a layout shift, or a scroll the page made itself).
  *
  * SABOTAGES (each run once, seen red, put back — recorded in the PR body and the handover).
  */
@@ -199,7 +203,7 @@ async function menuCode() {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { CoverSceneMenuWaits } = await import('../_components/cover-scene-menu');
-  return renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  return renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script[^>]*>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 }
 
 const COVER_H = 800;
@@ -401,6 +405,7 @@ test('8 · the bars come when the cover is gone OR the page’s end is reached; 
     const how = withIo ? 'observer' : 'scroll measure';
     const short = menuSim(code, true, withIo, COVER_H + 500); // the page can scroll 488 px: never past the cover
     assert.equal(short.now(), 'wait', `${how}: a short page put its bars over the cover on landing`);
+    short.touch(); // the guest's own swipe (test 9: the end counts only after one)
     assert.equal(short.scrollTo(200), 'wait', `${how}: the bars came mid-way down a short page with its cover on screen`);
     assert.equal(short.scrollTo(10_000), 'open', `${how}: at a short page’s end (cover still on screen) the bars did not come`);
     assert.ok(short.y() < COVER_H, 'precondition: the cover is still on screen at the end');
@@ -425,4 +430,111 @@ test('8 · the bars come when the cover is gone OR the page’s end is reached; 
   /* The Save the Date's bar carries Me for a guest with their own link — the bar the end of a short page brings in. */
   const std = await renderSiteBodyFixture({ ...STORY, lifecyclePhase: 'save_the_date', stdFilm: true });
   assert.ok(barOf(std).some((b) => b.label === 'Me' && b.href === '?tab=me'), 'the Save the Date’s bar has no Me');
+});
+
+/* ══ 9 · ARRIVING BY A CLIENT-SIDE NAVIGATION · THE END IS THE GUEST'S ════════════ */
+
+/**
+ * A page React has just inserted by a client-side navigation: its `<script data-cover-menu-script>` is in the DOM with
+ * the shipped text and has NOT run (React never executes a script it inserts). Appending a NEW `<script>` element runs
+ * its text, as a browser does. `coverAt` is when the Cover Scene is in the DOM: at once, or only after the script
+ * looked (streamed in after it — the body's mutation then reveals it).
+ */
+function navSim(code: string, opts: { coverAt: 'now' | 'later' | 'never'; marker?: string | null; running?: boolean }) {
+  const styles: Array<{ attrs: Record<string, string> }> = [];
+  const win: Record<string, unknown> = { scrollY: 0, innerHeight: VH };
+  const listeners: Record<string, Array<() => void>> = {};
+  win.addEventListener = (t: string, f: () => void) => void (listeners[t] ??= []).push(f);
+  win.removeEventListener = () => {};
+  let coverIn = opts.coverAt === 'now';
+  const header = { offsetParent: {}, getBoundingClientRect: () => ({ top: -(win.scrollY as number), bottom: COVER_H - (win.scrollY as number) }) };
+  const mos: Array<() => void> = [];
+  class MO {
+    cb: () => void;
+    constructor(cb: () => void) { this.cb = cb; }
+    observe() { mos.push(this.cb); }
+    disconnect() { const i = mos.indexOf(this.cb); if (i >= 0) mos.splice(i, 1); }
+  }
+  let runs = 0;
+  const exec = (text: string) => {
+    runs++;
+    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', 'IntersectionObserver', 'MutationObserver', text)(win, doc, win.addEventListener, win.removeEventListener, () => {}, undefined, MO);
+  };
+  const makeStyle = () => {
+    const attrs: Record<string, string> = {};
+    return { attrs, tag: 'style', setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
+  };
+  const doc = {
+    readyState: 'complete',
+    body: {},
+    head: { appendChild: (el: { tag: string; textContent?: string; attrs?: Record<string, string> }) => { if (el.tag === 'script') exec(el.textContent ?? ''); else styles.push(el as never); } },
+    documentElement: new Proxy({}, { get: () => () => {} }),
+    scrollingElement: { scrollHeight: 5000 },
+    createElement: (tag: string) => (tag === 'style' ? makeStyle() : { tag, textContent: '', remove: () => {} }),
+    querySelector: (sel: string) => {
+      if (sel === 'script[data-cover-menu-script]') return { textContent: code };
+      if (sel.startsWith('style')) return styles[0] ?? null;
+      if (sel === 'header[data-cover-scene]') return coverIn ? header : null;
+      return null;
+    },
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  if (opts.running) exec(code); // the page was first loaded whole: the server's script ran on its own
+  if (opts.marker !== undefined && opts.marker !== null && styles[0]) styles[0].attrs['data-cover-menu'] = opts.marker;
+  return {
+    marker: () => (styles.length ? styles.map((x) => x.attrs['data-cover-menu']).join(',') : null),
+    runs: () => runs,
+    drawCover: () => { coverIn = true; for (const f of [...mos]) f(); },
+    win: win as unknown as Window,
+    doc: doc as unknown as Document,
+  };
+}
+
+test('9 · a guest who arrives by a client-side navigation gets the wait; the end counts only where the cover cannot leave, after the guest’s own move', async () => {
+  const code = await menuCode();
+  const { runCoverMenuOnClient } = await import('../_components/cover-scene-menu-on-client');
+  /* The shipped component carries its own client half — the one place a client-side navigation is caught. */
+  const MENU = src('_components', 'cover-scene-menu.tsx');
+  assert.equal(MENU.match(/<CoverSceneMenuOnClient \/>/g)?.length, 1, 'CoverSceneMenuWaits no longer mounts its client half');
+  assert.match(MENU, /<script\s+\{\.\.\.\{ \[COVER_MENU_SCRIPT_ATTR\]: '' \}\}/, 'the server script is not findable by the client half');
+
+  /* Live 2026-10-19 21:45: React inserted the page, its script never ran — no marker, both bars over the cover. */
+  const notRun = navSim(code, { coverAt: 'now' });
+  assert.equal(notRun.marker(), null, 'precondition: a script React inserts does not run');
+  runCoverMenuOnClient(notRun.doc, notRun.win);
+  assert.equal(notRun.marker(), 'wait', 'arrived by a client-side navigation, the bars are drawn over the cover');
+  runCoverMenuOnClient(notRun.doc, notRun.win);
+  assert.equal(notRun.runs(), 1, 'a second mount ran the script again (two sets of listeners)');
+  assert.equal(notRun.marker(), 'wait', 'a second mount added a second marker');
+
+  /* Already running (the guest first loaded a page whole, left it with the cover gone, came back): it looks again. */
+  const back = navSim(code, { coverAt: 'now', running: true, marker: 'open' });
+  assert.equal(back.marker(), 'open', 'precondition: the marker left open by the last page');
+  runCoverMenuOnClient(back.doc, back.win);
+  assert.equal(back.marker(), 'wait', 'back on a cover by a client-side navigation, the old page’s open marker stayed');
+  assert.equal(back.runs(), 1, 'the running script was started a second time');
+
+  /* The cover streams in after the script looked: the body's mutation brings the wait back. */
+  const late = navSim(code, { coverAt: 'later' });
+  runCoverMenuOnClient(late.doc, late.win);
+  assert.equal(late.marker(), 'open', 'precondition: no cover yet, nothing to wait for');
+  late.drawCover();
+  assert.equal(late.marker(), 'wait', 'a cover drawn after the script looked got the bars over it');
+  /* Me (no cover ever): open, as always. */
+  const me = navSim(code, { coverAt: 'never' });
+  runCoverMenuOnClient(me.doc, me.win);
+  assert.equal(me.marker(), 'open', 'a page with no cover (Me) holds the bars back');
+
+  /* The end is the guest's: a page not yet as tall as it will be (its sections still mounting) that the unveil or a
+     layout shift nudged 10 px is at its "end" — but nobody moved it. */
+  for (const withIo of [true, false]) {
+    const how = withIo ? 'observer' : 'scroll measure';
+    const nudged = menuSim(code, true, withIo, VH + 10);
+    assert.equal(nudged.scrollTo(10), 'wait', `${how}: the page's end, reached by no move of the guest's, put the bars over the cover`);
+    const short = menuSim(code, true, withIo, COVER_H + 500);
+    assert.equal(short.scrollTo(10_000), 'wait', `${how}: a short page's end reached by the page itself put the bars over the cover`);
+    short.touch();
+    assert.equal(short.scrollTo(10_000), 'open', `${how}: at a short page's end after the guest's own swipe, the bars did not come`);
+  }
 });

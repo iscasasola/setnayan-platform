@@ -77,6 +77,7 @@ import type {
   DaySupplier,
   DayTemplate,
 } from './day-types';
+import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
@@ -663,7 +664,7 @@ export function ScheduleDay({
                 ...(rosEnabled
                   ? taggedSuppliers.map((s) => {
                       const n = topLevel.filter((m) => m.responsible_vendor_ids.includes(s.vendor_id)).length;
-                      return { key: `vendor:${s.vendor_id}`, label: `${s.vendor_name} · ${n} moment${n === 1 ? '' : 's'}` };
+                      return { key: `vendor:${s.vendor_id}`, label: `${supplierOnItem(s)} · ${n} moment${n === 1 ? '' : 's'}` };
                     })
                   : []),
               ]}
@@ -999,6 +1000,19 @@ export function ScheduleDay({
                             <span className="hidden truncate font-sans text-ink/55 lg:inline">{m.location}</span>
                           ) : null}
                         </p>
+                        {/* 🗓 The suppliers this item is given to — shop name ·
+                            Booked / Shortlisted (owner 2026-10-20). One line, on
+                            the phone too: it is who answers for the moment. */}
+                        {!short && m.responsible_vendor_ids.length > 0
+                          ? (() => {
+                              const onIt = suppliers.filter((s) => m.responsible_vendor_ids.includes(s.vendor_id));
+                              return onIt.length > 0 ? (
+                                <p className="truncate text-[11px] text-ink/60" data-rail-supplier="">
+                                  {onIt.map((s) => supplierOnItem(s)).join(', ')}
+                                </p>
+                              ) : null;
+                            })()
+                          : null}
                         {!short && parts.length > 0 && height > 84 ? (
                           <div className="mt-1.5 hidden flex-wrap gap-1 sm:flex">
                             {parts.map((p) => (

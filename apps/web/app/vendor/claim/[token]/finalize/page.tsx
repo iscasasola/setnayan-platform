@@ -27,8 +27,9 @@ type Props = { params: Promise<{ token: string }> };
  *   1. Ensure a `vendor_profiles` row exists for the signed-in user
  *      (create with placeholder business_name if missing — vendor edits
  *      it later in /vendor-dashboard).
- *   2. Call `applyClaimAutoLink` to set marketplace_vendor_id, mark the
- *      invite claimed, and insert vendor_follows rows for the couple.
+ *   2. Call `applyClaimAutoLink` to mark the invite claimed, raise the ONE
+ *      access ask the couple approves (owner 2026-10-20 — the record is bonded
+ *      to the shop only on Approve), and insert vendor_follows for the couple.
  *   3. Redirect to /vendor-dashboard.
  */
 export default async function FinalizeClaimPage({ params }: Props) {
@@ -167,9 +168,10 @@ export default async function FinalizeClaimPage({ params }: Props) {
   }
 
   // ------------------------------------------------------------------
-  // 2. Auto-link transaction — sets event_vendors.marketplace_vendor_id,
-  //    flips invite to 'claimed', and inserts vendor_follows for the
-  //    couple members (per 0019 § Booking-implies-follow auto-insert).
+  // 2. Auto-link — flips the invite to 'claimed', raises the couple's
+  //    approval (`claim_ask_for_access`; NOTHING of the event opens until they
+  //    approve — owner 2026-10-20), and inserts vendor_follows for the couple
+  //    members (per 0019 § Booking-implies-follow auto-insert).
   //
   //    2026-05-21 — Admin-source invites (no event_vendors parent) skip
   //    this step. We just flip the invite to 'claimed' so it can't be

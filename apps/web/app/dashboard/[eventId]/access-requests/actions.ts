@@ -24,8 +24,9 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
-import { materializeAreas, withArea } from '@/lib/delegate-areas';
+import { COORDINATOR_AREAS, materializeAreas, withArea } from '@/lib/delegate-areas';
 import {
   DELEGATE_AREAS,
   PERMISSION_TEMPLATES,
@@ -63,7 +64,7 @@ export async function answerAccessRequest(
 
   const { data: reqRow, error: reqErr } = await supabase
     .from('event_access_requests')
-    .select('request_id, requester_user_id, requested_areas, status')
+    .select('request_id, requester_user_id, requested_areas, status, kind')
     .eq('request_id', requestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -73,8 +74,12 @@ export async function answerAccessRequest(
     requester_user_id: string;
     requested_areas: string[];
     status: string;
+    kind?: string | null;
   };
   if (req.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
+  // A supplier who joined from the couple's link is answered by
+  // `answerClaimAccess` below — one Approve, not line by line.
+  if (req.kind === 'claim') return { ok: false, error: 'Answer this one with Approve or Decline.' };
 
   // Only areas that were actually ASKED for can be answered — a host cannot
   // hand over something the coordinator never requested through this door.
@@ -164,5 +169,71 @@ export async function answerAccessRequest(
 
   revalidatePath(`/dashboard/${eventId}/access-requests`);
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/**
+ * 🤝 A SUPPLIER WHO JOINED FROM THE COUPLE'S LINK — Approve or Decline (owner
+ * 2026-10-20: *"access to the event is automatic but has an approval. it should
+ * proceed to that approval giving access once they sync."*).
+ *
+ * ONE answer, not line by line: what a supplier opens is set by their category
+ * (DECISION_LOG 2026-10-07 — a coordinator is "Same access as you", every other
+ * booked supplier "is defined depending on the category they provide"), so
+ * there are no lines to choose.
+ *
+ * The couple's own session reads the ask first — `event_access_requests_host_read`
+ * is couple-scoped, so a row that comes back IS the couple's — then the grant
+ * runs in ONE transaction on the server (`answer_claim_access_request`, service
+ * role), which checks the couple again and checks a real claim stands behind the
+ * ask. Approve: the bond to the shop (merge-aware), booked-if-paid, a
+ * coordinator's host-level seat. Decline: the answer, nothing else.
+ */
+export async function answerClaimAccess(
+  eventId: string,
+  requestId: string,
+  approve: boolean,
+): Promise<AnswerResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const { data: row, error: readErr } = await supabase
+    .from('event_access_requests')
+    .select('request_id, status, kind')
+    .eq('request_id', requestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr || !row) return { ok: false, error: 'Could not find that request.' };
+  const ask = row as { status: string; kind: string | null };
+  if (ask.kind !== 'claim') return { ok: false, error: 'Could not find that request.' };
+  if (ask.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
+
+  const { error } = await createAdminClient().rpc('answer_claim_access_request', {
+    p_request_id: requestId,
+    p_decided_by: user.id,
+    p_approve: approve,
+    // The grant every coordinator seat is created with (hosts/actions.ts
+    // `inviteHost`): the external-planner template + COORDINATOR_AREAS.
+    p_coordinator_permissions: {
+      ...PERMISSION_TEMPLATES.wedding_planner_external,
+      areas: { ...COORDINATOR_AREAS },
+    },
+  });
+  if (error) {
+    console.error('[supabase-error] access-requests/actions.ts · answer_claim_access_request', error.message, {
+      event_id: eventId,
+    });
+    return {
+      ok: false,
+      error: approve
+        ? 'We could not let them in just now. Nothing has changed. Please try again.'
+        : 'We could not record that just now. Please try again.',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
   return { ok: true };
 }

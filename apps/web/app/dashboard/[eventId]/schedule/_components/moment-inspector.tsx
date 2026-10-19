@@ -29,7 +29,7 @@ import {
   toDatetimeLocal,
   wallDateKey,
 } from '@/lib/schedule-rail';
-import type { DayMoment, DayRequest, DaySupplier } from './day-types';
+import { supplierOnItem, type DayMoment, type DayRequest, type DaySupplier } from './day-types';
 import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
 import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
 import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
@@ -451,8 +451,9 @@ export function MomentInspector({
                       <li
                         key={s.vendor_id}
                         className="inline-flex min-h-9 items-center gap-1 rounded-full bg-ink pl-3 pr-1.5 text-xs text-cream"
+                        data-moment-supplier={s.standing ?? ''}
                       >
-                        {s.vendor_name}
+                        {supplierOnItem(s)}
                         {readOnly ? (
                           <span className="w-1.5" />
                         ) : (
@@ -481,7 +482,7 @@ export function MomentInspector({
                   dataAttr="data-moment-tag-supplier"
                   options={suppliers
                     .filter((s) => !m.responsible_vendor_ids.includes(s.vendor_id))
-                    .map((s) => ({ key: s.vendor_id, label: s.vendor_name }))}
+                    .map((s) => ({ key: s.vendor_id, label: supplierOnItem(s) }))}
                   onPick={(id) => saveResponsible(party, [...m.responsible_vendor_ids, id])}
                 />
               ) : null}

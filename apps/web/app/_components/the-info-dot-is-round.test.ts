@@ -41,8 +41,9 @@ test('ⓘ .sn-dot-btn drops the floor and pins the circle square', () => {
   assert.match(body, /min-height:\s*0\s*;/, 'the 44px floor still applies — the circle stretches into a pill');
   assert.match(body, /aspect-ratio:\s*1\s*\/\s*1\s*;/, 'nothing holds the box square');
   assert.match(body, /flex-shrink:\s*0\s*;/, 'a flex row can still squeeze the circle into an oval');
-  // The touch target is not given up: a halo wider than the circle.
-  assert.match(ruleBody('.sn-dot-btn::after'), /inset:\s*-\d+px\s*;/, 'the halo that keeps the target usable is gone');
+  // The touch target is not given up: a halo wider than the circle. How far it reaches (44 × 44 for the 16-px ⓘ) is
+  // the arithmetic of `lib/the-shared-controls-press-at-44.test.ts`; here, only that it reaches past the circle.
+  assert.match(ruleBody('.sn-dot-btn::after'), /inset:\s*(?:-\d+px|min\(\s*-\d+px\s*,[^;]+\))\s*;/, 'the halo that keeps the target usable is gone');
 });
 
 test('ⓘ every info circle wears it — InfoTip, the Your Team category ⓘ, the bench ⓘ', () => {

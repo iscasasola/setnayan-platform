@@ -17,6 +17,8 @@ import { useEffect, useState } from 'react';
  */
 export const BREAKPOINTS = {
   sm: 640,
+  /** The couple dashboard's phone/tablet line — mirrors `tab` in tailwind.config.ts. */
+  tab: 701,
   md: 768,
   lg: 1024,
   xl: 1280,

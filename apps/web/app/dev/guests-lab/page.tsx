@@ -66,6 +66,7 @@ import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_compo
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
@@ -253,6 +254,39 @@ function planningRoster(): GuestRow[] {
       plus_one_allowed: i === 6,
     }),
   ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+}
+
+/**
+ * 🤝 `?plusones=1` — the owner's 2026-10-19 shape (cale-ice's List, read-only count): unnamed "+1 · TBA" seats on
+ * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
+ * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
+ */
+function withPlusOnes(roster: GuestRow[]): GuestRow[] {
+  const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
+    guest({
+      guest_id: id,
+      public_id: `S89G-LABP1${id.slice(-4).padStart(5, '0')}`,
+      first_name: 'TBA',
+      last_name: '+1',
+      display_name: '+1 · TBA',
+      side: 'both',
+      role: 'guest',
+      rsvp_status: 'pending',
+      invitation_sent_at: null,
+      plus_one_of_guest_id: of,
+      plus_one_mode: 'limited',
+      ...p,
+    });
+  const bring = new Set(['g-mj-4', 'g-mj-6', 'g-mj-14', 'g-mj-24', 'g-mj-2']);
+  return [
+    ...roster.map((g) => (bring.has(g.guest_id) ? { ...g, plus_one_count: g.guest_id === 'g-mj-14' ? 2 : 1, plus_one_allowed: true } : g)),
+    seat('g-p1-0004', 'g-mj-4'),
+    seat('g-p1-0006', 'g-mj-6'),
+    seat('g-p1-0014', 'g-mj-14'),
+    seat('g-p1-0114', 'g-mj-14'),
+    seat('g-p1-0024', 'g-mj-24'),
+    seat('g-p1-0002', 'g-mj-2', { first_name: 'Paulo', last_name: 'Reyes', display_name: null, rsvp_status: 'attending', invitation_sent_at: '2026-09-20T00:00:00Z' }),
+  ];
 }
 
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
@@ -445,7 +479,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = planningRoster();
+    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster()) : planningRoster();
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],
@@ -458,16 +492,7 @@ export default async function GuestsLabPage({
     const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
-    return (
-      <RoleNamesProvider names={{}}>
-        <div className="sn-ambient min-h-screen">
-          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
-          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
-            SETNAYAN
-          </div>
-          <main className="sn-vt-page">
-            <div data-shell-main>
-              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
                   <LabGuestActions refuse={sp.refuse === '1'}>
                   <GuestsScreen
@@ -501,6 +526,29 @@ export default async function GuestsLabPage({
                   />
                   </LabGuestActions>
                 </section>
+    );
+    /* `&shell=1` — the REAL One Shell around the screen (rail + bar + the event's
+       menu, `boundary="tab"`), for the tablet/desktop walk. */
+    if (sp.shell === '1') {
+      return (
+        <RoleNamesProvider names={{}}>
+          <LabShell eventId={EVENT}>{screen}</LabShell>
+          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          <UndoToastHost />
+        </RoleNamesProvider>
+      );
+    }
+    return (
+      <RoleNamesProvider names={{}}>
+        <div className="sn-ambient min-h-screen">
+          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
+          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
+            SETNAYAN
+          </div>
+          <main className="sn-vt-page">
+            <div data-shell-main>
+              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+                {screen}
               </div>
             </div>
           </main>

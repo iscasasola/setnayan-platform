@@ -819,7 +819,12 @@ html.guests-subnav-docked [data-shell-main] {
     max-height: 40dvh;
   }
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19, couple dashboard tablet): the event
+   tree's dock is `tab:hidden` (BottomDock boundary="tab"), so its column stops
+   reserving the dock's height on the SAME line — the page's own thumb docks
+   then sit on the bottom edge. `[data-shell-main]` is the event tree's column
+   (and its labs'), nobody else's. */
+@media (min-width: 701px) {
   [data-shell-main],
   html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;
@@ -5876,8 +5881,10 @@ html.dark .sn-popup-dark {
     opacity var(--sn-dur-elem) var(--sn-ease),
     translate var(--sn-dur-elem) var(--sn-ease);
 }
-@media (min-width: 768px) {
-  .sn-side-panel { left: auto; width: min(30rem, calc(100vw - 3.5rem)); }
+/* 📐 440 FROM 701 (owner 2026-10-19, couple dashboard desktop + tablet: "the shipped SidePanel takes the 440 token
+ * + the 701 boundary"). Was 30 rem (480) from 768. */
+@media (min-width: 701px) {
+  .sn-side-panel { left: auto; width: min(27.5rem, calc(100vw - 3.5rem)); }
   .sn-side-panel[data-size='wide'] { width: min(44rem, calc(100vw - 3.5rem)); }
 }
 .sn-side-panel[data-closing='true'] { opacity: 0; translate: 34px 0; pointer-events: none; }
@@ -5896,7 +5903,7 @@ html.dark .sn-popup-dark {
  * approved 2026-09-24: "right panel on desktop, bottom sheet on phone"). The
  * top strip above it is the way back, as the left strip is on the side panel.
  * From 768px it is the ordinary right-hand panel above, unchanged. */
-@media (max-width: 767.98px) {
+@media (max-width: 700.98px) {
   .sn-side-panel[data-phone='sheet'] {
     top: 3.5rem;
     left: 0;
@@ -6495,8 +6502,10 @@ html.dark .sn-popup-dark {
  * "the card inside a frame inside the popup"). From a tablet up the sheet is a
  * right-hand panel sized to the card, not the whole window minus a 56 px peek
  * with a 420 px card floating in it; the list behind stays the way back. */
-@media (min-width: 768px) {
-  .sn-inspector-sheet { left: auto; width: min(36rem, calc(100vw - 3.5rem)); }
+/* 📐 The guest card's panel is the system's 440 from 701 (owner 2026-10-19, couple dashboard desktop + tablet:
+ * "a guest's Edit … become the side panel"). Was 36 rem from 768. */
+@media (min-width: 701px) {
+  .sn-inspector-sheet { left: auto; width: min(27.5rem, calc(100vw - 3.5rem)); }
 }
 
 @media (min-width: 1280px) {

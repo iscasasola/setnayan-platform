@@ -90,6 +90,7 @@ import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -723,7 +724,18 @@ export function useInBottomDock(): boolean {
  * the strip rides above the sliding page with the bar instead of vanishing
  * under it for 320ms on every tab press.
  */
-export function BottomDock({ children }: { children: ReactNode }) {
+export function BottomDock({
+  children,
+  boundary = 'lg',
+}: {
+  children: ReactNode;
+  /**
+   * Where the phone dock stops being drawn — the same answer the shell gives
+   * (`shell-boundary.tsx`). `'tab'` (701) is the couple's event tree only
+   * (owner 2026-10-19); every other doorway keeps the shipped `lg`.
+   */
+  boundary?: ShellBoundary;
+}) {
   const dockRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = dockRef.current;
@@ -749,7 +761,11 @@ export function BottomDock({ children }: { children: ReactNode }) {
       <div
         ref={dockRef}
         data-bottom-dock
-        className="fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden"
+        className={
+          boundary === 'tab'
+            ? 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur tab:hidden'
+            : 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden'
+        }
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
           background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha

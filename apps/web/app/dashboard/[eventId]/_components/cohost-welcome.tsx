@@ -44,10 +44,10 @@ export async function CohostWelcome({ eventId, userId }: { eventId: string; user
     <div
       role="dialog"
       aria-labelledby="cohost-welcome-title"
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-0 tab:items-center tab:p-6"
       data-cohost-welcome
     >
-      <div className="w-full max-w-md rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-xl sm:rounded-2xl sm:p-6">
+      <div className="w-full max-w-md rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-xl tab:rounded-2xl tab:p-6">
         <p className="sn-eye text-[color:var(--sn-gold-700)]">Welcome</p>
         <h2 id="cohost-welcome-title" className="mt-1 text-lg font-semibold tracking-tight text-ink">
           {notice.title}

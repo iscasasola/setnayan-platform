@@ -27,13 +27,17 @@
      --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
   position: relative;
   min-width: 0;
-  /* The prototype's one 720 px column at every width; the map breaks out of it. */
-  max-width: 720px;
+  /* THE READING COLUMN — 48 rem (owner 2026-10-19, couple dashboard desktop + tablet: "Home, Guests
+     List/Setup, Budget and a Studio product are the reading column"). It was the 2026-10 prototype's 720 px;
+     a phone never reaches either, so the phone is unchanged. The map takes the wide stage below. */
+  max-width: 48rem;
   margin: 0 auto;
   width: 100%;
 }
 .screen[data-guests-screen='map'] {
-  max-width: none;
+  /* THE WIDE STAGE — 64 rem (same ruling): the map was uncapped, so on a 1440 desk its tree ran the stage edge
+     to edge; it now stops at the system's wide measure, centred. */
+  max-width: 64rem;
 }
 
 /* ═══ the sticky block: segmented · counts · meter ═══ */
@@ -284,6 +288,17 @@ button.ico {
 .g.plus {
   margin-left: 20px;
 }
+/* 🤝 A +1 drawn right after their guest is part of that guest's line — no divider between them (dividers sit
+   between topics; a guest and their +1 are one). The indent above says whose it is. */
+.g.joined {
+  border-top: 0;
+  padding-top: 0;
+}
+/* "· +1 of Juanita Sacdalan" — after a named +1's own name, quieter than the name. */
+.of {
+  font-weight: 400;
+  color: var(--gs-mute);
+}
 .ava {
   font-size: 12px;
   font-weight: 600;
@@ -474,7 +489,8 @@ button.ico {
 .lower > * {
   pointer-events: auto;
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+@media (min-width: 701px) {
   .lower {
     bottom: 16px;
     left: var(--gs-left, 0px);

@@ -396,7 +396,7 @@ export function QuickAddSheet({
         <GuestPopup
           onClose={() => setOpen(false)}
           rootClassName="fixed inset-0 z-40"
-          panelClassName="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86vh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          panelClassName="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
           label="Quick add"
         >
             {/* header */}

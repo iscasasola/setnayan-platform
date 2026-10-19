@@ -62,6 +62,7 @@ import {
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
 import { resolveCommandItems } from './command-data';
 import { SignedInCluster } from './signed-in-cluster';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
 export async function AppRailShell({
@@ -75,6 +76,7 @@ export async function AppRailShell({
   createSlot,
   variant = 'app',
   bleed,
+  boundary,
 }: {
   children: React.ReactNode;
   /**
@@ -148,6 +150,8 @@ export async function AppRailShell({
    * GRID should pass it; a reading page wants the measured column.
    */
   bleed?: boolean;
+  /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
+  boundary?: ShellBoundary;
 }) {
   const [account, navLabels, commandItems, studioEvent] = await Promise.all([
     resolveRailAccount(),
@@ -191,6 +195,7 @@ export async function AppRailShell({
     <FrontDoorShell
       variant={variant}
       bleed={bleed}
+      boundary={boundary}
       /*
         Only the public route group has full-bleed routes. The signed-in trees
         get `undefined` and pass `bleed` explicitly if they ever need it.

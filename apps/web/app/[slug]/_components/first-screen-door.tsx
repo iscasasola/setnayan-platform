@@ -76,7 +76,12 @@ export function FirstScreenDoor({ fit: fits = true, foot: inFoot = false, rsvp: 
     const cardCover = card?.querySelector<HTMLElement>('[data-cover-frameless]');
     const cardInner = cardCover?.firstElementChild;
     /* 📷 …or the PHOTO cover before the door: the last masthead above it on the page that holds a photo. */
-    const photoHead = foot || (card && cardCover) ? null : Array.from((door.closest('main') ?? document.body).querySelectorAll<HTMLElement>('header[data-pahina-first-screen]')).filter((h) => h.querySelector('figure') !== null && (h.compareDocumentPosition(door) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).pop() ?? null;
+    /* 📷 ✉️ A GUEST'S RSVP BUTTON UNDER A PHOTO COVER (2026-10-20, walked: the plate — a 4:5 portrait under the date —
+       put the button 340–380 px below the fold at every phone size). The photo is the first part to give way, the rule
+       the stranger's photo cover has had since 2026-10-13 (owner: the photo moves so the names, the date and the action
+       are on the first screen): it is drawn below the whole foot, whole. The box is the cover's own header. */
+    const footPhoto = forRsvp && foot && !(card && cardCover) ? (foot.closest<HTMLElement>('header[data-pahina-first-screen]') ?? null) : null;
+    const photoHead = footPhoto?.querySelector('figure') ? footPhoto : foot || (card && cardCover) ? null : Array.from((door.closest('main') ?? document.body).querySelectorAll<HTMLElement>('header[data-pahina-first-screen]')).filter((h) => h.querySelector('figure') !== null && (h.compareDocumentPosition(door) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).pop() ?? null;
     const photoInner = photoHead?.querySelector('h1')?.parentElement ?? null;
     let host: HTMLElement | null = photoHead;
     while (host && !host.contains(door)) host = host.parentElement;

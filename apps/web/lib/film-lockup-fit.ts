@@ -52,6 +52,19 @@ export function fitLockupScale(base: number, fitScale: number, roomW: number, in
 const ALIGN: Record<string, CanvasTextAlign> = { middle: 'center', start: 'left', end: 'right' };
 
 /**
+ * 🍎 THE FLOOR UNDER SAFARI'S GLYPH METRICS. WebKit's canvas `measureText` reports
+ * `actualBoundingBoxLeft/Right` as the glyph's ADVANCE (measured 2026-10-19 on the
+ * Playwright WebKit build: Cormorant italic "M" at 64px → 27.2 / 27.2, exactly half
+ * its 54.4 advance), so on an iPhone the italic overhang is invisible to it. Chromium
+ * measures the real ink: 25.4 left / 35.1 right — the italic reaches 7.9px (0.12em)
+ * past the advance on the right, which is the slant (cap height ≈ 0.65em × tan ≈ 11°).
+ * So the ink taken is the LARGER of the engine's figure and the advance — plus, for
+ * italic type, this much on the side the slant leans to. 0.15em sits above the
+ * measured 0.12em, so Safari errs a few px small, never off the screen.
+ */
+export const ITALIC_OVERHANG_EM = 0.15;
+
+/**
  * Where the lockup's ink really reaches, either side of its centre, at its own
  * unscaled size. `el` is the element the scale transform is applied to; its
  * `offsetWidth` is its layout width, which no transform touches, so every
@@ -59,8 +72,9 @@ const ALIGN: Record<string, CanvasTextAlign> = { middle: 'center', start: 'left'
  * the beat's bloom, the lockup's own — preserves the ratios this relies on).
  *
  * Ink = the union of the element's box, each svg's box, and every svg <text>'s
- * GLYPH ink (canvas `measureText` actual bounds at the text's own font), which
- * is what an italic capital's overhang needs. Returns null when nothing is laid
+ * GLYPH ink (canvas `measureText` actual bounds at the text's own font, floored
+ * by its advance and italic lean — `ITALIC_OVERHANG_EM`), which is what an
+ * italic capital's overhang needs. Returns null when nothing is laid
  * out yet (no width) or when run outside a browser.
  */
 export function measureLockupInk(el: HTMLElement | null): LockupInk | null {
@@ -85,10 +99,17 @@ export function measureLockupInk(el: HTMLElement | null): LockupInk | null {
       const x = parseFloat(t.getAttribute('x') ?? '');
       if (!Number.isFinite(x)) continue;
       ctx.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
-      ctx.textAlign = ALIGN[s.textAnchor] ?? 'left';
+      const align = ALIGN[s.textAnchor] ?? 'left';
+      ctx.textAlign = align;
       const m = ctx.measureText(t.textContent ?? '');
-      inkL = Math.min(inkL, r.left + (x - m.actualBoundingBoxLeft - vb.x) * ppu);
-      inkR = Math.max(inkR, r.left + (x + m.actualBoundingBoxRight - vb.x) * ppu);
+      // The advance either side of the anchor, and the italic lean on the right (see ITALIC_OVERHANG_EM).
+      const advL = align === 'center' ? m.width / 2 : align === 'right' ? m.width : 0;
+      const advR = align === 'center' ? m.width / 2 : align === 'left' ? m.width : 0;
+      const lean = /italic|oblique/.test(s.fontStyle) ? ITALIC_OVERHANG_EM * (parseFloat(s.fontSize) || 0) : 0;
+      const left = Math.max(m.actualBoundingBoxLeft || 0, advL);
+      const right = Math.max(m.actualBoundingBoxRight || 0, advR + lean);
+      inkL = Math.min(inkL, r.left + (x - left - vb.x) * ppu);
+      inkR = Math.max(inkR, r.left + (x + right - vb.x) * ppu);
     }
   }
   const centre = box.left + box.width / 2;

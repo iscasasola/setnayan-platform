@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Bell, CircleHelp, Gem, Repeat, Store, UserRound, Users, Wallet, Wrench } from 'lucide-react';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from '../_components/payout-method-nudge';
@@ -8,6 +9,7 @@ import { Badge } from '@/app/_components/badge';
 import { DatesRow } from '../customers/_components/dates-row';
 import { PushToggle } from '../notifications/push-toggle';
 import { SETTINGS_HELP_HREF } from './settings-rows';
+import { POLICY_LINKS } from '@/lib/policy-links';
 import type { ShopToolShelf } from '../shop/shop-tool-shelves';
 
 /**
@@ -16,6 +18,12 @@ import type { ShopToolShelf } from '../shop/shop-tool-shelves';
  *
  * ⛔ NO SIGN OUT HERE, although the prototype draws one. Owner 2026-08-13: *"sign out lives under the avatar and
  * nowhere else"* — held by `app/_components/auth/seam-invariants.test.ts`. The avatar sheet carries it.
+ *
+ * 📜 THE POLICIES, AS SMALL PRINT UNDER THE LIST (sweep 2026-10-19, row A2 — App Store 5.1.1(i)). The same four links,
+ * in the same order and words, as the ☰ drawer's small print, read from the one list in `lib/policy-links.ts`. Plain
+ * links, no frame: the drawer draws them as text, and so does this. Outside the `manager` gate on purpose — a scoped
+ * team member is a signed-in person too. Account deletion is the Account row (`/dashboard/profile` › Delete my
+ * account). Held by `lib/every-signed-in-menu-reaches-the-policies.test.ts`.
  */
 export function SettingsView({
   unread,
@@ -129,6 +137,15 @@ export function SettingsView({
 
         <DatesRow data="settings-help" lead={ic(CircleHelp)} title="Help" line="How fees work · how booking works · report a problem" href={SETTINGS_HELP_HREF} />
         <DatesRow data="settings-switch" lead={ic(Repeat)} title="Your events" line="Switch to Home — the events you plan yourself · another shop from the account menu" href="/dashboard?hub=1" />
+      </div>
+      <div className="mt-4 border-t border-ink/10 pt-1">
+        <nav aria-label="Policies" className="-mx-1.5 flex flex-wrap gap-x-1 text-[13px] text-ink/55" data-settings-policies="">
+          {POLICY_LINKS.map((p) => (
+            <Link key={p.href} href={p.href} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-1.5 hover:text-ink hover:underline">
+              {p.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </div>
   );

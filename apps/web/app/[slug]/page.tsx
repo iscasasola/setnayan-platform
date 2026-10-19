@@ -932,8 +932,6 @@ async function invitationBody({
   startAhead(loadWidgets(admin, event.event_id));
   startAhead(readGuestSession());
   startAhead(getCurrentUser());
-  /* 🖥 …and whether the viewer is internal (the guest's desktop is dark for everybody else — `lib/guest-hub-desktop-flag.ts`). */
-  startAhead(viewerIsInternal());
   /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
      schedule until it knows whether coordinator prep is released — one row, the
      same for every event, `cache()`d — so the schedule stood a whole round trip
@@ -1259,12 +1257,15 @@ async function invitationBody({
     }
   }
   /* 🖥 …the guest's desktop: never in the Maker's canvas (the Maker draws its own desktop preview); for the flag, or an
-     internal viewer (one small read, started ahead above, only for a signed-in viewer). */
-  const guestDesk = !isEditorCanvas && guestHubDesktopEnabled({ internal: await viewerIsInternal() });
+     internal viewer. */
+  /* Asked here and answered where the page is handed back (`wearDraft`): the one small read runs beside everything
+     below, never in front of it — and only a signed-in viewer's asks the database at all (`viewerIsInternal`). */
+  const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
   /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
      same bytes as before. */
-  const wearDraft = (node: React.ReactNode) => {
+  const wearDraft = async (node: React.ReactNode) => {
     const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+    const guestDesk = await guestDeskP;
     return guestDesk ? (
       <>
         {worn}

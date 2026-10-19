@@ -39,7 +39,8 @@ test('1 · dark — the style is the flag’s (or an internal viewer’s), and n
     else process.env[KEY] = prev;
   }
   const page = read('app/[slug]/page.tsx');
-  assert.match(page, /const guestDesk = !isEditorCanvas && guestHubDesktopEnabled\(\{ internal: await viewerIsInternal\(\) \}\);/);
+  assert.match(page, /const guestDeskP = isEditorCanvas \? Promise\.resolve\(false\) : viewerIsInternal\(\)\.then\(\(internal\) => guestHubDesktopEnabled\(\{ internal \}\)\)\.catch\(/);
+  assert.match(page, /const guestDesk = await guestDeskP;/);
   assert.match(page, /return guestDesk \? \(\s*<>\s*\{worn\}\s*<style data-guest-desk="">\{GUEST_HUB_DESKTOP_CSS\}<\/style>/, 'the desk style is not gated on `guestDesk`');
   assert.equal(page.match(/GUEST_HUB_DESKTOP_CSS/g)?.length, 2, 'the desk style is written somewhere else too (import + one use)');
   /* Every guest render goes through the one wrapper that decides. */

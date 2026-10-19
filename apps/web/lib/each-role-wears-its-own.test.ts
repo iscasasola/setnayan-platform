@@ -110,7 +110,9 @@ test('the invitation shows a role-holder THEIR line instead of the whole palette
   // (The Welcome page's `part="you"` also stands the general palette down — 2026-09-30.)
   /* Re-anchored 2026-10-17: "Our colours" left the dress code (owner: "we must ommit the our colors here"); the general
      view is every role's row, and it is what stands down for a role-holder. */
-  assert.match(src, /\{part !== 'you' && !mine && everyone\.rows\.length > 0 \?/, 'everyone’s rows stand down for a role-holder');
+  /* (2026-10-19, "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE": the rows drawn are `shownRows` — every role for the
+     host, the Guests card for a guest's page; `dress-with-us-is-the-readers-own.test.ts` holds which.) */
+  assert.match(src, /\{part !== 'you' && !mine && shownRows\.length > 0 \?/, 'everyone’s rows stand down for a role-holder');
   assert.match(src, /You are \{mine\?\.roleLabel/, 'and their role is named (the one line — a walker with no outfit reads it too)');
   assert.match(src, /STYLE_UNSET_LINE/, 'an unset style says so rather than showing nothing');
 });

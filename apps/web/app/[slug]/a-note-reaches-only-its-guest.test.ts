@@ -82,10 +82,11 @@ test('① only the writers and the reader’s own row name the column — no lis
   const list = /const GUEST_FIELDS =\s*'([^']+)'/.exec(guests)?.[1];
   assert.ok(list, 'GUEST_FIELDS moved');
   assert.ok(!list!.split(',').includes(COLUMN), 'GUEST_FIELDS carries the note: every list, print and export now reads it');
-  assert.match(guests, /const GUEST_CARD_FIELDS = `\$\{GUEST_FIELDS\},host_note_for_guest`/);
+  const card = /const GUEST_CARD_FIELDS =\s*'([^']+)'/.exec(guests)?.[1];
+  assert.equal(card, `${list},host_note_for_guest`, 'the card’s read is no longer exactly the list’s columns + the note');
   assert.equal(guests.match(/GUEST_CARD_FIELDS/g)?.length, 2, 'GUEST_CARD_FIELDS is read somewhere besides fetchGuestById');
   const byId = guests.slice(guests.indexOf('export async function fetchGuestById('), guests.indexOf('export function computeGuestStats('));
-  assert.match(byId, /read\(GUEST_CARD_FIELDS\)/, 'the card no longer reads the note');
+  assert.match(byId, /\.select\(GUEST_CARD_FIELDS\)/, 'the card no longer reads the note');
 
   // No select-everything read of `guests` anywhere (it would carry the note with it). Head-only counts are fine.
   for (const f of ['app', 'lib', 'components'].flatMap((d) => sources(d))) {

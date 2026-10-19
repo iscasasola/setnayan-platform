@@ -324,6 +324,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Setnayan’s REFEREE RECORD of deposit refusals that have ended — admin-only (RLS on, no session grant). It is not withheld from the couple: the couple still sees the CURRENT refusal, and any ruling on it, on their own booking, and every payment they logged — refused or not — is in their export under payment_ledger. Its three *_user_id columns are actor stamps (who refused, which admin ruled, who ended it), not subject data; exporting by them would hand one party the other’s dispute record.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
+  apple_sign_in_tokens:
+    'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple (App Store 5.1.1(v)). A bearer credential — never exported (same rule as api_keys).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',
   seating_editor_locks: 'Ephemeral advisory lock; holds no durable personal data.',
   blacklisted_emails:

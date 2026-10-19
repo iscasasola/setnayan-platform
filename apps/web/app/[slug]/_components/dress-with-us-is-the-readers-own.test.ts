@@ -55,7 +55,6 @@ const DRESS = {
 };
 
 function render(extra: Record<string, unknown>, config: unknown = DRESS, board: unknown = BOARD): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { DressCodeWidget } = require('./dress-code-widget') as typeof import('./dress-code-widget');
   return renderToStaticMarkup(h(DressCodeWidget, { words: WORDS, config, rolePalette: board, hideWhenEmpty: true, ...extra } as never));
 }

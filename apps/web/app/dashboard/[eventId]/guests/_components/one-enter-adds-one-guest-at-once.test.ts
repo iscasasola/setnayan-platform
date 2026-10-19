@@ -42,7 +42,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { createAddQueue, NEEDS_BOTH_NAMES, queueTypedGuest } from './guest-add-queue';
+import { createAddQueue, NEEDS_BOTH_NAMES, picksForAdd, queueTypedGuest, withPicks } from './guest-add-queue';
+import { runAddSingleGuest } from '@/lib/add-single-guest-core';
+import type { ParsedGuestDraft } from '@/lib/guest-parse';
 import { typedLineIsAFilter } from '@/lib/guest-roster-view';
 import type { QuickAddResult } from '../quick-add-actions';
 
@@ -130,7 +132,7 @@ test('3 · a refused write stays and says why; the next name is still written; R
   assert.equal(byName.get(a)?.error, 'Your guest list is finalized — the guest count is locked.');
   assert.equal(byName.get(b)?.status, 'saved', 'a refusal stopped the next name');
   assert.equal(byName.get(c)?.status, 'failed', 'a failed request read as saved');
-  assert.equal(byName.get(c)?.error, 'Couldn’t add that guest. Try again.');
+  assert.equal(byName.get(c)?.error, 'Couldn’t add Throw Lim — no connection.', 'a request that never answered does not say so by name');
   h.q.retry(ka);
   await tick();
   assert.equal(h.calls.length, 4, 'Retry did not send it again');
@@ -265,6 +267,91 @@ test('10 · the add actions skip the page redraw exactly when asked', () => {
   assert.match(body, /if \(opts\.refresh !== false\) revalidatePath\(/, 'quickAddGuest redraws the page even when asked not to');
   const inline = stripComments(readFileSync(join(HERE, '..', 'inline-actions.ts'), 'utf8'));
   const single = inline.slice(inline.indexOf('export async function addSingleGuest('));
-  assert.match(single, /quickAddGuest\(eid, input, opts\)/, 'addSingleGuest drops the caller’s redraw choice');
+  assert.match(single, /quickAddGuest\(eid, opts\.email \? \{ \.\.\.input, email: opts\.email \} : input, opts\)/, 'addSingleGuest drops the caller’s redraw choice');
   assert.match(single, /if \(opts\.refresh !== false\) revalidatePath\(/, 'addSingleGuest redraws the page even when asked not to');
+});
+
+// ── THE ADD CARD (owner 2026-10-20: "they can set the Role, Group, Side, and Plus" · "search also searches the people
+// connected to them. From People.") — DECISION_LOG 2026-10-20, prototype frames B2 · B2b. ──────────────────────────────
+
+test('11 · the four picks ride with a typed name; what was TYPED wins, picked groups join typed ones', async () => {
+  const q = createAddQueue();
+  const drafts: ParsedGuestDraft[] = [];
+  const add = async (_e: string, d: ParsedGuestDraft): Promise<QuickAddResult> => {
+    drafts.push(d);
+    return { ok: true, guest: { guest_id: 'g', first_name: d.firstName, last_name: d.lastName, side: d.side, role: 'guest' } };
+  };
+  const picks = { role: 'principal_sponsor' as const, groupCategory: 'friends' as const, groupLabels: ['Out of town'], plusOnes: 1, detail: 'Principal Sponsor · Friends · Out of town · +1' };
+  assert.ok(queueTypedGuest('e', 'Tita Cora', 'bride', add as never, q, picks).ok);
+  assert.ok(queueTypedGuest('e', 'Ana Cruz vip +2 #Choir', 'groom', add as never, q, picks).ok);
+  for (let i = 0; i < 6; i++) await tick();
+  assert.equal(drafts[0]!.roleHint, 'principal_sponsor', 'the picked Role was not sent');
+  assert.equal(drafts[0]!.groupCategory, 'friends', 'the picked standard Group was not sent');
+  assert.deepEqual(drafts[0]!.groups, ['Out of town'], 'the picked own group was not sent');
+  assert.equal(drafts[0]!.plusOnes, 1, 'the picked Plus was not sent');
+  assert.equal(drafts[0]!.side, 'bride', 'the picked Side was not sent');
+  assert.equal(drafts[1]!.roleHint, 'vip', 'a typed role lost to the pick');
+  assert.equal(drafts[1]!.plusOnes, 2, 'a typed +2 lost to the pick');
+  assert.deepEqual(drafts[1]!.groups, ['Choir', 'Out of town']);
+  assert.equal(q.snapshot()[0]!.detail, picks.detail, 'the row does not say what it is being added with');
+  assert.equal(withPicks({ ...drafts[0]!, roleHint: null }, { role: 'guest' }).roleHint, null, 'a plain Guest pick became a role hint');
+});
+
+test('12 · the card\'s words: Plus is the card\'s "Extra seats" (None · +1 … +4); Group is one multi list with ＋ New group…', () => {
+  const card = read('search-add-card.tsx');
+  assert.match(card, /PLUS_ONE_CHOICES\.map\(\(n\) => \(\{ key: String\(n\), label: n === 0 \? 'None' : `\+\$\{n\}` \}\)\)/, 'Plus does not offer the card’s None · +1 … +4');
+  assert.match(card, /label="Group"[\s\S]{0,200}picked=\{/, 'Group is not a ticked (multi) list');
+  assert.match(card, /'＋ New group…'/, 'Group cannot make a new group in place');
+  for (const w of ['Side', 'Role', 'Group', 'Plus']) assert.match(card, new RegExp(`>${w}</span>`), `the card has no ${w}`);
+  assert.match(card, /All four stay as picked for the next names\./);
+  const roleNames = null;
+  const said = picksForAdd({ side: 'bride', role: 'guest', category: 'friends', groupIds: ['g1'], plus: 1 }, [{ group_id: 'g1', label: 'Out of town' }], roleNames);
+  assert.equal(said.detail, 'Guest · Friends · Out of town · +1', 'the row’s words differ from the prototype’s');
+  assert.deepEqual([said.groupCategory, said.groupLabels, said.plusOnes], ['friends', ['Out of town'], 1]);
+});
+
+test('13 · a People match not on the list: Enter adds the FIRST one, through the queue, asking for no redraw', () => {
+  const src = read('guests-screen.tsx');
+  const h = keyHandler(src, 'data-guests-search=""');
+  const people = h.indexOf('peopleFor(v)');
+  assert.ok(people > 0 && people < h.indexOf('addTyped(v)'), 'Enter does not look in People before adding a new name');
+  assert.ok(h.indexOf('hits.length === 1') < people, 'a list match no longer wins over People (a duplicate)');
+  assert.match(h, /addPerson\(known\[0\]!\)/, 'Enter does not add the first People match');
+  const add = fnBody(src, 'const addPerson = (');
+  assert.match(add, /guestAdds\.enqueue\(/, 'a People add skips the ordered queue');
+  assert.match(add, /addGuestsFromPeople\(eventId, \[\{ key: p\.key \}\], picks\.side, \{[\s\S]*refresh: false/, 'a People add is not the shipped add, with the picks and no redraw');
+  assert.match(src, /listPeopleYouCanInvite\(eventId\)/, 'the box does not read the SAME People the sheet reads');
+  assert.match(read('search-add-card.tsx'), /From your People · not on this list yet/);
+  assert.match(src, /`Not them\? Add “\$\{q\}” as new`/);
+});
+
+test('14 · the People add with picks goes through the typed-name orchestration, with the address People holds', () => {
+  const acts = stripComments(readFileSync(join(HERE, '..', 'people-add-actions.ts'), 'utf8'));
+  const branch = acts.slice(acts.indexOf('if (withPicks) {'), acts.indexOf('const res = await quickAddGuest(eventId, {'));
+  assert.match(branch, /addSingleGuest\(/, 'the People add with picks does not reuse addSingleGuest (groups · role · +1 seats)');
+  assert.match(branch, /\{ refresh: withPicks\.refresh, email: person\.email \}/, 'the People add drops the address or the redraw choice');
+  assert.match(acts, /if \(added > 0 && withPicks\?\.refresh !== false\) revalidatePath\(/, 'the People add redraws the page when asked not to');
+  const q = stripComments(readFileSync(join(HERE, '..', 'quick-add-actions.ts'), 'utf8'));
+  assert.match(q, /Object\.hasOwn\(GROUP_CATEGORY_LABELS, input\.group_category\)/, 'a standard group is written unchecked');
+});
+
+test('15 · the standard group reaches the insert only when picked — every earlier caller sends what it sent', async () => {
+  const seen: Array<Record<string, unknown>> = [];
+  const deps = {
+    createGroup: async () => ({ ok: false as const, error: 'x' }),
+    addGuest: async (_e: string, input: Record<string, unknown>) => {
+      seen.push(input);
+      return { ok: true as const, guest: { guest_id: 'g', first_name: 'A', last_name: 'B', side: 'both' as const, role: 'guest' as const } };
+    },
+    resolveOfferedRoles: async () => [],
+    attachMembership: async () => undefined,
+    setPlusOne: async () => undefined,
+    deleteEmptyGroup: async () => undefined,
+    revalidate: () => undefined,
+  };
+  const base = { prefix: '', firstName: 'Ana', middleName: '', lastName: 'Cruz', suffix: '', side: 'both' as const, plusOnes: 0, groups: [], roleHint: null };
+  await runAddSingleGuest('e', base, deps as never);
+  await runAddSingleGuest('e', { ...base, groupCategory: 'family' }, deps as never);
+  assert.equal('group_category' in seen[0]!, false, 'an add with no pick now sends a standard group');
+  assert.equal(seen[1]!.group_category, 'family', 'the picked standard group never reaches the insert');
 });

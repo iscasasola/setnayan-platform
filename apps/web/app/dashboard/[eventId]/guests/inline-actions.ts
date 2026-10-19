@@ -396,7 +396,7 @@ export async function addSingleGuest(
   // verbatim quickAddGuest-reuse contract and every write are unchanged.
   return runAddSingleGuest(eventId, draft, {
     createGroup: (eid, name) => quickCreateGroup(eid, name),
-    addGuest: (eid, input) => quickAddGuest(eid, input, opts),
+    addGuest: (eid, input) => quickAddGuest(eid, opts.email ? { ...input, email: opts.email } : input, opts),
     resolveOfferedRoles: async (eid) => (await resolveRoleSetForEvent(eid)).offeredRoles,
 
     // Extra-group membership beyond the first (quickAddGuest attached group[0]).

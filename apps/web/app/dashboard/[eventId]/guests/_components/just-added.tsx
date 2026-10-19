@@ -66,8 +66,9 @@ export function JustAdded({
 }
 
 function Words({ a }: { a: PendingAdd }) {
-  if (a.status === 'saving') return <>Adding…</>;
-  if (a.status === 'saved') return <>Added</>;
+  const tail = a.detail ? ` · ${a.detail}` : '';
+  if (a.status === 'saving') return <>Adding…{tail}</>;
+  if (a.status === 'saved') return <>✓ Added{tail}</>;
   return (
     <span role="alert" className="text-danger-700">
       {a.error}

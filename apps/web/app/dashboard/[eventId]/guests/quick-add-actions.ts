@@ -9,6 +9,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
+  GROUP_CATEGORY_LABELS,
   SINGLETON_GUEST_ROLES,
   singletonRoleConflictMessage,
   singletonRoleDuplicateMessage,
@@ -46,6 +47,8 @@ export type QuickAddInput = {
   side: string;
   role: string;
   group_id?: string | null;
+  /** The standard group (Family · Friends · Work · School · Officiant · Other). Absent or unknown = 'other', as before. */
+  group_category?: string | null;
   /**
    * Optional, and it does more than store an address: `set_guest_person` is a
    * BEFORE INSERT OR UPDATE OF email trigger, so writing it here resolves
@@ -68,7 +71,12 @@ export type QuickAddInput = {
  * same answer. `refresh: false` = the caller already draws the new row and re-reads the list itself, once, when its queue of
  * adds is empty (`_components/guest-add-queue.ts`) — so ten names typed in a row cost one redraw, not ten.
  */
-export type AddWriteOptions = { refresh?: boolean };
+export type AddWriteOptions = {
+  refresh?: boolean;
+  /** "Add from your People" through the search box: the address People holds for them (server-side only — see
+   *  `addGuestsFromPeople`), so the guest resolves to the SAME person node. */
+  email?: string | null;
+};
 
 export type QuickAddResult =
   | {
@@ -179,7 +187,7 @@ export async function quickAddGuest(
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,
-      group_category: 'other',
+      group_category: input.group_category && Object.hasOwn(GROUP_CATEGORY_LABELS, input.group_category) ? input.group_category : 'other',
       role,
       rsvp_status: 'pending',
       photo_consent: true,

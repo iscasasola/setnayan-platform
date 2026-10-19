@@ -34,7 +34,8 @@ import type { ParsedGuestDraft } from '@/lib/guest-parse';
 import { parseGuestInput } from '@/lib/guest-parse';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { takeGenderMark } from '@/lib/guest-title';
-import type { GuestSide } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
 import { hearAction } from './hear-action';
 import { plainRefusal } from './plain-refusal';
 
@@ -45,6 +46,8 @@ export type PendingAdd = {
   eventId: string;
   /** The name as the host will read it on the row ("Ana Cruz"). */
   name: string;
+  /** What it is being added WITH, in the card's words ("Guest · Friends · Out of town · +1"); '' = nothing picked. */
+  detail: string;
   status: PendingAddStatus;
   /** A refused write's plain sentence. */
   error: string | null;
@@ -96,7 +99,9 @@ export function createAddQueue(opts: { schedule?: (fn: () => void) => void } = {
           savedSinceRefresh += 1;
           patch(next.key, { status: 'saved', guestId: res.guest.guest_id, error: null });
         } else {
-          patch(next.key, { status: 'failed', error: plainRefusal(res.error, FALLBACK), started: false });
+          // A request that never answered (offline, a throw) says so by name; a refusal says its own plain sentence.
+          const error = res.error ? plainRefusal(res.error, FALLBACK) : `Couldn’t add ${next.name} — no connection.`;
+          patch(next.key, { status: 'failed', error, started: false });
         }
       }
     } finally {
@@ -111,12 +116,12 @@ export function createAddQueue(opts: { schedule?: (fn: () => void) => void } = {
 
   return {
     /** Put a typed name on screen now and queue its write behind every earlier one. Returns its key. */
-    enqueue(input: { eventId: string; name: string; run: () => Promise<QuickAddResult> }): string {
+    enqueue(input: { eventId: string; name: string; detail?: string; run: () => Promise<QuickAddResult> }): string {
       seq += 1;
       const key = `add-${seq}`;
       items = [
         ...items,
-        { key, eventId: input.eventId, name: input.name, status: 'saving', error: null, guestId: null, landed: false, at: Date.now(), run: input.run, started: false },
+        { key, eventId: input.eventId, name: input.name, detail: input.detail ?? '', status: 'saving', error: null, guestId: null, landed: false, at: Date.now(), run: input.run, started: false },
       ];
       emit();
       schedule(() => void work());
@@ -207,10 +212,65 @@ export function queueTypedGuest(
   defaultSide: GuestSide,
   addSingleGuest: (eventId: string, draft: ParsedGuestDraft, opts?: AddWriteOptions) => Promise<QuickAddResult>,
   queue: AddQueue = guestAdds,
+  picks: TypedPicks = {},
 ): { ok: true; key: string } | { ok: false; error: string } {
   if (!raw.trim()) return { ok: false, error: '' };
-  const draft = parseGuestInput(raw, { defaultSide });
+  const draft = withPicks(parseGuestInput(raw, { defaultSide }), picks);
   if (!normalizeGuestName(draft.firstName) || !normalizeGuestName(draft.lastName)) return { ok: false, error: NEEDS_BOTH_NAMES };
-  const key = queue.enqueue({ eventId, name: draftName(draft), run: () => addSingleGuest(eventId, draft, { refresh: false }) });
+  const key = queue.enqueue({ eventId, name: draftName(draft), detail: picks.detail, run: () => addSingleGuest(eventId, draft, { refresh: false }) });
   return { ok: true, key };
+}
+
+/**
+ * The add card's four sticky picks (owner 2026-10-20: *"they can set the Role, Group, Side, and Plus"*). The SIDE is the
+ * `defaultSide` already; these are the other three, plus the row's words. What the host TYPED wins over a pick
+ * ("Ana Cruz vip +2 #Choir" keeps VIP, +2 and Choir), and the picked own groups join any typed ones.
+ */
+export type TypedPicks = {
+  role?: GuestRole | null;
+  groupCategory?: GuestGroupCategory | null;
+  /** Own groups by NAME — the shipped find-or-make path (`#Group`) adds them; the first seeds the seat clustering. */
+  groupLabels?: readonly string[];
+  plusOnes?: number;
+  /** The row's words for the picks ("Guest · Friends · +1"). */
+  detail?: string;
+};
+
+export function withPicks(draft: ParsedGuestDraft, picks: TypedPicks): ParsedGuestDraft {
+  const groups = [...draft.groups];
+  for (const g of picks.groupLabels ?? []) if (!groups.some((x) => x.toLowerCase() === g.toLowerCase())) groups.push(g);
+  return {
+    ...draft,
+    roleHint: draft.roleHint ?? (picks.role && picks.role !== 'guest' ? picks.role : null),
+    groups,
+    plusOnes: draft.plusOnes || Math.min(4, Math.max(0, picks.plusOnes ?? 0)),
+    groupCategory: picks.groupCategory ?? draft.groupCategory ?? null,
+  };
+}
+
+/** The Add card's four sticky picks (search-add-card.tsx draws them; the Guests screen holds them). */
+export type AddPicks = {
+  side: GuestSide;
+  role: GuestRole;
+  /** The standard group; null = not picked (stored as 'other', as every quick add was). */
+  category: GuestGroupCategory | null;
+  /** Own groups ticked, by id. */
+  groupIds: string[];
+  plus: number;
+};
+
+/** What the queue sends with a name, and the row's words for it ("Guest · Friends · Out of town · +1"). */
+export function picksForAdd(
+  picks: AddPicks,
+  groups: readonly { group_id: string; label: string }[],
+  roleNames: RoleNames | null | undefined,
+): TypedPicks {
+  const own = picks.groupIds.map((id) => groups.find((g) => g.group_id === id)?.label).filter((l): l is string => Boolean(l));
+  const words = [
+    guestRoleLabel(picks.role, roleNames),
+    ...(picks.category ? [GROUP_CATEGORY_LABELS[picks.category]] : []),
+    ...own,
+    ...(picks.plus > 0 ? [`+${picks.plus}`] : []),
+  ];
+  return { role: picks.role, groupCategory: picks.category, groupLabels: own, plusOnes: picks.plus, detail: words.join(' · ') };
 }

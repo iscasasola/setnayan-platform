@@ -45,7 +45,7 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
     ],
     partial: false,
   }),
-  addGuestsFromPeople: async (_eventId, picks) => ({ ok: true, added: picks.length, failed: 0, firstError: null }),
+  addGuestsFromPeople: async (_eventId, picks) => ({ ok: true, added: picks.length, failed: 0, firstError: null, guestIds: picks.map(() => labId()) }),
   /* "Invite N" opens the lab's own one-by-one run (the REAL run on fixtures), not a real route. */
   sendRunHref: (_eventId, ids) => `/dev/guests-lab?part=run&ids=${ids.join(',')}`,
   /* Setup's "Send to N" and "Pick who" stay in the lab: its own run, its own list. */
@@ -99,6 +99,13 @@ export function labTimedAdds(ms: number): Partial<GuestActions> {
       log(name, 'end');
       if (/refuse/i.test(name)) return { ok: false, error: 'Couldn’t add that guest. Try again.' };
       return LAB_GUEST_ACTIONS.addSingleGuest!(eventId, draft, opts);
+    },
+    addGuestsFromPeople: async (eventId, picks, side, withPicks) => {
+      const name = `People ${picks.map((p) => p.key).join(',')}`;
+      log(name, 'start');
+      await wait();
+      log(name, 'end');
+      return LAB_GUEST_ACTIONS.addGuestsFromPeople!(eventId, picks, side, withPicks);
     },
     quickAddGuest: async (eventId, input, opts) => {
       const name = `${input.first_name} ${input.last_name}`.trim();

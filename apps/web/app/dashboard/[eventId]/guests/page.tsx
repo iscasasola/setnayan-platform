@@ -923,6 +923,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
+      roleSetKey={guestRoleSetKey}
       gview={gview}
       guests={rosterAll}
       measured={guestsMeasured}

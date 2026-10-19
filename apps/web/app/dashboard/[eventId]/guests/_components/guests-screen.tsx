@@ -112,6 +112,8 @@ import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
 import { JustAdded } from './just-added';
+import { hearAction } from './hear-action';
+import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
@@ -123,6 +125,8 @@ import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 
 export type GuestsScreenProps = {
   eventId: string;
+  /** The event's role set (`resolveRoleSetKeyForEvent`) — the Add card's Role list. Absent = the wedding set. */
+  roleSetKey?: string | null;
   gview: 'list' | 'map' | 'share';
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
@@ -273,6 +277,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setup,
     empty,
     copy = null,
+    roleSetKey = null,
   } = live;
   // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
   // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
@@ -598,6 +603,63 @@ export function GuestsScreen(props: GuestsScreenProps) {
      It used to open the add sheet with the name in it — a SECOND Enter, then a wait on the server and a whole-page redraw.
      🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   // What stopped the last Enter, for the line it was said about — typing a new line hides it (no render per key).
+  // The Add card's four sticky picks (owner 2026-10-20) — read by every Enter, kept for the next names.
+  const [picks, setPicks] = useAddPicks(hasSides);
+  const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string }[]>([]);
+  const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
+  // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
+  // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
+  const { listPeopleYouCanInvite, addGuestsFromPeople } = useGuestActions();
+  const [people, setPeople] = useState<PersonHit[] | null>(null);
+  const [takenPeople, setTakenPeople] = useState<ReadonlySet<string>>(() => new Set());
+  const peopleAsked = useRef(false);
+  const loadPeople = () => {
+    if (peopleAsked.current || copy) return;
+    peopleAsked.current = true;
+    void hearAction(() => listPeopleYouCanInvite(eventId).then((r) => ({ ok: true as const, r })))
+      .then((res) => {
+        if (res.ok) setPeople(res.r.people.filter((p) => !p.alreadyHere));
+        else peopleAsked.current = false;
+      });
+  };
+  /** People not on this list whose name holds every typed word (as a word start) — at most three. */
+  const peopleFor = (v: string): PersonHit[] => {
+    const words = normalizeSearchText(v).split(' ').filter(Boolean);
+    if (!people || words.length === 0) return [];
+    return people
+      .filter((p) => !takenPeople.has(p.key))
+      .filter((p) => {
+        const name = normalizeSearchText(p.name).split(' ');
+        return words.every((w) => name.some((n) => n.startsWith(w)));
+      })
+      .slice(0, 3);
+  };
+  const peopleHits = q ? peopleFor(q) : [];
+  const addPerson = (p: PersonHit) => {
+    const sent = picksForAdd(picks, allGroups, roleNames);
+    guestAdds.enqueue({
+      eventId,
+      name: p.name,
+      detail: sent.detail,
+      run: async () => {
+        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], picks.side, {
+          role: picks.role,
+          groupCategory: picks.category,
+          groupLabels: [...(sent.groupLabels ?? [])],
+          plusOnes: picks.plus,
+          refresh: false,
+        });
+        return r.ok
+          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: picks.side, role: picks.role } }
+          : { ok: false, error: r.error };
+      },
+    });
+    setTakenPeople((prev) => new Set([...prev, p.key]));
+    if (fieldRef.current) fieldRef.current.value = '';
+    if (timer.current) clearTimeout(timer.current);
+    setQ('');
+    fieldRef.current?.focus();
+  };
   const [needsFor, setNeedsFor] = useState<{ q: string; text: string } | null>(null);
   const setNeeds = (text: string | null, line = '') => setNeedsFor(text ? { q: line.trim(), text } : null);
   const needs = needsFor && needsFor.q === q ? needsFor.text : null;
@@ -610,7 +672,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       setNeeds(`${v} is already added.`, v);
       return 'already';
     }
-    const res = queueTypedGuest(eventId, v, 'both', addSingleGuest);
+    const res = queueTypedGuest(eventId, v, picks.side, addSingleGuest, guestAdds, picksForAdd(picks, allGroups, roleNames));
     if (!res.ok) {
       if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
@@ -639,6 +701,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       data-fit-field=""
       data-guests-search=""
       data-tour="guests-add"
+      onFocus={loadPeople}
       onInput={(e) => onType(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return;
@@ -657,6 +720,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
           return;
         }
         if (hits.length > 0) return;
+        // In your People but not on this list → Enter adds the first one, with what People knows and the four picks.
+        const known = peopleFor(v);
+        if (known.length > 0) {
+          addPerson(known[0]!);
+          return;
+        }
         if (typedLineIsAFilter(v, facts, filterLabels)) return;
         addTyped(v);
       }}
@@ -877,10 +946,23 @@ export function GuestsScreen(props: GuestsScreenProps) {
       })}
       {noMatch ? (
         <div className={styles.nomatch} data-no-match="">
-          <div className={styles.title}>Nobody matches “{q}”</div>
+          {copy ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
+          <div className={styles.title}>{peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : `Nobody matches “${q}”`}</div>
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
+          {copy ? null : (
+            <AddCardPicks
+              eventId={eventId}
+              hasSides={hasSides}
+              roleSetKey={roleSetKey}
+              roleNames={roleNames}
+              groups={allGroups}
+              picks={picks}
+              setPicks={setPicks}
+              onMadeGroup={(g) => setMadeGroups((prev) => (prev.some((m) => m.group_id === g.group_id) ? prev : [...prev, g]))}
+            />
+          )}
           {needs ? (
             <p className={styles.body} role="alert" data-search-needs="">
               {needs}

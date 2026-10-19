@@ -72,15 +72,17 @@
  * one fact ends up with two homes. Pure: no I/O, no environment.
  */
 import {
+  formatCallTime,
   isAttireStyle,
   resolveGuestDressCode,
   sanitizeCallTime,
+  sanitizeRoleAttire,
   type AttireStyle,
   type RoleAttireMap,
   type RoleAttireRule,
 } from './role-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
-import { studioRowOf } from './attire-rows';
+import { isDressableRole, studioRowOf } from './attire-rows';
 import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import type { GuestRole } from './guests';
@@ -270,6 +272,21 @@ export function resolveGuestAttireWithGroups(input: {
     }),
     source: won?.source ?? null,
   };
+}
+
+/**
+ * ⏰ ONE GUEST'S OWN ARRIVE-BY — THE ONE READING (owner 2026-10-19, cale-ice: Me said "Arrive by 8:00 AM", the groom's
+ * mother's call time, while her ticket just below said "ARRIVE 2:30 PM", the doors' time for everybody).
+ *
+ * Their role's call time, from the SAME tier Me › Arrive by reads (`resolveAttireFor`, formatted by `formatCallTime`
+ * exactly as `resolveGuestDressCode` does), else `general` — the run of show's first block, which the caller formats
+ * with the programme's own formatter. The ticket (`passCardPass`), the checklist (`guestChecklistItems`) and the
+ * reminder email all go through here, so no surface tells one person two times.
+ */
+export function guestArriveBy(input: { role: GuestRole | null | undefined; config: unknown; general: string | null }): string | null {
+  const config = input.config && typeof input.config === 'object' && !Array.isArray(input.config) ? (input.config as Record<string, unknown>) : null;
+  const won = resolveAttireFor(input.role, sanitizeRoleAttire(config?.roles, isDressableRole), sanitizeGroupAttire(config?.groups), config);
+  return formatCallTime(won?.rule.callTime) ?? input.general;
 }
 
 /** The group a reader's answer came from, in words — for the provenance line. */

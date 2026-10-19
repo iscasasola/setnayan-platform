@@ -13,6 +13,7 @@ import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
 import type { ArtKitView } from '@/lib/art-kits';
 import { KitSlot } from './kit-piece';
+import type { GuestNameParts } from '@/lib/attire-rows';
 
 /**
  * 🏠 THE INVITATION'S WELCOME PAGE — the guest's own (owner 2026-09-30:
@@ -55,8 +56,8 @@ export type WelcomeLook = {
   guestRole: GuestRole | null;
   /** 👗 `guests.attire` — which of a two-pick role's picks is theirs (`DressCodeWidget` `guestAttire`). */
   guestAttire?: GuestAttire | null;
-  /** 👪 Title · shown name — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
-  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
+  /** 👪 Title · shown name · the "Atty. (Woman)" pick (`guestNamePartsOf`) — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+  guestNameParts?: GuestNameParts | null;
   march: MarchPlace | null;
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */

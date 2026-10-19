@@ -22,8 +22,8 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingWhen } from '../_lib/day-words';
-import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
-import { guestAttireOf } from '@/lib/attire-rows';
+import { plusOneSeats } from '@/lib/guests';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
@@ -246,7 +246,7 @@ import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
-import type { EntourageGroup } from '@/lib/entourage';
+import { roleWordOfGuest, type EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
@@ -2795,6 +2795,7 @@ export async function SiteBody({
               rolePalette: event.role_palette,
               roleNames,
               comingWith,
+              person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
             }),
           })
         : [];
@@ -2840,7 +2841,7 @@ export async function SiteBody({
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
       guestAttire: guestAttireOf(guest),
-      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
+      guestNameParts: guestNamePartsOf(guest),
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
@@ -2977,7 +2978,7 @@ export async function SiteBody({
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
+          <span className="font-medium text-ink">{roleWordOfGuest(guest, roleNames)}</span>
           {sideLabel ? (
             <>
               {' '}·{' '}
@@ -3384,6 +3385,7 @@ export async function SiteBody({
             <GuestChecklist
               items={guestChecklistItems({
                 role: guest.role,
+                person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
                 arriveBy: firstScheduleTimeLabel,
@@ -3943,7 +3945,7 @@ export async function SiteBody({
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     guestAttire: guestAttireOf(guest),
-      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
+      guestNameParts: guestNamePartsOf(guest),
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}

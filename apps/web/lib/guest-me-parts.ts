@@ -37,7 +37,7 @@
  *
  * Pure. No I/O, no React.
  */
-import { isDressableRole, readerAttire } from '@/lib/attire-rows';
+import { guestAttireOf, isDressableRole, readerAttire, type ReaderPerson } from '@/lib/attire-rows';
 import { replyWindowWords, type ReplyWindow } from './reply-window';
 import type { GuestsGetIn } from './who-can-reply';
 import type { GuestRole } from './guests';
@@ -82,6 +82,8 @@ export function guestMeFacts(input: {
   rolePalette: unknown;
   roleNames?: RoleNames | null;
   comingWith?: ReadonlyArray<string | null | undefined>;
+  /** 👤 The reader's own row (`guestNamePartsOf` + attire) — the role word and their own Wear, as the parts draw them. */
+  person?: (NonNullable<ReaderPerson> & { attire?: unknown }) | null;
 }): GuestMeFacts {
   const role = input.role ?? null;
   const config = (input.dressCodeConfig && typeof input.dressCodeConfig === 'object' ? input.dressCodeConfig : {}) as {
@@ -91,13 +93,23 @@ export function guestMeFacts(input: {
   const roles = sanitizeRoleAttire(config.roles, isDressableRole);
   const groups = sanitizeGroupAttire(config.groups);
   const board = resolveDisplayPalette(sanitizeRolePalette(input.rolePalette));
-  const { panel, source } = resolveGuestAttireWithGroups({ role, roles, groups, palette: board, names: input.roleNames ?? null, config });
+  const person = input.person ?? null;
+  const { panel, source } = resolveGuestAttireWithGroups({
+    role,
+    roles,
+    groups,
+    palette: board,
+    names: input.roleNames ?? null,
+    config,
+    person: person ? { name_prefix: person.name_prefix ?? null, display_name: person.display_name ?? null, gender: person.gender ?? null, attire: guestAttireOf(person) } : null,
+  });
   /* 👯 The reader's OWN pick (`readerAttire`, the same reader the Dress code's "You are …" and the checklist use) — a man
      of honor or a best woman is not told they have a Wear because the other column of their honour row has one. */
   const own = panel
     ? readerAttire({
         role,
-        attire: null,
+        attire: guestAttireOf(person),
+        person,
         source,
         config: config as Record<string, unknown>,
         style: panel.style,

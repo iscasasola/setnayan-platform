@@ -14,7 +14,7 @@ import {
 } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type ReadPick as ReaderPick } from '@/lib/attire-rows';
+import { PICK_LABEL, isDressableRole, readerAttire, studioRowOf, type GuestNameParts, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
@@ -170,8 +170,10 @@ export function DressCodeWidget({
    * their own). Unknown → the reader is shown both picks.
    */
   guestAttire?: GuestAttire | null;
-  /** 👪 The reader's typed title / shown name — with `guestAttire`, what names a parent per person ("You are Father of the Bride", `kinWordOfReader`). */
-  guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
+  /** 👪 The reader's typed title / shown name and their "Atty. (Woman)" pick (`guests.gender`) — with `guestAttire`, what
+   *  names a parent per person ("Mother of the Groom", `kinWordOfReader`) and which column of a two-pick row is theirs
+   *  (`readerAttire`): gender → title → attire, `womanOrManOf`. */
+  guestNameParts?: GuestNameParts | null;
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
@@ -279,6 +281,7 @@ export function DressCodeWidget({
     readerAttire({
       role: guestRole,
       attire: guestAttire,
+      person: guestNameParts ?? null,
       source,
       config: config as Record<string, unknown> | null,
       style: panel.style,
@@ -297,7 +300,7 @@ export function DressCodeWidget({
     groups,
     palette: board,
     names: roleNames,
-    person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
+    person: guestRole ? { ...guestNameParts, gender: guestNameParts?.gender ?? null, attire: guestAttire } : null,
     config,
   }))), generalHasContent);
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;

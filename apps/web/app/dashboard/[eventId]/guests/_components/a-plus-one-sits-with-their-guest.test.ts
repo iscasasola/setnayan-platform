@@ -14,11 +14,24 @@
  *   4. every write that sets a guest's side carries it to their +1s (`carrySideToTheirPlusOnes`), so the drift
  *      measured in production (4 of 19 live +1s on "both" under a "bride" guest) stops at the source.
  *
+ * 🪑 LIVE FOLLOW-UP (2026-10-20, cale-ice, read-only): Juanita's and Maxima's "+1 · TBA" rows were not missing from the
+ * DRAWING — they were soft-deleted on 2026-10-14 (Remove, when they still sat as bare rows under GUESTS), and Remove left
+ * their guests' "+1" standing. So the List drew a +1 pill over a seat with no row, and the card on a +1 still read
+ * "+1 · TBA" under "GUEST · BRIDE'S SIDE". Held below (tests 7–9):
+ *   7. a "+N" with fewer seat rows than N says "+N not added yet" on the guest's row;
+ *   8. removing a +1 without their guest lowers the guest's number by it, and Undo gives it back (`seatNumbersAfter`,
+ *      called by the remove and by its Undo);
+ *   9. the card's title and eyebrow name the guest who brings them — "Rosa Santos’s +1 · TBA", "+1 of Rosa Santos ·
+ *      Bride’s side" — on the panel over the List (page.tsx) and on the card's own page.
+ *
  * SABOTAGE (2026-10-20, each seen red, then restored):
  *   · `roleBucket(at(g))` → `roleBucket(g)` in `rosterSections`  → tests 1–4 red (the +1s fall to "Guests");
  *   · `guests: beside(list)` → `guests: list`                    → tests 1, 3 red (a +1 not after its guest);
  *   · `plusWords?.name ??` dropped from `GuestRowLine`            → test 4 red ("+1 · TBA" again);
- *   · the `carrySideToTheirPlusOnes` call dropped from `setGuestSide` → test 6 red.
+ *   · the `carrySideToTheirPlusOnes` call dropped from `setGuestSide` → test 6 red;
+ *   · `notAdded` forced to 0 in `GuestRowLine`                     → test 7 red;
+ *   · `seatNumbersFollowTheRows` dropped from the remove           → test 8 red;
+ *   · `plusOneOf` dropped from page.tsx's InspectorColumn title     → test 9 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,6 +52,8 @@ import {
   type RosterFacts,
 } from '@/lib/guest-roster-view';
 import { carrySideToTheirPlusOnes } from '@/lib/extra-seats-sync';
+import { seatNumbersAfter } from '@/lib/extra-seats';
+import { plusOneOfWords } from '@/lib/plus-one-of';
 import { guestRow as baseRow, renderGuestsScreen } from './render-guests-screen';
 
 const guestRow = (over: Partial<GuestRow>) => baseRow({ custom_tags: [], group_category: 'friends', ...over } as Partial<GuestRow>);
@@ -205,4 +220,59 @@ test('every write that sets a guest’s side carries it to their +1s', async () 
   const body = sync.slice(sync.indexOf('export async function syncExtraSeats'));
   assert.match(body, /carrySideToTheirPlusOnes\(supabase, eventId, \[primary\.guest_id\], primary\.side\)/);
   assert.match(body, /side: primary\.side/);
+});
+
+test('7 · a "+N" with fewer seat rows than N says so on the guest’s row', async () => {
+  // Live: two of the groom's immediate family, "+1", their seat rows removed.
+  const sison = guestRow({ guest_id: 'sison', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', plus_one_count: 1 });
+  const html = await renderGuestsScreen({ guests: [bride, groom, sison, juanita, juanitaSeat, juanitaNamed], initialQuery: 'Sison' });
+  const row = /data-guest-id="sison"[\s\S]*?(?=data-guest-row=""|<\/section>)/.exec(html)?.[0] ?? '';
+  assert.match(row, /data-seat-not-added="">[^<]*\+1 not added yet/, 'the missing seat is said, not hidden');
+  const full = await renderGuestsScreen({ guests: [bride, groom, juanita, juanitaSeat, juanitaNamed], initialQuery: 'Sacdalan' });
+  assert.doesNotMatch(full, /data-seat-not-added/, 'a guest whose seats are all rows says nothing');
+});
+
+test('8 · removing a +1 without their guest lowers the guest’s number; Undo gives it back', () => {
+  const bringers = [
+    { guest_id: 'juanita', plus_one_count: 2, plus_one_allowed: true },
+    { guest_id: 'lauren', plus_one_count: 1, plus_one_allowed: true },
+  ];
+  assert.deepEqual(seatNumbersAfter([{ guest_id: 'juanita-tba', plus_one_of_guest_id: 'juanita' }], bringers, 'removed'), [
+    { guest_id: 'juanita', plus_one_count: 1, plus_one_allowed: true },
+  ]);
+  assert.deepEqual(seatNumbersAfter([{ guest_id: 'lauren-tba', plus_one_of_guest_id: 'lauren' }], bringers, 'removed'), [
+    { guest_id: 'lauren', plus_one_count: 0, plus_one_allowed: false },
+  ]);
+  // The guest removed WITH their +1: the party goes as it was, the number untouched.
+  assert.deepEqual(seatNumbersAfter([{ guest_id: 'lauren', plus_one_of_guest_id: null }, { guest_id: 'lauren-tba', plus_one_of_guest_id: 'lauren' }], bringers, 'removed'), []);
+  assert.deepEqual(seatNumbersAfter([{ guest_id: 'lauren-tba', plus_one_of_guest_id: 'lauren' }], [{ guest_id: 'lauren', plus_one_count: 0, plus_one_allowed: false }], 'restored'), [
+    { guest_id: 'lauren', plus_one_count: 1, plus_one_allowed: true },
+  ]);
+  // Both the remove and its Undo apply it.
+  const src = stripComments(readFileSync(join(HERE, '..', 'groups-actions.ts'), 'utf8'));
+  const fn = (name: string) => src.slice(src.indexOf(`export async function ${name}`), src.indexOf('\nexport ', src.indexOf(`export async function ${name}`) + 10));
+  assert.match(fn('bulkSoftDeleteGuestsForUndo'), /seatNumbersFollowTheRows\(supabase, eventId, deletedIds, 'removed'\)/);
+  assert.match(fn('restoreDeletedGuests'), /seatNumbersFollowTheRows\(supabase, eventId, \[\.\.\.restoredIds\], 'restored'\)/);
+});
+
+test('9 · the card on a +1 names the guest who brings them, in its title and its eyebrow', async () => {
+  const { guestCardEyebrow, guestCardTitle } = await import('./guest-card-body');
+  const host = { guest_id: 'rosa', first_name: 'Rosa', last_name: 'Santos', display_name: null, side: 'bride' as const };
+  const tba = plusOneOfWords({ guest_id: 's1', first_name: 'TBA' }, host, 0);
+  const seatRow = guestRow({ guest_id: 's1', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'groom', plus_one_of_guest_id: 'rosa' } as Partial<GuestRow>);
+  assert.equal(guestCardTitle(seatRow, tba), 'Rosa Santos’s +1 · TBA');
+  assert.equal(guestCardEyebrow(seatRow, { hasSides: true, roleNames: {}, plusOneOf: tba }), "+1 of Rosa Santos · Bride's side");
+  const named = plusOneOfWords({ guest_id: 's2', first_name: 'Paulo' }, host, 1);
+  assert.equal(guestCardTitle(guestRow({ first_name: 'Paulo', last_name: 'Reyes' }), named), 'Paulo Reyes');
+  assert.equal(guestCardEyebrow(seatRow, { hasSides: true, roleNames: {} }), "Guest · Groom's side", 'everyone else is unchanged');
+  // Every place the card is titled reads it: the panel over the List, the card's own page, and the card data loads it.
+  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  assert.match(page, /eyebrow=\{guestCardEyebrow\(inspectedCard\.guest, \{[^}]*plusOneOf: inspectedCard\.plusOneOf \}\)\}/);
+  assert.match(page, /title=\{guestCardTitle\(inspectedGuest, inspectedCard\.plusOneOf\)\}/);
+  const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
+  assert.match(body, /guestCardEyebrow\(guest, \{ hasSides, roleNames, plusOneOf: data\.plusOneOf \}\)/);
+  assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}<\/h1>/);
+  const data = stripComments(readFileSync(join(HERE, 'guest-card-data.ts'), 'utf8'));
+  assert.match(data, /return plusOneOfWords\(guest, host as never, Math\.max\(0, seatIndex\)\)/);
+  assert.match(data, /\n\s+plusOneOf,\n/);
 });

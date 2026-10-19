@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "09b37eb71d",
+  "generatedFromRef": "bac4c1a778",
   "routeCount": 450,
   "destinations": 995,
   "actions": 664,
-  "blocks": 6619,
+  "blocks": 6623,
   "routes": {
     "/": {
       "files": [
@@ -1323,6 +1323,7 @@
         "LiveWallChallenge",
         "LiveWallHeader",
         "LockedAnswer",
+        "LockupInk",
         "Logo",
         "LoveStoryCards",
         "LoveStoryConversation",
@@ -11508,6 +11509,7 @@
         "Mode",
         "MonoLockup",
         "OAuthButtonRow",
+        "OAuthTermsLine",
         "OnboardingCommitResult",
         "OnboardingMusic",
         "OnboardingShell",
@@ -12136,6 +12138,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "OAuthTermsLine",
         "Sk",
         "SubmitButton",
         "TurnstileField"
@@ -13543,13 +13546,14 @@
       "blocks": [
         "ColorRangeManipulator",
         "GridPageSkeleton",
+        "HTMLInputElement",
         "Image",
         "Link",
         "PalettePreview",
         "PhotoPartGroup",
+        "PickMenu",
         "RejectionNotice",
         "ShopNotice",
-        "SlotOptions",
         "StylistLibraryActions",
         "StylistLibraryEditor",
         "Uint8Array"

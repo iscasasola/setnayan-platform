@@ -43,9 +43,10 @@ test('the page foot and Me stand clear of the notice by its published height', (
 test('the Save the Date film’s quiet “See our page” stands above the notice', () => {
   const at = FILM.indexOf('See our page');
   assert.ok(at > -1, 'the film lost its quiet "See our page"');
-  // The wrapper that holds the quiet button: `absolute bottom-5 left-4`, immediately before its <button>.
-  const wrap = /<div className="absolute bottom-5 left-4 z-20"([\s\S]*?)>\s*<button/.exec(FILM);
-  assert.ok(wrap, 'the quiet "See our page" no longer sits in its corner wrapper');
+  // The wrapper that holds the quiet button — on the bottom row's centre line since 2026-10-19 (C7; it was the
+  // `left-4` corner) — immediately before its <button>.
+  const wrap = /<div\s+data-film-way-out=""\s+className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center"([\s\S]*?)>\s*<button/.exec(FILM);
+  assert.ok(wrap, 'the quiet "See our page" no longer sits in its centred bottom-row wrapper');
   assert.match(wrap[1] ?? '', /style=\{\{\s*bottom:\s*'calc\(1\.25rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}/, 'the quiet "See our page" is under the first-visit notice again');
 });
 

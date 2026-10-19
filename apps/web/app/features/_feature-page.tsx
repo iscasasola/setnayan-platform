@@ -44,6 +44,17 @@ const PRIMARY_CTA =
   'inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full ' +
   'bg-[var(--m-mulberry)] px-6 py-3 text-sm font-semibold text-[var(--m-paper)] ' +
   'transition-opacity hover:opacity-90';
+/*
+  A TEXT LINK WITH A 44 PX PRESS AREA AND THE SAME LOOK (sweep row C2,
+  2026-10-19). The breadcrumb "Features" and the foot row's "All prices" /
+  "Features" measured 20 px tall at 375 — a thumb misses them. `min-h-[44px]`
+  grows the press area; `-my-3` hands the 24 px back so the row it sits in
+  does not grow and nothing on the page moves. The same pair the locale switch
+  beside the breadcrumb already uses (`LOCALE_SWITCH_CLASS`).
+  `features-wear-one-bar.test.ts` measures every <Link> in this file.
+*/
+const PRESS_44 = 'inline-flex min-h-[44px] -my-3 items-center';
+
 const SECONDARY_CTA =
   'inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full ' +
   'border border-[var(--m-ink)]/20 px-6 py-3 text-sm font-semibold text-[var(--m-ink)] ' +
@@ -109,7 +120,7 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
         <nav aria-label="Breadcrumb" className="flex items-center justify-between gap-3 text-sm">
           <ol className="flex min-w-0 items-center gap-1.5">
             <li>
-              <Link href={hubHref} className={`${MUTED} underline-offset-4 hover:underline`}>
+              <Link href={hubHref} className={`${PRESS_44} ${MUTED} underline-offset-4 hover:underline`}>
                 {w.features}
               </Link>
             </li>
@@ -164,13 +175,21 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
                   <Image src={s.src} alt={s.alt[locale]} fill sizes="260px" className="object-cover" loading="lazy" />
                 </div>
               ) : (
-                <div key={s.src} className="aspect-[460/972] w-[150px] flex-none overflow-hidden rounded-2xl">
+                // Desktop size (sweep row C4, 2026-10-19): at 1280 a 150 px
+                // phone sat alone in a 768 px column and read as a thumbnail.
+                // The frame keeps the phone's own 460:972 ratio at every width
+                // — only its width steps up — so it is never stretched; 240 px
+                // fits three across the column with the gaps.
+                <div
+                  key={s.src}
+                  className="aspect-[460/972] w-[150px] flex-none overflow-hidden rounded-2xl sm:w-[200px] lg:w-[240px]"
+                >
                   <Image
                     src={s.src}
                     alt={s.alt[locale]}
                     width={460}
                     height={972}
-                    sizes="150px"
+                    sizes="(min-width: 1024px) 240px, (min-width: 640px) 200px, 150px"
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
@@ -233,7 +252,7 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
           </ul>
           {LINKS_SUPPLIER_REGIONS.has(f.slug) ? (
             <p className="mt-4 text-sm">
-              <Link href="/suppliers" className="font-semibold text-[var(--m-ink)] underline underline-offset-4">
+              <Link href="/suppliers" className={`${PRESS_44} font-semibold text-[var(--m-ink)] underline underline-offset-4`}>
                 {w.findSuppliers}
               </Link>
             </p>
@@ -258,7 +277,14 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
             <ul className="mt-5 space-y-3">
               {guides.map((g) => (
                 <li key={g.slug}>
-                  <Link href={`/blog/${g.slug}`} className="font-semibold text-[var(--m-ink)] underline underline-offset-4">
+                  {/* `py-3 -my-3`, not PRESS_44: a guide title can wrap to two
+                      lines, and a fixed min-height with a negative margin would
+                      let the second line overlap the next row. Padding grows
+                      with the text; the margin hands back exactly the padding. */}
+                  <Link
+                    href={`/blog/${g.slug}`}
+                    className="-my-3 inline-block py-3 font-semibold text-[var(--m-ink)] underline underline-offset-4"
+                  >
                     {g.title}
                   </Link>
                 </li>
@@ -274,11 +300,11 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
             </Link>
             <Link
               href={isSupplier ? '/for-suppliers' : '/pricing'}
-              className={`text-sm font-semibold underline underline-offset-4 ${MUTED}`}
+              className={`${PRESS_44} text-sm font-semibold underline underline-offset-4 ${MUTED}`}
             >
               {w.pricing}
             </Link>
-            <Link href={hubHref} className={`text-sm font-semibold underline underline-offset-4 ${MUTED}`}>
+            <Link href={hubHref} className={`${PRESS_44} text-sm font-semibold underline underline-offset-4 ${MUTED}`}>
               {w.features}
             </Link>
           </div>

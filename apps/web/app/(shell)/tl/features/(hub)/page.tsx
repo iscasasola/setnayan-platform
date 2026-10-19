@@ -7,7 +7,8 @@ import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
 // two pages can never structurally drift — only the prose differs.
 // Reciprocal hreflang lives in both pages' `alternates` via localeAlternates.
 
-export const revalidate = 3600;
+// Moved into app/(shell)/ with its English twin (2026-10-19, sweep C5) — the
+// group layout owns caching, so no `revalidate` here.
 
 export const metadata = {
   title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',

@@ -40,6 +40,8 @@
  * Pure. No I/O.
  */
 
+import { deviceOs } from './apple-device';
+
 /** The second path segment, under `/{slug}/…`, of a route that writes or clears the pass. */
 const SLUG_PASS_ROUTES: ReadonlySet<string> = new Set(['redeem', 'sign-out']);
 
@@ -238,7 +240,13 @@ export function uaFamily(userAgent: string | null | undefined): string {
   const ua = userAgent ?? '';
   if (!ua) return 'none';
   if (isLinkPreviewFetch(ua)) return 'link-preview';
-  const os = /iPhone|iPad|iPod/i.test(ua) ? 'ios' : /Android/i.test(ua) ? 'android' : /Macintosh|Windows|Linux|CrOS/i.test(ua) ? 'desktop' : 'other';
+  // One reading of the device (lib/apple-device.ts): the iPad app's Macintosh UA is 'ios', not 'desktop'.
+  const device = deviceOs(ua);
+  const os =
+    device === 'iphone' || device === 'ipad' ? 'ios'
+    : device === 'android' ? 'android'
+    : device === 'mac' || device === 'windows' || device === 'desktop' ? 'desktop'
+    : 'other';
   const app =
     /SetnayanApp/.test(ua) ? 'setnayan-app'
     : /Messenger|FBAN\/Messenger|MessengerForiOS|\bOrca-Android/i.test(ua) ? 'messenger'

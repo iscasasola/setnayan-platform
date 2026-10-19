@@ -41,6 +41,7 @@ import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { deviceOs } from '@/lib/apple-device';
 
 export type OverlayId =
   | 'prices'
@@ -625,12 +626,21 @@ export function HomeOverlays({
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
   const [match, setMatch] = useState<'mac' | 'win' | null>(null);
+  /* 🍎 One reading of the device (`deviceOs`, lib/apple-device.ts — iPad + Duo
+     audit W8, 2026-10-19). `/mac/i` called iPad Safari (Macintosh UA) AND every
+     iPhone ("like Mac OS X") "macOS" and lit up the .dmg. A phone or tablet is
+     named, and no desktop download is highlighted for it. */
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    const mac = /mac/i.test(ua);
-    const win = /win/i.test(ua);
-    setDetected(mac ? 'macOS' : win ? 'Windows' : 'your computer');
-    setMatch(mac ? 'mac' : win ? 'win' : null);
+    const os = deviceOs(navigator.userAgent || '', navigator.maxTouchPoints);
+    setDetected(
+      os === 'mac' ? 'macOS'
+      : os === 'windows' ? 'Windows'
+      : os === 'iphone' ? 'iPhone'
+      : os === 'ipad' ? 'iPad'
+      : os === 'android' ? 'Android'
+      : 'your computer',
+    );
+    setMatch(os === 'mac' ? 'mac' : os === 'windows' ? 'win' : null);
   }, [current]);
 
   /*

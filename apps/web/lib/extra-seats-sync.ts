@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { PLACEHOLDER_FIRST_NAME, planExtraSeats, seatPlaceholderLabel, type ExtraSeatRow } from '@/lib/extra-seats';
+import { PLACEHOLDER_FIRST_NAME, planExtraSeats, seatNumbersAfter, seatPlaceholderLabel, type ExtraSeatRow } from '@/lib/extra-seats';
 
 /**
  * Make a guest's seat rows match their `plus_one_count`, then seat them beside
@@ -83,6 +83,44 @@ export async function carrySideToTheirPlusOnes(
     .neq('side', side)
     .is('deleted_at', null);
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
+ * After a Remove (or its Undo): the guests who brought the +1s that went (or came back) get their number moved to
+ * match (`seatNumbersAfter`, lib/extra-seats.ts). Runs under the caller's client — the same RLS as the remove.
+ */
+export async function seatNumbersFollowTheRows(
+  supabase: SupabaseClient,
+  eventId: string,
+  guestIds: readonly string[],
+  dir: 'removed' | 'restored',
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (guestIds.length === 0) return { ok: true };
+  const { data: changed, error: cErr } = await supabase
+    .from('guests')
+    .select('guest_id, plus_one_of_guest_id')
+    .eq('event_id', eventId)
+    .in('guest_id', [...guestIds]);
+  if (cErr) return { ok: false, error: cErr.message };
+  const rows = (changed ?? []) as { guest_id: string; plus_one_of_guest_id: string | null }[];
+  const hostIds = [...new Set(rows.map((r) => r.plus_one_of_guest_id).filter((h): h is string => Boolean(h)))];
+  if (hostIds.length === 0) return { ok: true };
+  const { data: bringers, error: bErr } = await supabase
+    .from('guests')
+    .select('guest_id, plus_one_count, plus_one_allowed')
+    .eq('event_id', eventId)
+    .in('guest_id', hostIds)
+    .is('deleted_at', null);
+  if (bErr) return { ok: false, error: bErr.message };
+  for (const u of seatNumbersAfter(rows, (bringers ?? []) as never, dir)) {
+    const { error } = await supabase
+      .from('guests')
+      .update({ plus_one_count: u.plus_one_count, plus_one_allowed: u.plus_one_allowed, updated_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .eq('guest_id', u.guest_id);
+    if (error) return { ok: false, error: error.message };
+  }
+  return { ok: true };
 }
 
 /** The sentence every finalized-list refusal uses — the RSVP lock's own words. */

@@ -69,7 +69,7 @@ import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
+import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
@@ -800,11 +800,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
   const inspectorBody = inspectedGuest && inspectedCard ? (
     <InspectorColumn
-      eyebrow={guestCardEyebrow(inspectedCard.guest, { hasSides: inspectedCard.hasSides, roleNames: inspectedCard.roleNames })}
-      title={guestDisplayName(inspectedGuest)}
+      eyebrow={guestCardEyebrow(inspectedCard.guest, { hasSides: inspectedCard.hasSides, roleNames: inspectedCard.roleNames, plusOneOf: inspectedCard.plusOneOf })}
+      title={guestCardTitle(inspectedGuest, inspectedCard.plusOneOf)}
       badge={guestCardReply(inspectedCard.guest)}
       swapKey={inspectedGuest.guest_id}
-      ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
+      ariaLabel={`${guestCardTitle(inspectedGuest, inspectedCard.plusOneOf)} details`}
     >
       <GuestCardBody
         eventId={eventId}

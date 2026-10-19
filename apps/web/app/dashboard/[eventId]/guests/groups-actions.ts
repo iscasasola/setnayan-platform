@@ -5,7 +5,7 @@ import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
-import { carrySideToTheirPlusOnes } from '@/lib/extra-seats-sync';
+import { carrySideToTheirPlusOnes, seatNumbersFollowTheRows } from '@/lib/extra-seats-sync';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -598,6 +598,13 @@ export async function bulkSoftDeleteGuestsForUndo(
   if (updateErr) return { ok: false, error: updateErr.message };
   const deletedIds = (deletedRows ?? []).map((r) => r.guest_id as string);
 
+  // 🪑 A +1 removed without their guest takes the seat with them: the guest's "+N" drops by it
+  // (lib/extra-seats.ts `seatNumbersAfter`) — never a "+1" over a seat that is gone. Logged, not fatal: the rows are gone.
+  const seatNumbers = await seatNumbersFollowTheRows(supabase, eventId, deletedIds, 'removed');
+  if (!seatNumbers.ok) {
+    logQueryError('bulkSoftDeleteGuestsForUndo (seatNumbersFollowTheRows)', { message: seatNumbers.error }, { event_id: eventId }, 'graceful_degrade');
+  }
+
   // ⚖ THEIR SONG REQUEST GOES WITH THEM — the warning the host confirmed says
   // so (`deleteWarningText`), so it must be true (owner 2026-10-03, DECISION_LOG
   // "A HOST CAN DELETE A GUEST WHO ALREADY ACCEPTED"). A soft delete leaves the
@@ -662,6 +669,12 @@ export async function restoreDeletedGuests(
     | null
     | undefined;
   const restoredIds = new Set((restored?.restored_guest_ids ?? []).map(String));
+
+  // 🪑 …and the Undo gives the seat back to their guest's "+N".
+  const seatNumbers = await seatNumbersFollowTheRows(supabase, eventId, [...restoredIds], 'restored');
+  if (!seatNumbers.ok) {
+    logQueryError('restoreDeletedGuests (seatNumbersFollowTheRows)', { message: seatNumbers.error }, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // A song somebody else asked for during the Undo window keeps their request
   // (one per song per event) — said where the host pressed Undo.

@@ -1301,6 +1301,13 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'Bearer credential material issued to the subject. A credential must not outlive the account (same rule as the photo-delivery OAuth token).',
   },
   {
+    table: 'apple_sign_in_tokens',
+    column: 'user_id',
+    why:
+      'The subject’s sealed Sign in with Apple refresh token, held only so erasure can revoke the grant at Apple (App Store 5.1.1(v)). ' +
+      'Read by the revoke step (purge.ts step 2b) BEFORE this loop deletes it; a credential must not outlive the account, revoked or not.',
+  },
+  {
     table: 'chat_thread_reads',
     column: 'user_id',
     why: 'The subject’s own read cursors. Pseudonymous, no counterparty value — the thread itself is untouched.',

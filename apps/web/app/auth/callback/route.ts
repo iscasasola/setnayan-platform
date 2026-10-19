@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
+import { appleWasJustUsed } from '@/lib/apple-sign-in';
+import { holdAppleRefreshToken } from '@/lib/apple-sign-in-store';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 import { RSVP_TERMS_COOKIE, TERMS_VERSION, rsvpTermsCarried } from '@/lib/terms-agreement';
@@ -97,6 +99,18 @@ export async function GET(request: NextRequest) {
     }
     // Magic-link / OAuth login completed — stamp last_login_at.
     await stampLastLogin(supabase);
+
+    // 🍎 HOLD APPLE'S REFRESH TOKEN (App Store 5.1.1(v)). Supabase hands it
+    // over ONCE, here, and keeps no copy we can read later — without it, the
+    // account's Sign in with Apple grant can never be revoked when the account
+    // is erased (lib/erasure/purge.ts step 2b). Only when THIS sign-in was the
+    // Apple one: a person with Google and Apple both linked gets Google's token
+    // here on a Google sign-in. Best-effort — never blocks the landing.
+    const providerRefreshToken =
+      code && data && 'session' in data ? data.session?.provider_refresh_token : null;
+    if (data.user?.id && providerRefreshToken && appleWasJustUsed(data.user)) {
+      await holdAppleRefreshToken(data.user.id, 'web', providerRefreshToken);
+    }
 
     const userId = data.user?.id;
     let accountType: string | null = null;

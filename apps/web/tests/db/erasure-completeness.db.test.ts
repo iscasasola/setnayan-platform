@@ -252,6 +252,7 @@ const io: ErasureIo = {
     sessionRevokedFor.push(userId);
     return { ok: true, sessionsRevoked: 1 };
   },
+  revokeAppleSignIn: async () => ({ status: 'not_apple_linked' }),
   now: () => new Date('2026-07-26T12:00:00.000Z'),
 };
 

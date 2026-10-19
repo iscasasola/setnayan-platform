@@ -16,13 +16,14 @@ import { useState } from 'react';
 
 const PICK = 'w-full justify-between border border-ink/15 !bg-white/80 font-medium';
 
-export function NewGuestGroupField({ eventId, standard, groups }: { eventId: string; standard: readonly PickOption[]; groups: readonly OwnGroup[] | null }) {
+/** `hasSides`: "Your groups" follows the form's Side select (owner 2026-10-20, "THE GROUP LIST FOLLOWS THE GUEST'S SIDE"). */
+export function NewGuestGroupField({ eventId, standard, groups, hasSides = false }: { eventId: string; standard: readonly PickOption[]; groups: readonly OwnGroup[] | null; hasSides?: boolean }) {
   const [list, setList] = useState<OwnGroup[] | null>(groups ? [...groups] : null);
   const { picked, pick, inputs } = useSplitPick('group', ['group_category', list ? 'group_ids' : null], '', standard.map((o) => o.key), (list ?? []).map((g) => g.groupId));
   return (
     <div className="space-y-1.5" data-new-guest-field="group">
       <span className="block text-sm font-medium text-ink">Group *</span>
-      <GuestGroupPicker eventId={eventId} label="Group" picked={picked} onPick={pick} standard={standard} groups={list} onGroupsChange={setList} className={PICK} emptyText="Choose…" />
+      <GuestGroupPicker eventId={eventId} label="Group" picked={picked} onPick={pick} standard={standard} groups={list} onGroupsChange={setList} side={hasSides ? null : undefined} sideField={hasSides ? 'side' : undefined} className={PICK} emptyText="Choose…" />
       {inputs}
     </div>
   );

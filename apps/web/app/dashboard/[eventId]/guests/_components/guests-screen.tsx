@@ -148,8 +148,8 @@ export type GuestsScreenProps = {
   hasSides: boolean;
   /** guest_id → their custom groups' labels, alphabetical. */
   groupsByGuest: Record<string, string[]>;
-  /** The event's custom groups — Set… ▾ › Group. */
-  groups: { group_id: string; label: string }[];
+  /** The event's custom groups — Set… ▾ › Group; `team_side` lets the Add card's Group follow its Side (owner 2026-10-20). */
+  groups: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[];
   /** The seat plan's tables — Set… ▾ › Table. */
   tables: { tableId: string; label: string }[];
   /** guest_id → the table they are placed at. */
@@ -620,7 +620,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // What stopped the last Enter, for the line it was said about — typing a new line hides it (no render per key).
   // The Add card's four sticky picks (owner 2026-10-20) — read by every Enter, kept for the next names.
   const [picks, setPicks] = useAddPicks(hasSides);
-  const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string }[]>([]);
+  const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[]>([]);
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.

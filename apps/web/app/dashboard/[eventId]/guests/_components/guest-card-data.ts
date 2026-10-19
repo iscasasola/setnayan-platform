@@ -61,6 +61,8 @@ export async function fetchInvitationBase(
  */
 
 export type GroupChip = { label: string; teamSide: 'bride' | 'groom' | 'both' };
+/** `guest_groups.team_side` is NOT NULL, CHECK bride · groom · both (default both) — anything else reads as both. */
+const asTeamSide = (v: string | null | undefined): GroupChip['teamSide'] => (v === 'bride' || v === 'groom' ? v : 'both');
 
 export type GuestCardData = {
   guest: GuestRow;
@@ -135,7 +137,7 @@ export type GuestCardData = {
    * checkmark dropdown. Null when either read was refused: the card then shows
    * the groups read-only and posts nothing, so a refusal can never unTick them.
    */
-  groupChoices: { options: { groupId: string; label: string }[]; memberIds: string[] } | null;
+  groupChoices: { options: { groupId: string; label: string; teamSide: GroupChip['teamSide'] }[]; memberIds: string[] } | null;
 };
 
 export async function loadGuestCard(
@@ -208,7 +210,7 @@ export async function loadGuestCard(
       .eq('guest_id', guestId),
     // The Table and Groups dropdowns' choices — this event's tables and groups.
     supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
-    supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
+    supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId),
     // The couple's words for roles — its own read, graceful (usual words on a refusal).
     loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
   ]);
@@ -303,8 +305,8 @@ export async function loadGuestCard(
     eventGroupRowsError || groupRowsError
       ? null
       : {
-          options: ((eventGroupRows ?? []) as { group_id: string; label: string | null }[])
-            .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group' }))
+          options: ((eventGroupRows ?? []) as { group_id: string; label: string | null; team_side?: string | null }[])
+            .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: asTeamSide(g.team_side) }))
             .sort((a, b) => a.label.localeCompare(b.label)),
           memberIds: ((groupRows ?? []) as { group_id?: string }[])
             .map((r) => r.group_id)

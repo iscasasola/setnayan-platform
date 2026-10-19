@@ -9,6 +9,9 @@ import { groupHeadClass, pickArrowClass, pickButtonClass, pickOptionClass, pickT
 import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
 import { plainRefusal } from './plain-refusal';
+import type { GuestGroupTeamSide, GuestSide } from '@/lib/guests';
+import { listedOwnGroups, OFF_SIDE_WORD, teamSideForNewGroup } from '@/lib/groups-for-side';
+import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
 
 /**
  * guest-group-picker.tsx — 👥 THE ONE GROUP DROPDOWN (owner 2026-10-20: *"there are 2 groups."* · *"before we can always
@@ -30,12 +33,56 @@ import { plainRefusal } from './plain-refusal';
  * WHY NOT `PickMenu` ITSELF: a ✎ inside a row and a name box inside the list are not options — `pick-menu.tsx` sits at its
  * inline-size line (`pick-menu-stays-inline.test.ts`) and a second render path there would split it into its own chunk.
  * The list therefore opens IN FLOW under its row (the prototype's A2), which is also where a phone keyboard can reach the
- * name box. Writes: create = the shipped `quickCreateGroup`; rename / delete / the delete's count = `editGuestGroupInPlace` (`group-edit-actions.ts`)
+ * name box. Writes: create / rename / delete / the delete's count = `editGuestGroupInPlace` (`group-edit-actions.ts`)
  * (result-returning twins of the redirecting `updateGuestGroup` / `deleteGuestGroup`). All through `useGuestActions()` so
  * the dev lab's stand-ins answer there.
+ *
+ * 👥 THE LIST FOLLOWS THE GUEST'S SIDE (owner 2026-10-20, DECISION_LOG "THE GROUP LIST FOLLOWS THE GUEST'S SIDE"): "Your
+ * groups" draws `listedOwnGroups` — the guest's side's groups and both sides' (a guest on both sides sees all), plus any
+ * group they are already in, ticked, with a small "· groom's side" so nothing is silently dropped. The side is `side`, or
+ * — where the side is a field of the same form (the card's Side row, /guests/new's Side) — that field's live value
+ * (`sideField`), so changing Side re-filters at once. ＋ New group… makes the group on the guest's side
+ * (`teamSideForNewGroup`: both → both); rename changes the name only. No `side` (an event with no sides): every group.
+ * The standard groups are never filtered.
+ *
+ * 👥 ONE NAME, ONE GROUP (owner 2026-10-20: *"also not allow to have a group name similarly written on the group
+ * already."*): a new or renamed name that `groupNameClash` finds — a standard group, or an own group sharing a list with
+ * the group's side, compared without case, spaces or punctuation — is refused in place under the box ("You already have
+ * “Family”.") with "Use “Family”", one tap that ticks that group instead. The server runs the same rule.
  */
 
-export type OwnGroup = { groupId: string; label: string };
+export type OwnGroup = { groupId: string; label: string; teamSide: GuestGroupTeamSide };
+
+/**
+ * The live value of a field of the form `anchor` sits in — a pick raises `input`/`change` on its hidden input (`CardPick`),
+ * a native select raises `change`, the card's Undo raises `sn-restore` on the input itself. No field: `initial`.
+ */
+function useFormFieldSide(anchor: { current: HTMLElement | null }, field: string | undefined, initial: GuestSide | null | undefined) {
+  const [side, setSide] = useState(initial);
+  useEffect(() => setSide(initial), [initial]);
+  useEffect(() => {
+    if (!field) return;
+    const form = anchor.current?.closest('form');
+    const el = form?.elements.namedItem(field);
+    if (!form || !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement)) return;
+    const read = () => setSide(el.value === 'bride' || el.value === 'groom' || el.value === 'both' ? el.value : null);
+    read();
+    const onField = (e: Event) => {
+      if (e.target === el) read();
+    };
+    form.addEventListener('input', onField);
+    form.addEventListener('change', onField);
+    el.addEventListener('sn-restore', read);
+    return () => {
+      form.removeEventListener('input', onField);
+      form.removeEventListener('change', onField);
+      el.removeEventListener('sn-restore', read);
+    };
+    // `anchor` is a ref; the field is read once it is mounted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field]);
+  return side;
+}
 
 type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'rename'; id: string } | { kind: 'delete'; id: string };
 
@@ -55,6 +102,8 @@ export function GuestGroupPicker({
   className = '',
   layout,
   emptyText,
+  side,
+  sideField,
 }: {
   eventId: string;
   label?: string;
@@ -72,13 +121,23 @@ export function GuestGroupPicker({
   layout?: (button: ReactNode, list: ReactNode) => ReactNode;
   /** The pill's words while nothing is ticked (/guests/new: "Choose…"). Default: the label. */
   emptyText?: string;
+  /** The guest's side — "Your groups" follows it. Undefined = the event has no sides: every group. */
+  side?: GuestSide | null;
+  /** The side is this field of the picker's own form: follow its live value (`side` is the value before it is read). */
+  sideField?: string;
 }) {
-  const { quickCreateGroup, editGuestGroupInPlace } = useGuestActions();
+  const { editGuestGroupInPlace } = useGuestActions();
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [draft, setDraft] = useState('');
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErrWords] = useState<string | null>(null);
+  /** The group a typed name already is — said under the box with "Use “…”". */
+  const [clash, setClash] = useState<GroupNameClash | null>(null);
+  const setErr = (words: string | null, c: GroupNameClash | null = null) => {
+    setErrWords(words);
+    setClash(c);
+  };
   const [count, setCount] = useState<number | null | 'unknown'>(null);
   const [pending, startGroupTransition] = useTransition();
   const [own, setOwn] = useState<OwnGroup[] | null>(groups ? [...groups] : null);
@@ -87,6 +146,12 @@ export function GuestGroupPicker({
   const inputRef = useRef<HTMLInputElement>(null);
   /** Groups made HERE — kept until the server's list has them too. */
   const madeHere = useRef(new Set<string>());
+  const liveSide = useFormFieldSide(btnRef, sideField, side);
+  /* The groups ticked when the list opened stay drawn until it closes — unticking another side's group by mistake must
+     not take away the row that re-ticks it. */
+  const [stay, setStay] = useState<readonly string[]>([]);
+  /* 👥 What "Your groups" draws: the guest's side's and both sides' groups, plus any they are already in. */
+  const listed = own === null ? null : listedOwnGroups(own, liveSide, [...picked, ...stay]);
 
   /* A fresh list from the server (a save landed) replaces ours — keeping any group made here the server has not drawn yet. */
   const fromServer = JSON.stringify(groups);
@@ -151,19 +216,20 @@ export function GuestGroupPicker({
   const create = () => {
     const name = draft.trim();
     if (!name) return;
-    const taken = [...standard.map((o) => o.label), ...(own ?? []).map((g) => g.label)].find((l) => l.toLowerCase() === name.toLowerCase());
-    if (taken) {
-      setErr(`“${taken}” already exists — pick it from the list.`);
-      return;
-    }
+    /* The guest's side's group (both → both). */
+    const teamSide = teamSideForNewGroup(liveSide);
+    /* One name, one group: a standard group, or an own group in the same list (the other side's namesake is another family's). */
+    const c = groupNameClash(name, teamSide, standard, own ?? []);
+    if (c) return setErr(clashWords(c), c);
     setErr(null);
     startGroupTransition(async () => {
-      const res = await hearAction(() => quickCreateGroup(eventId, name));
-      if (!res.ok) {
-        setErr(plainRefusal(res.error, 'Couldn’t make that group. Try again.'));
+      const res = await hearAction(() => editGuestGroupInPlace(eventId, '', { op: 'create', label: name, side: teamSide }));
+      if (!res.ok || !('group' in res)) {
+        const told = !res.ok && 'clash' in res ? res.clash : undefined;
+        setErr(told ? clashWords(told) : plainRefusal(res.ok ? '' : res.error, 'Couldn’t make that group. Try again.'), told ?? null);
         return;
       }
-      const made = { groupId: res.group.group_id, label: res.group.label };
+      const made: OwnGroup = { groupId: res.group.group_id, label: res.group.label, teamSide };
       madeHere.current.add(made.groupId);
       if (!(own ?? []).some((g) => g.groupId === made.groupId)) tell([...(own ?? []), made]);
       if (!picked.includes(made.groupId)) onPick(made.groupId);
@@ -177,10 +243,14 @@ export function GuestGroupPicker({
     const was = own?.find((g) => g.groupId === id);
     if (!was) return;
     if (!name || name === was.label) return back();
+    /* Its own side's list — renaming never moves a group to another side. */
+    const c = groupNameClash(name, was.teamSide, standard, own ?? [], id);
+    if (c) return setErr(clashWords(c), c);
     startGroupTransition(async () => {
       const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'rename', label: name }));
       if (!res.ok || !('group' in res)) {
-        setErr(plainRefusal(res.ok ? '' : res.error, 'Couldn’t rename that group. Try again.'));
+        const told = !res.ok && 'clash' in res ? res.clash : undefined;
+        setErr(told ? clashWords(told) : plainRefusal(res.ok ? '' : res.error, 'Couldn’t rename that group. Try again.'), told ?? null);
         return;
       }
       tell((own ?? []).map((g) => (g.groupId === id ? { ...g, label: res.group.label } : g)));
@@ -212,6 +282,26 @@ export function GuestGroupPicker({
     });
   };
 
+  /* "Use “Family”": tick the group the name already is, and close the box. */
+  const takeClash = (c: GroupNameClash) => {
+    const key = c.kind === 'standard' ? c.key : c.groupId;
+    if (!picked.includes(key)) onPick(key);
+    setDraft('');
+    back();
+  };
+  const said = (
+    <>
+      {clash ? (
+        <p role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-danger-700" data-group-clash={clash.kind === 'standard' ? clash.key : clash.groupId}>
+          <span>{clashWords(clash)}</span>
+          <ActionButton tone="brand" icon={Check} label={`Use “${clash.label}”`} onClick={() => takeClash(clash)} disabled={pending} />
+        </p>
+      ) : err ? (
+        <p role="alert" className="text-xs text-danger-700">{err}</p>
+      ) : null}
+    </>
+  );
+
   const keys = (onEnter: () => void) => (e: KE<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -233,7 +323,11 @@ export function GuestGroupPicker({
       aria-haspopup="listbox"
       aria-expanded={open}
       data-group-picker=""
-      onClick={() => (open ? close() : setOpen(true))}
+      onClick={() => {
+        if (open) return close();
+        setStay([...picked]);
+        setOpen(true);
+      }}
       className={`${pickButtonClass(false)} ${className}`}
     >
       <span className="min-w-0 truncate">{text || emptyText || label}</span>
@@ -251,7 +345,7 @@ export function GuestGroupPicker({
     <div className={`mx-1 my-1 space-y-1.5 rounded-xl p-2.5 ${danger ? 'bg-danger-700/5' : 'bg-terracotta/10'}`}>{children}</div>
   );
 
-  const ownRow = (g: OwnGroup) => {
+  const ownRow = (g: OwnGroup, offSide: 'bride' | 'groom' | null) => {
     const on = picked.includes(g.groupId);
     if (mode.kind === 'rename' && mode.id === g.groupId) {
       return (
@@ -268,7 +362,7 @@ export function GuestGroupPicker({
                 <span>Enter saves · Esc cancels ·</span>
                 <ActionButton tone="danger" icon={Trash2} label="Delete group…" onClick={() => askDelete(g.groupId)} disabled={pending} />
               </p>
-              {err ? <p role="alert" className="text-xs text-danger-700">{err}</p> : null}
+              {said}
             </>,
           )}
         </li>
@@ -303,7 +397,10 @@ export function GuestGroupPicker({
     return (
       <li key={g.groupId} role="none" className="flex items-center">
         <button type="button" role="option" aria-selected={on} data-pick-option={g.groupId} onClick={() => onPick(g.groupId)} className={`${pickOptionClass(false, on)} min-w-0 flex-1`}>
-          <span className="min-w-0 truncate font-semibold">{g.label}</span>
+          <span className="min-w-0 truncate font-semibold">
+            {g.label}
+            {offSide ? <span className="text-[12px] font-medium text-ink/50" data-group-off-side={offSide}> · {OFF_SIDE_WORD[offSide]}</span> : null}
+          </span>
           {tick(on)}
         </button>
         <button
@@ -346,12 +443,16 @@ export function GuestGroupPicker({
         <li role="group" aria-label="Your groups" data-pick-group="Your groups" className="mt-1 border-t border-ink/10 pt-1">
           {head('Your groups', 'as many as apply')}
           <ul role="none">
-            {own === null ? (
+            {own === null || listed === null ? (
               <li role="none" className="px-3 pb-1.5 text-xs text-ink/55">Your groups couldn’t be loaded — they are kept as they are.</li>
             ) : (
               <>
-                {own.length === 0 ? <li role="none" className="px-3 pb-1.5 text-xs text-ink/45">None yet.</li> : null}
-                {own.map(ownRow)}
+                {listed.length === 0 ? (
+                  <li role="none" className="px-3 pb-1.5 text-xs text-ink/45">
+                    {own.length === 0 || (liveSide !== 'bride' && liveSide !== 'groom') ? 'None yet.' : `None on the ${OFF_SIDE_WORD[liveSide]} yet.`}
+                  </li>
+                ) : null}
+                {listed.map((l) => ownRow(l.group, l.offSide))}
                 <li role="none">
                   {mode.kind === 'new' ? (
                     strip(
@@ -363,7 +464,7 @@ export function GuestGroupPicker({
                           <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel new group" onClick={back} disabled={pending} />
                         </div>
                         <p className="text-[11px] text-ink/55">Enter creates · Esc cancels · the new group is ticked for this guest.</p>
-                        {err ? <p role="alert" className="text-xs text-danger-700">{err}</p> : null}
+                        {said}
                       </>,
                     )
                   ) : (

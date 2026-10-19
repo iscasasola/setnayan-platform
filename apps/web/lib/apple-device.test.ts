@@ -27,6 +27,7 @@ import { saveMethodFor } from '@/lib/guest-one-path';
 import { homeScreenStepsFor } from '@/lib/home-screen-shortcut';
 import { uaFamily } from '@/lib/guest-pass-hop';
 import { nfcDeviceKind } from '@/lib/nfc-tag';
+import { unblockSteps } from '@/lib/push-unblock-steps';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -114,6 +115,9 @@ test('3 · 🍎 iPad Safari: the server draws the Apple block beside the Mac one
   assert.match(appleHtml, /with Apple · nothing to type/);
   assert.match(appleHtml, /name="save_method" value="apple"/, 'the swapped-in button would open Google');
   assert.match(renderToStaticMarkup(React.createElement(React.Fragment, null, web)), /value="google"/);
+  // Every other browser-side reading takes the touch points too.
+  assert.equal(unblockSteps({ userAgent: IPAD_SAFARI, maxTouchPoints: IPAD_TOUCH }).platform, 'iPhone or iPad', 'iPad Safari is told "Safari on Mac"');
+  assert.equal(unblockSteps({ userAgent: MAC_SAFARI, maxTouchPoints: 0 }).platform, 'Safari on Mac');
   // The browser's question is the helper's, with the touch points.
   const src = read('app/[slug]/_components/apple-on-touch.tsx');
   assert.match(src, /isAppleTouchDevice\(navigator\.userAgent, navigator\.maxTouchPoints\)/);

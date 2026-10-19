@@ -277,7 +277,8 @@ export function nfcDeviceKind(env: {
 }): NfcDevice {
   const ua = env.userAgent;
   const os = deviceOs(ua, env.maxTouchPoints);
-  if (os === 'ipad') return 'tablet';
+  // (Bounded by the same 1180 px as below: a 1920 px touch screen claiming to be a Mac is a laptop.)
+  if (os === 'ipad' && env.screenWidth <= 1180) return 'tablet';
   if (os === 'iphone' || (os === 'android' && /Mobile/i.test(ua))) return 'phone';
   // Any other touch device with a phone/tablet-sized screen (an Android tablet,
   // which may carry NFC) is treated as a phone for this purpose.

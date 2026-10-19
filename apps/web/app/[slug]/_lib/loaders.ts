@@ -31,6 +31,7 @@ import { startAhead } from '@/lib/start-ahead';
 import { EVENT_ROW_ONCE_EXTRA_COLUMNS, eventRowOnce, holdEventRow, withoutOnceExtras } from '@/lib/event-row-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
+import { withHeldDraftedRoleNames } from '@/lib/drafted-role-names';
 import type { RoleNames } from '@/lib/role-names';
 import { loadNameStyle } from '@/lib/name-style.server';
 import type { NameStyle } from '@/lib/name-style';
@@ -2234,7 +2235,8 @@ export const loadEntourageSectionOrder = cache(
  */
 export const loadEventRoleNames = cache(
   async (admin: AdminClient, eventId: string): Promise<RoleNames> =>
-    loadRoleNames(admin, eventId, 'loadEventRoleNames'),
+    // 🏷 On the host's canvas, with the section headings drafted in the Wedding March's Edit laid on (`lib/drafted-role-names.ts`).
+    withHeldDraftedRoleNames(eventId, await loadRoleNames(admin, eventId, 'loadEventRoleNames')),
 );
 
 /**

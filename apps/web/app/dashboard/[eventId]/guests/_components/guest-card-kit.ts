@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
+import type { RoleNames } from '@/lib/role-names';
 
 /**
  * guest-card-kit.ts — THE CARD'S LEAF CONTROLS, AS A KIT A PAGE MAY HAND IN (step 4B, 2026-10-09). TYPES ONLY — no runtime.
@@ -75,6 +76,19 @@ export type CardBoxProps = { className?: string; children: ReactNode };
 export type CardSubmitProps = { main?: boolean; pendingLabel: string; ariaLabel?: string; children: string };
 /** A heading with its explanation behind an ⓘ. */
 export type CardTipProps = { label: string; children: ReactNode };
+/**
+ * 🏷 "Rename this role" · "Rename this section" (owner 2026-09-30 / 2026-10-19), under the Role dropdown: the couple's own
+ * word for this guest's ROLE ("Bride's Crew") and for the entourage SECTION it prints under ("Immediate Family" → "VIP").
+ * Each keeps on its own, straight to `events.role_names` (it is the event's word, not this guest's) — never posted with
+ * the card's form. Blank = the usual word.
+ */
+export type CardRenameProps = {
+  eventId: string;
+  /** The guest's role (`guests.role`, as saved) — the leaf works out its word and its section (the card's own load stays as it is). */
+  role: string;
+  /** `events.role_names` as the card has it. */
+  names: RoleNames;
+};
 
 export type CardKit = {
   Field: ComponentType<CardFieldProps>;
@@ -96,4 +110,9 @@ export type CardKit = {
   SaveState: ComponentType<{ copy?: Record<string, string> }>;
   /** Fields that sit side by side in the old kit and are rows of the same list in the new one. */
   Cols: ComponentType<CardBoxProps>;
+  /**
+   * 🏷 The role's and the section's own words (`CardRenameProps`). Only the Guests pages' kit has it: the Maker's parent cards
+   * (the hand-drawn kit) draw none — the Maker names its sections in the Wedding March's Edit.
+   */
+  Rename?: ComponentType<CardRenameProps>;
 };

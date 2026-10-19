@@ -40,8 +40,21 @@ export type RoleName = {
   many?: string;
 };
 
-/** `events.role_names`, sanitised: only renamed roles appear. */
-export type RoleNames = Partial<Record<GuestRole, RoleName>>;
+/**
+ * 🏷 A SECTION'S KEY in the same map (owner 2026-10-19, on the guest Event Hub's entourage: *"Immediate Family change
+ * it to VIP."* → *"or how can we rename this?"* → *"on guests?"*). A section heading — "Immediate Family", "Principal
+ * Sponsors", "Bearers" — is a word the couple may own exactly as a role's is, so it lives beside the role words in
+ * `events.role_names`, under its own key space: `section:<entourage group key>` → `{ one }`. One column, one
+ * sanitiser, one compare-and-set writer (`lib/role-names.server.ts` `writeRoleNames`); a role and a section can never
+ * collide (no role key holds a colon). Read with `sectionName`; printed only through the resolvers that call it
+ * (`lib/entourage.ts` `groupHeading`, `lib/role-groups.ts` `roleGroupLabel`).
+ */
+export const SECTION_NAME_PREFIX = 'section:';
+export type SectionNameKey = `${typeof SECTION_NAME_PREFIX}${string}`;
+export const sectionNameKey = (sectionKey: string): SectionNameKey => `${SECTION_NAME_PREFIX}${sectionKey}`;
+
+/** `events.role_names`, sanitised: only renamed roles (and renamed sections, `section:<key>`) appear. */
+export type RoleNames = Partial<Record<GuestRole, RoleName>> & { [section: SectionNameKey]: RoleName | undefined };
 
 /** Long enough for "Groom's Barkada", short enough to fit a chip and a print line. */
 export const ROLE_NAME_MAX = 40;
@@ -80,12 +93,21 @@ export function cleanRoleName(raw: unknown): string {
 export function sanitizeRoleNames(
   raw: unknown,
   isKnownRole: (v: string) => boolean = () => true,
+  /** A section key the entourage knows (`isRenamableSection`) — by default any plain key (the lookups are by known key only). */
+  isKnownSection: (v: string) => boolean = (v) => /^[a-z][a-z_]{0,39}$/.test(v),
 ): RoleNames {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: RoleNames = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (!isRenamableRole(key) || !isKnownRole(key)) continue;
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    /* 🏷 A section's word: one form only (a heading is never beside one person). */
+    if (key.startsWith(SECTION_NAME_PREFIX)) {
+      const section = key.slice(SECTION_NAME_PREFIX.length);
+      const one = isKnownSection(section) ? cleanRoleName((value as { one?: unknown }).one) : '';
+      if (one) out[sectionNameKey(section)] = { one };
+      continue;
+    }
+    if (!isRenamableRole(key) || !isKnownRole(key)) continue;
     const one = cleanRoleName((value as { one?: unknown }).one);
     if (!one) continue;
     const many = cleanRoleName((value as { many?: unknown }).many);
@@ -105,6 +127,63 @@ export function roleNameMany(role: string | null | undefined, names: RoleNames |
   if (!role || !names) return null;
   const n = names[role as GuestRole];
   return n ? (n.many ?? n.one) : null;
+}
+
+/**
+ * 🏷 The couple's word for one entourage SECTION's heading ("Immediate Family" → "VIP"), or null when they kept the
+ * usual heading. The ONE reader of a section word — every heading resolver asks it (owner 2026-10-19).
+ */
+export function sectionName(sectionKey: string | null | undefined, names: RoleNames | null | undefined): string | null {
+  if (!sectionKey || !names) return null;
+  return names[sectionNameKey(sectionKey)]?.one ?? null;
+}
+
+/**
+ * The stored map with ONE word changed — a role's (`{ one, many? }`) or a section's (`section:<key>` → `{ one }`) —
+ * every other key kept as stored (sanitised). Blank removes the key: blank means "the usual word". `null` when
+ * nothing is left (the column's "never renamed"). Pure: the compare-and-set writer runs it on the value AS IT IS when
+ * the write lands, so another host's word, landed meanwhile, stays.
+ */
+export function withOneWord(
+  stored: RoleNames,
+  key: GuestRole | SectionNameKey,
+  one: string,
+  many?: string | null,
+): Record<string, RoleName> | null {
+  const next: Record<string, RoleName> = { ...(stored as Record<string, RoleName>) };
+  const cleanOne = cleanRoleName(one);
+  const cleanMany = key.startsWith(SECTION_NAME_PREFIX) ? '' : cleanRoleName(many ?? '');
+  if (!cleanOne) delete next[key];
+  else next[key] = cleanMany && cleanMany !== cleanOne ? { one: cleanOne, many: cleanMany } : { one: cleanOne };
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+/**
+ * ✍ THE MAKER'S DRAFTED SECTION HEADINGS (owner 2026-10-19 — the Wedding March's Edit; like every Maker edit, guests
+ * see them only at ✓ Apply). The draft holds `{ "section:<key>": word }` and ONLY section keys — a role's word is the
+ * Guest list's, live, and is never drafted, overlaid away or written by Apply. '' = back to the usual heading. Pure:
+ * the draft's sanitiser, the host canvas's overlay and Apply all read it through here.
+ */
+export function sanitizeDraftedSectionWords(raw: unknown): Record<SectionNameKey, string> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<SectionNameKey, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!key.startsWith(SECTION_NAME_PREFIX) || !/^[a-z][a-z_]{0,39}$/.test(key.slice(SECTION_NAME_PREFIX.length))) continue;
+    if (typeof value !== 'string' && value !== null) continue;
+    out[key as SectionNameKey] = cleanRoleName(value ?? '');
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** The stored `role_names` with the drafted section words laid on — every role's word kept. Raw in, raw out (the readers sanitise). */
+export function withDraftedSectionWords(stored: unknown, drafted: unknown): Record<string, unknown> | null {
+  const words = sanitizeDraftedSectionWords(drafted);
+  const base: Record<string, unknown> = stored && typeof stored === 'object' && !Array.isArray(stored) ? { ...(stored as Record<string, unknown>) } : {};
+  for (const [key, one] of Object.entries(words ?? {})) {
+    if (one) base[key] = { one };
+    else delete base[key];
+  }
+  return Object.keys(base).length > 0 ? base : null;
 }
 
 /** Has the couple renamed anything at all? (A cheap "nothing to do" check.) */

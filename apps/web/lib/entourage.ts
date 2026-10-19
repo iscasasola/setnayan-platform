@@ -1,5 +1,5 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
-import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
+import { roleNameMany, roleNameOne, sectionName, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
 import { genderOfTitleWords, type TitleGender } from '@/lib/guest-title';
 
@@ -107,8 +107,14 @@ export type EntourageRow = readonly [EntouragePerson | null, EntouragePerson | n
 export type EntourageGroup = {
   /** Stable key, for the render's list identity and for tests. */
   key: string;
-  /** The heading a guest reads — "Principal Sponsors", "Bridesmaids & Groomsmen". */
+  /** The heading a guest reads — "Principal Sponsors", "Bridesmaids & Groomsmen" — or the couple's own word for it ("VIP"). */
   label: string;
+  /**
+   * 🏷 The heading as it reads WITHOUT the couple's section word — present only when they renamed this section (owner
+   * 2026-10-19, "Immediate Family" → "VIP"). What "empty = the usual word" gives back; the Maker's Edit shows it as the
+   * field's placeholder.
+   */
+  usual?: string;
   /** The printed lines, in order. */
   rows: EntourageRow[];
   /**
@@ -523,6 +529,19 @@ export function roleLabel(role: GuestRole, names?: RoleNames | null): string | n
  * changed nothing sees nothing change.
  */
 function groupHeading(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): string {
+  /* 🏷 THE COUPLE'S WORD FOR THE SECTION WINS (owner 2026-10-19: *"Immediate Family change it to VIP"*). The one place
+     a section heading is decided — every surface that prints one reads it through here (`buildEntourage`,
+     `entourageGroupLabel`, the Wedding March's own sections) and `role-groups.ts` reads the SAME word through
+     `sectionName`. Empty / never renamed = the heading below, byte-identical to before. */
+  return sectionName(spec.key, names) ?? usualGroupHeading(spec, names, present);
+}
+
+/** The heading in the couple's ROLE words only — what a section reads with no word of its own. */
+function usualGroupHeading(
   spec: GroupSpec,
   names: RoleNames | null | undefined,
   present: ReadonlySet<string>,
@@ -1171,6 +1190,27 @@ export function entourageGroupLabel(
   return groupHeading(spec, names, present);
 }
 
+/**
+ * 🏷 Every section a couple may give its own heading (owner 2026-10-19) — every printed group and the march's own
+ * sides ("The Groom & his parents"): each is a heading somebody reads.
+ */
+export const RENAMABLE_SECTION_KEYS: readonly string[] = MARCH_GROUP_KEYS;
+
+/** May the couple give this section its own heading? (The sanitiser's `isKnownSection`.) */
+export function isRenamableSection(key: string): boolean {
+  return RENAMABLE_SECTION_KEYS.includes(key);
+}
+
+/**
+ * A section's heading WITHOUT the couple's word for it — what an empty field gives back ("Immediate Family"), in their
+ * role words where the heading is built from them. Null for an unknown key.
+ */
+export function sectionUsualHeading(key: string, names?: RoleNames | null): string | null {
+  const spec = GROUPS.find((g) => g.key === key);
+  // Every role but the `unusual` ones: a best woman nobody holds must not make the usual heading name her.
+  return spec ? usualGroupHeading(spec, names, new Set(spec.roles.filter((r) => !spec.unusual?.includes(r)))) : null;
+}
+
 /** Which printed group a role belongs to, or null when it never prints. */
 export function entourageGroupOfRole(role: string): string | null {
   return PRINTED.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;
@@ -1404,9 +1444,11 @@ export function buildEntourage(
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);
     const sideWords = sideWordsOf(spec, names, present);
+    const renamed = sectionName(spec.key, names) !== null;
     groups.push({
       key: spec.key,
       label: groupHeading(spec, names, present),
+      ...(renamed ? { usual: usualGroupHeading(spec, names, present) } : {}),
       rows: built,
       names: names ?? {},
       ...(sideWords ? { sideWords } : {}),

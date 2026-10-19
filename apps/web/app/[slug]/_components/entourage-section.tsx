@@ -123,7 +123,7 @@ export function EntourageSection({
               className={look === 'lines' ? 'space-y-3 py-4 first:pt-0' : 'space-y-3 pt-2'}
               {...(blocks ? { 'data-role-layout': roleLayout } : {})}
             >
-              <GroupHeading label={group.label} look={look} />
+              <GroupHeading label={group.label} sectionKey={group.key} usual={group.usual ?? group.label} look={look} />
               {blocks ? (
                 <ByRoleRows group={group} blocks={blocks} layout={roleLayout} look={look} me={me} anchor={anchor} />
               ) : (
@@ -189,16 +189,23 @@ const UNDER = 'mt-0.5 block font-sans text-xs uppercase tracking-[0.16em]';
 const SMALL_CAPS = 'font-sans text-xs uppercase tracking-[0.16em] text-ink/65';
 
 /** A group's heading: On the axis — centred between two hairlines; Lines — the page's own eyebrow. */
-function GroupHeading({ label, look }: { label: string; look: Look }) {
+/**
+ * A section's heading. 🏷 `data-section-heading` / `data-section-usual` name WHICH section it is and its usual words, so
+ * the Maker's Wedding March Edit can list each heading the page draws, as drawn (owner 2026-10-19, "Immediate Family" →
+ * "VIP"); the words themselves are `group.label`, the one resolver's (`lib/entourage.ts` `groupHeading`).
+ */
+function GroupHeading({ label, sectionKey, usual, look }: { label: string; sectionKey: string; usual: string; look: Look }) {
+  const mark = { 'data-section-heading': sectionKey, 'data-section-usual': usual };
   if (look === 'lines') {
     return (
-      <h4 className="pahina-eyebrow">
+      <h4 className="pahina-eyebrow" {...mark}>
         <span>{label}</span>
       </h4>
     );
   }
   return (
     <h4
+      {...mark}
       data-entourage-divider=""
       className="flex items-center gap-3.5 text-center text-[0.66rem] uppercase tracking-[0.28em] text-gild [&>span]:max-w-[72%]"
       style={{ fontFamily: 'var(--font-editorial-mono), ui-monospace, monospace' }}

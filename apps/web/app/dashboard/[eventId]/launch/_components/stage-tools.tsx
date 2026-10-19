@@ -111,7 +111,7 @@ import type { StagePageOption } from './stage-item-menu';
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, ScenePhotoRow, StagePlayStatus, VenuePictureRows } from './details-lazy';
+import { BlockAnimateRows, CameraPartTools, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
@@ -198,6 +198,8 @@ let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } 
 let lastTab: { of: string; stage: LifecyclePhase; tab: string } | null = null;
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
+/** The shown canvas's document — read by a row that lists what the page draws (the march's section headings). */
+const readShownDoc = (): Document | null => document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
 
 /* ── 🗳 THE RSVP STAGE: three screens, each its own frame (`maker-rsvp-stage.tsx`), each piece a part ──────────── */
 
@@ -1559,6 +1561,11 @@ export function StageTools({
     picked === 'venue' && !rsvpOpen && venuePictures && venuePictures.slots.length > 0 && maker ? (
       <VenuePictureRows eventId={maker.eventId} slots={venuePictures.slots} pro={venuePictures.pro} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
     ) : null;
+  /* 🏷 THE WEDDING MARCH'S SECTION HEADINGS, RIGHT HERE — Edit's rows 2–3 under its door (owner 2026-10-19). */
+  const sectionNameRows =
+    picked === 'march' && !rsvpOpen && maker ? (
+      <SectionNames readDoc={readShownDoc} ask={askPartOps} stamp={maker.renderStamp ?? null} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+    ) : null;
   /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
   const statusOn = edits.status !== null && (editOn || picked === null || statusFresh);
   /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
@@ -1833,7 +1840,7 @@ export function StageTools({
           /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
           <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : venuePictureRows} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : (venuePictureRows ?? sectionNameRows)} />
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a

@@ -832,7 +832,7 @@ function BuildBar({
       data-build-bar=""
       data-on={up ? 'true' : 'false'}
       inert={!up}
-      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] px-4 py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-7 lg:px-0 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-[max(1.75rem,var(--sn-safe-r))] lg:px-0 ${
         up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}

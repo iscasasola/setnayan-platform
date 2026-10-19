@@ -38,7 +38,7 @@ import {
   RSVP_TYPING_MESSAGE,
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
-import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
 import { readRsvpLook, rsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SCENE_PART, arrangeRsvpScreen } from './rsvp-canvas-arrange';
 import { Check } from 'lucide-react';
@@ -487,7 +487,7 @@ export function MakerRsvpStage({
               data-type-bar="rsvp"
               data-type-bar-keys=""
               style={{ bottom: keysTop }}
-              className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
+              className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR_FIXED}`}
             >
               <span className="min-w-0 truncate">Typing · {RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}</span>
               {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill —

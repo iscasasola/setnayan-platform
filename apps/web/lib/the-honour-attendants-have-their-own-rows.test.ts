@@ -143,7 +143,7 @@ function reads(role: GuestRole, config: Record<string, unknown>) {
   const groups = sanitizeGroupAttire(config.groups);
   const r = resolveGuestAttireWithGroups({ role, roles, groups, palette, config });
   const own = r.panel
-    ? readerAttire({ role, attire: null, source: r.source, config, style: r.panel.style, hexes: r.panel.hexes, label: (s: AttireStyle) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf })
+    ? readerAttire({ role, attire: null, person: null, source: r.source, config, style: r.panel.style, hexes: r.panel.hexes, label: (s: AttireStyle) => ATTIRE_STYLE_LABEL[s], single: singleWearerOf })
     : null;
   return { source: r.source, style: own?.styleLabel ?? null, callTime: r.panel?.callTime ?? null, note: r.panel?.note ?? null };
 }

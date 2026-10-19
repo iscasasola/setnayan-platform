@@ -8,6 +8,7 @@ import type { PaletteLookId } from '@/lib/palette-looks';
 import type { RoleNames } from '@/lib/role-names';
 import type { GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
 import { DressCodeWidget } from './dress-code-widget';
+import type { GuestNameParts } from '@/lib/attire-rows';
 
 /**
  * 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS, each its own part (owner
@@ -47,8 +48,8 @@ export function GuestMeParts({
     genderSeparation: string | null;
     guestRole: GuestRole | null;
     guestAttire?: GuestAttire | null;
-    /** 👪 Title · shown name — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
-    guestNameParts?: { name_prefix?: string | null; display_name?: string | null } | null;
+    /** 👪 Title · shown name · the "Atty. (Woman)" pick (`guestNamePartsOf`) — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+    guestNameParts?: GuestNameParts | null;
     march: MarchPlace | null;
     rolePalette: unknown;
     roleNames?: RoleNames | null;

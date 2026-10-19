@@ -5,13 +5,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
+import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { CLASSIC_PRINT_THEME, isProPrint } from '@/lib/print-pieces';
 import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
 import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set.server';
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
@@ -44,10 +46,12 @@ import {
  * list — it is what a pass needs. (The phantom-column check still reads it.)
  */
 const PASS_CARD_GUEST_COLUMNS =
-  'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, ' +
+  'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, role, ' +
   'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
 
 export type PassCardGuest = PassCardRow & {
+  /** ⏰ Their role — a role with its own call time prints THAT as Arrive (`guestArriveBy`), never the doors' time. */
+  role: string | null;
   name_prefix: string | null;
   first_name: string | null;
   /** Read for the Name style's Middle initial / Surname first (`ticketName`). */
@@ -147,7 +151,8 @@ export async function plusOnePassCardIds(
 
 export type PassCardKit = {
   set: LoadedPrintSet;
-  /** When the doors open — the FIRST public block, formatted like the programme. */
+  /** When the doors open — the FIRST public block, formatted like the programme. A guest whose role has its own call
+   *  time prints that instead (`passCardPass` → `guestArriveBy`). */
   arrive: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
   party: Map<string, number>;
@@ -231,10 +236,10 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
 async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
-    const first = blocks[0];
-    // The programme's own formatter — the schedule stores the event's
-    // wall-clock parked in UTC (see site-body's pass for the 8-hour bug).
-    return first?.start_at ? formatBlockTimeRange(first.start_at, null) || null : null;
+    // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
+    // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
+    // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → no ARRIVE, never the ceremony's time.
+    return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');
@@ -285,7 +290,9 @@ export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string |
     seatNumber: kit.seats.get(g.guest_id)?.seatNumber ?? null,
     qrRef,
     serial: null,
-    arrive: kit.arrive,
+    /* ⏰ THEIR OWN ARRIVE-BY (owner 2026-10-19, cale-ice: Me said 8:00 AM, the ticket under it 2:30 PM) — their role's
+       call time, the one Me › Arrive by reads, else the doors' time (`guestArriveBy`). */
+    arrive: guestArriveBy({ role: g.role as GuestRole | null, config: kit.set.event.dress_code_config, general: kit.arrive }),
     // BOTH halves: the couple's permission AND an actual person.
     bringing: g.plus_one_allowed ? g.plus_one_name : null,
     party: kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0),

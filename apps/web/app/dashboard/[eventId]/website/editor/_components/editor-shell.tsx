@@ -36,6 +36,7 @@ import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
+import { makerStyleLook, makerWorkAreaTab } from '@/lib/maker-edit-owns-content';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { LOOK_ROW_OF, isLookRow } from '@/lib/maker-look-sections';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
@@ -3921,7 +3922,9 @@ function Inspector({
   const ss = useMaker()?.stagesStudio === true;
   /* The old Transition tab (a saved address, a navigator chip) now opens Animate — answer 4, "fold it". */
   const asked: MakerSceneTab = selection.kind === 'scene' ? (selection.tab ?? 'format') : 'format';
-  const tab: SceneTab = asked === 'transition' ? 'animate' : asked;
+  /* ✏️ Under the new Maker's toolbar this body is Style · Background · Animate — Content is Edit's own rows (the
+     words in place, or the part's one door), so it never opens here (`lib/maker-edit-owns-content.ts`). */
+  const tab: SceneTab = makerWorkAreaTab(asked, ss);
 
   /* A new tab starts at its top. */
   useEffect(() => {
@@ -4020,11 +4023,22 @@ function Inspector({
       <section className="contents" data-maker-fixed-panel={fixed}>
         <StagePanelPart
           part="style"
+          /* ✏️ Style is ONLY the look: the fact's editor (the Love Story's moments) is content — Edit's door,
+             "Open in Studio › Love Story" — and never drawn here (owner 2026-10-19: "why is it on style and not on
+             edit"; `makerStyleLook`). */
           look={
             <>
-              {fixedStylePanel}
-              {fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null}
-              {fixedFact ?? toolHere}
+              {makerStyleLook(
+                {
+                  style: fixedStylePanel ?? null,
+                  ticket: fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null,
+                  fact: fixedFact ?? null,
+                  tool: toolHere ?? null,
+                },
+                true,
+              ).map((n, i) => (
+                <Fragment key={i}>{n}</Fragment>
+              ))}
             </>
           }
           /* 🖼 THE COVER IS THE COVER SCENE (owner-approved 2026-10-15): its Background is the group's — ONE

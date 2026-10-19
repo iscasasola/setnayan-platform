@@ -22,8 +22,8 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingWhen } from '../_lib/day-words';
-import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
-import { guestAttireOf } from '@/lib/attire-rows';
+import { plusOneSeats } from '@/lib/guests';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
@@ -41,7 +41,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
+import type { ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
@@ -235,7 +235,7 @@ import type { SeeAs } from '@/lib/see-as';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
-import { coverSceneLayer } from '../_lib/cover-scene-layer';
+import { coverSceneLayer, signCoverSceneMedia } from '../_lib/cover-scene-layer';
 import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
@@ -247,7 +247,7 @@ import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
-import type { EntourageGroup } from '@/lib/entourage';
+import { roleWordOfGuest, type EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
@@ -538,6 +538,13 @@ type SiteBodyProps = {
    *  visitor including the owner. The PR that mounts owner controls consumes
    *  it — and must keep the gate here on the server, never by hiding UI. */
   ownerCapability?: OwnerCapability | null;
+  /** 🪪 The one plain line when this browser holds an invitation that is not the signed-in viewer's
+   *  (`held-pass-line.tsx`, owner bug 2026-10-19). Drawn under the cover on the host's / a signed-in stranger's page;
+   *  the guest tree draws it in Me (page.tsx). Null for everyone else. */
+  heldPassSlot?: React.ReactNode;
+  /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
+   *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
+  hostOwnGuestId?: string | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
@@ -643,6 +650,8 @@ export async function SiteBody({
   themeTile: themeTileIn = false,
   makerWayBack = null,
   ownerCapability = null,
+  heldPassSlot = null,
+  hostOwnGuestId = null,
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
@@ -932,7 +941,8 @@ export async function SiteBody({
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
     looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
     /* 🖼 The Cover Scene's background (owner-approved 2026-10-15) — nothing stored: The theme's own, as before. */
-    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null }),
+    /* 🔏 …its files signed on the Main background's own host, never the `r2.dev` one (`signCoverSceneMedia`). */
+    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null, signed: await signCoverSceneMedia(heroCanvas.ground) }),
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the
@@ -2258,6 +2268,9 @@ export async function SiteBody({
               {/* 🧭 The host's RSVP part — the Reply card a guest meets here (see `hostReplyCard`). */}
               {hostReplyCard ? <ReplyCardRow card={hostReplyCard} partId={COVER_RSVP_PART} /> : null}
               </HubCoverHold>
+              {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." (`heldPassSlot`) — the host / signed-in
+                  stranger's page has no Me, so the line stands right under the cover. */}
+              {heldPassSlot && !isEditorCanvas ? <div className="mx-auto mt-6 max-w-prose px-4">{heldPassSlot}</div> : null}
               {/* 📜 One page: Home lands after the cover and its one door (see the guest tree). */}
               {onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
             </div>
@@ -2584,7 +2597,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
+            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost && !isEditorCanvas && sampleViewer === null ? hostOwnGuestId : null} /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -2788,6 +2801,7 @@ export async function SiteBody({
               roleNames,
               comingWith,
               guestsArriveBy,
+              person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
             }),
           })
         : [];
@@ -2833,7 +2847,7 @@ export async function SiteBody({
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
       guestAttire: guestAttireOf(guest),
-      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
+      guestNameParts: guestNamePartsOf(guest),
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
@@ -2909,7 +2923,9 @@ export async function SiteBody({
        A pass is read on arrival, and "next up" on a card in someone's pocket
        at 9pm would tell them to arrive at the send-off. Formatted in the
        event's own timezone, which the venue's coordinates resolve. */
-    const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    // ⏰ (2026-10-19) Since the Guests row got its call time, "when the doors open" is THE guests' arrival moment —
+    // `guestsArriveBy` (`lib/guests-arrive.ts`), the one the invitation, Event Details and the Studio read. The note
+    // below is why it is read as a wall clock (the shared resolver does exactly that).
     // 🔴 THE SCHEDULE STORES THE EVENT'S OWN WALL-CLOCK, NOT AN INSTANT.
     // `start_at` for a 1:30 PM arrival is `…T13:30:00+00` — the clock the
     // couple typed, parked in UTC. The programme reads it back with
@@ -2918,9 +2934,7 @@ export async function SiteBody({
     // the pass told a real guest to "ARRIVE 9:30 PM" for a 1:30 PM arrival
     // (seen live 2026-09-21 as a test guest on /cale-ice). One formatter, the
     // programme's, so the pass and the run of show can never disagree.
-    const firstScheduleTimeLabel = firstScheduleBlock?.start_at
-      ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
-      : null;
+    const firstScheduleTimeLabel = guestsArriveBy;
 
     /* 🎫 THE PASS IS NOT ON HOME ANY MORE — IT IS THE DIGITAL TICKET, ON ME
        (owner 2026-09-30, on `#site-pass`: "i thought this will be the digital
@@ -2971,7 +2985,7 @@ export async function SiteBody({
             </>
           ) : null}
           . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
+          <span className="font-medium text-ink">{roleWordOfGuest(guest, roleNames)}</span>
           {sideLabel ? (
             <>
               {' '}·{' '}
@@ -3378,6 +3392,7 @@ export async function SiteBody({
             <GuestChecklist
               items={guestChecklistItems({
                 role: guest.role,
+                person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
                 arriveBy: firstScheduleTimeLabel,
@@ -3937,7 +3952,7 @@ export async function SiteBody({
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     guestAttire: guestAttireOf(guest),
-      guestNameParts: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name },
+      guestNameParts: guestNamePartsOf(guest),
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}

@@ -150,7 +150,7 @@ test('2 · a stored Wear reads into the role’s design, or "Not said yet" — n
   assert.equal(designLabel('guest_w', 'long_gown'), 'Long dress');
   const reader = readerAttire({
     role: 'principal_sponsor_ninong',
-    attire: null,
+    attire: null, person: null,
     source: 'group',
     config: { groups: { principal_sponsors: { style: 'suit' } }, women: { groups: { principal_sponsors: { style: 'filipiniana' } } } },
     style: 'suit',

@@ -237,6 +237,16 @@ test('6 · the pages read the one resolver — Event Details, the guest page, th
   assert.match(objectAt('const guestLook = {'), /\bguestsArriveBy,/, 'Me › Arrive by is not handed when guests arrive');
   assert.match(site, /firstStartAt: scheduleBlocks\[0\]\?\.start_at \?\? null,/, 'the invitation card is unchanged: the first moment');
 
+  /* 🎟 The ticket, the checklist and the reminder email take their "doors" time (`guestArriveBy`'s `general`) from the
+     same arrival — a role's own call time still wins inside `guestArriveBy` (me-reads-their-gender, 2026-10-19). */
+  assert.match(site, /const firstScheduleTimeLabel = guestsArriveBy;/, 'the checklist reads a first-block time of its own');
+  const pass = src('lib/pass-card.server.ts');
+  const label = pass.slice(pass.indexOf('async function readArriveLabel('), pass.indexOf('\n}', pass.indexOf('async function readArriveLabel(')));
+  assert.match(label, /return guestsArriveTime\(blocks\);/, 'the ticket’s ARRIVE is not the guests’ arrival');
+  assert.doesNotMatch(label, /blocks\[0\]/, 'the ticket reads the first block again');
+  const mail = src('lib/guest-reminder-emails.ts');
+  assert.match(mail, /const arriveBy = guestsArriveTime\(blocks\);/, 'the reminder email reads a first-block time of its own');
+  assert.doesNotMatch(mail, /blocks\[0\]/);
   const me = src('app/[slug]/_components/guest-me-parts.tsx');
   assert.match(me, /guestsArriveBy=\{p === 'arrive' \? \(look\.guestsArriveBy \?\? null\) : null\}/);
   const widget = src('app/[slug]/_components/dress-code-widget.tsx');

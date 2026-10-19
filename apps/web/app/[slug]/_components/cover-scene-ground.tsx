@@ -36,7 +36,9 @@ export function CoverSceneGround({ layer }: { layer: CoverSceneLayer }) {
             {...(layer.parallax ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
-        {layer.clip ? <SceneClip src={layer.clip} poster={layer.still} play="loop" open="inplace" label="" className="absolute inset-0 h-full w-full object-cover" revealOnPlay /> : null}
+        {/* 🎞 The clip's OWN first frame is what shows behind the veil (owner 2026-10-19), never a separate poster — the
+            still above stays only for a clip that cannot be drawn at all. */}
+        {layer.clip ? <SceneClip src={layer.clip} play="loop" open="inplace" label="" className="absolute inset-0 h-full w-full object-cover" firstFrame /> : null}
         {layer.veil ? <div data-cover-scene-shade="" className="absolute inset-0" style={{ backgroundColor: layer.veil.color, opacity: layer.veil.opacity }} /> : null}
         {layer.scrim.opacity > 0 ? <div data-cover-scene-scrim="" className="absolute inset-0" style={{ backgroundColor: layer.scrim.color, opacity: layer.scrim.opacity }} /> : null}
       </div>

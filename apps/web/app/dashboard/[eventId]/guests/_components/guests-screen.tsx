@@ -597,19 +597,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
      "no reply", a group's name) is never added as a person; a line without both names is kept and told so, at once.
      It used to open the add sheet with the name in it — a SECOND Enter, then a wait on the server and a whole-page redraw.
      🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
-  const [needs, setNeeds] = useState<string | null>(null);
+  // What stopped the last Enter, for the line it was said about — typing a new line hides it (no render per key).
+  const [needsFor, setNeedsFor] = useState<{ q: string; text: string } | null>(null);
+  const setNeeds = (text: string | null, line = '') => setNeedsFor(text ? { q: line.trim(), text } : null);
+  const needs = needsFor && needsFor.q === q ? needsFor.text : null;
   const { addSingleGuest } = useGuestActions();
   const filterLabels = useMemo(() => [...groups.map((g) => g.label), ...tables.map((t) => t.label)], [groups, tables]);
   /** Queue the typed line; answers what stopped it ('' = added). */
   const addTyped = (v: string): string => {
     const key = normalizeSearchText(v);
     if (waiting.some((a) => normalizeSearchText(a.name) === key)) {
-      setNeeds(`${v} is already added.`);
+      setNeeds(`${v} is already added.`, v);
       return 'already';
     }
     const res = queueTypedGuest(eventId, v, 'both', addSingleGuest);
     if (!res.ok) {
-      if (res.error) setNeeds(res.error);
+      if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
     }
     if (fieldRef.current) fieldRef.current.value = '';
@@ -636,10 +639,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       data-fit-field=""
       data-guests-search=""
       data-tour="guests-add"
-      onInput={(e) => {
-        setNeeds(null);
-        onType(e.currentTarget.value);
-      }}
+      onInput={(e) => onType(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return;
         // A keyboard still composing a word (an IME, a phone's suggestion) owns this Enter — it finishes the word.
@@ -789,7 +789,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       ) : null}
       {/* ⚡ The names just typed — here the moment Enter is pressed, until the re-read list draws their real rows. */}
       {copy ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
-      {empty && !q && waiting.length === 0 ? <Handed>{empty}</Handed> : null}
+      {empty && !q ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
         const allSel = sec.guests.length > 0 && sec.guests.every((g) => selected.has(g.guest_id));

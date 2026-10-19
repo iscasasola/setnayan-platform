@@ -108,9 +108,8 @@ export function CaptureBar({
               setNeeds(null);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                // A keyboard still composing a word (an IME, a phone's suggestion) owns this Enter — it finishes the word.
-                if (e.nativeEvent.isComposing) return;
+              // A keyboard still composing a word (an IME, a phone's suggestion) owns its Enter — it finishes the word.
+              if (!e.nativeEvent.isComposing && e.key === 'Enter') {
                 e.preventDefault();
                 submitAdd();
               } else if (e.key === 'Escape') {

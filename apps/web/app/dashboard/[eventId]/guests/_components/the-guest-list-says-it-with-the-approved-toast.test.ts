@@ -31,8 +31,9 @@ const GUESTS = join(HERE, '..');
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 const readGuests = (f: string) => stripComments(readFileSync(join(GUESTS, f), 'utf8'));
 
+// capture-bar.tsx left this list 2026-10-19: it no longer waits for an answer to toast it — each typed name is a row of
+// its own that says "Adding…", "Added" or the refusal, with Retry (just-added.tsx · guest-add-queue.ts), checked below.
 const SITES: Array<[string, string]> = [
-  ['capture-bar.tsx', read('capture-bar.tsx')],
   ['guest-delete.tsx', read('guest-delete.tsx')],
   ['guests-screen.tsx', read('guests-screen.tsx')],
   ['quick-add-sheet.tsx', read('quick-add-sheet.tsx')],
@@ -73,7 +74,10 @@ test('every message the old toast said is still said', () => {
   const regen = SITES.find(([n]) => n.endsWith('regenerate-qr-button.tsx'))![1];
   assert.match(regen, /toast\.error\(plainRefusal\(result\.error, /);
   assert.match(regen, /toast\.success\('New invite QR ready\. Share the fresh link with your guests\.'\)/);
-  assert.match(SITES.find(([n]) => n === 'capture-bar.tsx')![1], /toast\.error\(plainRefusal\(res\.error, /);
+  // The name box's refusal: on the name's own row, in the plain sentence, never a toast that leaves.
+  assert.match(read('guest-add-queue.ts'), /error: plainRefusal\(res\.error, FALLBACK\)/);
+  assert.match(read('just-added.tsx'), /role="alert"[\s\S]{0,80}\{a\.error\}/, 'a refused name does not say why');
+  assert.doesNotMatch(read('capture-bar.tsx'), /\buseToast\b|toast-provider/);
 });
 
 test('the removal toast: the approved toast with an Undo action — same function, same 6 s window', () => {

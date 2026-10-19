@@ -68,7 +68,11 @@ export function JustAdded({
 function Words({ a }: { a: PendingAdd }) {
   if (a.status === 'saving') return <>Adding…</>;
   if (a.status === 'saved') return <>Added</>;
-  return <span role="alert">{a.error}</span>;
+  return (
+    <span role="alert" className="text-danger-700">
+      {a.error}
+    </span>
+  );
 }
 
 function Fix({ a }: { a: PendingAdd }) {

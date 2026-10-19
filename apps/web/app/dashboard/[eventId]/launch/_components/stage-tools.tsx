@@ -20,11 +20,12 @@ import {
   makerPartToolWhy,
   makerPartParent,
   MAKER_COVER_SCENE,
-  MAKER_COVER_PHOTO,
   MAKER_COVER_SCENE_DOOR,
   MAKER_COVER_WORD_BG_WHY,
   makerPartToolWorks,
   makerPartsOnPage,
+  makerCoverLeads,
+  makerCoverLineParts,
   makerPartsTappable,
   makerStepPart,
   makerWorkTool,
@@ -724,7 +725,11 @@ export function StageTools({
           setPicked(null);
           setTapped(null);
           setSlotAsk(null);
-          window.requestAnimationFrame(() => window.requestAnimationFrame(() => openToolRef.current?.close()));
+          /* …only if nothing was picked since: a pick in those two frames keeps its body (a body never goes stale or empty
+             under a part the toolbar names). */
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            if (pickedRef.current === null) openToolRef.current?.close();
+          }));
           return;
         }
         setPicked(k);
@@ -1170,7 +1175,9 @@ export function StageTools({
   const revealLook = useStageRevealLook();
   const pickRef = useRef(pickPart);
   pickRef.current = pickPart;
-  const coverLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerPartsOnPage(stage, shownPage).includes(MAKER_COVER_SCENE));
+  /* 📜 The page ON SCREEN (`makerPartsOnShownPage`): on the one-page Invitation the bar may say "Details" while the cover is
+     the part picked — the Opening is still this page's (live 2026-10-20: Cover Scene › Style was empty there). */
+  const coverLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerCoverLeads(stage, shownPage));
   useEffect(() => {
     const paint = () => {
       try {
@@ -1543,10 +1550,8 @@ export function StageTools({
       const hero = doc ? findMakerSection(doc, 'f:hero') : null;
       const now = readPresent(frameSel);
       const elements = draftedCanvasOr('hero', (askPartOps()?.canvases?.hero ?? null) as never).elements;
-      const next = makerPartsOnPage(stageKey, shownPage)
-        .filter((k) => makerPartParent(k) === MAKER_COVER_SCENE)
-        /* 🖼 The cover's photo is no line of the cover (no switch of its own — it shows while there is a cover photo). */
-        .filter((k) => k !== MAKER_COVER_PHOTO)
+      /* 📜 …the lines of the page ON SCREEN — on the one page, whichever tab the bar says (`makerPartsOnShownPage`). */
+      const next = makerCoverLineParts(stageKey, shownPage)
         .filter((k) => k === 'logo' || now.has(`f:hero|${MAKER_PARTS[k].el}`))
         .map((k): CoverLine => {
           const el = MAKER_PARTS[k].el!;

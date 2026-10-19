@@ -111,6 +111,39 @@ export function bringerSeatsFrom(
   return out;
 }
 
+/**
+ * 🪑 REMOVING A +1 FROM THE LIST TAKES THEIR SEAT WITH THEM (2026-10-20, live cale-ice). A +1 row is one of their
+ * guest's seats; the host's Remove soft-deleted the row and left the guest's "+1" standing — so the List drew a "+1"
+ * pill over a seat that no longer existed, and the guest's reply could still name somebody into it. Measured: two
+ * guests' seats removed on 2026-10-14, their `plus_one_count` still 1.
+ *
+ * The rule, pure: for every removed (or restored) seat whose guest is NOT removed with it, that guest's number moves by
+ * the seats that went (or came back), clamped 0…4 — `plus_one_allowed` follows it. A guest removed together with their
+ * +1s is untouched (the whole party goes, and comes back, as it was). Applied by `bulkSoftDeleteGuestsForUndo` and its
+ * Undo, `restoreDeletedGuests`. 🔒 guests/_components/a-plus-one-sits-with-their-guest.test.ts
+ */
+export function seatNumbersAfter(
+  changed: readonly { guest_id: string; plus_one_of_guest_id: string | null }[],
+  bringers: readonly { guest_id: string; plus_one_count: number | null; plus_one_allowed: boolean | null }[],
+  dir: 'removed' | 'restored',
+): { guest_id: string; plus_one_count: number; plus_one_allowed: boolean }[] {
+  const ids = new Set(changed.map((g) => g.guest_id));
+  const n = new Map<string, number>();
+  for (const g of changed) {
+    const host = g.plus_one_of_guest_id;
+    if (host && !ids.has(host)) n.set(host, (n.get(host) ?? 0) + 1);
+  }
+  const out: { guest_id: string; plus_one_count: number; plus_one_allowed: boolean }[] = [];
+  for (const b of bringers) {
+    const k = n.get(b.guest_id);
+    if (!k) continue;
+    const now = typeof b.plus_one_count === 'number' ? b.plus_one_count : b.plus_one_allowed ? 1 : 0;
+    const next = Math.max(0, Math.min(4, now + (dir === 'removed' ? -k : k)));
+    if (next !== now) out.push({ guest_id: b.guest_id, plus_one_count: next, plus_one_allowed: next > 0 });
+  }
+  return out;
+}
+
 /** Which seat a guest's RSVP name fills: the oldest placeholder, else none. */
 export function seatToName(rows: readonly ExtraSeatRow[]): string | null {
   const open = rows

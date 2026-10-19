@@ -78,7 +78,11 @@ export function PapicCaptureController({
   const [toast, setToast] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
-  const cam = usePapicCamera({ enabled: accepted });
+  const cam = usePapicCamera({
+    enabled: accepted,
+    // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
+    holdRestart: recording,
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

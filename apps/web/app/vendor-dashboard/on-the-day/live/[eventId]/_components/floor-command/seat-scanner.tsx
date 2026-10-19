@@ -22,6 +22,7 @@ import { Camera, CameraOff, Loader2, MapPin, ScanLine } from 'lucide-react';
 
 import { classifyScan, resolveSeatScan, type SeatScanOutcome } from '@/lib/floor-command';
 import { floorSeatByQr } from './actions';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 export function SeatScanner({ eventId }: { eventId: string }) {
   const [scanning, setScanning] = useState(false);
@@ -92,6 +93,18 @@ export function SeatScanner({ eventId }: { eventId: string }) {
       setCameraError('No camera access. Check the browser’s permission for this site.');
     }
   }, []);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stop();
+      void start();
+    },
+  });
 
   // Attach the stream and run the decode loop once the video is mounted.
   useEffect(() => {

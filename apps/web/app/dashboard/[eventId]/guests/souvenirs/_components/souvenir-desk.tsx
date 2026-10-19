@@ -5,6 +5,7 @@ import { Camera, CameraOff, Check, Gift, Search, Undo2 } from 'lucide-react';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { markSouvenirReceived, undoSouvenirReceived } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Souvenir-table desk (owner 2026-06-28). Same scan-or-search → confirm flow as
 // the check-in desk, pointed at guest_souvenir_claims: staff scan a guest's
@@ -113,6 +114,18 @@ export function SouvenirDesk({
       setCameraError('Camera unavailable — check permissions, or search by name below.');
     }
   }, [stopScanner]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
 
   useEffect(() => {
     if (!scanning) return;

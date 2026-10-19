@@ -17,6 +17,7 @@ import { compressVideoForWeb } from '@/lib/video-compress';
 import { orderTheDay } from '@/lib/samahan-reel';
 import type { SamahanStory } from '@/lib/samahan-stories';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Samahan Stories strip (Setlog concept, owner 2026-08-24): raw short clips,
 // one per member per hour, gone in 24 hours.
@@ -286,6 +287,17 @@ export function SamahanStories({
     },
     [facing],
   );
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo or
+  // a dead track takes the story camera, reopen the same facing through
+  // openCamera (it stops the old tracks and shows the shipped starting state).
+  // Held while a take is recording or posting — a reopen never posts a story.
+  useCameraThatComesBack({
+    streamRef,
+    live: cameraOpen && cameraReady,
+    restart: () => void openCamera(),
+    holdWhile: recording || busy !== 'idle',
+  });
 
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
     const video = previewRef.current;

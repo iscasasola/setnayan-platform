@@ -438,7 +438,11 @@ export function PapicGuestCapture({
     selectLens,
     mirrored,
     switching,
-  } = usePapicCamera({ enabled: accepted && !blocked && !enrolling });
+  } = usePapicCamera({
+    enabled: accepted && !blocked && !enrolling,
+    // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
+    holdRestart: () => recordingRef.current,
+  });
 
   /*
     TWO REFUSALS, TWO SENTENCES.

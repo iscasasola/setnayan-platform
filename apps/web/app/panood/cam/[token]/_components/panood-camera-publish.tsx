@@ -14,6 +14,7 @@ import { publishGuestFanout, type GuestFanout } from '@/lib/panood-guest-webrtc'
 import { GUEST_PICK_MAX_VIEWERS_PER_CAMERA } from '@/lib/live-studio-guest-pick';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Live Studio · camera-operator local preview (PR5 — join + local preview only).
 //
@@ -198,6 +199,21 @@ export function PanoodCameraPublish({
     void start();
     return () => stop();
   }, [start, stop]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4). The heartbeat
+  // below already stopped claiming "Camera connected" while hidden — but the
+  // camera itself was never reopened, so an operator back from Messages held a
+  // frozen preview and sent the controller a dead feed. Reopen through the same
+  // start path (same rear camera, same 1080p, a fresh publisher on the same
+  // slot) behind the shipped "Opening your camera…" state.
+  useCameraThatComesBack({
+    streamRef,
+    live: state === 'live',
+    restart: () => {
+      stop();
+      void start();
+    },
+  });
 
   // ── THE LIVENESS BEAT (Wave 4) ────────────────────────────────────────────
   //

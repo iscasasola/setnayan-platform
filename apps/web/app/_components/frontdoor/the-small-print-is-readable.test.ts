@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * THE FRONT DOOR'S SMALL PRINT IS READABLE — WCAG AA, COMPUTED.
@@ -29,7 +30,8 @@ import { fileURLToPath } from 'node:url';
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CSS = readFileSync(join(HERE, 'front-door.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+/** Comments stripped by the repo's one lexer, so prose about a colour never counts as one. */
+const CSS = stripComments(readFileSync(join(HERE, 'front-door.css'), 'utf8'));
 const src = (f: string) => readFileSync(join(HERE, f), 'utf8');
 
 const AA = 4.5;

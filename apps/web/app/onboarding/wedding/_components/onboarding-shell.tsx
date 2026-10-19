@@ -3126,7 +3126,7 @@ export function OnboardingShell({
             <div className="tapzone">
               {faithView.mode === 'civil' ? null : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
-                  {FAITH_CHIPS.map((c) => {
+                  {FAITH_CHIPS.map((c, _i, all) => {
                     // Gate on the launch status when we have it (admin
                     // /admin/wedding-types); fall back to the built-in soon
                     // flag if the status read was unavailable.
@@ -3141,8 +3141,12 @@ export function OnboardingShell({
                         onClick={soon ? undefined : () => selectFaith(c.value)}
                         aria-disabled={soon || undefined}
                         // A not-yet faith is a "soon" chip: hidden inside the
-                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR).
-                        data-coming-soon={soon ? '' : undefined}
+                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR)
+                        // — unless NO faith is pickable (a failed status read), when
+                        // hiding them all would leave the step with nothing on it.
+                        data-coming-soon={
+                          soon && all.some((x) => (activeFaiths ? activeFaiths.includes(x.value) : !x.soon)) ? '' : undefined
+                        }
                       >
                         {c.label}
                         {soon && <span className="soon">soon</span>}

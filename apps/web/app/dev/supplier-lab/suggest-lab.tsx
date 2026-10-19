@@ -10,8 +10,7 @@ import { useMemo } from 'react';
 import { SupplierSuggestBoard, type SuggestBoardActions } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board';
 import type { SupplierBoard } from '@/lib/supplier-suggest-board';
 import type { SupplierSuggestion } from '@/lib/inspiration-suggestions';
-import { LAB_SHOP_PHOTOS } from './library-lab-fixture';
-import { LAB_SUGGEST_PHOTO } from './suggestion-lab-fixture';
+import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP_PHOTOS as LAB_SHOP_PHOTOS } from './suggestion-lab-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 

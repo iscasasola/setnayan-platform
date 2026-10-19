@@ -801,12 +801,18 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-lg bg-ink/10" />
             ),
           )}
-          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{named ? `${slot.label} · ${count}` : count}</span>
+          {/* A full part's count drops to its own line under the photos (prototype frame 5), so "3 photos · 1 from …" is read whole. */}
+          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{photos.length >= MOODBOARD_SLOT_POSITIONS.length ? '' : named ? `${slot.label} · ${count}` : count}</span>
           <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} />
           <span data-mood-board-search={slot.slotKey}>
             <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
           </span>
         </div>
+        {photos.length >= MOODBOARD_SLOT_POSITIONS.length ? (
+          <p className="-mt-0.5 text-[12px] text-ink/55" data-mood-board-count={slot.slotKey}>
+            {named ? `${slot.label} · ${count}` : count}
+          </p>
+        ) : null}
         {/* 🤝🖼 A SUPPLIER'S PHOTO, WAITING beside the couple's own (prototype frame 3): "From Bloom & Co." · "A photo for
             Bridal bouquet", then the shipped notice's two buttons — ✓ Keep · ✕ No thanks. Nothing moves until one is tapped. */}
         {suggested.map((sg) => (
@@ -1356,7 +1362,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const label = partLabelOf(sg.slotKey);
             const row = tiles[sg.slotKey] ?? [];
             return (
-              <StudioSheet label={fullSheetTitle(label)} onClose={() => setSheet(null)}>
+              <StudioSheet label={`Keep ${sg.shop}’s photo`} onClose={() => setSheet(null)}>
                 {/* 🤝🖼 KEEP ON A FULL PART NEVER REPLACES SILENTLY (prototype frame 3b): tap the photo it replaces, or keep all
                     three and the suggestion keeps waiting. */}
                 <div className="flex flex-col gap-3 px-3 pb-2" data-mood-board-keep-full={sg.id}>

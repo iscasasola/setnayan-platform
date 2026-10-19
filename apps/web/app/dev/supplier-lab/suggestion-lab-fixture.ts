@@ -36,3 +36,11 @@ export const LAB_SUGGEST_SWATCHES = {
   cpS: ['#6B5A7E', '#EFD9E2', '#C9B79A', '#FFFFFF', '#ECE6E0', '#6B5A7E'],
   own: ['#5B4A6B', '#D9C4CF', '#F7F2EC', '#7A8B6F', '#EFE9EA', '#5B4A6B'],
 };
+
+/** The lab shop's own photos for "Choose from your shop's photos" — the repo's own sample pictures (as the library lab's). */
+export const LAB_SUGGEST_SHOP_PHOTOS: ReadonlyArray<{ ref: string; url: string }> = [
+  { ref: '/realstories/jack-jill-g1.jpg', url: '/realstories/jack-jill-g1.jpg' },
+  { ref: '/realstories/john-jane-g2.jpg', url: '/realstories/john-jane-g2.jpg' },
+  { ref: '/realstories/maria-juan-g1.jpg', url: '/realstories/maria-juan-g1.jpg' },
+  { ref: '/realstories/sofia-reyes-c2.jpg', url: '/realstories/sofia-reyes-c2.jpg' },
+];

@@ -120,6 +120,8 @@ export function SupplierSuggestBoard({
   const block = (part: BoardPart, first: boolean) => {
     const mineHere = waitingIn(part.slotKey);
     const full = mineHere.length >= SUGGESTIONS_WAITING_MAX;
+    /* Three or more photos in the line: the count drops to its own line under them, read whole (as the couple's). */
+    const crowded = part.photos.length + mineHere.length >= 3;
     return (
       <section key={part.slotKey} data-suggest-part={part.slotKey} className={`flex flex-col gap-1 py-3.5 ${first ? '' : 'border-t border-ink/10'}`}>
         <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{part.label}</h3>
@@ -147,8 +149,8 @@ export function SupplierSuggestBoard({
               onClick={() => void takeBack(s)}
             />
           ))}
-          <span className="ml-1 min-w-0 flex-1 truncate text-[14px] text-ink/60" data-suggest-count={part.slotKey}>
-            {supplierCountLine(part.photos.length, mineHere.length)}
+          <span className="ml-1 min-w-0 flex-1 truncate text-[14px] text-ink/60" data-suggest-count={crowded ? undefined : part.slotKey}>
+            {crowded ? '' : supplierCountLine(part.photos.length, mineHere.length)}
           </span>
           {part.canSuggest ? (
             <span data-suggest-button={part.slotKey}>
@@ -163,6 +165,11 @@ export function SupplierSuggestBoard({
             </span>
           ) : null}
         </div>
+        {crowded ? (
+          <p className="text-[14px] text-ink/60" data-suggest-count={part.slotKey}>
+            {supplierCountLine(part.photos.length, mineHere.length)}
+          </p>
+        ) : null}
       </section>
     );
   };

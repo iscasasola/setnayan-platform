@@ -424,8 +424,8 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
     </nav>
     <nav
       aria-label="Site sections"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
       data-safe-x=""
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
     >
       <ul className="mx-auto flex h-[3.5rem] max-w-md items-stretch justify-around px-1">
         {before.map(renderSlot)}

@@ -208,8 +208,8 @@ export function GuestHubBar({
       {menuOn ? null : (
       <nav
         aria-label="Your event controls"
-        data-safe-x=""
         className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
+        data-safe-x=""
       >
         <div className="mx-auto flex max-w-md items-end justify-between gap-3 px-5 pb-3 pt-2">
           {/* Bottom-left: open the guest's own personal QR. */}

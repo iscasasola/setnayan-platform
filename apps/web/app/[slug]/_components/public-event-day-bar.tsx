@@ -68,8 +68,8 @@ export function PublicEventDayBar({
       {showBar ? (
         <nav
           aria-label="Event controls"
+          className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
           data-safe-x=""
-        className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
         >
           <div className="mx-auto flex max-w-md items-end justify-center gap-6 px-5 pb-3 pt-2">
             {/* Bottom-center: the couple's candid camera (prominent action). */}

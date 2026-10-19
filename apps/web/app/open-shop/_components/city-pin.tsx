@@ -8,6 +8,7 @@ import { addressFromPin } from '@/lib/pin-address';
 import { pinConfirmCopy } from '@/lib/pin-confirm-copy';
 
 import { detectShopCity, locateShopAddress } from '../city-actions';
+import { askLocationOnce } from '@/lib/location-ask';
 
 type LeafletModule = typeof import('leaflet');
 type LeafletMap = import('leaflet').Map;
@@ -388,13 +389,11 @@ export function CityPin({
   }, []);
 
   const useMyLocation = () => {
-    if (!navigator.geolocation) return;
     setDetecting(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        mapRef.current?.setView([latitude, longitude], 15);
-        placePin(latitude, longitude);
+    askLocationOnce(
+      ({ lat, lon }) => {
+        mapRef.current?.setView([lat, lon], 15);
+        placePin(lat, lon);
       },
       // Denied or unavailable: silently fall back to tapping the map. A refused
       // permission is a choice, not an error to report back at the vendor.
@@ -446,9 +445,13 @@ export function CityPin({
 
       <div className="relative overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
         <div ref={mapDivRef} className="h-[240px] w-full" />
+        {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
+            first paint — it declares no location (DECISION_LOG 2026-10-19 (1));
+            typing the address and tapping the map still place the pin. */}
         <button
           type="button"
           onClick={useMyLocation}
+          data-asks-location=""
           className="absolute right-2 top-2 z-[400] inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm"
           style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
         >

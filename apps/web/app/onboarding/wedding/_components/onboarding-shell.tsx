@@ -3140,6 +3140,9 @@ export function OnboardingShell({
                         className={`chip${sel(picked)}${soon ? ' is-soon' : ''}${picked ? ' sn-bounce' : ''}`}
                         onClick={soon ? undefined : () => selectFaith(c.value)}
                         aria-disabled={soon || undefined}
+                        // A not-yet faith is a "soon" chip: hidden inside the
+                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR).
+                        data-coming-soon={soon ? '' : undefined}
                       >
                         {c.label}
                         {soon && <span className="soon">soon</span>}
@@ -3590,6 +3593,7 @@ export function OnboardingShell({
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more */}
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
+              storeShell={storeShell}
               value={state.places}
               onChange={(places) =>
                 patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })

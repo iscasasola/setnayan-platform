@@ -46,6 +46,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -314,7 +315,12 @@ export function FrontDoorFeed({
   data,
   beforeShops,
   afterShops,
-}: { data: FrontDoorData } & DiscoverSlots) {
+  storeShell = false,
+}: {
+  data: FrontDoorData;
+  /** Inside the App Store / Play Store shell — `isStoreShellRequest()`. */
+  storeShell?: boolean;
+} & DiscoverSlots) {
   const {
     articles,
     articleTotal,
@@ -362,6 +368,10 @@ export function FrontDoorFeed({
         ? 'The first shops'
         : 'Shops';
   const realWeddingsEarnedGrid = shape.stories === 'grid';
+  // 📱 The app hides the whole Shops shelf while no shop is live (owner,
+  // DECISION_LOG 2026-10-19 (2)); one live shop brings it back. The web keeps
+  // the plain "none yet" line below.
+  const hideShopsShelf = hidesEmptyShelfInApp(storeShell, liveShopCount);
 
   // Chapters ranked by real views — see the module docblock. Not filtered by
   // the composer above: a chapter reaching `stories` at all already passed
@@ -373,75 +383,79 @@ export function FrontDoorFeed({
       {/* ═ DISCOVER · your people's upcoming public events, then the world ═ */}
       {beforeShops}
 
-      {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
-      <h2 className="fd-sechead">
-        <span>{shopsHeading}</span>
-        {shape.shopsHeading === 'first-shops' ? (
-          <span className="fd-rule">
-            not &ldquo;trending&rdquo; — one shop cannot trend
-          </span>
-        ) : null}
-      </h2>
-      {/*
-        🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
-        (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
-        shelf … show[s] nothing until a real supplier joins"), so an empty
-        shelf is now the normal state. It says so in one plain line — and a
-        failed read says THAT instead, never "none" (`liveShopCount` is null
-        only when the count read failed). The invite card below is the door.
-      */}
-      {shops.length === 0 ? (
-        <p className="fd-notice" role="status">
-          {liveShopCount === 0
-            ? 'No supplier has opened a shop yet.'
-            : 'Shops couldn’t load just now — try again in a moment.'}
-        </p>
-      ) : null}
-      <div className="fd-grid">
-        {shops.map((s) => (
-          <ShopCard key={s.href} s={s} />
-        ))}
-        <div className="fd-invite fd-invite-wide">
-          <h3>Open your shop — free while we&rsquo;re new.</h3>
+      {hideShopsShelf ? null : (
+        <>
+          {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
+          <h2 className="fd-sechead">
+            <span>{shopsHeading}</span>
+            {shape.shopsHeading === 'first-shops' ? (
+              <span className="fd-rule">
+                not &ldquo;trending&rdquo; — one shop cannot trend
+              </span>
+            ) : null}
+          </h2>
           {/*
-            🔴 THIS CARD PROMISED "No commission on your bookings, ever." — to a
-            SUPPLIER, beside a real 5% booking fee. Measured 2026-09-22.
-
-            The owner's 2026-08-06 ruling is that "no commission" is CORRECT and
-            stays: the couple pays the supplier directly and Setnayan never
-            touches that money. The booking fee is a separate bill to the
-            supplier for the introduction — not a cut of the couple↔supplier
-            deal. **Both sentences are true at once, but only if the second one
-            is actually said.** `/pricing` says both. This card said only the
-            first, and added "ever", which no flag can keep true.
-
-            🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()`
-            and `FREE_BOOKING_LIMIT` are the same sources the bill uses, and the
-            launch line is gated on `isBookingFeeEnabled()` — the very flag that
-            decides whether anyone is billed — so the promise and the charge
-            cannot disagree. A hand-edited sentence is exactly what went stale
-            here before (see VendorGrowFairPay, which was false on 2026-09-20).
+            🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
+            (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
+            shelf … show[s] nothing until a real supplier joins"), so an empty
+            shelf is now the normal state. It says so in one plain line — and a
+            failed read says THAT instead, never "none" (`liveShopCount` is null
+            only when the count read failed). The invite card below is the door.
           */}
-          <p>
-            Couples pay you directly — we never take a cut of it.{' '}
-            {isBookingFeeEnabled() ? (
-              <>
-                Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
-                after that a booking fee
-                {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
-                on couples we bring you. Your own clients stay free.{' '}
-              </>
-            ) : (
-              <>No booking fee while we&rsquo;re new.{' '}</>
-            )}
-            Your own web address, a calendar couples can see, and enquiries that
-            arrive as real messages.
-          </p>
-          <Link href="/open-shop" className="fd-go">
-            Open your shop &rarr;
-          </Link>
-        </div>
-      </div>
+          {shops.length === 0 ? (
+            <p className="fd-notice" role="status">
+              {liveShopCount === 0
+                ? 'No supplier has opened a shop yet.'
+                : 'Shops couldn’t load just now — try again in a moment.'}
+            </p>
+          ) : null}
+          <div className="fd-grid">
+            {shops.map((s) => (
+              <ShopCard key={s.href} s={s} />
+            ))}
+            <div className="fd-invite fd-invite-wide">
+              <h3>Open your shop — free while we&rsquo;re new.</h3>
+              {/*
+                🔴 THIS CARD PROMISED "No commission on your bookings, ever." — to a
+                SUPPLIER, beside a real 5% booking fee. Measured 2026-09-22.
+
+                The owner's 2026-08-06 ruling is that "no commission" is CORRECT and
+                stays: the couple pays the supplier directly and Setnayan never
+                touches that money. The booking fee is a separate bill to the
+                supplier for the introduction — not a cut of the couple↔supplier
+                deal. **Both sentences are true at once, but only if the second one
+                is actually said.** `/pricing` says both. This card said only the
+                first, and added "ever", which no flag can keep true.
+
+                🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()`
+                and `FREE_BOOKING_LIMIT` are the same sources the bill uses, and the
+                launch line is gated on `isBookingFeeEnabled()` — the very flag that
+                decides whether anyone is billed — so the promise and the charge
+                cannot disagree. A hand-edited sentence is exactly what went stale
+                here before (see VendorGrowFairPay, which was false on 2026-09-20).
+              */}
+              <p>
+                Couples pay you directly — we never take a cut of it.{' '}
+                {isBookingFeeEnabled() ? (
+                  <>
+                    Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
+                    after that a booking fee
+                    {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
+                    on couples we bring you. Your own clients stay free.{' '}
+                  </>
+                ) : (
+                  <>No booking fee while we&rsquo;re new.{' '}</>
+                )}
+                Your own web address, a calendar couples can see, and enquiries that
+                arrive as real messages.
+              </p>
+              <Link href="/open-shop" className="fd-go">
+                Open your shop &rarr;
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ═ DISCOVER · People to follow — public profiles, after the shops ═ */}
       {afterShops}

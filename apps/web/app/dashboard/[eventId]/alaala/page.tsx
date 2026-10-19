@@ -346,7 +346,7 @@ export default async function AlaalaPage({ params }: Props) {
                       <span style={{ color: 'var(--m-slate-2)' }}> · {r.note}</span>
                     ) : null}
                     {r.comingSoon ? (
-                      <span style={{ color: 'var(--m-slate-2)' }}> · soon</span>
+                      <span data-coming-soon style={{ color: 'var(--m-slate-2)' }}> · soon</span>
                     ) : null}
                   </>
                 );
@@ -364,6 +364,9 @@ export default async function AlaalaPage({ params }: Props) {
                 ) : (
                   <span
                     key={`${chip.key ?? r.label}-${j}`}
+                    // A "· soon" chip is hidden inside the app before first
+                    // paint (lib/store-shell.ts COMING_SOON_ATTR); the web keeps it.
+                    data-coming-soon={r.comingSoon ? '' : undefined}
                     className={chipClass}
                     style={{ borderColor: 'var(--m-line-soft)', background: 'var(--m-paper)' }}
                   >

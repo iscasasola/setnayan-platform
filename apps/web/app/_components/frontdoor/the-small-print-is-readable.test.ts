@@ -11,8 +11,9 @@ import { fileURLToPath } from 'node:url';
  * plan with", "things you do with people", "the things you make") and Home's
  * shelf rules ("earned, never sold", "public events only · …") painted
  * `--fd-m3` #A09A8E on the white page — 2.80:1, on every page the rail mounts.
- * The rail's Privacy · Terms line painted `--fd-m2`, 3.67:1. AA for text this
- * size is 4.5:1.
+ * The rail's Privacy · Terms line painted `--fd-m2`, 3.67:1; its "© 2026" and
+ * "Set na 'yan" lines and Home's "couldn't load" label painted `--fd-m3` too.
+ * AA for text this size is 4.5:1.
  *
  * 🔑 THE PROPERTY IS THE RATIO, NOT THE TOKEN NAME. This file resolves each
  * small-print rule's `color` through the `.fd` token block — light AND the
@@ -40,6 +41,9 @@ const SMALL_PRINT = [
   { selector: '.fd-smallprint a', file: 'front-door-shell.tsx', rendered: /className="fd-smallprint"/ },
   { selector: '.fd-sechead .fd-rule', file: 'front-door-feed.tsx', rendered: /className="fd-rule"/ },
   { selector: '.fd-sechead .fd-rule', file: 'front-door-discover.tsx', rendered: /className="fd-rule"/ },
+  { selector: '.fd-copy', file: 'front-door-shell.tsx', rendered: /className="fd-copy"/ },
+  { selector: '.fd-tag2', file: 'front-door-shell.tsx', rendered: /className="fd-tag2"/ },
+  { selector: '.fd-unknown', file: 'front-door-feed.tsx', rendered: /className="fd-unknown"/ },
 ] as const;
 
 /** Every declaration block whose selector list is exactly `selector`. */

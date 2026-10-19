@@ -884,13 +884,15 @@ html.dark .fd {
     opacity: 0;
   }
 }
+/* The rail's last two lines are small print too — `--fd-m1`, not the 2.80:1
+   `--fd-m3` (see `.fd-rlabel small`). */
 .fd-copy {
   margin-top: 10px;
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
 }
 .fd-tag2 {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
   font-style: italic;
 }
@@ -1364,9 +1366,10 @@ h2.fd-sechead,
   grid-column: 1 / -1;
 }
 
-/* A count that failed to load says so. It NEVER says 0. */
+/* A count that failed to load says so. It NEVER says 0 — and it says so in a
+   colour that reads: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
 .fd-unknown {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-style: italic;
 }
 

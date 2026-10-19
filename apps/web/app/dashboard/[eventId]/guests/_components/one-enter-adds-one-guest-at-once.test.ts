@@ -301,7 +301,9 @@ test('12 · the card\'s words: Plus is the card\'s "Extra seats" (None · +1 …
   const card = read('search-add-card.tsx');
   assert.match(card, /PLUS_ONE_CHOICES\.map\(\(n\) => \(\{ key: String\(n\), label: n === 0 \? 'None' : `\+\$\{n\}` \}\)\)/, 'Plus does not offer the card’s None · +1 … +4');
   assert.match(card, /label="Group"[\s\S]{0,200}picked=\{/, 'Group is not a ticked (multi) list');
-  assert.match(card, /'＋ New group…'/, 'Group cannot make a new group in place');
+  /* ⤷ 2026-10-20 (#6698): the card's Group IS the guest card's one Group picker — its ＋ New group… is the picker's. */
+  assert.match(card, /<GuestGroupPicker\b/, 'the add card does not draw THE one Group picker');
+  assert.match(read('guest-group-picker.tsx'), /New group…/, 'Group cannot make a new group in place');
   for (const w of ['Side', 'Role', 'Group', 'Plus']) assert.match(card, new RegExp(`>${w}</span>`), `the card has no ${w}`);
   assert.match(card, /All four stay as picked for the next names\./);
   const roleNames = null;

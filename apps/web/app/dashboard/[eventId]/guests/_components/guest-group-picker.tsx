@@ -80,7 +80,7 @@ export function GuestGroupPicker({
   const [draft, setDraft] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [count, setCount] = useState<number | null | 'unknown'>(null);
-  const [pending, start] = useTransition();
+  const [pending, startGroupTransition] = useTransition();
   const [own, setOwn] = useState<OwnGroup[] | null>(groups ? [...groups] : null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -157,7 +157,7 @@ export function GuestGroupPicker({
       return;
     }
     setErr(null);
-    start(async () => {
+    startGroupTransition(async () => {
       const res = await hearAction(() => quickCreateGroup(eventId, name));
       if (!res.ok) {
         setErr(plainRefusal(res.error, 'Couldn’t make that group. Try again.'));
@@ -177,7 +177,7 @@ export function GuestGroupPicker({
     const was = own?.find((g) => g.groupId === id);
     if (!was) return;
     if (!name || name === was.label) return back();
-    start(async () => {
+    startGroupTransition(async () => {
       const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'rename', label: name }));
       if (!res.ok || !('group' in res)) {
         setErr(plainRefusal(res.ok ? '' : res.error, 'Couldn’t rename that group. Try again.'));
@@ -192,14 +192,14 @@ export function GuestGroupPicker({
     setErr(null);
     setCount(null);
     setMode({ kind: 'delete', id });
-    start(async () => {
+    startGroupTransition(async () => {
       const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'count' }));
       setCount(res.ok && 'n' in res ? res.n : 'unknown');
     });
   };
 
   const remove = (id: string) => {
-    start(async () => {
+    startGroupTransition(async () => {
       const res = await hearAction(() => editGuestGroupInPlace(eventId, id, { op: 'delete' }));
       if (!res.ok) {
         setErr(plainRefusal(res.error, 'Couldn’t delete that group. Try again.'));

@@ -52,7 +52,7 @@ import { plainRefusal } from './plain-refusal';
 const HERE = __dirname;
 // 2026-10-19: the name box (capture-bar) and Quick add's guest write no longer await in a transition — they queue the
 // name (`guest-add-queue.ts`), whose ONE write loop hears every answer (`await hearAction(next.run)`, checked below).
-const FILES = ['quick-add-sheet.tsx', 'add-from-people-sheet.tsx', 'guest-invite-cell.tsx', 'send-invite.tsx'] as const;
+const FILES = ['quick-add-sheet.tsx', 'add-from-people-sheet.tsx', 'guest-invite-cell.tsx', 'send-invite.tsx', 'guest-group-picker.tsx'] as const;
 
 /** Next's redirect signal, as the browser receives it from a server action. */
 const REDIRECT = Object.assign(new Error('NEXT_REDIRECT'), { digest: 'NEXT_REDIRECT;push;/dashboard/e-1/guests;307;' });

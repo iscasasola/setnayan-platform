@@ -289,9 +289,9 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Your connection tree (limited pilot)">
+        <Section title="Your connection tree">
           <p>
-            Setnayan is piloting a <strong>connection tree</strong> — a record of
+            Setnayan offers a <strong>connection tree</strong> — a record of
             how the people around an event are related. It has three layers:{' '}
             <strong>family</strong>, <strong>ritual</strong> (ninong and ninang),
             and <strong>friends</strong>. It is entirely optional, and you never
@@ -300,7 +300,7 @@ export default function PrivacyPage() {
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
               <strong>Nothing is recorded about someone without an account.</strong>{' '}
-              During the pilot a connection can only be stored when{' '}
+              For now, a connection can only be stored when{' '}
               <em>both</em> people have a Setnayan account. That way both of you
               can see it, answer it, and delete it. You cannot add someone who
               has not signed up.
@@ -339,10 +339,10 @@ export default function PrivacyPage() {
             every connection.
           </p>
           <p className="pt-2">
-            This feature is a <strong>limited pilot</strong> while our filing
-            with the National Privacy Commission is being completed. We have kept
-            it deliberately narrow for that reason — both-parties-only, consent
-            before anything counts, and short retention.
+            We have kept this feature <strong>deliberately narrow</strong> while
+            our filing with the National Privacy Commission is being completed —
+            both-parties-only, consent before anything counts, and short
+            retention.
           </p>
         </Section>
 

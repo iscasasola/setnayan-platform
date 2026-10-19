@@ -75,7 +75,7 @@ test('every message the old toast said is still said', () => {
   assert.match(regen, /toast\.error\(plainRefusal\(result\.error, /);
   assert.match(regen, /toast\.success\('New invite QR ready\. Share the fresh link with your guests\.'\)/);
   // The name box's refusal: on the name's own row, in the plain sentence, never a toast that leaves.
-  assert.match(read('guest-add-queue.ts'), /error: plainRefusal\(res\.error, FALLBACK\)/);
+  assert.match(read('guest-add-queue.ts'), /res\.error \? plainRefusal\(res\.error, FALLBACK\)/);
   assert.match(read('just-added.tsx'), /role="alert"[\s\S]{0,80}\{a\.error\}/, 'a refused name does not say why');
   assert.doesNotMatch(read('capture-bar.tsx'), /\buseToast\b|toast-provider/);
 });

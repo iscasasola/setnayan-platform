@@ -20,9 +20,19 @@ button twice to add … adding multiple person needs to be fast and easy" · "we
   typed in a row were dropped and one came back cut. Now 10/10, in order, no duplicates. Quick add: a whole name typed in
   First adds on ONE Enter (only a lone first name moves to Last); its boxes clear and First keeps the focus at once;
   Side · Role · Group stay as picked (#782).
+- **The Add card (2026-10-20, approved prototype `guest_group_and_fast_add_2026-10-20.html` strip B · DECISION_LOG
+  2026-10-20).** "Nobody matches “…”" now carries Side · Role · Group · Plus, two by two, sticky for every next name
+  (`search-add-card.tsx`): Group is ONE multi list (one standard group → `group_category`, own groups ticked →
+  memberships, ＋ New group… made in place); Plus = the card's "Extra seats" (None · +1 … +4) → the shipped
+  `plus_one_count` + `syncExtraSeats` "+1 · TBA" rows. What is typed wins over a pick ("vip", "+2", "#Choir").
+  "Ninang Rose" is kept as a name (it was refused as half a name).
+- **Search or add looks in your People.** The same read as "Add from your people" (`listPeopleYouCanInvite`); a match
+  not on the list shows under "FROM YOUR PEOPLE · NOT ON THIS LIST YET", one tap or Enter adds the first with the four
+  picks — `addGuestsFromPeople(…, picks)` now routes through `addSingleGuest` with the address People holds. A list
+  match still opens that guest. The title reads "Not them? Add “…” as new".
 - Lab: `/dev/guests-lab?part=screen&addMs=N` (adds answer after N ms; a name with "Refuse" is refused); the + sheet and
   Quick add are now mounted INSIDE the lab's stand-ins (the + sheet's add used to reach the real action).
 - Guard: `one-enter-adds-one-guest-at-once.test.ts` (10 checks, each sabotaged red). Seven existing guards re-pointed
   from the capture bar's old await/toast to the queue.
 
-SPEC IMPACT: None — implements the owner's 2026-10-19 instruction on the shipped Guests list; no locked decision moves.
+SPEC IMPACT: None — implements DECISION_LOG 2026-10-20 (search-or-add, part 3) and the approved prototype's strip B; no new decision.

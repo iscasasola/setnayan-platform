@@ -97,6 +97,27 @@ const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
   reply: i < 6 ? ('attending' as const) : ('pending' as const),
 }));
 
+/**
+ * ✍ The lab's fact editors — the SAME nodes Details draws (`detailsFactEditors`). Also handed to the Maker lab's shell
+ * as its `factEditors` on `?facts=1` (the launch page hands the real Maker the same), so a tap that opens a fact's
+ * editor in the work area can be seen in the lab — the Love Story's moments, 2026-10-19.
+ */
+export function detailsLabFacts(
+  sp: Record<string, string | string[] | undefined>,
+  words: { specialMessage: string; pabuyaMessage: string },
+) {
+  const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  return detailsFactEditors({
+    eventId: EVENT,
+    specialMessage: words.specialMessage,
+    specialMessageAction: updateSpecialMessage.bind(null, EVENT),
+    pabuyaMessage: words.pabuyaMessage,
+    /* `?studio=1` draws Studio › Love Story's list on maria-and-jose's story — this words panel is handed the SAME
+       one (two different stories for one event lose each other's changes; see `love-story-fixture.ts`). */
+    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: one('pro') === '1' },
+  });
+}
+
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
@@ -115,15 +136,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   /* ✍ Words (part 2b): the same editors the stage opens. Story & plans need the
      database (the scrapbook, the schedule, the guest's RSVP), so the lab says
      so honestly with a line in each picture. */
-  const facts = detailsFactEditors({
-    eventId: EVENT,
-    specialMessage,
-    specialMessageAction: updateSpecialMessage.bind(null, EVENT),
-    pabuyaMessage,
-    /* `?studio=1` draws Studio › Love Story's list on maria-and-jose's story — this words panel is handed the SAME
-       one (two different stories for one event lose each other's changes; see `love-story-fixture.ts`). */
-    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: pro },
-  });
+  const facts = detailsLabFacts(sp, { specialMessage, pabuyaMessage });
   /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
   const guideAddr = parseGuideParam(one('guide'));
   const fresh = one('fresh') === '1';

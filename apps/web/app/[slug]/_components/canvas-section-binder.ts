@@ -22,9 +22,9 @@ import { findMakerSection, sectionAfter } from './maker-section-find';
 export const EDITOR_BOUND_ATTR = 'data-setnayan-editor-bound';
 
 /** Sections found by their region's id rather than a marker (`SECTION_IDS`), bound after every marked one. */
-const ID_SECTIONS = ['f:entourage', 'f:story'] as const;
+export const ID_SECTIONS = ['f:entourage', 'f:story'] as const;
 /** The legacy rows — bound last, so a tap bubbling from a section inside one stops at that section first. */
-const LEGACY_ROWS = ['home', 'details', 'gallery', 'me'] as const;
+export const LEGACY_ROWS = ['home', 'details', 'gallery', 'me'] as const;
 
 export type SectionBinder = {
   /** Listen to `el` as the section `key` — once per node. */

@@ -57,7 +57,8 @@ import {
   partPickScroll,
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
 import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
@@ -706,6 +707,30 @@ export function StageTools({
         const k =
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
           makerPartOfCanvas(where.current.stageKey, d.key);
+        /* 🧭 A tap a REGION took (`f:story`, the Love Story's `#site-story`) names the part it holds — and the part's
+           own section is picked, so the work area holds the scene (its looks under Style, its motion under Animate),
+           never the region's panel (owner 2026-10-19, live: Style showed the Love Story's moments). */
+        const own = makerCanvasKeyOf(d.key);
+        if (k && own !== d.key && readPresent().has(own)) {
+          setPicked(k);
+          setTapped(null);
+          setSlotAsk(null);
+          /* The section's own tap, said for it — the work area selects the scene as if it were tapped (no page jump:
+             the part stays on the page it was tapped on); the panel hears its own message back and lets it pass. */
+          window.postMessage({ source: 'setnayan-site', t: 'edit', key: own }, window.location.origin);
+          askTool(toolFor(k), k);
+          return;
+        }
+        /* ✋ A tap that names NO part (a legacy row's region — `home`, `details`, …): nothing is picked, and the work
+           area lets go of what it opened for it, so no tool shows a body the toolbar cannot name (the same day: Style
+           drew a panel under "INVITATION › HOME"). Two frames on — after the work area has drawn the tap. */
+        if (!k) {
+          setPicked(null);
+          setTapped(null);
+          setSlotAsk(null);
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => openToolRef.current?.close()));
+          return;
+        }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
         /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
@@ -1834,6 +1859,14 @@ export function StageTools({
           <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
         ) : editOn && !rsvpLineTypes ? (
           <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : venuePictureRows} />
+        ) : null}
+        {/* ══ ✋ NOTHING PICKED — row 1 says so, in one plain line, under whichever tool is on: never a blank Edit
+            (owner 2026-10-19, live: "INVITATION › HOME" over an empty Edit). The silent page's own line below is a
+            different state and wins (`stageRowOneLine`). ══ */}
+        {stageRowOneLine({ picked: picked !== null, canvasSilent }) === 'pick' && !away ? (
+          <div className={SP_ROWS} data-stage-nothing-picked="">
+            <p className="row-start-1 flex min-w-0 items-center justify-center px-1 text-center text-[13px] text-[var(--sp-ink2)]">{STAGE_NOTHING_PICKED_WORDS}</p>
+          </div>
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a

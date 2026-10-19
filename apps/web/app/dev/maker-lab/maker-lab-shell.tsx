@@ -189,6 +189,7 @@ export function MakerLabShell({
   hiddenStages = [],
   studio = null,
   venuePictures = null,
+  factEditors,
   fixedStyles = {},
   cameraLook = 'classic',
   blockLooks = {},
@@ -224,6 +225,8 @@ export function MakerLabShell({
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
   venuePictures?: MakerVenuePictures | null;
+  /** ✍ `&facts=1` — the fact editors the real Maker is handed (`detailsFactEditors`). */
+  factEditors?: ComponentProps<typeof MakerShell>['factEditors'];
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -458,6 +461,7 @@ export function MakerLabShell({
       deskTitle={desktopColumns ? 'Maria & Jose' : null}
       studio={studio}
       venuePictures={venuePictures}
+      factEditors={factEditors}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
       hiddenStages={hiddenStages}

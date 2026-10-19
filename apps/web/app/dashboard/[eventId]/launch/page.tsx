@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Suspense, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { readMakerDeskTitle } from '@/lib/maker-desk-title.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -370,7 +371,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date, display_name')
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -434,7 +435,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     event_type?: string | null;
     planning_mode?: string | null;
     std_invitation_launch_date?: string | null;
-    display_name?: string | null;
   } | null;
 
   /*
@@ -1080,6 +1080,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
   /* 🖥 …and on a desktop too, in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`) — dark for couples while it is built. */
   const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
+  /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
+  const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
   let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
@@ -1928,7 +1930,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       stagesStudio={stagesStudio}
       desktopColumns={desktopColumns}
       /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
-      deskTitle={desktopColumns ? (eventRow?.display_name ?? null) : null}
+      deskTitle={deskTitle}
       studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */

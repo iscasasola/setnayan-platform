@@ -64,7 +64,8 @@ test('3 · the phone’s form skin, every selector given the desk switch; the ph
 
 test('4 · the event’s name: handed in only with the columns on, drawn only by the lazy desk, from 1280', async () => {
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /deskTitle=\{desktopColumns \? \(eventRow\?\.display_name \?\? null\) : null\}/);
+  assert.match(page, /const deskTitle = desktopColumns \? await readMakerDeskTitle\(supabase, eventId\) : null;/);
+  assert.match(page, /\bdeskTitle=\{deskTitle\}/);
   const shell = read(`${L}/maker-shell.tsx`);
   assert.doesNotMatch(shell, /data-maker-desk-title/, 'the shell draws the desktop’s name itself');
   const desk = read(`${L}/maker-desk.tsx`);

@@ -61,6 +61,7 @@ import type { HubElementKey } from './element-style';
 import type { HubStage } from './hub-canvas';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
 import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
+import { hubPageModeOf, hubPageOf } from '../app/[slug]/_lib/hub-tabs';
 
 /* ── the four tools ───────────────────────────────────────────────────────── */
 
@@ -499,6 +500,19 @@ export function makerPartParent(key: MakerPartKey | null): typeof MAKER_COVER_SC
   return def.canvas === 'f:hero' && def.el ? MAKER_COVER_SCENE : null;
 }
 
+/**
+ * ✏️ THE COVER SCENE'S LINES ON THE PAGE ON SCREEN — Cover Scene › Edit's rows (approved 2026-10-16: each line with the
+ * house switch), before the page says which it drew. Its photo is no line (it shows while there is a cover photo).
+ * Read through `makerPartsOnShownPage`, so a cover picked while the one page's bar says "Details" keeps its lines.
+ */
+export function makerCoverLineParts(stage: MakerStageKey, page: string | null | undefined): MakerPartKey[] {
+  return makerPartsOnShownPage(stage, page).filter((k) => makerPartParent(k) === MAKER_COVER_SCENE && k !== MAKER_COVER_PHOTO);
+}
+/** 🎭 Does the Cover Scene lead the page on screen — so its Style is the Opening (approved 2026-10-16 / 2026-10-17)? */
+export function makerCoverLeads(stage: MakerStageKey, page: string | null | undefined): boolean {
+  return makerPartsOnShownPage(stage, page).includes(MAKER_COVER_SCENE);
+}
+
 /** 🎛 Why the Camera's Edit, Background and Animate are grey — the approved prototype's own three lines. */
 export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'style'>, string>> = {
   edit: 'Nothing to edit on the camera.',
@@ -581,6 +595,25 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
 /** The parts of one page, in order (none for a page the map does not know). */
 export function makerPartsOnPage(stage: MakerStageKey, page: string | null | undefined): readonly MakerPartKey[] {
   return (page ? MAKER_STAGE_PAGES[stage]?.[page] : undefined) ?? [];
+}
+
+/**
+ * 📜 THE PARTS ON THE PAGE THAT IS ON SCREEN. On a one-page stage (the Invitation and Save the Date — owner
+ * 2026-10-15: Home · Details · Story are ONE page, Me its own; `hub-tabs.ts` `hubPageModeOf`) the bar's tab only says
+ * where the page is SCROLLED, so the page on screen holds every tab's parts that share it, in bar order. Read by tab
+ * alone, a Cover Scene picked while the bar said "Details" had no lines (Edit) and no Opening (Style) — live,
+ * 2026-10-20: *"cannot see the reveal"* → *"after pressing around, i see it now"* (the scroll moved the tab back to
+ * Home). A stage of tabbed pages (The Day) and the RSVP stage's screens: that tab's own list, unchanged.
+ */
+export function makerPartsOnShownPage(stage: MakerStageKey, page: string | null | undefined): readonly MakerPartKey[] {
+  if (!page || stage === RSVP_STAGE_KEY || hubPageModeOf(stage) !== 'one-page') return makerPartsOnPage(stage, page);
+  const here = hubPageOf(page, true);
+  const out: MakerPartKey[] = [];
+  for (const [tab, parts] of Object.entries(MAKER_STAGE_PAGES[stage] ?? {})) {
+    if (hubPageOf(tab, true) !== here) continue;
+    for (const k of parts) if (!out.includes(k)) out.push(k);
+  }
+  return out.length > 0 ? out : makerPartsOnPage(stage, page);
 }
 
 /**
@@ -704,7 +737,7 @@ export function makerPartOfTap(
   el: string | null | undefined,
 ): MakerPartKey | null {
   key = makerCanvasKeyOf(key);
-  const on = makerPartsOnPage(stage, page);
+  const on = makerPartsOnShownPage(stage, page);
   /* A piece INSIDE a part is that part: the names' "&", the date's time. */
   el = el ? (HERO_EL_INSIDE[el] ?? el) : el;
   const exact = on.find((k) => MAKER_PARTS[k].canvas === key && (MAKER_PARTS[k].el ?? null) === (el ?? null));

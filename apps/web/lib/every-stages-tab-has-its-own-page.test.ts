@@ -293,7 +293,9 @@ test('c · a page’s first marker is its own group’s — never outside every 
   assert.equal(firstMarkerOnPage({ querySelectorAll: () => [m('f:film', null), m('f:hero', null)] }, 'home')?.key, 'f:film');
   // SOURCE (2026-10-16): no stub is drawn any more — the opening is named on the cover of the page on screen, and
   // taken away where the Cover Scene does not lead (`the-cover-scene-has-its-own-animate.test.ts` (3)).
-  assert.match(TOOLS, /const coverLeadsHere = Boolean\(revealStage && !rsvpOpen && shownPage && makerPartsOnPage\(stage, shownPage\)\.includes\(MAKER_COVER_SCENE\)\);/);
+  // 📜 2026-10-20: "the page on screen" is the one page's, whichever tab its bar names (`makerCoverLeads` →
+  // `makerPartsOnShownPage`; `the-cover-keeps-its-tools-on-the-one-page.test.ts` drives it).
+  assert.match(TOOLS, /const coverLeadsHere = Boolean\(revealStage && !rsvpOpen && shownPage && makerCoverLeads\(stage, shownPage\)\);/);
   assert.match(TOOLS, /if \(!coverLeadsHere \|\| !cover \|\| previewingRef\.current\) \{\s*tag\?\.remove\(\);\s*return;\s*\}/);
 });
 

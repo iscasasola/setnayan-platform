@@ -37,6 +37,8 @@ import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
+import { ticketName } from '@/lib/name-style';
+import { loadNameStyle } from '@/lib/name-style.server';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -179,7 +181,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   const [{ data: guest, error: guestErr }, { data: assignment, error: assignmentErr }] = await Promise.all([
     admin
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name, qr_token, plus_one_allowed, plus_one_name')
+      .select('guest_id, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, qr_token, plus_one_allowed, plus_one_name')
       .eq('event_id', event.event_id)
       .eq('guest_id', guestId)
       .is('deleted_at', null)
@@ -267,8 +269,10 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       names,
       dateLabel: event.event_date ? formatEventDate(event.event_date) : null,
       tableLabel: table.table_label,
-      guestName:
-        guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || firstName,
+      /* 🪪 A PASS PRINTS THE FULL NAME, in the event's Name style — the same rule as the Digital and Printed ticket
+         (`ticketName`). "Shown as" never replaces it (owner 2026-10-20, DECISION_LOG "THE INVITATION PRINTS A GUEST'S
+         FULL NAME — SHOWN AS NEVER REPLACES IT"). */
+      guestName: ticketName(guest, await loadNameStyle(admin, event.event_id, 'find-seat')),
       partyLine: plusOne
         ? `party of 2 · ${publicDisplayName(plusOneParts[0] ?? plusOne, plusOneParts.slice(1).join(' ') || null)}`
         : null,

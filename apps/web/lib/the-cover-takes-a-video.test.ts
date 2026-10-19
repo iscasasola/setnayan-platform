@@ -212,7 +212,7 @@ test('(7) the Maker’s ▶ whole-page preview is the guest page: full window, a
   /* The shown canvas frame mirrors its marker onto the Maker shell — run the shipped script in a frame. */
   const { CoverSceneMenuWaits, MAKER_CANVAS_COVER_ATTR } = await import('@/app/[slug]/_components/cover-scene-menu');
   assert.equal(MAKER_CANVAS_COVER_ATTR, 'data-canvas-cover');
-  const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script[^>]*>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
   const run = (frameState: string | null) => {
     const shellAttrs: Record<string, string> = {};
     const shell = { setAttribute: (k: string, v: string) => void (shellAttrs[k] = v) };

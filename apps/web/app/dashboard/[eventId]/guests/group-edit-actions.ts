@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { GROUP_CATEGORY_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
 
@@ -62,7 +63,11 @@ type Db = NonNullable<Awaited<ReturnType<typeof signedIn>>>;
 /** This event's own groups, with their sides — for the name rule. A refused read refuses the write (never "no clash"). */
 async function ownGroupsOf(supabase: Db, eventId: string) {
   const { data, error } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
-  if (error) return null;
+  if (error) {
+    // The write that asked is REFUSED on this (never "no clash"); the reason is recorded here.
+    logQueryError('editGuestGroupInPlace.ownGroupsOf', error, { eventId });
+    return null;
+  }
   return ((data ?? []) as { group_id: string; label: string | null; team_side: string | null }[]).map((g) => ({ groupId: g.group_id, label: g.label ?? '', teamSide: asSide(g.team_side) }));
 }
 

@@ -410,7 +410,7 @@ test('the one Role control marks the first ticked "main"; the one Group control 
     const form = postedForm(html);
     // Scenario 02: main = principal_sponsor_ninong, extra = groomsman, Friends + Choir — the pill reads them in that order.
     assert.deepEqual([form.role, form.extra_roles], [['principal_sponsor_ninong'], ['groomsman']]);
-    assert.match(html, /aria-label="Role in wedding: Principal Sponsor \(Ninong\) · Groomsman"/);
+    assert.match(html, /aria-label="Role in wedding: Ninong · Groomsman"/);
     assert.match(html, /aria-label="Group: Friends · Choir"/);
   }
 });

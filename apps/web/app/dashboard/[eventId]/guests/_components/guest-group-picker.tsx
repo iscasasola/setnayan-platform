@@ -259,8 +259,8 @@ export function GuestGroupPicker({
           {strip(
             false,
             <>
-              <div className="flex items-center gap-2">
-                <input ref={inputRef} value={draft} onChange={(e) => { setDraft(e.target.value); setErr(null); }} onKeyDown={keys(() => rename(g.groupId))} aria-label="Group name" autoComplete="off" maxLength={64} className="input-field min-w-0 flex-1" />
+              <div className="flex flex-wrap items-center gap-2">
+                <input ref={inputRef} value={draft} onChange={(e) => { setDraft(e.target.value); setErr(null); }} onKeyDown={keys(() => rename(g.groupId))} aria-label="Group name" autoComplete="off" maxLength={64} className="input-field min-w-[11rem] flex-1" />
                 <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Save'} onClick={() => rename(g.groupId)} disabled={pending || !draft.trim()} />
                 <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel rename" onClick={back} disabled={pending} />
               </div>
@@ -357,8 +357,8 @@ export function GuestGroupPicker({
                     strip(
                       false,
                       <>
-                        <div className="flex items-center gap-2" data-group-new="">
-                          <input ref={inputRef} value={draft} onChange={(e) => { setDraft(e.target.value); setErr(null); }} onKeyDown={keys(create)} placeholder="New group name" aria-label="New group name" autoComplete="off" maxLength={64} className="input-field min-w-0 flex-1" />
+                        <div className="flex flex-wrap items-center gap-2" data-group-new="">
+                          <input ref={inputRef} value={draft} onChange={(e) => { setDraft(e.target.value); setErr(null); }} onKeyDown={keys(create)} placeholder="New group name" aria-label="New group name" autoComplete="off" maxLength={64} className="input-field min-w-[11rem] flex-1" />
                           <ActionButton tone="brand" main icon={Check} label={pending ? 'Creating…' : 'Create'} onClick={create} disabled={pending || !draft.trim()} />
                           <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel new group" onClick={back} disabled={pending} />
                         </div>

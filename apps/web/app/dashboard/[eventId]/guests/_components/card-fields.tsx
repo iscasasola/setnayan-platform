@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { splitGroup, splitRoles, tickGroup, tickRole } from '@/lib/guest-group-role-pick';
+import { rolePillWord, splitGroup, splitRoles, tickGroup, tickRole } from '@/lib/guest-group-role-pick';
 
 /**
  * card-fields.tsx — the guest card's dropdowns, inside its autosaving form
@@ -185,7 +185,10 @@ export function useSplitPick(
 
 /** The pill's words: the group list's ticks in the LIST's order, the role list's in TICK order (the main one first). */
 export function splitPickText(kind: 'group' | 'role', picked: readonly string[], options: readonly PickOption[]): string {
-  const label = (k: string) => options.find((o) => o.key === k)?.label;
+  const label = (k: string) => {
+    const l = options.find((o) => o.key === k)?.label;
+    return l ? rolePillWord(l) : l;
+  };
   return (kind === 'group' ? options.filter((o) => picked.includes(o.key)).map((o) => o.label) : picked.map(label)).filter(Boolean).join(' · ');
 }
 

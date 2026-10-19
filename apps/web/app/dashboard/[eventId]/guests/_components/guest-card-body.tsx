@@ -30,7 +30,7 @@ import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleC
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { FormPick, FormSplitPick } from './card-fields';
-import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE } from '@/lib/guest-group-role-pick';
+import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
 /* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
    by the pages that draw them (the Guest list, the standalone card). The Maker's
    parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
@@ -332,7 +332,7 @@ export function GuestCardBody({
   const extraRolesNow = isCouple
     ? []
     : (guest.extra_roles ?? []).filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r) && availableRoles.includes(r));
-  const rolesWords = [roleWord, ...extraRolesNow.map((r) => guestRoleLabel(r, roleNames))].join(' · ');
+  const rolesWords = [roleWord, ...extraRolesNow.map((r) => guestRoleLabel(r, roleNames))].map(rolePillWord).join(' · ');
   const detailsSummary = [
     hasSides ? SIDE_LABELS[guest.side] : null,
     [GROUP_CATEGORY_LABELS[guest.group_category], ...customGroups.map((g) => g.label)].join(' · '),

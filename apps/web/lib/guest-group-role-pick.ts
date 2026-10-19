@@ -38,6 +38,15 @@ export function splitGroup(picked: readonly string[], standard: readonly string[
   return [std, [...ownOrder.filter((k) => own.includes(k)), ...own.filter((k) => !ownOrder.includes(k))].join(',')];
 }
 
+/**
+ * The pill's word for a role (prototype A1: "Ninang · Candle Sponsor"): the picker's "Principal Sponsor (Ninang)" is the long
+ * word that groups them in a long list; on the closed pill — and the fold's summary — the bare word is what is read (the same
+ * call the invitation makes, `lib/entourage.ts`). A couple's own word for the role is never touched.
+ */
+export function rolePillWord(label: string): string {
+  return label.replace(/^Principal Sponsor \((Ninong|Ninang)\)$/, '$1');
+}
+
 /** The Role list's footer, beside "Done ✓" (prototype A7). */
 export const ROLE_DONE_NOTE = 'Tick as many as apply. The first ticked is their main role.';
 

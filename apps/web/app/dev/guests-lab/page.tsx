@@ -348,9 +348,14 @@ export default async function GuestsLabPage({
       sp.title === 'atty'
         ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
         : {};
+    /* 🏷 `&role=bride_immediate_family` — a sibling of the bride (stand-in name), for "Rename this section";
+       `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
+       is refused by the host fence, so the after-state is drawn from these fixture words. */
+    const labRole = typeof sp.role === 'string' && sp.role ? (sp.role as GuestRow['role']) : null;
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
-      : guest(titled);
+      : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
+    const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
@@ -362,7 +367,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={cardData(g, host)}
+                  data={{ ...cardData(g, host), roleNames: labWords }}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"

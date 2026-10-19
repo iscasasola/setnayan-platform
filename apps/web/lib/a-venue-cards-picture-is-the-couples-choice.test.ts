@@ -314,7 +314,8 @@ test('5 · where Pro is hidden (the app-store shell, not owned) the drawing is n
 test("5 · the toolbar draws them on the Venue scene, under its door, from the launch page's own slots", () => {
   const tools = code(`${L}/stage-tools.tsx`);
   assert.match(tools, /const venuePictureRows =\s*picked === 'venue' && !rsvpOpen && venuePictures && venuePictures\.slots\.length > 0 && maker \? \(\s*<VenuePictureRows eventId=\{maker\.eventId\} slots=\{venuePictures\.slots\} pro=\{venuePictures\.pro\}/);
-  assert.match(tools, /<StageEdit key=\{picked\}[^\n]*: venuePictureRows\} \/>/);
+  /* (2026-10-19: …or, on the Wedding March, its section headings — `sectionNameRows`, the same row 2 slot.) */
+  assert.match(tools, /<StageEdit key=\{picked\}[^\n]*: \(venuePictureRows \?\? sectionNameRows\)\} \/>/);
   assert.match(tools, /import \{[^}]*\bVenuePictureRows\b[^}]*\} from '\.\/details-lazy';/, 'loaded with Details, never with the Maker');
   const lazy = code(`${L}/details-lazy.tsx`);
   assert.match(lazy, /export const VenuePictureRows = dynamic\(\(\) => import\(\s*'\.\/details-your-event'\)\.then\(\(m\) => m\.VenuePictureRows\)/);

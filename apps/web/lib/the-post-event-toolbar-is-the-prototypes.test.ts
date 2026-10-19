@@ -125,7 +125,7 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf\(stageKey, picked\) \? makerPartCanvasOn\(stageKey, picked\) : null;/);
   /* …and otherwise only the Venue scene's own Picture ▾ rows (2026-10-17 — `a-venue-cards-picture-is-the-couples-choice.test.ts`). */
-  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : venuePictureRows\} \/>/);
+  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : \(venuePictureRows \?\? sectionNameRows\)\} \/>/);
   assert.match(tools, /const venuePictureRows =\s*picked === 'venue' && !rsvpOpen && /);
   assert.equal(makerPostEventSceneOf('editorial', 'wishes'), 'wishes');
   assert.equal(makerPostEventSceneOf('editorial', 'names'), null, 'a line of the cover is given a switch');

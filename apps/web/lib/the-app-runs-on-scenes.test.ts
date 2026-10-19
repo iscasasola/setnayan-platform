@@ -33,6 +33,9 @@
  *   · AppDelegate: restore `application(_:open:options:)`     → test 3 RED
  *   · SceneDelegate: move loadViewIfNeeded() below open(urls) → test 4 RED
  *   · LaunchScreen: background back to systemBackgroundColor  → test 6 RED
+ *   · capacitor.config.ts: drop ios.backgroundColor          → test 6 RED
+ *   · SceneDelegate: rename scene(_:continue:)                → test 3 RED
+ *   · Info.plist: UIUserInterfaceStyle Automatic              → test 5 RED
  */
 
 import test from 'node:test';
@@ -66,7 +69,7 @@ function plistValue(xml: string, key: string): string | undefined {
 function plistDict(xml: string, key: string): string | undefined {
   const start = xml.search(new RegExp(`<key>${key}</key>\\s*<dict>`));
   if (start < 0) return undefined;
-  let i = xml.indexOf('<dict>', start);
+  const i = xml.indexOf('<dict>', start);
   let depth = 0;
   for (let j = i; j < xml.length; j++) {
     if (xml.startsWith('<dict>', j)) depth++;

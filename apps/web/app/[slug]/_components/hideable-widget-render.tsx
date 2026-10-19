@@ -159,9 +159,8 @@ function HideableWidgetBody({
             ? [{ role: 'both' as const, name: event.venue_name ?? null, address: event.venue_address ?? null, latitude: null, longitude: null }]
             : [];
         // The list's own two labels, "Your role" and "Side", kept word for word.
-        const roleLabel = yourRole;
         const footnote = [
-          roleLabel ? `Your role: ${roleLabel}` : null,
+          yourRole ? `Your role: ${yourRole}` : null,
           sideLabel ? `Side: ${sideLabel}` : null,
         ].filter(Boolean).join(' · ');
         const Styled = sceneStyle === 'card' ? DetailsCard : DetailsBigDate;

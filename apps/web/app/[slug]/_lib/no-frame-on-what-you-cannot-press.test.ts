@@ -35,7 +35,7 @@ function framesOnUnpressables(src: string): string[] {
     if (PRESSABLE.test(name)) continue;
     const cls = [...attrs.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)].map((m) => m[1] ?? m[2] ?? '').join(' ');
     const framedByClass = FRAME_CLASS.test(cls);
-    const framedByStyle = /[{,]\s*border:\s*['"`]/.test(attrs);
+    const framedByStyle = /[{,]\s*border:(?!\s*['"`]?(?:none|0)['"`]?\s*[,}])/.test(attrs);
     if (framedByClass || framedByStyle) bad.push(`<${name} ${attrs.trim().slice(0, 140)}>`);
   }
   return bad;
@@ -54,6 +54,8 @@ test('the reader sees a frame when there is one (it is not blind)', () => {
   assert.equal(framesOnUnpressables('<p className="mt-4 rounded-2xl border border-dashed border-ink/20">x</p>').length, 1);
   assert.equal(framesOnUnpressables(`<div className="m-card h-full" style={{ display: 'flex' }}>x</div>`).length, 1);
   assert.equal(framesOnUnpressables(`<div style={{ background: 'x', border: '1px solid red' }}>x</div>`).length, 1);
+  assert.equal(framesOnUnpressables(`<div style={{ border: on ? '1px solid gold' : '1px solid grey' }}>x</div>`).length, 1);
+  assert.equal(framesOnUnpressables(`<div style={{ border: 'none' }}>x</div>`).length, 0);
   assert.equal(framesOnUnpressables('<Link className="rounded-full border px-4">x</Link>').length, 0);
   assert.equal(framesOnUnpressables(`<div style={{ borderTop: '1px solid red' }} className="border-t">x</div>`).length, 0);
 });

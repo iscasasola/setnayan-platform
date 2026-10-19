@@ -1809,6 +1809,8 @@ export async function SiteBody({
         artKit={artKit}
         ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
+        /* 👗 A host on their own Event Hub keeps every role; a visitor sees the Guests card (owner 2026-10-19). */
+        dressCodeEveryRole={viewerIsHost && sampleViewer === null}
         makerEmpty={
           isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
           (openBrowseContent as Partial<Record<string, boolean>>)[widget.widget_type] === false
@@ -3168,8 +3170,10 @@ export async function SiteBody({
     <HideableWidgetRender
       key={widget.widget_id}
       widget={widget}
-      /* 🏠 This guest's own look is on Welcome (or on Me); Details keeps everyone's. */
-      dressCodeGeneral={welcome.includes('look')}
+      /* 👗 DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE (owner 2026-10-19): every role only for the couple / a host
+         reading their own Event Hub as themselves — never a host who pressed "Open as <name>" (their guest is not
+         their own row, `lib/pass-account-rule.ts`), never a See as sample. */
+      dressCodeEveryRole={viewerIsHost && sampleViewer === null && guest.guest_id === hostOwnGuestId}
       stage={pageStage}
       canvasMediaUrls={canvasMediaUrls}
       hubTheme={sceneTheme}

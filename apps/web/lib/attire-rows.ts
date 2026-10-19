@@ -361,6 +361,13 @@ export function withSecondColours<C extends Record<string, unknown>>(config: C, 
 
 /* ── who is reading ─────────────────────────────────────────────────────── */
 
+/** ⚧ A guest row's `gender` (woman · man — `guests.gender`, picked with the title), or null: not said. */
+export type GuestGender = 'woman' | 'man';
+export function guestGenderOf(guest: { gender?: unknown } | null | undefined): GuestGender | null {
+  const g = guest?.gender;
+  return g === 'woman' || g === 'man' ? g : null;
+}
+
 /** A guest row's `attire` (gown · suit · neutral), or null for anything else — an older read carries none. */
 export function guestAttireOf(guest: { attire?: unknown } | null | undefined): GuestAttire | null {
   const a = guest?.attire;
@@ -384,15 +391,17 @@ const ROLE_WHO: Partial<Record<GuestRole, FigureWho>> = {
 };
 
 /**
- * Which of a two-pick row's people THIS guest is — or null (unknown: they are shown both). Gender is stored nowhere
- * (`lib/guests.ts`): a role that says it (ninang, ninong, the flower girl, the bearers) answers first; else the
- * couple's own "what they wear" on the guest list (`guests.attire`, gown · suit, the 3D seat plan's), read for the
- * row's two people (a gown is the women's or the girls' pick).
+ * Which of a two-pick row's people THIS guest is — or null (unknown: they are shown both). A role that says it
+ * (ninang, ninong, the flower girl, the bearers) answers first; then `guests.gender` (woman · man, picked with the
+ * title — migration a_title_carries_woman_or_man); else the couple's own "what they wear" on the guest list
+ * (`guests.attire`, gown · suit, the 3D seat plan's), read for the row's two people (a gown is the women's or the
+ * girls' pick).
  */
-export function readerPick(row: AttireRowDef, role: GuestRole | null | undefined, attire: GuestAttire | null | undefined): 0 | 1 | null {
+export function readerPick(row: AttireRowDef, role: GuestRole | null | undefined, attire: GuestAttire | null | undefined, gender?: GuestGender | null): 0 | 1 | null {
   if (row.who.length !== 2) return 0;
   const said = role ? ROLE_WHO[role] : undefined;
-  const feminine = said ? said === 'f' || said === 'girl' : attire === 'gown' ? true : attire === 'suit' ? false : null;
+  /* ⚧ `guests.gender` (picked with the title, 2026-10-17) says it before the clothing does (owner 2026-10-19). */
+  const feminine = said ? said === 'f' || said === 'girl' : gender === 'woman' ? true : gender === 'man' ? false : attire === 'gown' ? true : attire === 'suit' ? false : null;
   if (feminine === null) return null;
   /* By WHO each column dresses, never by position: the maid's row is women first (2026-10-19), every other men first. */
   const at = row.who.findIndex((w) => (w === 'f' || w === 'girl') === feminine);
@@ -413,6 +422,8 @@ const CHILD_ROLE: Partial<Record<GuestRole, FigureWho>> = { flower_girl: 'girl',
 export function readerAttire(input: {
   role: GuestRole | null | undefined;
   attire: GuestAttire | null | undefined;
+  /** ⚧ `guests.gender` — when said, the reader is shown only their own column (owner 2026-10-19). */
+  gender?: GuestGender | null;
   source: 'role' | 'group' | null;
   config: Config;
   /** The resolved answer's Wear and colours (`resolveGuestAttireWithGroups`). */
@@ -424,6 +435,7 @@ export function readerAttire(input: {
   single: (role: GuestRole) => 'gown' | 'suit' | null;
 }): { styleLabel: string | null; hexes: string[]; picks: Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null }> } {
   const { role, attire, config, style, hexes, label } = input;
+  const gender = input.gender ?? null;
   /* 👔 Said in the person's OWN words for the design ("Filipiniana (terno)" for a bride) where they have a list. */
   const say = (p: { style: AttireStyle | null; role?: FigureRole | null }) => (p.style ? (p.role ? designLabel(p.role, p.style) : label(p.style)) : null);
   /* 🪞 The reader's Studio row (`studioRowOf`, 2026-10-17) — whether or not the row's FIRST pick is stored: a ninang
@@ -434,7 +446,7 @@ export function readerAttire(input: {
   const pairRow = studioRow && isTwoPick(studioRow) && (groupRow || isHonourRole(role)) ? studioRow : null;
   if (pairRow) {
     const picks = picksOf(config, pairRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
-    const r = readerPick(pairRow, role, attire);
+    const r = readerPick(pairRow, role, attire, gender);
     if (r !== null) {
       const one = picks[r]!;
       return { styleLabel: say(one), hexes: one.colours, picks: [one] };
@@ -442,7 +454,7 @@ export function readerAttire(input: {
     return { styleLabel: bothSaid(picks, say), hexes: [...hexes], picks };
   }
   const kind = role ? input.single(role) : null;
-  const who: FigureWho[] = role && CHILD_ROLE[role] ? [CHILD_ROLE[role]!] : kind === 'gown' ? ['f'] : kind === 'suit' ? ['m'] : attire === 'gown' ? ['f'] : attire === 'suit' ? ['m'] : ['f', 'm'];
+  const who: FigureWho[] = role && CHILD_ROLE[role] ? [CHILD_ROLE[role]!] : kind === 'gown' ? ['f'] : kind === 'suit' ? ['m'] : gender === 'woman' ? ['f'] : gender === 'man' ? ['m'] : attire === 'gown' ? ['f'] : attire === 'suit' ? ['m'] : ['f', 'm'];
   /* Each person keeps the one answer only where it is theirs — a father is never told "Long gown". A person with their
      own drawings (a best man, a ninang) reads it into THEIR design (`designOf`); a best man whose groomsmen wear a vest
      and tie (a design a best man has no drawing of) is drawn as the groomsmen are — the row's own role. */

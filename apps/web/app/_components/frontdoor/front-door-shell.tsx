@@ -72,6 +72,7 @@ import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 import { InsideEventContext } from './inside-event-context';
 import { useOneOpen } from '@/lib/one-open';
+import { POLICY_LINKS } from '@/lib/policy-links';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
   Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
@@ -1873,10 +1874,13 @@ export function FrontDoorShell({
             <Link href="/help">Help</Link>
             <Link href="/open-shop">Open your shop</Link>
             <br />
-            <Link href="/terms">Terms</Link>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/acceptable-use">Acceptable use</Link>
-            <Link href="/cookies">Cookies</Link>
+            {/* The policies come from ONE list (`lib/policy-links.ts`), also read by supplier Settings — App Store
+                5.1.1(i), held by `lib/every-signed-in-menu-reaches-the-policies.test.ts`. */}
+            {POLICY_LINKS.map((p) => (
+              <Link key={p.href} href={p.href}>
+                {p.label}
+              </Link>
+            ))}
             <br />
             {/*
               🔴 THIS ROW EXISTS BECAUSE THE CONVERSION TOOK THE FOOTER AWAY AND

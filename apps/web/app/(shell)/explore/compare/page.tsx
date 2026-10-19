@@ -727,7 +727,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           ✓ Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        <span data-coming-soon className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                           Coming soon
                         </span>
                       )}

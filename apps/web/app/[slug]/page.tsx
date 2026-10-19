@@ -163,6 +163,9 @@ import { PrivateLanding } from './_components/private-landing';
 import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
+import { guestHubDesktopEnabled } from '@/lib/guest-hub-desktop-flag';
+import { GUEST_HUB_DESKTOP_CSS } from '@/lib/guest-hub-desktop';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
@@ -916,8 +919,7 @@ async function invitationBody({
           .then((hub) => guestLookFrom(event, hub, true))
           .catch(() => null)
       : null;
-  const wearDraft = (node: React.ReactNode) =>
-    draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+  /* (`wearDraft` — the host's draft look around the page — is made below, once the guest's desktop is decided.) */
   timer.mark('draft-look');
 
   /* ⏩ STARTED TOGETHER, AWAITED WHERE THEY ALWAYS WERE (`lib/start-ahead.ts`;
@@ -1254,6 +1256,25 @@ async function invitationBody({
       isEditorCanvas = await loadHostMembership(admin, event.event_id, user.id);
     }
   }
+  /* 🖥 …the guest's desktop: never in the Maker's canvas (the Maker draws its own desktop preview); for the flag, or an
+     internal viewer. */
+  /* Asked here and answered where the page is handed back (`wearDraft`): the one small read runs beside everything
+     below, never in front of it — and only a signed-in viewer's asks the database at all (`viewerIsInternal`). */
+  const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
+  /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
+     same bytes as before. */
+  const wearDraft = async (node: React.ReactNode) => {
+    const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+    const guestDesk = await guestDeskP;
+    return guestDesk ? (
+      <>
+        {worn}
+        <style data-guest-desk="">{GUEST_HUB_DESKTOP_CSS}</style>
+      </>
+    ) : (
+      worn
+    );
+  };
   // 🧱 THE DIGITAL PASS'S OWN LOOK (`lib/block-looks.ts`). The ticket is mounted HERE (`meSlotFor`, and the sample
   // guest's below), so its hidden mark is made here and handed to the ticket, which puts it right before its root
   // when it draws one. The same rule as every block's mark in `site-body.tsx`: on the Maker's canvas always; for a

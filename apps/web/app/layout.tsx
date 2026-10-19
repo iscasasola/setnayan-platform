@@ -31,6 +31,7 @@ import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
 import { THEME_COLOR } from '@/lib/appearance';
 import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
+import { storeShellMarkScript } from '@/lib/store-shell';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_ICON_SVG_192,
@@ -642,6 +643,13 @@ export default async function RootLayout({
           bootSplashScript above + #sn-init-splash in globals.css.
         */}
         <script dangerouslySetInnerHTML={{ __html: bootSplashScript }} />
+        {/*
+          Store-shell mark — sets data-store-shell on <html> before first paint
+          inside the App Store / Play Store shell ONLY (never the desktop .dmg),
+          so globals.css can hide every [data-coming-soon] there. See
+          `storeShellMarkScript` in lib/store-shell.ts.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: storeShellMarkScript }} />
         {/*
           Organization JSON-LD — Google Knowledge Graph + AI answer engine
           entity grounding. Renders on every public page. Page-specific JSON-LD

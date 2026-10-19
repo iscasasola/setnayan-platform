@@ -3378,6 +3378,7 @@ function ComingSoonBanner({ vendorName }: { vendorName: string }) {
   return (
     <section
       aria-label="Coming soon"
+      data-coming-soon
       className="mb-8 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.04] p-5"
     >
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">

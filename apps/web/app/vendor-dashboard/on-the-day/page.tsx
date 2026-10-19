@@ -61,6 +61,7 @@ import { ShopEmpty } from '../_components/kit';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Event Hub · Supplier' };
 
@@ -199,20 +200,29 @@ export default async function VendorOnTheDayPage({
   const dayOfFreeUntilIso = vendorDayOfFreeUntilIso();
   const dayOfStillFree = isVendorDayOfStillFree(dayOfFreeUntilIso, Date.now());
   if (!dayOfStillFree) {
+    // 🔒 Store shell (sweep 2026-10-19 row C14): a supplier plan is a digital
+    // subscription sold on the web only, so the app states the fact and offers
+    // no upgrade — the "See plans" link was already hidden by
+    // StoreShellLinkGuard, which left "Upgrade to keep using…" with no door.
+    const storeShell = await isStoreShellRequest();
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 py-10 sm:px-6 lg:px-8">
         <ShopEmpty>
           <Lock aria-hidden className="mx-auto mb-2 h-6 w-6" style={{ color: 'var(--m-slate-3)' }} />
           <p className="font-medium text-ink">{vendorDayOfFreeUntilEndedLabel(dayOfFreeUntilIso)}</p>
           <p className="mt-1">
-            Your booking and shop listing are unaffected. Upgrade to keep using the day-of tools.
+            {storeShell
+              ? 'Your booking and shop listing are unaffected.'
+              : 'Your booking and shop listing are unaffected. Upgrade to keep using the day-of tools.'}
           </p>
-          <Link
-            href="/vendor-dashboard/subscription"
-            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
-          >
-            See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
+          {storeShell ? null : (
+            <Link
+              href="/vendor-dashboard/subscription"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
+            >
+              See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+          )}
         </ShopEmpty>
       </section>
     );

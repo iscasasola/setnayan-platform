@@ -568,7 +568,7 @@ function ContactsStep({
               Text {validatePhone}
             </a>
           ) : (
-            <span className="inline-flex items-center gap-2 px-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            <span data-coming-soon className="inline-flex items-center gap-2 px-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
               <Smartphone className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
               Text number coming soon — email works now
             </span>

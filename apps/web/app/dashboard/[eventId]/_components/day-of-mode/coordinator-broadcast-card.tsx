@@ -203,7 +203,7 @@ function CoordinatorBroadcastStub() {
   const [optedIn, setOptedIn] = useState(true);
 
   return (
-    <article className="space-y-3 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.02] p-5">
+    <article data-coming-soon className="space-y-3 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.02] p-5">
       <header className="flex items-center justify-between">
         <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
           <Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

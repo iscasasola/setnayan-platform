@@ -145,13 +145,13 @@ test('5 · every place that draws the picker hands it the side', () => {
   const fresh = tags('new-guest-group-role.tsx');
   for (const [f, t] of [['guest-card-rows.tsx', card], ['search-add-card.tsx', add], ['new-guest-group-role.tsx', fresh]] as const) {
     assert.equal(t.length, 1, `${f}: expected one picker`);
-    assert.match(t[0], /\bside=\{/, `${f}: the picker is not told the side`);
+    assert.match(t[0] ?? '', /\bside=\{/, `${f}: the picker is not told the side`);
   }
-  assert.match(card[0], /sideField=\{side === undefined \? undefined : 'side'\}/, 'the card does not follow its Side row');
+  assert.match((card[0] ?? ''), /sideField=\{side === undefined \? undefined : 'side'\}/, 'the card does not follow its Side row');
   assert.match(read('guest-card-body.tsx'), /name="side"[\s\S]{0,40}label="Side"/, 'the card’s Side row is not the `side` field the Group follows');
   assert.match(read('guest-card-body.tsx'), /side=\{hasSides \? guest\.side : undefined\}/, 'the card does not hand the Group its guest’s side');
-  assert.match(add[0], /side=\{hasSides \? picks\.side : undefined\}/, 'the Add card’s Group does not follow its Side pick');
-  assert.match(fresh[0], /sideField=\{hasSides \? 'side' : undefined\}/, '/guests/new’s Group does not follow its Side');
+  assert.match((add[0] ?? ''), /side=\{hasSides \? picks\.side : undefined\}/, 'the Add card’s Group does not follow its Side pick');
+  assert.match((fresh[0] ?? ''), /sideField=\{hasSides \? 'side' : undefined\}/, '/guests/new’s Group does not follow its Side');
   // The lists handed in carry each group's side.
   assert.match(read('guest-card-data.ts'), /\.from\('guest_groups'\)\.select\('group_id, label, team_side'\)/, 'the card reads its groups without their sides');
   assert.match(read('..', 'new', 'page.tsx'), /\.from\('guest_groups'\)\.select\('group_id, label, team_side'\)/, '/guests/new reads its groups without their sides');

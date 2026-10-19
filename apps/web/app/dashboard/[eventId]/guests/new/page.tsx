@@ -27,6 +27,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
 import { NewGuestGroupField, NewGuestRolesField } from '../_components/new-guest-group-role';
+import type { OwnGroup } from '../_components/guest-group-picker';
 import { pickItems } from '@/lib/role-alternatives';
 import { createGuest } from './actions';
 
@@ -108,7 +109,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   const ownGroups = ownError
     ? null
     : ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[])
-        .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : ('both' as const) }))
+        .map((g): OwnGroup => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : 'both' }))
         .sort((a, b) => a.label.localeCompare(b.label));
 
   // Existing-guest pool for live duplicate detection on the name fields.

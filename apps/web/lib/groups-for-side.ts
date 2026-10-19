@@ -46,7 +46,7 @@ export function listedOwnGroups<T extends { groupId: string; teamSide: GuestGrou
   side: GuestSide | null | undefined,
   picked: readonly string[],
 ): { group: T; offSide: 'bride' | 'groom' | null }[] {
-  return groups.flatMap((group) => {
+  return groups.flatMap((group): { group: T; offSide: 'bride' | 'groom' | null }[] => {
     if (groupFitsSide(group.teamSide, side)) return [{ group, offSide: null }];
     if (!picked.includes(group.groupId) || group.teamSide === 'both') return [];
     return [{ group, offSide: group.teamSide }];

@@ -38,11 +38,12 @@ import { LAB_EVENT } from './fixtures';
 import { summarizeDateChange, type DateChangeView } from '@/lib/date-change';
 import type { RoomSizeAnswer } from '@/lib/booked-rows';
 import { bituinSteps, type MoneyStage } from './money-pair';
+import { withBookedByPayment } from '@/lib/booked-by-payment';
 
 /** The prototype was drawn in early October 2026; pinned so "by Oct 5" does not drift. */
 export const LAB_BOOKED_NOW = new Date('2026-10-01T04:00:00Z');
 
-const team = (f: Partial<TeamRowFacts> & Pick<TeamRowFacts, 'vendorId' | 'name' | 'service'>): TeamRowFacts => ({
+const teamRow = (f: Partial<TeamRowFacts> & Pick<TeamRowFacts, 'vendorId' | 'name' | 'service'>): TeamRowFacts => ({
   logoUrl: null,
   status: 'contracted',
   lockRequestState: null,
@@ -60,12 +61,12 @@ const team = (f: Partial<TeamRowFacts> & Pick<TeamRowFacts, 'vendorId' | 'name' 
 });
 
 const TEAM: TeamRowFacts[] = [
-  team({ vendorId: 'v-hiraya', name: 'Hiraya Table', service: 'Catering', status: 'shortlisted', lockRequestState: 'pending', lockRequestExpiresAt: '2026-10-06T04:00:00Z', threadId: 't-hiraya', pricePhp: 216_000, isVerified: true }),
-  team({ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception', pricePhp: 1_056_000, depositStep: 'due', threadId: 't-seda' }),
-  team({ vendorId: 'v-santuario', name: 'Santuario de San Vicente de Paul', service: 'Ceremony', depositStep: 'due', threadId: 't-santuario', isVerified: true }),
-  team({ vendorId: 'v-lumina', name: 'Lumina Studio', service: 'Photo & video', status: 'deposit_paid', pricePhp: 85_000, threadId: 't-lumina', isVerified: true }),
-  team({ vendorId: 'v-asukal', name: 'Asukal Cakes', service: 'Cake', depositStep: 'due' }),
-  team({ vendorId: 'v-bituin', name: 'Bituin Catering', service: 'Catering', pricePhp: 190_000, depositStep: 'due', threadId: 't-bituin', isVerified: true }),
+  teamRow({ vendorId: 'v-hiraya', name: 'Hiraya Table', service: 'Catering', status: 'shortlisted', lockRequestState: 'pending', lockRequestExpiresAt: '2026-10-06T04:00:00Z', threadId: 't-hiraya', pricePhp: 216_000, isVerified: true }),
+  teamRow({ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception', pricePhp: 1_056_000, depositStep: 'due', threadId: 't-seda' }),
+  teamRow({ vendorId: 'v-santuario', name: 'Santuario de San Vicente de Paul', service: 'Ceremony', depositStep: 'due', threadId: 't-santuario', isVerified: true }),
+  teamRow({ vendorId: 'v-lumina', name: 'Lumina Studio', service: 'Photo & video', status: 'deposit_paid', pricePhp: 85_000, threadId: 't-lumina', isVerified: true }),
+  teamRow({ vendorId: 'v-asukal', name: 'Asukal Cakes', service: 'Cake', depositStep: 'due' }),
+  teamRow({ vendorId: 'v-bituin', name: 'Bituin Catering', service: 'Catering', pricePhp: 190_000, depositStep: 'due', threadId: 't-bituin', isVerified: true }),
 ];
 
 const FACTS: BookedFacts[] = [
@@ -96,7 +97,20 @@ export type LabBookedOptions = {
   money?: MoneyStage;
   /** `&today=YYYY-MM-DD` — the lab's day for the rows AND the Pay sheet (one clock); left out, LAB_BOOKED_NOW. */
   today?: string | null;
+  /**
+   * `&paidbyhand=1` — "The Wedding Planner", added by hand and filed Shortlisted,
+   * with ₱15,000 recorded paid. Its rows go through the REAL booked-if-paid
+   * resolver (`withBookedByPayment`), so the lab shows what the page derives.
+   */
+  paidByHand?: boolean;
 };
+
+/** The hand-added planner's stored row, its payment, and what the resolver makes of it. */
+const PLANNER_STORED = { vendor_id: 'v-planner', status: 'shortlisted', marketplace_vendor_id: null, manual_vendor_id: 'card-planner' } as const;
+const PLANNER_PAYMENT = { payment_id: 'pay-planner', vendor_id: 'v-planner', line_item_id: null, amount_php: 15_000, paid_at: '2026-09-20T03:00:00Z' };
+function plannerStatus(o: Pick<LabBookedOptions, 'paidByHand'>): string {
+  return withBookedByPayment([PLANNER_STORED], o.paidByHand ? [PLANNER_PAYMENT] : [])[0]!.status;
+}
 
 /** The lab's clock: `&today=` when given (e.g. 2026-10-14 makes Seda's Oct 5 late), else LAB_BOOKED_NOW. */
 export function labBookedNow(o: Pick<LabBookedOptions, 'today'>): Date {
@@ -115,7 +129,7 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
         ? { suppliers: 'ok', orders: 'failed', costs: 'ok' }
         : undefined;
   const none = !o.booked || o.fail === 'money';
-  return computeEventMoney({
+  return computeEventMoneyAsLoaded({
     targetCentavos: o.target ? 225_000_000 : null,
     // A refused read contributes no rows — exactly what the resolver hands the core.
     vendors: none
@@ -127,6 +141,9 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
           { vendor_id: 'v-asukal', event_id: LAB_EVENT, category: 'cake_maker', vendor_name: 'Asukal Cakes', status: 'contracted', total_cost_php: null },
           { vendor_id: 'v-bituin', event_id: LAB_EVENT, category: 'catering', vendor_name: 'Bituin Catering', status: 'contracted', total_cost_php: 190_000, marketplace_vendor_id: 'p-bituin' },
           { vendor_id: 'v-hiraya', event_id: LAB_EVENT, category: 'catering', vendor_name: 'Hiraya Table', status: 'shortlisted', total_cost_php: 216_000, marketplace_vendor_id: 'p-hiraya' },
+          ...(o.paidByHand
+            ? [{ vendor_id: 'v-planner', event_id: LAB_EVENT, category: 'planner_coordinator', vendor_name: 'The Wedding Planner', status: 'shortlisted', total_cost_php: 60_000, manual_vendor_id: 'card-planner' } as VendorMoneyRow]
+            : []),
         ] satisfies VendorMoneyRow[] as VendorMoneyRow[]).filter((v) => inSeed(o, v.vendor_id)),
     lineItems:
       none || !o.lines
@@ -143,6 +160,7 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
           ...(o.money === 'waiting' || o.money === 'received'
             ? [{ payment_id: 'pay-bituin-1', vendor_id: 'v-bituin', line_item_id: null, amount_php: 38_000, paid_at: '2026-10-03T02:00:00Z' }]
             : []),
+          ...(o.paidByHand ? [PLANNER_PAYMENT] : []),
         ] as PaymentMoneyRow[]).filter((p) => inSeed(o, p.vendor_id)),
     orders: o.fail === 'orders' ? [] : [
       { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
@@ -156,6 +174,11 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
   });
 }
 
+/** The money resolver's I/O wrapper passes the rows through booked-if-paid before the core reads them — so does the lab. */
+function computeEventMoneyAsLoaded(input: Parameters<typeof computeEventMoney>[0]): EventMoney {
+  return computeEventMoney({ ...input, vendors: withBookedByPayment(input.vendors, input.payments) });
+}
+
 /**
  * The small Budget block (B4), through the real `bookedBudgetBlock` over the
  * SAME `EventMoney` the rows are drawn from — as the page does.
@@ -165,7 +188,17 @@ export function labBookedBudget(o: LabBookedOptions, money: EventMoney): BookedB
 }
 
 export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedView {
-  const team = o.booked ? TEAM.filter((t) => inSeed(o, t.vendorId)) : [];
+  const team = o.booked
+    ? [
+        ...TEAM,
+        ...(o.paidByHand
+          ? [teamRow({ vendorId: 'v-planner', name: 'The Wedding Planner', service: 'Coordinator', status: plannerStatus(o), pricePhp: 60_000, threadId: 't-planner' })]
+          : []),
+      ].filter((t) => inSeed(o, t.vendorId))
+    : [];
+  const facts: BookedFacts[] = o.paidByHand
+    ? [...FACTS, { vendorId: 'v-planner', groupId: 'coordinator', own: true, shopId: null, pricePhp: 60_000, threadId: 't-planner', moneyMoved: true, lockRequestExpiresAt: null }]
+    : FACTS;
   const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: labBookedNow(o) });
   // Bituin's plan is THEIRS (`event_vendor_payment_plan`), folded as the page folds it.
   const plans = new Map<string, PlanProgress>([
@@ -189,5 +222,5 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
         now: LAB_BOOKED_NOW.getTime(),
       })
     : null;
-  return bookedView({ rows, facts: FACTS, money: buildBudgetList(money).suppliers, plans, rooms, dateChange, now: labBookedNow(o) });
+  return bookedView({ rows, facts, money: buildBudgetList(money).suppliers, plans, rooms, dateChange, now: labBookedNow(o) });
 }

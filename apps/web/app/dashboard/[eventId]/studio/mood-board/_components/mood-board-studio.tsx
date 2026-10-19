@@ -1380,7 +1380,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           onClick={() => void keep(sg, p)}
                           className="sn-press flex flex-col items-center gap-1.5"
                         >
-                          <span className="block aspect-square w-full overflow-hidden rounded-[14px] bg-ink/5">
+                          <span className="block aspect-square w-full overflow-hidden rounded-2xl bg-ink/5">
                             {t?.url ? (
                               // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo
                               <img src={t.url} alt="" className="h-full w-full object-cover" />
@@ -1482,7 +1482,7 @@ function Thumb({ src, badge = null, big = false }: { src: string; badge?: string
   return (
     <span className={`relative block flex-none ${big ? 'h-11 w-11' : 'h-[34px] w-[34px]'}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board */}
-      <img src={src} alt="" className={`${big ? 'h-11 w-11 rounded-[10px]' : 'h-[34px] w-[34px] rounded-lg'} object-cover`} />
+      <img src={src} alt="" className={`${big ? 'h-11 w-11 rounded-xl' : 'h-[34px] w-[34px] rounded-lg'} object-cover`} />
       {badge ? (
         <span aria-hidden data-mood-board-credit-mark="" className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-ink/15 bg-white text-[9px] font-bold text-ink dark:bg-raised">
           {badge}

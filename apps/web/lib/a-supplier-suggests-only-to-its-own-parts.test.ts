@@ -41,7 +41,7 @@ import { coupleCountLine, keepPlan, suggestionNoticeTitle, supplierCountLine, su
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const TILES = Object.keys(WEDDING_TILE_LABEL) as WeddingTile[];
-const keysFor = (tile: WeddingTile) => new Set(suggestablePartsForShop(canonicalServicesForTile(tile)).map((p) => p.key));
+const keysFor = (tile: WeddingTile) => new Set<string>(suggestablePartsForShop(canonicalServicesForTile(tile)).map((p) => p.key));
 const ATTIRE_KEYS = libraryPhotoParts().filter((p) => p.group === 'attire').map((p) => p.key);
 const ATTIRE_TILES: WeddingTile[] = ['brides_attire', 'grooms_attire', 'womens_attire', 'mens_attire', 'filipiniana_barongs', 'hmua'];
 
@@ -79,7 +79,7 @@ test('2 · the supplier’s board draws “Suggest a photo” on exactly the sho
         actions: { suggest: noop as never, withdraw: noop, listShopPhotos: async () => ({ photos: [], failed: false }) },
       }),
     );
-    return { html, keys: new Set(parts.map((p) => p.key)), board };
+    return { html, keys: new Set<string>(parts.map((p) => p.key)), board };
   };
   for (const tile of ['florist', 'stylist_decorator', 'brides_attire', 'cake'] as WeddingTile[]) {
     const { html, keys, board } = draw(tile);

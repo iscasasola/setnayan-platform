@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   BOOKED_BY_PAYMENT_EMBED,
-  isBookedSupplier,
   paidSupplierIds,
   supplierStandingWord,
   type SupplierStandingWord,
@@ -51,18 +50,17 @@ export function scheduleSuppliersFrom(
   const paid = paidSupplierIds(
     rows.flatMap((r) => (r.vendor_payments ?? []).map((p) => ({ vendor_id: r.vendor_id, payment_refused_at: p.payment_refused_at }))),
   );
-  return rows
-    .map((r) => {
-      const shop = r.marketplace_vendor_id ? (shopNames.get(r.marketplace_vendor_id) ?? '').trim() : '';
-      return {
-        vendor_id: r.vendor_id,
-        vendor_name: shop || (r.vendor_name ?? '').trim() || 'Supplier',
-        standing: supplierStandingWord(r, paid),
-        booked: isBookedSupplier(r, paid),
-      };
-    })
-    .sort((a, b) => Number(b.booked) - Number(a.booked) || a.vendor_name.localeCompare(b.vendor_name))
-    .map(({ booked: _booked, ...s }) => s);
+  const named = rows.map((r): ScheduleSupplier => {
+    const shop = r.marketplace_vendor_id ? (shopNames.get(r.marketplace_vendor_id) ?? '').trim() : '';
+    return {
+      vendor_id: r.vendor_id,
+      vendor_name: shop || (r.vendor_name ?? '').trim() || 'Supplier',
+      standing: supplierStandingWord(r, paid),
+    };
+  });
+  return named.sort(
+    (a, b) => Number(b.standing === 'Booked') - Number(a.standing === 'Booked') || a.vendor_name.localeCompare(b.vendor_name),
+  );
 }
 
 /** The read the schedule page makes (couple / delegate session). Empty on a refusal, said in the log. */

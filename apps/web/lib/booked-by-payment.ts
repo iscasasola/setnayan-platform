@@ -73,11 +73,6 @@ export function bookedByPaymentOnly(row: BookedByPaymentRow, paid: ReadonlySet<s
   return !(row.status && BOOKED.has(row.status)) && isBookedSupplier(row, paid);
 }
 
-/** The status the couple's screens read: a paid hand-added supplier reads as booked. */
-export function effectiveSupplierStatus<S extends string | null>(row: BookedByPaymentRow & { status: S }, paid: ReadonlySet<string>): S | typeof BOOKED_BY_PAYMENT_STATUS {
-  return bookedByPaymentOnly(row, paid) ? BOOKED_BY_PAYMENT_STATUS : row.status;
-}
-
 /**
  * THE LOAD-TIME PASS. Returns the same rows, each paid hand-added supplier's
  * `status` read as booked and the stored value kept on `stored_status`.

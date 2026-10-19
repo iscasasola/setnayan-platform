@@ -27,6 +27,7 @@
 
 import {
   countsTowardEvent,
+  guestDisplayName,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -42,6 +43,7 @@ import {
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
+import { isPlaceholderSeat, seatPlaceholderLabel } from '@/lib/extra-seats';
 
 /** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
 export const SEARCH_WAIT_MS = 250;
@@ -88,6 +90,11 @@ export type RosterFacts = {
   tableOf: (guestId: string) => string | null;
   /** Their song requests ("Title Artist") — the shipped search reads them. */
   songsOf?: (guestId: string) => readonly string[];
+  /**
+   * Any guest on the WHOLE list by id — so a +1 whose guest a search left out still sections with
+   * that guest (`plusOneAnchor`). Absent → the guests handed to the call are the whole list.
+   */
+  guestById?: (guestId: string) => GuestRow | undefined;
 };
 
 /** What the invite rule reads off a guest — every field optional, so any guest read can ask it. */
@@ -331,9 +338,14 @@ export function rosterSections(
   view: RosterView,
   facts: RosterFacts,
 ): RosterSection<GuestRow>[] {
+  // 🤝 A +1 IS SECTIONED AS THEIR GUEST IS (owner 2026-10-19: "the plus 1 did not connect properly to the guest"):
+  // every bucket below reads `at(g)` — the guest who brings them — never the +1's own role, side, name or group.
+  const at = plusOneAnchorOf(guests, facts);
   const celebrants: GuestRow[] = [];
   const rest: GuestRow[] = [];
-  for (const g of guests) (isHonoreeRole(g.role) ? celebrants : rest).push(g);
+  for (const g of guests) (isHonoreeRole(at(g).role) ? celebrants : rest).push(g);
+  const rank = new Map(guests.map((g, i) => [g.guest_id, i] as const));
+  const beside = (list: GuestRow[]) => besideTheirGuest(list, rank);
 
   const out: RosterSection<GuestRow>[] = [];
   if (celebrants.length) {
@@ -341,23 +353,23 @@ export function rosterSections(
       key: 'celebrants',
       label: celebrantLabel(celebrants[0]!, facts.roleNames),
       mark: { kind: 'icon', icon: 'celebrant' },
-      guests: celebrants,
+      guests: beside(celebrants),
       celebrants: true,
     });
   }
 
   const push = (key: string, label: string, mark: SectionMark, list: GuestRow[]) => {
-    if (list.length) out.push({ key: `${view}:${key}`, label, mark, guests: list });
+    if (list.length) out.push({ key: `${view}:${key}`, label, mark, guests: beside(list) });
   };
 
   if (view === 'role') {
     for (const grp of ROLE_ORDER) {
-      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => roleBucket(g) === grp));
+      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => roleBucket(at(g)) === grp));
     }
   } else if (view === 'last_name') {
     const by = new Map<string, GuestRow[]>();
     for (const g of rest) {
-      const k = lastInitial(g);
+      const k = lastInitial(at(g));
       by.set(k, [...(by.get(k) ?? []), g]);
     }
     for (const k of [...by.keys()].sort((a, b) => (a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b)))) {
@@ -365,23 +377,24 @@ export function rosterSections(
         .get(k)!
         .slice()
         .sort((a, b) =>
-          `${a.last_name ?? ''} ${a.first_name ?? ''}`.localeCompare(`${b.last_name ?? ''} ${b.first_name ?? ''}`),
+          `${at(a).last_name ?? ''} ${at(a).first_name ?? ''}`.localeCompare(`${at(b).last_name ?? ''} ${at(b).first_name ?? ''}`),
         );
       push(k, k, { kind: 'letter', letter: k }, list);
     }
   } else if (view === 'side') {
     for (const side of SIDE_ORDER) {
-      push(side, SIDE_LABELS[side], { kind: 'icon', icon: 'side' }, rest.filter((g) => g.side === side));
+      push(side, SIDE_LABELS[side], { kind: 'icon', icon: 'side' }, rest.filter((g) => at(g).side === side));
     }
   } else if (view === 'group') {
-    const names = [...new Set(rest.flatMap((g) => facts.groupsOf(g.guest_id).slice(0, 1)))].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const groupOf = (g: GuestRow) => facts.groupsOf(at(g).guest_id);
+    const names = [...new Set(rest.flatMap((g) => groupOf(g).slice(0, 1)))].sort((a, b) => a.localeCompare(b));
     for (const n of names) {
-      push(n, n, { kind: 'letter', letter: (n.charAt(0) || '·').toUpperCase() }, rest.filter((g) => facts.groupsOf(g.guest_id)[0] === n));
+      push(n, n, { kind: 'letter', letter: (n.charAt(0) || '·').toUpperCase() }, rest.filter((g) => groupOf(g)[0] === n));
     }
-    push('none', 'No group', { kind: 'icon', icon: 'none' }, rest.filter((g) => facts.groupsOf(g.guest_id).length === 0));
+    push('none', 'No group', { kind: 'icon', icon: 'none' }, rest.filter((g) => groupOf(g).length === 0));
   } else {
+    // ⚖ The ONE view that reads the +1's OWN answer: a heading here is a reply, and a +1 who has not answered is
+    // not "Attending" because their guest is. Beside their guest when they share the heading; named with them always.
     for (const s of RSVP_SECTIONS) {
       push(s.status, s.label, { kind: 'icon', icon: s.icon }, rest.filter((g) => rsvpBucketOf(g) === s.status));
     }
@@ -394,13 +407,16 @@ export type MapBranch = { key: string; label: string; mark: SectionMark; kids: M
 
 export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts: RosterFacts): MapBranch[] {
   if (arrange === 'side' && facts.hasSides) {
+    const at = plusOneAnchorOf(guests, facts);
+    const rank = new Map(guests.map((g, i) => [g.guest_id, i] as const));
     return SIDE_ORDER.map((side) => {
-      const mine = guests.filter((g) => g.side === side);
+      const mine = guests.filter((g) => at(g).side === side);
       const kidsBy = new Map<string, GuestRow[]>();
       for (const g of mine) {
-        const k = isHonoreeRole(g.role)
-          ? celebrantLabel(g, facts.roleNames)
-          : (facts.groupsOf(g.guest_id)[0] ?? roleLabel(roleBucket(g), facts.roleNames));
+        const a = at(g);
+        const k = isHonoreeRole(a.role)
+          ? celebrantLabel(a, facts.roleNames)
+          : (facts.groupsOf(a.guest_id)[0] ?? roleLabel(roleBucket(a), facts.roleNames));
         kidsBy.set(k, [...(kidsBy.get(k) ?? []), g]);
       }
       return {
@@ -413,7 +429,7 @@ export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts:
           label,
           mark: { kind: 'letter', letter: label.charAt(0).toUpperCase() } as SectionMark,
           kids: [],
-          guests: list,
+          guests: besideTheirGuest(list, rank),
         })),
       };
     }).filter((b) => b.kids.length > 0);
@@ -437,6 +453,135 @@ export function mapRootLabel(guests: readonly Pick<GuestRow, 'role' | 'first_nam
   const names = guests.filter((g) => isHonoreeRole(g.role)).map((g) => (g.first_name ?? '').trim()).filter(Boolean);
   if (names.length) return names.join(' & ');
   return eventWord.charAt(0).toUpperCase() + eventWord.slice(1);
+}
+
+/* ─── A +1 SITS WITH THEIR GUEST ─────────────────────────────────────────── */
+
+/**
+ * 🤝 OWNER 2026-10-19, on a run of identical "+1 · TBA" rows under GUESTS: *"the plus 1 did not connect
+ * properly to the guest"*. The rows WERE linked (`guests.plus_one_of_guest_id`) — the list just never read
+ * the link. Now, in every view:
+ *   · a +1 is SECTIONED as their guest is — the guest's role, side, last name, group (`plusOneAnchorOf`);
+ *     the RSVP view alone reads the +1's own answer, because its headings ARE answers;
+ *   · a +1 is DRAWN right after their guest (`besideTheirGuest`), their seats in seat order;
+ *   · a +1 is NAMED with their guest (`plusOneWords`) — "Juanita Sacdalan’s +1 · TBA" while the seat is
+ *     unnamed (the seat's own label, `seatPlaceholderLabel`), "· +1 of Juanita Sacdalan" once it is;
+ *   · searching the guest's NAME brings their +1s with them (`withTheirPlusOnes`).
+ * Counts are untouched: every +1 is still one guest row, counted wherever it is drawn.
+ * 🔒 guests/_components/a-plus-one-sits-with-their-guest.test.ts
+ */
+type PlusLinked = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id'>;
+
+/** The guest a row is sectioned as: the guest who brings them (followed to the root), else the row itself. */
+export function plusOneAnchorOf(
+  guests: readonly GuestRow[],
+  facts: Pick<RosterFacts, 'guestById'> = {},
+): (g: GuestRow) => GuestRow {
+  const own = new Map(guests.map((g) => [g.guest_id, g] as const));
+  const find = (id: string) => facts.guestById?.(id) ?? own.get(id);
+  return (g) => {
+    let cur = g;
+    // A +1 of a +1 is not a shape the app writes, but a chain never loops and never runs away.
+    for (let hop = 0; hop < 4 && cur.plus_one_of_guest_id && cur.plus_one_of_guest_id !== cur.guest_id; hop++) {
+      const host = find(cur.plus_one_of_guest_id);
+      if (!host) break;
+      cur = host;
+    }
+    return cur;
+  };
+}
+
+/**
+ * One section's rows with every +1 moved to right after their guest — when that guest is in the same list.
+ * Everyone else keeps the caller's order; a +1 whose guest is elsewhere keeps its place (still named with
+ * them). A guest's +1s follow in `rank` order (the whole list's order — the order their seats are numbered in).
+ */
+export function besideTheirGuest<G extends PlusLinked>(list: readonly G[], rank?: ReadonlyMap<string, number>): G[] {
+  const here = new Set(list.map((g) => g.guest_id));
+  const kids = new Map<string, G[]>();
+  const attached = (g: G) =>
+    Boolean(g.plus_one_of_guest_id) && g.plus_one_of_guest_id !== g.guest_id && here.has(g.plus_one_of_guest_id!);
+  for (const g of list) if (attached(g)) kids.set(g.plus_one_of_guest_id!, [...(kids.get(g.plus_one_of_guest_id!) ?? []), g]);
+  if (kids.size === 0) return [...list];
+  if (rank) for (const k of kids.values()) k.sort((a, b) => (rank.get(a.guest_id) ?? 0) - (rank.get(b.guest_id) ?? 0));
+  const out: G[] = [];
+  const seen = new Set<string>();
+  const emit = (g: G) => {
+    if (seen.has(g.guest_id)) return;
+    seen.add(g.guest_id);
+    out.push(g);
+    for (const k of kids.get(g.guest_id) ?? []) emit(k);
+  };
+  for (const g of list) if (!attached(g)) emit(g);
+  for (const g of list) emit(g); // a loop of +1s (never written) still draws every row once
+  return out;
+}
+
+/** What a +1 row says about whose +1 it is. `name` replaces the row's name (an unnamed seat); `of` follows a name. */
+export type PlusOneWords = {
+  hostId: string;
+  /** "Juanita Sacdalan’s +1 · TBA" — an unnamed seat is named by its guest. */
+  name: string | null;
+  /** "+1 of Juanita Sacdalan" — after a named +1's own name. */
+  of: string | null;
+  /** The side the row shows: their guest's (a +1's side follows their guest). */
+  side: GuestRow['side'];
+};
+
+type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
+
+/**
+ * Every +1 row's words, from the WHOLE list (a search for "TBA" must still know whose seat each is). Seats are
+ * numbered per guest in list order, the way their seats are everywhere ("+2 · TBA" is the second seat,
+ * `seatPlaceholderLabel`); the stored display name ("+1 · TBA", or an older "+ TBA · brought by …") is
+ * never read for it.
+ */
+export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_name' | 'last_name' | 'side'>>(
+  roster: readonly G[],
+): Map<string, PlusOneWords> {
+  const byId = new Map(roster.map((g) => [g.guest_id, g] as const));
+  const seatNo = new Map<string, number>();
+  const out = new Map<string, PlusOneWords>();
+  for (const g of roster) {
+    const hostId = g.plus_one_of_guest_id;
+    if (!hostId || hostId === g.guest_id) continue;
+    const host = byId.get(hostId);
+    if (!host) continue;
+    const i = seatNo.get(hostId) ?? 0;
+    seatNo.set(hostId, i + 1);
+    const hostName = guestDisplayName(host);
+    const unnamed = isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
+    out.set(g.guest_id, {
+      hostId,
+      name: unnamed ? `${hostName}’s ${seatPlaceholderLabel(i)}` : null,
+      of: unnamed ? null : `+1 of ${hostName}`,
+      side: host.side,
+    });
+  }
+  return out;
+}
+
+/** Every word of `q` lands in the guest's name. */
+function nameHas(q: string, g: Pick<GuestRow, 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix' | 'display_name'>): boolean {
+  const hay = normalizeSearchText([g.name_prefix, g.first_name, g.middle_name, g.last_name, g.name_suffix, g.display_name].filter(Boolean).join(' '));
+  return q.split(' ').every((t) => t && hay.includes(t));
+}
+
+/**
+ * The search's hits, plus the +1s of every hit found BY NAME — searching "Juanita" shows Juanita and her +1.
+ * Only a name brings them: a reply, a role or "to invite" matches each +1 on its own answer, so "Pick who"
+ * never ticks a +1 who is already invited. Kept in the whole list's order.
+ */
+export function withTheirPlusOnes<G extends GuestRow>(query: string, hits: readonly G[], roster: readonly G[]): G[] {
+  const q = normalizeSearchText(query ?? '');
+  if (!q) return [...hits];
+  const byName = new Set(hits.filter((g) => nameHas(q, g)).map((g) => g.guest_id));
+  if (byName.size === 0) return [...hits];
+  const got = new Set(hits.map((g) => g.guest_id));
+  const added = roster.filter((g) => !got.has(g.guest_id) && g.plus_one_of_guest_id && byName.has(g.plus_one_of_guest_id));
+  if (added.length === 0) return [...hits];
+  for (const g of added) got.add(g.guest_id);
+  return roster.filter((g) => got.has(g.guest_id));
 }
 
 /* ─── THE SEARCH UNDERSTANDS WORDS ──────────────────────────────────────── */

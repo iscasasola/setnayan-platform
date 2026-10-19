@@ -255,6 +255,39 @@ function planningRoster(): GuestRow[] {
   ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
 }
 
+/**
+ * 🤝 `?plusones=1` — the owner's 2026-10-19 shape (cale-ice's List, read-only count): unnamed "+1 · TBA" seats on
+ * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
+ * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
+ */
+function withPlusOnes(roster: GuestRow[]): GuestRow[] {
+  const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
+    guest({
+      guest_id: id,
+      public_id: `S89G-LABP1${id.slice(-4).padStart(5, '0')}`,
+      first_name: 'TBA',
+      last_name: '+1',
+      display_name: '+1 · TBA',
+      side: 'both',
+      role: 'guest',
+      rsvp_status: 'pending',
+      invitation_sent_at: null,
+      plus_one_of_guest_id: of,
+      plus_one_mode: 'limited',
+      ...p,
+    });
+  const bring = new Set(['g-mj-4', 'g-mj-6', 'g-mj-14', 'g-mj-24', 'g-mj-2']);
+  return [
+    ...roster.map((g) => (bring.has(g.guest_id) ? { ...g, plus_one_count: g.guest_id === 'g-mj-14' ? 2 : 1, plus_one_allowed: true } : g)),
+    seat('g-p1-0004', 'g-mj-4'),
+    seat('g-p1-0006', 'g-mj-6'),
+    seat('g-p1-0014', 'g-mj-14'),
+    seat('g-p1-0114', 'g-mj-14'),
+    seat('g-p1-0024', 'g-mj-24'),
+    seat('g-p1-0002', 'g-mj-2', { first_name: 'Paulo', last_name: 'Reyes', display_name: null, rsvp_status: 'attending', invitation_sent_at: '2026-09-20T00:00:00Z' }),
+  ];
+}
+
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
 function DockStandIn() {
   return (
@@ -445,7 +478,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = planningRoster();
+    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster()) : planningRoster();
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],

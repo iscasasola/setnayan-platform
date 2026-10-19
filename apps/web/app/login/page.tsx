@@ -18,6 +18,7 @@ import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';
 import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
+import { getRequestPlatform } from '@/lib/request-platform';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -33,6 +34,14 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const view = await getLoginView(params);
+  // 🍎 Inside the phone or desktop app there is nothing behind this card: the
+  // app opens HERE, and middleware (`APP_EXCLUDED_MARKETING_PATHS`) sends "/"
+  // straight back, so a ✕ pointing home did nothing — a dead button on the
+  // first screen App Review sees (Apple check 2026-10-19, row #3). In the app
+  // the card draws no ✕ at all. `getRequestPlatform()` asks the same question
+  // middleware's bounce asks (a `SetnayanApp` user agent or the capacitor
+  // cookie), so the two cannot disagree. The web keeps its ✕ to "/".
+  const inApp = (await getRequestPlatform()) !== 'web';
 
   // A paper base under the translucent greige dim so a hard load never flashes a
   // stark void behind the backdrop before the card settles.
@@ -42,7 +51,7 @@ export default async function LoginPage({
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
       <SignInCardModal
-        dismissHref="/"
+        dismissHref={inApp ? null : '/'}
         next={view.next}
         signupHref={view.signupHref}
         showOAuth={view.showOAuth}

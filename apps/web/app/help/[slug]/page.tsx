@@ -7,6 +7,7 @@ import {
   findHelpArticle,
   relatedHelpArticles,
   helpMetaDescription,
+  HELP_NOT_IN_THE_APP,
 } from '@/lib/help';
 
 // Per-article help pages (SEO/GEO, 2026-06-13). Each of the 61 help articles
@@ -206,7 +207,22 @@ export default async function HelpArticlePage({ params }: Props) {
         <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
           {article.title}
         </h1>
-        {renderHelpBody(article.body)}
+        {/*
+          🍎 ONE URL, TWO READERS (Apple check 2026-10-19, rows #6 · #14). This
+          page is prerendered, so it cannot ask the request whether it is in the
+          iPhone app; where an answer has app wording it ships both, and the
+          pre-paint `data-store-shell` mark shows exactly one (app/globals.css
+          `data-web-only` / `data-app-only`). Held by
+          lib/help-in-the-app-sells-nothing.test.ts.
+        */}
+        {article.appBody === undefined ? (
+          renderHelpBody(article.body)
+        ) : (
+          <>
+            <div data-web-only="">{renderHelpBody(article.body)}</div>
+            <div data-app-only="">{renderHelpBody(article.appBody)}</div>
+          </>
+        )}
 
         {related.length > 0 ? (
           <section className="mt-12 border-t border-ink/10 pt-8">
@@ -215,7 +231,8 @@ export default async function HelpArticlePage({ params }: Props) {
             </h2>
             <ul className="mt-4 space-y-2">
               {related.map((a) => (
-                <li key={a.slug}>
+                // A question the app does not include is not offered in the app.
+                <li key={a.slug} data-web-only={a.appBody === HELP_NOT_IN_THE_APP ? '' : undefined}>
                   <Link
                     href={`/help/${a.slug}`}
                     className="text-sm font-medium text-ink/75 underline-offset-4 hover:text-terracotta hover:underline"

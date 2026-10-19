@@ -6,7 +6,8 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { HELP_TOPICS } from '@/lib/help';
+import { HELP_TOPICS, helpTopicsFor } from '@/lib/help';
+import { isStoreShellRequest } from '@/lib/request-platform';
 // Client motion island (the page itself stays a force-static Server Component).
 // Renders the hero so the serif line-reveal ref sits on the real <h1>, and
 // provides container wrappers that attach the shared quiet reveal to
@@ -79,8 +80,11 @@ export const metadata = {
 // answer is a stable brand/feature/policy fact.
 const PRICING_DETAIL_SLUG = 'how-much-does-setnayan-cost';
 
-const ABOUT_FAQ = (HELP_TOPICS.find((t) => t.key === 'about-setnayan')?.articles ?? [])
-  .filter((a) => a.slug !== PRICING_DETAIL_SLUG);
+/** 🍎 The FAQ as this reader sees it — the app's own answers in the store shell (lib/help.ts `helpTopicsFor`). */
+function aboutFaq(storeShell: boolean) {
+  return (helpTopicsFor(HELP_TOPICS, storeShell).find((t) => t.key === 'about-setnayan')?.articles ?? [])
+    .filter((a) => a.slug !== PRICING_DETAIL_SLUG);
+}
 
 const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   {
@@ -109,7 +113,9 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const storeShell = await isStoreShellRequest();
+  const faq = aboutFaq(storeShell);
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -139,7 +145,7 @@ export default function AboutPage() {
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: ABOUT_FAQ.map((a) => ({
+    mainEntity: faq.map((a) => ({
       '@type': 'Question',
       name: a.title,
       acceptedAnswer: { '@type': 'Answer', text: a.body },
@@ -263,7 +269,7 @@ export default function AboutPage() {
             Frequently asked
           </h2>
           <dl className="mt-6 divide-y divide-ink/10 border-y border-ink/10">
-            {ABOUT_FAQ.map((a) => (
+            {faq.map((a) => (
               <div key={a.slug} className="py-5">
                 <dt className="text-base font-semibold text-ink">
                   <Link
@@ -280,14 +286,22 @@ export default function AboutPage() {
             ))}
           </dl>
           <p className="mt-6 text-sm text-ink/60">
-            For full pricing see{' '}
-            <Link
-              href="/pricing"
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
-            >
-              the pricing page
-            </Link>
-            , or browse{' '}
+            {/* 🍎 In the app /pricing is a refused door, so the line names only
+                the help center (Apple check 2026-10-19, row #6). */}
+            {storeShell ? (
+              'Browse '
+            ) : (
+              <>
+                For full pricing see{' '}
+                <Link
+                  href="/pricing"
+                  className="font-medium text-terracotta underline-offset-4 hover:underline"
+                >
+                  the pricing page
+                </Link>
+                , or browse{' '}
+              </>
+            )}
             <Link
               href="/help"
               className="font-medium text-terracotta underline-offset-4 hover:underline"

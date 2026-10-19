@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { MessageSquare, Mail, Heart, Briefcase, Mailbox } from 'lucide-react';
-import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, type HelpRole } from '@/lib/help';
+import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, helpTopicsFor, type HelpRole } from '@/lib/help';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -76,9 +77,15 @@ export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
 
+  // 🍎 In the iPhone app every answer is the app's own (no price, no purchase,
+  // no pointer to the web, no Android) and questions about parts the app does
+  // not include are left out — lib/help.ts `helpTopicsFor`. This page is
+  // per-request (the (shell) layout is force-dynamic), so it picks on the
+  // server and ships one set of words. Apple check 2026-10-19, rows #6 · #14.
+  const shellTopics = helpTopicsFor(HELP_TOPICS, await isStoreShellRequest());
   const visibleTopics = role
-    ? HELP_TOPICS.filter((t) => t.roles.includes(role))
-    : HELP_TOPICS;
+    ? shellTopics.filter((t) => t.roles.includes(role))
+    : shellTopics;
 
   const activeRoleMeta = role ? HELP_ROLES.find((r) => r.key === role) : undefined;
 

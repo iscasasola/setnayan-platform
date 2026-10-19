@@ -37,7 +37,12 @@ export default async function WebOnlyPage() {
     ? { href: '/dashboard', label: 'Back to your dashboard' }
     : { href: '/login', label: 'Sign in' };
   return (
-    <LegalLayout title="Not available in the app" meta="Setnayan for iPhone and Android">
+    // 🍎 The line under the title names no platform (Apple check 2026-10-19,
+    // row #14 — guideline 2.3.10: an iOS app may not name Android). It said
+    // "Setnayan for iPhone and Android" on the one page every refused route in
+    // the iPhone app lands on. Nor does it say "on the web" — see the 🔒 note
+    // above: naming where else the feature lives is the steering 3.1.1 forbids.
+    <LegalLayout title="Not available in the app" meta="The Setnayan app">
       <LegalSection title="This part of Setnayan is not included in the app">
         <p>
           The app covers planning your event — your guest list, seating, schedule,

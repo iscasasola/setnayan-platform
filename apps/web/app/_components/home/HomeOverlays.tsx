@@ -40,6 +40,7 @@ import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 
 export type OverlayId =
   | 'prices'
@@ -631,6 +632,22 @@ export function HomeOverlays({
     setDetected(mac ? 'macOS' : win ? 'Windows' : 'your computer');
     setMatch(mac ? 'mac' : win ? 'win' : null);
   }, [current]);
+
+  /*
+    🍎 IN THE IPHONE APP, ONLY SIGN IN OPENS HERE (Apple check 2026-10-19,
+    rows #5 · #26 — guideline 3.1.1). Prices quotes the Setnayan AI rate,
+    Vendors is the supplier tier ladder ("Want to upgrade your business?"),
+    Setnayan AI is a price sheet, Download promotes the Mac, Windows and web
+    apps, and the four demos are paid features. The header hides its buttons
+    before the first paint (`data-web-only` in site-nav.tsx); this is the
+    second wall, so a press from anywhere else — a demo bus event, a stale
+    handler — still opens nothing that sells. Off the store shell nothing
+    changes. Held by lib/store-shell.test.ts.
+  */
+  const storeShell = useIsStoreShell();
+  if (storeShell) {
+    return current === 'signin' ? <SignInHerePanel options={{}} onClose={onClose} /> : null;
+  }
 
   return (
     <>

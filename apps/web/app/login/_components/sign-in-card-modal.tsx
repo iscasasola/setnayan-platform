@@ -20,6 +20,12 @@
  *     redirected here and bounce straight back to /login — a close loop.
  *   • dismissHref omitted → router.back() (kept as the generic default for any
  *     future overlay-over-a-page caller; the /login route never relies on it).
+ *   • dismissHref null → there is NOWHERE to dismiss to: no ✕ is drawn, and
+ *     Escape and the backdrop do nothing. The /login page passes it inside the
+ *     phone and desktop apps, which open ON /login and whose middleware sends
+ *     "/" straight back here — so a ✕ there was a dead button on the first
+ *     screen App Review sees (Apple check 2026-10-19, row #3 — guideline 2.1).
+ *     /signup already draws no ✕ for the same reason.
  */
 import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -30,10 +36,12 @@ import '@/app/_components/home/home-reskin.css';
 export function SignInCardModal({
   dismissHref,
   ...card
-}: SignInCardProps & { dismissHref?: string }) {
+}: SignInCardProps & { dismissHref?: string | null }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+  const dismissible = dismissHref !== null;
   const dismiss = () => {
+    if (dismissHref === null) return;
     if (dismissHref) router.push(dismissHref);
     else router.back();
   };
@@ -66,9 +74,11 @@ export function SignInCardModal({
         two links on the sign-in page were the last thing still painted in it.
       */}
       <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
-        <button type="button" className="hr-ov-x" onClick={dismiss} aria-label="Close">
-          ✕
-        </button>
+        {dismissible ? (
+          <button type="button" className="hr-ov-x" onClick={dismiss} aria-label="Close">
+            ✕
+          </button>
+        ) : null}
         <SignInCard {...card} />
       </div>
     </div>

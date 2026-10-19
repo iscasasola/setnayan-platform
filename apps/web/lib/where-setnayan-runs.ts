@@ -50,3 +50,17 @@ export function mobileAppAnswer(storeUrl: string | undefined = iosAppStoreUrl())
     iphone
   );
 }
+
+/**
+ * 🍎 THE SAME QUESTION, ASKED INSIDE THE APP (Apple check 2026-10-19, row #14 —
+ * guideline 2.3.10). `mobileAppAnswer()` tells a web reader about Chrome on
+ * Android, the home-screen install and the Mac/Windows downloads; read inside
+ * the iOS app, that names another mobile platform and promotes other apps to
+ * someone who has already installed this one. In the app the only true and
+ * useful answer is that they are using it, and that it is the same account.
+ * Names no platform at all, so it stays true on iPad and on a future Android
+ * build of the same shell. Read through `helpBodyFor` (lib/help.ts).
+ */
+export function mobileAppAnswerInApp(): string {
+  return 'Yes — you are using it. Everything you plan here is saved to your Setnayan account, so it is the same wherever you sign in.';
+}

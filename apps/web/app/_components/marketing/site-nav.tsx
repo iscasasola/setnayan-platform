@@ -82,7 +82,17 @@ export function Nav({
         >
           <SetnayanMark className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <div className="hr-links hr-glass-dark">
+        {/*
+          🍎 THE IPHONE APP SEES NONE OF THESE THREE (Apple check 2026-10-19,
+          rows #5 · #26 — guideline 3.1.1). Prices quotes the Setnayan AI rate,
+          Suppliers is the Solo/Pro/Enterprise ladder with "Want to upgrade
+          your business?", and Download promotes the Mac, Windows and web apps
+          inside the iOS app. `data-web-only` hides the whole pill before the
+          first paint in the store shell (app/globals.css), and HomeOverlays
+          refuses to open those overlays there even if one were pressed. The
+          web and the desktop app keep all three; Sign in stays everywhere.
+        */}
+        <div className="hr-links hr-glass-dark" data-web-only="">
           {prices && <button onClick={() => press('prices')}>{prices}</button>}
           {download && <button onClick={() => press('download')}>{download}</button>}
           {vendors && <button onClick={() => press('vendors')}>{vendors}</button>}

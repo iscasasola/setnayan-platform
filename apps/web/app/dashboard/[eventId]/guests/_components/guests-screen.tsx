@@ -91,6 +91,7 @@ import {
   MAP_ARRANGE,
   mapTree,
   plusOneWordsFrom,
+  seatRowsByGuest,
   ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
@@ -321,6 +322,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // 🤝 Whose +1 each +1 row is — read off the WHOLE list, so a search still names every seat's guest.
   const rosterById = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
   const plusWords = useMemo(() => plusOneWordsFrom(roster), [roster]);
+  const seatRows = useMemo(() => seatRowsByGuest(roster), [roster]);
   const facts: RosterFacts = useMemo(
     () => ({
       roleNames,
@@ -511,7 +513,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* The names the delete sheet opened with — read while those rows are still on the list (a refusal is told by name). */
   const removeNames = (toRemove ?? []).map((id) => {
     const g = byId.get(id);
-    return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
+    // A +1's seat is named with their guest here too — "Juanita Sacdalan’s +1 · TBA", never a bare "+1 · TBA".
+    return g ? (plusWords.get(id)?.name ?? guestFullName(g) ?? guestDisplayName(g)) : '';
   });
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
@@ -929,6 +932,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       key={g.guest_id}
                       g={g}
                       plusWords={plusWords.get(g.guest_id) ?? null}
+                      seatsOnList={seatRows.get(g.guest_id) ?? 0}
                       joined={joinedToTheRowAbove(g, drawn[i - 1])}
                       selectMode={selectMode}
                       picked={selected.has(g.guest_id)}
@@ -1200,6 +1204,7 @@ function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean 
 function GuestRowLine({
   g,
   plusWords,
+  seatsOnList,
   joined,
   selectMode,
   picked,
@@ -1214,6 +1219,8 @@ function GuestRowLine({
   g: GuestRow;
   /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
   plusWords: PlusOneWords | null;
+  /** This guest's seats that are rows on the list (`seatRowsByGuest`). */
+  seatsOnList: number;
   joined: boolean;
   selectMode: boolean;
   picked: boolean;
@@ -1227,6 +1234,8 @@ function GuestRowLine({
 }) {
   const name = plusWords?.name ?? guestFullName(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
+  // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
+  const notAdded = Math.max(0, plus - seatsOnList);
   const pill = isToInvite(g) && g.rsvp_status === 'pending' ? { cls: 'pillGold', word: 'To invite' } : PILL[g.rsvp_status];
   const act = (e: React.MouseEvent<HTMLElement>) => (selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget));
   // A +1 shows their guest's side — the side follows the guest who brings them.
@@ -1271,6 +1280,7 @@ function GuestRowLine({
             <>
               <span className={`${styles.pill} ${styles[pill.cls]}`}>{pill.word}</span>
               {table ? ` · ${table}` : ''}
+              {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}
             </>
           )}

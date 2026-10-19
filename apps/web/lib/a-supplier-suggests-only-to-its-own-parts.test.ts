@@ -125,10 +125,12 @@ test('3 · Keep never replaces silently — with no free place and no photo name
     'a Keep on a full part does not stop at the “already has 3 photos” sheet before anything else',
   );
   assert.ok(fn.indexOf('keepInspirationSuggestion(') > fn.indexOf("kind === 'ask'"), 'the Palette sends a Keep before asking which photo a full part replaces');
-  /* "Keep all three for now" sends nothing — it only closes the sheet. */
-  const sheet = studio.slice(studio.indexOf("sheet?.kind === 'full'"));
-  assert.match(sheet, /label=\{FULL_SHEET_KEEP_ALL\} onClick=\{\(\) => setSheet\(null\)\}/);
-  assert.equal((sheet.slice(0, sheet.indexOf('</StudioSheet>')).match(/void keep\(sg, p\)/g) ?? []).length, 1, 'each photo of the sheet must replace exactly its own place');
+  /* "Keep all three for now" sends nothing — it only closes the sheet; each photo of the sheet replaces exactly its place. */
+  const parts = code('app/dashboard/[eventId]/studio/mood-board/_components/suggestion-parts.tsx');
+  assert.match(parts, /label=\{FULL_SHEET_KEEP_ALL\} onClick=\{onClose\}/, '“Keep all three for now” does something other than close');
+  assert.match(parts, /onClick=\{\(\) => onReplace\(i \+ 1\)\}/, 'a photo of the sheet does not name its own place');
+  assert.match(studio, /onReplace=\{\(p\) => void keep\(sheet\.s, p\)\}/, 'the sheet’s photo is not a named Keep');
+  assert.match(studio, /<KeepFullSheet[\s\S]{0,400}onClose=\{\(\) => setSheet\(null\)\}/, 'closing the sheet does more than close it');
 });
 
 test('4 · the words: the notice, the counts and the role line', () => {

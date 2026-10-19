@@ -85,7 +85,10 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
 
   const admin = createAdminClient();
   const refuse = async (message: string): Promise<SuggestResult> => {
-    await admin.from('event_inspiration_suggestions').update({ state: 'refused' }).eq('suggestion_id', suggestionId).eq('state', 'screening');
+    /* A row left 'screening' never reaches the couple and stops counting toward the cap in ten minutes — so a failed
+       mark is logged, never a reason to hide the refusal from the supplier. */
+    const { error: markErr } = await admin.from('event_inspiration_suggestions').update({ state: 'refused' }).eq('suggestion_id', suggestionId).eq('state', 'screening');
+    if (markErr) logQueryError('suggestInspirationPhoto.refused', markErr, { eventId, suggestionId }, 'graceful_degrade');
     return { status: 'refused', message };
   };
 

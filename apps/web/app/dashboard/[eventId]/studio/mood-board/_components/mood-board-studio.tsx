@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -18,18 +18,12 @@ import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS
 import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, libraryPhotoParts, paletteBoardOf, palettePhotoParts, type StudioInspirationSlot } from '@/lib/inspiration-slots';
 import {
   DECIDE_NOT_SAVED,
-  FULL_SHEET_KEEP_ALL,
-  SUGGESTION_NOTICE_LINE,
   coupleCountLine,
-  fullSheetIncoming,
-  fullSheetLine,
-  fullSheetTitle,
   keepPlan,
   keptToast,
   shopInitial,
   suggestionFor,
   suggestionFrom,
-  suggestionNoticeTitle,
   type CoupleSuggestion,
 } from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
@@ -71,6 +65,7 @@ import { AutoPaletteSheet } from './auto-palette-sheet';
 import { NamedColourDot, RoleColourDot } from './colour-dot';
 import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
+import { KeepFullSheet, SuggestionsNotice } from './suggestion-parts';
 import type { InspirationItem } from './inspiration-board';
 
 /**
@@ -954,32 +949,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {/* 🤝🖼 WHAT IS WAITING, AT THE TOP OF PALETTE (prototype frame 4), in the shipped notice's place and shape: "2
               suggestions from your suppliers", one row each — a tap jumps to its block, where Keep / No thanks sits beside
               the couple's own photos. A refused read is said, never drawn as nothing waiting. */}
-          {waiting.length > 0 ? (
-            <div className={STUDIO_GROUP} data-mood-board-suggestions="">
-              <div className="pb-0 pt-3.5">
-                <p className="text-[17px] font-medium leading-tight text-ink">{suggestionNoticeTitle(waiting.length)}</p>
-                <p className="mt-1 text-[14px] text-ink/60">{SUGGESTION_NOTICE_LINE}</p>
-              </div>
-              <div className="mt-2 flex flex-col">
-                {waiting.map((sg) => (
-                  <button
-                    key={sg.id}
-                    type="button"
-                    data-mood-board-suggestion-jump={sg.id}
-                    onClick={() => jump(sg)}
-                    className="sn-press flex min-h-[60px] w-full items-center gap-3 border-t border-ink/10 py-2 text-left"
-                  >
-                    <Thumb src={sg.url} big />
-                    <span className="min-w-0 flex-1">
-                      <b className="block truncate text-[16px] font-medium text-ink">{partLabelOf(sg.slotKey)}</b>
-                      <span className="mt-px block truncate text-[13px] text-ink/60">{suggestionFrom(sg.shop)}</span>
-                    </span>
-                    <ChevronRight aria-hidden className="h-5 w-5 flex-none text-terracotta" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          {waiting.length > 0 ? <SuggestionsNotice waiting={waiting} partLabelOf={partLabelOf} onJump={jump} /> : null}
           {props.suggestions === null ? (
             <p role="status" className="px-1.5 pb-2 text-[12.5px] text-ink/65" data-mood-board-suggestions-unread="">
               We couldn’t check for photos your suppliers suggested just now — reopen this in a moment.
@@ -1356,53 +1326,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             );
           })()
         : null}
-      {sheet?.kind === 'full'
-        ? (() => {
-            const sg = sheet.s;
-            const label = partLabelOf(sg.slotKey);
-            const row = tiles[sg.slotKey] ?? [];
-            return (
-              <StudioSheet label={`Keep ${sg.shop}’s photo`} onClose={() => setSheet(null)}>
-                {/* 🤝🖼 KEEP ON A FULL PART NEVER REPLACES SILENTLY (prototype frame 3b): tap the photo it replaces, or keep all
-                    three and the suggestion keeps waiting. */}
-                <div className="flex flex-col gap-3 px-3 pb-2" data-mood-board-keep-full={sg.id}>
-                  <h4 className="font-serif text-[21px] font-medium leading-tight text-ink">{fullSheetTitle(label)}</h4>
-                  <p className="text-[14px] text-ink/60">{fullSheetLine(sg.shop)}</p>
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {MOODBOARD_SLOT_POSITIONS.map((p) => {
-                      const t = row[p - 1];
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          aria-label={`Replace photo ${p}`}
-                          data-mood-board-replace={p}
-                          onClick={() => void keep(sg, p)}
-                          className="sn-press flex flex-col items-center gap-1.5"
-                        >
-                          <span className="block aspect-square w-full overflow-hidden rounded-2xl bg-ink/5">
-                            {t?.url ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo
-                              <img src={t.url} alt="" className="h-full w-full object-cover" />
-                            ) : null}
-                          </span>
-                          <small className="text-[13px] text-ink/70">Photo {p}</small>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2.5 border-t border-ink/10 pb-0.5 pt-1.5">
-                    <Thumb src={sg.url} big />
-                    <span className="text-[14px] text-ink/70">{fullSheetIncoming(sg.shop)}</span>
-                  </div>
-                  <span data-mood-board-keep-all="" className="[&_.ab]:w-full">
-                    <ActionButton tone="neutral" quiet icon={<span aria-hidden className="hidden" />} label={FULL_SHEET_KEEP_ALL} onClick={() => setSheet(null)} />
-                  </span>
-                </div>
-              </StudioSheet>
-            );
-          })()
-        : null}
+      {sheet?.kind === 'full' ? (
+        <KeepFullSheet
+          suggestion={sheet.s}
+          part={partLabelOf(sheet.s.slotKey)}
+          photos={MOODBOARD_SLOT_POSITIONS.map((p) => tiles[sheet.s.slotKey]?.[p - 1]?.url ?? null)}
+          onReplace={(p) => void keep(sheet.s, p)}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
       {sheet?.kind === 'note' ? <NoteSheet label={`${sheet.row.label} · a note`} start={noteFor(sheet.row)} onClose={() => setSheet(null)} onSave={(text) => { const row = sheet.row; setSheet(null); writeNote(row, text); }} /> : null}
       {sheet?.kind === 'auto' ? (
         <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={takeAuto} onClose={() => setSheet(null)} />

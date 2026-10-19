@@ -406,7 +406,7 @@ export function HomeFirstScreen({
                       key={svc.key}
                       svc={svc}
                       row={svc.paid}
-                      icon={<Icon aria-hidden strokeWidth={1.9} />}
+                      glyph={Icon}
                       heading={firstSlim}
                     />
                   );
@@ -509,7 +509,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
  * line — its catalogue price under the name and **Add**, which opens the service's own page,
  * where the shipped purchase already lives. No meter: only Papic has a true total.
  */
-function PaidServiceRow({ svc, row, icon, heading }: { svc: HomeService; row: PaidRow; icon: ReactNode; heading: boolean }) {
+function PaidServiceRow({ svc, row, glyph: Glyph, heading }: { svc: HomeService; row: PaidRow; glyph: LucideIcon; heading: boolean }) {
   const marker = { 'data-home-service': svc.key, 'data-home-paid': row.state };
   if (row.state === 'add') {
     return (
@@ -519,7 +519,7 @@ function PaidServiceRow({ svc, row, icon, heading }: { svc: HomeService; row: Pa
           href={row.href}
           name={svc.name}
           brand={svc.brand}
-          icon={icon}
+          icon={<Glyph aria-hidden strokeWidth={1.9} />}
           mood="plain"
           pct={0}
           line={row.line}
@@ -537,7 +537,7 @@ function PaidServiceRow({ svc, row, icon, heading }: { svc: HomeService; row: Pa
       href={row.href}
       name={svc.name}
       brand={svc.brand}
-      icon={icon}
+      icon={<Glyph aria-hidden strokeWidth={1.9} />}
       mood={mood}
       pct={0}
       meter={false}

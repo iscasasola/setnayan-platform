@@ -50,14 +50,29 @@ export type HomePaidInput = {
 
 const CARD_SKUS = (Object.keys(HOME_PAID_CARD) as Array<keyof typeof HOME_PAID_CARD>).map((k) => HOME_PAID_SKU[k]);
 
+/**
+ * The catalogue entries each SKU's card may be drawn from — Live Watch's card is `live-studio-roam`
+ * (LIVE_STUDIO) while its launch flag is on, else the older `panood` tile (PANOOD_SYSTEM). Owning the
+ * SKU owns whichever tile the card is drawn from, so a couple who paid never reads "Free".
+ */
+const SKU_TILES: Readonly<Record<string, readonly string[]>> = {
+  [HOME_PAID_SKU.ai]: ['setnayan-ai'],
+  [HOME_PAID_SKU.live]: ['live-studio-roam', 'panood'],
+  [HOME_PAID_SKU.music]: ['pakanta'],
+  [HOME_PAID_SKU.booth]: ['patiktok'],
+};
+
 /** The facts behind Home's five SKU rows. Every key of `HOME_PAID_SKU` is answered — none is skipped. */
 export function homePaidFacts(input: HomePaidInput): Record<HomeSkuKey, HomePaidFact> {
   const active = new Set<string>();
   const pending = new Set<string>();
   for (const sku of [...CARD_SKUS, HOME_PAID_SKU.hub]) {
     const r = input.reads[sku];
-    if (r?.active) active.add(sku);
-    else if (r?.pending) pending.add(sku);
+    const tileKeys = (SKU_TILES[sku] ?? [])
+      .map((k) => input.catalogue.find((a) => a.key === k)?.serviceKey)
+      .filter((k): k is string => Boolean(k));
+    const into = r?.active ? active : r?.pending ? pending : null;
+    if (into) for (const k of [sku, ...tileKeys]) into.add(k);
   }
   const cards = buildOurServices({
     eventId: input.eventId,

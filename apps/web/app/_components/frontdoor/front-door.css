@@ -339,8 +339,16 @@ html.dark .fd {
   .fd-searchbox {
     height: 44px;
   }
+  /* 🔴 44 ON THE BOX WAS STILL 42 ON THE FIELD (quality sweep 2026-10-19, B2).
+     The box's two 1px borders are the form's, not the input's, so a tap on
+     either edge landed on the <form> and focused nothing — measured 283×42 on
+     every public page. The field now reaches over both borders: it is
+     transparent, so the line still shows, and a 1px overlap is invisible.
+     Held by `tests/e2e/the-public-top-bar-presses-44.spec.ts`, which presses
+     every edge of every top-bar control in a real browser. */
   .fd-searchbox input {
-    min-height: 42px;
+    min-height: 44px;
+    margin: -1px 0;
   }
 }
 /* The search has its OWN button — the reference does, and a field with no
@@ -672,9 +680,14 @@ html.dark .fd {
   gap: 6px;
   align-items: baseline;
 }
+/* ⚖ SMALL PRINT IS STILL TEXT (quality sweep 2026-10-19, C3). This was
+   `--fd-m3`, 2.80:1 on the white rail — under WCAG AA's 4.5:1 for text this
+   size, on every page the rail mounts. `--fd-m1` is 5.38:1 (dark 8.2:1); the
+   quieter weight and the 11px size still set it below the label beside it.
+   Held by `the-small-print-is-readable.test.ts`, which computes the ratio. */
 .fd-rlabel small {
   font-weight: 500;
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11px;
 }
 
@@ -760,14 +773,16 @@ html.dark .fd {
   vertical-align: middle;
 }
 
+/* Same rule as `.fd-rlabel small`: the rail's Privacy · Terms line was
+   `--fd-m2`, 3.67:1 — readable-looking, still under AA's 4.5:1 at 12px. */
 .fd-smallprint {
   padding: 4px 12px;
   font-size: 12px;
   line-height: 1.9;
-  color: var(--fd-m2);
+  color: var(--fd-m1);
 }
 .fd-smallprint a {
-  color: var(--fd-m2);
+  color: var(--fd-m1);
   text-decoration: none;
   margin-right: 10px;
 }
@@ -869,13 +884,15 @@ html.dark .fd {
     opacity: 0;
   }
 }
+/* The rail's last two lines are small print too — `--fd-m1`, not the 2.80:1
+   `--fd-m3` (see `.fd-rlabel small`). */
 .fd-copy {
   margin-top: 10px;
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
 }
 .fd-tag2 {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
   font-style: italic;
 }
@@ -1212,10 +1229,12 @@ h2.fd-sechead,
   font-size: 13px;
   color: var(--fd-m2);
 }
+/* The shelf's one-line house rule ("earned, never sold") is read, not
+   decoration: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
 .fd-sechead .fd-rule {
   margin-left: auto;
   font-size: 11.5px;
-  color: var(--fd-m3);
+  color: var(--fd-m1);
 }
 /* THE SHELF HEADING IS A DOOR (2026-08-20). It replaces the rail's retired
    "Stories" row as the front page's one permanent link to the hub, so it must
@@ -1347,9 +1366,10 @@ h2.fd-sechead,
   grid-column: 1 / -1;
 }
 
-/* A count that failed to load says so. It NEVER says 0. */
+/* A count that failed to load says so. It NEVER says 0 — and it says so in a
+   colour that reads: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
 .fd-unknown {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-style: italic;
 }
 

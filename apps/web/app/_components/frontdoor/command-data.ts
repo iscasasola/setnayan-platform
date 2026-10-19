@@ -244,7 +244,7 @@ async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
         {
           id: 'action-new-event',
           label: 'New event',
-          sublabel: 'Start planning a new celebration',
+          sublabel: 'Start planning a new event',
           href: '/dashboard/create-event',
           kind: 'action',
           icon: 'plus',

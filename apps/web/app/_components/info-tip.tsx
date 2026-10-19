@@ -24,6 +24,11 @@
  * "glass layers drop their hairline". The trigger keeps its round hairline: it
  * is a control, and controls keep their radius (owner, 2026-09-24).
  *
+ * 👆 THE CIRCLE IS DRAWN 16 PX AND PRESSES AT 46 × 46: `.sn-dot-btn`'s invisible
+ * `::after` halo (`globals.css`) reaches the 44-px floor around it, so the drawing
+ * never grows (sweep 2026-10-19 B11; `lib/the-shared-controls-press-at-44.test.ts`).
+ * Do not give the button `overflow-hidden` — it would clip its own press.
+ *
  * Only put here what a person does NOT need before acting. Costs, dates,
  * balances, errors and consequences stay on the page.
  */

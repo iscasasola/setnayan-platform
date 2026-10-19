@@ -119,3 +119,90 @@ test('the toast’s own buttons (Undo, Try again) press at 44 inside the 48-px p
     assert.ok(p.height >= 44, `a toast button presses at ${p.height}px (classes: ${cls})`);
   }
 });
+
+/*
+ * ⓘ THE INFO DOT PRESSES AT 44 × 44 AND IS STILL DRAWN AT ITS OWN SIZE (quality sweep 2026-10-19, row B11).
+ *
+ * InfoTip's circle is drawn 16 × 16 (`h-4 w-4`, a 1-px hairline). Its press is `.sn-dot-btn`'s invisible `::after`
+ * halo. The sweep measured "About Target" / "About Agreed" (Budget) and "About Waiting for their yes" (Suppliers ·
+ * Booked) pressing at ~30 with the old fixed 8-px halo. This does the same arithmetic as above, on BOTH axes — a dot
+ * is a square target — and holds the drawing at 16 so the fix can never be "draw a bigger circle".
+ */
+const DOT = ruleBody(css, '.sn-dot-btn::after');
+
+/** The size a class string DRAWS on one axis (`h-*`/`min-h-*` or `w-*`/`min-w-*`; a variant like `lg:` is not the phone's). */
+function drawnAxis(cls: string, axis: 'h' | 'w'): number {
+  let size = 0;
+  let min = 0;
+  for (const raw of cls.split(/\s+/)) {
+    const t = raw.replace(/^!/, '');
+    if (t.includes(':')) continue;
+    const m = t.match(new RegExp(`^${axis}-(.+)$`));
+    if (m && px(m[1]!) != null) size = px(m[1]!)!;
+    const mm = t.match(new RegExp(`^min-${axis}-(.+)$`));
+    if (mm && px(mm[1]!) != null) min = px(mm[1]!)!;
+  }
+  return Math.max(size, min);
+}
+
+/** A `.sn-dot-btn`'s press on both axes. */
+function dotPress(cls: string): { w: number; h: number; drawnW: number; drawnH: number } {
+  const border = cls.split(/\s+/).includes('border') ? 1 : 0;
+  const drawnW = drawnAxis(cls, 'w');
+  const drawnH = drawnAxis(cls, 'h');
+  const h = pressReach(DOT ?? '', drawnH, border);
+  const w = pressReach(DOT ?? '', drawnW, border);
+  assert.ok(h && w, '.sn-dot-btn::after is not a rule the press arithmetic can read');
+  return { w: w!.height, h: h!.height, drawnW, drawnH };
+}
+
+/** Every className string in a source file that wears `sn-dot-btn` (a quoted string, or a template up to its first `${`). */
+function dotClassStrings(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(/className=(?:"([^"]*)"|\{`([^`$]*))/g)) {
+    const cls = (m[1] ?? m[2] ?? '').trim();
+    if (cls.split(/\s+/).includes('sn-dot-btn')) out.push(cls);
+  }
+  return out;
+}
+
+test('ⓘ the halo rule: a 16-px circle with a hairline presses at 44 × 44; a bigger dot button keeps the press it had', () => {
+  assert.ok(DOT, '.sn-dot-btn::after is gone from globals.css');
+  const r16 = pressReach(DOT!, 16, 1)!;
+  assert.ok(r16 && r16.height >= 44, `a 16-px ⓘ presses at ${r16?.height}px — under the 44-px floor`);
+  // `h-10` (40 px) pressed at 56 with the old fixed 8-px halo; the floor keeps it there instead of shrinking it to 46.
+  assert.ok(pressReach(DOT!, 40, 0)!.height >= 56, 'a 40-px dot button lost the 8-px halo it had');
+});
+
+test('ⓘ InfoTip: its circle is still DRAWN 16 × 16, and presses at 44 × 44', () => {
+  const src = stripComments(read('app/_components/info-tip.tsx'));
+  const classes = dotClassStrings(src);
+  assert.equal(classes.length, 1, `InfoTip draws ${classes.length} .sn-dot-btn buttons — the one ⓘ is expected`);
+  const cls = classes[0]!;
+  const p = dotPress(cls);
+  assert.equal(p.drawnW, 16, `the ⓘ is drawn ${p.drawnW} wide — the fix is the invisible halo, never a bigger circle`);
+  assert.equal(p.drawnH, 16, `the ⓘ is drawn ${p.drawnH} tall — the fix is the invisible halo, never a bigger circle`);
+  assert.ok(p.w >= 44 && p.h >= 44, `the ⓘ presses at ${p.w}×${p.h}px — under the 44-px floor`);
+  assert.ok(!/(^|\s)overflow-(hidden|clip)(\s|$)/.test(cls), 'the ⓘ clips its own halo (overflow-hidden)');
+  assert.ok(!/(^|\s)after:/.test(cls), 'the ⓘ carries an after: utility that would fight the halo');
+});
+
+test('ⓘ every .sn-dot-btn button in app/ presses at 44 × 44', async () => {
+  const { readdirSync } = await import('node:fs');
+  const files = (readdirSync(join(WEB, 'app'), { recursive: true }) as string[]).filter((f) => f.endsWith('.tsx'));
+  let n = 0;
+  for (const f of files) {
+    const src = stripComments(read(join('app', f)));
+    for (const cls of dotClassStrings(src)) {
+      n++;
+      const p = dotPress(cls);
+      assert.ok(p.drawnW > 0 && p.drawnH > 0, `${f}: a .sn-dot-btn with no drawn size the guard can read (${cls})`);
+      assert.ok(p.w >= 44 && p.h >= 44, `${f}: a .sn-dot-btn presses at ${p.w}×${p.h}px (classes: ${cls})`);
+      // The halo IS the press: a button that clips its own overflow, or sets its own `after:` geometry, shrinks it.
+      assert.ok(!/(^|\s)overflow-(hidden|clip)(\s|$)/.test(cls), `${f}: a .sn-dot-btn clips its own halo (classes: ${cls})`);
+      assert.ok(!/(^|\s)after:(-?inset|top|bottom|left|right|absolute|hidden|content-none)/.test(cls), `${f}: a .sn-dot-btn carries an after: utility that fights its halo (classes: ${cls})`);
+    }
+  }
+  // InfoTip + the schedule's hand-drawn ⓘ and its icon buttons: a count of 0 would mean the scan read nothing.
+  assert.ok(n >= 5, `found only ${n} .sn-dot-btn buttons — the scan is not reading the tree`);
+});

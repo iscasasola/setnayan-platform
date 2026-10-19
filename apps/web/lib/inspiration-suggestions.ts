@@ -14,6 +14,8 @@
  * (`suggestablePartsForShop`, `lib/inspiration-suggestion-parts.ts`) and handed down as keys.
  */
 
+import { formatCount } from './format-number';
+
 /** Up to three photos may wait per part per shop (the SQL function's own cap; this is only the words). */
 export const SUGGESTIONS_WAITING_MAX = 3;
 
@@ -37,7 +39,7 @@ export type SupplierSuggestion = {
 
 /** The couple's notice at the top of Palette (prototype frame 4): "2 suggestions from your suppliers". */
 export function suggestionNoticeTitle(n: number): string {
-  return `${n} ${n === 1 ? 'suggestion' : 'suggestions'} from your suppliers`;
+  return `${formatCount(n)} ${n === 1 ? 'suggestion' : 'suggestions'} from your suppliers`;
 }
 export const SUGGESTION_NOTICE_LINE = 'Tap one to see it beside your photos';
 
@@ -71,10 +73,10 @@ export const FULL_SHEET_KEEP_ALL = 'Keep all three for now';
  * photos kept from a supplier are named by shop, one clause per shop.
  */
 export function coupleCountLine(photos: number, fromShops: ReadonlyArray<string | null | undefined>): string {
-  const base = photos === 0 ? 'No photos yet' : `${photos} ${photos === 1 ? 'photo' : 'photos'}`;
+  const base = photos === 0 ? 'No photos yet' : `${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`;
   const by = new Map<string, number>();
   for (const s of fromShops) if (s) by.set(s, (by.get(s) ?? 0) + 1);
-  return [base, ...[...by].map(([shop, n]) => `${n} from ${shop}`)].join(' · ');
+  return [base, ...[...by].map(([shop, n]) => `${formatCount(n)} from ${shop}`)].join(' · ');
 }
 
 /**
@@ -82,9 +84,9 @@ export function coupleCountLine(photos: number, fromShops: ReadonlyArray<string 
  * shop has waiting — "Waiting to be kept" when that is all there is.
  */
 export function supplierCountLine(couplePhotos: number, waiting: number): string {
-  if (waiting === 0) return couplePhotos === 0 ? 'No photos yet' : `${couplePhotos} ${couplePhotos === 1 ? 'photo' : 'photos'}`;
+  if (waiting === 0) return couplePhotos === 0 ? 'No photos yet' : `${formatCount(couplePhotos)} ${couplePhotos === 1 ? 'photo' : 'photos'}`;
   if (couplePhotos === 0) return 'Waiting to be kept';
-  return `${couplePhotos} ${couplePhotos === 1 ? 'photo' : 'photos'} · ${waiting} waiting to be kept`;
+  return `${formatCount(couplePhotos)} ${couplePhotos === 1 ? 'photo' : 'photos'} · ${formatCount(waiting)} waiting to be kept`;
 }
 
 /** The supplier's toast after sending (prototype frame 2): "Sent to Ice & Claire." */
@@ -108,7 +110,7 @@ export function shopInitial(shop: string): string {
 /** The supplier's refusal words, by the SQL function's status. */
 export const SUGGEST_REFUSAL: Readonly<Record<'wrong_trade' | 'full' | 'not_booked' | 'fee_unsettled' | 'failed', string>> = {
   wrong_trade: 'That part is for another kind of supplier — your shop’s services don’t dress it.',
-  full: `${SUGGESTIONS_WAITING_MAX} of your photos are already waiting there — wait for the couple to keep one, or take one back.`,
+  full: `${formatCount(SUGGESTIONS_WAITING_MAX)} of your photos are already waiting there — wait for the couple to keep one, or take one back.`,
   not_booked: 'You can suggest photos once you are booked on this event.',
   fee_unsettled: 'Settle the booking fee first — then you can suggest photos.',
   failed: 'That photo didn’t go through. Please try again.',

@@ -93,8 +93,10 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
   };
 
   try {
-    /* The shop the SQL door chose (one person may run more than one), read under the supplier's own session. */
-    const { data: shopRow, error: shopErr } = await supabase
+    /* The shop the SQL door chose (one person may run more than one). Its contact columns are not session-readable
+       (20271221366210), so it is read on the service role — scoped by the id the SQL door PROVED is the caller's own
+       booked shop, never by anything the browser sent. */
+    const { data: shopRow, error: shopErr } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, portfolio_r2_keys, business_name, contact_phone, contact_email, website, logo_url')
       .eq('vendor_profile_id', door.vendor_profile_id)

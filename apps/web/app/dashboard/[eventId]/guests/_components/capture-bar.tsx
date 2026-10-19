@@ -5,10 +5,11 @@
  *
  * Capture-first (owner sign-off 2026-07-11): type one line and press Enter. The
  * pure grammar in `lib/guest-parse.ts` turns "Ana Cruz +1 groom vip #Barkada"
- * into a structured draft, `addSingleGuest` lands it, the field clears, focus
- * stays — so a host adds many in a row. An "Adding…" shimmer marks the in-flight
- * round-trip. The bulk-entry paths (full form · CSV import · quick-add list)
- * live in the overflow menu.
+ * into a structured draft, the field clears AT ONCE, focus stays — so a host
+ * adds many in a row — and the name is queued (`guest-add-queue.ts`): drawn
+ * now, written in order by `addSingleGuest`, its own row saying "Adding…",
+ * "Added" or why not (2026-10-19). The bulk-entry paths (full form · CSV
+ * import · quick-add list) live in the overflow menu.
  *
  * FIND MOVED OUT (Living Roster search consolidation · owner sign-off
  * 2026-07-13): the old dual-mode [Add | Find] toggle is retired. Search is no
@@ -19,20 +20,17 @@
  * for both Add and Find" P2 sign-off — the duplicate search box the owner
  * spotted was that model's failure tell.)
  *
- * Motion (the shimmer) is frozen by the global `prefers-reduced-motion` block.
  */
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
-import { plainRefusal } from './plain-refusal';
-import { usePeekToast } from './use-peek-toast';
-import { parseGuestInput } from '@/lib/guest-parse';
 import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import { useGuestActions } from './guest-actions-context';
-import { hearAction } from './hear-action';
+import { guestAdds, queueTypedGuest } from './guest-add-queue';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -58,27 +56,28 @@ export function CaptureBar({
   initialValue?: string;
 }) {
   const [value, setValue] = useState(initialValue);
-  const [pending, startTransition] = useTransition();
+  const [needs, setNeeds] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [toast, toastNode] = usePeekToast();
+  const router = useRouter();
   const { addSingleGuest } = useGuestActions();
+  // The list re-reads ONCE when every queued name is written (guest-add-queue.ts).
+  useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
 
+  /* ⚡ ONE ENTER = ONE GUEST, AT ONCE (owner 2026-10-19: "need to enter button twice to add … adding multiple person needs
+     to be fast and easy"). The name goes on screen and into the ordered queue NOW; the box clears and keeps the focus for
+     the next name. Nothing waits on the server, and no Enter is ever refused while an earlier name is still being written
+     — that refusal (`if (pending) return`) is what dropped 8 of 10 names typed in a row.
+     🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   const submitAdd = () => {
-    const raw = value;
-    if (!raw.trim() || pending) return;
-    const draft = parseGuestInput(raw, { defaultSide });
-    startTransition(async () => {
-      // 🔌 `hearAction`: a failed request answers like a refusal — the text stays in the box and the toast says so.
-      const res = await hearAction(() => addSingleGuest(eventId, draft));
-      if (!res.ok) {
-        // Keep the text so the host can fix it (e.g. add a last name).
-        toast.error(plainRefusal(res.error, 'Couldn’t add that guest. Try again.'));
-        return;
-      }
-      setValue('');
-      // Keep focus to add many in a row (prototype wireCapture :945-954).
-      requestAnimationFrame(() => inputRef.current?.focus());
-    });
+    const res = queueTypedGuest(eventId, value, defaultSide, addSingleGuest);
+    if (!res.ok) {
+      // Keep the text so the host can fix it (e.g. add a last name) — said at once, never sent to be refused.
+      if (res.error) setNeeds(res.error);
+      return;
+    }
+    setValue('');
+    setNeeds(null);
+    inputRef.current?.focus();
   };
 
   return (
@@ -90,7 +89,6 @@ export function CaptureBar({
        keeps its own spacing and every control is untouched; only the container
        stopped drawing. */
     <div className="relative">
-      {toastNode}
       {/* 🪤 `flex-wrap` + a floor on the name box, measured at 380px: with the
           four doors on the same line the box was 77px wide — "Type a r…" —
           and nobody can type "Ana Cruz +1 groom vip" into that. When the box
@@ -105,9 +103,14 @@ export function CaptureBar({
           <input
             ref={inputRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setNeeds(null);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
+                // A keyboard still composing a word (an IME, a phone's suggestion) owns this Enter — it finishes the word.
+                if (e.nativeEvent.isComposing) return;
                 e.preventDefault();
                 submitAdd();
               } else if (e.key === 'Escape') {
@@ -132,7 +135,7 @@ export function CaptureBar({
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={submitAdd}
-            disabled={pending || !value.trim()}
+            disabled={!value.trim()}
             aria-label="Add this guest"
             title="Add this guest"
             data-capture-add=""
@@ -142,17 +145,11 @@ export function CaptureBar({
           </button>
         </div>
 
-        {/* Hint / shimmer */}
+        {/* Hint — the box never waits, so there is no "Adding…" here: each name says it on its own row (just-added.tsx). */}
         <span className="hidden shrink-0 items-center sm:inline-flex">
-          {pending ? (
-            <span className="gl-adding font-mono text-[11px] text-terracotta-700">
-              Adding…
-            </span>
-          ) : (
-            <span className="rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45">
-              {'↵ add & keep going'}
-            </span>
-          )}
+          <span className="rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45">
+            {'↵ add & keep going'}
+          </span>
         </span>
 
         {/* ⚖ THE "…" MENU BECAME FOUR VISIBLE DOORS — owner 2026-09-20: *"this
@@ -185,6 +182,11 @@ export function CaptureBar({
           </div>
         ) : null}
       </div>
+      {needs ? (
+        <p role="alert" className="mt-1.5 text-xs text-danger-700" data-capture-needs="">
+          {needs}
+        </p>
+      ) : null}
     </div>
   );
 }

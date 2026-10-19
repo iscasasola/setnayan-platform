@@ -38,6 +38,7 @@ import {
   quickAddGuest,
   quickCreateGroup,
   setGuestPrimaryRole,
+  type AddWriteOptions,
   type QuickAddResult,
 } from './quick-add-actions';
 
@@ -386,6 +387,7 @@ export async function addGuestToGroup(
 export async function addSingleGuest(
   eventId: string,
   draft: ParsedGuestDraft,
+  opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
   // Thin wrapper: the orchestration (name-guard → mint `#groups` → role hint →
   // insert → attach extra groups / plus-one → ON-FAILURE compensate the freshly
@@ -394,7 +396,7 @@ export async function addSingleGuest(
   // verbatim quickAddGuest-reuse contract and every write are unchanged.
   return runAddSingleGuest(eventId, draft, {
     createGroup: (eid, name) => quickCreateGroup(eid, name),
-    addGuest: (eid, input) => quickAddGuest(eid, input),
+    addGuest: (eid, input) => quickAddGuest(eid, input, opts),
     resolveOfferedRoles: async (eid) => (await resolveRoleSetForEvent(eid)).offeredRoles,
 
     // Extra-group membership beyond the first (quickAddGuest attached group[0]).
@@ -454,6 +456,9 @@ export async function addSingleGuest(
       }
     },
 
-    revalidate: (eid) => revalidatePath(guestsPath(eid)),
+    // ⚡ `refresh: false` (a queued add): no page redraw in this answer — the queue re-reads the list once when it is empty.
+    revalidate: (eid) => {
+      if (opts.refresh !== false) revalidatePath(guestsPath(eid));
+    },
   });
 }

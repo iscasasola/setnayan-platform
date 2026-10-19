@@ -63,6 +63,13 @@ export type QuickAddInput = {
   email?: string | null;
 };
 
+/**
+ * How an add asks the page to redraw. Absent (every caller before 2026-10-19) = as before: the Guests page is redrawn in the
+ * same answer. `refresh: false` = the caller already draws the new row and re-reads the list itself, once, when its queue of
+ * adds is empty (`_components/guest-add-queue.ts`) — so ten names typed in a row cost one redraw, not ten.
+ */
+export type AddWriteOptions = { refresh?: boolean };
+
 export type QuickAddResult =
   | {
       ok: true;
@@ -93,6 +100,7 @@ export type QuickAddResult =
 export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
+  opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
   // BACKSTOP. Callers that already split a name (capture bar, the detailed
   // form, the import) pass the parts explicitly and are trusted verbatim.
@@ -229,7 +237,9 @@ export async function quickAddGuest(
   // when one was picked). Best-effort — never blocks the add.
   await applyReconcileForEvent(supabase, eventId);
 
-  revalidatePath(`/dashboard/${eventId}/guests`);
+  // ⚡ A queued add (the name box, Quick add) asks for NO page redraw: its own row is already on the screen, and the list
+  // re-reads ONCE when the queue is empty (`guest-add-queue.ts`). A redraw here made every add wait on the whole Guests page.
+  if (opts.refresh !== false) revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
     guest: { guest_id: inserted.guest_id, first_name, last_name, side, role },

@@ -85,6 +85,7 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import { projectGuests } from '@/lib/guest-optimistic';
+import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   MAP_ARRANGE,
@@ -95,6 +96,7 @@ import {
   rosterStats,
   rowVerbsFor,
   SEARCH_WAIT_MS,
+  typedLineIsAFilter,
   type MapArrange,
   type RosterFacts,
   type RosterView,
@@ -108,6 +110,8 @@ import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
 import { NewGroupInlineForm } from './new-group-inline-form';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
+import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
+import { JustAdded } from './just-added';
 import { useRowState } from './use-row-state';
 import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
@@ -296,6 +300,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
     guestOptimistic.reconcile(guests);
   }, [guests]);
   const roster = useMemo(() => projectGuests(guests, optimistic), [guests, optimistic]);
+
+  // ── ⚡ Names typed and Entered: on screen at once ("Just added"), written in order, the list re-read ONCE when the
+  // queue is empty; a re-read that holds a saved name lets its waiting row step aside (guest-add-queue.ts).
+  const adds = useGuestAdds();
+  const waiting = adds.filter((a) => a.eventId === eventId && !a.landed);
+  useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
+  useEffect(() => {
+    guestAdds.reconcile(guests.map((g) => g.guest_id));
+  }, [guests]);
 
   const facts: RosterFacts = useMemo(
     () => ({
@@ -577,6 +590,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
       />
     </span>
   );
+  /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
+     add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
+     the line is a new guest, on the List at once (the shipped capture-bar grammar, the shipped `addSingleGuest`, through
+     the ordered queue), the box cleared and kept focused for the next name. A filter word that found nobody ("best man",
+     "no reply", a group's name) is never added as a person; a line without both names is kept and told so, at once.
+     It used to open the add sheet with the name in it — a SECOND Enter, then a wait on the server and a whole-page redraw.
+     🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
+  const [needs, setNeeds] = useState<string | null>(null);
+  const { addSingleGuest } = useGuestActions();
+  const filterLabels = useMemo(() => [...groups.map((g) => g.label), ...tables.map((t) => t.label)], [groups, tables]);
+  /** Queue the typed line; answers what stopped it ('' = added). */
+  const addTyped = (v: string): string => {
+    const key = normalizeSearchText(v);
+    if (waiting.some((a) => normalizeSearchText(a.name) === key)) {
+      setNeeds(`${v} is already added.`);
+      return 'already';
+    }
+    const res = queueTypedGuest(eventId, v, 'both', addSingleGuest);
+    if (!res.ok) {
+      if (res.error) setNeeds(res.error);
+      return res.error || 'empty';
+    }
+    if (fieldRef.current) fieldRef.current.value = '';
+    if (timer.current) clearTimeout(timer.current);
+    setQ('');
+    setNeeds(null);
+    fieldRef.current?.focus();
+    // The new name's row is at the top of the List — bring it into view (the List may be scrolled down).
+    requestAnimationFrame(() =>
+      rootRef.current?.querySelector('[data-just-added="list"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+    );
+    return '';
+  };
   const field = (
     <input
       ref={fieldRef}
@@ -584,17 +630,35 @@ export function GuestsScreen(props: GuestsScreenProps) {
       defaultValue={q}
       placeholder="Search or add"
       autoComplete="off"
+      autoCorrect="off"
+      enterKeyHint="go"
       aria-label="Search guests or add"
       data-fit-field=""
       data-guests-search=""
       data-tour="guests-add"
-      onInput={(e) => onType(e.currentTarget.value)}
+      onInput={(e) => {
+        setNeeds(null);
+        onType(e.currentTarget.value);
+      }}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return;
+        // A keyboard still composing a word (an IME, a phone's suggestion) owns this Enter — it finishes the word.
+        if (e.nativeEvent.isComposing) return;
+        e.preventDefault();
         const v = e.currentTarget.value.trim();
         if (timer.current) clearTimeout(timer.current);
         setQ(v);
-        if (!copy && v && !roster.some((g) => rosterSearchMatches(v, g, facts))) openAddGuest(v);
+        if (copy || !v) return;
+        const hits = roster.filter((g) => rosterSearchMatches(v, g, facts));
+        if (hits.length === 1) {
+          const id = hits[0]!.guest_id;
+          const row = rootRef.current?.querySelector<HTMLElement>(`[data-guest-id="${CSS.escape(id)}"] button`);
+          openCard(id, row ?? e.currentTarget);
+          return;
+        }
+        if (hits.length > 0) return;
+        if (typedLineIsAFilter(v, facts, filterLabels)) return;
+        addTyped(v);
       }}
     />
   );
@@ -723,7 +787,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
       {titlesWaiting.length > 0 && !copy ? (
         <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />
       ) : null}
-      {empty && !q ? <Handed>{empty}</Handed> : null}
+      {/* ⚡ The names just typed — here the moment Enter is pressed, until the re-read list draws their real rows. */}
+      {copy ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
+      {empty && !q && waiting.length === 0 ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
         const allSel = sec.guests.length > 0 && sec.guests.every((g) => selected.has(g.guest_id));
@@ -815,8 +881,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
+          {needs ? (
+            <p className={styles.body} role="alert" data-search-needs="">
+              {needs}
+            </p>
+          ) : null}
           <span className={styles.acts} data-fit-acts="">
-            {copy ? null : <ActionButton tone="brand" main icon={Plus} label={`Add “${q}”`} onClick={() => openAddGuest(q)} />}
+            {copy ? null : (
+              <ActionButton
+                tone="brand"
+                main
+                icon={Plus}
+                label={`Add “${q}”`}
+                onClick={() => {
+                  // One tap adds them, the same as Enter; a line the box cannot add alone (one name) opens the sheet.
+                  if (addTyped(q) === NEEDS_BOTH_NAMES) openAddGuest(q);
+                }}
+              />
+            )}
             <ActionButton
               tone="neutral"
               icon={X}

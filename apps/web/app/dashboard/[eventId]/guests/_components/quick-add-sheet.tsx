@@ -28,6 +28,9 @@ import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
 import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { normalizeGuestName } from '@/lib/guest-name';
+import { draftName, guestAdds, NEEDS_BOTH_NAMES, useGuestAdds } from './guest-add-queue';
+import { JustAdded } from './just-added';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 
@@ -123,6 +126,7 @@ export function QuickAddSheet({
      (lib/guest-side-question.ts); one helper, so the two cannot drift. */
   const hasSides = eventHasSides(roleSet);
   const [open, setOpen] = useState(false);
+  const [openedAt, setOpenedAt] = useState(0);
   // The couple's own words for roles (owner 2026-09-30).
   const roleNames = useRoleNames();
   const [side, setSide] = useState<GuestSide>(hasSides ? 'bride' : SIDELESS_SIDE);
@@ -169,10 +173,16 @@ export function QuickAddSheet({
   // Merge the server snapshot with this session's just-added guests
   // (router.refresh() is async, so addedLocal covers the gap), deduped
   // by normalized name so the same guest never shows twice in a warning.
+  // A name typed this session stands in under its queue key until the write answers; then it carries the real id, so
+  // "Add … too" / "Change … to" reach the saved guest.
+  const adds = useGuestAdds();
+  useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
   const pool = useMemo(() => {
+    const realId = new Map(adds.filter((a) => a.guestId).map((a) => [a.key, a.guestId!] as const));
     const seen = new Set<string>();
     const merged: ExistingGuest[] = [];
-    for (const g of [...existingGuests, ...addedLocal]) {
+    for (const g0 of [...existingGuests, ...addedLocal]) {
+      const g = realId.has(g0.guest_id) ? { ...g0, guest_id: realId.get(g0.guest_id)! } : g0;
       const key = `${norm(g.first_name)}|${norm(g.last_name)}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -181,7 +191,7 @@ export function QuickAddSheet({
       merged.push(ov ? { ...row, ...ov } : row);
     }
     return merged;
-  }, [existingGuests, addedLocal, roleOverrides]);
+  }, [existingGuests, addedLocal, roleOverrides, adds]);
   const dups = useMemo(
     () => (dupDismissed ? [] : findDuplicates(fn, ln, pool)),
     [fn, ln, pool, dupDismissed],
@@ -190,7 +200,10 @@ export function QuickAddSheet({
 
   /* open via the desktop button + body scroll lock */
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = () => {
+      setOpenedAt(Date.now());
+      setOpen(true);
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
@@ -217,6 +230,11 @@ export function QuickAddSheet({
     fnRef.current?.focus();
   }, [clearNames, toast]);
 
+  /* ⚡ ONE ENTER = ONE GUEST, AT ONCE (owner 2026-10-19). The name is queued (`guest-add-queue.ts`): drawn now under the
+     names ("Adding…" → "Added", or why not with Retry), written in the order typed, the list re-read ONCE when the queue
+     is empty. The boxes clear and First name takes the focus straight away — the next name never waits on the server, and
+     an answer can no longer clear a name the host is already typing. Side · Role · Group stay as picked (#782).
+     🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   const doSave = useCallback(
     (keepOpen: boolean) => {
       const f = fn.trim(),
@@ -226,44 +244,42 @@ export function QuickAddSheet({
         else setOpen(false);
         return;
       }
+      // The host may type a whole name ("Atty. Bob Casasola Jr.") into the
+      // First box — that is how the reported bug was produced. Re-parse the
+      // two boxes as one line so a title never lands in first_name, while a
+      // plain "Bob" + "Casasola" is returned unchanged by the parser.
+      const parts = parsePersonName(`${f} ${l}`.trim());
+      const first_name = parts.firstName || f;
+      const last_name = parts.lastName || l;
+      if (!normalizeGuestName(first_name) || !normalizeGuestName(last_name)) {
+        // Said at once, the names kept — never sent only to be refused.
+        setError(NEEDS_BOTH_NAMES);
+        (first_name ? lnRef : fnRef).current?.focus();
+        return;
+      }
       setError(null);
-      startTransition(async () => {
-        // The host may type a whole name ("Atty. Bob Casasola Jr.") into the
-        // First box — that is how the reported bug was produced. Re-parse the
-        // two boxes as one line so a title never lands in first_name, while a
-        // plain "Bob" + "Casasola" is returned unchanged by the parser.
-        const parts = parsePersonName(`${f} ${l}`.trim());
-        // 🔌 `hearAction`: a request that FAILED (offline, 5xx, a throw) answers like a refusal, so the sheet and the
-        // typed name stay and the line below is said — it used to replace the whole roster with the error screen.
-        const res = await hearAction(() =>
-          quickAddGuest(eventId, {
-            first_name: parts.firstName || f,
-            last_name: parts.lastName || l,
-            name_prefix: parts.prefix || null,
-            middle_name: parts.middleName || null,
-            name_suffix: parts.suffix || null,
-            side,
-            role,
-            group_id: groupId || null,
-          }),
-        );
-        if (!res.ok) {
-          setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
-          return;
-        }
-        // dedupe back-to-back rapid adds against the just-saved name
-        setAddedLocal((prev) => [...prev, { ...res.guest, extra_roles: [] }]);
-        clearNames();
-        router.refresh();
-        if (keepOpen) {
-          showToast(`${res.guest.first_name} added`);
-          setTimeout(() => fnRef.current?.focus(), 0);
-        } else {
-          setOpen(false);
-        }
+      const input = {
+        first_name,
+        last_name,
+        name_prefix: parts.prefix || null,
+        middle_name: parts.middleName || null,
+        name_suffix: parts.suffix || null,
+        side,
+        role,
+        group_id: groupId || null,
+      };
+      const key = guestAdds.enqueue({
+        eventId,
+        name: draftName({ prefix: input.name_prefix ?? '', firstName: first_name, middleName: input.middle_name ?? '', lastName: last_name, suffix: input.name_suffix ?? '' }),
+        run: () => quickAddGuest(eventId, input, { refresh: false }),
       });
+      // dedupe back-to-back rapid adds against the just-typed name (the queue's key stands in for its id)
+      setAddedLocal((prev) => [...prev, { guest_id: key, first_name, last_name, side, role, extra_roles: [] }]);
+      clearNames();
+      if (keepOpen) fnRef.current?.focus();
+      else setOpen(false);
     },
-    [fn, ln, side, role, groupId, eventId, clearNames, router, showToast, quickAddGuest],
+    [fn, ln, side, role, groupId, eventId, clearNames, quickAddGuest],
   );
 
   const forceAdd = useCallback(
@@ -532,10 +548,13 @@ export function QuickAddSheet({
                       setError(null);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        lnRef.current?.focus();
-                      }
+                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                      e.preventDefault();
+                      // ONE Enter adds when the line already holds a whole name ("Ana Cruz" typed in First) or Last is
+                      // filled; only a lone first name moves on to Last.
+                      const parts = parsePersonName(`${fn.trim()} ${ln.trim()}`.trim());
+                      if (parts.firstName && parts.lastName) primary(true);
+                      else lnRef.current?.focus();
                     }}
                     placeholder="First name"
                     autoComplete="off"
@@ -551,10 +570,9 @@ export function QuickAddSheet({
                       setError(null);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        primary(true);
-                      }
+                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                      e.preventDefault();
+                      primary(true);
                     }}
                     placeholder="Last name"
                     autoComplete="off"
@@ -671,6 +689,9 @@ export function QuickAddSheet({
                     {error}
                   </p>
                 ) : null}
+
+                {/* ⚡ Every name added here, drawn the moment Enter is pressed (guest-add-queue.ts). */}
+                <JustAdded eventId={eventId} variant="sheet" since={openedAt} />
               </div>
             </div>
 
@@ -680,9 +701,8 @@ export function QuickAddSheet({
                 tone="brand"
                 main
                 icon={Check}
-                label={isPending ? 'Adding…' : 'Done'}
+                label="Done"
                 onClick={done}
-                disabled={isPending}
                 className="w-full"
               />
             </div>

@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
-import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS } from './lab-stand-ins';
+import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS, labTimedAdds } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
 
 /**
@@ -28,7 +28,7 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  * `/api/guest/pass-card`); Write to NFC (a browser API, no database); the card's Access line (a link to Event Details). The
  * Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab (`setupDoorHref`).
  */
-export function LabGuestActions({ refuse = false, children }: { refuse?: boolean; children: ReactNode }) {
+export function LabGuestActions({ refuse = false, addMs = 0, children }: { refuse?: boolean; addMs?: number; children: ReactNode }) {
   /* A stand-in that must change what the page DRAWS (Finalize → the locked row) moves a search param the fixture reads, with
      `router.replace` — which refetches the page — never `replaceState` + `refresh()`, which Next does not follow. */
   const router = useRouter();
@@ -53,7 +53,7 @@ export function LabGuestActions({ refuse = false, children }: { refuse?: boolean
   };
   return (
     <GuestRemovalActionsContext.Provider value={stand}>
-      <GuestActionsProvider actions={refuse ? { ...LAB_GUEST_ACTIONS, ...LAB_SETUP_REFUSALS } : LAB_GUEST_ACTIONS}>{children}</GuestActionsProvider>
+      <GuestActionsProvider actions={{ ...LAB_GUEST_ACTIONS, ...(refuse ? LAB_SETUP_REFUSALS : {}), ...labTimedAdds(addMs) }}>{children}</GuestActionsProvider>
     </GuestRemovalActionsContext.Provider>
   );
 }

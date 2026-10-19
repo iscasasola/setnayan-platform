@@ -151,8 +151,13 @@ test('6 · the card is drawn OVER the Maker — its layer sits above the full-sc
   assert.match(MARCH_CARD_LAYER as string, /(?:^|\s)(?:relative|fixed|absolute)(?:\s|$)/, 'the card’s layer is not positioned — its z-index would do nothing');
   assert.ok(layerZ! > shellZ, `the card’s layer (z ${layerZ}) is not above the Maker (z ${shellZ}) — the card opens behind it`);
   const SHEET_SRC = read('app/_components/sheet.tsx');
-  const sheetZ = zOf(SHEET_SRC.match(/data-sheet=""\s*className="([^"]+)"/)![1]!)!;
-  assert.ok(sheetZ < shellZ, 'the Sheet itself now clears the Maker — this layer may be retired, update this test');
+  // The Sheet's root class is per boundary since the one-701 shell (`SHEET_AT[…].root`, sheet.tsx) — EVERY root is read.
+  const roots = [...SHEET_SRC.matchAll(/root: '([^']+)'/g)].map((m) => m[1]!);
+  assert.ok(roots.length >= 1 && /data-sheet=""\s*className=\{at\.root\}/.test(SHEET_SRC), 'the Sheet’s root class is no longer found — re-anchor this test on it');
+  for (const root of roots) {
+    const sheetZ = zOf(root)!;
+    assert.ok(sheetZ < shellZ, 'the Sheet itself now clears the Maker — this layer may be retired, update this test');
+  }
   // The card's own dropdowns (portalled to <body>) must still draw over the card.
   const PICK = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
   const pickZ = zOf(PICK.match(/role="listbox"[\s\S]{0,700}?className="([^"]+)"/)![1]!)!;

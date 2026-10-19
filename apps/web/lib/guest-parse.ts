@@ -33,7 +33,7 @@
  * original casing.
  */
 
-import type { GuestRole, GuestSide } from './guests';
+import type { GuestGroupCategory, GuestRole, GuestSide } from './guests';
 import { parsePersonName } from './person-name-parse';
 
 /** The structured draft a single Add-mode line parses into. */
@@ -57,6 +57,8 @@ export type ParsedGuestDraft = {
   /** A role candidate from `vip` / `sponsor|ninong|ninang`; null otherwise.
    *  NOT validated against the event's role set — the caller does that. */
   roleHint: GuestRole | null;
+  /** The add card's standard group (Family · Friends · …) — set by the caller, never by the parser. Absent = 'other'. */
+  groupCategory?: GuestGroupCategory | null;
 };
 
 const SIDE_TOKENS = new Set<GuestSide>(['bride', 'groom', 'both']);

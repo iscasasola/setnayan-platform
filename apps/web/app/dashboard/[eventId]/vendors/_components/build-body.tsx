@@ -95,7 +95,7 @@ export const BuildWritesStandInCtx = createContext<BuildWrites | null>(null);
 const NO_PICK = '__none__';
 /** On a phone the bar's buttons share its width; on a computer it is a pill
  *  in the corner and each keeps its own. */
-const BAR_FLEX = 'max-lg:!flex-1';
+const BAR_FLEX = 'max-tab:!flex-1';
 
 const CARDS_CSS =
   '[data-build-cards]{scrollbar-width:none;-webkit-overflow-scrolling:touch}[data-build-cards]::-webkit-scrollbar{display:none}' +
@@ -293,7 +293,7 @@ export function BuildBody({
   const allFree = fit.priced > 0 && fit.free === fit.priced;
 
   return (
-    <div data-build-body="" className="space-y-9 max-lg:pb-20">
+    <div data-build-body="" className="space-y-9 max-tab:pb-20">
 
       {/* ── THIS BUILD ─────────────────────────────────────────────────── */}
       <section id="svc-build" aria-labelledby="svc-build-h">
@@ -832,7 +832,7 @@ function BuildBar({
       data-build-bar=""
       data-on={up ? 'true' : 'false'}
       inert={!up}
-      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-[max(1.75rem,var(--sn-safe-r))] lg:px-0 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:px-0 ${
         up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}

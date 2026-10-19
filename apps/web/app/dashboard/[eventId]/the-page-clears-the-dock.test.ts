@@ -83,10 +83,20 @@ test('2 · the content column pads by the MEASURED dock, counting the safe area 
   assert.match(pb, /\+\s*[\d.]+rem\)\s*$/, `no breathing room past the dock: ${pb}`);
 });
 
-test('3 · desktop cancels it — the dock is lg:hidden there', () => {
-  const desktop = rulesFor('[data-shell-main]').filter((r) => /min-width:\s*1024px/.test(r.media ?? ''));
-  assert.equal(desktop.length, 1, 'no desktop cancel for [data-shell-main] — 90px of dead space under every desktop page');
+test('3 · from where the dock stops being drawn, the column cancels it — on the SAME line', () => {
+  /* 📱→🖥 The event tree's dock is `tab:hidden` (701, owner 2026-10-19), so the
+     cancel is read off the dock's own class and BREAKPOINTS, not pinned to 1024. */
+  const dockBp = /<BottomDock boundary="(\w+)">/.exec(LAYOUT)?.[1];
+  assert.ok(dockBp, 'the event layout no longer tells its dock a boundary');
+  assert.match(BAR, new RegExp(`\\b${dockBp}:hidden\\b`), `the dock has no ${dockBp}:hidden geometry`);
+  const RESP = readFileSync(join(WEB, 'lib', 'use-responsive.ts'), 'utf8');
+  const px = new RegExp(`\\b${dockBp}\\s*:\\s*(\\d+)`).exec(RESP)?.[1];
+  assert.ok(px, `lib/use-responsive.ts has no "${dockBp}"`);
+  const desktop = rulesFor('[data-shell-main]').filter((r) => new RegExp(`min-width:\\s*${px}px`).test(r.media ?? ''));
+  assert.equal(desktop.length, 1, `no cancel for [data-shell-main] from ${px}px — dead space under every page where the dock is gone`);
   assert.match(desktop[0]!.body, /padding-bottom\s*:\s*0\s*;/);
+  const elsewhere = rulesFor('[data-shell-main]').filter((r) => r.media !== null && !new RegExp(`min-width:\\s*${px}px`).test(r.media));
+  assert.equal(elsewhere.length, 0, 'a second width cancels the column — the dock and its clearance disagree in between');
 });
 
 test('4 · the event column carries the hook and no padding utility of its own', () => {

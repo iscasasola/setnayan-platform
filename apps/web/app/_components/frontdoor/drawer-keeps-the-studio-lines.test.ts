@@ -106,7 +106,10 @@ function winningDisplay(rules: Rule[], cls: string, w: number): string | null {
   let best: { sp: number; order: number; disp: string } | null = null;
   for (const r of rules) {
     if (!applies(r.media, w)) continue;
-    const branches = r.sel.split(',').map((s) => s.trim()).filter((s) => s.endsWith(cls));
+    /* `[data-boundary='tab']` rules belong to the opted-in tree only (the couple
+       dashboard, which has no drawer from 701 — `front-door.css` THE TABLET
+       BAND). This guard models the drawer every OTHER tree still opens. */
+    const branches = r.sel.split(',').map((s) => s.trim()).filter((s) => s.endsWith(cls) && !s.includes('[data-boundary='));
     if (branches.length === 0) continue;
     const disp = r.body.match(/display:\s*([^;}]+)/)?.[1];
     if (!disp) continue;

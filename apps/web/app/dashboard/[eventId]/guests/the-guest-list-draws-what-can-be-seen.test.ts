@@ -82,5 +82,6 @@ test('a search opens every section with a hit and draws the hits', async () => {
 test('select-all and Remove read the section data, not the drawn rows', () => {
   assert.match(SCREEN, /toggleSection\(sec\.guests\.map\(\(g\) => g\.guest_id\)\)/);
   assert.match(SCREEN, /const allSel = sec\.guests\.length > 0 && sec\.guests\.every/);
-  assert.match(SCREEN, /\(drawnRows\.get\(sec\.key\) \?\? \[\]\)\.map\(\(g\) => \(\s*<GuestRowLine/);
+  // (The map may also read the row above — a +1 drawn joined to their guest.)
+  assert.match(SCREEN, /\(drawnRows\.get\(sec\.key\) \?\? \[\]\)\.map\(\(g(, i, drawn)?\) => \(\s*<GuestRowLine/);
 });

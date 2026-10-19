@@ -20,6 +20,7 @@
  *                    Record a payment goes to Amount to pay
  *   ?state=traditions a Muslim + Chinese event: the Target's ⓘ carries both notes
  */
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { notFound } from 'next/navigation';
 import { BudgetScreen, type SupplierExtras } from '@/app/dashboard/[eventId]/budget/_components/budget-screen';
 import { knownMoneyTotals, unreadEventMoney, computeEventMoney } from '@/lib/budget-truth';
@@ -37,10 +38,11 @@ const E = '00000000-0000-4000-8000-000000000000';
 export default async function BudgetLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string }>;
+  searchParams: Promise<{ state?: string; shell?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
-  const state = (await searchParams).state ?? 'summary';
+  const q = await searchParams;
+  const state = q.state ?? 'summary';
 
   const money =
     state === 'failed'
@@ -79,7 +81,7 @@ export default async function BudgetLabPage({
     };
   }
 
-  return (
+  const body = (
     <main className="sn-col" style={{ maxWidth: 720, margin: '0 auto', padding: '8px 16px 96px' }} data-budget-lab={state}>
       <BudgetScreen
         eventId={E}
@@ -104,4 +106,6 @@ export default async function BudgetLabPage({
       />
     </main>
   );
+  /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`) around the ledger. */
+  return q.shell === '1' ? <LabShell eventId={E}>{body}</LabShell> : body;
 }

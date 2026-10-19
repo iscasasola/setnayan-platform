@@ -57,10 +57,12 @@ test('the anchor: the files this guard reads exist, and the tree is not empty', 
 
 test('1 · the dock holds the bar and nothing else', () => {
   const src = stripComments(readFileSync(LAYOUT, 'utf8'));
-  const open = src.indexOf('<BottomDock>');
+  // The dock carries the shell's boundary since 2026-10-19 (`<BottomDock boundary="tab">`).
+  const tag = /<BottomDock(?:\s[^>]*)?>/.exec(src);
+  const open = tag ? tag.index : -1;
   const close = src.indexOf('</BottomDock>');
-  assert.ok(open >= 0 && close > open, 'the event layout mounts no <BottomDock>');
-  const inside = src.slice(open + '<BottomDock>'.length, close);
+  assert.ok(tag && open >= 0 && close > open, 'the event layout mounts no <BottomDock>');
+  const inside = src.slice(open + tag[0].length, close);
   const mounted = [...inside.matchAll(/<([A-Z][A-Za-z0-9]*)\b/g)].map((m) => m[1]);
   assert.deepEqual(mounted, ['CustomerBottomNav'], `the dock mounts ${mounted.join(', ')} — one bar only`);
 });

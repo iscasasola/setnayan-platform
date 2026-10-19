@@ -100,7 +100,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     // an RLS-shaped "you have none" on a page about money would tell a planner
     // her couple has no budget, which is a different and worse lie.
     return (
-      <section className="sn-col space-y-6">
+      <section className="sn-col max-w-3xl space-y-6">
         <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" />
         <DeniedState
           title="The budget isn't shared with you"
@@ -420,7 +420,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   }
 
   return (
-    <section className="sn-col space-y-6">
+    <section className="sn-col max-w-3xl space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}

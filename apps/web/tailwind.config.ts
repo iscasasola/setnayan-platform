@@ -69,6 +69,15 @@ const config: Config = {
   theme: {
     screens: {
       sm: '640px',
+      /* 📱→🖥 THE COUPLE DASHBOARD'S ONE PHONE/TABLET LINE (owner 2026-10-19,
+         DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)").
+         Below 701 is the phone; from 701 the event tree is the desktop system at
+         its width (rail strip, no bottom bar, the 440-px side panel). It is the
+         front door's own `max-width: 700.98px` line, and it sits between the
+         widest phone portrait (430) and the smallest iPad portrait (744).
+         Only surfaces that opt in (`boundary="tab"` on the shell) use it as
+         their nav switch; every other tree still switches at `lg`. */
+      tab: '701px',
       md: '768px',
       lg: '1024px',
       xl: '1280px',

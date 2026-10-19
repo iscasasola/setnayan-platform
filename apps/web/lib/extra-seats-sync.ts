@@ -59,6 +59,32 @@ async function readSeats(supabase: SupabaseClient, eventId: string, guestId: str
   return { primary: primary as Primary, seats };
 }
 
+/**
+ * 🤝 A +1'S SIDE FOLLOWS THEIR GUEST — at write time (owner 2026-10-19, "the plus 1 did not connect properly to
+ * the guest"). A seat is created with its guest's side (`syncExtraSeats` below), but a guest whose side was set
+ * AFTER their +1 existed left the +1 behind: measured 2026-10-20, 4 of 19 live +1s read "both" while their guest
+ * read "bride" — every one of them a guest edited after the +1 was made. Every write that sets a guest's side
+ * calls this with the same side: the inline Side, the bulk Side, and the card's save (through `syncExtraSeats`).
+ * Rows already drifted are NOT rewritten here — that is the owner's call; the List reads the guest's side for them.
+ * 🔒 guests/_components/a-plus-one-sits-with-their-guest.test.ts
+ */
+export async function carrySideToTheirPlusOnes(
+  supabase: SupabaseClient,
+  eventId: string,
+  guestIds: readonly string[],
+  side: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (guestIds.length === 0) return { ok: true };
+  const { error } = await supabase
+    .from('guests')
+    .update({ side, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .in('plus_one_of_guest_id', [...guestIds])
+    .neq('side', side)
+    .is('deleted_at', null);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 /** The sentence every finalized-list refusal uses — the RSVP lock's own words. */
 export const GUEST_LIST_FINALIZED = 'Your guest list is finalized — the guest count is locked.';
 
@@ -110,6 +136,12 @@ export async function syncExtraSeats(
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats.' };
   const { primary, seats } = read;
   const plan = planExtraSeats(primary.plus_one_count ?? 0, seats);
+
+  // The seats already there take the guest's side (the card's save changes it) — `carrySideToTheirPlusOnes`.
+  if (seats.length > 0) {
+    const carried = await carrySideToTheirPlusOnes(supabase, eventId, [primary.guest_id], primary.side);
+    if (!carried.ok) return carried;
+  }
 
   if (plan.create > 0) {
     const inserts = Array.from({ length: plan.create }, (_, i) => ({

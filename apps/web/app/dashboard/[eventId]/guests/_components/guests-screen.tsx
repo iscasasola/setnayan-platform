@@ -89,13 +89,16 @@ import {
   isToInvite,
   MAP_ARRANGE,
   mapTree,
+  plusOneWordsFrom,
   ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
   rosterStats,
   rowVerbsFor,
   SEARCH_WAIT_MS,
+  withTheirPlusOnes,
   type MapArrange,
+  type PlusOneWords,
   type RosterFacts,
   type RosterView,
   type SectionIcon,
@@ -297,6 +300,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, [guests]);
   const roster = useMemo(() => projectGuests(guests, optimistic), [guests, optimistic]);
 
+  // 🤝 Whose +1 each +1 row is — read off the WHOLE list, so a search still names every seat's guest.
+  const rosterById = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
+  const plusWords = useMemo(() => plusOneWordsFrom(roster), [roster]);
   const facts: RosterFacts = useMemo(
     () => ({
       roleNames,
@@ -304,8 +310,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
       groupsOf: (id) => groupsByGuest[id] ?? [],
       tableOf: (id) => tableByGuest[id] ?? null,
       songsOf: (id) => songsByGuest[id] ?? [],
+      guestById: (id) => rosterById.get(id),
     }),
-    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest],
+    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, rosterById],
   );
   const linked = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
 
@@ -326,7 +333,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  const visible = useMemo(() => (q ? roster.filter((g) => rosterSearchMatches(q, g, facts)) : roster), [roster, q, facts]);
+  // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
+  const visible = useMemo(
+    () => (q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster),
+    [roster, q, facts],
+  );
 
   // ── The one Sort (list) and the one Arrange (map).
   const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
@@ -778,10 +789,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {sec.guests.length === 0 ? (
                   <p className={styles.empty}>Nobody here yet.</p>
                 ) : (
-                  (drawnRows.get(sec.key) ?? []).map((g) => (
+                  (drawnRows.get(sec.key) ?? []).map((g, i, drawn) => (
                     <GuestRowLine
                       key={g.guest_id}
                       g={g}
+                      plusWords={plusWords.get(g.guest_id) ?? null}
+                      joined={joinedToTheRowAbove(g, drawn[i - 1])}
                       selectMode={selectMode}
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
@@ -938,6 +951,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             rootLabel={rootLabel}
             tree={tree}
             isToInvite={isToInvite}
+            plusWords={plusWords}
             onOpen={openCard}
             fitKey={`${arrange}|${q}`}
           />
@@ -1010,8 +1024,19 @@ const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
   pending: { cls: 'pillMute', word: RSVP_ROW_WORDS.pending },
 };
 
+/**
+ * 🤝 Is this row drawn as part of the guest above it? A +1 right after their guest (or after that guest's
+ * earlier +1) — no divider between them: a guest and their +1 are one topic.
+ */
+function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean {
+  const host = g.plus_one_of_guest_id;
+  return Boolean(host && above && (above.guest_id === host || above.plus_one_of_guest_id === host));
+}
+
 function GuestRowLine({
   g,
+  plusWords,
+  joined,
   selectMode,
   picked,
   face,
@@ -1023,6 +1048,9 @@ function GuestRowLine({
   onRemove,
 }: {
   g: GuestRow;
+  /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
+  plusWords: PlusOneWords | null;
+  joined: boolean;
   selectMode: boolean;
   picked: boolean;
   face?: string;
@@ -1033,16 +1061,19 @@ function GuestRowLine({
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const name = guestFullName(g) ?? guestDisplayName(g);
+  const name = plusWords?.name ?? guestFullName(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
   const pill = isToInvite(g) && g.rsvp_status === 'pending' ? { cls: 'pillGold', word: 'To invite' } : PILL[g.rsvp_status];
   const act = (e: React.MouseEvent<HTMLElement>) => (selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget));
-  const sideCls = g.side === 'bride' ? styles.sideBride : g.side === 'groom' ? styles.sideGroom : styles.sideBoth;
+  // A +1 shows their guest's side — the side follows the guest who brings them.
+  const side = plusWords?.side ?? g.side;
+  const sideCls = side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth;
   return (
     <div
-      className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''}`}
+      className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
       data-guest-id={g.guest_id}
+      data-plus-one-of={plusWords?.hostId}
     >
       <button
         type="button"
@@ -1066,6 +1097,7 @@ function GuestRowLine({
         <div className={styles.nm}>
           <span aria-hidden className={`${styles.dot} ${sideCls}`} />
           {name}
+          {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
           {plus > 0 ? <span className={styles.pill}>+{plus}</span> : null}
         </div>
         <div className={styles.meta}>

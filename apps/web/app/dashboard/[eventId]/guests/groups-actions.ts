@@ -5,6 +5,7 @@ import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
+import { carrySideToTheirPlusOnes } from '@/lib/extra-seats-sync';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -240,6 +241,11 @@ export async function bulkApplyRoleAndGroup(
       .in('guest_id', guestIds);
     if (error) {
       redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+    }
+    // 🤝 Their +1s take the same side (lib/extra-seats-sync.ts `carrySideToTheirPlusOnes`).
+    const carried = await carrySideToTheirPlusOnes(supabase, eventId, guestIds, side);
+    if (!carried.ok) {
+      redirect(backToList(eventId, { error: encodeURIComponent(carried.error) }));
     }
     didSide = true;
   }

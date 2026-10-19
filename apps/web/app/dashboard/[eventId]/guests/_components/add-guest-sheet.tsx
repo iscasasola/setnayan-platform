@@ -7,7 +7,8 @@
  * 2 of the approved simple phone app) → *"this also should be visible on desktop
  * mode?"* → *"okay keep it similar"*: the computer uses the SAME round + and the
  * SAME sheet. Tapping + opens it: first "Type a name…" (Enter adds — the shipped
- * `CaptureBar`, its parser and its `addSingleGuest`, reused whole), then the other
+ * `CaptureBar`, its parser and its `addSingleGuest`, reused whole — and each name
+ * typed is listed under the box at once, `JustAdded`), then the other
  * ways in, as rows: from your People · the full add form · import · a quick add
  * list (`AddDoors`, the same four the ⋯ lists). No new server action.
  *
@@ -22,6 +23,7 @@ import type { GuestSide } from '@/lib/guests';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GuestPopup } from './guest-popup';
 import { CaptureBar } from './capture-bar';
+import { JustAdded } from './just-added';
 import { openQuickAdd } from './quick-add-sheet';
 import { openAddFromPeople } from './add-from-people-sheet';
 
@@ -100,12 +102,14 @@ export function AddGuestSheet({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [openedAt, setOpenedAt] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent<{ name?: string } | null>).detail;
       setName(detail?.name ?? '');
+      setOpenedAt(Date.now());
       setOpen(true);
     };
     window.addEventListener(OPEN_EVENT, onOpen);
@@ -140,6 +144,9 @@ export function AddGuestSheet({
             initialValue={name}
           />
         </div>
+        {/* ⚡ Every name typed here, drawn the moment Enter is pressed — "Adding…", then "Added", or why not with Retry
+            (guest-add-queue.ts). The sheet covers the List, so the names are shown where the host is looking. */}
+        <JustAdded eventId={eventId} variant="sheet" since={openedAt} />
         {/* ⚖ What the name box understands (owner 2026-10-01): ONE example line
             that fits this event, and one fold — never a wall of text. The words
             come from `lib/quick-add-tips.ts`, each read by the shipped parser. */}

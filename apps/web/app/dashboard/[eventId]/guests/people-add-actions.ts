@@ -36,7 +36,8 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 import { getPeopleYouCanInvite } from '@/lib/people-you-can-invite';
 import { quickAddGuest } from './quick-add-actions';
-import type { GuestSide } from '@/lib/guests';
+import { addSingleGuest } from './inline-actions';
+import type { GuestGroupCategory, GuestRole, GuestSide } from '@/lib/guests';
 
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
@@ -58,13 +59,30 @@ export type PeoplePick = {
 const NO_SURNAME_MARK = '—';
 
 export type AddFromPeopleResult =
-  | { ok: true; added: number; failed: number; firstError: string | null }
+  | { ok: true; added: number; failed: number; firstError: string | null; guestIds?: string[] }
   | { ok: false; error: string };
+
+/**
+ * The search box's add card (2026-10-20, owner: *"search also searches the people connected to them. From People. (when
+ * adding)"* · *"they can set the Role, Group, Side, and Plus"*): the card's four sticky picks ride along, and the add goes
+ * through the SAME orchestration as a typed name (`addSingleGuest`: groups found-or-made, role checked against the event,
+ * extra seats with their "+1 · TBA" rows) with the address People holds. Absent = the sheet's add, exactly as before.
+ */
+export type PeopleAddPicks = {
+  role?: GuestRole | null;
+  groupCategory?: GuestGroupCategory | null;
+  /** Own groups by name — found or made, the first seeds the seat clustering. */
+  groupLabels?: string[];
+  plusOnes?: number;
+  /** false = no page redraw in this answer (the queue re-reads once). */
+  refresh?: boolean;
+};
 
 export async function addGuestsFromPeople(
   eventId: string,
   picks: PeoplePick[],
   side: GuestSide,
+  withPicks?: PeopleAddPicks,
 ): Promise<AddFromPeopleResult> {
   if (!eventId) return { ok: false, error: 'Missing event.' };
   if (!Array.isArray(picks) || picks.length === 0) {
@@ -88,6 +106,7 @@ export async function addGuestsFromPeople(
   let added = 0;
   let failed = 0;
   let firstError: string | null = null;
+  const guestIds: string[] = [];
 
   /*
     🪤 THE CAP USED TO DROP THE OVERFLOW IN SILENCE. `picks.slice(0, 200)` has
@@ -125,6 +144,32 @@ export async function addGuestsFromPeople(
       which tells quickAddGuest not to re-parse "Ana —" into something else.
     */
     const knownLast = (person.lastName ?? '').trim();
+    if (withPicks) {
+      const one = await addSingleGuest(
+        eventId,
+        {
+          prefix: '',
+          firstName: person.firstName || person.name,
+          middleName: '',
+          lastName: knownLast || NO_SURNAME_MARK,
+          suffix: '',
+          side,
+          plusOnes: Math.min(4, Math.max(0, Math.floor(Number(withPicks.plusOnes) || 0))),
+          groups: (withPicks.groupLabels ?? []).filter((g) => typeof g === 'string' && g.trim()).slice(0, 12),
+          roleHint: withPicks.role ?? null,
+          groupCategory: withPicks.groupCategory ?? null,
+        },
+        { refresh: withPicks.refresh, email: person.email },
+      );
+      if (one.ok) {
+        added += 1;
+        guestIds.push(one.guest.guest_id);
+      } else {
+        failed += 1;
+        firstError ??= one.error;
+      }
+      continue;
+    }
     const res = await quickAddGuest(eventId, {
       first_name: person.firstName || person.name,
       last_name: knownLast || NO_SURNAME_MARK,
@@ -135,17 +180,18 @@ export async function addGuestsFromPeople(
     });
     if (res.ok) {
       added += 1;
+      guestIds.push(res.guest.guest_id);
     } else {
       failed += 1;
       firstError ??= res.error;
     }
   }
 
-  if (added > 0) revalidatePath(`/dashboard/${eventId}/guests`);
+  if (added > 0 && withPicks?.refresh !== false) revalidatePath(`/dashboard/${eventId}/guests`);
   if (added === 0) {
     return { ok: false, error: firstError ?? 'Couldn’t add anybody just now.' };
   }
-  return { ok: true, added, failed, firstError };
+  return { ok: true, added, failed, firstError, guestIds };
 }
 
 /**

@@ -34,7 +34,7 @@ import {
   type GuestRow,
   type RsvpStatus,
 } from '@/lib/guests';
-import { guestMatchesSearch, normalizeSearchText, type GuestSearchFacts } from '@/lib/guest-search';
+import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, type GuestSearchFacts } from '@/lib/guest-search';
 import {
   importanceGroupOf,
   isHonoreeRole,
@@ -628,6 +628,24 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
     songRequests: facts.songsOf?.(g.guest_id),
   };
   return guestMatchesSearch(q, g, searchFacts);
+}
+
+/**
+ * A LINE TYPED INTO "SEARCH OR ADD" THAT IS A FILTER, NOT A NAME (2026-10-19). Every word `rosterSearchMatches` reads as a
+ * filter — to invite · invited · no reply · a side · a reply · a role · VIP (`isSearchVocabulary`) — and this event's own
+ * group and table labels. When such a line matches nobody, Enter must NOT add it as a guest; the box says nobody matches.
+ * 🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts
+ */
+export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'roleNames' | 'hasSides'>, labels: readonly string[] = []): boolean {
+  const q = normalizeSearchText(query ?? '');
+  if (!q) return false;
+  if (TO_INVITE_WORDS.includes(q) || INVITED_WORDS.includes(q) || NO_REPLY_WORDS.includes(q)) return true;
+  if (SIDE_WORDS[q]) return true;
+  if (isSearchVocabulary(q, facts.roleNames)) return true;
+  return labels.some((l) => {
+    const n = normalizeSearchText(l);
+    return n === q || n.replace(/\s+/g, '') === q.replace(/\s+/g, '');
+  });
 }
 
 /* ─── A ROW'S VERBS ─────────────────────────────────────────────────────── */

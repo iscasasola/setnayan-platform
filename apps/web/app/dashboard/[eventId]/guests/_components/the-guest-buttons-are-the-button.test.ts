@@ -120,7 +120,7 @@ test('the forward step of each is the filled brand button; Copy, Cancel and the 
     ['send-invite.tsx', /label=\{pending \? 'Saving…' : 'Save for every guest'\}/],
     ['guest-invite-cell.tsx', /label="Invite"/],
     ['add-guest-sheet.tsx', /label=\{label\}\s*onClick=\{\(\) => window\.dispatchEvent\(new CustomEvent\(OPEN_EVENT\)\)\}\s*\/>/],
-    ['quick-add-sheet.tsx', /label=\{isPending \? 'Adding…' : 'Done'\}/],
+    ['quick-add-sheet.tsx', /label="Done"/], // the guest write never waits since 2026-10-19 — no "Adding…" on Done
     ['quick-add-sheet.tsx', /label=\{isGroupPending \? 'Creating…' : 'Create'\}/],
     ['add-from-people-sheet.tsx', /'Add guest'/],
   ];

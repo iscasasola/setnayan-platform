@@ -104,11 +104,13 @@ test('a row with no usable name is dropped, not printed blank', () => {
   assert.deepEqual(peopleOf(groups[0]!).map((p) => p.name), ['Bea Reyes']);
 });
 
-test('the couple’s chosen display name wins over the composed one', () => {
+test('the couple’s "Shown as" never replaces the printed name (owner 2026-10-20)', () => {
   assert.equal(
     personName({ display_name: 'Tita Rosa', first_name: 'Rosario', last_name: 'Cruz' }),
-    'Tita Rosa',
+    'Rosario Cruz',
   );
+  // With no name parts at all, the Shown as is all there is — printed rather than dropping the person.
+  assert.equal(personName({ display_name: 'Tita Rosa', first_name: '', last_name: '' }), 'Tita Rosa');
   assert.equal(personName({ first_name: 'Rosario', last_name: 'Cruz' }), 'Rosario Cruz');
   assert.equal(personName({ first_name: null, last_name: null }), null);
 });

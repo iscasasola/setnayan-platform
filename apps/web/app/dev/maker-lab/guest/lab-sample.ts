@@ -104,6 +104,14 @@ const CALE_PARENTS: Row[] = [
   ['gp2', 'Atty.', 'Eufemia M.', 'Sacdalan-Dela Cruz', 'groom_parents', 1, 1],
 ];
 
+/**
+ * 🪪 cale-ice's groom's mother also carries a "Shown as" (`guests.display_name`) on her guest card — live, 2026-10-20,
+ * the owner's screenshot read "Frocie · MOTHER OF THE GROOM". A stand-in nickname in the same shape, so the lab draws
+ * what that row draws: the invitation prints her FULL name and never the nickname (owner 2026-10-20, DECISION_LOG
+ * "THE INVITATION PRINTS A GUEST'S FULL NAME — SHOWN AS NEVER REPLACES IT").
+ */
+const CALE_SHOWN_AS: Record<string, string> = { gp2: 'Femie' };
+
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
 /**
  * 🪪 `titles` — the sample with its parents' titles as cale-ice holds them (owner 2026-10-17): the groom's mother an
@@ -142,6 +150,7 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'tit
     extra_roles: [],
     march: { walk_no: cast === 'lone' ? (LONE_WALKS[id] ?? walk) : walk, place_in_walk: place },
     ...(cast === 'titles' ? TITLE_PICKS[id] : {}),
+    ...(cast === 'cale' && CALE_SHOWN_AS[id] ? { display_name: CALE_SHOWN_AS[id] } : {}),
   }));
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and

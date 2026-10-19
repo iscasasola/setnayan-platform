@@ -1001,8 +1001,19 @@ export function guestDisplayName(
  * a prefix** — Atty., Comm., Associate Dean — and the invitation dropped every
  * one. On a Filipino invitation a ninong's title is not decoration.
  *
- * 🔑 The couple's own `display_name` still WINS when they set one: it is the
- * name they chose for this person, and a composed one must never override it.
+ * 🪪 "SHOWN AS" NEVER REPLACES THE FULL NAME (owner, verbatim, 2026-10-20, on
+ * the live cale-ice entourage reading "Frocie · MOTHER OF THE GROOM": *"why the
+ * nickname replaced on the invitation. do not change the invitation. used the
+ * full name."* — DECISION_LOG "THE INVITATION PRINTS A GUEST'S FULL NAME —
+ * SHOWN AS NEVER REPLACES IT"). Until that day this function let the couple's
+ * `display_name` WIN over the five parts (since the entourage first shipped,
+ * #5487/#5492, 2026-09-14), and the guest card's "Shown as (optional)" box —
+ * placeholder "e.g. Tito Boy & Tita Cora" — invites exactly a nickname. So a
+ * nickname typed for the couple's own list was printed on the invitation.
+ * Now: the five parts print whenever there are any; `display_name` is read
+ * ONLY when there are none at all (a row with nothing else to print beats a
+ * dropped person). The couple's list, search and the guest's own greeting keep
+ * "Shown as" through `guestNameAsGiven` below — never through this function.
  *
  * Returns null when there is nothing usable, so a caller can drop the row
  * rather than print an empty line where a person should be.
@@ -1010,7 +1021,7 @@ export function guestDisplayName(
  * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
  * A NAME STYLE"): `style` prints the parts as Full · Middle initial · Surname
  * first (`lib/name-style.ts`). Omitted = Full = the line this printed before.
- * A Display name still wins in every style — it is printed as given.
+ * 🔒 lib/the-invitation-prints-the-full-name.test.ts
  */
 export function guestFullName(guest: {
   /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
@@ -1026,12 +1037,33 @@ export function guestFullName(guest: {
   last_name?: string | null;
   name_suffix?: string | null;
 }, style?: NameStyle): string | null {
-  const chosen = guest.display_name?.trim();
-  if (chosen) return chosen;
   /* Order is the printed order, and every part is optional EXCEPT that at least
      one must survive — `styledName` skips a blank part, so `${a} ${b}` with
      both empty (a lone stray space) can never print. */
-  return styledName(guest, style);
+  const formal = styledName(guest, style);
+  if (formal) return formal;
+  /* Only a row with NO name parts at all falls back to "Shown as" — there is
+     no full name for it to replace, and dropping the person is worse. */
+  return guest.display_name?.trim() || null;
+}
+
+/**
+ * 💬 THE NAME AS THE COUPLE GAVE IT — their "Shown as" (`display_name`) when
+ * they set one, else the full name (`guestFullName`).
+ *
+ * For exactly the surfaces the 2026-10-20 ruling leaves "Shown as" on: the
+ * couple's own Guest list and its search, and words addressed TO the guest
+ * themself — the couple's invite message `{name}` ("Hi Tito Boy & Tita Cora!",
+ * owner 2026-09-30 "the name as given. to them") and the greeting on the
+ * invitation they open. Never a formal surface: the entourage, the march,
+ * Dress with us, prints, tickets and passes print `guestFullName`.
+ * 🔒 lib/the-invitation-prints-the-full-name.test.ts holds which files may call it.
+ */
+export function guestNameAsGiven(
+  guest: Parameters<typeof guestFullName>[0],
+  style?: NameStyle,
+): string | null {
+  return guest.display_name?.trim() || guestFullName(guest, style);
 }
 
 /**

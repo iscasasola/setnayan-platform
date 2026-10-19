@@ -61,7 +61,7 @@ test('3 · Done for a line’s words typed in the panel: the stage’s own typin
   /* Shown by rule while a typed row of the panel's rows is open — no state to fall out of step with the field. */
   assert.match(LIST, /'\[data-rsvp-panel-keys\]\{display:none!important\}' \+\s*'body:has\(\[data-rsvp-stage-rows\] \[data-form-row-editing\]\) \[data-rsvp-panel-keys\]\{display:flex!important\}'/);
   /* The stage's own bar: its classes, "Typing · <line>", the brand Done — which only leaves the box (the row keeps). */
-  assert.match(LIST, /data-rsvp-panel-keys="" style=\{\{ bottom \}\} className=\{`fixed inset-x-0 z-\[85\] \$\{SP_KEY_BAR\}`\}>/);
+  assert.match(LIST, /data-rsvp-panel-keys="" style=\{\{ bottom \}\} className=\{`fixed inset-x-0 z-\[85\] \$\{SP_KEY_BAR_FIXED\}`\}>/);
   assert.match(LIST, /<span className="min-w-0 truncate">Typing · \{name\}<\/span>/);
   assert.match(LIST, /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{\(\) => \(document\.activeElement as HTMLElement \| null\)\?\.blur\?\.\(\)\} \/>/);
   /* Both of the panel's word boxes for a line have it — one of the page's own lines, and one the couple added — and

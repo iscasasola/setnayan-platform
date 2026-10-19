@@ -1067,6 +1067,7 @@ export function ScheduleDay({
       {!isDesktop && selected && !inspectorSlot ? (
         <div
           role="dialog"
+          data-safe-x=""
           aria-label={`Moment: ${selected.label}`}
           className="fixed inset-x-0 bottom-0 z-[60] max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-20px_50px_-30px_rgba(30,26,18,0.6)] ring-1 ring-ink/10"
         >

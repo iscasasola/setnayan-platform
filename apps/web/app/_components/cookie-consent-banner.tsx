@@ -248,7 +248,7 @@ export function CookieConsentBanner() {
          `liftPx` (from measureRouteBottomChrome, via the CSS var below)
          stacks it above the route's OWN bar; `sm:` keeps the original
          corner card, where none of this ever applied. */
-      className="fixed inset-x-0 z-[70] border-t border-ink/10 bg-cream/95 px-4 py-3 text-sm text-ink/80 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur bottom-[calc(var(--cb-lift,0px)+max(0.75rem,env(safe-area-inset-bottom)))] sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-w-md sm:rounded-2xl sm:border sm:p-4 sm:shadow-lg"
+      className="fixed inset-x-0 z-[70] border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 text-sm text-ink/80 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur bottom-[calc(var(--cb-lift,0px)+max(0.75rem,env(safe-area-inset-bottom)))] sm:inset-x-auto sm:right-[max(1rem,var(--sn-safe-r))] sm:bottom-4 sm:max-w-md sm:rounded-2xl sm:border sm:p-4 sm:shadow-lg"
       style={{ '--cb-lift': `${liftPx}px` } as CSSProperties}
     >
       {!manage ? (

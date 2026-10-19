@@ -231,7 +231,7 @@ export function MakerHalfSheet({
         data-half-sheet={size}
         data-peeking={state.peeking ? '' : undefined}
         style={{ ...style, ...(dragDy > 0 ? { transform: `translateY(${dragDy}px)` } : {}) }}
-        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl ${state.raised ? HALF_SHEET_UP : HALF_SHEET_REST} ${
+        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl max-lg:pl-[var(--sn-safe-l)] max-lg:pr-[var(--sn-safe-r)] ${state.raised ? HALF_SHEET_UP : HALF_SHEET_REST} ${
           slim ? 'max-lg:hidden' : ''
         } ${state.peeking ? 'max-lg:translate-y-[calc(100%-64px)]' : ''} ${
           dragDy > 0 ? '' : 'transition-[height,transform] duration-200 ease-out motion-reduce:transition-none'
@@ -358,7 +358,7 @@ export function HalfSheetSlimBar({
       data-phone-chrome-name="the slim bar"
       data-half-sheet-slim=""
       data-glass-row="half-sheet-slim"
-      className={`sn-glass-row fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl px-3 pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} ${SLIM_BAR_SEAT} lg:hidden`}
+      className={`sn-glass-row fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl pl-[max(0.75rem,var(--sn-safe-l))] pr-[max(0.75rem,var(--sn-safe-r))] pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} ${SLIM_BAR_SEAT} lg:hidden`}
     >
       <button
         type="button"

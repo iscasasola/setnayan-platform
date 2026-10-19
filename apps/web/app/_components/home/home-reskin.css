@@ -3175,6 +3175,9 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
   left: 0;
   right: 0;
   bottom: 0;
+  /* Edge to edge, its footer clears a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  padding-left: var(--sn-safe-l);
+  padding-right: var(--sn-safe-r);
   z-index: 80;
   max-height: min(70vh, 560px);
   overflow-y: auto;

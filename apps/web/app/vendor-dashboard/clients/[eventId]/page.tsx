@@ -79,7 +79,7 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
-import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -580,7 +580,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // below this point renders only when `isBooked`, and the RPC re-checks both
   // regardless — this decides what to DRAW, never what is permitted.
   const isBookedCoordinator =
-    isBooked && ((profile as { services?: string[] | null }).services ?? []).includes(COORDINATOR_TILE);
+    isBooked && isCoordinatorTrade((profile as { services?: string[] | null }).services);
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────

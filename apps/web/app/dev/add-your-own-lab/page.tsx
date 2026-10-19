@@ -21,6 +21,7 @@ import { notFound } from 'next/navigation';
 import { CoupleLinkDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { claimDatePhrase, inviterFirstNames } from '@/lib/claim-invite-words';
 import { coupleCardToCanvasInitial } from '@/lib/couple-card-to-canvas';
+import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
 import { LabCard, LabRecord } from './lab-client';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -68,6 +69,9 @@ export default async function AddYourOwnLabPage({
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
           eventId={LAB_EVENT}
+          coverCatalog={coverCatalogFromFolders(
+            buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+          )}
           categoryLabel={dunkin ? 'Everything else' : 'Catering'}
           edit={{
             vendorId: LAB_EVENT_VENDOR,

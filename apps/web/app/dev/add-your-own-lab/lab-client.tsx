@@ -9,6 +9,7 @@ import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-
 import { CanvasMaker } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SelfAddedSupplierPrefill } from '@/app/dashboard/[eventId]/vendors/actions';
+import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 
 export function LabCard({ initial }: { initial: CanvasInitial | null }) {
   return (
@@ -28,16 +29,20 @@ export function LabRecord({
   eventId,
   edit,
   categoryLabel = 'Catering',
+  coverCatalog,
 }: {
   eventId: string;
   edit: SelfAddedSupplierPrefill;
   categoryLabel?: string;
+  /** The Suppliers page's rows for a wedding, built by the page's own call (no database here). */
+  coverCatalog: readonly CoverCatalogFolder[];
 }) {
   return (
     <NewManualVendorModal
       eventId={eventId}
       category={edit.category}
       categoryLabel={categoryLabel}
+      coverCatalog={coverCatalog}
       edit={edit}
       onClose={() => {}}
       onCreated={() => {}}

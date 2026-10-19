@@ -263,7 +263,7 @@ test('(9) Apply asks Pro for a Scene ◆ or Upload ◆ on the cover — never fo
 
 test('(10) resolveHero and the Cover Scene never disagree: a photo ground draws THE hero photo, and none without one', async () => {
   const src = read('app/[slug]/_lib/cover-scene-layer.ts');
-  assert.match(src, /if \(ground\.kind === 'snippet'\) \{\s*const still = publicUrl\(ground\.poster\);[\s\S]*?\}\s*const still = ctx\.heroPhotoUrl;/, 'the cover draws a photo of its own, apart from the hero');
+  assert.match(src, /if \(ground\.kind === 'snippet'\) \{\s*const still = servedUrl\(ground\.poster, ctx\.signed\);[\s\S]*?\}\s*const still = ctx\.heroPhotoUrl;/, 'the cover draws a photo of its own, apart from the hero');
   const { renderSiteBodyFixtureFull } = await import('./site-body-fixture-render');
   const { fixtureWidgets } = await import('./site-body-fixture');
   const ground = { kind: 'photo', media: 'r2://setnayan-media/events/e1/scene-background/old.jpg' };

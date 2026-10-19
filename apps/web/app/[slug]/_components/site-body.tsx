@@ -234,7 +234,7 @@ import type { SeeAs } from '@/lib/see-as';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
-import { coverSceneLayer } from '../_lib/cover-scene-layer';
+import { coverSceneLayer, signCoverSceneMedia } from '../_lib/cover-scene-layer';
 import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
@@ -940,7 +940,8 @@ export async function SiteBody({
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
     looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
     /* 🖼 The Cover Scene's background (owner-approved 2026-10-15) — nothing stored: The theme's own, as before. */
-    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null }),
+    /* 🔏 …its files signed on the Main background's own host, never the `r2.dev` one (`signCoverSceneMedia`). */
+    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null, signed: await signCoverSceneMedia(heroCanvas.ground) }),
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the

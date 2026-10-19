@@ -58,7 +58,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
     return (
       <ErrorShell
         title="This link was already used."
-        body={`Someone has already joined with it. If that wasn't you, ask ${data.event?.couple_display_name ?? 'the couple'} to send you a new link.`}
+        body={`Someone has already joined with it. If that wasn't you, ask ${data.event?.couple_display_name ?? 'whoever sent it'} for a new link.`}
       />
     );
   }

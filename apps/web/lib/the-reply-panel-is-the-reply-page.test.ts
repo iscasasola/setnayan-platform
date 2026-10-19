@@ -10,9 +10,11 @@
  *       press is taken only at the desk's width with no key held. Sabotage: the panel mounted outside `guestDesk` →
  *       red; the width check dropped → red.
  *   3 · EVERY REPLY DOOR THE REAL GUEST PAGE DRAWS is one the panel takes (`SiteBody`, drawn with no database).
- *   4 · A SAVED REPLY IS THE SAVE'S OWN OUTCOME — the keywords the panel closes on are exactly the ones `submitRsvp`
- *       lands the thank-you on, and the Event Hub has words for each; the refusals stay on the reply page.
- *       Sabotage: an outcome dropped from `REPLY_PANEL_OUTCOMES` → red.
+ *   4 · A SAVED REPLY IS THE SAVE'S OWN OUTCOME — the keywords the panel acts on are exactly the ones `submitRsvp`
+ *       lands the thank-you on, and the Event Hub has words for each; the refusals stay on the reply page. And the
+ *       THANK-YOU DOOR STAYS IN THE PANEL (controller 2026-10-19 — the QR ticket, "Save to my account", the plus-ones'
+ *       invites): the invitation behind is read again, the panel is not closed. Sabotage: an outcome dropped from
+ *       `REPLY_PANEL_OUTCOMES` → red; a saved reply that closes the panel → red.
  *   5 · THE PANEL IS THE SYSTEM SHEET'S — the shared `Sheet`, which the desk style makes the 440-px right panel.
  */
 import test from 'node:test';
@@ -108,6 +110,11 @@ test('4 · a saved reply is the save’s own outcome — and the refusals stay o
 
   const at = { origin: ORIGIN, replyPath: REPLY, thanksPath: THANKS, framePath: REPLY };
   for (const o of REPLY_PANEL_OUTCOMES) assert.deepEqual(replyPanelStep(`${ORIGIN}${THANKS}?rsvp=${o}`, at), { kind: 'replied', outcome: o });
+  /* Once saved, the door stays — with its outcome, or after it puts its own address back. */
+  for (const href of [`${ORIGIN}${THANKS}?rsvp=ok`, `${ORIGIN}${THANKS}`, `${ORIGIN}${THANKS}?k=abc`]) {
+    assert.deepEqual(replyPanelStep(href, { ...at, saved: true }), { kind: 'stay' }, `the thank-you door leaves the panel: ${href}`);
+  }
+  assert.deepEqual(replyPanelStep(`${ORIGIN}/maria-and-jose`, { ...at, saved: true }), { kind: 'leave', href: '/maria-and-jose' }, 'the door’s own way on');
   for (const refusal of ['error', 'terms', 'choose', 'mobile', 'window']) {
     assert.deepEqual(replyPanelStep(`${ORIGIN}${REPLY}?rsvp=${refusal}`, at), { kind: 'stay' }, `"${refusal}" closes the panel`);
   }
@@ -117,7 +124,14 @@ test('4 · a saved reply is the save’s own outcome — and the refusals stay o
   assert.equal(repliedHref(`${ORIGIN}/maria-and-jose?tab=details#rsvp`, 'ok'), '/maria-and-jose?tab=details&rsvp=ok#rsvp');
   assert.equal(repliedHref(`${ORIGIN}/maria-and-jose?rsvp=error`, 'details'), '/maria-and-jose?rsvp=details');
   const panel = read(PANEL);
-  assert.match(panel, /router\.replace\(repliedHref\(window\.location\.href, step\.outcome\), \{ scroll: false \}\)/, 'a saved reply reloads the page, or loses its place');
+  /* The saved reply reads the invitation again and keeps the panel open on the door: no close in that branch. */
+  const replied = panel.match(/if \(step\.kind === 'replied'\) \{([\s\S]*?)\n {6}\}/);
+  assert.ok(replied, 'the saved-reply branch moved');
+  assert.match(replied![1]!, /saved = true;\s*router\.replace\(repliedHref\(window\.location\.href, step\.outcome\), \{ scroll: false \}\);/, 'a saved reply reloads the page, or loses its place');
+  assert.doesNotMatch(replied![1]!, /close\(|setSrc|done = true/, 'a saved reply closes the panel — the thank-you door is lost');
+  assert.match(panel, /replyPanelStep\(href, \{ \.\.\.at, saved \}\)/, 'the panel forgets the reply was saved');
+  assert.match(panel, /if \(step\.kind === 'stay' \|\| step\.kind === 'replied'\) \{/, 'the door is not kept (or not dressed) in the panel');
+  assert.equal(panel.match(/repliedHref\(/g)?.length, 1, 'the invitation is read again somewhere else too');
   /* The frame's own moves are given back before it goes, or the guest's next Back is a dead press (walked 2026-10-19). */
   assert.match(panel, /const extra = window\.history\.length - opened\.current;[\s\S]{0,400}?window\.history\.go\(-extra\);/, 'the frame’s history entries outlive it');
   assert.equal(panel.match(/setSrc\(null\)/g)?.length, 1, 'a close that does not give the frame’s history back');

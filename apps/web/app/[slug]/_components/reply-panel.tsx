@@ -16,12 +16,14 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../_lib/editor-canvas';
  *
  * 🔑 IT DRAWS NO FORM. The panel is the shared `Sheet` (a 440-px panel from the right on the desk — #6662) holding a
  * frame of the reply PAGE itself, so there is still one reply form. What the page does on a saved reply — it goes to
- * the thank-you door with `?rsvp=<outcome>` — is how the panel knows: it closes and the invitation is read again
- * (`router.replace`, no reload) with that outcome, so the Event Hub says its own "Your reply is in — thank you." and
- * draws the replied card. Anywhere else the page sends the guest (its own links, a re-key) becomes the page's
- * address, as on a phone. Esc (in the panel or in the form) and ✕ close it; focus goes back to the Reply pressed.
+ * the thank-you door with `?rsvp=<outcome>` — is how the panel knows: the invitation behind is read again at that
+ * moment (`router.replace`, no reload) with that outcome, so the Event Hub says its own "Your reply is in — thank you."
+ * and draws the replied card — and the panel STAYS OPEN on the thank-you door, so the guest keeps its QR ticket, "Save
+ * to my account" and the plus-ones' invites (controller 2026-10-19). Anywhere else the page or the door sends the guest
+ * (their own links, a re-key) becomes the page's address, as on a phone. Esc (in the panel or in the frame) and ✕ close
+ * it; focus goes back to the Reply pressed.
  *
- * `frameHref` is the lab's (`/dev/maker-lab/guest/reply-panel`): the reply page drawn without a database.
+ * `frameHref` is the lab's (`/dev/maker-lab/guest?replycard=open&desk=1`): the reply page drawn without a database.
  */
 export function ReplyPanel({
   replyPath,
@@ -94,7 +96,7 @@ export function ReplyPanel({
   }, [replyPath, frameHref]);
 
   /* Where the frame is: the reply page (stay, wearing the canvas's one chrome rule, Esc listened for), a saved reply
-     (close; read the invitation again), anywhere else (close; that address becomes the page's). Watched, because the
+     (read the invitation again; the thank-you door stays in the panel), anywhere else (close; that address becomes the page's). Watched, because the
      page's own moves are client navigations that fire no `load`. */
   useEffect(() => {
     if (!src) return;
@@ -105,6 +107,8 @@ export function ReplyPanel({
       framePath: new URL(src, window.location.origin).pathname,
     };
     const heard = new WeakSet<Window>();
+    /* A saved reply: the invitation behind is read again once, and the thank-you door stays in the panel. */
+    let saved = false;
     let done = false;
     const look = () => {
       if (done) return;
@@ -118,8 +122,12 @@ export function ReplyPanel({
       } catch {
         return;
       }
-      const step = replyPanelStep(href, at);
-      if (step.kind === 'stay') {
+      const step = replyPanelStep(href, { ...at, saved });
+      if (step.kind === 'replied') {
+        saved = true;
+        router.replace(repliedHref(window.location.href, step.outcome), { scroll: false });
+      }
+      if (step.kind === 'stay' || step.kind === 'replied') {
         if (href.startsWith('about:')) return;
         /* The app's floating notices (cookie card, stale-tab bar) are the page's, not the panel's. */
         if (doc.head && !doc.head.querySelector('style[data-reply-panel]')) {
@@ -137,10 +145,7 @@ export function ReplyPanel({
         return;
       }
       done = true;
-      close(() => {
-        if (step.kind === 'replied') router.replace(repliedHref(window.location.href, step.outcome), { scroll: false });
-        else router.push(step.href);
-      });
+      close(() => router.push(step.href));
     };
     look();
     const timer = window.setInterval(look, 150);

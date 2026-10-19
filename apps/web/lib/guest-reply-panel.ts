@@ -63,7 +63,7 @@ export type ReplyPanelStep =
 
 export function replyPanelStep(
   href: string,
-  at: { origin: string; replyPath: string; thanksPath: string; framePath: string },
+  at: { origin: string; replyPath: string; thanksPath: string; framePath: string; saved?: boolean },
 ): ReplyPanelStep {
   let url: URL;
   try {
@@ -75,6 +75,10 @@ export function replyPanelStep(
   if (url.protocol === 'about:') return { kind: 'stay' };
   const path = lower(url.pathname);
   const outcome = url.searchParams.get('rsvp');
+  /* 🎟 ONCE SAVED, THE THANK-YOU DOOR STAYS IN THE PANEL (controller 2026-10-19): the guest must not lose its QR ticket,
+     "Save to my account" and the plus-ones' invites — whatever the door does to its own address after (it puts its
+     address back once its effect has started) is still the door. */
+  if (at.saved && url.origin === at.origin && path === lower(at.thanksPath)) return { kind: 'stay' };
   if (url.origin === at.origin && path === lower(at.thanksPath) && (REPLY_PANEL_OUTCOMES as readonly string[]).includes(outcome ?? '')) {
     return { kind: 'replied', outcome: outcome as ReplyPanelOutcome };
   }

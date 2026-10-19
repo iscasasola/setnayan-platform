@@ -11,6 +11,7 @@ import {
   PlatformCompatBanner,
 } from './_download-motion';
 import { formatCount } from '@/lib/format-number';
+import { formatLongDate } from '@/lib/format-date';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -130,9 +131,11 @@ export default async function DownloadPage() {
 
             {mac ? (
               <div data-reveal-item className="space-y-1.5 pt-1">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
-                  v{release!.version} · {macSizeLabel} · Apple Silicon · Released {release!.publishedAt}
-                  {windows ? ` · Windows build ${winSizeLabel}` : ''}
+                {/* 🗣 WORDED FOR A VISITOR (sweep B4, 2026-10-19). This line read "V0.0.1 · 2.7 MB · APPLE SILICON ·
+                    RELEASED 2026-09-14 · WINDOWS BUILD 2.9 MB" — a build number that reads as a beta, an ISO date, and
+                    sizes the buttons above already carry. What a couple needs is which Mac and how fresh. */}
+                <p data-download-facts="" className="text-xs text-ink/50">
+                  For Apple-silicon Macs{windows ? ' and Windows 10/11' : ''} · released {formatLongDate(release!.publishedAt)}
                 </p>
                 {mac.notarized ? (
                   <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
@@ -143,13 +146,14 @@ export default async function DownloadPage() {
                   // Truthful, not alarming: an ad-hoc-signed build opens fine on
                   // first launch with one extra click (see "First launch" below),
                   // it is simply not Apple-notarized YET (S11).
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
-                    Not yet notarized by Apple — see &ldquo;First launch&rdquo; below
+                  <p className="text-xs text-ink/50">
+                    Not yet notarized by Apple, so macOS asks once the first time you open it — see &ldquo;First
+                    launch&rdquo; below.
                   </p>
                 )}
                 {windows && !windows.signed ? (
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
-                    Windows build is unsigned — Windows SmartScreen will warn on first run
+                  <p className="text-xs text-ink/50">
+                    On Windows, SmartScreen asks once the first time you run it — see &ldquo;First launch&rdquo; below.
                   </p>
                 ) : null}
               </div>

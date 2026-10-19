@@ -12,7 +12,7 @@
 //   3. Just published   — newest by date, of whatever's left.
 //   4. The archive      — everything still unseen.
 //
-// Event type filter chips collapse the cascade into a filtered grid.
+// The milestone dropdown (event type) collapses the cascade into a filtered grid.
 // A search box further filters across all stories.
 //
 // Live video: a card whose hero is a clip plays it on a seamless, continuous
@@ -31,6 +31,10 @@ import { StorytellerTile } from '@/app/_components/storyteller-tile';
 import type { StorytellerTileItem } from '@/lib/storytellers';
 import { StoryCard } from '@/app/blog/_components/story-card';
 import { blogCategoryLabel, type BlogArticle } from '@/lib/blog';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** The dropdown's "no filter" row — a key no event type can collide with. */
+const ALL_MILESTONES = '__all__';
 
 export type GalleryItem = {
   href: string;
@@ -594,34 +598,22 @@ export function RealStoriesGallery({
         ) : null}
       </div>
 
-      {/* Event type filter chips */}
+      {/* 🔽 THE MILESTONE FILTER IS ONE DROPDOWN (sweep B10, 2026-10-19 · owner rule: any set of choices is a
+          PickMenu). It was a row of up to 18 pills that wrapped four deep on a phone before the first story. */}
       {eventTypes.length > 1 ? (
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filter by milestone type">
-          <button
-            type="button"
-            onClick={() => setActiveType(null)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-              !activeType
-                ? 'bg-ink text-white'
-                : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
-            }`}
-          >
-            All
-          </button>
-          {eventTypes.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setActiveType(activeType === type ? null : type)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-                activeType === type
-                  ? 'bg-ink text-white'
-                  : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        <div className="mt-3 flex items-center gap-2" data-stories-milestone="">
+          <span className="text-xs font-medium text-ink/55">Show</span>
+          <PickMenu
+            label="Filter by milestone type"
+            value={activeType ?? ALL_MILESTONES}
+            options={[
+              { key: ALL_MILESTONES, label: 'All milestones' },
+              ...eventTypes.map((type) => ({ key: type, label: type })),
+            ]}
+            onPick={(k) => setActiveType(k === ALL_MILESTONES ? null : k)}
+            dataAttr="data-stories-milestone-pick"
+            className="!min-h-11"
+          />
         </div>
       ) : null}
 

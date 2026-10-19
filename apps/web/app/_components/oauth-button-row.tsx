@@ -6,6 +6,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { OAUTH_VERB } from '@/lib/oauth-words';
 
 /**
  * OAuth provider button row — Google + Apple + Facebook.
@@ -84,24 +85,9 @@ type Props = {
    * to 'customer'.
    */
   defaultAccountType?: 'customer' | 'vendor';
-  /**
-   * The words before the provider name. Default "Continue with" (every door
-   * today); /signup passes "Sign in with" because there the buttons are a
-   * direct sign-in beside a create-a-password form (owner 2026-09-23:
-   * "or directly sign in with Google or Apple"), and "Continue" under a
-   * sign-up heading read as a second way to sign up.
-   */
-  verb?: string;
 };
 
-/**
- * The words before the provider on EVERY sign-up door — /signup and the wedding
- * onboarding's account screen (owner 2026-09-25: the website's sign-up "must be
- * similar to the event invitation" — one look, one order). One constant so the
- * two doors cannot drift into two wordings of one button. The words themselves
- * are the owner's 2026-09-23 ruling ("or directly sign in with Google or Apple").
- */
-export const SIGNUP_OAUTH_VERB = 'Sign in with';
+/* The words before the provider live in ONE place — `OAUTH_VERB` (lib/oauth-words.ts) — for every door. */
 
 // Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
 // card and /signup. (The obsidian-rail 'dark' treatment was removed with the
@@ -170,7 +156,6 @@ export function OAuthButtonRow({
   next,
   withAccountType = false,
   defaultAccountType = 'customer',
-  verb = 'Continue with',
 }: Props) {
   // All providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
@@ -207,7 +192,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Google…">
             <GoogleGIcon />
-            {verb} Google
+            {OAUTH_VERB} Google
           </SubmitButton>
         </form>
       ) : null}
@@ -217,7 +202,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
             <AppleIcon fill={appleFill} />
-            {verb} Apple
+            {OAUTH_VERB} Apple
           </SubmitButton>
         </form>
       ) : null}
@@ -227,7 +212,7 @@ export function OAuthButtonRow({
           {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Facebook…">
             <FacebookIcon />
-            {verb} Facebook
+            {OAUTH_VERB} Facebook
           </SubmitButton>
         </form>
       ) : null}

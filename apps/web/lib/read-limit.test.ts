@@ -10,8 +10,9 @@
  *       decided "not found", an empty list, or a redirect from it;
  *   2 · a DECORATION read that does not answer leaves its part out and the
  *       page is returned, with the lapse logged;
- *   3 · ONE WAIT: a lapsed read is sent once (postgrest-js does not retry it),
- *       and five stalled reads in a row cost one budget, not five limits;
+ *   3 · ONE BUDGET: a lapsed read is sent at most twice (our one retry;
+ *       postgrest-js adds none), and five stalled reads in a row cost one
+ *       budget, not five limits;
  *   4 · a WRITE is never cut off, and outside the scope nothing changes.
  */
 import test from 'node:test';
@@ -91,7 +92,8 @@ test('1 · the event read never answers: the page is NOT "not found" — it did 
   assert.ok(outcome instanceof GuestPageDidNotLoad, `a read that never answered was shown as: ${String(outcome)}`);
   assert.ok(Date.now() - started < 1_000, 'the guest waited far past the limit');
   assert.deepEqual(outcome.lapsed.map((l) => l.what), ['events(event_id,slug)']);
-  assert.equal(sent.length, 1, `the lapsed read was sent ${sent.length} times — the limit is being multiplied by a retry`);
+  // Once, plus the ONE retry an essential read gets inside the budget (`an-essential-read-tries-twice.test.ts`).
+  assert.equal(sent.length, 2, `the lapsed read was sent ${sent.length} times — once and ONE retry, never more`);
 });
 
 test('1b · …and a redirect or a thrown "not found" decided from it is not believed either', async () => {

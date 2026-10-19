@@ -150,7 +150,7 @@ export function withOneWord(
   one: string,
   many?: string | null,
 ): Record<string, RoleName> | null {
-  const next: Record<string, RoleName> = { ...(stored as Record<string, RoleName>) };
+  const next: Record<string, RoleName> = { ...(stored as unknown as Record<string, RoleName>) };
   const cleanOne = cleanRoleName(one);
   const cleanMany = key.startsWith(SECTION_NAME_PREFIX) ? '' : cleanRoleName(many ?? '');
   if (!cleanOne) delete next[key];

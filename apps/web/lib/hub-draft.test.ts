@@ -131,8 +131,10 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     const venue = (HUB_DRAFT_VENUE_COLUMNS as readonly string[]).includes(c) || c === HUB_DRAFT_CEREMONY_TIME;
     // ⏳ "Draft 1-3" (owner 2026-10-08): the thank-you words and Reply by — settings, never Pro.
     const setting = (HUB_DRAFT_SETTINGS_COLUMNS as readonly string[]).includes(c);
-    assert.equal([look, free, word && !fact && !venue, made, own, fact, answer, venue, fill, setting].filter(Boolean).length, 1, `${c} must be exactly one kind`);
-    if (free || word || fact || answer || venue || fill || setting) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
+    // 🏷 The entourage's section headings, named in the Wedding March's Edit (owner 2026-10-19) — words, never Pro.
+    const heading = c === 'role_names';
+    assert.equal([look, free, word && !fact && !venue, made, own, fact, answer, venue, fill, setting, heading].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    if (free || word || fact || answer || venue || fill || setting || heading) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
     if (answer) {
       assert.equal(eventItemIsPro(c, false, 'change'), false, `${c}: an answer is never Pro`);
       assert.equal(eventItemIsPro(c, true, 'add'), false, `${c}: an answer is never Pro`);

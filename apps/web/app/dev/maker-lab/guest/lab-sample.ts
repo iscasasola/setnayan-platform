@@ -114,7 +114,14 @@ const TITLE_PICKS: Record<string, { name_prefix: string; gender: 'woman' | 'man'
   bp1: { name_prefix: 'Dr.', gender: 'man' },
 };
 
-export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'titles' | 'man' = 'sample') {
+/** 🏷 `&sections=vip` (2026-10-19): two of the couple's siblings (stand-in names) under Immediate Family, renamed "VIP". */
+const VIP_ROWS: Row[] = [
+  ['if1', 'Ms.', 'Bianca', 'Santos', 'bride_immediate_family', 18, 0],
+  ['if2', 'Mr.', 'Marco', 'Dela Cruz', 'groom_immediate_family', 18, 1],
+];
+export const LAB_VIP_SECTION_NAMES = { 'section:immediate_family': { one: 'VIP' } } as const;
+
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'titles' | 'man' | 'vip' | 'vip-usual' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
@@ -122,7 +129,8 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'tit
   /* 🤵‍♂️ `man` (2026-10-19): the sample with its maid of honor a MAN OF HONOR — a stand-in name, same walk and place. */
   const asMan: Row[] = ROWS.map((r) => (r[0] === 'moh' ? ['moh', 'Mr.', 'Carlo', 'Reyes', 'man_of_honor', r[5], r[6]] : r));
   const cast0 = cast === 'cale' ? [...CALE_PARENTS, ...ROWS.filter((r) => r[4] !== 'groom_parents')] : cast === 'man' ? asMan : ROWS;
-  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : cast0).map(([id, prefix, first, last, role, walk, place]) => ({
+  const vip = cast === 'vip' || cast === 'vip-usual';
+  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : vip ? [...ROWS, ...VIP_ROWS] : cast0).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
     first_name: first,
@@ -135,7 +143,7 @@ export function labEntourage(cast: 'sample' | 'standin' | 'lone' | 'cale' | 'tit
   /* The lab has no event, so no chosen Name style: it is handed the default a NEW event has (`DEFAULT_NAME_STYLE`),
      the way every real caller hands the event's own (the-name-style-reaches-every-formal-surface). Section order and
      role names stay null = the built-in order and words, exactly what the omitted arguments meant. */
-  return buildEntourage(rows, null, null, DEFAULT_NAME_STYLE);
+  return buildEntourage(rows, null, cast === 'vip' ? LAB_VIP_SECTION_NAMES : null, DEFAULT_NAME_STYLE);
 }
 
 /** The couple's dress code, as `events.dress_code_config` stores it — the lab's five colours, named. */

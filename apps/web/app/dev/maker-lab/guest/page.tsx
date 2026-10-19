@@ -402,7 +402,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      (`entourage-you.tsx`). No `me` = a stranger. Stand-in names only. */
   if (typeof sp.entourage === 'string') {
     const style = sp.entourage === 'default' ? null : sp.entourage;
-    const groups = labEntourage(sp.cast === 'cale' ? 'cale' : sp.cast === 'man' ? 'man' : sp.titles === '1' ? 'titles' : 'lone');
+    /* 🏷 `&sections=vip` — Immediate Family renamed "VIP" (owner 2026-10-19); `&sections=usual` — the same cast, no word. */
+    const groups = labEntourage(sp.sections === 'vip' ? 'vip' : sp.sections === 'usual' ? 'vip-usual' : sp.cast === 'cale' ? 'cale' : sp.cast === 'man' ? 'man' : sp.titles === '1' ? 'titles' : 'lone');
     const me = typeof sp.me === 'string' && sp.me ? sp.me : null;
     const meRole = me ? (groups.flatMap((g) => g.rows.flat()).find((p) => p?.id === me)?.role ?? null) : null;
     return (

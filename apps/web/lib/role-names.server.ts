@@ -58,7 +58,7 @@ export async function writeRoleNames(
     (stored) => {
       let next: RoleNames = readRoleNames(stored);
       for (const c of changes) next = readRoleNames(withOneWord(next, c.key, c.one, c.many));
-      value = Object.keys(next).length > 0 ? (next as Record<string, RoleName>) : null;
+      value = Object.keys(next).length > 0 ? (next as unknown as Record<string, RoleName>) : null;
       return { next: value };
     },
   );

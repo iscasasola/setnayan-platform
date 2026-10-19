@@ -1027,7 +1027,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             setting has its permanent home. See 03_Strategy/People_Graph_and_
             Lifelong_Identity_2026-07-04.md.
           */}
-          <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div data-coming-soon className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">Legacy contact</p>
               <p className="text-xs text-ink/60">

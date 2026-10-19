@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 /**
  * WebsiteProLock — the couple-facing "locked" state for a website editor that
@@ -17,8 +18,19 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  *   • 'page'   — full-page lock (whole editor is PRO, e.g. gallery / editorial).
  *   • 'inline' — a single card that replaces one PRO field inside an otherwise
  *                free editor (e.g. the background-music field on site-chrome).
+ *
+ * 🔒 IN THE STORE SHELL THERE IS NO LOCK TO SHOW (sweep 2026-10-19 row C14).
+ * Event Hub PRO is a digital unlock with no In-App Purchase yet, so the app
+ * may not advertise it (guideline 3.1.1). `StoreShellLinkGuard` already hid
+ * the "Unlock Event Hub PRO" button (its href is a refused /studio route),
+ * which left the card's "Part of Event Hub PRO" / "One unlock covers…" words
+ * on screen with nothing to press — an upsell with the door removed. So the
+ * card is not drawn at all: 'inline' renders nothing (the field is simply not
+ * there, like every other web-only feature), 'page' says only that this part
+ * is not in the app, with the way back. Never a price, a feature pitch, or a
+ * pointer to where else it lives.
  */
-export function WebsiteProLock({
+export async function WebsiteProLock({
   eventId,
   featureName,
   description,
@@ -31,6 +43,24 @@ export function WebsiteProLock({
   backHref?: string;
   variant?: 'page' | 'inline';
 }) {
+  if (await isStoreShellRequest()) {
+    if (variant === 'inline') return null;
+    return (
+      <section className="space-y-6">
+        {backHref ? (
+          <Link
+            href={backHref}
+            className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
+          >
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Back to Event Hub
+          </Link>
+        ) : null}
+        <p className="max-w-prose text-sm text-ink/70">This part of your Event Hub is not included in the app.</p>
+      </section>
+    );
+  }
+
   const upsellHref = `/dashboard/${eventId}/studio/website-pro`;
 
   const card = (

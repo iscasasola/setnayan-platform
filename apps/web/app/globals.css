@@ -2391,6 +2391,16 @@ html {
 #sn-init-splash {
   display: none;
 }
+/* 🚧 The store shell shows no "Coming soon" (App Review reads it as an
+   unfinished app). `data-store-shell` is set before first paint by
+   `storeShellMarkScript` (lib/store-shell.ts) in the Capacitor shell only;
+   every "Coming soon" pill — or the whole card when that is its only state —
+   carries `data-coming-soon`. Held by lib/store-shell.test.ts. The web and the
+   desktop app are untouched. */
+html[data-store-shell] [data-coming-soon] {
+  display: none !important;
+}
+
 html[data-sn-boot] #sn-init-splash {
   position: fixed;
   inset: 0;

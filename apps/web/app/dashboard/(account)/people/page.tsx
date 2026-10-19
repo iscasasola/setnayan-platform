@@ -250,6 +250,9 @@ function PeoplePreview() {
       <SamahanPeopleSection />
       </div>
 
+      {/* Everything below is the not-yet-built Connections preview — one
+          block, hidden in the store shell (lib/store-shell.ts `COMING_SOON_ATTR`). */}
+      <div data-coming-soon>
       <div className="sn-tile mb-8 flex items-start gap-3">
         <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
         <div className="space-y-1">
@@ -298,6 +301,7 @@ function PeoplePreview() {
             </span>
           ),
         )}
+      </div>
       </div>
     </div>
   );

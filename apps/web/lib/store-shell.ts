@@ -194,7 +194,44 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // `lib/the-supplier-page-lives-at-for-suppliers.test.ts` — so it needs no
   // entry of its own here.)
   '/for-suppliers',
+  // The Tagalog /features hub. Every feature row carries its live price
+  // ("Free · upgrades from ₱…", "₱2,500"). The English hub is bounced by the
+  // native brochure rule in middleware (`APP_EXCLUDED_MARKETING_PATHS`), which
+  // never listed its twin — so /tl/features painted the price list in the app.
+  '/tl/features',
 ]);
+
+/**
+ * 📣 THE FEATURE PAGES THAT SELL — `/features/<slug>` and its Tagalog twin
+ * `/tl/features/<slug>` for every feature whose price is NOT `free` (a `paid`
+ * feature, or a `free-plus` one whose page quotes the upgrade's price and
+ * walks through "Unlock …"). Sweep 2026-10-19 row A1: the store shell showed
+ * "PRICE ₱2,500 · Unlock Live Watch" and "upgrades from ₱70" because the
+ * doorway list above held the product pages but not the per-feature set
+ * that replaced them (DECISION_LOG 2026-10-01). Same rule as the product
+ * pages: `/pawebsite`, `/palogo`, `/papic`, `/patiktok` are already doorways,
+ * and these are their feature pages.
+ *
+ * 🔑 A HAND LIST, HELD BY ENUMERATION. Middleware runs at the edge and must not
+ * import the feature registry (every word of every page, in two languages), so
+ * the slugs are spelled here — and `lib/store-shell.test.ts` walks
+ * `FEATURE_PAGES` itself: a slug priced anything but `free` that is missing
+ * here fails, and so does a `free` slug listed here (the free planning pages
+ * stay open in the app).
+ */
+export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
+  'mood-board',
+  'setnayan-ai',
+  'event-hub',
+  'prints',
+  'logo-maker',
+  'music-maker',
+  'papic',
+  'live-watch',
+  'patiktok',
+]);
+
+const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;
 
 /**
  * 🔑 PAID FEATURES WHOSE HOME IS NOT UNDER /studio. The first version of this
@@ -241,6 +278,8 @@ export function isStoreShellWebOnlyPath(pathname: string): boolean {
   if (STORE_SHELL_WEB_ONLY_DOORWAYS.has(path)) return true;
   if (WEB_ONLY_PURCHASE_ROUTE.test(path)) return true;
   if (WEB_ONLY_FEATURE_ROUTE.test(path)) return true;
+  const feature = path.match(FEATURE_PAGE_ROUTE);
+  if (feature) return STORE_SHELL_WEB_ONLY_FEATURE_SLUGS.has(feature[1]!);
   const m = path.match(STUDIO_ROUTE);
   if (!m) return false;
   // `/studio/about/<key>` is the App-Store-style detail page for a feature —
@@ -307,3 +346,39 @@ export function storeShellRefusesPayable(
 export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean): boolean {
   return !storeShell || !paywallEnabled;
 }
+
+/**
+ * 🚧 THE STORE SHELL SHOWS NO "COMING SOON". App Review reads a "Coming soon"
+ * pill as an unfinished app (guideline 2.1 / 2.3) — sweep 2026-10-19 counted
+ * about twelve inside the app. The web keeps them (an honest roadmap note);
+ * the app hides them.
+ *
+ * HOW: every element that says it — the pill, or the whole card when "Coming
+ * soon" is its only state — carries `data-coming-soon`, and one CSS rule in
+ * app/globals.css hides those under `html[data-store-shell]`. The attribute is
+ * set by `storeShellMarkScript` below, an inline <head> script in
+ * app/layout.tsx, so it is on <html> BEFORE THE FIRST PAINT — no flash, no
+ * hydration step, and static/ISR pages are covered too (the root layout
+ * cannot read the request without de-opting every cached route).
+ *
+ * `lib/store-shell.test.ts` holds both halves: the script answers exactly what
+ * `isStoreShellInBrowser` answers on the same table of user agents and
+ * cookies (so the .dmg is never marked), and every JSX "coming soon" in a
+ * route the store shell can open sits inside a `data-coming-soon` element.
+ */
+export const STORE_SHELL_HTML_ATTR = 'data-store-shell';
+export const COMING_SOON_ATTR = 'data-coming-soon';
+
+/**
+ * The <head> script. Plain ES5 on purpose (it runs before any bundle); it is
+ * `isStoreShellInBrowser` spelled out by hand, and the test runs THIS string
+ * against that function's own cases.
+ */
+export const storeShellMarkScript = `(function(){try{
+  var ua=navigator.userAgent||'';var ct='';
+  var parts=(document.cookie||'').split(';');
+  for(var i=0;i<parts.length;i++){var p=parts[i];var eq=p.indexOf('=');if(eq<0)continue;
+    if(p.slice(0,eq).trim()!=='${CLIENT_TYPE_COOKIE}')continue;ct=p.slice(eq+1).trim();break;}
+  var s=ct==='capacitor'?true:ct==='tauri'?false:/SetnayanApp\\/desktop/i.test(ua)?false:/SetnayanApp/i.test(ua);
+  if(s)document.documentElement.setAttribute('${STORE_SHELL_HTML_ATTR}','1');
+}catch(e){}})();`;

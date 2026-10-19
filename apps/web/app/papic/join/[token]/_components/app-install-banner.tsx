@@ -115,7 +115,7 @@ export function AppInstallBanner({
             </a>
           </>
         ) : (
-          <p className="mt-0.5 text-xs text-ink/60">
+          <p data-coming-soon className="mt-0.5 text-xs text-ink/60">
             The app is coming soon — for now, keep going right here in your browser. Nothing to install.
           </p>
         )}

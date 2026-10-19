@@ -70,7 +70,7 @@ export default async function VendorRecapsPage() {
 
       {recaps.length === 0 ? (
         <ShopEmpty>
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
+          <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
             Coming soon
           </p>
           <p className="mx-auto mt-3 max-w-md text-base font-medium text-ink">

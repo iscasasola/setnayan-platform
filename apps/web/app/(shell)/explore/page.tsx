@@ -4192,7 +4192,7 @@ function EmptyState({
     const label = eventTypeLabel ?? filters.eventType;
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
           Coming soon
         </p>
         <p className="mt-3 text-base font-medium text-ink">

@@ -121,6 +121,9 @@ function PhotoTile({
       aria-selected={false}
       aria-label={greyedOut ? `${t.label} — ${unavailableReason}` : t.label}
       disabled={!enabled}
+      // A disabled type's only state is "Coming soon" — the whole card hides in
+      // the store shell (lib/store-shell.ts `COMING_SOON_ATTR`).
+      data-coming-soon={enabled ? undefined : ''}
       onClick={() => enabled && onSelect(t)}
       // `[container-type:inline-size]` makes the CARD the measure for the name's
       // `cqi` size below — a card-relative size, whatever frame it sits in.

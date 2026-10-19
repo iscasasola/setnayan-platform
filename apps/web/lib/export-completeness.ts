@@ -105,6 +105,11 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     why: 'Credentials. Same reason as community_invite_tokens — an export must never carry a secret.',
   },
   {
+    table: 'apple_sign_in_tokens',
+    decision: 'excluded',
+    why: 'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple. A credential — an export must never carry a secret.',
+  },
+  {
     table: 'push_subscriptions',
     decision: 'excluded',
     why:

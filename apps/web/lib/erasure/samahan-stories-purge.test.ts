@@ -54,6 +54,9 @@ function makeIo(
     async revokeAllSessions() {
       return { ok: true as const, sessionsRevoked: 0 };
     },
+    async revokeAppleSignIn() {
+      return { status: 'not_apple_linked' as const };
+    },
   };
 }
 

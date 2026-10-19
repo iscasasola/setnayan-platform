@@ -24,6 +24,8 @@ import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
 import { COVER_LINE_ATTR, COVER_LINE_OWN } from '@/lib/hub-veil';
 import { COVER_SCENE_CREAM_VARS, CoverSceneGround } from './cover-scene-ground';
 import { CoverRsvpGoes } from './cover-rsvp-goes';
+import { FirstScreenDoor } from './first-screen-door';
+import { moreAnswersWords } from '@/lib/guest-one-path';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
@@ -77,6 +79,7 @@ export function PahinaMasthead({
   rsvp = null,
   still = false,
   foot: withFoot = true,
+  fitFoot = !stampElements,
   door = null,
   kitSlot = null,
 }: {
@@ -92,6 +95,11 @@ export function PahinaMasthead({
    * a caller draws no first screen at all.
    */
   foot?: boolean;
+  /**
+   * 📐 Fit the cover so its RSVP button is wholly on the first screen (`FirstScreenDoor foot rsvp`, owner 2026-10-20).
+   * Default: on, except where the parts are stamped for the Maker's canvas. The lab passes it for its guest view.
+   */
+  fitFoot?: boolean;
   /**
    * 🚪 THE STRANGER'S ONE DOOR, IN THE FOOT (owner 2026-10-17, *"the button shows after the cover?"* · *"Change the
    * button to 'Confirm your Booking'"*). Since the Cover Scene took the whole first screen, the door that stood UNDER
@@ -413,7 +421,8 @@ export function PahinaMasthead({
       ) : (
         <span>
           {rsvp.kind === 'going' ? COVER_RSVP_GOING : COVER_RSVP_DECLINED}
-          {rsvp.kind === 'going' ? <b aria-hidden> ✓</b> : null} · <u className="underline-offset-2">{COVER_RSVP_CHANGE}</u>
+          {/* ✉️ Coming, with answers still owed: "N more answers" in Change's place (owner 2026-10-20, `moreAnswersOf`). */}
+          {rsvp.kind === 'going' ? <b aria-hidden> ✓</b> : null} · <u className="underline-offset-2" {...(rsvp.more ? { 'data-cover-rsvp-more': String(rsvp.more) } : {})}>{rsvp.more ? moreAnswersWords(rsvp.more) : COVER_RSVP_CHANGE}</u>
         </span>
       )}
     </a>
@@ -429,6 +438,13 @@ export function PahinaMasthead({
       )}
       {/* 🧭 The button takes the reader to the page's RSVP part (`lib/cover-rsvp.ts` `COVER_RSVP_PART`): a glide. */}
       {!door && rsvp && 'href' in rsvp && rsvp.href.startsWith('#') ? <CoverRsvpGoes /> : null}
+      {/* 📐 THE BUTTON IS WHOLLY ON THE FIRST SCREEN (owner 2026-10-20, DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE
+          STATES": *"lift the button so it's fully visible on first open"* — measured on iPhone 13, its box was y 644–688
+          in a 664-tall screen). The text cover is taller than a short phone, so the guest's foot is fitted by the SAME
+          rule as the stranger's door in the foot (`FirstScreenDoor foot`, 2026-10-18): the air closes, the mark draws
+          smaller, and only then whole parts move below the whole foot — never onto the date or the place. Not in the
+          Maker's canvas (`fitFoot`, default off while the canvas stamps its parts): the couple edits the cover as written. */}
+      {fitFoot && !door && rsvp && 'href' in rsvp ? <FirstScreenDoor foot rsvp /> : null}
       <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 15l6-6 6 6" />

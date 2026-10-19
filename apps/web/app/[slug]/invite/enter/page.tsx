@@ -19,7 +19,7 @@ import { ReplyWindowNote } from '../../_components/reply-window-note';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { guestAccountState } from '@/lib/guest-one-path';
+import { guestAccountState, guestAnswersRead, moreAnswersOf, moreAnswersWords, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
@@ -39,7 +39,7 @@ import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
-import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpCelebration, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
@@ -337,12 +337,13 @@ async function inviteEnterPage({ params, searchParams }: Props) {
           qr_token: null as string | null,
           rsvp_status: search.as === 'declined' ? 'declined' : 'attending',
           meal_preference: null as string | null,
+          mobile: null as string | null,
         },
         error: null,
       }
     : await admin
     .from('guests')
-    .select('guest_id, role, entry_source, qr_token, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, rsvp_status, meal_preference, plus_one_of_guest_id')
+    .select('guest_id, role, entry_source, qr_token, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, rsvp_status, meal_preference, mobile, plus_one_of_guest_id')
     .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
@@ -614,7 +615,30 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
-  const changeWords = canvas || repliesShut ? null : changeReplyWords(reply);
+  /* ✉️ …SAID AS "N MORE ANSWERS" WHILE THE COUPLE'S SWITCHED-ON QUESTIONS ARE STILL UNANSWERED (owner 2026-10-20,
+     DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES") — the reply page's own missing set: the SAME `rsvpGate`
+     call `invite/reply/page.tsx` makes for the questions it shows, on this row, counted (`moreAnswersOf`). The link is
+     the same one; the reply page then asks only those. A row without the answers (`guestAnswersRead`) is not counted:
+     the shipped "Change my reply", and the miss logged. Never on the Maker's canvas (its sample answers nothing). */
+  const answersRead = guestAnswersRead(guest);
+  if (!canvas && !answersRead) {
+    console.error('[read-gap] invite/enter · guests row without rsvp_status/meal_preference/mobile — "Change my reply", not "N more answers"');
+  }
+  const ask = resolveRsvpAsk(event.rsvp_ask_config);
+  const moreAnswers =
+    canvas || !answersRead
+      ? 0
+      : (moreAnswersOf(
+          rsvpGate({
+            rsvpStatus: guest.rsvp_status as string | null,
+            mealPreference: guest.meal_preference as string | null,
+            mobile: (guest as { mobile?: string | null }).mobile ?? null,
+            askMeal: ask.meal,
+            askMobile: ask.mobile,
+            locked: guestListIsClosed({ lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null }),
+          }),
+        ) ?? 0);
+  const changeWords = canvas || repliesShut ? null : moreAnswers > 0 ? moreAnswersWords(moreAnswers) : changeReplyWords(reply);
   const ticketLabel = `${guestName}’s ${PASS_CARD_WORDS.digitalTicket}`;
   const ticketFallback = (
     <p role="alert" className="text-xs text-ink/70">

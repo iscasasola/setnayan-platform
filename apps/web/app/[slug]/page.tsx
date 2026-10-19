@@ -46,7 +46,7 @@ import { heldPassFirstNameFor } from './_lib/held-pass-name';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
@@ -2043,6 +2043,15 @@ async function invitationBody({
       // 📬 …nor while the couple's replies are not open (owner 2026-10-14): never sent to a form that refuses.
       repliesNow.state === 'open',
   });
+  /* ✉️ "YOU'RE COMING ✓ · N MORE ANSWERS" (owner 2026-10-20, DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES")
+     — N is THIS gate's own missing set, counted (`moreAnswersOf`): the same `rsvpGate` the reply page asks for the
+     questions it shows, on the same row. A row that did not carry the answers (`guestAnswersRead`) is not counted —
+     the cover then says the plain "Change" and the miss is logged, never a wrong number. */
+  const answersRead = guestAnswersRead(guestContext.guest);
+  if (!answersRead) {
+    console.error('[read-gap] app/[slug]/page.tsx · guests row without rsvp_status/meal_preference/mobile — the cover draws "Change", not "N more answers"');
+  }
+  const moreAnswers = answersRead ? moreAnswersOf(keyGate) : null;
   // 💌 THE EVENT HUB NEVER SENDS A KEY TO THE REPLY PAGE (owner 2026-10-19, 21:40 — "why am i at rsvp. we should
   // be at the invitation page and not here" — and, the same evening: "so their QR code should not directly go to
   // RSVP. they only go there when they click to the button on the cover"). This overrides the 2026-09-26 key gate's
@@ -2440,6 +2449,7 @@ async function invitationBody({
           faceTaggingAskable,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
+          moreAnswers,
           checklist,
         })}
         meSection={

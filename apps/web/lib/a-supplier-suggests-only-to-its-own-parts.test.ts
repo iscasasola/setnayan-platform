@@ -117,10 +117,14 @@ test('3 · Keep never replaces silently — with no free place and no photo name
   assert.deepEqual(keepPlan([], 2), { kind: 'replace', position: 2 });
   const studio = code('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   const fn = studio.slice(studio.indexOf('const keep = async ('), studio.indexOf('const undoKeep = async ('));
-  const ask = fn.indexOf("keepPlan(freeIn(sg.slotKey), replace).kind === 'ask'");
-  const send = fn.indexOf('keepInspirationSuggestion(');
-  assert.ok(ask > 0 && send > ask, 'the Palette sends a Keep before asking which photo a full part replaces');
-  assert.ok(fn.slice(ask, send).includes("setSheet({ kind: 'full', s: sg })") && fn.slice(ask, send).includes('return;'), 'a full part does not stop at the sheet');
+  /* The FIRST thing a Keep does is ask the plan, and an 'ask' opens the sheet and returns — unconditionally. */
+  const first = fn.slice(fn.indexOf('=> {') + 4).trimStart();
+  assert.match(
+    first,
+    /^if \(keepPlan\(freeIn\(sg\.slotKey\), replace\)\.kind === 'ask'\) \{\s*setSheet\(\{ kind: 'full', s: sg \}\);\s*return;\s*\}/,
+    'a Keep on a full part does not stop at the “already has 3 photos” sheet before anything else',
+  );
+  assert.ok(fn.indexOf('keepInspirationSuggestion(') > fn.indexOf("kind === 'ask'"), 'the Palette sends a Keep before asking which photo a full part replaces');
   /* "Keep all three for now" sends nothing — it only closes the sheet. */
   const sheet = studio.slice(studio.indexOf("sheet?.kind === 'full'"));
   assert.match(sheet, /label=\{FULL_SHEET_KEEP_ALL\} onClick=\{\(\) => setSheet\(null\)\}/);

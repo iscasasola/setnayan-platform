@@ -110,6 +110,7 @@ test('4 · the wiring: PickMenu floors at the bar, the Group picker reveals its 
   const fx = picker.slice(picker.indexOf('revealAboveChrome(ed ?? box'), picker.indexOf('revealAboveChrome(ed ?? box') + 600);
   assert.ok(fx.length > 0 && picker.includes('revealAboveChrome(ed ?? box, ed ? null : btnRef.current)'), 'the Group list is not revealed from its pill');
   assert.match(picker, /\}, \[open, mode, err, clash\]\);/, 'the reveal does not follow the editor opening (or its sentence)');
+  assert.match(picker, /const frame = requestAnimationFrame\(show\);/, 'the reveal is never run when the list opens');
   assert.match(picker, /querySelector\('\[data-group-rename\],\[data-group-delete\]'\) \?\? box\?\.querySelector\('\[data-group-new\]'\)\?\.closest\('li'\)/, 'the open editor is not the thing revealed');
   assert.match(picker, /vv\?\.addEventListener\('resize', onKeyboard\)/, 'a keyboard move does not re-reveal the editor');
   assert.match(picker, /el\?\.focus\(\{ preventScroll: true \}\)/, 'the name box’s focus scrolls on its own, fighting the reveal');

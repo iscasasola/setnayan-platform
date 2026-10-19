@@ -93,23 +93,13 @@ test('1 · after the final-count lock the gate never closes — an unreplied gue
   assert.deepEqual(replied, { kind: 'inside', didntReply: false });
 });
 
-test('1 · WIRING: the event page redirects a key with missing answers to the RSVP page, on the SERVER, before anything renders', () => {
+test('1 · WIRING: the event page NEVER sends a key to the RSVP page — the cover’s Reply button does (owner 2026-10-19)', () => {
+  // 💌 Owner 2026-10-19: "so their QR code should not directly go to RSVP. they only go there when they click to
+  // the button on the cover" — the 2026-09-26 redirect is retired (app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts).
+  // The rule itself still decides the "Didn't reply" mark, and the RSVP page asks it for which questions to show.
   const gate = PAGE.indexOf('const keyGate = rsvpGate(');
-  const redirectAt = PAGE.indexOf('redirect(inviteReplyPath(event.slug ?? slug))');
-  const firstGuestRender = PAGE.indexOf('identity={guestIdentity(');
   assert.ok(gate > -1, 'the event page no longer asks rsvpGate');
-  assert.ok(redirectAt > gate, 'the event page no longer sends a gated guest to the RSVP page');
-  assert.ok(redirectAt < firstGuestRender, 'the redirect now comes AFTER the guest page is built');
-  assert.match(
-    PAGE,
-    // A plus-one is gated by `plusOneGate` instead — their own door, the
-    // minimum four (owner 2026-09-29) — never the full reply.
-    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding\) \{\s*redirect\(inviteReplyPath/,
-    'the gate must spare only the Maker canvas, the event’s own host, a plus-one (who has their own door), and the landing page’s "Open the invitation"',
-  );
-  // 🚪 The one exemption is the landing page's own link (owner 2026-09-30,
-  // frame 1) — an exact value, never "any `from`".
-  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
+  assert.doesNotMatch(PAGE, /redirect\(inviteReplyPath\(/, 'the event page sends a key to the RSVP page again');
   assert.match(PAGE, /didntReply: keyGate\.kind === 'inside' && keyGate\.didntReply/, 'the "Didn\'t reply" mark no longer reaches the page');
   assert.match(BODY, /\{g\.didntReply \? \(/, 'the "Didn\'t reply · you\'re in" chip is not drawn');
 });

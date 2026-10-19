@@ -15,7 +15,9 @@ reopened the camera either.)
   width by 25 % or more (a height-only change is a keyboard and is ignored).
   Never while hidden, never twice at once, never mid-take (held while a clip
   records or a take is reviewed/uploaded — a reopen is never a shot and never
-  spends a credit), and at most 3 reopens per 30 s.
+  spends a credit), and never a tight loop (a camera that dies within 2 s of
+  opening three times running waits up to 30 s; a camera that lived is never
+  throttled).
 - Wired into `usePapicCamera` (Papic guest, seat and supplier capture — each
   passes `holdRestart` so a clip is never cut), the Live Watch camera and its
   demo, the Patiktok booth and tag sheet, the check-in, souvenir and seat

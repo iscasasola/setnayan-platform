@@ -134,6 +134,19 @@ async function paint(desktopColumns: boolean): Promise<string> {
 }
 
 test('4 · the first paint is the same — the desktop columns ON render byte-identical to OFF', async () => {
+  /* ⏱ SETTLE THE LAZY PARTS FIRST (2026-10-19). The shell's bar holds `next/dynamic` parts (`details-lazy.tsx`); a
+     render outside Next draws each one's stand-in until its import resolves, and the FIRST render is what starts
+     the import. So two back-to-back paints compared a stand-in with whichever part happened to load in between —
+     a race CI lost on #6668 in two different shards (OFF drew the "Stages or Studio" stand-in, ON the real switch)
+     while it passed on this Mac. Paint until two paints in a row agree, then compare ON with OFF: both now see the
+     same loaded parts, so a difference can only be the desktop columns — which is the property under test. */
+  let settled = await paint(false);
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 25));
+    const again = await paint(false);
+    if (again === settled) break;
+    settled = again;
+  }
   const off = await paint(false);
   const on = await paint(true);
   assert.ok(off.includes('data-maker-shell=""') && off.length > 2000, 'precondition: the shell was rendered');

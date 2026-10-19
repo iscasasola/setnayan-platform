@@ -309,7 +309,19 @@ export function DressCodeWidget({
     const own = readerDress(r.panel, r.source).picks.find((p) => p.style)?.style ?? null;
     return own ? { ...r, panel: { ...r.panel, style: own } } : r;
   };
-  const resolvedAny = speaksToThisReader(withOwnStyle(withRowColours(resolveGuestAttireWithGroups({
+  /* ⛔ NOTHING PICKED, NOTHING SHOWN (2026-10-17) — on a guest's page the reader's panel stands only when their Studio
+     row (their own, else their group's — `studioRowOf`) is one the general view lists for THEIR person, or it holds
+     their call time. Otherwise they read the Guests card: never a panel of colours nobody picked. */
+  const readerRow = studioRowOf(guestRole, (config as Record<string, unknown> | null) ?? null);
+  const listedRow = readerRow ? everyone.rows.find((r) => r.tier === readerRow.tier && r.rowKey === readerRow.key) ?? null : null;
+  const standsOnAGuestsPage = (r: Resolved): Resolved => {
+    if (!readerOnly || !r.panel || r.panel.callTime !== null) return r;
+    const listed = listedRow
+      ? !isTwoPick(readerRow) || readerDress(r.panel, r.source).picks.some((p) => listedRow.picks.some((lp) => lp.who === p.who))
+      : false;
+    return listed ? r : { ...r, panel: null, source: null };
+  };
+  const resolved = standsOnAGuestsPage(speaksToThisReader(withOwnStyle(withRowColours(resolveGuestAttireWithGroups({
     role: guestRole,
     roles,
     groups,
@@ -317,22 +329,7 @@ export function DressCodeWidget({
     names: roleNames,
     person: guestRole ? { ...guestNameParts, attire: guestAttire } : null,
     config,
-  }))), readerOnly || generalHasContent);
-  /* ⛔ NOTHING PICKED, NOTHING SHOWN (2026-10-17) — on a guest's page the reader's panel stands only when their Studio
-     row (their own, else their group's — `studioRowOf`) is one the general view lists for THEIR person, or it holds
-     their call time. Otherwise they read the Guests card: never a panel of colours nobody picked. */
-  const readerRow = studioRowOf(guestRole, (config as Record<string, unknown> | null) ?? null);
-  const listedRow = readerRow ? everyone.rows.find((r) => r.tier === readerRow.tier && r.rowKey === readerRow.key) ?? null : null;
-  const resolvedPanelListed = (() => {
-    if (!resolvedAny.panel || !listedRow) return false;
-    if (!isTwoPick(readerRow)) return true;
-    const own = readerDress(resolvedAny.panel, resolvedAny.source).picks;
-    return own.some((p) => listedRow.picks.some((lp) => lp.who === p.who));
-  })();
-  const resolved: Resolved =
-    readerOnly && resolvedAny.panel && !resolvedPanelListed && resolvedAny.panel.callTime === null
-      ? { ...resolvedAny, panel: null, source: null }
-      : resolvedAny;
+  }))), readerOnly || generalHasContent));
   const mineDress = resolved.panel ? readerDress(resolved.panel, resolved.source) : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
   /* 👗 A person is drawn only in a Wear that was picked (owner 2026-10-17: "if … nothing is picked, then nothing should

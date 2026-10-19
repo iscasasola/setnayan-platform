@@ -110,9 +110,11 @@ test('2 · gender known ⇒ ONE column; unknown ⇒ both', () => {
       const swatches = (panel.match(/data-your-colours=""/g) ?? []).length;
       assert.equal(swatches, 1, `${role} (${g}): one set of colours`);
     }
-    /* The gender beats the clothing: a woman the seat plan put in a suit is still shown the women's column. */
-    const woman = youPanel(render({ guestRole: role, guestGender: 'woman', guestAttire: 'suit', readerOnly: true }));
-    const womanOnly = youPanel(render({ guestRole: role, guestGender: 'woman', readerOnly: true }));
+    /* The gender beats the clothing: a woman the seat plan put in a suit is still shown the women's column. (The
+       "You are …" word is cut: the role word reading gender is rd/me-reads-their-gender's.) */
+    const look = (m: string) => m.replace(/You are [^<]*/, '');
+    const woman = look(youPanel(render({ guestRole: role, guestGender: 'woman', guestAttire: 'suit', readerOnly: true })));
+    const womanOnly = look(youPanel(render({ guestRole: role, guestGender: 'woman', readerOnly: true })));
     assert.equal(woman, womanOnly, `${role}: gender wins over attire`);
   }
 });

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
 import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, placePickList, type PickListPlacement } from './pick-menu-place';
+import { pickViewport } from '@/lib/reveal-above-chrome';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -40,7 +41,7 @@ export function PickMenu({
     const next = placePickList({
       button: r,
       listHeight: listRef.current?.scrollHeight ?? 0,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport: pickViewport(btnRef.current, listRef.current),
     });
     setAt((prev) =>
       prev &&

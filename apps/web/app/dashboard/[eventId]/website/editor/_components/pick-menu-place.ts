@@ -49,14 +49,16 @@ export function placePickList({
   button: { top: number; bottom: number; left: number; width: number };
   /** The list's full content height (its `scrollHeight`), 0 before it has mounted. */
   listHeight: number;
-  viewport: { width: number; height: number };
+  /** `floor` (📱 2026-10-20): the bottom bar's top — the list never opens down over the bar (`pickViewport`,
+   *  lib/reveal-above-chrome.ts). Absent = the screen's bottom edge. */
+  viewport: { width: number; height: number; floor?: number };
 }): PickListPlacement {
   const minWidth = Math.max(button.width, PICK_LIST_MIN_WIDTH);
   const left = Math.max(PICK_LIST_MARGIN, Math.min(button.left, viewport.width - minWidth - PICK_LIST_MARGIN));
 
   const cap = Math.floor(viewport.height * PICK_LIST_MAX_SHARE);
   const want = Math.min(Math.max(0, listHeight), cap);
-  const roomBelow = Math.max(0, viewport.height - button.bottom - PICK_LIST_GAP - PICK_LIST_MARGIN);
+  const roomBelow = Math.max(0, Math.min(viewport.height, viewport.floor ?? viewport.height) - button.bottom - PICK_LIST_GAP - PICK_LIST_MARGIN);
   const roomAbove = Math.max(0, button.top - PICK_LIST_GAP - PICK_LIST_MARGIN);
 
   if (want <= roomBelow || roomBelow >= roomAbove) {

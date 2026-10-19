@@ -157,6 +157,12 @@ export type GuestSiteIdentity = {
    */
   didntReply: boolean;
   /**
+   * ✉️ "You're coming ✓ · N more answers" (owner 2026-10-20) — N, the answers this ATTENDING guest still owes: the key
+   * gate's own missing set (`moreAnswersOf(rsvpGate(…))`, the reply page's rule). 0: complete, or nothing to count.
+   * null: the answers could not be read — the page says the plain "Change", never a number.
+   */
+  moreAnswers: number | null;
+  /**
    * "Your checklist" — the last 30 days (owner 2026-09-26). NULL outside the
    * window (nothing drawn); otherwise THIS guest's own ticks, read with the
    * service role from `guest_checklist_ticks` (private to the guest).
@@ -482,12 +488,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
       >
     >,
 ): GuestSiteIdentity {
@@ -514,6 +520,8 @@ export function guestIdentity(
     faceTaggingAskable: input.faceTaggingAskable,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
+    // Absent (a preview's sample guest): 0 — the button as shipped. A number or null passes through as given.
+    moreAnswers: input.moreAnswers === undefined ? 0 : input.moreAnswers,
     checklist: input.checklist ?? null,
   };
 }

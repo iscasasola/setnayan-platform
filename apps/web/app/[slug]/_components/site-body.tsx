@@ -2837,6 +2837,9 @@ export async function SiteBody({
             // 📬 Shut: "Replies open on …" / "Replies are closed." — no button (owner 2026-10-14).
             window: repliesWindow,
             organizer: clientWords.theOrganizer,
+            /* ✉️ Coming, with the couple's switched-on questions still unanswered: "N more answers" — here, on Me, and
+               on the cover's button (owner 2026-10-20). N is the key gate's own missing set (`moreAnswersOf`, page.tsx). */
+            moreAnswers: g.moreAnswers,
           })
         : null;
     /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,

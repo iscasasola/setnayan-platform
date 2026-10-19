@@ -127,4 +127,10 @@ export type PickMenuProps = {
    * says "Tick as many as apply. The first ticked is their main role." (owner 2026-10-20, one Role dropdown, several roles).
    */
   doneNote?: string;
+  /**
+   * 🔎 One row drawn ABOVE the options, inside the open list (owner 2026-10-20, the supplier card's "Also covers":
+   * *"allow us to search that"*) — a search box the CALLER owns and filters `options` with. It must be an
+   * `<li role="none">`; it is not an option, so the arrow keys and first-focus pass over its input. Omitted = none.
+   */
+  head?: ReactNode;
 };

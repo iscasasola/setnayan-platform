@@ -276,9 +276,12 @@ button.ico {
 }
 
 /* ═══ a guest row ═══ */
+/* ➡ ONE LINE PER GUEST (owner 2026-10-20: "edit and remove button can be in a row? on the right side?"): avatar ·
+   name · the buttons at the right end, centred on the row. The name's column gives way (`minmax(0, …)`), never the
+   buttons' — the name ellipsises first (`.nmt`). Held by guest-row-actions-share-the-name-line.test.ts. */
 .g {
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 10px 0;
@@ -340,15 +343,25 @@ button.ico {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.nmt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nm > .pill {
+  flex: 0 0 auto;
 }
 .meta {
   font-size: 12.5px;
   color: var(--gs-mute);
 }
 .g .acts {
-  grid-column: 2;
-  margin-top: 6px;
+  grid-column: 3;
+  align-self: center;
 }
 .dot {
   width: 8px;
@@ -463,6 +476,27 @@ button.ico {
   width: 40px;
   padding: 0;
   justify-content: center;
+}
+
+/* 📱 UNDER 701 a guest row's buttons are 44 × 44 icons at every fit state (owner 2026-10-20) — the name and its chip
+   keep the width; each button is named for its guest (`name` → aria-label "Edit Maria Santos"). Written after the
+   group-state rules above so it wins at equal weight. 701 = the tablet/desktop boundary (#6682). */
+@media (max-width: 700px) {
+  .g .acts :global(.ab) {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  .g .acts :global(.ab) svg {
+    display: inline-block;
+  }
+  .g .acts :global(.ab .lbl) {
+    display: none;
+  }
+  .g .acts :global(.ab)::after {
+    inset: 0;
+  }
 }
 
 /* ═══ the floating thumb row — glass, slides (rules 5 and 7) ═══ */

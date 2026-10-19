@@ -51,6 +51,7 @@ import { singleWearerOf } from './role-figure';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from './role-group-dress-code';
 import type { ArrivalAction } from './arrival-action';
 import { hostNoteHeading, hostNoteShown } from './guest-host-note';
+import { moreAnswersWords } from './guest-one-path';
 
 /** The four, in the Me page's order (`MAKER_STAGE_PAGES.rsvp.me`). */
 export const GUEST_ME_PARTS = ['role', 'wear', 'arrive', 'guests'] as const;
@@ -191,6 +192,8 @@ export type GuestMeNote = { heading: string; text: string };
  *
  *   before   "Will you join us?" · "Reply by …" · Reply
  *   coming   "You're coming · N seats" · Change my reply
+ *            …with switched-on answers still missing: "N more answers" in
+ *            place of "Change my reply" (owner 2026-10-20 — `moreAnswersOf`)
  *   can't    "You can't make it" · Change my reply
  *
  * Built on the page's ONE action (`resolveArrivalAction`): only its three
@@ -204,9 +207,15 @@ export type ReplyCard =
       line: string;
       /** "Reply by Friday, March 12, 2027" — the host's own date only, or null. */
       replyBy: string | null;
-      /** The control's words. */
-      cta: 'Reply' | 'Change my reply';
+      /** The control's words — "Reply", "Change my reply", or "N more answers" (`moreAnswersWords`). */
+      cta: string;
       href: string;
+      /**
+       * ✉️ How many of the couple's switched-on questions this ATTENDING guest still owes — the reply page's own missing
+       * set (`moreAnswersOf`, lib/guest-one-path.ts). Present only when > 0; the `href` then opens the reply page, which
+       * asks only those.
+       */
+      more?: number;
     }
   | {
       /**
@@ -233,6 +242,11 @@ export function replyCardOf(input: {
   window?: ReplyWindow;
   /** The event's word for its hosts ("the couple") — for "Need to change? Message …". */
   organizer?: string;
+  /**
+   * ✉️ `moreAnswersOf(rsvpGate(…))` — the answers this attending guest still owes (owner 2026-10-20). 0 / null / absent:
+   * the card as shipped ("Change my reply"); null is "could not be read", never a number.
+   */
+  moreAnswers?: number | null;
 }): ReplyCard | null {
   const shut = input.window ? replyWindowWords(input.window, input.organizer) : null;
   if (shut && input.window && input.window.state !== 'open') {
@@ -251,7 +265,10 @@ export function replyCardOf(input: {
   }
   if (a.kind === 'going') {
     const n = Math.max(1, Math.trunc(input.seats));
-    return { kind: 'going', line: `You’re coming · ${n} ${n === 1 ? 'seat' : 'seats'}`, replyBy: null, cta: 'Change my reply', href: a.href };
+    const line = `You’re coming · ${n} ${n === 1 ? 'seat' : 'seats'}`;
+    const more = typeof input.moreAnswers === 'number' && input.moreAnswers > 0 ? Math.trunc(input.moreAnswers) : 0;
+    if (more > 0) return { kind: 'going', line, replyBy: null, cta: moreAnswersWords(more), href: a.href, more };
+    return { kind: 'going', line, replyBy: null, cta: 'Change my reply', href: a.href };
   }
   return { kind: 'declined', line: 'You can’t make it', replyBy: null, cta: 'Change my reply', href: a.href };
 }

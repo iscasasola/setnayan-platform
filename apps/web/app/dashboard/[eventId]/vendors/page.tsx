@@ -121,6 +121,8 @@ import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for
 import {
   buildShortlistFolders,
   LOCKED_VENDOR_STATUSES,
+  COVER_TILE_PREFIX,
+  planGroupForCover,
   type ShortlistVendor,
 } from '@/lib/shortlist-taxonomy';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -1029,12 +1031,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const groupLabelById = new Map<string, string>(
       PLAN_GROUPS.map((g) => [g.id as string, g.label]),
     );
+    // The Suppliers page's own row names, for a cover key that names a row no
+    // plan group opens on (`tile:food_truck`, 2026-10-20) — the same snapshot
+    // the rows below are drawn from (already in flight since the top).
+    const coverTileLabel = (await taxonomyRead).tileLabel as Record<string, string>;
     for (const v of vendors) {
-      // Carry the group id alongside the label (2026-06-12): host covers ARE
-      // plan-group ids, so they feed category-satisfaction directly.
+      // Carry the group id alongside the label (2026-06-12): a plan-group key
+      // feeds category-satisfaction directly; a row-only key (`tile:…`) says
+      // "comes with Food Truck" and carries no group (`planGroupForCover`).
       const covers = (v.covers_plan_groups ?? [])
-        .map((id) => ({ label: groupLabelById.get(id), groupId: id }))
-        .filter((c): c is { label: string; groupId: string } => Boolean(c.label));
+        .map((id) => {
+          const groupId = planGroupForCover(id);
+          const tile = id.startsWith(COVER_TILE_PREFIX) ? id.slice(COVER_TILE_PREFIX.length) : null;
+          const label = (groupId === id ? groupLabelById.get(id) : null) ?? (tile ? coverTileLabel[tile] : undefined);
+          return { label, groupId };
+        })
+        .filter((c): c is { label: string; groupId: string | null } => Boolean(c.label));
       if (covers.length === 0) continue;
       const existing = enrichmentByVendorId.get(v.vendor_id);
       enrichmentByVendorId.set(v.vendor_id, {

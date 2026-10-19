@@ -27,6 +27,9 @@ import { createClient } from '@/lib/supabase/server';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
 import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { COVER_TILE_PREFIX, tileForCover } from '@/lib/shortlist-taxonomy';
+import { restoreTileToPlan } from '../../category-decision-actions';
 import {
   WORKING_NOTE_BODY_MAX,
   isCoordinatorVendorNotesEnabled,
@@ -130,14 +133,21 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
     ),
   ].slice(0, MAX_INCLUSIONS);
 
-  // "Also covers" — validated against the canonical plan groups so the column
-  // never stores an off-registry id.
+  // "Also covers" — the Suppliers page's rows (2026-10-20, `coverKeyForTile`):
+  // a plan-group id, or `tile:<id>` for a row no plan group opens on. Each is
+  // validated against its OWN registry so the column never stores an
+  // off-registry key — a plan group against PLAN_GROUPS, a row against the
+  // taxonomy snapshot the Suppliers page draws its rows from.
   const validGroups = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+  const knownTiles = (await getTaxonomy()).tileLabel as Record<string, string>;
+  const isValidCover = (c: string) =>
+    validGroups.has(c) ||
+    (c.startsWith(COVER_TILE_PREFIX) && typeof knownTiles[c.slice(COVER_TILE_PREFIX.length)] === 'string');
   const covers = [
     ...new Set(
       formData
         .getAll('covers')
-        .filter((c): c is string => typeof c === 'string' && validGroups.has(c)),
+        .filter((c): c is string => typeof c === 'string' && isValidCover(c)),
     ),
   ];
 
@@ -156,6 +166,18 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
   // that matches nothing returns NO ERROR: the host pressed save, nothing
   // happened, and nothing said so. The render gate above hid the form from
   // those suppliers too, so the two failures concealed each other.
+  // What it covered BEFORE this save — so a row ticked just now can be put on
+  // the event (below) without re-adding every row on each save.
+  const { data: before } = await supabase
+    .from('event_vendors')
+    .select('covers_plan_groups')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const coveredBefore = new Set<string>(
+    Array.isArray(before?.covers_plan_groups) ? (before.covers_plan_groups as string[]) : [],
+  );
+
   const { error } = await supabase
     .from('event_vendors')
     .update({ host_inclusions: inclusions, covers_plan_groups: covers })
@@ -163,6 +185,20 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
     .eq('event_id', eventId)
     .is('marketplace_vendor_id', null);
   if (error) throw new Error(error.message);
+
+  // A ROW TICKED HERE IS ON THE EVENT (owner 2026-10-20: ticking one the plan
+  // does not have yet "adds it the same way the Suppliers page adds a row").
+  // The SAME action as the page's "＋ Add to your event" — `restoreTileToPlan`
+  // clears a removal and records the row in `added_categories` — so there is no
+  // second writer of "which rows this event has". Its refusal (flag off, not a
+  // host) is not this save's failure: the covers above are already stored, and
+  // the card still draws under the row whenever the page shows it.
+  for (const key of covers) {
+    if (coveredBefore.has(key)) continue;
+    const tile = tileForCover(key);
+    if (!tile) continue;
+    await restoreTileToPlan({ eventId, tile });
+  }
 
   // 'layout' on /vendors so the Shortlist card chips + Compare inclusions
   // pick up the new covers/inclusions on the next paint.

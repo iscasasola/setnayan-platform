@@ -10,9 +10,11 @@
  * vendor-authored package. Two host-authored fields, saved together:
  *   1. Inclusions — free-text lines ("Full-day coverage", "2 photographers").
  *      Flow to Compare's expandable inclusions cell.
- *   2. Also covers — plan-group links ("my caterer includes the cake").
- *      Flow to the Shortlist card's "✓ comes with" chips via the same
- *      linked-services pipeline marketplace vendors use.
+ *   2. Also covers — the Suppliers page's own rows ("my caterer includes the
+ *      cake", "Dunkin' is our food truck"). Since 2026-10-20 it is the SAME
+ *      `ServicesCoveredPicker` the card sheet uses, fed the page's rows
+ *      (`readCoverCatalog`) — it was a wall of ~30 plan-group chips that could
+ *      not name Food Truck at all. A ticked row draws the card under it.
  *
  * Marketplace vendors never see this editor — their package/links are
  * vendor-authored (the server action is manual-only too).
@@ -22,6 +24,8 @@ import { useState, useTransition } from 'react';
 import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
 import { updateHostServiceDetails } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ServicesCoveredPicker } from '@/app/dashboard/[eventId]/_components/services-covered-picker';
+import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 
 export function HostServiceDetails({
   eventId,
@@ -29,7 +33,9 @@ export function HostServiceDetails({
   displayName,
   initialInclusions,
   initialCovers,
-  options,
+  category,
+  ownLabel,
+  catalog,
 }: {
   eventId: string;
   vendorId: string;
@@ -37,35 +43,20 @@ export function HostServiceDetails({
   displayName?: string;
   initialInclusions: string[];
   initialCovers: string[];
-  /**
-   * EVERY plan group, including this supplier's own (owner 2026-09-20: "so
-   * they can pick all categories"). `locked` marks the group the couple added
-   * them under — rendered on and un-togglable, because it is covered by
-   * construction and switching it off would state something untrue.
-   */
-  options: { id: string; label: string; locked?: boolean }[];
+  /** The booking's own category — its row is said locked, never offered. */
+  category: string;
+  ownLabel: string;
+  /** The Suppliers page's rows; omitted (a failed read) → the picker reads them itself. */
+  catalog?: readonly CoverCatalogFolder[];
 }) {
   const [pending, startTransition] = useTransition();
   const [text, setText] = useState(initialInclusions.join('\n'));
-  const [covers, setCovers] = useState<ReadonlySet<string>>(() => new Set(initialCovers));
+  // The picker owns which rows are ticked; this keeps the keys it reports, and
+  // starts from the stored set so a save without touching it changes nothing.
+  const [covers, setCovers] = useState<readonly string[]>(initialCovers);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = useSaveLoader();
-
-  function toggleCover(id: string) {
-    // A locked group is a fact, not a choice. Guarded here as well as in the
-    // disabled attribute: `aria-pressed` buttons stay clickable by keyboard in
-    // some assistive setups, and the server would then store a set that omits
-    // the category the booking is literally filed under.
-    if (options.find((o) => o.id === id)?.locked) return;
-    setSaved(false);
-    setCovers((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function onSave() {
     setErr(null);
@@ -136,28 +127,19 @@ export function HostServiceDetails({
         Pick every category {displayName ? `${displayName} handles` : 'they handle'} — one
         booking, one price, counted once across all of them.
       </p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = o.locked || covers.has(o.id);
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => toggleCover(o.id)}
-              aria-pressed={on}
-              disabled={pending || Boolean(o.locked)}
-              title={o.locked ? 'This is the category you added them under' : undefined}
-              className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                on
-                  ? 'border-mulberry/50 bg-mulberry/10 text-mulberry'
-                  : 'border-ink/15 text-ink/60 hover:border-ink/30 hover:text-ink'
-              }`}
-            >
-              {on ? <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} /> : null}
-              {o.label}
-            </button>
-          );
-        })}
+      <div className="mt-2">
+        <ServicesCoveredPicker
+          eventId={eventId}
+          category={category}
+          ownLabel={ownLabel}
+          catalog={catalog}
+          initialSelected={initialCovers}
+          disabled={pending}
+          onChange={(keys) => {
+            setCovers(keys);
+            setSaved(false);
+          }}
+        />
       </div>
       <p className="mt-1.5 text-[11px] text-ink/45">
         Covered categories show on your shortlist card as &ldquo;✓ comes

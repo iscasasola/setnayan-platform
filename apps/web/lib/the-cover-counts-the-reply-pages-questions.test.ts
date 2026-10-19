@@ -45,7 +45,7 @@ function replyPageAsks(gate: ReturnType<typeof rsvpGate>): string[] {
   return gate.kind === 'ask' ? gate.missing : [];
 }
 
-const cardOf = (status: string, moreAnswers?: number | null) =>
+const cardOf = (status: 'pending' | 'attending' | 'declined', moreAnswers?: number | null) =>
   replyCardOf({
     action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: status, eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
     replyBy: null,

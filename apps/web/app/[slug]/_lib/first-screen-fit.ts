@@ -155,3 +155,17 @@ export function fitFirstScreen(m: { natural: FitSnapshot; noAir: FitSnapshot; sm
   const air = airGain > 0 ? Math.min(1, Math.floor((spare / airGain) * 100) / 100) : 0;
   return { air, mark, ...plan, doorBottom: limit - spare + airGain * air, fits: plan.fits };
 }
+
+/**
+ * 🖼 THE COVER SCENE IS ITS OWN FIRST SCREEN (controller 2026-10-19, on the live Save the Date `marco-marga` at 375):
+ * the Save the Date's own heading stands ABOVE its Cover Scene (228 px), so a limit measured from the page's top asked
+ * the cover's foot to fit in the 584 px left under that heading. The cover gave away its eyebrow, its line, its time and
+ * its link — and, the Cover Scene being one screen tall, "below the foot" was below the cover itself: the three lines
+ * were drawn 873 px from their place, ON the program card and "Watch our film again". The Cover Scene takes the whole
+ * first screen (owner 2026-10-15), so its first screen begins where IT begins: the limit is the screen's height, less
+ * what is pinned at the screen's foot, measured from the scene's own top (0 when it leads the page — today's every
+ * Invitation, unchanged). Document pixels, like every box the fit reads.
+ */
+export function doorLimit(m: { screenHeight: number; footClear: number; sceneTop: number }): number {
+  return Math.max(0, m.sceneTop) + m.screenHeight - m.footClear;
+}

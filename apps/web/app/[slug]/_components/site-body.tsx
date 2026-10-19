@@ -342,11 +342,11 @@ function stdLockupFor(event: EventRow): StdLockup {
  *     nothing in it draws nothing (`empty:hidden`, as a group does).
  * Measured in a browser on the fixture page, wrapped against today's (`scripts/scrub-browser-check.mjs` 16).
  */
-/** 📜 The one page's Home mark (owner 2026-10-15): the first thing after the cover, zero height, and kept out of the
- *  `space-y-*` rhythm of the group it ends, so it moves nothing on the page. Where a jump to it stops is NOT said
- *  here: `[data-home-after-cover]` in globals.css lands it 2 px past the cover's edge, so the bars stay (a
- *  `scroll-mt-*` here would stop above the cover's foot and the bars would leave on the guest's own tap). */
-const ONE_PAGE_HOME_MARK = '!mt-0 h-0';
+/** 📜 The one page's Home mark (owner 2026-10-15): the first thing after the cover, kept out of the `space-y-*`
+ *  rhythm of the group it ends. Its height and where a jump to it stops are NOT said here: `[data-home-after-cover]`
+ *  in globals.css lands it 2 px past the cover's edge, so the bars stay, and under the pinned top bar makes it tall
+ *  enough that what follows the cover starts 8 px clear of the bar (a `scroll-mt-*` or `h-*` here would fight that rule). */
+const ONE_PAGE_HOME_MARK = '!mt-0';
 
 const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
   cell: { 'data-pahina-first-screen': '' },
@@ -3344,7 +3344,8 @@ export async function SiteBody({
           </HubCoverHold>
           {/* 📜 ON THE ONE PAGE "HOME" JUMPS TO THE FIRST SECTION AFTER THE COVER (owner 2026-10-15, Q3 approved:
               Home lands on the welcome line, so the bar never re-hides itself; the cover is reached by scrolling
-              up). Zero height, and out of the group's rhythm (`!mt-0`), so the page is not moved by it. */}
+              up). Out of the group's rhythm (`!mt-0`); its height (under the top bar, enough that what follows
+              clears the bar by 8 px) and its landing are `[data-home-after-cover]` in globals.css. */}
           {menuOn && onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
           </>, { chapters: true, className: 'space-y-12' })}
 

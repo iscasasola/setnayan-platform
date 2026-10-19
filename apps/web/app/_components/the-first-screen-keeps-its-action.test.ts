@@ -29,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { GIVE_WAY_ORDER, MARK_MIN, fitFirstScreen, layoutFirstScreen, planGiveWay, type FitBox, type FitSnapshot } from '../[slug]/_lib/first-screen-fit';
+import { GIVE_WAY_ORDER, MARK_MIN, doorLimit, fitFirstScreen, layoutFirstScreen, planGiveWay, type FitBox, type FitSnapshot } from '../[slug]/_lib/first-screen-fit';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..');
@@ -243,7 +243,9 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(hands, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*let plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
   assert.doesNotMatch(hands, /style\.(?:position|top|transform)\b/, 'the fit positions a block itself');
   assert.match(fit, /getPropertyValue\('--cookie-banner-top'\)/);
-  assert.match(fit, /const limit = window\.innerHeight - Math\.max\(rest, banner > 0 \? banner \+ 8 : 0\);/);
+  /* (RE-AIMED 2026-10-19: the same limit, measured from the Cover Scene's own top — `doorLimit`, held by (7).) */
+  assert.match(fit, /const limit = doorLimit\(\{ screenHeight: window\.innerHeight, footClear: Math\.max\(rest, banner > 0 \? banner \+ 8 : 0\), sceneTop \}\);/);
+  assert.match(fit, /const scene = \(foot \?\? cover\)\.closest\('header\[data-cover-scene\]'\);\s*const sceneTop = scene \? scene\.getBoundingClientRect\(\)\.top \+ window\.scrollY : 0;/, 'the limit is not measured from the Cover Scene’s own top');
   assert.match(fit, /parseFloat\(getComputedStyle\(door\)\.scrollMarginBottom\)/);
   // It fits again when the banner arrives or goes, when the window or the block changes, and when the door opens.
   assert.match(fit, /\.observe\(root, \{ attributes: true, attributeFilter: \['style'\] \}\)/);
@@ -312,4 +314,42 @@ test('(6) a photo cover: the photo is the first to give way, and the names, the 
   assert.match(hands, /const name = photo \? 'data-first-screen-photo' : 'data-first-screen-fit';/);
   const door = stripComments(read('app/[slug]/_components/first-screen-door.tsx'));
   assert.match(door, /h\.querySelector\('figure'\) !== null && \(h\.compareDocumentPosition\(door\) & Node\.DOCUMENT_POSITION_FOLLOWING\) !== 0/);
+});
+
+/* ══ (7) THE COVER SCENE IS ITS OWN FIRST SCREEN ═════════════════════════════
+   Seen live 2026-10-19 (marco-marga, a Save the Date, signed out at 375 × 812): the Save the Date's own heading stands
+   228 px above its Cover Scene; measured from the page's top, the cover's foot was asked to fit in what was left, so it
+   gave away its eyebrow, its line and its link, laid "below the foot" — which, the scene being one screen tall, was
+   below the cover itself: drawn 873 px from their place, on the program card. The property: a Cover Scene that starts
+   lower on the page gives away exactly what it gives away when it leads the page, and never a part laid past its own
+   bottom when it fits at the top. */
+test('(7) a Cover Scene below a heading fits exactly as it does at the top — nothing laid past its own bottom', () => {
+  const VH = 812;
+  const footClear = 76; // the bottom bar's rest (4.75rem)
+  /* The live marco-marga cover's own shape at 375 × 812, read at the top of its scene (document px from the scene's
+     top): eyebrow, names, line, date, link — then the foot (the door) at the scene's bottom. */
+  const at = (y: number): FitSnapshot => ({
+    parts: [
+      { key: 'eyebrow', top: y + 65, bottom: y + 81 },
+      { key: 'names', top: y + 97, bottom: y + 238 },
+      { key: 'line', top: y + 260, bottom: y + 283 },
+      { key: 'date', top: y + 307, bottom: y + 340 },
+      { key: 'link', top: y + 380, bottom: y + 430 },
+    ],
+    door: { key: 'door', top: y + 500, bottom: y + 680 },
+  });
+  for (const sceneTop of [0, 228, 400]) {
+    const snap = at(sceneTop);
+    const limit = doorLimit({ screenHeight: VH, footClear, sceneTop });
+    const plan = fitFirstScreen({ natural: snap, noAir: snap, smallMark: snap }, limit);
+    const top = fitFirstScreen({ natural: at(0), noAir: at(0), smallMark: at(0) }, doorLimit({ screenHeight: VH, footClear, sceneTop: 0 }));
+    assert.deepEqual(plan.gives, top.gives, `scene at ${sceneTop}: it gave away ${plan.gives.join(', ') || 'nothing'}, at the top ${top.gives.join(', ') || 'nothing'}`);
+    const laid = layoutFirstScreen(snap, plan.gives);
+    const sceneBottom = sceneTop + VH;
+    for (const p of snap.parts) assert.ok(laid.tops[p.key]! + (p.bottom - p.top) <= sceneBottom, `scene at ${sceneTop}: “${p.key}” is laid past the scene’s bottom (${sceneBottom})`);
+  }
+  /* Anti-vacuity: measured from the page's top (the old limit), the same scene at 228 gives parts away — the failure. */
+  const old = fitFirstScreen({ natural: at(228), noAir: at(228), smallMark: at(228) }, VH - footClear);
+  assert.ok(old.gives.length > 0, 'precondition: the old limit no longer reproduces what was seen live');
+  assert.equal(doorLimit({ screenHeight: VH, footClear, sceneTop: -50 }), VH - footClear, 'a scene scrolled above the top is measured from the top');
 });

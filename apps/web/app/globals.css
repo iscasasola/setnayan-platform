@@ -7462,11 +7462,19 @@ html:has([data-sticky-top]) {
    cover's foot, so a jump that stops ABOVE it (the root's 4.5rem plus the 5rem the mark used to carry: 152 px, seen
    live 2026-10-19 at 375 and on the iPhone 13 engine) put the cover's door back on screen and both bars left with
    the guest's own tap. The mark cancels the root's padding and lands 2 px past the cover's edge (2, not 0: an
-   observer counts an edge that only touches as on screen). Held by `the-invitation-is-one-page.test.ts` 7. */
+   observer counts an edge that only touches as on screen). Held by `the-invitation-is-one-page.test.ts` 7.
+   📏 AND WHAT FOLLOWS THE COVER STARTS CLEAR OF THE TOP BAR (controller 2026-10-19: seen live, a Home tap left the
+   countdown's heading under the bar — the gap after the cover was the page's 3rem rhythm, the bar 69 px). Under the
+   pinned top bar the mark is as tall as the bar's clearance (the root's 4.5rem) + 8 px + the landing's 2 px, less the
+   rhythm's 3rem that follows it — so where Home lands, what follows the cover starts 8 px clear of the bar. Nothing
+   else on the page moves relative to anything else; with no top bar there is nothing to clear and the mark is no
+   height at all. */
 [data-home-after-cover] {
+  height: 0;
   scroll-margin-top: -2px;
 }
 html:has([data-sticky-top]) [data-home-after-cover] {
+  height: calc(4.5rem + 0.5rem + 2px - 3rem);
   scroll-margin-top: calc(-4.5rem - 2px);
 }
 

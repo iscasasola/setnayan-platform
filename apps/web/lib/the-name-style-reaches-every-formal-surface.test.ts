@@ -10,7 +10,7 @@
  *   1. THE WORDS — each style prints the owner's own example; a suffix is kept;
  *      a missing part is skipped cleanly (never "Mr. , Manuel").
  *   2. THE PRINTED LISTS — the entourage and the name list are built in the
- *      style, and a Display name is printed as given in every style.
+ *      style; a "Shown as" never replaces the full name (owner 2026-10-20).
  *   3. THE SETTING SURVIVES EVERY OTHER SAVE — `print_details` is one jsonb
  *      with several writers; each must carry what it does not own.
  *   4. THE STYLE REACHES THE CALL — every formal surface's name call is handed
@@ -146,11 +146,11 @@ test('a walking pair’s line follows the style — both full names, never a sha
   );
 });
 
-test('the name list is built in the style, and a Display name is printed as given', () => {
-  assert.deepEqual(plainGuestNames(ROWS, 'surname-first').sort(), ['Ms. Cruz, Ana B.', 'Tito Boy']);
-  for (const style of ['full', 'middle-initial', 'surname-first'] as const) {
-    assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, style), 'Tito Manny');
-  }
+test('the name list is built in the style, and a "Shown as" never replaces the full name (owner 2026-10-20)', () => {
+  assert.deepEqual(plainGuestNames(ROWS, 'surname-first').sort(), ['Ms. Cruz, Ana B.', 'Reyes, Jose']);
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'full'), 'Mr. Manuel Cortez Casasola');
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'middle-initial'), 'Mr. Manuel C. Casasola');
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'surname-first'), 'Mr. Casasola, Manuel C.');
 });
 
 // ── 3 · THE SETTING SURVIVES EVERY OTHER SAVE ──────────────────────────────
@@ -233,6 +233,7 @@ const STYLE_AT: Record<string, number> = {
   passCardGuestName: 1,
   ticketName: 1,
   guestFullName: 1,
+  guestNameAsGiven: 1,
   placeCardName: 1,
 };
 
@@ -241,7 +242,7 @@ const STYLE_AT: Record<string, number> = {
  * without a style is a formal surface printing Full forever.
  */
 const NOT_FORMAL: ReadonlyArray<{ file: RegExp; callee: string; why: string }> = [
-  { file: /guests-screen\.tsx$/, callee: 'guestFullName', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
+  { file: /guests-screen\.tsx$/, callee: 'guestNameAsGiven', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
   { file: /editorial\/data\.ts$/, callee: 'guestFullName', why: 'a byline under a guest’s own words on the story page — not one of the owner’s formal surfaces' },
 ];
 

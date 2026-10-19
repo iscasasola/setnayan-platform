@@ -72,7 +72,7 @@ import { loadPreviewPerson } from '../../_lib/preview-person.server';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { SIMULATED_GUEST_INVITATION_TEXT, SIMULATED_GUEST_QR_SVG, rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
-import { guestFullName } from '@/lib/guests';
+import { guestNameAsGiven } from '@/lib/guests';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { ticketShowsTable } from '@/lib/guests-may-see-seats';
 import {
@@ -583,7 +583,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   const storedWords = parsePrintDetails((event as { print_details?: unknown }).print_details);
   const message = landingMessage({
     template: storedWords.inviteMessage,
-    formalName: guestFullName({
+    formalName: guestNameAsGiven({
       display_name: guest.display_name as string | null,
       name_prefix: (guest as { name_prefix?: string | null }).name_prefix ?? null,
       first_name: guest.first_name as string | null,

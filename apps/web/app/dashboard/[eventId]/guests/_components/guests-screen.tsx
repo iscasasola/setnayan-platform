@@ -76,7 +76,7 @@ import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
   guestDisplayName,
-  guestFullName,
+  guestNameAsGiven,
   guestInitials,
   plusOneSeats,
   RSVP_ROW_WORDS,
@@ -511,7 +511,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* The names the delete sheet opened with — read while those rows are still on the list (a refusal is told by name). */
   const removeNames = (toRemove ?? []).map((id) => {
     const g = byId.get(id);
-    return g ? (guestFullName(g) ?? guestDisplayName(g)) : '';
+    return g ? (guestNameAsGiven(g) ?? guestDisplayName(g)) : '';
   });
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
@@ -1225,7 +1225,7 @@ function GuestRowLine({
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const name = plusWords?.name ?? guestFullName(g) ?? guestDisplayName(g);
+  const name = plusWords?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
   const pill = isToInvite(g) && g.rsvp_status === 'pending' ? { cls: 'pillGold', word: 'To invite' } : PILL[g.rsvp_status];
   const act = (e: React.MouseEvent<HTMLElement>) => (selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget));

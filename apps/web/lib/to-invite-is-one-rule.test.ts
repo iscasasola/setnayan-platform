@@ -34,7 +34,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { REQUEST_ENTRY_SOURCE, guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
+import { REQUEST_ENTRY_SOURCE, guestDisplayName, guestNameAsGiven, type GuestRow } from '@/lib/guests';
 import {
   isToInvite,
   rosterSearchMatches,
@@ -94,7 +94,7 @@ const ids = (rows: readonly { guest_id: string }[]) => rows.map((r) => r.guest_i
 const asRunGuests = (rows: readonly GuestRow[]) =>
   rows.map((r) => ({
     guestId: r.guest_id,
-    formalName: guestFullName(r),
+    formalName: guestNameAsGiven(r),
     firstName: r.first_name,
     fullName: guestDisplayName(r),
     inviteUrl: `https://setnayan.com/a-and-b/i/${r.guest_id}`,

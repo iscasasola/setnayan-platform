@@ -48,6 +48,13 @@ const config: CapacitorConfig = {
     cleartext: SERVER_URL.startsWith('http://'),
   },
   ios: {
+    // ☀ The web view's colour before the first page paints (N3, 2026-10-19).
+    // Capacitor's default is `systemBackground` — pure white, or BLACK on a
+    // phone in dark mode — so the launch went Alabaster → white/black →
+    // Alabaster. This is the same Warm Alabaster as the launch screen
+    // (ios/App/App/Base.lproj/LaunchScreen.storyboard), the splash below and
+    // the web's own theme-color. Held by apps/web/lib/the-app-runs-on-scenes.test.ts.
+    backgroundColor: '#FBFBFA',
     // Lets the WebView surface camera/mic permission prompts natively.
     limitsNavigationsToAppBoundDomains: false,
     // 🍎 `SetnayanIAP/1` (2026-10-18): this iOS build carries the StoreKit 2

@@ -61,6 +61,7 @@ import { popularTilesFor } from '@/lib/supplier-find';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
 import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
@@ -173,8 +174,7 @@ export default async function SuppliersLabPage({
     />
   );
 
-  return (
-    <SuppliersLabStage>
+  const body = (
       <section className="sn-col max-w-none" data-lab-suppliers="">
         <LabSuppliersShell
           start={one('build')}
@@ -224,6 +224,8 @@ export default async function SuppliersLabPage({
           }
         />
       </section>
-    </SuppliersLabStage>
   );
+  /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`) instead of the stand-ins. */
+  if (one('shell') === '1') return <LabShell eventId={LAB_EVENT}>{body}</LabShell>;
+  return <SuppliersLabStage>{body}</SuppliersLabStage>;
 }

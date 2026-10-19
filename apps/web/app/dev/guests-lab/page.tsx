@@ -66,6 +66,7 @@ import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_compo
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
@@ -491,16 +492,7 @@ export default async function GuestsLabPage({
     const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
-    return (
-      <RoleNamesProvider names={{}}>
-        <div className="sn-ambient min-h-screen">
-          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
-          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
-            SETNAYAN
-          </div>
-          <main className="sn-vt-page">
-            <div data-shell-main>
-              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
                   <LabGuestActions refuse={sp.refuse === '1'}>
                   <GuestsScreen
@@ -534,6 +526,29 @@ export default async function GuestsLabPage({
                   />
                   </LabGuestActions>
                 </section>
+    );
+    /* `&shell=1` — the REAL One Shell around the screen (rail + bar + the event's
+       menu, `boundary="tab"`), for the tablet/desktop walk. */
+    if (sp.shell === '1') {
+      return (
+        <RoleNamesProvider names={{}}>
+          <LabShell eventId={EVENT}>{screen}</LabShell>
+          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          <UndoToastHost />
+        </RoleNamesProvider>
+      );
+    }
+    return (
+      <RoleNamesProvider names={{}}>
+        <div className="sn-ambient min-h-screen">
+          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
+          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
+            SETNAYAN
+          </div>
+          <main className="sn-vt-page">
+            <div data-shell-main>
+              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+                {screen}
               </div>
             </div>
           </main>

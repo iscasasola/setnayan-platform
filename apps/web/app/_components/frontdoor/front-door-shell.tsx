@@ -71,6 +71,7 @@ import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 import { InsideEventContext } from './inside-event-context';
+import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
 /*
@@ -552,6 +553,13 @@ type Props = {
    */
   bleed?: boolean;
   /**
+   * 📱→🖥 WHERE THIS SURFACE STOPS BEING A PHONE — see `shell-boundary.tsx`.
+   * `'lg'` (the default) keeps the shipped 1024 switch; `'tab'` hands the 72-px
+   * icon strip down to 701 (couple dashboard only, owner 2026-10-19). Written
+   * to the stylesheet as `data-boundary` and to the sheets as a context.
+   */
+  boundary?: ShellBoundary;
+  /**
    * Exact paths that should render full-bleed. Supplied by `AppRailShell` for
    * the doorway variant only.
    *
@@ -639,6 +647,7 @@ export function FrontDoorShell({
   search,
   bleed,
   bleedPaths,
+  boundary = 'lg',
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   /*
@@ -706,7 +715,10 @@ export function FrontDoorShell({
     front-door.css), read through the shared hook rather than a hand-typed
     query, so the two cannot drift apart.
   */
-  const railIsInline = useIsDesktop('lg');
+  /* 📱→🖥 …and where that is depends on the surface (owner 2026-10-19): an
+     opted-in tree (`boundary="tab"`) has the inline strip from 701 — the
+     `[data-boundary='tab']` band in front-door.css — so its drawer ends there. */
+  const railIsInline = useIsDesktop(boundary === 'tab' ? 'tab' : 'lg');
   useEffect(() => {
     if (!railIsInline || !(railOpen || railClosing)) return;
     if (railCloseTimer.current) {
@@ -1264,7 +1276,8 @@ export function FrontDoorShell({
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
     <InsideEventContext.Provider value={insideEvent}>
-    <div className="fd" data-chrome={chrome}>
+    <ShellBoundaryProvider value={boundary}>
+    <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined}>
       <>
       {/*
         🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
@@ -1977,6 +1990,7 @@ export function FrontDoorShell({
           bundle. */}
       {signInPanel}
     </div>
+    </ShellBoundaryProvider>
     </InsideEventContext.Provider>
   );
 }

@@ -404,7 +404,7 @@ export function ServicesTakeover({
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
             {/* Room for Find's thumb row, so the last row is never under it. */}
-            <div className="max-lg:pb-16">
+            <div className="max-tab:pb-16">
               {/* ONE Find a supplier opens the Find page — only this event
                   type's categories, grouped the way hosts think (P3,
                   2026-10-01). PR2 unfolds that marketplace in place. */}

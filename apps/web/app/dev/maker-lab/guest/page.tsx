@@ -727,13 +727,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     </div>
   ) : null;
   /* 👗 DRESS WITH US IS THE READER'S OWN (owner 2026-10-19): the scene drawn as the real page draws it for that reader —
-     `&gender=woman|man` is their `guests.gender`; `&reader=host` is the couple on their own Event Hub (every role);
+     `&gender=woman|man` is their `guests.gender` (`&gender=unknown`: nothing on their row says it — no attire either); `&reader=host` is the couple on their own Event Hub (every role);
      `?reader=visitor` (no `as`) a visitor not on the list (the Guests card). */
   const dressReader = one('reader');
   const labGender = one('gender') === 'woman' || one('gender') === 'man' ? (one('gender') as 'woman' | 'man') : null;
   const dressCode = words && labRole ? (
     <>
-      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' ? null : labRole.attire} guestGender={dressReader === 'host' ? null : labGender} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' || one('gender') === 'unknown' ? null : labRole.attire} guestGender={dressReader === 'host' ? null : labGender} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
       {roleWear}
     </>
   ) : words ? (

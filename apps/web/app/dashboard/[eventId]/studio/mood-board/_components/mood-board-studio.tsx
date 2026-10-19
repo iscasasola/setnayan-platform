@@ -1098,9 +1098,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const callTime = dress ? callTimeOf(dress, row.tier, row.key) : null;
             /* ⏰ Guests: the Schedule's arrival moment (`guestsArriveTime`), not a dress-code time. */
             const forGuests = row.key === 'guest';
-            const guestsFrom = forGuests && arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
-            const guestsAt = forGuests && arriveBlocks ? guestsArriveTime(arriveBlocks) : null;
-            const arrives = forGuests ? (guestsAt ? `${guestsAt}${guestsFrom ? ` · from ${guestsFrom}` : ''}` : null) : dress ? formatCallTime(callTime) : row.arrives;
+            const arrivalFrom = forGuests && arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
+            const arrivalAt = forGuests && arriveBlocks ? guestsArriveTime(arriveBlocks) : null;
+            const arrives = forGuests ? (arrivalAt ? `${arrivalAt}${arrivalFrom ? ` · from ${arrivalFrom}` : ''}` : null) : dress ? formatCallTime(callTime) : row.arrives;
             return (
               <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
                 <header className="flex flex-wrap items-baseline gap-2">
@@ -1304,7 +1304,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     canSet={arriveBlocks !== null}
                     waits="The programme could not be read — try again"
                     unset={GUESTS_ARRIVE_UNSET}
-                    note={guestsFrom ? `From ${guestsFrom} — set a time to give guests their own` : null}
+                    note={arrivalFrom ? `From ${arrivalFrom} — set a time to give guests their own` : null}
                     clearable={false}
                     onSet={setGuestsArrive}
                   />

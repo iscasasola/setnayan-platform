@@ -106,8 +106,11 @@ export async function GET(request: NextRequest) {
     // is erased (lib/erasure/purge.ts step 2b). Only when THIS sign-in was the
     // Apple one: a person with Google and Apple both linked gets Google's token
     // here on a Google sign-in. Best-effort — never blocks the landing.
-    const providerRefreshToken =
-      code && data && 'session' in data ? data.session?.provider_refresh_token : null;
+    // Only the code exchange carries a session (the native branch above has none).
+    const exchangedSession = code
+      ? (data as { session?: { provider_refresh_token?: string | null } | null }).session
+      : null;
+    const providerRefreshToken = exchangedSession?.provider_refresh_token ?? null;
     if (data.user?.id && providerRefreshToken && appleWasJustUsed(data.user)) {
       await holdAppleRefreshToken(data.user.id, 'web', providerRefreshToken);
     }

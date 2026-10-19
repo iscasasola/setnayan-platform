@@ -388,7 +388,8 @@ export async function loadGuestCard(
     logQueryError('loadGuestCard.dressRow', dressRowError, { eventId, guestId }, 'graceful_degrade');
   }
   const dress = (dressRow ?? null) as { dress_code_config?: unknown; role_palette?: unknown } | null;
-  const outfit = dressRowError
+  /* No row at all (the event hidden from this reader) is not "nothing picked" either — no line. */
+  const outfit = dressRowError || !dress
     ? null
     : guestOutfitWords(
         guestOutfitOf({

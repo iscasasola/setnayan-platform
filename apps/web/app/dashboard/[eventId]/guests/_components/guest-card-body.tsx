@@ -437,7 +437,8 @@ export function GuestCardBody({
             </p>
           )}
           {variant === 'page' ? (
-            <h1 className="truncate font-display text-2xl tracking-tight text-ink">{guestCardTitle(guest, data.plusOneOf)}</h1>
+            /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
+            <h1 className={`${data.plusOneOf?.name ? 'break-words' : 'truncate'} font-display text-2xl tracking-tight text-ink`}>{guestCardTitle(guest, data.plusOneOf)}</h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (

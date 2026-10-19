@@ -67,15 +67,17 @@ test('(1) every section key, every surface: the couple’s word comes out of eac
   const { EntourageSection } = await import('../app/[slug]/_components/entourage-section');
   assert.ok(RENAMABLE_SECTION_KEYS.length >= 12, `anti-vacuity: only ${RENAMABLE_SECTION_KEYS.length} sections`);
   let groupSurfaces = 0;
+  const marchReplaced: string[] = [];
   for (const key of RENAMABLE_SECTION_KEYS) {
     const names = named(key);
     const march = isMarchOnlyGroup(key);
     const roles = rolesOf(key, march);
     assert.ok(roles.length > 0, `${key}: no role prints under it`);
     const rows = rowsFor(roles);
-    // The march's builder draws every section; the printed one every printed section.
+    // The march's builder draws every section it walks (Parents walk inside the couple's sides there, so it has none).
     const marched = buildEntourage(rows, null, names, undefined, { march: true }).find((g) => g.key === key);
-    assert.equal(marched?.label, word(key), `${key}: the Wedding March does not say the couple's word`);
+    if (marched || march) assert.equal(marched?.label, word(key), `${key}: the Wedding March does not say the couple's word`);
+    else marchReplaced.push(key);
     assert.equal(entourageGroupLabel(key, names), word(key), `${key}: entourageGroupLabel`);
     assert.equal(entourageGroupLabel(key, names, rows), word(key), `${key}: entourageGroupLabel with rows`);
     if (march) continue;
@@ -104,6 +106,7 @@ test('(1) every section key, every surface: the couple’s word comes out of eac
     }
   }
   assert.ok(groupSurfaces >= 6, `anti-vacuity: only ${groupSurfaces} role-group surfaces checked`);
+  assert.deepEqual(marchReplaced, ['parents'], 'a printed section is missing from the Wedding March');
   // The seat plan's switch names the Immediate Family section.
   assert.equal(roleSeatingLabel('immediate_family', named('immediate_family')), `${word('immediate_family')} (both sides)`);
   assert.equal(roleSeatingLabel('immediate_family', {}), 'Immediate family (both sides)');

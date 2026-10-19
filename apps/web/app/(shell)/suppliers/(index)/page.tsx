@@ -9,6 +9,9 @@
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadLandingCards } from '@/lib/supplier-landing-data';
 import { pagePath, placeName, qualifyingPages, type QualifyingPage } from '@/lib/supplier-landing';
 
@@ -31,6 +34,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SuppliersIndexPage() {
   const source = await loadLandingCards();
   const pages = qualifyingPages(source.cards, source.tileServesEvent);
+  // 📱 Inside the App Store / Play Store shell an empty directory is not shown
+  // (owner, DECISION_LOG 2026-10-19 (2)): the whole page would be one "none has
+  // yet" line, so the app goes to /explore — its search and categories are real.
+  // The first qualifying page brings this page back in the app too. Web unchanged.
+  if (hidesEmptyShelfInApp(await isStoreShellRequest(), pages.length)) redirect('/explore');
   const byEvent = new Map<string, QualifyingPage[]>();
   for (const p of pages) byEvent.set(p.event, [...(byEvent.get(p.event) ?? []), p]);
   const tileSlug = source.taxonomy.tileSlug;

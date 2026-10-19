@@ -26,6 +26,7 @@ import {
   persistSeatClipWebCopy,
 } from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
+import { watchLocation } from '@/lib/location-ask';
 import {
   PAPIC_STYLES,
   cssPreviewFilter,
@@ -285,22 +286,17 @@ export function PapicSeatCapture({
   // false); the server is the authoritative gate on write.
   const geoFixRef = useRef<{ lat: number; lon: number; accuracyM: number } | null>(null);
   useEffect(() => {
-    if (!geoEnabled || typeof navigator === 'undefined' || !navigator.geolocation) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        geoFixRef.current = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracyM: pos.coords.accuracy,
-        };
-      },
-      () => {
-        // Denied / timeout / no signal — keep any last-known fix; currentGeo()
-        // returns { unavailable: true } only when there has never been one.
+    if (!geoEnabled) return;
+    // 📍 Inside the iPhone/Android app the watch never starts (it declares no
+    // location — DECISION_LOG 2026-10-19 (1)); currentGeo() then stamps
+    // { unavailable: true }, the same as a refused permission.
+    // Denied / timeout / no signal keeps any last-known fix.
+    return watchLocation(
+      (fix) => {
+        geoFixRef.current = fix;
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
     );
-    return () => navigator.geolocation.clearWatch(id);
   }, [geoEnabled]);
 
   const currentGeo = useCallback((): PapicGeoInput | undefined => {

@@ -627,6 +627,12 @@ test('C14 — the upsell lines whose links the guard hid say nothing in the stor
   const otd = src('app/vendor-dashboard/on-the-day/page.tsx');
   assert.match(otd, /\{storeShell\s*\?\s*'Your booking and shop listing are unaffected\.'/);
   assert.match(otd, /\{storeShell \? null : \(\s*<Link\s*href="\/vendor-dashboard\/subscription"/);
+  // The Suppliers search overlay's last-minute "Unlock with Setnayan AI" (sweep
+  // 2026-10-19 leftover): its button points at a refused Studio page, so the link
+  // guard would leave the pitch with no button. In the app the plain empty line shows.
+  const overlay = src('app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx');
+  assert.match(overlay, /const storeShell = useIsStoreShell\(\);/);
+  assert.match(overlay, /results\.length === 0 && lastMinuteLocked && !storeShell \?/);
 });
 
 const STORE_SHELL_CASES: ReadonlyArray<{ ua: string; cookie: string }> = [
@@ -683,6 +689,18 @@ test('"Coming soon" — every one the store shell can open sits inside a [data-c
   const root = join(__dirname, '..');
   const appDir = join(root, 'app');
   const SAYS = /coming\s+soon/i;
+  // A bare "soon" LABEL says the same thing in one word — the onboarding faith
+  // chip, Alaala's "· soon", the download overlay's store tiles (sweep
+  // 2026-10-19). Only a whole label counts ("soon" alone, or "… · soon"), never
+  // prose that happens to contain the word ("we'll reply soon").
+  const SAYS_LABEL = /^\s*(?:·\s*)?soon\s*$|·\s*soon\s*$/i;
+  const FILE_SAYS = /coming\s+soon|\bsoon\b/i;
+  // A bare "soon" that is a STATUS of something real, not a roadmap pill.
+  // Each line is a reason; a new entry needs one.
+  const SOON_IS_A_STATUS = new Map<string, string>([
+    ['app/[slug]/find-seat/page.tsx', 'a guest\'s seat is shown on the event day — "Find your seat · soon" is a true date fact'],
+    ['app/vendor-dashboard/performance/_components/verified-median-card.tsx', 'the verified price appears once enough locked bookings exist — a metric status'],
+  ]);
 
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -716,7 +734,7 @@ test('"Coming soon" — every one the store shell can open sits inside a [data-c
     const rel = abs.slice(root.length + 1);
     if (/^app\/(admin|api)\//.test(rel)) continue;
     const text = readFileSync(abs, 'utf8');
-    if (!SAYS.test(text)) continue;
+    if (!FILE_SAYS.test(text)) continue;
     if (isStoreShellWebOnlyPath(routeOf(abs))) continue;
     scanned++;
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -738,10 +756,11 @@ test('"Coming soon" — every one the store shell can open sits inside a [data-c
     };
     const visit = (n: import('typescript').Node) => {
       const says =
-        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && SAYS.test(n.text)
+        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) &&
+        (SAYS.test(n.text) || (ts.isJsxText(n) && SAYS_LABEL.test(n.text)))
           ? true
           : ts.isTemplateExpression(n) && SAYS.test(n.getText(sf));
-      if (says && inJsx(n)) {
+      if (says && inJsx(n) && !(SOON_IS_A_STATUS.has(rel) && !SAYS.test(n.getText(sf)))) {
         if (markedAbove(n)) marked++;
         else {
           const { line } = sf.getLineAndCharacterOfPosition(n.getStart(sf));

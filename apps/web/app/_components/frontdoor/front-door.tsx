@@ -30,6 +30,7 @@ import {
 } from './rail-data';
 import { togetherRailItems } from '@/lib/free-tools-rail';
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -184,6 +185,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         <>
           <FrontDoorFeed
             data={data}
+            storeShell={await isStoreShellRequest()}
             beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
             afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
           />

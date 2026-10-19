@@ -726,9 +726,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <DressCodeWidget words={words} config={roleDress} rolePalette={rolePal} guestRole={labRole.role} guestAttire={labRole.attire} roleNames={roleNames} part="arrive" />
     </div>
   ) : null;
+  /* 👗 DRESS WITH US IS THE READER'S OWN (owner 2026-10-19): the scene drawn as the real page draws it for that reader —
+     `&gender=woman|man` is their `guests.gender` (`&gender=unknown`: nothing on their row says it — no attire either); `&reader=host` is the couple on their own Event Hub (every role);
+     `?reader=visitor` (no `as`) a visitor not on the list (the Guests card). */
+  const dressReader = one('reader');
+  const labGender = one('gender') === 'woman' || one('gender') === 'man' ? (one('gender') as 'woman' | 'man') : null;
   const dressCode = words && labRole ? (
     <>
-      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={null} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
+      <DressCodeWidget words={words} config={roleDress} ceremonyType={null} genderSeparation={null} rolePalette={rolePal} guestRole={dressReader === 'host' ? null : labRole.role} guestAttire={dressReader === 'host' || one('gender') === 'unknown' ? null : labRole.attire} guestNameParts={dressReader === 'host' ? null : { gender: labGender }} readerOnly={dressReader !== 'host'} roleNames={roleNames} sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')} paletteLook={paletteLookOfRow(rowOf('dress_code'))} dosLook={dosLookOfRow(rowOf('dress_code'))} hideWhenEmpty />
       {roleWear}
     </>
   ) : words ? (
@@ -739,11 +744,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       genderSeparation={null}
       rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
       guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : (rolesAttire || caleIce) && one('you') ? (one('you') as never) : null}
+      readerOnly={dressReader === 'visitor'}
       roleNames={caleIce ? LAB_CALE_ICE_ROLE_NAMES : null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
       dosLook={dosLookOfRow(rowOf('dress_code'))}
-      makerSample
+      makerSample={dressReader !== 'visitor'}
+      hideWhenEmpty={dressReader === 'visitor'}
     />
   ) : null;
   /* 🚶 The REAL Wedding March (`EntourageSection`, as `site-body.tsx` mounts it): the sample entourage, in its picked Style. */

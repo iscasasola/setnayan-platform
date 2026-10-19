@@ -95,11 +95,12 @@ type HideableWidgetProps = {
   /** 🚶 Where this keyed guest walks in the march (`lib/march-place.ts`), or null. */
   marchPlace?: MarchPlace | null;
   /**
-   * 🏠 The dress code as EVERYONE's (owner 2026-09-30): this guest's own look is
-   * on the Invitation's Welcome page (`lib/invitation-welcome.ts`), so Details
-   * draws the general view — our colours and every role — for them too.
+   * 👗 THE DRESS CODE AS EVERY ROLE — only for the couple / their hosts reading their own Event Hub (they set the
+   * roles). Owner 2026-10-19 (DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE"): every other reader —
+   * a listed guest, a plain guest — sees only their own card and the Do's & Don'ts, Details included. (Amends
+   * 2026-09-30, when Details drew every role once the Welcome carried the guest's own look.)
    */
-  dressCodeGeneral?: boolean;
+  dressCodeEveryRole?: boolean;
   /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
    *  resolved for it. Absent → every widget keeps its shipped look. */
   stage?: HubStage | null;
@@ -127,7 +128,7 @@ function HideableWidgetBody({
   guestView = false,
   marchPlace = null,
   roleNames = {},
-  dressCodeGeneral = false,
+  dressCodeEveryRole = false,
   stage = null,
   artKit = null,
 }: HideableWidgetProps) {
@@ -269,8 +270,10 @@ function HideableWidgetBody({
          (`site-body.tsx` passes `!isMakerCanvas`), where `guest` is the HOST
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
-         guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} guestNameParts={guestView && !dressCodeGeneral && guest ? guestNamePartsOf(guest) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+         guests will read. So the role is withheld on the canvas, not passed.
+         👗 Owner 2026-10-19: a guest's page shows ONLY their own card (`readerOnly`); the couple and their hosts on
+         their own Event Hub (`dressCodeEveryRole`) and the canvas still see every role. */
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeEveryRole ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeEveryRole && guest ? guestAttireOf(guest) : null} guestNameParts={guestView && !dressCodeEveryRole && guest ? guestNamePartsOf(guest) : null} march={guestView && !dressCodeEveryRole ? marchPlace : null} readerOnly={guestView && !dressCodeEveryRole} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

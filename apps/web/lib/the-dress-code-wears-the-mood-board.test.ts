@@ -273,23 +273,29 @@ test('👤 speaksToThisReader keeps any panel that carries a colour, an outfit o
 
 /* ══ THE STRANGER'S DOOR is handed the Mood Board ══════════════════════════ */
 
-test('🚪 the anonymous dispatcher passes the Mood Board — a stranger sees our colours', async () => {
+test('🚪 the anonymous dispatcher passes the Mood Board — a stranger sees the Guests card, the host every role', async () => {
   const { PublicHideableWidget } = await import('../app/[slug]/_components/public-hideable-widget');
   const Render = PublicHideableWidget as unknown as React.FunctionComponent<Record<string, unknown>>;
-  const html = renderToStaticMarkup(
-    React.createElement(Render, {
-      widget: { widget_id: 'W1', event_id: 'E1', widget_type: 'dress_code', is_always_on: false, is_visible: true, config_json: {} },
-      guestView: true,
-      event: { event_id: 'E1', public_id: 'S89E-TESTTESTTE', dress_code_config: null, role_palette: BOARD, ceremony_type: 'catholic' },
-      words,
-      scheduleBlocks: [],
-      isLive: false,
-      ourPhotoUrls: [],
-    }),
-  );
+  const at = (extra: Record<string, unknown>) =>
+    renderToStaticMarkup(
+      React.createElement(Render, {
+        widget: { widget_id: 'W1', event_id: 'E1', widget_type: 'dress_code', is_always_on: false, is_visible: true, config_json: {} },
+        guestView: true,
+        event: { event_id: 'E1', public_id: 'S89E-TESTTESTTE', dress_code_config: null, role_palette: BOARD, ceremony_type: 'catholic' },
+        words,
+        scheduleBlocks: [],
+        isLive: false,
+        ourPhotoUrls: [],
+        ...extra,
+      }),
+    );
+  const html = at({});
   assert.match(html, /data-dress-code="roles"/, 'the stranger’s door used to pass no palette at all');
   assert.doesNotMatch(html, /Our colours/, 'Our colours left the dress code (owner 2026-10-17)');
-  assert.equal(rowOrder(html).length, ROLES_ON_THE_BOARD.length);
+  /* 👗 Owner 2026-10-19 ("Dress with us should only show their role"): a visitor not on the list reads the Guests card. */
+  assert.deepEqual(rowOrder(html), ['guest'], 'a stranger sees the Guests card only');
+  /* The couple / a host on their own Event Hub (no seat of their own) still sees every role. */
+  assert.equal(rowOrder(at({ dressCodeEveryRole: true })).length, ROLES_ON_THE_BOARD.length);
 });
 
 test('🔁 LIVE: both doors read the colours off the SAME event row the page’s theme is built from', () => {

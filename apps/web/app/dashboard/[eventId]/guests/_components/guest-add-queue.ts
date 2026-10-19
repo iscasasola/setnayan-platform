@@ -215,10 +215,24 @@ export function queueTypedGuest(
   picks: TypedPicks = {},
 ): { ok: true; key: string } | { ok: false; error: string } {
   if (!raw.trim()) return { ok: false, error: '' };
-  const draft = withPicks(parseGuestInput(raw, { defaultSide }), picks);
+  const draft = withPicks(keepTheHonorific(raw, parseGuestInput(raw, { defaultSide })), picks);
   if (!normalizeGuestName(draft.firstName) || !normalizeGuestName(draft.lastName)) return { ok: false, error: NEEDS_BOTH_NAMES };
-  const key = queue.enqueue({ eventId, name: draftName(draft), detail: picks.detail, run: () => addSingleGuest(eventId, draft, { refresh: false }) });
+  const detail = picks.describe ? picks.describe(draft) : (picks.detail ?? '');
+  const key = queue.enqueue({ eventId, name: draftName(draft), detail, run: () => addSingleGuest(eventId, draft, { refresh: false }) });
   return { ok: true, key };
+}
+
+/**
+ * "NINANG ROSE" IS A NAME, NOT A ROLE AND HALF A NAME. The shipped grammar reads ninong · ninang · sponsor as a role
+ * word and drops it, so a two-word line like "Ninang Rose" kept ONE name word and was refused ("Add both a first and
+ * last name.") — the prototype's B4 adds it. When taking the role word leaves no last name, the word stays in the name,
+ * exactly as "Tita Cora" is kept (first "Tita", last "Cora"), and no role is guessed from it.
+ */
+function keepTheHonorific(raw: string, d: ParsedGuestDraft): ParsedGuestDraft {
+  if (!d.roleHint || d.lastName || !d.firstName) return d;
+  const word = raw.split(/\s+/).find((w) => /^(ninong|ninang|sponsor)$/i.test(w));
+  if (!word) return d;
+  return { ...d, firstName: word, lastName: d.firstName, roleHint: null };
 }
 
 /**
@@ -234,6 +248,8 @@ export type TypedPicks = {
   plusOnes?: number;
   /** The row's words for the picks ("Guest · Friends · +1"). */
   detail?: string;
+  /** The row's words for what is ACTUALLY sent (a typed "vip" or "+2" wins over a pick) — preferred over `detail`. */
+  describe?: (draft: ParsedGuestDraft) => string;
 };
 
 export function withPicks(draft: ParsedGuestDraft, picks: TypedPicks): ParsedGuestDraft {
@@ -266,11 +282,14 @@ export function picksForAdd(
   roleNames: RoleNames | null | undefined,
 ): TypedPicks {
   const own = picks.groupIds.map((id) => groups.find((g) => g.group_id === id)?.label).filter((l): l is string => Boolean(l));
-  const words = [
-    guestRoleLabel(picks.role, roleNames),
-    ...(picks.category ? [GROUP_CATEGORY_LABELS[picks.category]] : []),
-    ...own,
-    ...(picks.plus > 0 ? [`+${picks.plus}`] : []),
-  ];
-  return { role: picks.role, groupCategory: picks.category, groupLabels: own, plusOnes: picks.plus, detail: words.join(' · ') };
+  const say = (role: GuestRole, cat: GuestGroupCategory | null, names: readonly string[], plus: number) =>
+    [guestRoleLabel(role, roleNames), ...(cat ? [GROUP_CATEGORY_LABELS[cat]] : []), ...names, ...(plus > 0 ? [`+${plus}`] : [])].join(' · ');
+  return {
+    role: picks.role,
+    groupCategory: picks.category,
+    groupLabels: own,
+    plusOnes: picks.plus,
+    detail: say(picks.role, picks.category, own, picks.plus),
+    describe: (d) => say(d.roleHint ?? 'guest', d.groupCategory ?? null, d.groups, d.plusOnes),
+  };
 }

@@ -355,3 +355,20 @@ test('15 · the standard group reaches the insert only when picked — every ear
   assert.equal('group_category' in seen[0]!, false, 'an add with no pick now sends a standard group');
   assert.equal(seen[1]!.group_category, 'family', 'the picked standard group never reaches the insert');
 });
+
+test('16 · "Ninang Rose" is added as a name (B4), and the row says what was really sent', async () => {
+  const q = createAddQueue();
+  const drafts: ParsedGuestDraft[] = [];
+  const add = async (_e: string, d: ParsedGuestDraft): Promise<QuickAddResult> => {
+    drafts.push(d);
+    return { ok: true, guest: { guest_id: 'g', first_name: d.firstName, last_name: d.lastName, side: d.side, role: 'guest' } };
+  };
+  const p = picksForAdd({ side: 'bride', role: 'guest', category: 'friends', groupIds: [], plus: 0 }, [], null);
+  assert.ok(queueTypedGuest('e', 'Ninang Rose', 'bride', add as never, q, p).ok, '"Ninang Rose" is refused as half a name');
+  assert.ok(queueTypedGuest('e', 'Ana Cruz vip +2', 'bride', add as never, q, p).ok);
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual([drafts[0]!.firstName, drafts[0]!.lastName, drafts[0]!.roleHint], ['Ninang', 'Rose', null]);
+  assert.equal(q.snapshot()[0]!.name, 'Ninang Rose');
+  assert.equal(q.snapshot()[1]!.detail, 'VIP · Friends · +2', 'the row says the picks, not what was sent');
+  assert.deepEqual(queueTypedGuest('e', 'Rose', 'bride', add as never, q, p), { ok: false, error: NEEDS_BOTH_NAMES });
+});

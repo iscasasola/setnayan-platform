@@ -235,8 +235,11 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(fit, /const block = foot \?\? door;/, 'the foot is not the fitted block when the door is in it');
   assert.match(fit, /firstScreenFitter\(screen, cover, inner, block, \(\) => window\.scrollY, photo\)/, 'the door no longer fits through the one fitter');
   assert.match(fit, /plan = make\(list, limit \+ footFit\);/);
-  /* The foot's limit is the DOOR's (what stands under it in the foot is added back), clear of the edge by 16 px; not from xl. */
-  assert.match(fit, /const footFit = foot \? foot\.getBoundingClientRect\(\)\.bottom - door\.getBoundingClientRect\(\)\.bottom - \(banner > 0 \? 0 : 16\) : 0;/);
+  /* The foot's limit is the DOOR's (what stands under it in the foot is added back), clear of the edge by 16 px — or, where
+     a home indicator takes the screen's foot, by the foot's own safe-area padding + 2 (owner 2026-10-20, "above the safe
+     area"; with no inset the padding is 14 and the edge is the 16 it was); not from xl. */
+  assert.match(fit, /const edge = foot \? Math\.max\(16, \(parseFloat\(getComputedStyle\(foot\)\.paddingBottom\) \|\| 0\) \+ 2\) : 16;/);
+  assert.match(fit, /const footFit = foot \? foot\.getBoundingClientRect\(\)\.bottom - door\.getBoundingClientRect\(\)\.bottom - \(banner > 0 \? 0 : edge\) : 0;/);
   assert.match(fit, /const footFits = foot !== null && !window\.matchMedia\?\.\('\(min-width: 1280px\)'\)\.matches;/);
   /* The door's own block is never a part of the cover (else the foot would be given way as "the link"). */
   assert.match(hands, /if \(door && \(next === door \|\| next\.contains\(door\)\)\) continue;/);
@@ -251,7 +254,9 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(fit, /\.observe\(root, \{ attributes: true, attributeFilter: \['style'\] \}\)/);
   assert.match(fit, /new ResizeObserver\(soon\)/);
   assert.match(fit, /door\.addEventListener\('toggle', onToggle\)/);
-  assert.match(fit, /if \(door\.open\) door\.scrollIntoView\(\{ block: 'nearest'/);
+  /* (`isOpen()`: the door is a <details> — or, since 2026-10-20, the guest's RSVP link, which never opens.) */
+  assert.match(fit, /const isOpen = \(\) => door instanceof HTMLDetailsElement && door\.open;/);
+  assert.match(fit, /if \(isOpen\(\)\) door\.scrollIntoView\(\{ block: 'nearest'/);
   // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: a fit answering the hand-over's
   // re-measure fed a loop (the page changed length every ~120 ms at 375 × 560 — `scripts/scrub-browser-check.mjs` 16
   // plays it in a browser; this only pins the source).

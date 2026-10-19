@@ -641,7 +641,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const labKit = labKitView && (labKitView.look || labKitView.pieces.closing?.length) ? labKitView : null;
   /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
      it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
-  const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
+  const rsvpStateAsked = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
+  /* ✉️ `&rsvpstate=more` / `more1` — coming, with 2 / 1 of the couple's switched-on answers still owed (owner 2026-10-20,
+     "You're coming ✓ · N more answers"): the same guest as `going`, its N handed in as the page hands it (`moreAnswers`). */
+  const labMore = rsvpStateAsked === 'more' ? 2 : rsvpStateAsked === 'more1' ? 1 : 0;
+  const rsvpState = labMore > 0 ? 'going' : rsvpStateAsked;
   /* 🧭 …and, as on the page, the button TAKES the guest to the RSVP part — the Reply card under the cover (owner
      2026-10-17, *"it is not going to the RSVP part?"*); the Maker's own canvas keeps the doorway it always drew. */
   const labReplyCard =
@@ -652,6 +656,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           seats: 1,
           window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
           organizer: 'the couple',
+          moreAnswers: labMore,
         })
       : null;
   const labRsvp =
@@ -664,6 +669,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             seats: 1,
             window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
             organizer: 'the couple',
+            moreAnswers: labMore,
           }),
         })
       : null;
@@ -671,6 +677,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const masthead = (
     <PahinaMasthead
       rsvp={labRsvp}
+      /* 📐 The guest's view fits its foot as the page does (owner 2026-10-20); the Maker's own canvas does not. */
+      fitFoot={!makerCanvas}
       displayName={labNames}
       eventDate={LAB_SAMPLE.date}
       venueName={LAB_SAMPLE.venueLine}

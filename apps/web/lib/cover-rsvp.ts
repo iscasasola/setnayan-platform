@@ -12,13 +12,19 @@
  * `HUB_RSVP_DEFAULT_WORDS`) · coming → "You're coming ✓ · Change" · can't → "You can't make it · Change" · a shut
  * window → its line, plain text, no frame, not pressable.
  *
+ * ✉️ …AND COMING WITH ANSWERS STILL MISSING → "You're coming ✓ · N more answers" (owner 2026-10-20, DECISION_LOG "THE
+ * COVER'S REPLY BUTTON HAS THREE STATES"; "1 more answer" for one). N is the Reply card's `more` — the reply page's own
+ * missing set (`moreAnswersOf`, lib/guest-one-path.ts), never a second count — and the tap OPENS the reply page, which
+ * asks only those (owner: *"tap opens only the missing ones"*), rather than gliding to the card. Complete → "Change", as
+ * shipped. Held by `lib/the-cover-counts-the-reply-pages-questions.test.ts`.
+ *
  * Pure. No I/O, no React. Held by `lib/the-cover-has-its-rsvp-button.test.ts`.
  */
 import type { ReplyCard } from './guest-me-parts';
 
 /** What the cover's foot button draws for this reader. */
 export type CoverRsvp =
-  | { kind: 'ask' | 'going' | 'declined'; href: string }
+  | { kind: 'ask' | 'going' | 'declined'; href: string; /** ✉️ 'going' only, > 0: the answers still owed. */ more?: number }
   | { kind: 'closed' | 'not_yet'; line: string };
 
 /** The words of the two answered states (the prototype's), and of a shut window. */
@@ -37,6 +43,8 @@ export function coverRsvpOf(input: { card: ReplyCard | null; visitorHref?: strin
   if (c) {
     if (c.kind === 'closed') return { kind: 'closed', line: COVER_RSVP_CLOSED };
     if (c.kind === 'not_yet' || c.href === null) return { kind: 'not_yet', line: c.line };
+    // ✉️ Answers still owed: straight to the reply page, which asks only those — never the glide to the card.
+    if (c.kind === 'going' && c.more && c.more > 0) return { kind: 'going', href: c.href, more: c.more };
     return { kind: c.kind, href: input.toPart ? `#${COVER_RSVP_PART}` : c.href };
   }
   return input.visitorHref ? { kind: 'ask', href: input.visitorHref } : null;

@@ -168,6 +168,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // `guestOwnShots` (2026-10-01) — null here: the sample guest shot nothing.
     'guestOwnShots',
     'kind',
+    // `moreAnswers` (2026-10-20) — 0 here: the sample guest owes nothing more.
+    'moreAnswers',
     'needsFaceEnroll',
     'papicGuest',
     // passCard (2026-09-29) — whether THIS guest has a pass card; null in a simulation.

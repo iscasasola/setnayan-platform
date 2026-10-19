@@ -62,6 +62,8 @@ export function firstScreenFitter(
     const add = (key: string, el: HTMLElement) => out.push({ key: out.some((b) => b.key === key) ? `${key}-${out.length}` : key, el });
     for (const el of Array.from(inner.children)) {
       if (!(el instanceof HTMLElement) || el.getBoundingClientRect().height === 0) continue;
+      // 🦶 A photo cover IS its header, so the foot (the door's own block) stands among its parts: it is the door, not one.
+      if (door && (el === door || el.contains(door))) continue;
       if (el.matches('figure')) add('plate', el);
       else if (el.matches('[data-motion="arrive-mark"]')) add('mark', el);
       else if (el.matches('h1')) {

@@ -36,12 +36,34 @@ import { cache } from 'react';
  * door is not drawn, the arrival banner is skipped. That is what happens, for
  * this view only, and it is logged (`logQueryError(…, 'graceful_degrade')`).
  *
+ * ─── ONE MORE TRY — FOR AN ESSENTIAL READ, INSIDE THE BUDGET (2026-10-20) ───
+ * Production 2026-10-19 21:15:04Z: the whole database instance stalled for
+ * 5–10 s (Auth slowed too; the query itself averages 6.6 ms). The layout's
+ * `rpc/event_public_stamp` hit its own READ_LIMIT_MS and the owner's live
+ * invitation said "didn't load" — while a read sent at 21:15:11.8 answered in
+ * 1.9 s, with four seconds of the page's budget still unspent.
+ * So an ESSENTIAL read that ran out its OWN limit is sent ONCE more, at once,
+ * and only while budget remains; the second wait is the smaller of
+ * READ_LIMIT_MS and what is left of the budget. Recovered or not, the retry
+ * is logged on its own call site, `read-limit:retry` (Vercel and Sentry).
+ *   · a read that still does not answer is a lapse exactly as before — the
+ *     page still throws `GuestPageDidNotLoad`; a retry never hides a failure;
+ *   · a read cut short by the BUDGET (not its own limit) is never retried —
+ *     there is nothing left to retry in;
+ *   · DECORATION is never retried: it already leaves its part out honestly;
+ *   · a real error (an HTTP answer, a reset, the caller's own abort) is never
+ *     retried here — only the `AbortError` of our own limit;
+ *   · a POST to `/rpc/…` is retried only when the function is named in
+ *     RETRIED_RPCS — each one proven STABLE/IMMUTABLE, i.e. it CANNOT write,
+ *     by `tests/db/a-retried-guest-read-cannot-write.db.test.ts`.
+ *
  * ─── IT DOES NOT MULTIPLY ────────────────────────────────────────────────────
  * postgrest-js retries a failed GET three times (1 s, 2 s, 4 s apart) — unless
  * the failure is an `AbortError`, which it rethrows at once. So the limit is
- * raised as an `AbortError`: one read, one wait, no retry. And because the
- * deadline is shared, a retry postgrest-js makes for some OTHER failure gives up
- * the moment it leaves late. Nothing on the guest path uses `withSchemaRetry`.
+ * raised as an `AbortError`: postgrest-js adds no wait of its own on top of
+ * ours. And because the deadline is shared, any retry — the one above, or one
+ * postgrest-js makes for some OTHER failure — gives up the moment it leaves
+ * late. Nothing on the guest path uses `withSchemaRetry`.
  * Worst case for the page: PAGE_BUDGET_MS, plus at most one of postgrest-js's
  * own pauses (≤ 4 s) if a retry of its own was already sleeping at the deadline.
  *
@@ -78,6 +100,32 @@ const DECORATION_READS: ReadonlyArray<RegExp> = [
   // has its own honest `{ read: false }`; that page opens no read-limit scope.)
   /^event_wish_items$/,
 ];
+
+/**
+ * The `/rpc/…` reads that may be sent a second time (above). A POST could be a
+ * write, so only functions that cannot write are named — each one is held
+ * STABLE or IMMUTABLE in the replayed schema by
+ * `tests/db/a-retried-guest-read-cannot-write.db.test.ts`. A guest-page RPC not
+ * named here keeps its single wait; adding one is a reviewable line.
+ */
+export const RETRIED_RPCS: ReadonlyArray<string> = [
+  'event_public_stamp', // the layout's and the page's first read — the 2026-10-19 lapse
+  'event_entitlement_facts',
+  'papic_guest_ceiling_spend',
+  'papic_guest_share_weight',
+  'papic_guest_spend_ceiling',
+  'public_seat_lookup',
+  'public_venue_scene',
+  'visible_connection_names',
+  'wall_visible_photos',
+];
+
+/** May this read be sent once more after it ran out its own limit? Essential reads only, never a write. */
+export function isRetriedRead(what: string, method: string): boolean {
+  if (isDecorationRead(what)) return false;
+  if (method === 'GET' || method === 'HEAD') return true;
+  return method === 'POST' && what.startsWith('rpc/') && RETRIED_RPCS.includes(what.slice('rpc/'.length));
+}
 
 export type ReadLapse = { what: string; essential: boolean; waitedMs: number };
 
@@ -160,18 +208,83 @@ export async function fetchWithinReadLimit(
   };
   if (wait === 0) return lapse();
 
-  const limit = new AbortController();
-  const timer = setTimeout(() => limit.abort(), wait);
   const callers = init?.signal;
-  const signal = callers ? AbortSignal.any([callers, limit.signal]) : limit.signal;
-  try {
-    return await fetch(input, { ...init, signal });
-  } catch (error) {
-    if (limit.signal.aborted && !callers?.aborted) return lapse();
-    throw error;
-  } finally {
-    clearTimeout(timer);
+  /** One send with a bounded wait. `LAPSED` when — and only when — OUR limit ended it. */
+  const attempt = async (ms: number): Promise<Response | typeof LAPSED> => {
+    const limit = new AbortController();
+    const timer = setTimeout(() => limit.abort(), ms);
+    const signal = callers ? AbortSignal.any([callers, limit.signal]) : limit.signal;
+    try {
+      return await fetch(input, { ...init, signal });
+    } catch (error) {
+      if (limit.signal.aborted && !callers?.aborted) return LAPSED;
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const first = await attempt(wait);
+  if (first !== LAPSED) return first;
+
+  // 🔁 ONE MORE TRY (docblock): the read ran out its OWN limit, not the page's
+  // budget; it is essential and cannot write; budget remains; it can be resent.
+  const ranOutItsOwnLimit = wait >= scope.readLimitMs;
+  const retryStarted = Date.now();
+  const retryWait = Math.max(0, Math.min(scope.readLimitMs, deadline - retryStarted));
+  if (!ranOutItsOwnLimit || retryWait === 0 || callers?.aborted || !isRetriedRead(what, method) || !canResend(input, init)) {
+    return lapse();
   }
+  const second = await attempt(retryWait);
+  logRetry(scope.route, what, second !== LAPSED, retryStarted - started, Date.now() - retryStarted);
+  if (second !== LAPSED) return second;
+  return lapse();
+}
+
+const LAPSED = Symbol('read-limit:lapsed');
+
+/** A body that a second send reads again unchanged — postgrest-js sends a string, or none. */
+function canResend(input: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]): boolean {
+  if (typeof input === 'object' && !(input instanceof URL) && input.body) return false;
+  const body = init?.body;
+  return body === undefined || body === null || typeof body === 'string';
+}
+
+/**
+ * The retry, on its own call site — in the Vercel log (the repo's
+ * `[supabase-query-error]` shape) and in Sentry, so how often a stall is
+ * absorbed, and how often it is not, can be counted rather than guessed.
+ */
+function logRetry(route: string, what: string, recovered: boolean, firstMs: number, retryMs: number): void {
+  const ctx = {
+    call_site: 'read-limit:retry',
+    severity: recovered ? 'graceful_degrade' : 'will_throw',
+    error_code: 'READ_LIMIT_RETRY',
+    error_message: recovered
+      ? `${what} did not answer in ${Math.round(firstMs)} ms; one retry answered in ${Math.round(retryMs)} ms`
+      : `${what} did not answer in ${Math.round(firstMs)} ms, nor on one retry (${Math.round(retryMs)} ms)`,
+    route,
+    what,
+    recovered,
+    first_ms: Math.round(firstMs),
+    retry_ms: Math.round(retryMs),
+  };
+  try {
+    console.error(`[supabase-query-error] ${JSON.stringify(ctx)}`);
+  } catch {
+    /* a log line never changes what the guest sees */
+  }
+  // Lazily, like `logQueryError` in the browser: this module sits under the one
+  // fetch every Supabase client is built on, and must not import the SDK.
+  void import('@sentry/nextjs').then(
+    (S) =>
+      S.captureMessage(`read-limit:retry ${recovered ? 'recovered' : 'did not recover'}: ${what}`, {
+        level: recovered ? 'warning' : 'error',
+        tags: { call_site: 'read-limit:retry', recovered: String(recovered), route },
+        extra: ctx,
+      }),
+    () => {},
+  );
 }
 
 /** An essential read of this request did not answer in time. The guest boundary says the honest words. */

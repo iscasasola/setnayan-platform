@@ -198,6 +198,9 @@ test('ⓘ every .sn-dot-btn button in app/ presses at 44 × 44', async () => {
       const p = dotPress(cls);
       assert.ok(p.drawnW > 0 && p.drawnH > 0, `${f}: a .sn-dot-btn with no drawn size the guard can read (${cls})`);
       assert.ok(p.w >= 44 && p.h >= 44, `${f}: a .sn-dot-btn presses at ${p.w}×${p.h}px (classes: ${cls})`);
+      // The halo IS the press: a button that clips its own overflow, or sets its own `after:` geometry, shrinks it.
+      assert.ok(!/(^|\s)overflow-(hidden|clip)(\s|$)/.test(cls), `${f}: a .sn-dot-btn clips its own halo (classes: ${cls})`);
+      assert.ok(!/(^|\s)after:(-?inset|top|bottom|left|right|absolute|hidden|content-none)/.test(cls), `${f}: a .sn-dot-btn carries an after: utility that fights its halo (classes: ${cls})`);
     }
   }
   // InfoTip + the schedule's hand-drawn ⓘ and its icon buttons: a count of 0 would mean the scan read nothing.

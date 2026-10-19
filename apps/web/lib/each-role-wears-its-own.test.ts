@@ -256,8 +256,10 @@ test('⏰ the time reaches the PANEL, and it reads BEFORE the outfit', () => {
     join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'),
     'utf8',
   );
-  const timeAt = src.indexOf('mine.callTime');
-  const outfitAt = src.indexOf('mine.styleLabel');
+  // Anchored on the "you" panel's own two lines (2026-10-19: the Me › Arrive by part no longer spells `mine.callTime` —
+  // it also falls back to when guests arrive — so the first `mine.callTime` in the file is the panel's).
+  const timeAt = src.indexOf('{mine.callTime ? (');
+  const outfitAt = src.indexOf("{mine.styleLabel ?? 'Outfit to be confirmed'}");
   assert.ok(timeAt > 0, 'the call time is rendered at all');
   assert.ok(outfitAt > 0, 'precondition: the outfit is rendered');
   assert.ok(timeAt < outfitAt, 'the call time must come first in the panel');

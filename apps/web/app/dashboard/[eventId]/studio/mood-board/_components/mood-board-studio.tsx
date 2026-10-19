@@ -48,7 +48,7 @@ import {
   withRoleColours,
   type AutoSuggestion,
 } from '@/lib/mood-board-studio';
-import { afterGuestsArriveWrite, guestsArriveHhmm, guestsArriveTime, guestsArriveWrite, GUESTS_ARRIVE_UNSET, type ArriveBlock } from '@/lib/guests-arrive';
+import { afterGuestsArriveWrite, guestsArriveForm, guestsArriveHhmm, guestsArriveTime, guestsArriveWrite, GUESTS_ARRIVE_UNSET, type ArriveBlock } from '@/lib/guests-arrive';
 import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import { MOOD_BOARD_NOT_SAVED, dressCodeDraftFields, paletteDraftFields, slotRemoveFields, slotUploadFields } from '@/lib/studio-mood-board-saves';
 import { STUDIO_GROUP, STUDIO_GROUP_HEAD } from '@/lib/studio-skin';
@@ -442,11 +442,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const newId = plan.kind === 'create' ? crypto.randomUUID() : '';
     const after = afterGuestsArriveWrite(before, plan, newId);
     setArriveBlocks(after);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    for (const [k, v] of Object.entries(plan.fields)) if (typeof v === 'string') fd.set(k, v);
-    if (plan.kind === 'create') fd.set('block_id', newId);
-    fd.set(MAKER_QUIET_FIELD, '1');
+    const fd = guestsArriveForm(eventId, plan, newId, MAKER_QUIET_FIELD);
     (plan.kind === 'update' ? updateScheduleBlock(fd) : createScheduleBlock(fd)).then(
       () => {
         tell(`Guests arrive ${guestsArriveTime(after) ?? ''}.`.replace(' .', '.'));

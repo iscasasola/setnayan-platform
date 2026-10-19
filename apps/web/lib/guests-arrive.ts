@@ -169,3 +169,16 @@ export function afterGuestsArriveWrite(blocks: readonly ArriveBlock[], w: Guests
   }
   return [...blocks];
 }
+
+/**
+ * The form the Schedule's writer is sent — its own fields (`guestsArriveWrite`), the event, the new moment's id (a quiet
+ * Maker write names it, as Studio › Schedule's "Add a moment" does), and the quiet-write field the caller names.
+ */
+export function guestsArriveForm(eventId: string, w: Exclude<GuestsArriveWrite, { kind: 'refuse' }>, newId: string, quietField: string): FormData {
+  const fd = new FormData();
+  fd.set('event_id', eventId);
+  for (const [k, v] of Object.entries(w.fields)) if (typeof v === 'string') fd.set(k, v);
+  if (w.kind === 'create') fd.set('block_id', newId);
+  fd.set(quietField, '1');
+  return fd;
+}

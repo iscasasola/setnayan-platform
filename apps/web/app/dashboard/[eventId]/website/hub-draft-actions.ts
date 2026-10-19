@@ -64,6 +64,10 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { updatePrintDetails } from '@/lib/print-details-write';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { SECTION_NAME_PREFIX, sanitizeDraftedSectionWords, type SectionNameKey } from '@/lib/role-names';
+import { writeRoleNames } from '@/lib/role-names.server';
+import { isRenamableSection } from '@/lib/entourage';
+import { revalidateMarch } from '@/lib/entourage-write';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
@@ -660,6 +664,12 @@ export async function hubDraftAction(
     const deadlineWrite =
       'guest_list_edit_deadline' in eventsPatch ? ((eventsPatch.guest_list_edit_deadline as string | null) ?? null) : undefined;
     delete eventsPatch.guest_list_edit_deadline;
+    /* 🏷 THE ENTOURAGE'S SECTION HEADINGS (owner 2026-10-19) leave the session update too: `role_names` has no UPDATE
+       grant, and the draft holds its SECTION keys only. Written below through the column's ONE writer
+       (`writeRoleNames` — the Guest list's "Rename this section" is the same door), each word laid on the names as
+       they are when the write lands, every role's word kept. */
+    const sectionWordsWrite = 'role_names' in eventsPatch ? sanitizeDraftedSectionWords(eventsPatch.role_names) : undefined;
+    delete eventsPatch.role_names;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
     if ('site_bg_music_r2_key' in eventsPatch) {
@@ -786,6 +796,23 @@ export async function hubDraftAction(
       });
       /* The date is applied; a missing audit row is logged, never a reason to call Apply failed. */
       if (auditErr) console.error('[hub-draft] reply-by audit row not written:', auditErr.message);
+    }
+    if (sectionWordsWrite) {
+      const changes = Object.entries(sectionWordsWrite)
+        .filter(([key]) => isRenamableSection(key.slice(SECTION_NAME_PREFIX.length)))
+        .map(([key, one]) => ({ key: key as SectionNameKey, one }));
+      let written: unknown = null;
+      try {
+        written = changes.length > 0 ? await writeRoleNames(createAdminClient() as unknown as JsonColumnClient, eventId, changes) : {};
+      } catch {
+        written = null;
+      }
+      if (!written) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      // Every surface that prints a heading: the guest list + the Event Hub (`revalidateMarch`), the prints, the studio rows.
+      await revalidateMarch(eventId);
+      for (const path of [`/dashboard/${eventId}/prints`, `/dashboard/${eventId}/studio/mood-board`, `/dashboard/${eventId}/invitation`]) revalidatePath(path);
     }
     if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
       // 👥 Applied to print_details as it is when the write lands (lib/print-details-write.ts) — never a copy read

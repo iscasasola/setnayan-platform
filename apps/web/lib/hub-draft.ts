@@ -179,6 +179,7 @@ import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
+import { cleanRoleName, sanitizeDraftedSectionWords, withDraftedSectionWords } from '@/lib/role-names';
 import type { MarchStep } from '@/lib/march-drag';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -640,6 +641,11 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   ...HUB_DRAFT_VENUE_COLUMNS,
   // ⏳ "DRAFT 1-3" (owner 2026-10-08) — the thank-you words (its SELECT grant is 20271230123132).
   'pabuya_message',
+  /* 🏷 THE ENTOURAGE'S SECTION HEADINGS, NAMED IN THE WEDDING MARCH'S EDIT (owner 2026-10-19, *"Immediate Family change it
+     to VIP"*): `events.role_names`, drafted as its SECTION keys only (`sanitizeDraftedSectionWords`) — a role's word is the
+     Guest list's, live, and is never drafted, overlaid away or written here. SELECT is granted to `authenticated`
+     (20271253896753); UPDATE is not, so Apply writes it through the column's one writer (`writeRoleNames`, admin). */
+  'role_names',
 ] as const;
 
 /** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
@@ -853,10 +859,13 @@ export function sanitizeHubDraftEventValue(
   // ceremony time is moved, never erased, from here.
   // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
   if (raw === null)
-    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours'
+    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours' || column === 'role_names'
       ? undefined
       : null;
   switch (column) {
+    // 🏷 The section headings only — never a role's word, never the whole column cleared.
+    case 'role_names':
+      return sanitizeDraftedSectionWords(raw);
     case 'rsvp_backdrop':
       return parseRsvpBackdropConfig(raw) ?? undefined;
     case 'landing_page_hero_image_url': {
@@ -1271,7 +1280,7 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: stri
     // never forgets a drafted name style, nor the other way round.
     const prev = next.events[col as HubDraftEventColumn];
     next.events[col as HubDraftEventColumn] =
-      (col === 'print_details' || col === 'style_preferences') && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+      (col === 'print_details' || col === 'style_preferences' || col === 'role_names') && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
   }
   for (const [type, w] of Object.entries(clean.widgets)) {
     const prev = next.widgets[type as WidgetType] ?? {};
@@ -1361,6 +1370,8 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
     const live = row.print_details && typeof row.print_details === 'object' && !Array.isArray(row.print_details) ? (row.print_details as Record<string, unknown>) : {};
     out.print_details = { ...live, ...(draft.events.print_details as Record<string, unknown>) };
   }
+  /* 🏷 The drafted section headings laid INTO the live words, every role's word kept. */
+  if ('role_names' in draft.events) out.role_names = withDraftedSectionWords(row.role_names, draft.events.role_names);
   return out as T;
 }
 
@@ -1733,6 +1744,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const now = k.map((key) => printDetailsValue(next, key)).join('|');
       return k.length === 0 ? refChange('same', 'same') : refChange(was, now);
     }
+    case 'role_names': {
+      // 🏷 Only the section headings the draft HOLDS, each as a guest reads it ('' and never renamed are one).
+      const drafted = sanitizeDraftedSectionWords(next) ?? {};
+      const keys = Object.keys(drafted).filter((k) => (drafted[k as keyof typeof drafted] || null) !== draftedSectionWordOf(live, k));
+      const was = keys.map((k) => draftedSectionWordOf(live, k) ?? '').join('|');
+      const now = keys.map((k) => drafted[k as keyof typeof drafted]).join('|');
+      return keys.length === 0 ? refChange('same', 'same') : refChange(was || null, now || null);
+    }
     case 'invite_theme': {
       // Compared as guests meet it: never chosen and Classic are the same page,
       // and a retired id is its alias (`capiz` is Vintage).
@@ -1749,6 +1768,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(norm(live), norm(next));
     }
   }
+}
+
+/** The live word for one `section:<key>` of `events.role_names`, or null. */
+function draftedSectionWordOf(live: unknown, key: string): string | null {
+  const one = isPlainObject(live) && isPlainObject(live[key]) ? (live[key] as { one?: unknown }).one : null;
+  return cleanRoleName(one) || null;
 }
 
 /**
@@ -3190,6 +3215,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   event_date: 'Your date',
   event_date_precision: 'Your date',
   print_details: 'Your name style',
+  role_names: 'Your entourage headings',
   pabuya_message: 'Your thank-you message',
   guest_list_edit_deadline: 'Your reply-by date',
   // The venues are ONE change however many columns carry them.

@@ -101,6 +101,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   event_date: { place: DETAILS, what: 'Date' },
   event_date_precision: { place: DETAILS, what: 'Date' },
   print_details: { place: DETAILS, what: 'Name style' },
+  // 🏷 The entourage's section headings, named in the Wedding March's Edit (owner 2026-10-19).
+  role_names: { place: 'Wedding March', what: 'Section headings' },
   pabuya_message: { place: 'E-Gifts', what: 'Thank-you message' },
   guest_list_edit_deadline: { place: 'RSVP', what: 'Reply by' },
   std_film_ceremony_name: { place: DETAILS, what: 'Venues' },

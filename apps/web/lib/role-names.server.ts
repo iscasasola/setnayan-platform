@@ -17,18 +17,52 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_LABELS } from '@/lib/guests';
-import { sanitizeRoleNames, type RoleNames } from '@/lib/role-names';
+import { isRenamableSection } from '@/lib/entourage';
+import { sanitizeRoleNames, withOneWord, type RoleName, type RoleNames, type SectionNameKey } from '@/lib/role-names';
+import type { GuestRole } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 
 /** Is this string a role the vocabulary knows? (The sanitiser's `isKnownRole`.) */
 export function isKnownGuestRole(v: string): boolean {
   return Object.prototype.hasOwnProperty.call(ROLE_LABELS, v);
 }
 
-/** Sanitise a stored `role_names` value against the real vocabulary. */
+/** Sanitise a stored `role_names` value against the real vocabulary — the roles AND the entourage's sections. */
 export function readRoleNames(raw: unknown): RoleNames {
-  return sanitizeRoleNames(raw, isKnownGuestRole);
+  return sanitizeRoleNames(raw, isKnownGuestRole, isRenamableSection);
+}
+
+/** One word to change: a role's (`{ one, many? }`) or a section's heading (`section:<key>`, `{ one }`). Blank = the usual word. */
+export type RoleWordChange = { key: GuestRole | SectionNameKey; one: string; many?: string | null };
+
+/**
+ * 👥 THE ONE WRITER OF `events.role_names` — the Guest list's "Rename this role" and "Rename this section", and the
+ * Maker's section headings at ✓ Apply all write through here (owner 2026-10-19: two doors, ONE value). Each word is
+ * changed on the names AS THEY ARE when the write lands (`updateJsonColumn`, a compare-and-set on the value), so a word
+ * another host changed meanwhile — another role, another section — stays. The caller has already checked the host;
+ * `client` is the admin client (the column has no session UPDATE grant, on purpose).
+ *
+ * Returns the names as written, or `null` when the write did not land (a zero-row UPDATE is not "saved").
+ */
+export async function writeRoleNames(
+  client: JsonColumnClient,
+  eventId: string,
+  changes: readonly RoleWordChange[],
+): Promise<RoleNames | null> {
+  let value: Record<string, RoleName> | null = null;
+  const wrote = await updateJsonColumn(
+    client,
+    { table: 'events', row: { event_id: eventId }, column: 'role_names', what: 'The new name' },
+    (stored) => {
+      let next: RoleNames = readRoleNames(stored);
+      for (const c of changes) next = readRoleNames(withOneWord(next, c.key, c.one, c.many));
+      value = Object.keys(next).length > 0 ? (next as unknown as Record<string, RoleName>) : null;
+      return { next: value };
+    },
+  );
+  return wrote.written ? readRoleNames(value) : null;
 }
 
 /**

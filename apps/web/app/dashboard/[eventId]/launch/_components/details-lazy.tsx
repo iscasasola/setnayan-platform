@@ -99,6 +99,8 @@ export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-det
 export const VenuePictureRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuePictureRows), { loading: SlotNone });
 // 🖼 A scene of their own's pictures in the new Maker's Edit (2026-10-18) — Upload and the couple's media, per slot.
 export const ScenePhotoRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/scene-photos').then((m) => m.ScenePhotoRow), { loading: SlotNone });
+// 🏷 The Wedding March's Edit names its sections (2026-10-19) — Section ▾ and the heading's words, rows 2–3.
+export const SectionNames = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/section-names').then((m) => m.SectionNames), { loading: SlotNone });
 export const MarchMaker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchMaker), { loading: SlotFill });
 export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
 export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });

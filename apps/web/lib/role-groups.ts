@@ -1,5 +1,5 @@
 import type { GuestRole } from './guests';
-import { roleNameMany, type RoleNames } from './role-names';
+import { roleNameMany, sectionName, type RoleNames } from './role-names';
 
 export type RoleGroup =
   // The non-wedding honoree. Its own group rather than 'couple', because
@@ -113,10 +113,57 @@ const GROUP_NAMED_AFTER: Partial<Record<RoleGroup, GuestRole>> = {
   groomsmen: 'groomsman',
 };
 
+/**
+ * 🏷 THE ENTOURAGE SECTIONS A GROUP'S HEADING IS MADE OF (owner 2026-10-19: *"Immediate Family change it to VIP"*, and
+ * *"keep the mapping consistent"*). A part is a literal word or `[section key, the word this heading uses for it]`;
+ * joined with no rename, the parts ARE `ROLE_GROUP_LABELS[group]` (held by `section-names-reach-every-surface.test.ts`).
+ * When the couple gives a section its own word (`sectionName`, the same reader `lib/entourage.ts`'s `groupHeading`
+ * uses), that part reads it — so "VIP · Immediate Family" reads "VIP · Siblings" when Immediate Family is "Siblings".
+ *
+ * Which groups are here is a PROPERTY, not a list someone remembered: every group whose heading prints a section's
+ * usual word, and every group that holds exactly one section's people (the Nikah's principals, the Ceremony's
+ * officiants). The guard derives both from the two vocabularies and fails on a group missing here.
+ * The bridesmaids / groomsmen are named after their ROLE (`GROUP_NAMED_AFTER`), and the honour and crew sections each
+ * span both of them — so neither half takes a section's word.
+ */
+type HeadingPart = string | readonly [section: string, usual: string];
+export const ROLE_GROUP_SECTION_PARTS: Partial<Record<RoleGroup, readonly HeadingPart[]>> = {
+  vip_family: ['VIP', ' · ', ['immediate_family', 'Immediate Family']],
+  principal_sponsors: [['principal_sponsors', 'Principal Sponsors']],
+  secondary_sponsors: [['secondary_sponsors', 'Secondary Sponsors']],
+  muslim_principals: [['nikah', 'Nikah Principals']],
+  bearers_flower_girl: [['bearers', 'Bearers'], ' & ', ['flower_girls', 'Flower Girl']],
+  officiants: [['ceremony', 'Officiants & Readers']],
+};
+
+/** A heading built from its parts in the couple's section words — null when none of its sections is renamed. */
+function headingFromSections(parts: readonly HeadingPart[], names: RoleNames | null | undefined): string | null {
+  const words = parts.map((p) => (typeof p === 'string' ? null : sectionName(p[0], names)));
+  if (words.every((w) => w === null)) return null;
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; i += 1) {
+    const p = parts[i]!;
+    if (typeof p !== 'string') {
+      out.push(words[i] ?? p[1]);
+      continue;
+    }
+    /* A literal word the couple's own word already says ("VIP" beside "VIP") is not said twice — with its separator. */
+    const isWord = i % 2 === 0;
+    const said = isWord && words.some((w) => w !== null && w.toLowerCase().includes(p.toLowerCase()));
+    if (said) {
+      i += 1;
+      continue;
+    }
+    out.push(p);
+  }
+  return out.join('');
+}
+
 /** A group's heading in this couple's words — `ROLE_GROUP_LABELS` when they renamed nothing. */
 export function roleGroupLabel(group: RoleGroup, names?: RoleNames | null): string {
   const role = GROUP_NAMED_AFTER[group];
-  return (role ? roleNameMany(role, names) : null) ?? ROLE_GROUP_LABELS[group];
+  const parts = ROLE_GROUP_SECTION_PARTS[group];
+  return (role ? roleNameMany(role, names) : null) ?? (parts ? headingFromSections(parts, names) : null) ?? ROLE_GROUP_LABELS[group];
 }
 
 /**
@@ -130,7 +177,7 @@ export function roleGroupLabel(group: RoleGroup, names?: RoleNames | null): stri
  */
 export function sectionHeadingInTheirWords(label: string, names?: RoleNames | null): string {
   if (!names) return label;
-  for (const group of Object.keys(GROUP_NAMED_AFTER) as RoleGroup[]) {
+  for (const group of [...Object.keys(GROUP_NAMED_AFTER), ...Object.keys(ROLE_GROUP_SECTION_PARTS)] as RoleGroup[]) {
     if (ROLE_GROUP_LABELS[group] === label) return roleGroupLabel(group, names);
   }
   return label;

@@ -137,6 +137,7 @@ import {
   overlayHubDraftWidgets,
   type HubDraft,
 } from '@/lib/hub-draft';
+import { holdDraftedRoleNames } from '@/lib/drafted-role-names';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
 import {
@@ -915,6 +916,9 @@ async function invitationBody({
      written; `theme_try_on` lets the one theme gate paint a Pro theme the
      couple does not own yet (the fence still answers). */
   const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* 🏷 The entourage's section headings named in the Wedding March's Edit (owner 2026-10-19) — drafted, so the host's
+     canvas reads them through the guest tree's ONE reader of the couple's words (`lib/drafted-role-names.ts`). */
+  if (hostDraft && 'role_names' in hostDraft.events) holdDraftedRoleNames(liveEvent.event_id, hostDraft.events.role_names);
   /* 💎 A THEME PICKED INTO THE DRAFT IS WORN ON THE HOST'S CANVAS, Pro or not
      (owner 2026-09-28: *"they can edit it with pro features. but need to
      upgrade to pro when clicked on apply"*). `hostDraft` is non-null only for a

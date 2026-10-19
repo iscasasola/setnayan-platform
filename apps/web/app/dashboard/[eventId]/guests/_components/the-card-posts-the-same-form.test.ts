@@ -331,7 +331,17 @@ test('one list of fields: every field the card\'s body names is drawn by BOTH ki
   /* The kit's two halves implement the same list of leaves (the type says it; this names it so a leaf added to one is read). */
   const rows = stripComments(readFileSync(join(HERE, 'guest-card-template-kit.ts'), 'utf8'));
   const keys = (src: string, re: RegExp) => (re.exec(src)?.[1] ?? '').split(',').map((e) => e.split(':')[0]!.trim()).filter(Boolean).sort();
-  assert.deepEqual(keys(rows, /TEMPLATE_KIT: CardKit = \{([^}]*)\}/), keys(body, /const OLD_KIT: CardKit = \{([^}]*)\}/).map((k) => k), 'the two kits draw different leaves');
+  /* 🏷 ONE leaf is the Guests pages' alone, on purpose (2026-10-19): `Rename` — "Rename this role" · "Rename this section",
+     optional in the kit's type. The Maker's parent cards (the hand-drawn kit, in its first load) draw none: the Maker
+     names its sections in the Wedding March's Edit. It posts nothing with the card, so the forms above stay equal. */
+  const GUESTS_PAGES_ONLY = ['Rename'];
+  assert.deepEqual(
+    keys(rows, /TEMPLATE_KIT: CardKit = \{([^}]*)\}/).filter((k) => !GUESTS_PAGES_ONLY.includes(k)),
+    keys(body, /const OLD_KIT: CardKit = \{([^}]*)\}/).map((k) => k),
+    'the two kits draw different leaves',
+  );
+  assert.ok(keys(rows, /TEMPLATE_KIT: CardKit = \{([^}]*)\}/).includes('Rename'), 'the Guests pages lost "Rename this section"');
+  assert.match(stripComments(readFileSync(join(HERE, 'guest-card-kit.ts'), 'utf8')), /Rename\?: ComponentType<CardRenameProps>;/, 'a leaf the hand-drawn kit lacks is no longer optional');
 });
 
 test('anti-vacuity: the states really differ, and the form is not trivially small', async () => {

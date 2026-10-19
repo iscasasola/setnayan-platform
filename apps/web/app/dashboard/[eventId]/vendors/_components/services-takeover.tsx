@@ -345,7 +345,9 @@ export function ServicesTakeover({
        it was a full-screen "focus mode" takeover. It is a tab like Guests —
        the pinned block below sits UNDER the bar, never instead of it.
        `suppliers-keeps-the-shell-bar.test.ts` stops the hide coming back. */
-    <section ref={rootRef} data-budget-build-takeover="" data-suppliers-mode={mode}>
+    /* 🖥 THE WIDE STAGE — 64 rem, centred (owner 2026-10-19, couple dashboard desktop + tablet: "Guests Map
+       and Suppliers are the wide stage"). The list keeps its own 820-px column inside it. */
+    <section ref={rootRef} data-budget-build-takeover="" data-suppliers-mode={mode} className="mx-auto w-full max-w-5xl">
       <style>{LANDING_CSS}</style>
 
       {/* The page's name: the shared masthead's h1 (screen readers, every

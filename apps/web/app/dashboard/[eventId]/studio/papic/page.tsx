@@ -805,6 +805,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       the page would look exactly as it does today. `gap-7` reproduces
       `space-y-7` exactly.
     */
+    /* 📖 THE READING COLUMN — 48 rem, centred (owner 2026-10-19, couple dashboard desktop + tablet: a Studio
+       product is a reading column). A wrapper, so the flex column below keeps its own shape. */
+    <div className="mx-auto w-full max-w-3xl">
     <section className="flex flex-col gap-7 pb-12">
       <Link
         href={studioHubHref(eventId)}
@@ -1485,6 +1488,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       <MiniTour tourKey="customer_papic_v1" />
     </section>
+    </div>
   );
 }
 

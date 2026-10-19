@@ -25,6 +25,8 @@
  *   7 · a tap on Home lands with the cover FULLY gone, so the bars it was tapped on stay (Q3; 2026-10-16 "only once
  *       the cover is fully gone") — the jump's stop, computed from the stylesheet the page ships, is past the
  *       cover's edge with the top bar and without it.
+ *       And where it lands, what follows the cover starts 8 px clear of the top bar.
+ *   8 · a short page still gets its bars at its end, and a tap on a bar never takes them away.
  *
  * SABOTAGES (each run once, seen red, put back — recorded in the PR body and the handover).
  */
@@ -192,6 +194,69 @@ test('4 · Save the Date: Home · Story · Me — Story is there because the sto
 
 /* ══ 5 · THE BAR OVER THE COVER ══════════════════════════════════════════════ */
 
+/** The shipped cover-menu script, as the page writes it. */
+async function menuCode() {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CoverSceneMenuWaits } = await import('../_components/cover-scene-menu');
+  return renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+}
+
+const COVER_H = 800;
+const VH = 812;
+
+/** The script, run against a page with a shown cover `COVER_H` tall on a `VH` screen, the page `pageH` long. */
+function menuSim(code: string, coverShown: boolean, withIo: boolean, pageH = 5000) {
+  const attrs: Record<string, string> = {};
+  const style = { setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
+  const listeners: Record<string, Array<(e?: unknown) => void>> = {};
+  const docListeners: Record<string, Array<(e?: unknown) => void>> = {};
+  let rootTouched = false;
+  let observers = 0;
+  const win = { scrollY: 0, innerHeight: VH, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f), removeEventListener: () => {} };
+  const header = { offsetParent: {}, getBoundingClientRect: () => ({ top: -win.scrollY, bottom: COVER_H - win.scrollY }) };
+  const doc = {
+    readyState: 'complete',
+    head: { appendChild: () => {} },
+    documentElement: new Proxy({}, { get: () => { rootTouched = true; return () => {}; } }),
+    scrollingElement: { scrollHeight: pageH },
+    createElement: () => style,
+    querySelector: (sel: string) => (sel.startsWith('style') ? null : sel === 'header[data-cover-scene]' && coverShown ? header : null),
+    addEventListener: (t: string, f: () => void) => void (docListeners[t] ??= []).push(f),
+    removeEventListener: () => {},
+  };
+  /* A faithful threshold-0 observer: it reports the cover as intersecting while any of it is in [0, VH). */
+  let observed: unknown = null;
+  let fire: ((es: Array<{ target: unknown; isIntersecting: boolean }>) => void) | null = null;
+  const report = () => fire?.([{ target: observed, isIntersecting: header.getBoundingClientRect().bottom > 0 && header.getBoundingClientRect().top < VH }]);
+  class IO {
+    constructor(cb: (es: Array<{ target: unknown; isIntersecting: boolean }>) => void, opts: { threshold: number }) {
+      assert.equal(opts.threshold, 0, 'the observer does not fire at fully out (threshold 0)');
+      observers++;
+      fire = cb;
+    }
+    observe(t: unknown) { observed = t; }
+    unobserve() { observed = null; }
+  }
+  new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', 'IntersectionObserver', code)(win, doc, win.addEventListener, win.removeEventListener, (f: () => void) => f(), withIo ? IO : undefined);
+  report();
+  const scrollTo = (y: number, ev = 'scroll') => {
+    win.scrollY = Math.max(0, Math.min(y, pageH - VH));
+    if (withIo) report();
+    for (const f of listeners[ev] ?? []) f();
+    return attrs['data-cover-menu'];
+  };
+  /** The guest's own touch (a tap's touchstart, or the start of a swipe). */
+  const touch = () => { for (const f of listeners.touchstart ?? []) f(); };
+  /** A click — on one of the bars, or on the page. */
+  const click = (onBar: boolean) => {
+    const target = { closest: (sel: string) => (onBar && /Site sections/.test(sel) ? {} : null) };
+    for (const f of docListeners.click ?? []) f({ target });
+    return attrs['data-cover-menu'];
+  };
+  return { now: () => attrs['data-cover-menu'], scrollTo, touch, click, rootTouched: () => rootTouched, scrollListened: () => (listeners.scroll ?? []).length, observers: () => observers, y: () => win.scrollY };
+}
+
 test('5 · the bars wait while ANY of the cover is on screen, come in once it is fully gone, hide again when it shows (reduced motion: no slide)', async () => {
   const html = await renderSiteBodyFixture(STORY);
   // The page leads with the Cover Scene, and its bar is THE bar the cover's rule names.
@@ -211,49 +276,8 @@ test('5 · the bars wait while ANY of the cover is on screen, come in once it is
      cover — turns `open` only when the cover's bottom edge has passed the top, and is `wait` again the moment the
      cover shows (Q3, 2026-10-15). Both doors are run: the IntersectionObserver (threshold 0) every current browser
      takes, and the scroll measure a browser without one falls back to. A page whose cover is not shown (Me) is open. */
-  const React = await import('react');
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { CoverSceneMenuWaits } = await import('../_components/cover-scene-menu');
-  const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-  const COVER_H = 800;
-  const run = (coverShown: boolean, withIo: boolean) => {
-    const attrs: Record<string, string> = {};
-    const style = { setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
-    const listeners: Record<string, Array<() => void>> = {};
-    let rootTouched = false;
-    const win = { scrollY: 0, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f), removeEventListener: () => {} };
-    const header = { offsetParent: {}, getBoundingClientRect: () => ({ top: -win.scrollY, bottom: COVER_H - win.scrollY }) };
-    const doc = {
-      readyState: 'complete',
-      head: { appendChild: () => {} },
-      documentElement: new Proxy({}, { get: () => { rootTouched = true; return () => {}; } }),
-      createElement: () => style,
-      querySelector: (sel: string) => (sel.startsWith('style') ? null : sel === 'header[data-cover-scene]' && coverShown ? header : null),
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    /* A faithful threshold-0 observer: it reports the cover as intersecting while any of it is in [0, 812). */
-    let observed: unknown = null;
-    let fire: ((es: Array<{ target: unknown; isIntersecting: boolean }>) => void) | null = null;
-    const report = () => fire?.([{ target: observed, isIntersecting: header.getBoundingClientRect().bottom > 0 && header.getBoundingClientRect().top < 812 }]);
-    class IO {
-      constructor(cb: (es: Array<{ target: unknown; isIntersecting: boolean }>) => void, opts: { threshold: number }) {
-        assert.equal(opts.threshold, 0, 'the observer does not fire at fully out (threshold 0)');
-        fire = cb;
-      }
-      observe(t: unknown) { observed = t; }
-      unobserve() { observed = null; }
-    }
-    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', 'IntersectionObserver', code)(win, doc, win.addEventListener, win.removeEventListener, (f: () => void) => f(), withIo ? IO : undefined);
-    report();
-    const scrollTo = (y: number, ev = 'scroll') => {
-      win.scrollY = y;
-      if (withIo) report();
-      for (const f of listeners[ev] ?? []) f();
-      return attrs['data-cover-menu'];
-    };
-    return { now: () => attrs['data-cover-menu'], scrollTo, rootTouched: () => rootTouched, scrollListened: () => (listeners.scroll ?? []).length };
-  };
+  const code = await menuCode();
+  const run = (coverShown: boolean, withIo: boolean) => menuSim(code, coverShown, withIo);
   for (const withIo of [true, false]) {
     const how = withIo ? 'observer' : 'scroll measure';
     const page = run(true, withIo);
@@ -266,8 +290,10 @@ test('5 · the bars wait while ANY of the cover is on screen, come in once it is
     assert.equal(page.scrollTo(0), 'wait', `${how}: back at the top, the bars stayed over the cover`);
     assert.equal(page.rootTouched(), false, `${how}: the script touched <html> — hydration-unsafe`);
     assert.equal(run(false, withIo).now(), 'open', `${how}: a page without its cover on screen (Me) holds the bars back`);
-    /* ONE gate: with an observer there is no second, scroll-driven one. */
-    assert.equal(page.scrollListened(), withIo ? 0 : 1, `${how}: a second gate was added`);
+    /* ONE gate on the cover: with an observer, exactly one, and the one scroll listener is the page's end (test 8);
+       without one, that listener is the cover's measure too. */
+    assert.equal(page.observers(), withIo ? 1 : 0, `${how}: a second observer was added on the cover`);
+    assert.equal(page.scrollListened(), 1, `${how}: a second scroll gate was added`);
   }
 });
 
@@ -303,18 +329,20 @@ test('6 · scroll-spy: one IntersectionObserver on the marks, the last crossed i
 
 /* ══ 7 · HOME LANDS PAST THE COVER, SO THE BARS STAY ═════════════════════════ */
 
-/** A CSS length the stylesheet writes here — `4.5rem`, `-2px`, `calc(-4.5rem - 2px)` — in px (1rem = 16px). */
+/** A CSS length the stylesheet writes here — `4.5rem`, `-2px`, `calc(-4.5rem - 2px)`, `calc(4.5rem + 0.5rem + 2px - 3rem)` — in px (1rem = 16px). */
 function px(v: string): number {
   const t = v.trim();
   const calc = t.match(/^calc\((.*)\)$/);
-  if (calc) {
-    const parts = calc[1]!.trim().match(/^(-?[\d.]+(?:rem|px))\s*([+-])\s*([\d.]+(?:rem|px))$/);
-    assert.ok(parts, `a calc() this guard cannot read: ${t}`);
-    return px(parts[1]!) + (parts[2] === '-' ? -1 : 1) * px(parts[3]!);
-  }
-  const m = t.match(/^(-?[\d.]+)(rem|px)?$/);
-  assert.ok(m, `a length this guard cannot read: ${t}`);
-  return Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
+  const body = calc ? calc[1]!.trim() : t;
+  const terms = body.match(/^(-?[\d.]+(?:rem|px)?)((?:\s+[+-]\s+[\d.]+(?:rem|px))*)$/);
+  assert.ok(terms, `a length this guard cannot read: ${t}`);
+  const one = (x: string) => {
+    const m = x.match(/^(-?[\d.]+)(rem|px)?$/)!;
+    return Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
+  };
+  let sum = one(terms[1]!);
+  for (const m of terms[2]!.matchAll(/\s+([+-])\s+([\d.]+(?:rem|px))/g)) sum += (m[1] === '-' ? -1 : 1) * one(m[2]!);
+  return sum;
 }
 
 test('7 · a tap on Home lands with the cover fully gone — the bars it was tapped on stay', async () => {
@@ -350,4 +378,51 @@ test('7 · a tap on Home lands with the cover fully gone — the bars it was tap
     assert.ok(past >= 1, `${how}: Home lands ${-past} px ABOVE the cover’s foot — the cover is on screen and the bars leave`);
     assert.ok(past <= 8, `${how}: Home lands ${past} px past the cover’s foot — it skips into the first section`);
   }
+  /* 📏 …AND WHAT FOLLOWS THE COVER STARTS CLEAR OF THE TOP BAR (controller 2026-10-19: seen live, the countdown's
+     heading under the bar after a Home tap). Where Home lands, the first section after the cover begins at the mark's
+     height + the page's rhythm − how far past the mark it landed; that must be at least the bar's clearance + 8 px. */
+  const rhythm = html.slice(0, html.indexOf('id="site-home"')).match(/<article[^>]*class="[^"]*\bspace-y-(\d+)\b[^"]*"[^>]*>(?![\s\S]*<article)/)?.[1];
+  assert.ok(rhythm, 'anti-vacuity: the page’s rhythm above Home’s mark was not found');
+  const height = last(`${STICKY} [data-home-after-cover]`, 'height');
+  assert.ok(height, 'Home’s mark has no height of its own under the top bar');
+  const landed = -(px(pad) + px(last(`${STICKY} [data-home-after-cover]`, 'scroll-margin-top') ?? '0'));
+  const clear = px(height) + Number(rhythm) * 4 - landed;
+  assert.ok(clear >= px(pad) + 8, `where Home lands the first section starts ${clear} px down — under the bar (${px(pad)} px + 8)`);
+  assert.equal(px(last('[data-home-after-cover]', 'height') ?? '0'), 0, 'with no top bar to clear, Home’s mark still takes room');
+});
+
+/* ══ 8 · A SHORT PAGE STILL GETS ITS BARS · A TAP ON A BAR KEEPS THEM ═══════ */
+
+test('8 · the bars come when the cover is gone OR the page’s end is reached; a tap on a bar never takes them away', async () => {
+  /* Seen live 2026-10-19 (marco-marga, a Save the Date, signed out at 375): the page under the cover was shorter than a
+     screen, so at its foot 305 px of the cover was still on screen and the bars — Me among them — never came. */
+  const code = await menuCode();
+  for (const withIo of [true, false]) {
+    const how = withIo ? 'observer' : 'scroll measure';
+    const short = menuSim(code, true, withIo, COVER_H + 500); // the page can scroll 488 px: never past the cover
+    assert.equal(short.now(), 'wait', `${how}: a short page put its bars over the cover on landing`);
+    assert.equal(short.scrollTo(200), 'wait', `${how}: the bars came mid-way down a short page with its cover on screen`);
+    assert.equal(short.scrollTo(10_000), 'open', `${how}: at a short page’s end (cover still on screen) the bars did not come`);
+    assert.ok(short.y() < COVER_H, 'precondition: the cover is still on screen at the end');
+    assert.equal(short.scrollTo(short.y() - 200), 'wait', `${how}: back up from the end, with the cover showing, the bars stayed`);
+    /* A page no taller than the screen has not been scrolled: its end is on screen, but the cover is the first screen. */
+    assert.equal(menuSim(code, true, withIo, VH).now(), 'wait', `${how}: a page as short as the screen put its bars over the cover`);
+    /* 👆 A tap on a bar keeps them: the jump's own scroll may bring the cover back on screen; the guest's next touch hands
+       the bars back to the rule. A click elsewhere on the page does not. */
+    const long = menuSim(code, true, withIo);
+    assert.equal(long.scrollTo(1600), 'open');
+    long.touch();
+    long.click(true);
+    assert.equal(long.scrollTo(COVER_H - 100), 'open', `${how}: a tap on a bar took the bars away`);
+    long.touch();
+    assert.equal(long.scrollTo(COVER_H - 150), 'wait', `${how}: after the guest’s own touch the cover showing did not hide the bars`);
+    const page = menuSim(code, true, withIo);
+    page.scrollTo(1600);
+    page.click(false);
+    assert.equal(page.scrollTo(COVER_H - 100), 'wait', `${how}: a click on the page (not a bar) held the bars`);
+    assert.equal(long.rootTouched() || short.rootTouched(), false, `${how}: the script touched <html>`);
+  }
+  /* The Save the Date's bar carries Me for a guest with their own link — the bar the end of a short page brings in. */
+  const std = await renderSiteBodyFixture({ ...STORY, lifecyclePhase: 'save_the_date', stdFilm: true });
+  assert.ok(barOf(std).some((b) => b.label === 'Me' && b.href === '?tab=me'), 'the Save the Date’s bar has no Me');
 });

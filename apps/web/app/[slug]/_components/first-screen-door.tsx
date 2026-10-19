@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { FitPlan } from '../_lib/first-screen-fit';
+import { doorLimit, type FitPlan } from '../_lib/first-screen-fit';
 import { firstScreenFitter } from '../_lib/first-screen-fit-dom';
 
 /**
@@ -107,8 +107,11 @@ export function FirstScreenDoor({ fit: fits = true, foot: inFoot = false }: { fi
       }
       const rest = parseFloat(getComputedStyle(door).scrollMarginBottom) || 0;
       const banner = parseFloat(getComputedStyle(root).getPropertyValue('--cookie-banner-top')) || 0;
-      // The button's bottom edge may reach the bottom bar's top less a gap — or the cookie banner's, while it is up.
-      const limit = window.innerHeight - Math.max(rest, banner > 0 ? banner + 8 : 0);
+      // The button's bottom edge may reach the bottom bar's top less a gap — or the cookie banner's, while it is up —
+      // on the Cover Scene's own first screen: from where the scene begins, not the page's top (`doorLimit`).
+      const scene = (foot ?? cover).closest('header[data-cover-scene]');
+      const sceneTop = scene ? scene.getBoundingClientRect().top + window.scrollY : 0;
+      const limit = doorLimit({ screenHeight: window.innerHeight, footClear: Math.max(rest, banner > 0 ? banner + 8 : 0), sceneTop });
       // 🦶 The foot: the door clear of the screen's edge by 16 px; the fit measures the whole foot, so its limit is the
       // door's plus what stands under the door in the foot (that never changes with the fit).
       const footFit = foot ? foot.getBoundingClientRect().bottom - door.getBoundingClientRect().bottom - (banner > 0 ? 0 : 16) : 0;

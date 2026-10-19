@@ -295,7 +295,9 @@ test('(12) no bar is drawn over the cover; the bars come in only once the cover 
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
   /* Owner 2026-10-16 ("THE TOP AND BOTTOM BARS ARRIVE ONLY WHEN THE COVER IS FULLY GONE"): open only once the cover is gone. */
-  assert.match(script, /var open=!h\|\|gone\(h\);if\(open!==isOpen\(\)\)m\.setAttribute\('data-cover-menu',open\?'open':'wait'\)/, 'the bars do not wait for the cover to be fully gone');
+  /* (RE-AIMED 2026-10-19, controller: …or the page's end is reached, and a tap on the bar keeps them — executed in
+     `app/[slug]/_lib/the-invitation-is-one-page.test.ts` 5 and 8. The cover's own term is still first.) */
+  assert.match(script, /var open=!h\|\|gone\(h\)\|\|atEnd\(\)\|\|\(pin&&isOpen\(\)\);if\(open!==isOpen\(\)\)m\.setAttribute\('data-cover-menu',open\?'open':'wait'\)/, 'the bars do not wait for the cover to be fully gone');
   assert.match(script, /new IntersectionObserver\([\s\S]*?\{vis=e\.isIntersecting;check\(\)\}\},\{threshold:0\}\)/, 'the cover is not watched at threshold 0');
   assert.match(script, /catch\(e\)\{try\{if\(m\)m\.setAttribute\('data-cover-menu','open'\)\}/, 'a failure hides the menu for good — it must fail visible');
 });

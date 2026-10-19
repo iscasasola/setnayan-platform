@@ -109,7 +109,7 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort(fee)} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Run your whole wedding business here free — import clients, get a search-ready Setnayan page, get discovered. Free to join. ${supplierCommissionShort(fee)} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       title,
@@ -195,7 +195,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       offer(
         'pro-vendor-subscription',
         'Pro Supplier (28-day prepaid block)',
-        '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
+        '3 marketplace categories · 3 team accounts · custom Setnayan page + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
         p.num.proMonthly,
       ),
       offer(
@@ -329,7 +329,7 @@ export default async function ForVendorsPage() {
               className="sn-vendors-pricing-pointer"
             >
               <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--m-ink)', margin: 0 }}>
-                Planning your own celebration, or want to see what couples pay?
+                Planning your own event, or want to see what couples pay?
               </p>
               <Link
                 href="/pricing"

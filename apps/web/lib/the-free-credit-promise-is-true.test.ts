@@ -98,7 +98,7 @@ const CLAIM_FN = (() => {
 
 test('the free pool is claimed ONCE PER ACCOUNT — the page may not say "every"', () => {
   // The arbiter. Without it, or with it keyed on anything but the account, the
-  // sentence "on your first celebration" stops being the true one.
+  // sentence "on your first event" stops being the true one.
   assert.match(
     CLAIM_FN.sql,
     /INSERT INTO public\.papic_free_grant_claims \(user_id, event_id\)[\s\S]{0,160}?ON CONFLICT \(user_id\) DO NOTHING/,
@@ -164,14 +164,14 @@ const fifty: PapicFreeGrantRead = { kind: 'value', points: 50 };
 test('the sentence names the SIZE and the CONDITION, and is derived from the column', () => {
   const p = papicFreeCreditPromise({ kind: 'value', points: 90 });
   assert.ok(p, 'a positive allowance must produce a promise');
-  assert.equal(p.sentence, '90 free credits on your first celebration');
+  assert.equal(p.sentence, '90 free credits on your first event');
   assert.equal(p.size, '90 free credits');
   assert.equal(p.count, '90');
 
   // DERIVED, not typed: move the column and the sentence moves with it.
   assert.equal(
     papicFreeCreditPromise(fifty)?.sentence,
-    '50 free credits on your first celebration',
+    '50 free credits on your first event',
   );
   assert.notEqual(
     papicFreeCreditPromise(fifty)?.sentence,

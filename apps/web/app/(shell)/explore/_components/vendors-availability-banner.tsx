@@ -64,7 +64,7 @@ export function VendorsAvailabilityBanner({
           />
           <div className="space-y-1">
             <p>
-              Your booked vendors have no shared availability in{' '}
+              Your booked suppliers have no shared availability in{' '}
               <strong className="font-medium">{windowLabel}</strong>.
             </p>
             <p className="text-xs text-ink/65">
@@ -75,12 +75,12 @@ export function VendorsAvailabilityBanner({
               >
                 your event home
               </Link>
-              , or release a vendor via the{' '}
+              , or release a supplier via the{' '}
               <Link
                 href={`/dashboard/${eventId}/vendors`}
                 className="underline underline-offset-2 hover:text-terracotta"
               >
-                vendor dispute flow
+                supplier dispute flow
               </Link>
               .
             </p>
@@ -118,7 +118,7 @@ export function VendorsAvailabilityBanner({
             .
           </p>
           <p className="text-xs text-ink/65">
-            Pick one to lock your wedding date — only vendors free on that day are
+            Pick one to lock your wedding date — only suppliers free on that day are
             shown below.
           </p>
           <div className="flex flex-wrap gap-1.5">

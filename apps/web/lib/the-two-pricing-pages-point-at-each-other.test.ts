@@ -56,7 +56,7 @@ test('each link names WHOSE prices are on the other side', () => {
   const pricing = readCode(PRICING);
   assert.match(
     pricing,
-    /For vendors/,
+    /For suppliers/,
     'and the other leg names its audience too',
   );
 });

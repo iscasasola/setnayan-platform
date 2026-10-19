@@ -121,7 +121,7 @@ test('the page uses the resolver rather than re-spelling the rule', () => {
   // That is not a loop — the empty state it lands on now carries a working way
   // out. The bug was only ever the link that PROMISED everything and delivered
   // the same page.
-  const escapeStart = s.indexOf('Or browse all vendors instead');
+  const escapeStart = s.indexOf('Or browse all suppliers instead');
   assert.ok(escapeStart > 0, 'the escape CTA copy vanished — find it before asserting on it');
   const escapeLink = s.slice(Math.max(0, escapeStart - 400), escapeStart);
   assert.match(

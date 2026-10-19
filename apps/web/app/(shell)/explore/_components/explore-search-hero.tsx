@@ -135,7 +135,7 @@ export function ExploreSearchHero({
           Everything for your day, in one search.
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[color:var(--m-slate)] sm:text-base">
-          Search verified Filipino vendors and Setnayan&rsquo;s own services
+          Search verified Filipino suppliers and Setnayan&rsquo;s own services
           &mdash; photo, video, livestream, save-the-dates, and more &mdash; all
           from one place.
         </p>

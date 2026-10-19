@@ -27,13 +27,17 @@
      --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
   position: relative;
   min-width: 0;
-  /* The prototype's one 720 px column at every width; the map breaks out of it. */
-  max-width: 720px;
+  /* THE READING COLUMN — 48 rem (owner 2026-10-19, couple dashboard desktop + tablet: "Home, Guests
+     List/Setup, Budget and a Studio product are the reading column"). It was the 2026-10 prototype's 720 px;
+     a phone never reaches either, so the phone is unchanged. The map takes the wide stage below. */
+  max-width: 48rem;
   margin: 0 auto;
   width: 100%;
 }
 .screen[data-guests-screen='map'] {
-  max-width: none;
+  /* THE WIDE STAGE — 64 rem (same ruling): the map was uncapped, so on a 1440 desk its tree ran the stage edge
+     to edge; it now stops at the system's wide measure, centred. */
+  max-width: 64rem;
 }
 
 /* ═══ the sticky block: segmented · counts · meter ═══ */

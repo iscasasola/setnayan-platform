@@ -224,6 +224,9 @@ export const MAKER_DESK_CSS =
   `${WS} [data-details-editor-panel] [data-bg-cards]>[data-bg-card]{width:auto!important}` +
   `${WS} [data-details-editor-panel] [data-bg-cards]>[data-bg-card]>:first-child{width:100%!important;height:auto!important;aspect-ratio:3/4}` +
   `${WS} [data-details-editor-panel] [data-bg-cards]>[data-bg-card]:not([aria-pressed="true"]):hover>:first-child{box-shadow:0 0 0 2px ${DESK_GOLD}}` +
+  /* 🎨 The Mood Board's five main colours stay grouped at the start of the row, as the phone and the attire rows draw
+     them — at 1100 px the phone's spread (justify-between) set them edge to edge (controller's check of #6658). */
+  `${WS} [data-mood-board-five]{justify-content:flex-start!important;column-gap:20px}` +
   /* The home of tiles, in four columns (kept until the owner says whether it goes — the bar no longer leads there). */
   `${D} [data-studio-home]>*{max-width:${DESK_STUDIO_WIDE_PX}px;margin-inline:auto}` +
   `${D} [data-studio-home] [data-studio-cards]{grid-template-columns:repeat(4,minmax(0,1fr))}` +

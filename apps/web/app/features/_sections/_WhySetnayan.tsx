@@ -49,7 +49,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Do I need a separate app for guest photos?',
-      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged gallery and a personal reel, right on your event site, and you keep every photo.',
+      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged gallery and a personal reel, right on your Event Hub, and you keep every photo.',
     },
     {
       q: 'Is it really free?',
@@ -71,7 +71,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Kailangan ko pa ba ng hiwalay na app para sa guest photos?',
-      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged gallery at personal reel ang bawat guest, nasa event site mo mismo, at sa’yo nananatili ang lahat ng photo.',
+      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged gallery at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
     },
     {
       q: 'Libre ba talaga?',

@@ -1,5 +1,5 @@
 import { localeAlternates } from '@/lib/marketing-i18n';
-import { FeaturesPageBody, FEATURES_PATHS } from './_PageBody';
+import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
 
 // /features — the deep-dive feature catalog page. Per iteration 0015 §
 // Routes, this is the "features deep-dive (each tab + service explained
@@ -10,10 +10,16 @@ import { FeaturesPageBody, FEATURES_PATHS } from './_PageBody';
 // per-locale dictionaries; <FeaturesPageBody locale> renders them. The
 // Taglish twin lives at /tl/features and shares this exact body.
 //
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29) — 1hr Vercel edge cache so static
-// marketing routes serve Google's crawl budget without origin pressure.
-
-export const revalidate = 3600;
+// 2026-10-19 — THE HUB MOVED INTO app/(shell)/ (sweep row C5). It wore the
+// older floating glass nav ("Prices · Download · Suppliers") while every
+// /features/<slug> page under it wore the front-door bar and rail, so one
+// press from the hub to a feature swapped the whole header. It now sits in the
+// same group as its children and inherits the one shared shell.
+// ⚠ NO `revalidate` HERE ANY MORE: the group layout is force-dynamic because
+// the shell reads the session, and a page re-declaring caching under it is the
+// /privacy defect (`one-shell-mount.test.ts`). It sits in the `(hub)` group
+// so its `loading.tsx` wraps the hub alone — /features/[slug] calls notFound()
+// and must not stream (see the boundary's own note).
 
 export const metadata = {
   title: 'Every Feature in Setnayan · Wedding & Life-Events Platform Philippines',

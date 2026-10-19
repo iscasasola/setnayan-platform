@@ -28,9 +28,9 @@
  *   4. No public help text exposes internals: a bare route path, a code span,
  *      a column name.
  *   5. House words in public help: never "celebration(s)", one spelling
- *      "honor". (The Papic free-credit CONDITION is exempt here — it is
- *      `PAPIC_FREE_CREDIT_CONDITION`, owned by its own guard and reworded once
- *      for every surface; help.ts interpolates it rather than retyping it.)
+ *      "honor". The Papic free-credit CONDITION (`PAPIC_FREE_CREDIT_CONDITION`,
+ *      interpolated by help.ts rather than retyped) was exempt until it was
+ *      reworded to "on your first event" on 2026-10-19; it is held here now.
  *   6. The mobile-app answer is ONE function, true in both App Store states,
  *      and never claims an Android app.
  */
@@ -46,7 +46,6 @@ import { ADMIN_HELP_TOPICS } from './help-admin';
 import { renderLlmsTxt } from './llms-txt';
 import { INPUT_FOR_GUARDS } from './llms-txt-guard-input';
 import { mobileAppAnswer } from './where-setnayan-runs';
-import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
 import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -175,9 +174,10 @@ test('public help exposes no internals (B3)', () => {
 test('public help uses the house words (B6)', () => {
   const offenders: string[] = [];
   for (const { where, text } of publicHelpTexts()) {
-    // The free-credit condition is one shared constant with its own guard; it
-    // is reworded there, once, for every surface.
-    const own = text.split(PAPIC_FREE_CREDIT_CONDITION).join(' ');
+    // The free-credit condition is one shared constant with its own guard. It
+    // said "first celebration" until 2026-10-19 and was exempt here; it now says
+    // "first event", so it is held to the same house words as everything else.
+    const own = text;
     const c = /\bcelebrations?\b/i.exec(own);
     if (c) offenders.push(`${where}: "${c[0]}" — say "event"`);
     const h = /\bhonour\b/i.exec(own);

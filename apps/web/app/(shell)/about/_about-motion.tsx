@@ -80,7 +80,7 @@ export function AboutHero() {
         all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
         life-events platform — and the first built here to do the whole
         event in one place: plan it, hire from a 0%-commission
-        marketplace of verified local vendors, and capture the day so every
+        marketplace of verified local suppliers, and capture the day so every
         guest goes home with their own highlight reel.
       </p>
       <p
@@ -89,7 +89,7 @@ export function AboutHero() {
       >
         Not a foreign directory with a Philippine filter — software built and
         operated entirely in the Philippines, for the way Filipino couples
-        actually plan: a free planning workspace, verified local vendors,
+        actually plan: a free planning workspace, verified local suppliers,
         transparent peso pricing, and zero commission on what you pay your
         suppliers.
       </p>

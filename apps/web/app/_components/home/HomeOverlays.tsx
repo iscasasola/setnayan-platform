@@ -173,7 +173,7 @@ function PricesOverlay({
           <span>Schedule · Budget · Guest List · Seat Plan · Mood Board</span>
         </li>
         <li>
-          Free website
+          Free Event Hub
           <span>Save-the-Date · RSVP · Event · Editorial + unlimited RSVP</span>
         </li>
         <li>Find only verified suppliers</li>
@@ -308,7 +308,7 @@ function VendorsOverlay({
           {/* Supplier-facing: the second sentence is owed here. */}
           <b>{supplierCommissionShort(pricing?.bookingFee ?? null)}</b>
         </li>
-        <li>Free business public website</li>
+        <li>Free Setnayan page for your business</li>
         <li>Get verified — free</li>
         <li>
           Complete business tools

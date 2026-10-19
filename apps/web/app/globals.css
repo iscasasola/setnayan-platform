@@ -356,9 +356,17 @@
    * `.sn-dot-btn` is the one opt-out: it drops the floor, pins the box square
    * (`aspect-ratio`) and keeps the shape from being squeezed in a flex row. The
    * touch floor is not given up — an invisible `::after` halo widens the
-   * target past the drawn circle. The halo is 8px each side, not a full 44pt:
-   * these circles sit beside a label or a row's own button, and a 44pt halo
-   * would take taps meant for those.
+   * target past the drawn circle.
+   *
+   * 👆 THE HALO REACHES 46 × 46 (owner 2026-10-12: 44 px is the minimum press,
+   * everywhere; quality sweep 2026-10-19 row B11 measured InfoTip's 16-px ⓘ —
+   * "About Target", "About Waiting for their yes" — pressing at ~30 with the old
+   * fixed 8-px halo). Each side reaches `(100% − 46px) / 2` past the circle's
+   * padding box — the same 46 as `.sn-hit`, so a box that starts on a half
+   * pixel still presses at 44 — and never less than the old 8 px, so a dot
+   * button that was already larger (`h-10`) keeps exactly the press it had.
+   * The DRAWING does not change: the circle stays 16 px; only the invisible
+   * halo grows. Held by `lib/the-shared-controls-press-at-44.test.ts`.
    */
   .sn-dot-btn {
     position: relative;
@@ -369,7 +377,7 @@
   .sn-dot-btn::after {
     content: '';
     position: absolute;
-    inset: -8px;
+    inset: min(-8px, calc((100% - 46px) / 2));
     border-radius: 9999px;
   }
 

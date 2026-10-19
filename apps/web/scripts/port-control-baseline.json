@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "70e5b961c3",
-  "routeCount": 449,
-  "destinations": 994,
+  "generatedFromRef": "09b37eb71d",
+  "routeCount": 450,
+  "destinations": 995,
   "actions": 664,
-  "blocks": 6604,
+  "blocks": 6619,
   "routes": {
     "/": {
       "files": [
@@ -276,6 +276,17 @@
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
+      ]
+    },
+    "/(shell)/features/(hub)": {
+      "files": [
+        "(shell)/features/(hub)/loading.tsx",
+        "(shell)/features/(hub)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturesPageBody"
       ]
     },
     "/(shell)/features/[slug]": {
@@ -725,6 +736,17 @@
         "Link"
       ]
     },
+    "/(shell)/tl/features/(hub)": {
+      "files": [
+        "(shell)/tl/features/(hub)/loading.tsx",
+        "(shell)/tl/features/(hub)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturesPageBody"
+      ]
+    },
     "/(shell)/tl/features/[slug]": {
       "files": [
         "(shell)/tl/features/[slug]/page.tsx"
@@ -741,7 +763,8 @@
         "(shell)/web-only/page.tsx"
       ],
       "destinations": [
-        "/dashboard"
+        "/dashboard",
+        "/login"
       ],
       "actions": [],
       "blocks": [
@@ -5745,6 +5768,7 @@
         "SidebarItem",
         "SidebarSection",
         "Sk",
+        "Spotlight",
         "StatusIcon",
         "StepKey",
         "SubmitButton",
@@ -6802,6 +6826,7 @@
         "dashboard/[eventId]/launch/_components/look-sample.tsx",
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
+        "dashboard/[eventId]/launch/_components/maker-desk.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
         "dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
@@ -6861,6 +6886,7 @@
         "dashboard/[eventId]/launch/_components/stage-panel/cover-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-lines.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx",
+        "dashboard/[eventId]/launch/_components/stage-panel/desk.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/follow-draft.ts",
         "dashboard/[eventId]/launch/_components/stage-panel/kit.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/part-look.ts",
@@ -6941,6 +6967,7 @@
         "AllInOneShipped",
         "AmbientEffectLayer",
         "AnimatePhase",
+        "AnimateRows",
         "AnswerCard",
         "AnswerPicker",
         "At",
@@ -6988,6 +7015,8 @@
         "DateRow",
         "DateState",
         "Dd",
+        "DeskParts",
+        "DeskStep",
         "DetailsGoTo",
         "DetailsItemKey",
         "DetailsLookBody",
@@ -7113,7 +7142,9 @@
         "MadeOnce",
         "MainColourDraft",
         "MakerAddScene",
+        "MakerCanvasSilentDetail",
         "MakerContext.Provider",
+        "MakerDesk",
         "MakerDetails",
         "MakerDevice",
         "MakerDraftDoor",
@@ -7296,8 +7327,10 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
+        "Stack",
         "StageAbout",
         "StageAnimate",
+        "StageAnimateProps",
         "StageArrange",
         "StageBackground",
         "StageEdit",
@@ -9860,6 +9893,7 @@
         "dashboard/[eventId]/website/editor/_components/both-view.ts",
         "dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx",
         "dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx",
+        "dashboard/[eventId]/website/editor/_components/canvas-bridge-watch.ts",
         "dashboard/[eventId]/website/editor/_components/canvas-words.tsx",
         "dashboard/[eventId]/website/editor/_components/colour-well.tsx",
         "dashboard/[eventId]/website/editor/_components/details-bound-field.tsx",
@@ -9960,6 +9994,7 @@
         "BufferedCanvasFrame",
         "ButtonColourField",
         "ButtonsLookRow",
+        "CanvasBridgeWatch",
         "CanvasFrames",
         "CanvasHold",
         "CanvasStaysOnThePage",
@@ -10035,6 +10070,7 @@
         "LoopPicture",
         "LoveStoryChaptersPanel",
         "MainBackgroundPanel",
+        "MakerCanvasSilentDetail",
         "MakerHalfSheet",
         "MakerHeroPanel",
         "MakerLogoPanel",
@@ -10824,6 +10860,27 @@
         "Switch"
       ]
     },
+    "/dev/spotlight-lab/[[...page]]": {
+      "files": [
+        "dev/spotlight-lab/[[...page]]/page.tsx"
+      ],
+      "destinations": [
+        "/dev/spotlight-lab/after",
+        "/dev/spotlight-lab/home",
+        "/dev/spotlight-lab/shop"
+      ],
+      "actions": [],
+      "blocks": [
+        "DatesRow",
+        "FinishedEventSummary",
+        "GuestsLabPage",
+        "HomeLab",
+        "Link",
+        "NewThingTile",
+        "SupplierLabPage",
+        "SuppliersLabPage"
+      ]
+    },
     "/dev/supplier-chat-lab": {
       "files": [
         "dev/supplier-chat-lab/page.tsx"
@@ -10850,6 +10907,9 @@
       "files": [
         "dev/supplier-lab/dates-lab.tsx",
         "dev/supplier-lab/lab-seed-draft.tsx",
+        "dev/supplier-lab/library-lab-fixture.ts",
+        "dev/supplier-lab/library-lab-server.ts",
+        "dev/supplier-lab/library-lab.tsx",
         "dev/supplier-lab/money-lab.tsx",
         "dev/supplier-lab/page-lab.tsx",
         "dev/supplier-lab/page.tsx",
@@ -10857,9 +10917,11 @@
         "dev/supplier-lab/today-easy-lab.tsx"
       ],
       "destinations": [
+        "/dev/details-lab?look=1&studio=1&library=1",
         "/dev/supplier-lab?s=dates",
         "/dev/supplier-lab?s=dates-day",
         "/dev/supplier-lab?s=dates-halls",
+        "/dev/supplier-lab?s=library&view=review",
         "/dev/supplier-lab?s=people",
         "/dev/supplier-lab?s=qr",
         "/dev/supplier-lab?s=qr-booked",
@@ -10895,6 +10957,8 @@
         "GalleryMedia",
         "KeptNotesFold",
         "LabSeedDraft",
+        "LibraryLab",
+        "Link",
         "LockedQrGenerator",
         "MoneyLab",
         "MoneyLog",
@@ -10906,8 +10970,10 @@
         "PageParts",
         "PeopleLab",
         "QrCodes",
+        "ScreenFindingsPanel",
         "SearchBox",
         "ShopSegments",
+        "StylistLibraryEditor",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -11021,44 +11087,6 @@
         "StatCard",
         "Step",
         "Value"
-      ]
-    },
-    "/features": {
-      "files": [
-        "features/_PageBody.tsx",
-        "features/_feature-page.tsx",
-        "features/_feature-price.ts",
-        "features/_icons.ts",
-        "features/_sections/_Ecosystem.tsx",
-        "features/_sections/_FeatureGroups.tsx",
-        "features/_sections/_FinalCTA.tsx",
-        "features/_sections/_Hero.tsx",
-        "features/_sections/_HowItWorks.tsx",
-        "features/_sections/_WhySetnayan.tsx",
-        "features/page.tsx"
-      ],
-      "destinations": [
-        "/blog/[seg]",
-        "/for-suppliers",
-        "/open-shop",
-        "/signup",
-        "/suppliers"
-      ],
-      "actions": [],
-      "blocks": [
-        "EcosystemBand",
-        "FeatureGroups",
-        "FeaturesHero",
-        "FeaturesPageBody",
-        "FinalCTA",
-        "Fragment",
-        "HowItWorks",
-        "Icon",
-        "Image",
-        "Link",
-        "LocaleSwitch",
-        "OtherIcon",
-        "WhySetnayan"
       ]
     },
     "/for-suppliers": {
@@ -12183,16 +12211,6 @@
         "Link"
       ]
     },
-    "/tl/features": {
-      "files": [
-        "tl/features/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "FeaturesPageBody"
-      ]
-    },
     "/tour": {
       "files": [
         "tour/_components/tour-chat-thread.tsx",
@@ -12606,6 +12624,7 @@
         "SVGSVGElement",
         "Screen",
         "Sk",
+        "Spotlight",
         "State",
         "SubmitButton",
         "SupplierSubmit",
@@ -13527,8 +13546,11 @@
         "Image",
         "Link",
         "PalettePreview",
+        "PhotoPartGroup",
         "RejectionNotice",
         "ShopNotice",
+        "SlotOptions",
+        "StylistLibraryActions",
         "StylistLibraryEditor",
         "Uint8Array"
       ]
@@ -14308,6 +14330,7 @@
         "DatesRow",
         "Fold",
         "Icon",
+        "Link",
         "PushToggle",
         "SettingsView"
       ]

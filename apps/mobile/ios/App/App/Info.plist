@@ -41,8 +41,6 @@
 	<string>Setnayan writes your event and shop links onto NFC stickers so guests and couples can tap to open them.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Setnayan uses your camera so you can capture photos and short clips at the event and add them to the shared event gallery.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Setnayan uses your location to start the map where you are when you set your event's place or your shop's address, and to note where the photos you take at an event were taken.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Setnayan uses your microphone to record sound with the short video clips you capture at the event.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -31,6 +31,7 @@
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
+import { LabShell } from '@/app/dev/_lab-shell/lab-shell';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -79,7 +80,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -169,13 +170,14 @@ export default async function HomeLab({
     );
   }
   if (q.view === 'papic') {
-    return (
+    const band = (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
           <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} />
         </div>
       </div>
     );
+    return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
   }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
   const base: HomeNextInput = ps
@@ -197,7 +199,7 @@ export default async function HomeLab({
   const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
-  return (
+  const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
        a band that overflows (sweep 2026-10-19 C13: 16 px past the right edge at 1280 — the lab's, not the Home's).
@@ -263,4 +265,6 @@ export default async function HomeLab({
       />
     </div>
   );
+  /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
+  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{home}</LabShell> : home;
 }

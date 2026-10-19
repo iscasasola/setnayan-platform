@@ -473,7 +473,8 @@ button.ico {
 .lower > * {
   pointer-events: auto;
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+@media (min-width: 701px) {
   .lower {
     bottom: 16px;
     left: var(--gs-left, 0px);

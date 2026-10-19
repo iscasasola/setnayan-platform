@@ -41,7 +41,7 @@ export const BookStandInCtx = createContext<null | ((fields: Array<[string, stri
 /** Not the bar's main verb (Save is), so it keeps the table colour of Book —
  *  outlined green (owner 2026-10-12 look call 1: only a MAIN button turns
  *  terracotta; `lib/supplier-card-verbs.ts` draws a card's Book the same). */
-const BAR_FLEX = 'max-lg:!flex-1';
+const BAR_FLEX = 'max-tab:!flex-1';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 

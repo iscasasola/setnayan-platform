@@ -3,6 +3,7 @@
 import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
 // small screens (single-thumb reach) and docks as a right-side drawer on
@@ -31,6 +32,13 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 //
 // 🔑 ONE APP, ONE ANSWER. The breakpoint is now the same line the navigation
 // already draws. If that line ever moves, both must move together.
+//
+// 📱→🖥 …AND SINCE 2026-10-19 THAT LINE IS PER SURFACE (owner, DECISION_LOG
+// "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"). The couple's event
+// tree stops being a phone at 701 (`tab:`); every other tree still at 1024
+// (`lg:`). The sheet reads the surface's answer from `useShellBoundary()` — the
+// same prop that hides that surface's dock — so the two still agree everywhere.
+// Each answer is ONE complete class set below, never a mix.
 //
 // 📱 FOLDABLES (2026-09-25) — the `FOLDABLES` block at the end of globals.css
 // (never a `.css` import here: tests load this module under node), not
@@ -63,6 +71,31 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 //   - the heading element itself — consumer renders it so it can
 //     style/translate freely. Pass the heading's `id` via
 //     `labelledById`.
+
+/**
+ * The two complete geometries, one per boundary. Literal strings on purpose:
+ * Tailwind only generates what it can read, and `sheet-agrees-with-the-nav`
+ * reads each set to hold it to ONE breakpoint.
+ */
+const SHEET_AT: Record<
+  ShellBoundary,
+  { root: string; panel: string; narrow: string; wide: string }
+> = {
+  lg: {
+    root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
+    panel:
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
+    narrow: 'lg:w-[22rem]',
+    wide: 'lg:w-[min(34rem,92vw)]',
+  },
+  tab: {
+    root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
+    panel:
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:h-full tab:max-h-none tab:rounded-l-3xl tab:rounded-tr-none tab:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
+    narrow: 'tab:w-[22rem]',
+    wide: 'tab:w-[min(34rem,92vw)]',
+  },
+};
 
 export type SheetProps = {
   open: boolean;
@@ -105,6 +138,7 @@ export function Sheet({
   // restore on close) via the shared primitive.
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose, containerRef: dialogRef });
+  const at = SHEET_AT[useShellBoundary()];
 
   if (!open) return null;
 
@@ -115,7 +149,7 @@ export function Sheet({
       aria-modal="true"
       aria-labelledby={labelledById}
       data-sheet=""
-      className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none"
+      className={at.root}
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
           users get a focusable affordance, not just a div with onClick.
@@ -132,9 +166,7 @@ export function Sheet({
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""
-        className={`${rise ? 'sn-rise ' : ''}relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)] ${
-          wide ? 'lg:w-[min(34rem,92vw)]' : 'lg:w-[22rem]'
-        }`}
+        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}`}
       >
         {title ? (
           <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3">

@@ -819,7 +819,12 @@ html.guests-subnav-docked [data-shell-main] {
     max-height: 40dvh;
   }
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19, couple dashboard tablet): the event
+   tree's dock is `tab:hidden` (BottomDock boundary="tab"), so its column stops
+   reserving the dock's height on the SAME line — the page's own thumb docks
+   then sit on the bottom edge. `[data-shell-main]` is the event tree's column
+   (and its labs'), nobody else's. */
+@media (min-width: 701px) {
   [data-shell-main],
   html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;

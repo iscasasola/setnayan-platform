@@ -431,12 +431,14 @@ button.row {
 }
 /* A desktop has no bottom nav and a wide column: the row floats bottom-right
    at the page's own width (the Find thumb row's placement). */
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+/* `- 128px` = the 72-px rail strip + the two 28-px edges: at 701 a 720-px row would reach under the rail. From 1024 the 720 cap is the smaller, so nothing there moves. */
+@media (min-width: 701px) {
   .lower {
     bottom: 28px;
     left: auto;
     right: 28px;
-    width: min(720px, calc(100vw - 56px));
+    width: min(720px, calc(100vw - 128px));
     padding: 0;
   }
 }

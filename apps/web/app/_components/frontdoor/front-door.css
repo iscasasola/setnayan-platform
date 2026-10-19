@@ -2063,8 +2063,18 @@ button.fd-ask.quiet {
    the events board, the account pages and HQ the drawer is the only way to
    most of the app on a phone.
 
-   Below 768 only. 768–1023 and the desktop are unchanged.                    */
-@media (max-width: 767.98px) {
+   Below 701 only — the phone. 701 and up keep the full bar.
+
+   📱→🖥 IT WAS 768 UNTIL 2026-10-19, and that left the bar half-switched in
+   701–767: the mark had already handed back to the wordmark at 701 (the block
+   above), while the controls stayed phone circles until 768. The couple
+   dashboard's tablet starts at 701 (owner 2026-10-19, DECISION_LOG "APPROVED —
+   COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"), and a phone bar over a tablet
+   rail is the "three widths" the iPad audit (W10) named. MEASURED for EVERY
+   tree's cluster at 701 / 720 / 744 before the move (the slim-phone-top-bar
+   renderer: event · guests · board · shop · hq) — one row, nothing past the
+   edge — so the line moved for all of them rather than forking the bar.      */
+@media (max-width: 700.98px) {
   .fd[data-chrome='app'] {
     /* The token everything parked under the bar reads (the budget summary,
        the explore strip, help's nav). Measured, not derived: 44 + 6 + 1. */
@@ -2533,6 +2543,129 @@ button.fd-ask.quiet {
    in the other block; the guard was reading the wrong one and reported the
    phone rail as painting. Correct code, red guard, and the next reader would
    have "fixed" the guard. Keep every app-variant sub-1024 rule here. */
+
+/* ══ THE TABLET BAND — 701 TO 1023, FOR A SURFACE THAT OPTS IN ══════════════
+   Owner 2026-10-19, DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET
+   (AREA 2)"; prototype `couple_dashboard_desktop_tablet_2026-10-19.html` §0:
+   *"One boundary moves, 1024 → 701. The 72-px strip already exists; it is
+   handed down, not drawn."* A tablet is the desktop system at its width.
+
+   🔑 OPT-IN, BY ONE ATTRIBUTE. `data-boundary="tab"` is written on `.fd` by
+   the shell from the tree's `boundary` prop (`shell-boundary.tsx`), and only
+   the couple's event tree passes it. Every other tree — the front door, the
+   doorways, the launcher, the account spokes, the supplier dashboard, HQ —
+   carries no attribute and keeps the shipped off-canvas drawer below 1024:
+   they are areas 3–4 of the desktop plan and are not designed for this band.
+   The supplier dashboard and HQ would otherwise draw the strip AND their own
+   bottom bar at once.
+
+   WHAT THIS BLOCK IS: the 1024–1279 strip, restated for this band, over the
+   off-canvas rules the `max-width: 1023.98px` blocks above apply to every
+   tree. Each declaration below undoes exactly one of those; nothing new is
+   drawn. Specificity is `.fd[data-boundary='tab']` + the same selector the
+   drawer rule uses, and this block comes after all of them, so it wins
+   without `!important`.
+   ⚠ IF YOU ADD A RULE TO A SUB-1024 BLOCK ABOVE that changes the rail, the
+   hamburger, the scrim or the bar, decide here whether the tablet band undoes
+   it. `the-tablet-band-is-the-strip.test.ts` lists the selectors both sides
+   must name. */
+@media (min-width: 701px) and (max-width: 1023.98px) {
+  .fd[data-boundary='tab'] {
+    --fd-rail: 72px;
+  }
+  .fd[data-boundary='tab'] .fd-body {
+    display: grid;
+    grid-template-columns: var(--fd-rail) 1fr;
+  }
+  /* The rail is the inline strip again: sticky under the bar, filling its
+     column, never a drawer — so `data-open` means nothing here. */
+  .fd[data-boundary='tab'] .fd-rail,
+  .fd[data-boundary='tab'] .fd-rail[data-open='false'],
+  .fd[data-boundary='tab'] .fd-rail[data-open='true'],
+  .fd[data-boundary='tab'] .fd-rail[data-open='closing'] {
+    display: block;
+    position: sticky;
+    top: var(--fd-bar);
+    left: auto;
+    bottom: auto;
+    width: auto;
+    max-height: calc(100vh - var(--fd-bar));
+    min-height: calc(100vh - var(--fd-bar));
+    z-index: auto;
+    padding: 10px 4px 40px;
+    border-right: 1px solid var(--fd-line);
+    animation: none;
+  }
+  /* The strip's prose goes, as it does at 1024–1279. */
+  .fd[data-boundary='tab'] .fd-rail .fd-label-text,
+  .fd[data-boundary='tab'] .fd-rail .fd-ct,
+  .fd[data-boundary='tab'] .fd-rlabel,
+  .fd[data-boundary='tab'] .fd-signin-prompt p,
+  .fd[data-boundary='tab'] .fd-notice,
+  .fd[data-boundary='tab'] .fd-smallprint,
+  .fd[data-boundary='tab'] .fd-rail .fd-toolline,
+  .fd[data-boundary='tab'] .fd-rail .fd-toolplay,
+  .fd[data-boundary='tab'] .fd-rail .fd-mchev {
+    display: none;
+  }
+  .fd[data-boundary='tab'] .fd-rail .fd-row-2l {
+    min-height: 44px;
+    align-items: center;
+  }
+  /* Icon over caption, the strip's row. */
+  .fd[data-boundary='tab'] .fd-row {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 2px;
+    font-size: 10px;
+    min-height: 60px;
+    text-align: center;
+    justify-content: center;
+  }
+  .fd[data-boundary='tab'] .fd-row .fd-icon-caption {
+    display: block;
+  }
+  .fd[data-boundary='tab'] .fd-rail .fd-mchild {
+    padding-left: 2px;
+    font-size: 10px;
+  }
+  /* The five under More Services take no inset in a 72-px column — the
+     `min-width:1280px, max-width:1023.98px` margin is the wide rail's and the
+     drawer's, never the strip's. */
+  .fd[data-boundary='tab'] .fd-msub {
+    margin-left: 0;
+  }
+  /* No drawer, so no menu button and no scrim. */
+  .fd[data-boundary='tab'] .fd-only-narrow,
+  .fd[data-boundary='tab'] .fd-scrim {
+    display: none;
+  }
+  /* The bar stays put (hide-on-scroll is the phone's), and "+ Create" is back
+     — it is on the bar from 1024 today. */
+  .fd[data-boundary='tab'] .fd-topwrap[data-hidden='true'] {
+    transform: none;
+  }
+  .fd[data-boundary='tab'] .fd-btn-gold {
+    display: inline-flex;
+  }
+}
+
+/* 💍 A HOVER RING ONLY WHERE A POINTER IS FINE (prototype §notes: *"an iPad with
+   a finger never shows a hover ring; one with a trackpad does"*). On a touch
+   screen `:hover` sticks to the last row tapped, so the rail's hover wash would
+   mark a row nobody is pointing at. From 701 up, in the opted-in tree: the wash
+   and the system sheet's 2-px gold ring under `(hover: hover) and (pointer:
+   fine)`, nothing at all under a finger. The phone (below 701) is untouched. */
+@media (min-width: 701px) and (hover: hover) and (pointer: fine) {
+  .fd[data-boundary='tab'] .fd-rail .fd-row:hover {
+    box-shadow: inset 0 0 0 2px var(--fd-gold);
+  }
+}
+@media (min-width: 701px) and (hover: none), (min-width: 701px) and (pointer: coarse) {
+  .fd[data-boundary='tab'] .fd-rail .fd-row:not([data-on='true']):hover {
+    background: none;
+  }
+}
 
 /* ── THE OPENING ──────────────────────────────────────────────────────────
    Added 2026-08-21. The front door had no visible headline — its <h1> was

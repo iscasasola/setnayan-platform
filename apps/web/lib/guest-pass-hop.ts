@@ -316,3 +316,23 @@ export function passHopMissFault(miss: PassHopMiss) {
     },
   };
 }
+
+/* ══ THE INVITATION'S OWN ADDRESS CARRIES THE CODE NOW (owner 2026-10-19) ═════
+   A personal link opens the invitation itself (`personalLinkLandingPath`,
+   lib/invite-destination.ts), so the 30-minute landing code the redeem mints
+   rides on `/{slug}?k=` instead of `/{slug}/invite/enter?k=`. The same rule the
+   landing runs: a browser with NO pass for this event (a chat app's "Open in
+   Safari" opens the bare address bar) spends the code once at the redeem, which
+   comes back to the bare `/{slug}`; a browser that holds this event's pass, or
+   an address with no code (the plain address, the passcode's door), is never
+   sent anywhere by it. */
+export function invitationReentryHref(input: {
+  slug: string;
+  code: string | null | undefined;
+  passEventId: string | null | undefined;
+  eventId: string;
+}): string | null {
+  if (!isUrlSecretShaped(input.code)) return null;
+  if (input.passEventId && input.passEventId === input.eventId) return null;
+  return reentryRedeemPath(input.slug, input.code, 'hub');
+}

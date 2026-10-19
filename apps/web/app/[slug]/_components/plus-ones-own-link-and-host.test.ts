@@ -208,10 +208,10 @@ test('F · their OWN link routes a named plus-one to their door, not the Event H
 test('F · the Event Hub gates a plus-one to THEIR door, and spares them the full reply', () => {
   const page = read(...SLUG, 'page.tsx');
   const plus = page.indexOf('plusOneGate(');
-  const reply = page.indexOf('redirect(inviteReplyPath(event.slug ?? slug))');
-  assert.ok(plus > -1 && reply > plus, 'the plus-one gate is gone or runs after the reply gate');
+  assert.ok(plus > -1, 'the plus-one gate is gone');
   assert.match(page.slice(plus, plus + 600), /=== 'welcome'\s*\)\s*\{\s*redirect\(`\/\$\{event\.slug \?\? slug\}\/welcome`\)/);
-  assert.match(page, /if \(!isPlusOne && keyGate\.kind === 'ask'/, 'a plus-one is still sent to the full reply');
+  // 💌 2026-10-19: the Event Hub sends NO key to the full reply (the cover's Reply button does) — a plus-one included.
+  assert.doesNotMatch(page, /redirect\(inviteReplyPath\(/, 'a key (a plus-one included) is sent to the full reply again');
 });
 
 const DOOR = () => read(...SLUG, 'welcome', '_components', 'plus-one-door.tsx');

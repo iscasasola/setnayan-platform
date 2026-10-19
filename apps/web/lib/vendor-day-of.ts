@@ -22,6 +22,7 @@
  * land on the command center, not the shot list.
  */
 
+import { COORDINATOR_TRADE_SERVICES } from './coordinator-trade';
 import { isMusicVendor, MUSIC_CANONICALS } from '@/lib/songs';
 
 /** The console variant a vendor's category maps to. */
@@ -42,7 +43,8 @@ const CATERER_CANONICALS: ReadonlySet<string> = new Set([
 ]);
 
 /** Coordinator / planner tiles → the command center. */
-const COORDINATOR_CANONICALS: ReadonlySet<string> = new Set(['coordinator']);
+// Every name of the trade — the tile, the coarse category, the leaves (lib/coordinator-trade.ts).
+const COORDINATOR_CANONICALS: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
 
 /**
  * Resolve the day-of console kind from a vendor's `services[]`. Deterministic

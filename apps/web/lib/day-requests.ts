@@ -18,6 +18,8 @@
  * day-requests.test.ts.
  */
 
+import { isCoordinatorTrade } from './coordinator-trade';
+
 export type DayRequestOrigin = 'couple' | 'vendor' | 'host' | 'coordinator';
 export type DayRequestKind = 'issue' | 'request' | 'status_update';
 export type DayRequestStatus = 'open' | 'acknowledged' | 'resolved';
@@ -198,11 +200,13 @@ export function originForViewer(viewer: InboxViewer): DayRequestOrigin {
 }
 
 /**
- * The taxonomy tile that makes a booked vendor the floor's coordinator.
- * MUST stay in step with `'coordinator' = ANY (vp.services)` inside
- * `current_coordinator_booked_event_ids()` (migration 20271013100000) — the UI
- * decides which controls to render from this, the DB decides whether the write
- * lands, and a drift between them is a button that 403s.
+ * The taxonomy tile key for the coordinator trade. ⚠ NOT the whole test any
+ * more (2026-10-19): no shop writer puts the bare tile in `services`, so the
+ * one question is `isCoordinatorTrade` (lib/coordinator-trade.ts), mirrored in
+ * SQL by `services_make_a_coordinator()` inside
+ * `current_coordinator_booked_event_ids()` — the UI decides which controls to
+ * render, the DB decides whether the write lands, and a drift between them is a
+ * button that 403s.
  */
 export const COORDINATOR_TILE = 'coordinator';
 
@@ -213,7 +217,9 @@ export const COORDINATOR_TILE = 'coordinator';
 export function vendorInboxSide(
   services: readonly string[] | null | undefined,
 ): 'coordinator' | 'vendor' {
-  return services?.includes(COORDINATOR_TILE) ? 'coordinator' : 'vendor';
+  // Every name of the trade (lib/coordinator-trade.ts) — a real shop carries
+  // 'planner_coordinator' + a leaf, never the bare tile (2026-10-19).
+  return isCoordinatorTrade(services) ? 'coordinator' : 'vendor';
 }
 
 /** The status a tap advances to — the inbox's one-button machine. */
@@ -315,3 +321,4 @@ export function decideRequestsPanel(view: RequestsPanelInput): RequestsPanelStat
   if (view.side === null) return 'unbooked';
   return 'inbox';
 }
+

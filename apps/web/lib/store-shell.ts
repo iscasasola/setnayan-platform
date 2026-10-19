@@ -194,7 +194,44 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // `lib/the-supplier-page-lives-at-for-suppliers.test.ts` — so it needs no
   // entry of its own here.)
   '/for-suppliers',
+  // The Tagalog /features hub. Every feature row carries its live price
+  // ("Free · upgrades from ₱…", "₱2,500"). The English hub is bounced by the
+  // native brochure rule in middleware (`APP_EXCLUDED_MARKETING_PATHS`), which
+  // never listed its twin — so /tl/features painted the price list in the app.
+  '/tl/features',
 ]);
+
+/**
+ * 📣 THE FEATURE PAGES THAT SELL — `/features/<slug>` and its Tagalog twin
+ * `/tl/features/<slug>` for every feature whose price is NOT `free` (a `paid`
+ * feature, or a `free-plus` one whose page quotes the upgrade's price and
+ * walks through "Unlock …"). Sweep 2026-10-19 row A1: the store shell showed
+ * "PRICE ₱2,500 · Unlock Live Watch" and "upgrades from ₱70" because the
+ * doorway list above held the product pages but not the per-feature set
+ * that replaced them (DECISION_LOG 2026-10-01). Same rule as the product
+ * pages: `/pawebsite`, `/palogo`, `/papic`, `/patiktok` are already doorways,
+ * and these are their feature pages.
+ *
+ * 🔑 A HAND LIST, HELD BY ENUMERATION. Middleware runs at the edge and must not
+ * import the feature registry (every word of every page, in two languages), so
+ * the slugs are spelled here — and `lib/store-shell.test.ts` walks
+ * `FEATURE_PAGES` itself: a slug priced anything but `free` that is missing
+ * here fails, and so does a `free` slug listed here (the free planning pages
+ * stay open in the app).
+ */
+export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
+  'mood-board',
+  'setnayan-ai',
+  'event-hub',
+  'prints',
+  'logo-maker',
+  'music-maker',
+  'papic',
+  'live-watch',
+  'patiktok',
+]);
+
+const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;
 
 /**
  * 🔑 PAID FEATURES WHOSE HOME IS NOT UNDER /studio. The first version of this
@@ -241,6 +278,8 @@ export function isStoreShellWebOnlyPath(pathname: string): boolean {
   if (STORE_SHELL_WEB_ONLY_DOORWAYS.has(path)) return true;
   if (WEB_ONLY_PURCHASE_ROUTE.test(path)) return true;
   if (WEB_ONLY_FEATURE_ROUTE.test(path)) return true;
+  const feature = path.match(FEATURE_PAGE_ROUTE);
+  if (feature) return STORE_SHELL_WEB_ONLY_FEATURE_SLUGS.has(feature[1]!);
   const m = path.match(STUDIO_ROUTE);
   if (!m) return false;
   // `/studio/about/<key>` is the App-Store-style detail page for a feature —

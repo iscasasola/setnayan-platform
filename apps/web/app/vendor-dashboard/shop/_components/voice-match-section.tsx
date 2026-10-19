@@ -5,6 +5,7 @@ import { vendorAiAdvancedActive } from '@/lib/vendor-ai-level';
 import { isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
 import { vendorVoiceMatchEnabled } from '@/lib/vendor-voice-match-flag';
 import { HOUSE_VOICE, coerceVoiceProfile } from '@/lib/vendor-voice-profile';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 import { VoiceMatchCard } from './voice-match-card';
 
@@ -67,6 +68,12 @@ export async function VoiceMatchSection({ vendorProfileId }: { vendorProfileId: 
   } catch {
     // defaults above — the panel renders in its locked/house state.
   }
+
+  // 🔒 Store shell (sweep 2026-10-19 row C14): without Vendor AI — Advanced the
+  // panel's whole message is "Included with Vendor AI — Advanced… Upgrade to…",
+  // a pitch for a digital add-on the app cannot sell (guideline 3.1.1). The
+  // app shows the panel only to a shop that already has the feature.
+  if (!advancedActive && (await isStoreShellRequest())) return null;
 
   return (
     <section id="voice-match" aria-labelledby="voice-match-heading" className="mt-4">

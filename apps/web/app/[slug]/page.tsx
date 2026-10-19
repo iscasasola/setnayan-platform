@@ -50,7 +50,7 @@ import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { inviteReplyPath } from '@/lib/invite-arrival';
+import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
@@ -165,6 +165,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
 import { guestHubDesktopEnabled } from '@/lib/guest-hub-desktop-flag';
 import { GUEST_HUB_DESKTOP_CSS } from '@/lib/guest-hub-desktop';
+import { ReplyPanel } from './_components/reply-panel';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
@@ -1270,6 +1271,10 @@ async function invitationBody({
       <>
         {worn}
         <style data-guest-desk="">{GUEST_HUB_DESKTOP_CSS}</style>
+        {/* 🖥 …and its Reply opens the one reply page in the 440-px side panel (DECISION_LOG 2026-10-19 "FIVE
+            CONTROLLER RECOMMENDATIONS APPROVED" (3), `reply-panel.tsx`) — behind the same gate, so a page without the
+            desk keeps the plain link. */}
+        <ReplyPanel replyPath={inviteReplyPath(event.slug ?? slug)} thanksPath={inviteEnterPath(event.slug ?? slug)} />
       </>
     ) : (
       worn

@@ -54,6 +54,8 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // so the type import now points there instead.
 import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
@@ -1826,6 +1828,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
           browseMode={browseMode}
+          emptyLineHidden={hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount)}
         />
       </>
     );
@@ -4446,6 +4449,7 @@ async function CatalogView({
   focusedMode,
   faithFilter,
   browseMode,
+  emptyLineHidden,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: {
@@ -4504,6 +4508,11 @@ async function CatalogView({
    *  "Browse all categories" link render. True for explicit browse/context
    *  visits (?browse=1 / folder / tile / from=plan). */
   browseMode: boolean;
+  /** 📱 Inside the App Store / Play Store shell the "no supplier has opened a
+   *  shop yet" line is hidden (owner, DECISION_LOG 2026-10-19 (2)); the search
+   *  hero and "Browse all categories" stay, so the page is never empty. One
+   *  live shop and this view is not rendered at all. Web: always false. */
+  emptyLineHidden: boolean;
 }) {
   // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
   // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
@@ -4971,17 +4980,19 @@ async function CatalogView({
           joins"). One plain line for the couple, one door for the supplier —
           the same /open-shop door the front door's invite card uses.
         */}
-        <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
-          <p className="text-base font-medium text-ink/80">
-            No supplier has opened a shop yet — new shops show up here the day they open.
-          </p>
-          <p className="mt-2 text-sm text-ink/60">
-            Are you a supplier?{' '}
-            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
-              Open your shop &rarr;
-            </Link>
-          </p>
-        </div>
+        {emptyLineHidden ? null : (
+          <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
+            <p className="text-base font-medium text-ink/80">
+              No supplier has opened a shop yet — new shops show up here the day they open.
+            </p>
+            <p className="mt-2 text-sm text-ink/60">
+              Are you a supplier?{' '}
+              <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+                Open your shop &rarr;
+              </Link>
+            </p>
+          </div>
+        )}
 
         {/* 2026-06-14 search-first — owner "we just want a search bar". The
             curated browse catalog below the hero (icon strip + venue pickers +

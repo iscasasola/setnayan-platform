@@ -51,6 +51,8 @@ import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
+import { ReplyPanel } from '@/app/[slug]/_components/reply-panel';
+import { GUEST_HUB_DESKTOP_CSS } from '@/lib/guest-hub-desktop';
 import { replyCardOf } from '@/lib/guest-me-parts';
 import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
@@ -263,7 +265,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 📬 `?replycard=open|going|not_yet|closed` — the Event Hub's Welcome Reply card (`ReplyCardRow` from
      `replyCardOf`, the page's own two) in each state of the couple's reply window, on the lab's house ground. */
   if (typeof sp.replycard === 'string') {
-    const state = sp.replycard;
+    /* 🖥 `&desk=1` — the guest page's desk gate on (`guestDesk`): the desk style and the Reply side panel
+       (`reply-panel.tsx`) as the page mounts them, the panel framing the lab's reply page (`?rsvp=form&door=1`, never
+       pressed Send — its save is the real one). `&rsvp=ok|details|refused` — the invitation the panel hands back after
+       a saved reply: the replied card, under the Event Hub's own words for it. */
+    const desk = sp.desk === '1';
+    const replied = sp.rsvp === 'ok' || sp.rsvp === 'details' || sp.rsvp === 'refused';
+    const state = replied ? 'going' : sp.replycard;
     const card = replyCardOf({
       action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: state === 'going' ? 'attending' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
       replyBy: 'Saturday, December 5, 2026',
@@ -277,7 +285,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <p className="text-xs uppercase tracking-[0.28em] text-ink/60">Together with their families</p>
         <h1 className="font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
         <p className="text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
+        {replied ? (
+          <p role="status" data-lab-replied={String(sp.rsvp)} className="text-sm text-ink/70">
+            Your reply is in — thank you.
+          </p>
+        ) : null}
         {card ? <ReplyCardRow card={card} /> : null}
+        {desk ? (
+          <>
+            <style data-guest-desk="">{GUEST_HUB_DESKTOP_CSS}</style>
+            <ReplyPanel replyPath="/maria-and-jose/invite/reply" thanksPath="/maria-and-jose/invite/enter" frameHref="/dev/maker-lab/guest?rsvp=form&door=1" />
+          </>
+        ) : null}
       </main>
     );
   }

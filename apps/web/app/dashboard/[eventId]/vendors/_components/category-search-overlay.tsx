@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 import { createPortal } from 'react-dom';
 import { SavedPhotoMarker } from './saved-photo-marker';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
@@ -206,6 +207,9 @@ export function CategorySearchOverlay({
   // the group is fully in its last-minute zone and Setnayan AI is off, so generic
   // search is empty — swap the bare copy for a capability-framed unlock CTA.
   const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
+  // 📱 Setnayan AI is a web-only paid feature (lib/store-shell.ts); inside the
+  // app its "Unlock" door is not offered and the plain empty line shows instead.
+  const storeShell = useIsStoreShell();
   // Smart-sort "raise your budget?" pressure from the server (flag-gated; false
   // when the flag is off since the server omits the field then).
   const [budgetRaise, setBudgetRaise] = useState(false);
@@ -615,7 +619,7 @@ export function CategorySearchOverlay({
       <div className="results">
         {loading && results.length === 0 ? (
           <div className="loading">Finding {label.toLowerCase()} suppliers…</div>
-        ) : results.length === 0 && lastMinuteLocked ? (
+        ) : results.length === 0 && lastMinuteLocked && !storeShell ? (
           // §4 edge-#2: the date is close and generic search is empty, but
           // last-minute vendors could still take it with Setnayan AI on. Calm,
           // capability-framed unlock — never "locked"/"hidden inventory".

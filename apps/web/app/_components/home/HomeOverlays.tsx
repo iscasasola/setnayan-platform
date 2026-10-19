@@ -256,7 +256,7 @@ function DownloadOverlay({
           <div className="hr-s">Install from your browser</div>
         </Link>
       </div>
-      <div className="hr-dl-stores">
+      <div className="hr-dl-stores" data-coming-soon>
         {/* App-store listings are not live yet — kept as a labelled "soon" tile
             rather than a dead link. Swap for the real store URLs once published. */}
         <span className="hr-dl-store hr-soon">

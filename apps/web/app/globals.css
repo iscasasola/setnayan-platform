@@ -2408,6 +2408,14 @@ html {
 html[data-store-shell] [data-coming-soon] {
   display: none !important;
 }
+/* 📍 The iPhone/Android app declares no location (owner, DECISION_LOG
+   2026-10-19 (1)): every control that asks for it — "Near me", "Use my
+   location" — carries `data-asks-location` and is hidden here before first
+   paint; `lib/location-ask.ts` skips the ask itself. Held by
+   lib/the-app-never-asks-for-location.test.ts. */
+html[data-store-shell] [data-asks-location] {
+  display: none !important;
+}
 
 html[data-sn-boot] #sn-init-splash {
   position: fixed;

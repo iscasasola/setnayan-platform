@@ -51,7 +51,7 @@ export function SettingsView({
     <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-settings-screen="">
       <h1 className="sn-h1">Settings</h1>
       <div className="mt-3" data-settings-rows="">
-        <DatesRow data="settings-account" lead={ic(UserRound)} title="Account" line="Your name · email · password" href="/dashboard/profile" />
+        <DatesRow data="settings-account" lead={ic(UserRound)} title="Account" line="Profile · password · delete account" href="/dashboard/profile" />
 
         <div className="border-t border-ink/10" data-settings-fold="notifications">
           <Fold

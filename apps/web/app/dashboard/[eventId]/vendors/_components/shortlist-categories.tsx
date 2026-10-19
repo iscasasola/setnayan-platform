@@ -4508,7 +4508,7 @@ export function ShortlistCategories({
           eventId={eventId}
           category={manual.category}
           categoryLabel={manual.label}
-          coverCatalog={coverCatalogFromFolders(foldersFromServer)}
+          coverCatalog={coverCatalogFromFolders(folders)}
           onClose={() => setManual(null)}
           onCreated={() => {
             setManual(null);

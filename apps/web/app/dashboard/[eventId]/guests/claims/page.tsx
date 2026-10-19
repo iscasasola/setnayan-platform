@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { RoleNamesProvider } from '../_components/role-names-context';
 import { getCurrentUser } from '@/lib/auth';
-import { guestFullName, RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
+import { guestNameAsGiven, RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
@@ -246,7 +246,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
               eventId={eventId}
               guest={{
                 guestId: row.guest_id as string,
-                formalName: guestFullName(row, setup.facts.nameStyle),
+                formalName: guestNameAsGiven(row, setup.facts.nameStyle),
                 firstName: (row.first_name as string | null) ?? null,
                 fullName: who_,
                 inviteUrl: base && row.qr_token ? invitationLinkOn(base, row.qr_token as string) : null,

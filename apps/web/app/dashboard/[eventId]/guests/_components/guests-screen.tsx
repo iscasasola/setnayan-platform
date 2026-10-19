@@ -76,7 +76,7 @@ import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
   guestDisplayName,
-  guestFullName,
+  guestNameAsGiven,
   guestInitials,
   plusOneSeats,
   RSVP_ROW_WORDS,
@@ -514,7 +514,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const removeNames = (toRemove ?? []).map((id) => {
     const g = byId.get(id);
     // A +1's seat is named with their guest here too — "Juanita Sacdalan’s +1 · TBA", never a bare "+1 · TBA".
-    return g ? (plusWords.get(id)?.name ?? guestFullName(g) ?? guestDisplayName(g)) : '';
+    return g ? (plusWords.get(id)?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g)) : '';
   });
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
@@ -1232,7 +1232,7 @@ function GuestRowLine({
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const name = plusWords?.name ?? guestFullName(g) ?? guestDisplayName(g);
+  const name = plusWords?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
   // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
   const notAdded = Math.max(0, plus - seatsOnList);

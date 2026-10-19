@@ -59,7 +59,7 @@ export type InviteEventFacts = {
   /**
    * 🔤 The event's Name style (`events.print_details.name_style`, owner
    * 2026-09-30) — the caller composes `formalName` in it:
-   * `guestFullName(guest, facts.nameStyle)`. A Display name is still as given.
+   * `guestNameAsGiven(guest, facts.nameStyle)`. A "Shown as" is still as given.
    */
   nameStyle?: NameStyle;
 };
@@ -68,7 +68,7 @@ export type GuestInviteContext = InviteEventFacts & {
   /**
    * 📝 `{name}` — THE GUEST'S NAME EXACTLY AS THE COUPLE ENTERED IT on the Guest
    * list (owner 2026-09-30: *"we want the copy to indicate the name as given. to
-   * them"*): `guestFullName` — the couple's own Display name when they set one,
+   * them"*): `guestNameAsGiven` — the couple's own "Shown as" when they set one,
    * else the five parts composed, "Mr. Manuel Cortez Casasola Jr.". Never cut
    * to a first name. The two fields below are only the fallback for a caller
    * with no row to compose from.

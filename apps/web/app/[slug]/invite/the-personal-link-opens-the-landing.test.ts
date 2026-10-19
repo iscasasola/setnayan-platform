@@ -238,7 +238,7 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   });
   assert.equal(theirs, 'Mabuhay Mr. Manuel Cortez Casasola! Join us for Ana & Miguel’s wedding.', 'the couple’s own words were not used, or the ask stayed after a reply');
   assert.doesNotMatch(theirs, /\{link\}|https?:/, 'the landing message carries a link');
-  assert.match(ENTER, /formalName: guestFullName\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
+  assert.match(ENTER, /formalName: guestNameAsGiven\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
 });
 
 // ═══ I · the approved Fable look ════════════════════════════════════════════

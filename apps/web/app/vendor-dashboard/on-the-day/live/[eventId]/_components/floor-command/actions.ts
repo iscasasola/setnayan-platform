@@ -20,7 +20,7 @@ import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
-import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type FloorActionResult = { ok: boolean; error?: string; message?: string };
@@ -35,7 +35,7 @@ async function requireCoordinator(eventId: string) {
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { error: 'No supplier profile.' as const };
-  if (!profile.services?.includes(COORDINATOR_TILE)) {
+  if (!isCoordinatorTrade(profile.services)) {
     return { error: 'Only the coordinator can run the floor.' as const };
   }
 

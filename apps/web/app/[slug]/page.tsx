@@ -958,7 +958,7 @@ async function invitationBody({
      same `cache()`d reads the lines below await (the session's one database
      check is `cache()`d inside `readGuestSession`). */
   startAhead(loadWidgets(admin, event.event_id));
-  startAhead(readGuestPassStanding());
+  const passStandingAhead = startAhead(readGuestPassStanding());
   startAhead(getCurrentUser());
   /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
      schedule until it knows whether coordinator prep is released — one row, the
@@ -1007,7 +1007,7 @@ async function invitationBody({
   // 🪪 …asked AS THE ACCOUNT (owner bug 2026-10-19, lib/pass-account-rule.ts): signed in, a pass this browser holds
   // for somebody else's row is SET ASIDE — `session` is null for it, and `passStandingNow.setAside` keeps it for the
   // one line that says so ("This browser also holds <name>'s invitation. Viewing as you.").
-  const passStandingNow = await readGuestPassStanding();
+  const passStandingNow = await passStandingAhead;
   const session = passStandingNow.session;
   timer.mark('guest-session');
 

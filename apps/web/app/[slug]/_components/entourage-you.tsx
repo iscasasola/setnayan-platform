@@ -21,9 +21,11 @@ import { meAnchorOf } from './entourage-me-anchor';
  *   · the FIRST mark carries `<section id>-me` (`#site-entourage-me` on the event page), the one place Me's
  *     "See where you are ↓" (`see-where-you-are.tsx`) goes to.
  *
- * 🔒 WHO IS MARKED: only the id the page was handed as `myGuestId` — the guest tree's own signed guest. A stranger,
- * a host and the Maker's canvas (See as · View as a role — a stand-in, never a real name) pass none, and so draw
- * nothing: no wash, no "You", no heading line, no anchor. Held by
+ * 🔒 WHO IS MARKED: only the id the page was handed as `myGuestId` — the guest tree's own signed guest, or (owner
+ * ruling 2026-10-19, `lib/pass-account-rule.ts`) a HOST's own guest row on the host's page. Never a guest pass the
+ * signed-in account does not own: signed in, the account says who is looking. A stranger and the Maker's canvas (See
+ * as · View as a role — a stand-in, never a real name) pass none, and so draw nothing: no wash, no "You", no heading
+ * line, no anchor. Held by
  * `lib/the-guest-sees-their-place.test.ts`, on every registered entourage style.
  *
  * Presentational and pure — nothing here decides who is in the entourage (`lib/entourage.ts` does).

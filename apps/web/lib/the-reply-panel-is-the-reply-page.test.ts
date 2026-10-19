@@ -118,13 +118,16 @@ test('4 · a saved reply is the save’s own outcome — and the refusals stay o
   assert.equal(repliedHref(`${ORIGIN}/maria-and-jose?rsvp=error`, 'details'), '/maria-and-jose?rsvp=details');
   const panel = read(PANEL);
   assert.match(panel, /router\.replace\(repliedHref\(window\.location\.href, step\.outcome\), \{ scroll: false \}\)/, 'a saved reply reloads the page, or loses its place');
+  /* The frame's own moves are given back before it goes, or the guest's next Back is a dead press (walked 2026-10-19). */
+  assert.match(panel, /const extra = window\.history\.length - opened\.current;[\s\S]{0,400}?window\.history\.go\(-extra\);/, 'the frame’s history entries outlive it');
+  assert.equal(panel.match(/setSrc\(null\)/g)?.length, 1, 'a close that does not give the frame’s history back');
 });
 
 test('5 · the panel is the system sheet’s — the shared Sheet, the 440-px right panel on the desk', () => {
   const panel = read(PANEL);
   assert.match(panel, /import \{ Sheet \} from '@\/app\/_components\/sheet';/);
-  assert.match(panel, /<Sheet open=\{src !== null\} onClose=\{\(\) => setSrc\(null\)\}/);
+  assert.match(panel, /<Sheet open=\{src !== null\} onClose=\{\(\) => close\(\)\}/);
   assert.ok(GUEST_HUB_DESKTOP_CSS.includes(`${GUEST_SHEETS.shared}{width:440px!important`), 'the shared Sheet is not the 440-px panel on the desk');
   /* Esc inside the framed form closes it too (a key pressed in a frame never reaches this document). */
-  assert.match(panel, /win\.addEventListener\('keydown', \(k\) => \{\s*if \(k\.key === 'Escape' && !k\.defaultPrevented\) setSrc\(null\);/);
+  assert.match(panel, /win\.addEventListener\('keydown', \(k\) => \{\s*if \(k\.key === 'Escape' && !k\.defaultPrevented\) close\(\);/);
 });

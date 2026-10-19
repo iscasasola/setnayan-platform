@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sheet } from '@/app/_components/sheet';
 import { REPLY_PANEL_MEDIA, opensInReplyPanel, repliedHref, replyPanelStep } from '@/lib/guest-reply-panel';
@@ -38,6 +38,30 @@ export function ReplyPanel({
   const headingId = useId();
   const [src, setSrc] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
+  /* The tab's history length when the panel opened: the frame's own moves are entries in the tab's ONE history. */
+  const opened = useRef(0);
+
+  /* 🔙 EVERY CLOSE GIVES THE FRAME'S ENTRIES BACK FIRST (walked 2026-10-19): the save's move in the frame — or a refused
+     Send's return — left entries of a frame that is about to go, and the guest's next Back was a dead press. Stepping
+     back over them moves the frame alone; then the panel closes and `after` runs. */
+  const close = useCallback((after?: () => void) => {
+    const finish = () => {
+      setSrc(null);
+      after?.();
+    };
+    const extra = window.history.length - opened.current;
+    const win = frame.current?.contentWindow;
+    if (extra <= 0 || !win) return finish();
+    let finished = false;
+    const once = () => {
+      if (finished) return;
+      finished = true;
+      finish();
+    };
+    win.addEventListener('popstate', once, { once: true });
+    window.setTimeout(once, 500);
+    window.history.go(-extra);
+  }, []);
 
   /* The press: the capture phase, ahead of `<Link>`'s own handler — a press this does not take is untouched. */
   useEffect(() => {
@@ -62,6 +86,7 @@ export function ReplyPanel({
          not focus a link it clicks. */
       a.focus({ preventScroll: true });
       const url = new URL(a.href);
+      opened.current = window.history.length;
       setSrc(frameHref ?? `${url.pathname}${url.search}${url.hash}`);
     };
     document.addEventListener('click', onClick, true);
@@ -106,15 +131,16 @@ export function ReplyPanel({
         if (!heard.has(win)) {
           heard.add(win);
           win.addEventListener('keydown', (k) => {
-            if (k.key === 'Escape' && !k.defaultPrevented) setSrc(null);
+            if (k.key === 'Escape' && !k.defaultPrevented) close();
           });
         }
         return;
       }
       done = true;
-      setSrc(null);
-      if (step.kind === 'replied') router.replace(repliedHref(window.location.href, step.outcome), { scroll: false });
-      else router.push(step.href);
+      close(() => {
+        if (step.kind === 'replied') router.replace(repliedHref(window.location.href, step.outcome), { scroll: false });
+        else router.push(step.href);
+      });
     };
     look();
     const timer = window.setInterval(look, 150);
@@ -122,10 +148,10 @@ export function ReplyPanel({
       done = true;
       window.clearInterval(timer);
     };
-  }, [src, replyPath, thanksPath, router]);
+  }, [src, replyPath, thanksPath, router, close]);
 
   return (
-    <Sheet open={src !== null} onClose={() => setSrc(null)} labelledById={headingId} title="Your reply" rise>
+    <Sheet open={src !== null} onClose={() => close()} labelledById={headingId} title="Your reply" rise>
       {src ? (
         <iframe
           ref={frame}

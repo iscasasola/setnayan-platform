@@ -105,8 +105,14 @@ async function drive<T>(page: () => Promise<T>): Promise<{ out: T | unknown; too
   let done = false;
   let out: T | unknown;
   page().then(
-    (v) => ((done = true), (out = v)),
-    (e: unknown) => ((done = true), (out = e)),
+    (v) => {
+      done = true;
+      out = v;
+    },
+    (e: unknown) => {
+      done = true;
+      out = e;
+    },
   );
   for (let t = 0; !done && t <= 60_000; t += 10) {
     await flush();

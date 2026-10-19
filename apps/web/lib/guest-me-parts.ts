@@ -50,6 +50,7 @@ import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from './role-dress-code';
 import { singleWearerOf } from './role-figure';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from './role-group-dress-code';
 import type { ArrivalAction } from './arrival-action';
+import { hostNoteHeading, hostNoteShown } from './guest-host-note';
 
 /** The four, in the Me page's order (`MAKER_STAGE_PAGES.rsvp.me`). */
 export const GUEST_ME_PARTS = ['role', 'wear', 'arrive', 'guests'] as const;
@@ -138,6 +139,11 @@ export function readerIsListed(reader: { kind: 'guest'; entrySource?: string | n
   return reader.kind === 'guest' && reader.entrySource !== REQUEST_ENTRY_SOURCE;
 }
 
+/** 🔒 Rules 1 and 2 — the Me page's personal half is open to this reader at all. */
+function meIsPersonal(input: { on: boolean; getIn: GuestsGetIn; listed: boolean }): boolean {
+  return input.on && input.getIn === 'list' && input.listed;
+}
+
 /** 🔒 The parts this reader sees, in order — [] whenever any rule fails. */
 export function guestMePartsShown(input: {
   /** The new Maker's guest side is on for this event (`guestStagesOn`). */
@@ -146,12 +152,35 @@ export function guestMePartsShown(input: {
   listed: boolean;
   facts: GuestMeFacts;
 }): GuestMePart[] {
-  if (!input.on || input.getIn !== 'list' || !input.listed) return [];
+  if (!meIsPersonal(input)) return [];
   const f = input.facts;
   return GUEST_ME_PARTS.filter((p) =>
     p === 'role' ? f.role !== null : p === 'wear' ? f.wear : p === 'arrive' ? f.arriveBy !== null : f.comingWith.length > 0,
   );
 }
+
+/**
+ * 💌 THE HOSTS' NOTE TO THIS GUEST, on Me under Your role (owner 2026-10-20, DECISION_LOG "A NOTE FOR ONE GUEST" —
+ * `lib/guest-host-note.ts`). Not one of the four parts (those are the Maker's `my` tiles); it sits between Your role and
+ * What to wear and follows the SAME three rules: the personal half is open (1 · 2), and THIS row carries a note (3).
+ * `note` is the reader's own `guests.host_note_for_guest` — read from their own row, so it can only ever be theirs.
+ * Null: nothing drawn, not even the heading.
+ */
+export function guestMeNoteShown(input: {
+  on: boolean;
+  getIn: GuestsGetIn;
+  listed: boolean;
+  note: string | null | undefined;
+  /** The event's names ("Jodalicca & Claire") — the heading's "from". */
+  eventNames: string | null | undefined;
+  /** The event's own word for its hosts ("the couple") — when the event has no name. */
+  theOrganizer: string;
+}): GuestMeNote | null {
+  if (!meIsPersonal(input)) return null;
+  const text = hostNoteShown(input.note);
+  return text ? { heading: hostNoteHeading(input.eventNames, input.theOrganizer), text } : null;
+}
+export type GuestMeNote = { heading: string; text: string };
 
 /* ── THE REPLY CARD ─────────────────────────────────────────────────────── */
 

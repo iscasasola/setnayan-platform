@@ -9,7 +9,7 @@ import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { GuestMeParts, ReplyCardRow } from './guest-me-parts';
-import { guestMeFacts, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
+import { guestMeFacts, guestMeNoteShown, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
 import { readGuestsGetIn } from '@/lib/who-can-reply';
 import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
@@ -2807,6 +2807,20 @@ export async function SiteBody({
             }),
           })
         : [];
+    /* 💌 THE HOSTS' NOTE TO THIS GUEST (owner 2026-10-20, `guestMeNoteShown`): under Your role on Me, by the same gate
+       as the four parts — and read from THIS reader's own row (`loadGuestOwnRow`), so it is only ever theirs. Never on
+       the Maker's canvas (no real guest is reading it there). */
+    const meNote =
+      guestStages && pageStage === 'rsvp' && tabsOn && !isMakerCanvas
+        ? guestMeNoteShown({
+            on: guestStages,
+            getIn: readGuestsGetIn(event.rsvp_ask_config),
+            listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
+            note: guest.host_note_for_guest ?? null,
+            eventNames: event.display_name,
+            theOrganizer: clientWords.theOrganizer,
+          })
+        : null;
     /* ✉ THE REPLY CARD (owner 2026-10-06) — the page's one action, in its three
        reply states, said as a card: under the names on Welcome and at the top
        of Me. Only where the reply sheet it opens is on the page. */
@@ -4174,8 +4188,9 @@ export async function SiteBody({
                 the same door twice. */}
             {replyCard && replyCard.kind !== 'ask' ? <ReplyCardRow card={replyCard} /> : null}
             {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
-            {meParts.length > 0 ? (
+            {meParts.length > 0 || meNote ? (
               <GuestMeParts
+                note={meNote}
                 partLooks={meLooks}
                 parts={meParts}
                 words={clientWords}

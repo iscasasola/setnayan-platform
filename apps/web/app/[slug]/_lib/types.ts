@@ -486,6 +486,10 @@ export type GuestRow = {
    *  couple's PRIVATE note about this guest and must never reach this type —
    *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */
   guest_note: string | null;
+  /** 💌 The HOSTS' note TO this guest (owner 2026-10-20) — drawn on their own Me, under Your role, and nowhere else.
+   *  Read only by `loadGuestOwnRow` (this reader's own row). Optional: absent before its migration, and on every
+   *  hand-built row. Not `notes` (the couple's private note, which never reaches this type). */
+  host_note_for_guest?: string | null;
   custom_tags: string[];
   qr_token: string;
   photo_url: string | null;

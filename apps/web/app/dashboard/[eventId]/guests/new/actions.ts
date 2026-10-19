@@ -24,6 +24,7 @@ import { normalizeGuestName } from '@/lib/guest-name';
 import { parseTitleKey } from '@/lib/guest-title';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // The SIDE list + the "is a side meaningful here?" decision live in
@@ -92,6 +93,8 @@ export async function createGuest(eventId: string, formData: FormData) {
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
+  // 💌 The hosts' note TO this guest (owner 2026-10-20) — omitted when blank, so a row without one is byte-identical.
+  const host_note_for_guest = clean(formData.get('host_note_for_guest')).slice(0, HOST_NOTE_MAX) || null;
   // Tea-ceremony serving order (Chinese / Tsinoy weddings) — both optional. A
   // free-text relationship label + an integer within-side serve order (lower
   // serves first). Parse seniority defensively — non-numeric / empty → null.
@@ -197,6 +200,7 @@ export async function createGuest(eventId: string, formData: FormData) {
       rsvp_status,
       photo_consent,
       notes,
+      ...(host_note_for_guest ? { host_note_for_guest } : {}),
       custom_tags,
       invited_to_blocks,
       plus_one_allowed,

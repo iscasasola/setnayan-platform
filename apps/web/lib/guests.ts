@@ -285,6 +285,10 @@ export type GuestRow = {
   /** The GUEST's own message to the couple, written on their invitation page.
    *  Read-only to the couple. Added 2026-08-06. */
   guest_note: string | null;
+  /** 💌 The HOSTS' note TO this one guest (owner 2026-10-20) — shown on that guest's own Me page only. Read by the
+   *  guest card alone (`fetchGuestById`, `GUEST_CARD_FIELDS`), never by the list (`GUEST_FIELDS`), so it reaches no
+   *  roster, print or export. Optional: every list row and fixture is without it. */
+  host_note_for_guest?: string | null;
   qr_token: string;
   custom_tags: string[];
   // Explicit seating-priority tier override (1–4); null = derive from role +
@@ -802,18 +806,31 @@ export async function countGuestsByEvent(
   }
 }
 
+/**
+ * 💌 THE CARD'S ONE GUEST — the list's columns plus the hosts' note to this guest (`host_note_for_guest`, owner
+ * 2026-10-20). Only the card reads it, so it never rides in the roster, the prints or the export (all `GUEST_FIELDS`).
+ */
+const GUEST_CARD_FIELDS = `${GUEST_FIELDS},host_note_for_guest`;
+
 export async function fetchGuestById(
   supabase: SupabaseClient,
   eventId: string,
   guestId: string,
 ): Promise<GuestRow | null> {
-  const { data, error } = await supabase
-    .from('guests')
-    .select(GUEST_FIELDS)
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId)
-    .is('deleted_at', null)
-    .maybeSingle();
+  const read = (fields: string) =>
+    supabase
+      .from('guests')
+      .select(fields)
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .is('deleted_at', null)
+      .maybeSingle();
+  let { data, error } = await read(GUEST_CARD_FIELDS);
+  // A database not yet carrying the note (a build ahead of its migration) still opens the card — without the fold's
+  // stored words, never as "guest not found". Only THIS column's absence is forgiven; any other error is the read's own.
+  if (error && (error as { code?: string }).code === '42703' && /host_note_for_guest/.test(error.message ?? '')) {
+    ({ data, error } = await read(GUEST_FIELDS));
+  }
 
   // Same graceful-degrade pattern as fetchGuestsByEvent — the guest
   // detail page should render an empty state instead of crashing when

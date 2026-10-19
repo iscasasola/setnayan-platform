@@ -93,7 +93,7 @@ test('card body: the name is open; the rest fold, one open at a time', () => {
   const nameAt = CARD.indexOf('data-guest-card-name=""');
   const firstFold = CARD.indexOf('<K.Fold summary=');
   assert.ok(nameAt > 0 && firstFold > nameAt, 'the name is not open above the rows');
-  for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Private note', 'Access']) {
+  for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Note for them · they see it', 'Private note · only you', 'Access']) {
     assert.match(CARD, new RegExp(`<K\\.Fold summary="${s}"`), `the ${s} row is gone`);
   }
   assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');

@@ -58,7 +58,7 @@ const KEEP = () => ({ ok: true as const });
 const NUMBERS_ONLY = (text: string) => (/^-?\d*$/.test(text) ? null : 'Numbers only.');
 
 /** A typed fact. Saved by the card's autosave, so `onKeep` has nothing to do — keeping tells the form (`fieldName`). */
-export function CardField({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false, about }: CardFieldProps) {
+export function CardField({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false, about, maxLength }: CardFieldProps) {
   return (
     <TypedRow
       name={label}
@@ -70,7 +70,7 @@ export function CardField({ id, label, required = false, type = 'text', defaultV
       placeholder={placeholder}
       empty={placeholder ?? 'Add'}
       /* A stored answer longer than the box allows is never cut by opening the row. */
-      maxLength={long ? Math.max(2000, defaultValue.length) : Math.max(240, defaultValue.length)}
+      maxLength={Math.max(maxLength ?? (long ? 2000 : 240), defaultValue.length)}
       inputMode={type === 'tel' ? 'tel' : type === 'number' ? 'numeric' : undefined}
       check={type === 'number' ? NUMBERS_ONLY : null}
       about={about ? { words: about } : null}

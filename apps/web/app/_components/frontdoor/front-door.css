@@ -137,7 +137,8 @@ html.dark .fd {
   grid-template-columns: 1fr minmax(0, 640px) 1fr;
   align-items: center;
   gap: 16px;
-  padding: 8px 16px;
+  /* The side gutters clear a side safe area (iPhone Duo pts 21·23; every-bar-clears-the-side-insets.test.ts). */
+  padding: 8px max(16px, var(--sn-safe-r)) 8px max(16px, var(--sn-safe-l));
   background: var(--fd-cream);
   position: sticky;
   top: 0;
@@ -1522,7 +1523,7 @@ h2.fd-sechead,
     background: var(--fd-cream);
     border-right: 1px solid var(--fd-line);
     z-index: 40;
-    padding: 16px 8px 40px;
+    padding: 16px 8px 40px max(8px, var(--sn-safe-l));
   }
   .fd {
     --fd-rail: 240px;

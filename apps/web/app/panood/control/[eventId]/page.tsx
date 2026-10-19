@@ -962,7 +962,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           message is preserved verbatim; only where they are drawn changed. */}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+3rem)] z-30 mx-auto flex w-full max-w-md flex-col gap-1.5 px-3"
+        className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+3rem)] z-30 mx-auto flex w-full max-w-md flex-col gap-1.5 pl-[max(0.75rem,var(--sn-safe-l))] pr-[max(0.75rem,var(--sn-safe-r))]"
       >
       <ToastLayer>
       {zone_added ? <Banner tone="success" Icon={CheckCircle2}>Camera channel added.</Banner> : null}

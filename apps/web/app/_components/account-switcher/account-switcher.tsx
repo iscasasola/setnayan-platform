@@ -386,7 +386,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, 
         className={[
           'focus:outline-none',
           // Mobile: bottom sheet — inset-x + fixed bottom, slides up
-          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 bg-[var(--m-paper)] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
+          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 bg-[var(--m-paper)] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
           /*
             ⚠ ON DESKTOP THIS USED TO BE A FULL-HEIGHT DRAWER PINNED TO THE FAR
             LEFT, AND THE OWNER ASKED WHY (2026-08-17): *"sign in is a pop up on
@@ -422,7 +422,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, 
             repo keeps meeting: the engine DECLINES quietly and the only symptom
             is that something is not where it should be. Test 4 pins it.
           */
-          'lg:inset-x-auto lg:bottom-auto lg:right-3 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-80 lg:max-h-[min(80vh,34rem)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
+          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-80 lg:max-h-[min(80vh,34rem)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
         ].join(' ')}
         style={{
           animation: 'sn-switcher-in 0.3s ease',
@@ -703,7 +703,7 @@ export function SwitcherPlaqueTrigger({
                 role="dialog"
                 aria-modal="true"
                 aria-label="Account menu"
-                className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
+                className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-[calc(20rem+var(--sn-safe-l))] flex-col pl-[var(--sn-safe-l)] overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
                 <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} />

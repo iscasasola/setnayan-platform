@@ -987,7 +987,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         </PeekToast>
       ) : null}
       {error ? (
-        <p role="alert" data-part-error="" className="fixed inset-x-3 top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
+        <p role="alert" data-part-error="" className="fixed left-[max(0.75rem,var(--sn-safe-l))] right-[max(0.75rem,var(--sn-safe-r))] top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
           {error}
         </p>
       ) : null}

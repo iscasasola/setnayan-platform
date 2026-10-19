@@ -1145,9 +1145,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {sp.veil === '1' && !makerCanvas ? (
         <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
-      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
-        <span>Setnayan</span>
-        <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
+      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 border-b border-ink/10 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+        <div className="flex justify-between px-4 py-2.5">
+          <span>Setnayan</span>
+          <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
+        </div>
       </div>
       {/* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) on maria-and-jose's words — its parts carry their
           `data-el` and, when picked, their own style (`data-part-look`), exactly as the guest page draws them. */}

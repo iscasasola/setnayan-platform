@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
-import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
+import { MessageSquare, Mail, Heart, Briefcase, Mailbox } from 'lucide-react';
+import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -22,14 +22,14 @@ import { HelpSearch } from '@/app/help/_components/help-search';
 export const metadata = {
   title: 'Help & support',
   description:
-    'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
   alternates: { canonical: '/help' },
   openGraph: {
     type: 'website',
     url: '/help',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
@@ -38,7 +38,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
     images: ['/brand/og-card.webp'],
   },
 };
@@ -62,11 +62,10 @@ const ROLE_ICON: Record<HelpRole, typeof Heart> = {
   couple: Heart,
   vendor: Briefcase,
   guest: Mailbox,
-  admin: Shield,
 };
 
 function isHelpRole(value: string | undefined): value is HelpRole {
-  return value === 'couple' || value === 'vendor' || value === 'guest' || value === 'admin';
+  return (PUBLIC_HELP_ROLES as ReadonlyArray<string | undefined>).includes(value);
 }
 
 type Props = {
@@ -120,17 +119,17 @@ export default async function HelpPage({ searchParams }: Props) {
             <p className="text-base text-ink/65">
               {activeRoleMeta
                 ? activeRoleMeta.blurb
-                : "Step-by-step guides for couples, suppliers, guests, and admins. Pick your role below or scroll for everything."}
+                : "Step-by-step guides for couples, suppliers and guests. Pick your role below or scroll for everything."}
             </p>
           </div>
 
-          {/* Role tiles — 4-way split (Couple / Vendor / Guest / Admin). The
-              spec for iteration 0029 § 1 calls for four role tiles at
-              /help; this is that tile bar. Tiles are real links so they
-              work without JS and bookmark cleanly. */}
+          {/* Role tiles — Couple / Supplier / Guest. Iteration 0029 § 1 drew a
+              fourth, Admin; it published the operations team's own guides to
+              strangers, so it left on 2026-10-19 (sweep B3 — lib/help-admin.ts).
+              Tiles are real links so they work without JS and bookmark cleanly. */}
           <nav
             aria-label="Help by role"
-            className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+            className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
             {HELP_ROLES.map((r) => {
               const Icon = ROLE_ICON[r.key];
@@ -278,7 +277,6 @@ export default async function HelpPage({ searchParams }: Props) {
                       <option value="couple">I&rsquo;m a couple planning an event</option>
                       <option value="vendor">I&rsquo;m a supplier</option>
                       <option value="guest">I&rsquo;m a guest invited to an event</option>
-                      <option value="admin">Admin / operations</option>
                       <option value="billing">Billing or payments</option>
                       <option value="bug">Bug report</option>
                       <option value="feature">Feature request</option>

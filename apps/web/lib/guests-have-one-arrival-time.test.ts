@@ -10,16 +10,18 @@
  *   2 · editing it from the Studio moves the other three; editing the moment as the Schedule does (Event Details' tool)
  *       moves the Studio's value — because the Studio writes THROUGH the Schedule's own writers, with fields those
  *       writers read, and never into the dress code;
- *   3 · no arrival moment yet (the programme opens on the Ceremony) → the row says "Set when guests arrive"; the
- *       invitation still reads the Ceremony, unchanged; setting it adds a public "Guests arrive" moment before the
- *       Ceremony, and then all four read it;
+ *   3 · no arrival moment yet (the programme opens on the Ceremony — the owner's live cale-ice, 2026-10-20): the time is
+ *       the invitation's first moment for EVERYONE — the ticket (`guestArriveBy` → `passCardPass`) === the invitation
+ *       line === Event Details === the Studio's Guests row, which says "· from Ceremony"; setting a different time
+ *       adds a public "Guests arrive" moment before the Ceremony (never moves it), and then all of them read that;
  *   4 · a time at or after the next moment is refused in plain words (it would stop being the first moment);
  *   5 · a moment guests cannot see (hidden, "Only for · Entourage", a coordinator's prep) is never the guests' time;
  *   6 · the pages read it from the one resolver — source anchors on Event Details, the guest page and the Studio.
  *
  * SABOTAGE (each seen RED, then restored — PR body): Event Details back on its own `.find(...)` rule · the Studio's
  * Guests row saving into the dress code (`saveDress`) · `guestMeFacts` dropping `guestsArriveBy` · the resolver
- * forgetting the audience fence.
+ * forgetting the audience fence · the ticket losing the Ceremony's time when there is no arrival moment (the 2026-10-20
+ * regression) · the Studio no longer saying where a borrowed time comes from.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,6 +34,8 @@ import {
   guestsArriveHhmm,
   guestsArriveMoment,
   guestsArriveTime,
+  guestsArriveFrom,
+  guestsArriveSource,
   guestsArriveWrite,
   GUESTS_ARRIVE_UNSET,
   type ArriveBlock,
@@ -39,6 +43,7 @@ import {
 import { rowGuestsMaySee, sortScheduleBlocks } from './schedule';
 import { blockTime } from './print-pieces';
 import { guestMeFacts } from './guest-me-parts';
+import { guestArriveBy } from './role-group-dress-code';
 import { invitationCard } from '../app/[slug]/_lib/invitation-card';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -92,8 +97,14 @@ function invitationLine(blocks: readonly Row[]): string | null {
   const card = invitationCard({ words: { solemn: false, twoPeople: true, eventWord: 'wedding' }, firstStartAt: shown[0]?.start_at ?? null, firstLabel: shown[0]?.label ?? null });
   return card?.timeLabel ?? null;
 }
-/** Event Details' "Guests arrive" row (`details/page.tsx`: `guestsArriveMoment(blocks)` → `blockTime`). */
-const detailsRow = (blocks: readonly Row[]) => blockTime((guestsArriveMoment(blocks) as never) ?? null);
+/** Event Details' "Guests arrive" row (`details/page.tsx`: `guestsArriveSource(blocks)` → `blockTime`, "· from …"). */
+const detailsRow = (blocks: readonly Row[]) => {
+  const a = guestsArriveSource(blocks);
+  return a ? `${blockTime(a.moment as never) ?? ''}${a.own ? '' : ` · from ${guestsArriveFrom(blocks)}`}` : null;
+};
+/** A plain guest's ticket / checklist / reminder (`guestArriveBy({ general: guestsArriveTime(blocks) })`, `passCardPass`). */
+const ticketArrive = (blocks: readonly Row[], role: string = 'guest', config: unknown = {}) =>
+  guestArriveBy({ role: role as never, config, general: guestsArriveTime(blocks) });
 /** A plain guest's Me › Arrive by (`site-body.tsx` → `guestMeFacts({ guestsArriveBy })`). */
 const meArriveBy = (blocks: readonly Row[], role: string = 'guest', dressCodeConfig: unknown = {}) =>
   guestMeFacts({ role: role as never, dressCodeConfig, rolePalette: {}, guestsArriveBy: guestsArriveTime(blocks) }).arriveBy;
@@ -170,12 +181,23 @@ test('2b · every field the Studio sends is one the Schedule’s own writer read
   assert.match(guestsRow, /guestsArriveHhmm\(/, 'the Guests row’s call time is not read from the arrival moment');
 });
 
-test('3 · no arrival yet → “Set when guests arrive”; the invitation still reads the Ceremony; setting it adds the moment', () => {
+test('3 · no arrival moment (it opens on the Ceremony) → everyone reads the Ceremony’s time; setting one adds the moment', () => {
+  /* The owner's live cale-ice (measured read-only 2026-10-20): Ceremony first, public, no arrival moment — and the
+     invitations, which print that first moment's time, have gone out. Nobody may lose it. */
   const none = FIXTURE.filter((b) => b.block_id !== 'arrive');
-  assert.deepEqual(studioValue(none), { field: null, says: null });
-  assert.equal(detailsRow(none), null);
-  assert.equal(meArriveBy(none), null, 'nothing said — never a guessed time');
   assert.equal(invitationLine(none), 'Ceremony 3:00 PM', 'the invitation is unchanged');
+  assert.equal(ticketArrive(none), '3:00 PM', 'a plain guest’s ticket lost the time their invitation states');
+  assert.ok(invitationLine(none)!.endsWith(ticketArrive(none)!), 'the ticket ≠ the invitation line');
+  assert.deepEqual(studioValue(none), { field: '15:00', says: '3:00 PM' }, 'the Studio’s Guests row ≠ the invitation');
+  assert.equal(guestsArriveFrom(none), 'Ceremony', 'the Studio does not say the time is borrowed from the Ceremony');
+  assert.equal(detailsRow(none), '3:00 PM · from Ceremony');
+  assert.equal(meArriveBy(none), '3:00 PM');
+  assert.equal(guestsArriveMoment(none), null, 'precondition: no arrival moment of its own');
+  assert.equal(ticketArrive(none, 'bridesmaid', { groups: { bridesmaids: { style: 'long_gown', callTime: '12:30' } } }), '12:30 PM', 'a role’s own time still wins');
+  /* With the arrival moment, the ticket is the invitation line too. */
+  assert.ok(invitationLine(FIXTURE)!.endsWith(ticketArrive(FIXTURE)!), 'the ticket ≠ the invitation line');
+  /* Nothing at all guests can see → nothing said, never a guessed time. */
+  assert.equal(ticketArrive([]), null);
   assert.equal(GUESTS_ARRIVE_UNSET, 'Set when guests arrive');
 
   const w = guestsArriveWrite({ blocks: none, hhmm: '14:30', eventDate: '2026-12-12' });
@@ -187,6 +209,9 @@ test('3 · no arrival yet → “Set when guests arrive”; the invitation still
   assert.equal(invitationLine(after), 'Guests arrive 2:30 PM');
   assert.equal(detailsRow(after), '2:30 PM');
   assert.equal(meArriveBy(after), '2:30 PM');
+  assert.equal(ticketArrive(after), '2:30 PM');
+  assert.equal(guestsArriveFrom(after), null, 'the new moment is the guests’ own');
+  assert.equal(after.find((b) => b.block_id === 'ceremony')?.start_at, at('15:00'), 'the Ceremony moved');
 
   /* An empty programme takes the event's date; no date at all is said, never guessed. */
   const empty = guestsArriveWrite({ blocks: [], hhmm: '09:00', eventDate: '2027-01-30' });
@@ -216,8 +241,8 @@ test('5 · a moment guests cannot see is never the guests’ time', () => {
 
 test('6 · the pages read the one resolver — Event Details, the guest page, the Studio', () => {
   const details = src('app/dashboard/[eventId]/details/page.tsx');
-  assert.match(details, /const arrive = guestsArriveMoment\(blocks\);/, 'Event Details’ “Guests arrive” is not the one arrival moment');
-  assert.match(details, /row="arrive"[^>]*value=\{arrive \? blockTime\(arrive\) : null\}/);
+  assert.match(details, /const arrive = guestsArriveSource\(blocks\);/, 'Event Details’ “Guests arrive” is not the one guests’ time');
+  assert.match(details, /row="arrive"[^>]*value=\{arrive \? `\$\{blockTime\(arrive\.moment\)/);
   assert.doesNotMatch(details, /firstPublic/, 'Event Details has a rule of its own for the arrival again');
 
   const site = src('app/[slug]/_components/site-body.tsx');
@@ -283,7 +308,13 @@ test('6b · Studio › Attire draws the Guests call time from the Schedule — f
   assert.doesNotMatch(set, /value="09:00"/, 'a dress-code time is shown for guests — a second home');
   assert.doesNotMatch(set, /Clear the call time for Guests/, 'the arrival moment is cleared from the dress code');
 
-  const unset = draw({ blocks: FIXTURE.filter((b) => b.block_id !== 'arrive'), eventDate: '2026-12-12' });
+  /* No arrival moment: the Ceremony's time, said with its source. */
+  const borrowed = draw({ blocks: FIXTURE.filter((b) => b.block_id !== 'arrive'), eventDate: '2026-12-12' });
+  assert.match(borrowed, /type="time"[^>]*value="15:00"/, 'the field does not hold the invitation’s time');
+  assert.match(borrowed, /Arrives 3:00 PM · from Ceremony/, 'the header does not say where the time comes from');
+  assert.match(borrowed, /From Ceremony — set a time to give guests their own/);
+  /* Nothing guests can see at all: an empty field and "Set when guests arrive". */
+  const unset = draw({ blocks: [], eventDate: '2026-12-12' });
   assert.match(unset, /type="time"[^>]*value=""/);
   assert.match(unset, /Set when guests arrive/);
   assert.doesNotMatch(unset, /Arrives /);

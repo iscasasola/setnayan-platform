@@ -48,7 +48,7 @@ import {
   withRoleColours,
   type AutoSuggestion,
 } from '@/lib/mood-board-studio';
-import { afterGuestsArriveWrite, guestsArriveForm, guestsArriveHhmm, guestsArriveTime, guestsArriveWrite, GUESTS_ARRIVE_UNSET, type ArriveBlock } from '@/lib/guests-arrive';
+import { afterGuestsArriveWrite, guestsArriveForm, guestsArriveFrom, guestsArriveHhmm, guestsArriveTime, guestsArriveWrite, GUESTS_ARRIVE_UNSET, type ArriveBlock } from '@/lib/guests-arrive';
 import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import { MOOD_BOARD_NOT_SAVED, dressCodeDraftFields, paletteDraftFields, slotRemoveFields, slotUploadFields } from '@/lib/studio-mood-board-saves';
 import { STUDIO_GROUP, STUDIO_GROUP_HEAD } from '@/lib/studio-skin';
@@ -1098,7 +1098,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const callTime = dress ? callTimeOf(dress, row.tier, row.key) : null;
             /* ⏰ Guests: the Schedule's arrival moment (`guestsArriveTime`), not a dress-code time. */
             const forGuests = row.key === 'guest';
-            const arrives = forGuests ? (arriveBlocks ? guestsArriveTime(arriveBlocks) : null) : dress ? formatCallTime(callTime) : row.arrives;
+            const guestsFrom = forGuests && arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
+            const guestsAt = forGuests && arriveBlocks ? guestsArriveTime(arriveBlocks) : null;
+            const arrives = forGuests ? (guestsAt ? `${guestsAt}${guestsFrom ? ` · from ${guestsFrom}` : ''}` : null) : dress ? formatCallTime(callTime) : row.arrives;
             return (
               <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
                 <header className="flex flex-wrap items-baseline gap-2">
@@ -1302,6 +1304,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     canSet={arriveBlocks !== null}
                     waits="The programme could not be read — try again"
                     unset={GUESTS_ARRIVE_UNSET}
+                    note={guestsFrom ? `From ${guestsFrom} — set a time to give guests their own` : null}
                     clearable={false}
                     onSet={setGuestsArrive}
                   />
@@ -1488,6 +1491,7 @@ function CallTimeRow({
   waits = 'Pick what they wear first',
   unset = null,
   clearable = true,
+  note = null,
 }: {
   rowKey: string;
   label: string;
@@ -1501,6 +1505,8 @@ function CallTimeRow({
   unset?: string | null;
   /** The Guests row's time is a moment on the Schedule — it is changed here, never cleared from here. */
   clearable?: boolean;
+  /** Said beside a field that holds a time (the Guests row's borrowed time: "From Ceremony — …"). */
+  note?: string | null;
 }) {
   const id = useId();
   const [time, setTime] = useState(value ?? '');
@@ -1536,6 +1542,11 @@ function CallTimeRow({
             className="h-11 min-w-0 rounded-xl border border-ink/15 bg-raised px-3 text-[16px] text-ink" // no-card-ok: a time field, not a container
           />
           {value && clearable ? <ActionButton tone="neutral" quiet icon={X} label="Clear" name={`Clear the call time for ${label}`} onClick={() => { setTime(''); onSet(null); }} /> : null}
+          {value && note ? (
+            <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink/55" data-mood-board-call-time-from="">
+              {note}
+            </span>
+          ) : null}
           {!value && unset ? (
             <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-unset="">
               {unset}

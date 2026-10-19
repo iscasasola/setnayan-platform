@@ -2,7 +2,7 @@
  * ⏰ THE LAB'S DAY AS STUDIO › MOOD BOARD & DRESS CODE'S GUESTS ROW READS IT (`arrival`, `lib/guests-arrive.ts`, 2026-10-19) —
  * Studio › Schedule's lab day (`studio-lab-fixtures.tsx` `DAY`, maria-and-jose's date), typed: the arrival moment is the
  * Guests' call time. A plain module (the fixtures file is a client one, which a server page cannot call).
- * `none` = the programme opens on the Ceremony (no arrival yet → "Set when guests arrive").
+ * `none` = the programme opens on the Ceremony (no arrival yet → the Ceremony's time, "· from Ceremony").
  */
 export const LAB_ARRIVAL_DATE = '2026-12-12';
 

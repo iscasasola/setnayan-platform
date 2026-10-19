@@ -8,12 +8,21 @@
  * the Guests row's CALL TIME is that moment's start, saved once and shown everywhere — never a second guest time in
  * the dress code.
  *
- * THE MOMENT (`guestsArriveMoment`): the first moment a guest may see (public, for Everyone, not a coordinator's
- * unreleased prep — the three conditions of `onlyWhatGuestsMaySee`), in the programme's own order
- * (`sortScheduleBlocks`) — i.e. exactly the invitation's first moment — and only when it is a top-level moment of
- * its own: when the programme opens on the Ceremony or the Reception, guests have no arrival moment yet (that time
- * is the ceremony's, and Event Details already shows it on its own row). Moving the "guests' time" then would move
- * the ceremony.
+ * THE TIME (`guestsArriveSource` → `guestsArriveTime`): the first moment a guest may see (public, for Everyone, not a
+ * coordinator's unreleased prep — the three conditions of `onlyWhatGuestsMaySee`), in the programme's own order
+ * (`sortScheduleBlocks`) — i.e. EXACTLY the invitation's first moment, the line its card prints. The ticket, the
+ * checklist, the reminder, Me › Arrive by, Event Details and the Studio's Guests row all read this one.
+ *
+ * 🔴 IT IS THE FIRST MOMENT EVEN WHEN THAT IS THE CEREMONY (controller 2026-10-20, measured read-only on the owner's
+ * live event: cale-ice's programme opens on Ceremony 2:30 PM with no arrival moment, its invitation cover prints that
+ * time, and the invitations had gone out). A first cut read "no arrival moment" as "no time" — every plain guest's
+ * ticket, checklist and reminder there would have lost the 2:30 PM their invitation states. So: the arrival moment
+ * when there is one, else the invitation's first moment for everyone — said WITH its source in the Studio
+ * ("2:30 PM · from Ceremony", `guestsArriveFrom`).
+ *
+ * THE ARRIVAL MOMENT (`guestsArriveMoment`) — what a WRITE retimes: that first moment only when it is an arrival of its
+ * own (top-level, not the Ceremony or the Reception). Retiming the "guests' time" must never move the Ceremony; with no
+ * arrival moment, setting a time ADDS one before the first moment.
  *
  * THE WRITE (`guestsArriveWrite`): the Schedule's own writers, with their own fields — `updateScheduleBlock` retimes
  * the moment (its day kept; its end kept while it is still after the new start, else carried by its length), and
@@ -48,7 +57,7 @@ export const GUESTS_ARRIVE_TYPE = 'pre_ceremony';
 /** A new arrival moment's length when nothing follows it (the templates' 30 minutes). */
 const NEW_ARRIVAL_MINUTES = 30;
 
-/** What the Guests row says while the programme has no arrival moment. */
+/** What the Guests row says while the programme has no moment guests can see. */
 export const GUESTS_ARRIVE_UNSET = 'Set when guests arrive';
 
 /** The three conditions a guest's schedule asks (`onlyWhatGuestsMaySee`), asked of one row — and a start to read. */
@@ -69,15 +78,30 @@ export function guestsArriveMoment<T extends ArriveBlock>(blocks: readonly T[]):
   return first;
 }
 
-/** "2:30 PM" — the arrival as a person reads it; null with no arrival moment. */
+/**
+ * The moment the guests' time is READ from — the invitation's first moment (`guestsMoments(blocks)[0]`), whatever it
+ * is; `own` = it is an arrival moment of its own (`guestsArriveMoment`). Null only with nothing guests can see.
+ */
+export function guestsArriveSource<T extends ArriveBlock>(blocks: readonly T[]): { moment: T; own: boolean } | null {
+  const first = guestsMoments(blocks)[0] ?? null;
+  return first ? { moment: first, own: guestsArriveMoment(blocks) === first } : null;
+}
+
+/** "Ceremony" — the moment the time is borrowed from when there is no arrival moment of its own; else null. */
+export function guestsArriveFrom(blocks: readonly ArriveBlock[]): string | null {
+  const src = guestsArriveSource(blocks);
+  return src && !src.own ? src.moment.label.trim() || 'the first moment' : null;
+}
+
+/** "2:30 PM" — when guests arrive, as a person reads it (the invitation's first moment); null with no moment at all. */
 export function guestsArriveTime(blocks: readonly ArriveBlock[]): string | null {
-  const m = guestsArriveMoment(blocks);
+  const m = guestsArriveSource(blocks)?.moment ?? null;
   return m ? formatWallClock(m.start_at) || null : null;
 }
 
-/** "14:30" — the arrival as the time field holds it; null with no arrival moment. */
+/** "14:30" — the same time as the time field holds it; null with no moment at all. */
 export function guestsArriveHhmm(blocks: readonly ArriveBlock[]): string | null {
-  const m = guestsArriveMoment(blocks);
+  const m = guestsArriveSource(blocks)?.moment ?? null;
   const v = m ? toDatetimeLocalValue(m.start_at) : '';
   return v ? v.slice(11, 16) : null;
 }

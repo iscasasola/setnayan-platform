@@ -238,7 +238,8 @@ async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
     // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
     // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
-    // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → no ARRIVE, never the ceremony's time.
+    // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → the invitation's first moment (the
+    // Ceremony's time on a programme that opens on it, 2026-10-20) — the time the invitation itself prints.
     return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.

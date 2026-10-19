@@ -15,9 +15,18 @@ walked end to end in SQL for the first time (`apps/web/tests/db/a-supplier-joins
   person is refused (finalize + `claim_link_record_to_shop`); the supplier sees THIS event among customers
   (accepted, unlocked) and not another couple's; a booked non-coordinator supplier cannot edit or delete the
   couple's schedule items; with the coordinator grant the coordinator adds/edits/deletes any item.
+- **Bug found and fixed — the coordinator trade has three names, one answer.** Every day-of coordinator gate
+  asked `vendor_profiles.services` for the tile key `'coordinator'`, which no shop writer puts there (shops
+  carry `'planner_coordinator'` + a canonical leaf). So the day-of requests inbox, "only the coordinator
+  advances", find-my-seat, the floor command, the clients-page coordinator view and the day-of console kind
+  were closed to every real coordinator. One list — `COORDINATOR_TRADE_SERVICES` / `isCoordinatorTrade`
+  (`lib/coordinator-trade.ts`) and its SQL copy `services_make_a_coordinator()` (same migration), now used by
+  `current_coordinator_booked_event_ids()` and `coordinator_seat_by_guest_qr()`. Guard
+  `lib/coordinator-trade-is-one-list.test.ts` (TS = taxonomy = SQL; no gate tests the bare tile).
 - **Not changed (owner call, in the PR body):** joining from the link does not by itself give the coordinator
-  schedule edit — that is the delegate grant (Event access / coordinator invite, or the auto-invite when a
-  booked coordinator's downpayment is marked). Also found: every coordinator gate in SQL/TS keys on the tile
-  `'coordinator'` in `vendor_profiles.services`, but shops carry `'planner_coordinator'` (+ a leaf).
+  schedule edit or colour lanes — those are the delegate grant (Event access / coordinator invite, or the
+  auto-invite when a booked coordinator's downpayment is marked; booking needs the shop verified). The
+  mood-board library/suggestion shelves match canonical LEAVES only, so a claimed shop holding just its
+  couple category (any trade) is outside them until it picks a leaf.
 
 SPEC IMPACT: None (bug fix to shipped behaviour; no ruling changed).

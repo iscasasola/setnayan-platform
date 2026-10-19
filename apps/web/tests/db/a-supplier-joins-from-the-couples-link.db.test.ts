@@ -240,8 +240,8 @@ test('2 · THE TRAP: signing up as a supplier already makes an EMPTY shop (why f
     [F.coord],
   );
   assert.equal(s.rows.length, 1, 'the sign-up trigger no longer opens a shop — re-read finalize before trusting this test');
-  assert.equal(s.rows[0]!.business_name, null);
-  assert.deepEqual(s.rows[0]!.services, []);
+  assert.equal((s.rows[0]!.business_name ?? '').trim(), '', 'the sign-up shop already has a name');
+  assert.deepEqual(s.rows[0]!.services, [], 'the sign-up shop already has a service');
 });
 
 test('3 · finalize: the shop carries the couple\'s record — name and category', async () => {
@@ -375,7 +375,8 @@ test('8 · a BOOKED non-coordinator supplier never edits or deletes an item that
   await asServer();
   const shop = (
     await db.query<{ v: string }>(
-      `UPDATE public.vendor_profiles SET business_name = 'Kusina', services = ARRAY['catering']::text[]
+      `UPDATE public.vendor_profiles SET business_name = 'Kusina', services = ARRAY['catering']::text[],
+              verification_state = 'verified', last_verified_at = NOW()
         WHERE user_id = $1 RETURNING vendor_profile_id AS v`,
       [caterer],
     )
@@ -401,6 +402,44 @@ test('8 · a BOOKED non-coordinator supplier never edits or deletes an item that
   assert.equal(del.rows.length, 0, 'a booked caterer deleted the couple\'s item');
   const still = await db.query<{ label: string }>(`SELECT label FROM public.event_schedule_blocks WHERE block_id = $1`, [block]);
   assert.equal(still.rows[0]!.label, 'First dance');
+});
+
+test('8b · booking the claimed coordinator waits for their verification — seeing the event does not', async () => {
+  // Test 5 already proved they see and talk to the couple unverified. Moving
+  // the couple's row to a BOOKED status is where verification is asked
+  // (vendor_not_verified) — and the auto coordinator invite rides on that
+  // booking. So for a brand-new coordinator the host's Event access grant
+  // (test 7) is the path to schedule edit, not the booking.
+  await asServer();
+  await assert.rejects(
+    db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [F.rowId]),
+    /vendor_not_verified/,
+  );
+  await asOwner();
+});
+
+test('8c · once booked, the coordinator who joined from the link IS the coordinator to every day-of gate', async () => {
+  // services = ['planner_coordinator'] — the couple's own category, the only
+  // thing a claimed shop carries. Every day-of gate used to ask for the bare
+  // tile 'coordinator', which no shop carries (services_make_a_coordinator).
+  await asServer();
+  await db.query(
+    `UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW() WHERE vendor_profile_id = $1`,
+    [F.coordShop],
+  );
+  await db.query(`UPDATE public.event_vendors SET status = 'contracted', total_cost_php = 50000 WHERE vendor_id = $1`, [F.rowId]);
+  await asUser(F.coord);
+  const ids = await db.query<{ e: string }>(`SELECT public.current_coordinator_booked_event_ids() AS e`);
+  await asOwner();
+  assert.deepEqual(ids.rows.map((r) => r.e), [F.eventId], 'a booked planner_coordinator is not the coordinator on the day');
+  await asServer();
+  const t = await db.query<{ a: boolean; b: boolean; c: boolean }>(
+    `SELECT public.services_make_a_coordinator(ARRAY['planner_coordinator']) AS a,
+            public.services_make_a_coordinator(ARRAY['planner_coordinator','wedding_coordination']) AS b,
+            public.services_make_a_coordinator(ARRAY['catering']) AS c`,
+  );
+  assert.deepEqual(t.rows[0], { a: true, b: true, c: false });
+  await asOwner();
 });
 
 test('9 · an existing supplier connecting a new couple keeps their own name and services', async () => {

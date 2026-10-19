@@ -343,8 +343,10 @@ function stdLockupFor(event: EventRow): StdLockup {
  * Measured in a browser on the fixture page, wrapped against today's (`scripts/scrub-browser-check.mjs` 16).
  */
 /** 📜 The one page's Home mark (owner 2026-10-15): the first thing after the cover, zero height, and kept out of the
- *  `space-y-*` rhythm of the group it ends, so it moves nothing on the page. */
-const ONE_PAGE_HOME_MARK = '!mt-0 h-0 scroll-mt-20';
+ *  `space-y-*` rhythm of the group it ends, so it moves nothing on the page. Where a jump to it stops is NOT said
+ *  here: `[data-home-after-cover]` in globals.css lands it 2 px past the cover's edge, so the bars stay (a
+ *  `scroll-mt-*` here would stop above the cover's foot and the bars would leave on the guest's own tap). */
+const ONE_PAGE_HOME_MARK = '!mt-0 h-0';
 
 const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
   cell: { 'data-pahina-first-screen': '' },

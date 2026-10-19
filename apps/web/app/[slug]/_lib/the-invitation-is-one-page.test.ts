@@ -22,6 +22,9 @@
  *       cover and hides again whenever the cover is back on screen (Q3) — the shipped script, executed.
  *   6 · the lit item: one IntersectionObserver on the marks, the last crossed is lit (`litJumpMark`), at the page's
  *       end the lowest on screen (a second observer on the foot), `aria-current="true"`.
+ *   7 · a tap on Home lands with the cover FULLY gone, so the bars it was tapped on stay (Q3; 2026-10-16 "only once
+ *       the cover is fully gone") — the jump's stop, computed from the stylesheet the page ships, is past the
+ *       cover's edge with the top bar and without it.
  *
  * SABOTAGES (each run once, seen red, put back — recorded in the PR body and the handover).
  */
@@ -296,4 +299,55 @@ test('6 · scroll-spy: one IntersectionObserver on the marks, the last crossed i
   assert.match(BAR, /if \(!onePage \|\| page !== SCROLL_PAGE\) return;/, 'the spy runs off the one page');
   assert.doesNotMatch(BAR, /addEventListener\('scroll'/, 'a scroll handler beside the observer');
   assert.match(BAR, /onePage && marks\.some\(\(m\) => m\.key === key\) \? 'true' : 'page'/, 'a lit mark is not `aria-current="true"`');
+});
+
+/* ══ 7 · HOME LANDS PAST THE COVER, SO THE BARS STAY ═════════════════════════ */
+
+/** A CSS length the stylesheet writes here — `4.5rem`, `-2px`, `calc(-4.5rem - 2px)` — in px (1rem = 16px). */
+function px(v: string): number {
+  const t = v.trim();
+  const calc = t.match(/^calc\((.*)\)$/);
+  if (calc) {
+    const parts = calc[1]!.trim().match(/^(-?[\d.]+(?:rem|px))\s*([+-])\s*([\d.]+(?:rem|px))$/);
+    assert.ok(parts, `a calc() this guard cannot read: ${t}`);
+    return px(parts[1]!) + (parts[2] === '-' ? -1 : 1) * px(parts[3]!);
+  }
+  const m = t.match(/^(-?[\d.]+)(rem|px)?$/);
+  assert.ok(m, `a length this guard cannot read: ${t}`);
+  return Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
+}
+
+test('7 · a tap on Home lands with the cover fully gone — the bars it was tapped on stay', async () => {
+  /* Seen live 2026-10-19 (maria-and-jose, 375 and the iPhone 13 engine): the jump stopped 152 px above Home's mark
+     (the root's 4.5rem + the mark's own 5rem), the cover's door came back on screen and both bars left. */
+  const html = await renderSiteBodyFixture(STORY);
+  const mark = html.match(/<div id="site-home"([^>]*)>/)?.[1] ?? '';
+  assert.match(mark, /data-home-after-cover=""/, 'Home’s mark is not the one after the cover');
+  const cls = mark.match(/class="([^"]*)"/)?.[1] ?? '';
+  assert.doesNotMatch(cls, /(?:^|\s)-?scroll-(?:mt|my|m)-/, `Home’s mark carries its own scroll margin (“${cls}”) — where it lands is said once, in globals.css`);
+  /* The stylesheet the page ships: every rule, innermost blocks, in order (the last one for a selector wins). */
+  const css = stripComments(readFileSync(join(WEB, 'app', 'globals.css'), 'utf8'));
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1]!.replace(/\s+/g, ' ').trim(), body: m[2]! }));
+  const last = (sel: string, prop: string) => {
+    let v: string | null = null;
+    for (const r of rules) {
+      if (!r.sel.split(',').map((x) => x.trim()).includes(sel)) continue;
+      const d = r.body.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`));
+      if (d) v = d[1]!.trim();
+    }
+    return v;
+  };
+  const STICKY = 'html:has([data-sticky-top])';
+  const pad = last(STICKY, 'scroll-padding-top');
+  assert.ok(pad, 'anti-vacuity: the root’s scroll padding for the pinned top bar was not found');
+  assert.ok(px(pad) > 0, 'anti-vacuity: the root no longer pads jumps below the top bar — re-read this guard');
+  for (const [how, rootPad, margin] of [
+    ['with the pinned top bar', px(pad), last(`${STICKY} [data-home-after-cover]`, 'scroll-margin-top') ?? last('[data-home-after-cover]', 'scroll-margin-top')],
+    ['without it', 0, last('[data-home-after-cover]', 'scroll-margin-top')],
+  ] as const) {
+    /* A jump stops at the target's top minus (root padding + the target's margin). The mark IS the cover's foot. */
+    const past = -(rootPad + px(margin ?? '0'));
+    assert.ok(past >= 1, `${how}: Home lands ${-past} px ABOVE the cover’s foot — the cover is on screen and the bars leave`);
+    assert.ok(past <= 8, `${how}: Home lands ${past} px past the cover’s foot — it skips into the first section`);
+  }
 });

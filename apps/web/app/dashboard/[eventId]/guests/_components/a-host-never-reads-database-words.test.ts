@@ -68,11 +68,13 @@ test('the delete, the capture bar, Regenerate QR, quick add and Add-from-people 
   assert.match(del, /const said = plainRefusal\(result\.error, couldntDelete\(whom\)\);\s*guestToast\.error\(said\);\s*return said;/);
   assert.doesNotMatch(del, /guestToast\.error\(result\.error\)|return result\.error/);
   assert.match(del, /plainRefusal\(r\.warning, /, 'an undo warning prints raw');
-  assert.match(read('capture-bar.tsx'), /toast\.error\(plainRefusal\(res\.error, /);
+  // The name box's refusal is said on the name's own row since 2026-10-19 (the add queue — guest-add-queue.ts).
+  assert.match(read('guest-add-queue.ts'), /res\.error \? plainRefusal\(res\.error, FALLBACK\)/, 'a refused add prints the action’s words');
   assert.match(read('..', 'invite', '_components', 'regenerate-qr-button.tsx'), /toast\.error\(plainRefusal\(result\.error, /);
   const q = read('quick-add-sheet.tsx');
   assert.equal((q.match(/setError\(res\.error\)/g) ?? []).length, 0, 'quick add prints a raw refusal');
-  assert.equal((q.match(/setError\(plainRefusal\(res\.error, /g) ?? []).length, 3);
+  // Two — Add role too · Change role; the guest write itself is refused on its row through the queue (2026-10-19).
+  assert.equal((q.match(/setError\(plainRefusal\(res\.error, /g) ?? []).length, 2);
   assert.match(q, /setGroupError\(plainRefusal\(res\.error, /);
   const p = read('add-from-people-sheet.tsx');
   assert.doesNotMatch(p, /setError\(res\.error\)|\$\{res\.firstError\}/, 'Add from your people prints a raw refusal');

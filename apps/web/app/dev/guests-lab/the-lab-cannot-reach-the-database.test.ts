@@ -115,7 +115,10 @@ test('(3) nothing but the lab provides either context', () => {
 });
 
 test('(3b) the lab screen is drawn inside the stand-ins', () => {
-  assert.match(read(join(HERE, 'page.tsx')), /<LabGuestActions refuse=\{sp\.refuse === '1'\}>[\s\S]*<GuestsScreen/);
+  assert.match(read(join(HERE, 'page.tsx')), /<LabGuestActions refuse=\{sp\.refuse === '1'\}[^>]*>[\s\S]*<GuestsScreen/);
+  // …and so are the + sheet and Quick add, which are mounted beside the screen (their adds were the REAL action before
+  // 2026-10-19 — a name typed into the lab's + sheet reached the database's door).
+  assert.match(read(join(HERE, 'page.tsx')), /<LabGuestActions[^>]*>\s*<AddGuestSheet[\s\S]*?<QuickAddSheet[\s\S]*?<\/LabGuestActions>/, 'the lab’s add sheets are outside the stand-ins');
 });
 
 test('(4) with ?refuse=1 Setup’s writes refuse in the database’s own words — on purpose, so the screen can be shown to say its own sentence', async () => {

@@ -55,7 +55,7 @@ test('(4) the lab\'s delete and undo are stand-ins that never reach the database
   const lab = read(APP, 'dev', 'guests-lab', 'lab-guest-actions.tsx');
   assert.match(lab, /GuestRemovalActionsContext\.Provider value=\{stand\}/);
   assert.doesNotMatch(lab, /groups-actions|bulkSoftDeleteGuestsForUndo\(|restoreDeletedGuests\(/, 'the lab stand-in calls the real action');
-  assert.match(read(APP, 'dev', 'guests-lab', 'page.tsx'), /<LabGuestActions refuse=\{sp\.refuse === '1'\}>[\s\S]*<GuestsScreen/, 'the lab screen is outside the stand-ins');
+  assert.match(read(APP, 'dev', 'guests-lab', 'page.tsx'), /<LabGuestActions refuse=\{sp\.refuse === '1'\}[^>]*>[\s\S]*<GuestsScreen/, 'the lab screen is outside the stand-ins');
   /* The real app never provides the context — the default is the shipped actions. */
   assert.match(DEL, /useContext\(GuestRemovalActionsContext\) \?\? REAL_REMOVAL_ACTIONS/);
   assert.match(DEL, /\{ bulkSoftDeleteGuestsForUndo, restoreDeletedGuests \}/);

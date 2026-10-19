@@ -46,6 +46,7 @@ import type { NotificationRow } from '@/lib/notifications';
 import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
+import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
 import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
@@ -514,9 +515,11 @@ export default async function GuestsLabPage({
     const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
+    /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
+    const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
-                  <LabGuestActions refuse={sp.refuse === '1'}>
+                  <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
@@ -555,7 +558,9 @@ export default async function GuestsLabPage({
       return (
         <RoleNamesProvider names={{}}>
           <LabShell eventId={EVENT}>{screen}</LabShell>
-          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
+            <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          </LabGuestActions>
           <UndoToastHost />
         </RoleNamesProvider>
       );
@@ -575,7 +580,19 @@ export default async function GuestsLabPage({
             </div>
           </main>
           <DockStandIn />
-          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          {/* The + sheet's name box reaches its add through the SAME stand-ins as the screen — never the real action. */}
+          <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
+            <AddGuestSheet eventId={EVENT} defaultSide="both" />
+            {/* "Add another way › With details" — the shipped Quick add, on the lab's roster. */}
+            <QuickAddSheet
+              eventId={EVENT}
+              existingGuests={roster.map((g) => ({ guest_id: g.guest_id, first_name: g.first_name, last_name: g.last_name, side: g.side, role: g.role, extra_roles: g.extra_roles ?? [] }))}
+              groups={[
+                { group_id: 'grp-b', label: 'Barkada' },
+                { group_id: 'grp-c', label: 'Choir' },
+              ]}
+            />
+          </LabGuestActions>
           {/* What the real page mounts (guests/page.tsx): the host that draws the Undo toast and every guest-list result. */}
           <UndoToastHost />
         </div>

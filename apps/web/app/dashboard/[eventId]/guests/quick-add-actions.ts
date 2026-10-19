@@ -9,6 +9,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
+  GROUP_CATEGORY_LABELS,
   SINGLETON_GUEST_ROLES,
   singletonRoleConflictMessage,
   singletonRoleDuplicateMessage,
@@ -46,6 +47,8 @@ export type QuickAddInput = {
   side: string;
   role: string;
   group_id?: string | null;
+  /** The standard group (Family · Friends · Work · School · Officiant · Other). Absent or unknown = 'other', as before. */
+  group_category?: string | null;
   /**
    * Optional, and it does more than store an address: `set_guest_person` is a
    * BEFORE INSERT OR UPDATE OF email trigger, so writing it here resolves
@@ -60,6 +63,18 @@ export type QuickAddInput = {
    * a guest row on another of their events. It is deliberately never carried
    * for a samahan co-member or a connection; see `people-you-can-invite.ts`.
    */
+  email?: string | null;
+};
+
+/**
+ * How an add asks the page to redraw. Absent (every caller before 2026-10-19) = as before: the Guests page is redrawn in the
+ * same answer. `refresh: false` = the caller already draws the new row and re-reads the list itself, once, when its queue of
+ * adds is empty (`_components/guest-add-queue.ts`) — so ten names typed in a row cost one redraw, not ten.
+ */
+export type AddWriteOptions = {
+  refresh?: boolean;
+  /** "Add from your People" through the search box: the address People holds for them (server-side only — see
+   *  `addGuestsFromPeople`), so the guest resolves to the SAME person node. */
   email?: string | null;
 };
 
@@ -93,6 +108,7 @@ export type QuickAddResult =
 export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
+  opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
   // BACKSTOP. Callers that already split a name (capture bar, the detailed
   // form, the import) pass the parts explicitly and are trusted verbatim.
@@ -171,7 +187,7 @@ export async function quickAddGuest(
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,
-      group_category: 'other',
+      group_category: input.group_category && Object.hasOwn(GROUP_CATEGORY_LABELS, input.group_category) ? input.group_category : 'other',
       role,
       rsvp_status: 'pending',
       photo_consent: true,
@@ -229,7 +245,9 @@ export async function quickAddGuest(
   // when one was picked). Best-effort — never blocks the add.
   await applyReconcileForEvent(supabase, eventId);
 
-  revalidatePath(`/dashboard/${eventId}/guests`);
+  // ⚡ A queued add (the name box, Quick add) asks for NO page redraw: its own row is already on the screen, and the list
+  // re-reads ONCE when the queue is empty (`guest-add-queue.ts`). A redraw here made every add wait on the whole Guests page.
+  if (opts.refresh !== false) revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
     guest: { guest_id: inserted.guest_id, first_name, last_name, side, role },

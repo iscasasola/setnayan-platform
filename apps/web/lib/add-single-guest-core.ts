@@ -97,6 +97,7 @@ export async function runAddSingleGuest(
     side: draft.side,
     role,
     group_id: groupIds[0] ?? null,
+    ...(draft.groupCategory ? { group_category: draft.groupCategory } : {}),
   });
 
   if (!added.ok) {

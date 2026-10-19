@@ -167,6 +167,10 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
  * Resolve what a guest wears: an explicit couple-set value wins; otherwise a
  * gendered wedding-party role implies it; otherwise 'neutral'. Pure + shared so
  * the 3D lab and any future surface (print, day-of) dress guests identically.
+ *
+ * 👗 2026-10-20 (owner: "the attire depends on the dress code of their role"): the 3D seat plan no longer dresses from
+ * here — it reads the role's dress code (`seatPlanOutfitOf(guestOutfitOf(…))`, lib/guest-outfit.ts), which calls this
+ * with `'neutral'` only to ask what a GENDERED ROLE implies when the dress code cannot tell (a wali is a man).
  */
 export function resolveGuestAttire(
   role: GuestRole,

@@ -129,7 +129,8 @@ test('5 · a refused play shows ▶ and the next tap plays; the veil’s hold is
   const clip = read('app/[slug]/_components/scene-clip.tsx');
   assert.match(clip, /name === 'NotAllowedError'\) setRefused\(true\)/, 'a refused play is not noticed (or every rejection counts — the veil’s hold is an AbortError)');
   assert.match(clip, /\{refused \? \(\s*<span\s+data-clip-refused=""/, 'a refused play draws no ▶');
-  assert.match(clip, /document\.addEventListener\('pointerup', tapToPlay, \{ capture: true, once: true \}\)/, 'the next tap does not play a refused clip');
+  assert.match(clip, /document\.addEventListener\('pointerup', tapToPlay, \{ capture: true \}\)/, 'a tap does not play a refused clip (or only the first tap is asked — a refused unveil tap would leave a dead ▶)');
+  assert.match(clip, /tapToPlay = \(\) => \{\s*void v\.play\(\)\.then\(\(\) => setRefused\(false\)/, 'a tap that plays does not clear the ▶');
   assert.match(clip, /if \(firstFrame\) window\.addEventListener\(HUB_VEIL_RELEASED_EVENT, sync\)/, 'the unveil does not ask the cover clip to play inside the tap');
   /* Reduced motion and Save-Data stay still — and show no ▶ (they never call play()). */
   assert.match(clip, /if \(reduce\?\.matches \|\| saveData \|\| typeof IntersectionObserver === 'undefined'\) \{\s*v\.pause\(\);\s*return;/);

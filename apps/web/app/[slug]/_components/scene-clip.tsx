@@ -119,7 +119,8 @@ export function SceneClip({
     };
   }, [play, firstFrame]);
 
-  /* ▶ Refused: the guest's next tap anywhere is the play (a tap is a gesture every browser honours). */
+  /* ▶ Refused: every tap anywhere asks again (a tap is a gesture every browser honours) until one plays — not `once`,
+     so a tap that was itself refused (the unveil's own, in a browser that refuses even then) leaves the ▶ working. */
   useEffect(() => {
     if (!refused) return;
     const v = ref.current;
@@ -127,7 +128,7 @@ export function SceneClip({
     const tapToPlay = () => {
       void v.play().then(() => setRefused(false), () => undefined);
     };
-    document.addEventListener('pointerup', tapToPlay, { capture: true, once: true });
+    document.addEventListener('pointerup', tapToPlay, { capture: true });
     return () => document.removeEventListener('pointerup', tapToPlay, { capture: true });
   }, [refused]);
 

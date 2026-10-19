@@ -748,7 +748,7 @@ export default async function PricingPage() {
               )}
               <p className="text-sm leading-relaxed text-ink/65">
                 The planner that matches, sorts and cross-references every
-                vendor for your exact wedding.
+                supplier for your exact wedding.
               </p>
               <ul className="mt-2 space-y-2 text-sm">
                 {[
@@ -927,10 +927,10 @@ export default async function PricingPage() {
               Tuesday. */}
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
             Prices are in Philippine peso. Apply for a service, then pay by GCash
-            or bank transfer against a unique reference. No commission on vendor
-            bookings — couples pay their vendors directly and we never sit
-            between you at checkout. Vendors pay a booking fee to Setnayan on
-            clients we introduce them to; it is charged to the vendor, never
+            or bank transfer against a unique reference. No commission on supplier
+            bookings — couples pay their suppliers directly and we never sit
+            between you at checkout. Suppliers pay a booking fee to Setnayan on
+            clients we introduce them to; it is charged to the supplier, never
             added to what a couple pays.
           </p>
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
@@ -986,13 +986,13 @@ export default async function PricingPage() {
         <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <p className="text-base font-semibold text-ink">
-              Vendor? See the free business offering + your plans.
+              Supplier? See the free business offering + your plans.
             </p>
             <Link
               href="/for-suppliers"
               className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
             >
-              For vendors
+              For suppliers
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>

@@ -431,7 +431,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
               </p>
               <p className="mt-0.5 text-xs text-warn-900/80">
                 Pricing + Package Inclusions rows below show synthetic test
-                data. Real vendor pricing stays gated per the 2026-05-16
+                data. Real supplier pricing stays gated per the 2026-05-16
                 hide-prices lock. Demo data cleanup deadline: Dec 1, 2026.
               </p>
             </div>
@@ -594,7 +594,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           )
                         ) : (
                           <span className="text-xs text-ink/45">
-                            Real vendor · pricing on inquiry
+                            Real supplier · pricing on inquiry
                           </span>
                         )}
                       </td>
@@ -651,7 +651,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           )
                         ) : (
                           <span className="text-xs text-ink/45">
-                            Real vendor · ask for inclusions
+                            Real supplier · ask for inclusions
                           </span>
                         )}
                       </td>

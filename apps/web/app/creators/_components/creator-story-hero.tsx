@@ -86,7 +86,7 @@ export function CreatorStoryHero() {
           }}
         >
           Publish your real events as Chapters on your own page — your edit
-          embedded, the real vendors behind it shoppable. Free, forever. You
+          embedded, the real suppliers behind it shoppable. Free, forever. You
           keep your channel and its monetization.
         </p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

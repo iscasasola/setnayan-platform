@@ -15,7 +15,7 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Plan your wedding free',
   description:
-    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified vendor marketplace with 0% commission on bookings.',
+    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace with 0% commission on bookings.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
     title: 'Plan your wedding free — Setnayan',
@@ -58,7 +58,7 @@ export default function WaitlistPage() {
               href="/explore"
               className="inline-flex items-center gap-1.5 px-2 text-sm font-semibold text-ink underline-offset-4 hover:underline"
             >
-              Browse vendors first
+              Browse suppliers first
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>
@@ -72,16 +72,16 @@ export default function WaitlistPage() {
                 website, RSVP, and QR invitations are paid SKUs — listed as
                 ready, not as free. */}
             <li>· Free planning workspace — guest list, seating, budget, mood board, schedule</li>
-            <li>· Wedding website at setnayan.com/your-slug — branded QR, RSVP, event details</li>
-            <li>· Supplier browsing — real vendor portfolios + free vendor subdomain at slug.setnayan.com</li>
+            <li>· Event Hub at setnayan.com/your-slug — branded QR, RSVP, event details</li>
+            <li>· Supplier browsing — real supplier portfolios, each on its own free Setnayan page</li>
             <li>· Setnayan AI — Filipino-wedding AI guide that surfaces the next step</li>
-            <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
+            <li>· Supplier contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
             {/* ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
                 supplier's fee. This page is the couples' waitlist ("Setnayan is
                 live for couples"), so the zero stands alone here — a couple
                 pays no commission, unqualified. Suppliers read the fee on
                 /for-suppliers, which the link below goes to. */}
-            <li>· Zero commission on vendor bookings — couples pay suppliers directly.</li>
+            <li>· Zero commission on supplier bookings — couples pay suppliers directly.</li>
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">

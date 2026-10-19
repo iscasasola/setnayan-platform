@@ -629,7 +629,7 @@ function CompareShortlistBanner({ compareHref }: { compareHref: string | null })
         <p className="text-sm text-ink/80">
           <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
           <span className="text-ink/70">
-            Put two saved vendors side by side — location, rating, services, faith fit.
+            Put two saved suppliers side by side — location, rating, services, faith fit.
           </span>
         </p>
         <Link
@@ -3634,7 +3634,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   strokeWidth={1.75}
                 />
                 <span>
-                  Showing vendors with{' '}
+                  Showing suppliers with{' '}
                   <span className="font-medium text-ink">off-season savings</span>{' '}
                   — a live off-peak deal.
                 </span>
@@ -3643,7 +3643,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 href={buildHref(filters, { offSeason: false, page: 1 })}
                 className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
               >
-                Show all vendors
+                Show all suppliers
               </Link>
             </div>
           ) : (
@@ -3673,7 +3673,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 strokeWidth={1.75}
               />
               <span>
-                Showing vendors who serve{' '}
+                Showing suppliers who serve{' '}
                 <span className="font-medium text-ink">
                   {FAITH_KEY_TO_LABEL[filters.faithFilter]}
                 </span>{' '}
@@ -4119,14 +4119,14 @@ function EmptyState({
           No live off-season offers match your search yet.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-          Vendors run off-peak deals for their quieter months. Check back as the
-          season shifts, or browse every vendor below.
+          Suppliers run off-peak deals for their quieter months. Check back as the
+          season shifts, or browse every supplier below.
         </p>
         <Link
           href={buildHref(filters, { offSeason: false, page: 1 })}
           className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-800"
         >
-          Show all vendors
+          Show all suppliers
         </Link>
       </div>
     );
@@ -4196,19 +4196,19 @@ function EmptyState({
           Coming soon
         </p>
         <p className="mt-3 text-base font-medium text-ink">
-          {label} vendors are being recruited for Setnayan.
+          {label} suppliers are being recruited for Setnayan.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
           Setnayan launches each event-type marketplace once enough verified
-          vendors are onboarded. Wedding vendors are live now — other event
-          types open as their vendor pools mature.
+          suppliers are onboarded. Wedding suppliers are live now — other event
+          types open as their supplier pools mature.
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
           href={browseAllVendorsHref(filters.focusedMode)}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
-          Or browse all vendors instead →
+          Or browse all suppliers instead →
         </Link>
       </div>
     );
@@ -4262,7 +4262,7 @@ function EmptyState({
             here.
           </p>
           <p className="mt-1 text-xs text-ink/60">
-            Setnayan is onboarding {outreachLabel} vendors now. Listing is free
+            Setnayan is onboarding {outreachLabel} suppliers now. Listing is free
             to start, and you choose this category in 90 seconds.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -5151,7 +5151,7 @@ function VenueFilterBanner({
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
       <p className="text-sm text-ink/80">
-        Showing vendors who work with{' '}
+        Showing suppliers who work with{' '}
         <span className="font-medium text-terracotta-700">{shortLabel}</span>{' '}
         venues — your wedding&rsquo;s picked setting (
         <span className="font-mono text-xs text-ink/60">{longLabel}</span>).

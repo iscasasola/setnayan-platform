@@ -194,7 +194,7 @@ export function CreatorStoryWedge() {
           <Lede>
             Someone watches your wedding film, loves the venue, loves the florals — and then the
             feed moves on. There&rsquo;s nowhere to go. A Chapter is the same edit with the actual
-            event behind it: the real vendors who made it, each one a card a viewer can open and
+            event behind it: the real suppliers who made it, each one a card a viewer can open and
             inquire with.
           </Lede>
           <Lede style={{ marginTop: 16 }}>
@@ -335,7 +335,7 @@ export function CreatorStoryChapter() {
                   </span>
                 </span>
                 <span className="m-mono" style={{ fontSize: 9.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--m-orange)', border: '1px solid rgba(197,160,89,.4)', borderRadius: 'var(--m-r-full)', padding: '5px 10px', flexShrink: 0 }}>
-                  View vendor
+                  View supplier
                 </span>
               </div>
             ))}
@@ -358,7 +358,7 @@ export function CreatorStoryWhy() {
         <Lede>
           Setnayan isn&rsquo;t another platform asking you to feed it. Your edit stays where it
           already earns; a Chapter gives it a permanent, bookable home — and puts your taste in
-          front of the vendors who want to work with you.
+          front of the suppliers who want to work with you.
         </Lede>
       </div>
       <CardGrid>
@@ -403,12 +403,12 @@ export function CreatorStoryOneBreath() {
       <section style={{ ...SECTION, textAlign: 'center' }}>
         <Eyebrow center>In one breath</Eyebrow>
         <H2>
-          Post the story of your event for free. Vendors who like your audience will offer you a
+          Post the story of your event for free. Suppliers who like your audience will offer you a
           discount in exchange for a chapter that credits them.
         </H2>
         <Lede style={{ maxWidth: '56ch', margin: '0 auto' }}>
           That&rsquo;s the whole deal. No fees, no exclusivity, no cut of anything you earn
-          elsewhere — the discount is between you and the vendor.
+          elsewhere — the discount is between you and the supplier.
         </Lede>
       </section>
     </div>

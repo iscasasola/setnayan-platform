@@ -23,7 +23,7 @@ import {
   RSVP_ROW_WORDS,
   PLUS_ONE_CHOICES,
   plusOneSeats,
-  guestFullName,
+  guestNameAsGiven,
   guestHasTicket,
 } from '@/lib/guests';
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
@@ -494,7 +494,7 @@ export function GuestCardBody({
               linked={linked}
               guest={{
                 guestId: guest.guest_id,
-                formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+                formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
                 firstName: guest.first_name,
                 fullName: name,
                 inviteUrl,

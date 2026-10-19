@@ -104,7 +104,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledById}
-        className="gl-drawer fixed inset-x-0 bottom-0 z-[80] max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl outline-none tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
+        className="gl-drawer fixed inset-x-0 bottom-0 z-[80] max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pl-[max(1.25rem,var(--sn-safe-l))] pr-[max(1.25rem,var(--sn-safe-r))] pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl outline-none tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
       >
         {children}
       </div>

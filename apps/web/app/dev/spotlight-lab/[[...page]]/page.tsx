@@ -40,8 +40,8 @@ export default async function SpotlightLabPage({
       return <SuppliersLabPage searchParams={none} />;
     case 'launch':
       return (
-        <div data-maker-shell="" className="fixed inset-x-0 top-0 z-[80] grid h-[100dvh] place-items-center bg-cream p-6 text-center">
-          <div>
+        <div data-maker-shell="" className="fixed inset-x-0 top-0 z-[80] grid h-[100dvh] place-items-center bg-cream py-6 text-center">
+          <div className="px-6">
             <p className="text-[15px] text-ink/70">A stand-in for the Event Hub Maker — the tour waits under it.</p>
             <Link href="/dev/spotlight-lab/home" className="button-primary mt-4 inline-flex">Exit</Link>
           </div>

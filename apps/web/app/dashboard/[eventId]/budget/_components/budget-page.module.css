@@ -416,7 +416,8 @@ button.row {
   left: 0;
   right: 0;
   bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
-  padding: 10px 16px;
+  /* Side gutters clear a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  padding: 10px max(16px, var(--sn-safe-r)) 10px max(16px, var(--sn-safe-l));
   display: flex;
   gap: 8px;
   align-items: center;

@@ -113,7 +113,7 @@ export function DayOfFaceEnroll({
       <div
         role="status"
         data-face-step-toast="ok"
-        className="fixed inset-x-4 bottom-20 z-[70] mx-auto flex max-w-md items-start gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-cream shadow-lg"
+        className="fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] bottom-20 z-[70] mx-auto flex max-w-md items-start gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-cream shadow-lg"
       >
         <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" strokeWidth={2.5} />
         <span>{FACE_STEP_SAVED}</span>

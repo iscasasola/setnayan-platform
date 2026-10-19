@@ -193,7 +193,7 @@ export function Sheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
+            className="absolute right-[calc(0.75rem+var(--sn-safe-r))] top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>

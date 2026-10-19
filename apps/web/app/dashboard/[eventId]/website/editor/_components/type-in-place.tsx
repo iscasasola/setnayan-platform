@@ -25,7 +25,7 @@ import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
 
 /**
  * ✍ THE TYPE BAR — the small floating bar over the words being typed (Maker
@@ -597,7 +597,7 @@ export function TypeBar(p: TypeBarProps) {
         data-type-bar={el}
         data-type-bar-keys=""
         style={{ bottom }}
-        className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
+        className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR_FIXED}`}
       >
         <span className="min-w-0 truncate">Typing · {field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}</span>
         {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill. */}

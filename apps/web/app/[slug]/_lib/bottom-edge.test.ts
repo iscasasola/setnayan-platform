@@ -173,14 +173,14 @@ test('the music button left the bottom edge for the top-right corner', () => {
   const music = stripComments(read(join(COMPONENTS, 'background-music.tsx')));
   assert.doesNotMatch(music, /\bbottom-/, 'the music button is back on the bottom edge');
   assert.match(music, /createPortal\(control, slot\)/, 'it must join the corner cluster when there is one');
-  assert.match(music, /fixed right-3 top-3/, 'and hold the corner itself when there is not');
+  assert.match(music, /fixed right-\[max\(0\.75rem,var\(--sn-safe-r\)\)\] top-3/, 'and hold the corner itself when there is not');
   assert.match(music, /Tap for their song/, 'the one hint that there is music at all');
   // …and only at the top of the page: pinned to the viewport, it otherwise
   // rides down over the invitation's text as the guest scrolls.
   assert.match(music, /\{touched \|\| !atTop \? null : \(/, 'the hint must hide once the page scrolls');
   assert.match(music, /addEventListener\('scroll'/);
   const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
-  const cluster = hub.indexOf('fixed right-3 top-3');
+  const cluster = hub.indexOf('fixed right-[max(0.75rem,var(--sn-safe-r))] top-3');
   const slot = hub.indexOf('id={TOP_CORNER_SLOT_ID}');
   assert.ok(cluster > 0 && slot > cluster && slot - cluster < 400, 'the slot sits INSIDE the top-right cluster');
 });
@@ -218,7 +218,7 @@ test('the top bar label gives way to the pinned corner controls on a phone', () 
   const music = stripComments(read(join(COMPONENTS, 'background-music.tsx')));
   const hub = stripComments(read(join(COMPONENTS, 'guest-hub-bar.tsx')));
   assert.match(music, /<div data-top-corner className=\{CORNER_ALONE\}>/, 'the lone music corner marks itself');
-  assert.match(hub, /<div data-top-corner className="fixed right-3 top-3/, 'the guest cluster marks itself');
+  assert.match(hub, /<div data-top-corner className="fixed right-\[max\(0\.75rem,var\(--sn-safe-r\)\)\] top-3/, 'the guest cluster marks itself');
   const css = read(join(HERE, '..', '..', 'globals.css'));
   assert.match(css, /html:has\(\[data-top-corner\]\) \.sn-top-label \{\s*visibility: hidden;/);
 });

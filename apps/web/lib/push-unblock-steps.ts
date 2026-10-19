@@ -26,6 +26,8 @@
  * reason it is not inlined in the component.
  */
 
+import { deviceOs } from './apple-device';
+
 export type UnblockGuide = {
   /** Which device family this is written for — shown so a person can tell at a
    *  glance whether the steps match what is in front of them. */
@@ -52,13 +54,20 @@ export function unblockSteps(input: {
   userAgent: string;
   /** True when running as an installed app rather than a browser tab. */
   standalone?: boolean;
+  /**
+   * `navigator.maxTouchPoints`. iPad Safari's user-agent says Macintosh; its
+   * touch points are what tell it from a Mac (lib/apple-device.ts) — without
+   * them an iPad was given "Safari on Mac" steps.
+   */
+  maxTouchPoints?: number;
 }): UnblockGuide {
   const ua = (input.userAgent || '').toLowerCase();
   if (!ua) return GENERIC;
 
-  const isIOS = /iphone|ipad|ipod/.test(ua);
-  const isAndroid = /android/.test(ua);
-  const isMac = /macintosh|mac os x/.test(ua) && !isIOS;
+  const os = deviceOs(input.userAgent, input.maxTouchPoints);
+  const isIOS = os === 'iphone' || os === 'ipad';
+  const isAndroid = os === 'android';
+  const isMac = os === 'mac';
   // Order matters: Edge and Opera both carry "chrome", and every iOS browser
   // carries "safari". Test the more specific marker first.
   const isEdge = /\bedg\//.test(ua);

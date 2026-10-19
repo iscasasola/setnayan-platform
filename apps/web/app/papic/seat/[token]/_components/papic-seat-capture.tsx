@@ -319,7 +319,11 @@ export function PapicSeatCapture({
     selectLens,
     mirrored,
     switching,
-  } = usePapicCamera({ enabled: true });
+  } = usePapicCamera({
+    enabled: true,
+    // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
+    holdRestart: () => recordingRef.current,
+  });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);

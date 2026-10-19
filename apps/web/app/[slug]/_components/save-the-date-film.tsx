@@ -47,6 +47,7 @@ import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import { VEIL_FREE_ATTR } from '@/lib/hub-veil';
 import { fitLockupScale, measureLockupInk, type LockupInk } from '@/lib/film-lockup-fit';
+import { isAppleTouchDevice } from '@/lib/apple-device';
 
 /**
  * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
@@ -81,9 +82,7 @@ function setVol(el: HTMLMediaElement | null, v: number) {
  */
 function isIOSWebKit(): boolean {
   if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  return /Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1;
+  return isAppleTouchDevice(navigator.userAgent || '', navigator.maxTouchPoints);
 }
 
 /**

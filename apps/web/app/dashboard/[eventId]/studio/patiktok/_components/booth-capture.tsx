@@ -30,6 +30,7 @@ import { matchPatiktokFace, recordPatiktokClip } from '../actions';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { TagSheet, type BoothGuest, type BoothTable, type BoothTag } from './tag-sheet';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 type CaptureTemplate = {
   slug: string;
@@ -345,6 +346,22 @@ export function BoothCapture({
       setPhase('error');
     }
   }, [eventId, tag, revokeRecorded, template.slug]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): reopen the booth
+  // camera through the same open path (front camera, same 1080×1920) behind the
+  // shipped "Requesting camera…" state when iOS, a Duo or a dead track takes it.
+  // Held through countdown → recording → review → upload, and while the tag
+  // sheet is open (it may own the one camera iOS allows): a reopen is never a
+  // take, so it can never cut, post or count one.
+  useCameraThatComesBack({
+    streamRef,
+    live: phase !== 'idle' && phase !== 'error' && phase !== 'requesting',
+    restart: () => {
+      stopStream();
+      void openCamera();
+    },
+    holdWhile: phase !== 'ready' || tagSheetOpen,
+  });
 
   // Free the recording camera the moment the tag scanner needs one (iOS runs a
   // single camera at a time); reopen it when the sheet closes.

@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
   type RefObject,
 } from 'react';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Papic · shared camera controls (client)
 //
@@ -101,8 +102,17 @@ export type PapicCamera = {
  * @param enabled  Acquire (and hold) the camera only while true. The guest
  *   surface flips this false behind its UGC gate and while the front-camera
  *   face-enroll panel owns the camera; the seat surface passes a constant true.
+ * @param holdRestart  True while a clip is recording. The camera that comes
+ *   back (iOS background, a Duo opening, a dead track) waits for the take to
+ *   finish — a reopen is never a shot, so it must never cut, post or spend one.
  */
-export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
+export function usePapicCamera({
+  enabled,
+  holdRestart = false,
+}: {
+  enabled: boolean;
+  holdRestart?: boolean | (() => boolean);
+}): PapicCamera {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -117,6 +127,10 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
   // When set, open THIS device (the ultra-wide multi-camera path) instead of the
   // facingMode default. Cleared on flip / when returning to the 1× main lens.
   const [targetDeviceId, setTargetDeviceId] = useState<string | null>(null);
+  // Bumped when the camera must come back (see useCameraThatComesBack below):
+  // re-runs the acquire effect with the SAME facing + device, behind the
+  // shipped `switching` state, so the preview never sits frozen or black.
+  const [revival, setRevival] = useState(0);
 
   // Probe results for the active facing (refs so selectLens reads them without
   // re-rendering): can the live track zoom below 1×, and the ultra-wide deviceId.
@@ -251,7 +265,17 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [enabled, facing, targetDeviceId, probeLenses]);
+  }, [enabled, facing, targetDeviceId, probeLenses, revival]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4). iOS ends capture
+  // when the app goes to the background and a Duo can move the page to the
+  // other camera; without this the viewfinder stayed frozen or black.
+  useCameraThatComesBack({
+    streamRef,
+    live: enabled && ready && !switching && !camError,
+    restart: () => setRevival((n) => n + 1),
+    holdWhile: holdRestart,
+  });
 
   const flip = useCallback(() => {
     setLens(1);

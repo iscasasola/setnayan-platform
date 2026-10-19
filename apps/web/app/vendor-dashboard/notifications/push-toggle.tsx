@@ -69,7 +69,7 @@ export function PushToggle() {
       const standalone =
         Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
         window.matchMedia?.('(display-mode: standalone)').matches === true;
-      setGuide(unblockSteps({ userAgent: navigator.userAgent, standalone }));
+      setGuide(unblockSteps({ userAgent: navigator.userAgent, standalone, maxTouchPoints: navigator.maxTouchPoints }));
     }
   }, []);
 
@@ -84,7 +84,7 @@ export function PushToggle() {
           const standalone =
             Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone) ||
             window.matchMedia?.('(display-mode: standalone)').matches === true;
-          setGuide(unblockSteps({ userAgent: navigator.userAgent, standalone }));
+          setGuide(unblockSteps({ userAgent: navigator.userAgent, standalone, maxTouchPoints: navigator.maxTouchPoints }));
         }
         return;
       }

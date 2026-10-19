@@ -17,7 +17,6 @@ import {
   type GuestRole,
   type InvitedToBlock,
   type GuestSide,
-  type GuestAttire,
   type MealPreference,
   type RsvpStatus,
   RSVP_ROW_WORDS,
@@ -48,7 +47,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
-import type { CardBoxProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
+import type { CardBoxProps, CardFactProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
@@ -116,14 +115,6 @@ const MEAL_OPTIONS: MealPreference[] = [
   'kids',
 ];
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
-// 3D seat-plan attire. 'neutral' is the default: the avatar auto-dresses from a
-// gendered wedding-party role, else stays a plain token.
-const ATTIRE_OPTIONS: GuestAttire[] = ['neutral', 'gown', 'suit'];
-const ATTIRE_LABELS: Record<GuestAttire, string> = {
-  neutral: 'Neutral / auto',
-  gown: 'Gown',
-  suit: 'Suit',
-};
 
 /** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
 const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
@@ -283,6 +274,7 @@ export function GuestCardBody({
     tables,
     seatTableId,
     groupChoices,
+    outfit,
   } = data;
   /* 👤 Whose words the name is (owner 2026-09-30): a linked account's profile
      name is fixed here — "From their account" for the couple, a way to the
@@ -774,13 +766,10 @@ export function GuestCardBody({
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>
             )}
-            <K.Pick
-              name="attire"
-              label="Attire · 3D seat plan"
-              about="Guests see their table on the day, not before. Moving them here moves them on the seat plan too."
-              value={guest.attire}
-              options={ATTIRE_OPTIONS.map((v) => ({ key: v, label: ATTIRE_LABELS[v] }))}
-            />
+            {/* 👗 NO ATTIRE PICK (owner 2026-10-20: "the attire depends on the dress code of their role"). What they wear
+                in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
+                plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
+            {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
             {templated ? null : (
               <p className="text-xs text-ink/55">
                 Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
@@ -1065,6 +1054,16 @@ function OldLocked({ label, value, note }: CardLockedProps) {
     </div>
   );
 }
+/** 🪪 A fact read from elsewhere — two quiet lines, no frame (nothing to press). */
+function OldFact({ field, label, value, where }: CardFactProps) {
+  return (
+    <div className="space-y-0.5" data-card-fact={field}>
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{label}</span>
+      <p className="text-sm font-medium text-ink">{value}</p>
+      <p className="text-xs text-ink/55">{where}</p>
+    </div>
+  );
+}
 function OldList({ children }: CardBoxProps) {
   return <div className="space-y-2.5">{children}</div>;
 }
@@ -1103,6 +1102,7 @@ const OLD_KIT: CardKit = {
   Title: OldTitle,
   InvitedTo: OldInvitedTo,
   Locked: OldLocked,
+  Fact: OldFact,
   Submit: OldSubmit,
   Tip: OldTip,
   SaveState: AutosaveState,

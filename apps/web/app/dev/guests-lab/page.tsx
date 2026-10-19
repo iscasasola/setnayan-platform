@@ -52,6 +52,7 @@ import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
+import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
@@ -413,6 +414,26 @@ export default async function GuestsLabPage({
           ],
         }
       : {};
+    /* 👗 `&dress=1` — a dress code as the Studio stores it (VIP · Immediate Family: men Suit and tie · women Long gown;
+       Principal Sponsors: men Barong · women Filipiniana; Guests: men Suit · women Long dress), so the Seat fold's
+       "Attire · 3D seat plan" line is drawn by the ONE reading (`guestOutfitOf`); without it, nothing is picked. */
+    const cardGuest = protoGuest ?? g;
+    const labDress = sp.dress === '1'
+      ? {
+          groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },
+          roles: { guest: { style: 'suit' } },
+          women: { groups: { vip_family: { style: 'long_gown' }, principal_sponsors: { style: 'filipiniana' } }, roles: { guest: { style: 'long_gown' } } },
+        }
+      : null;
+    const labOutfit = guestOutfitWords(
+      guestOutfitOf({
+        role: cardGuest.role,
+        dressCodeConfig: labDress,
+        palette: {},
+        roleNames: labWords,
+        person: { name_prefix: cardGuest.name_prefix ?? null, display_name: cardGuest.display_name ?? null, gender: cardGuest.gender ?? null, attire: cardGuest.attire },
+      }),
+    );
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
@@ -424,7 +445,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(protoGuest ?? g, host), ...protoData, roleNames: labWords } as GuestCardData}
+                  data={{ ...cardData(cardGuest, host), ...protoData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"

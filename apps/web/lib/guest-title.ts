@@ -224,8 +224,10 @@ export function genderOfRow(row: TitleRow): TitleGender | null {
  * 👤 WOMAN OR MAN, FOR ONE PERSON — THE ONE READING (owner 2026-10-19, on cale-ice's Me page for the groom's mother:
  * *"shouldn't it identify that she is the female mother of the groom"* · *"not both gender to show?"*).
  *
- *   gender (the "Atty. (Woman)" pick) → a title word that says it (Mr. · Ms. · Mrs. · Miss) → the guest card's
- *   "Attire · 3D seat plan" pick (gown → woman, suit → man) → null (unknown: a surface shows both).
+ *   gender (the "Atty. (Woman)" pick) → a title word that says it (Mr. · Ms. · Mrs. · Miss) → the stored
+ *   `guests.attire` (gown → woman, suit → man — the card's old "Attire · 3D seat plan" pick; since 2026-10-20 the card
+ *   SAYS the attire their role's dress code gives them, `guestOutfitOf`, and no longer writes it) → null (unknown: a
+ *   surface shows both).
  *
  * Every per-person reader goes through here: the parent word (`parentWordOf`, "Mother of the Groom"), and the reader's
  * own column of a two-pick dress-code row (`readerPick` / `readerAttire`: Me › What to wear, the checklist). Nothing is

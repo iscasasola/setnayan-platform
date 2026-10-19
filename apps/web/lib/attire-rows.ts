@@ -498,7 +498,7 @@ export function readerAttire(input: {
 }
 
 /** Two people's Wear in one line: one design when they agree, else each named ("For men: Suit and tie · For women: Long gown"). */
-function bothSaid<P extends { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null }>(picks: readonly P[], say: (p: P) => string | null): string | null {
+export function bothSaid<P extends { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null }>(picks: readonly P[], say: (p: P) => string | null): string | null {
   const [a, b] = picks as unknown as [P, P];
   const sa = say(a);
   const sb = say(b);

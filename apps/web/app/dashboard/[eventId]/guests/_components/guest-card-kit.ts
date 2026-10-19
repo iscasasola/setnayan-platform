@@ -105,6 +105,12 @@ export type CardRolesProps = {
 };
 export type CardInvitedToProps = { roleSelectId: string; initialRole: string; initialBlocks?: string[] };
 export type CardLockedProps = { label: string; value: string; note: string };
+/**
+ * 🪪 A FACT READ FROM ELSEWHERE, said on the card with where it comes from — nothing to tap (owner 2026-10-20: the guest's
+ * attire IS their role's dress code, so the card says it instead of offering a pick). `field` names the row for the
+ * guards (`data-card-field`). Never a link: where it is set is plain words (no go-edit-elsewhere).
+ */
+export type CardFactProps = { field: string; label: string; value: string; where: string };
 export type CardBoxProps = { className?: string; children: ReactNode };
 /** A submit button of one of the card's own small forms (This is me · Send the sign-in link · Give the spot · Take the seat back). */
 export type CardSubmitProps = { main?: boolean; pendingLabel: string; ariaLabel?: string; children: string };
@@ -138,6 +144,8 @@ export type CardKit = {
   InvitedTo: ComponentType<CardInvitedToProps>;
   /** A fact the host cannot change here (the couple's role). */
   Locked: ComponentType<CardLockedProps>;
+  /** 🪪 A fact read from elsewhere, with where it comes from (the attire their role's dress code gives them). */
+  Fact: ComponentType<CardFactProps>;
   /** One list of rows (the app's Form rows draw one list; the old kit a spaced column). */
   List: ComponentType<CardBoxProps>;
   /** The card's small forms' submit buttons — the old kit's hand classes, the new kit's ActionButton. */

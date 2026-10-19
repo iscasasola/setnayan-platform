@@ -25,6 +25,9 @@ import { readSeatAccount } from '@/lib/seat-unlink';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { offersThisIsMe } from '@/lib/creator-couple-row';
+import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette } from '@/lib/room-palette';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -130,6 +133,12 @@ export type GuestCardData = {
    * the groups read-only and posts nothing, so a refusal can never unTick them.
    */
   groupChoices: { options: { groupId: string; label: string }[]; memberIds: string[] } | null;
+  /**
+   * 👗 What they wear in the 3D seat plan, in words — their ROLE'S dress code (owner 2026-10-20: *"the attire depends on
+   * the dress code of their role"*), read by the ONE reading Me › What to wear makes (`guestOutfitOf`). Null when the
+   * event's dress code could not be read: the card then says nothing, never a "Not set yet" it did not measure.
+   */
+  outfit: { wear: string; from: string } | null;
 };
 
 export async function loadGuestCard(
@@ -161,6 +170,7 @@ export async function loadGuestCard(
     { data: tableRows, error: tableRowsError },
     { data: eventGroupRows, error: eventGroupRowsError },
     roleNames,
+    { data: dressRow, error: dressRowError },
   ] = await Promise.all([
     fetchGuestById(supabase, eventId, guestId),
     // 👤 Linked to an account with a formal name → the card wears the profile's
@@ -205,6 +215,9 @@ export async function loadGuestCard(
     supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
     // The couple's words for roles — its own read, graceful (usual words on a refusal).
     loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
+    // 👗 The dress code the Seat fold's "Attire · 3D seat plan" line reads — its OWN read, so a refusal drops only that
+    // line and never the ceremony context above.
+    supabase.from('events').select('dress_code_config, role_palette').eq('event_id', eventId).maybeSingle(),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
@@ -370,7 +383,25 @@ export async function loadGuestCard(
       rowOwnedByAnotherAccount: rowFacts.ownedByAnother,
     });
 
+  // ⚠ The dress code the card's "Attire · 3D seat plan" line reads. Refused → no line (never a "Not set yet" it did not measure).
+  if (dressRowError) {
+    logQueryError('loadGuestCard.dressRow', dressRowError, { eventId, guestId }, 'graceful_degrade');
+  }
+  const dress = (dressRow ?? null) as { dress_code_config?: unknown; role_palette?: unknown } | null;
+  const outfit = dressRowError
+    ? null
+    : guestOutfitWords(
+        guestOutfitOf({
+          role: guest.role,
+          dressCodeConfig: dress?.dress_code_config ?? null,
+          palette: resolveDisplayPalette(sanitizeRolePalette(dress?.role_palette)),
+          roleNames,
+          person: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name ?? null, gender: guest.gender ?? null, attire: guest.attire },
+        }),
+      );
+
   return {
+    outfit: outfit ? { wear: outfit.wear, from: outfit.from } : null,
     roleNames,
     tables,
     seatTableId: (seatRow?.table_id as string | null | undefined) ?? null,

@@ -48,6 +48,7 @@ test('2 · the widths are the doc’s — 760 · 1100 · Look’s controls 384 b
   assert.ok(css.includes(`${WS}${on(m.DESK_STUDIO_WIDE_ITEMS)} [data-details-row]{max-width:1100px}`));
   assert.ok(css.includes(`${WS} [data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){width:${m.DESK_TOOLS_PX}px!important}`), 'Look’s controls are not the tools column’s width');
   assert.match(css, /\[data-bg-cards\]\{display:grid!important;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'Look’s backgrounds are not a 2-column grid');
+  assert.ok(css.includes(`${WS} [data-mood-board-five]{justify-content:flex-start!important`), 'the Mood Board’s five colours spread edge to edge at 1100 px');
 });
 
 test('3 · the phone’s form skin, every selector given the desk switch; the phone’s set stays a phone’s', async () => {

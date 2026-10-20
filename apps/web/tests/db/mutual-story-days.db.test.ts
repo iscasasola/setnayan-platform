@@ -212,6 +212,6 @@ test('nobody else can read a person’s story rows — RLS keeps the raw presenc
   );
   assert.equal(r.rows.length, 1, 'exactly one policy is expected on person_story_items');
   const qual = r.rows[0]!.qual;
-  assert.match(qual, /claimed_by_user_id = auth\.uid\(\)/);
+  assert.match(qual, /claimed_by_user_id = (\( SELECT )?auth\.uid\(\)/);
   assert.match(qual, /is_admin\(\)/);
 });

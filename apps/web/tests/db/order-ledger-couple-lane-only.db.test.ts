@@ -153,7 +153,7 @@ test('META: the INSERT policy now constrains order, verb and role — not just t
   );
   assert.equal(r.rows.length, 1, 'order_ledger_authenticated_insert is missing');
   const wc = r.rows[0]!.wc;
-  assert.match(wc, /actor_user_id\s*=\s*auth\.uid\(\)/, 'the policy stopped pinning the actor');
+  assert.match(wc, /actor_user_id\s*=\s*(\(\s*SELECT\s+)?auth\.uid\(\)/, 'the policy stopped pinning the actor');
   assert.match(wc, /actor_role\s*=\s*'couple'/, 'the policy does not pin actor_role');
   assert.match(wc, /order_created/, 'the policy does not restrict event_type');
   assert.match(wc, /orders/, 'the policy does not check that the order belongs to the caller');

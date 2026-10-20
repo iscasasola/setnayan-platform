@@ -31,7 +31,7 @@
 import {
   categoryForTile,
   homeTileForRow,
-  tileForCategory,
+  storageForRow,
   tileForCover,
 } from '@/lib/shortlist-taxonomy';
 import type { WeddingTile } from '@/lib/taxonomy';
@@ -66,8 +66,7 @@ export function planSupplierMove(
   const from = homeTileForRow(row);
   if (from === to) return { refused: 'same_row' };
 
-  const category = categoryForTile(to);
-  const category_key = tileForCategory(category) === to ? null : to;
+  const { category, category_key } = storageForRow(to);
 
   const covers: string[] = [];
   const removedCovers: string[] = [];

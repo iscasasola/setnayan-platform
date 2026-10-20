@@ -88,6 +88,13 @@ const KEEP = () => ({ ok: true as const });
 type Props = {
   eventId: string;
   category: string;
+  /**
+   * The Suppliers-page row the add was opened from. Posted as `category_key`,
+   * so a row the enum cannot name (Food Truck stores `misc`) files the card
+   * under itself, not under Everything else (owner 2026-10-20). Omitted (no
+   * row — the plan accordion) → today's behaviour.
+   */
+  tile?: string | null;
   categoryLabel: string;
   onClose: () => void;
   onCreated: () => void;
@@ -121,6 +128,7 @@ type ModalMode =
 export function NewManualVendorModal({
   eventId,
   category,
+  tile,
   categoryLabel,
   edit,
   coverCatalog,
@@ -290,6 +298,7 @@ export function NewManualVendorModal({
         linkFd.set('event_id', eventId);
         linkFd.set('marketplace_vendor_id', mode.vendor.vendor_profile_id);
         linkFd.set('category', category);
+        if (tile && !edit) linkFd.set('category_key', tile);
         const result = await attachMarketplaceVendorToCategory(linkFd);
         if (result.status === 'not_signed_in') {
           const next = encodeURIComponent(
@@ -448,6 +457,8 @@ export function NewManualVendorModal({
               address rule server-side. The modal is always opened FROM a
               category card, so this is never a guess. */}
           <input type="hidden" name="category" value={category} />
+          {/* The row the add came from — `addManualSupplier` keeps it only when it refines `category`. */}
+          {tile && !edit ? <input type="hidden" name="category_key" value={tile} /> : null}
           {edit ? <input type="hidden" name="vendor_id" value={edit.vendorId} /> : null}
 
           {mode.kind === 'linked' ? (

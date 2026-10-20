@@ -23,7 +23,8 @@ import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { readCoverCatalog, type CoverCatalogRead } from '@/lib/cover-catalog.server';
-import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { categoryKeyForAdd, homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { hasClaimAsk } from '@/lib/move-supplier-category.server';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -3500,6 +3501,22 @@ async function deleteManualVendor(
 }
 
 /**
+ * THE ROW AN ADD CAME FROM (owner 2026-10-20: *"We want them to be designated
+ * to their category"*). An add opened from a Suppliers-page row posts that row
+ * as `category_key`; this keeps it only when it is a row the page draws AND it
+ * refines the posted enum `category` (`categoryKeyForAdd`). Food Truck stores
+ * `misc`; without the key its card would be drawn under Everything else.
+ * Anything else — no row, the top-level Everything else row, an unknown or
+ * contradicting key — answers null, and the add writes what it always wrote.
+ */
+async function categoryKeyFromAdd(formData: FormData, category: string): Promise<string | null> {
+  const raw = formData.get('category_key');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const known = (await getTaxonomy()).tileLabel as Record<string, string>;
+  return categoryKeyForAdd(category, raw, (t) => typeof known[t] === 'string');
+}
+
+/**
  * Attaches a manual vendor to a planning category by creating a fresh
  * event_vendors row linked via manual_vendor_id. The new row gets the
  * vendor's business_name as vendor_name (for backwards-compat with
@@ -3566,11 +3583,14 @@ async function attachManualVendorToCategory(
     return { status: 'error', message: 'Manual supplier belongs to a different event' };
   }
 
+  // The row it was added from, when the enum cannot name it (Food Truck).
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
   const { data: inserted, error: insertErr } = await supabase
     .from('event_vendors')
     .insert({
       event_id: eventIdRaw,
       category: categoryRaw,
+      ...(categoryKey ? { category_key: categoryKey } : {}),
       vendor_name: manualVendor.business_name,
       manual_vendor_id: manualVendorIdRaw,
       status: 'considering',
@@ -4033,6 +4053,9 @@ export async function attachMarketplaceVendorToCategory(
     marketplace_vendor_id: marketplaceVendorIdRaw,
     source: 'host_marketplace_search',
   };
+  // Asked from a row the enum cannot name (Food Truck) — the card is drawn there.
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
+  if (categoryKey) insertPayload.category_key = categoryKey;
   if (serviceId) {
     insertPayload.service_id = serviceId;
   }
@@ -5338,6 +5361,9 @@ export async function addManualSupplier(
   attachFd.set('event_id', eventId);
   attachFd.set('manual_vendor_id', created.manualVendorId);
   attachFd.set('category', category);
+  // The Suppliers-page row the add was opened from (validated in the attach).
+  const rowKey = formData.get('category_key');
+  if (typeof rowKey === 'string' && rowKey.length > 0) attachFd.set('category_key', rowKey);
   if (answersInPlace(formData)) attachFd.set(ANSWER_IN_PLACE_FIELD, '1');
   const attached = await attachManualVendorToCategory(attachFd);
   if (attached.status !== 'ok') return attached;

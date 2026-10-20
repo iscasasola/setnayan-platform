@@ -170,6 +170,22 @@ export function labDunkinRow(stage: 'before' | 'after' | 'moved'): EventVendorRo
   });
 }
 
+/**
+ * `&own=<category>~<category_key>~<name>` — what the walk's Add just posted
+ * (the lab's stand-in writes it into the address, 2026-10-20), stored the way
+ * `addManualSupplier` stores it: the row is kept only through the shared check
+ * (`categoryKeyForAdd`), so the lab draws what the real insert would.
+ */
+export function labOwnRow(category: string, categoryKey: string | null, name: string): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-own',
+    vendor_name: name || 'Your supplier',
+    category: category as EventVendorRowInput['category'],
+    manual_vendor_id: 'm-own',
+    category_key: categoryKey,
+  });
+}
+
 export const LAB_ADDED_ROW: EventVendorRowInput = row({
   vendor_id: 'v-tita',
   vendor_name: "Tita Baby's Catering",

@@ -57,7 +57,17 @@ export function LabBench({
       value={{
         search: async (query, category) => labNameMatches(query, category),
         inquire: async () => ({ ok: true }),
-        add: async () => ({ ok: true, eventVendorId: 'v-tita', invite: { url: LAB_CLAIM_URL, qrSvg: claimQrSvg } }),
+        // What the Add posted rides into the address (`&own=`), so the walk's
+        // one refresh draws the record the way the real insert would store it.
+        add: async (fd) => {
+          const u = new URL(window.location.href);
+          u.searchParams.set(
+            'own',
+            [fd.get('category'), fd.get('category_key') ?? '', fd.get('business_name')].map((v) => String(v ?? '')).join('~'),
+          );
+          window.history.replaceState(null, '', u.toString());
+          return { ok: true, eventVendorId: 'v-own', invite: { url: LAB_CLAIM_URL, qrSvg: claimQrSvg } };
+        },
       }}
     >
     <MoreRowStandInCtx.Provider

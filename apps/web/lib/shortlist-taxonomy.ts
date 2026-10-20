@@ -175,6 +175,46 @@ export function homeTileForRow(
 }
 
 /**
+ * WHAT A SUPPLIER FILED UNDER A ROW STORES — the inverse of `homeTileForRow`.
+ * (owner 2026-10-20: *"We want them to be designated to their category"*)
+ *
+ *   · `category` — `categoryForTile(tile)`, the enum label Budget
+ *     (`bucketForVendor`), supplier access and the claim link key on;
+ *   · `category_key` — the row itself when that enum label alone would draw the
+ *     card somewhere else (Food Truck stores `misc`, which draws as Everything
+ *     else), else null — so a row the enum CAN name is stored byte-for-byte as
+ *     it always was.
+ *
+ * `homeTileForRow(storageForRow(t)) === t` for every row: the add
+ * (`addManualSupplier`, `attachMarketplaceVendorToCategory`) and the move
+ * (`planSupplierMove`) both write this, and the page reads it back.
+ */
+export function storageForRow(tile: string): { category: VendorCategory; category_key: string | null } {
+  const category = categoryForTile(tile as WeddingTile);
+  return { category, category_key: tileForCategory(category) === tile ? null : tile };
+}
+
+/**
+ * The `category_key` an ADD may write, from what the add posted: the row it was
+ * opened from (`tile`) and the enum `category`. Null — today's behaviour — when
+ * there is no row, the row is not one the page draws (`isTile`), or the row
+ * does not store under that `category` (the key only ever refines, never
+ * contradicts: `homeTileForRow` would ignore it anyway, and the money and the
+ * drawing must never point at two places).
+ */
+export function categoryKeyForAdd(
+  category: unknown,
+  tile: unknown,
+  isTile: (tile: string) => boolean,
+): string | null {
+  if (typeof category !== 'string' || typeof tile !== 'string') return null;
+  const t = tile.trim();
+  if (t.length === 0 || !isTile(t)) return null;
+  const stored = storageForRow(t);
+  return stored.category === category ? stored.category_key : null;
+}
+
+/**
  * The bench tile a PLAN GROUP id opens on — the group's `catalogTile`, else the
  * tile its first category bridges to (Attire / Band-DJ-Performer / Logistics
  * span several tiles and carry no `catalogTile`). Null for an id that is not a

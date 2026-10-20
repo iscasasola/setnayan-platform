@@ -106,6 +106,7 @@ import {
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { AddYourOwnWalk } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
+import { addOwnCategoriesFromRows } from '@/lib/add-your-own';
 import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
@@ -2773,7 +2774,10 @@ export function ShortlistCategories({
   const [addAsk, setAddAsk] = useState(false);
   const benchRef = useRef<HTMLDivElement>(null);
   // `name` = what was typed in the thumb row's box when ＋ was pressed.
-  const [manual, setManual] = useState<{ category: string; label: string; name?: string } | null>(null);
+  // `tile` = the Suppliers-page row the add was opened from — what the card is
+  // filed under (owner 2026-10-20: "designated to their category"). Two rows can
+  // share the stored `category` (Food Truck and Mocktail both store `misc`).
+  const [manual, setManual] = useState<{ category: string; tile: string; label: string; name?: string } | null>(null);
   const typedForAdd = useRef('');
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
@@ -3416,7 +3420,7 @@ export function ShortlistCategories({
     // The name typed in the box rides into the walk's first step (the
     // prototype: "type a name in the box first, then ＋").
     typedForAdd.current = typed.trim();
-    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current });
+    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current, tile: scopeRow.t.tile });
     else setAddAsk(true);
   }
 
@@ -4204,7 +4208,7 @@ export function ShortlistCategories({
                               <span className="act manual">
                                 <button
                                   type="button"
-                                  onClick={() => setManual({ category: t.category, label: t.label })}
+                                  onClick={() => setManual({ category: t.category, label: t.label, tile: t.tile })}
                                 >
                                   <Pencil size={18} strokeWidth={1.75} aria-hidden />
                                   <span className="at">Add manually</span>
@@ -4299,7 +4303,7 @@ export function ShortlistCategories({
                               <button
                                 type="button"
                                 className="fr manual"
-                                onClick={() => setManual({ category: t.category, label: t.label })}
+                                onClick={() => setManual({ category: t.category, label: t.label, tile: t.tile })}
                               >
                                 <span className="fr-i">
                                   <Pencil size={16} strokeWidth={1.75} aria-hidden />
@@ -4450,7 +4454,7 @@ export function ShortlistCategories({
                   onPick={(tile) => {
                     const row = benchRows.find((r) => r.t.tile === tile);
                     setAddAsk(false);
-                    if (row) setManual({ category: row.t.category, label: row.t.label, name: typedForAdd.current });
+                    if (row) setManual({ category: row.t.category, label: row.t.label, name: typedForAdd.current, tile: row.t.tile });
                   }}
                   className="w-full border border-ink/15"
                 />
@@ -4467,13 +4471,14 @@ export function ShortlistCategories({
         <AddYourOwnWalk
           eventId={eventId}
           category={manual.category}
+          tile={manual.tile}
           categoryLabel={manual.label}
           initialName={manual.name ?? ''}
-          // ONE dropdown of only the categories on the event. Two rows can
-          // share a stored category; the first one names it.
-          categories={benchRows
-            .filter((r, i, all) => all.findIndex((o) => o.t.category === r.t.category) === i)
-            .map(({ t, group }) => ({ category: t.category, label: t.label, group }))}
+          // ONE dropdown of only the categories on the event — ONE ENTRY PER
+          // ROW. Two rows can share a stored category (Food Truck and Mocktail
+          // both store `misc`); each keeps its own entry and files the card
+          // under itself (`category_key`), never under the other.
+          categories={addOwnCategoriesFromRows(benchRows)}
           // The leak line's facts: shops on this event that quoted, from the
           // cards already on the page (no read).
           quotedShops={folders.flatMap((f) =>
@@ -4494,7 +4499,9 @@ export function ShortlistCategories({
           onDone={(outcome) => {
             setManual(null);
             // Land on the category the supplier went under, then say what happened.
-            const row = benchRows.find((r) => r.t.category === outcome.category);
+            const row = outcome.tile
+              ? benchRows.find((r) => r.t.tile === outcome.tile)
+              : benchRows.find((r) => r.t.category === outcome.category);
             if (row) setOpenTile(row.t.tile);
             // The page's one toast, from the top (§ 9 kind 12). A part that did
             // not happen (they were added, the ask did not send) reads red.
@@ -4507,6 +4514,7 @@ export function ShortlistCategories({
         <NewManualVendorModal
           eventId={eventId}
           category={manual.category}
+          tile={manual.tile}
           categoryLabel={manual.label}
           coverCatalog={coverCatalogFromFolders(folders)}
           onClose={() => setManual(null)}

@@ -96,14 +96,25 @@ import { contactShortlistVendor } from '../vendors/_actions/contact-shortlist-ve
 import { AddressPinField } from './address-pin-field';
 import { SupplierConnectPanel } from './supplier-connect-panel';
 
-/** One category on the event — what step 2's dropdown lists. */
-export type AddOwnCategory = { category: string; label: string; group?: string };
+/**
+ * One category on the event — what step 2's dropdown lists. `tile` is the
+ * Suppliers-page row itself: two rows can store the SAME enum `category` (Food
+ * Truck and Mocktail both store `misc`), so the dropdown is keyed on the row,
+ * never on the category, and the add posts the row as `category_key`
+ * (owner 2026-10-20: *"We want them to be designated to their category"*).
+ */
+export type AddOwnCategory = { category: string; label: string; group?: string; tile?: string };
+
+/** The dropdown's key for one row — the row itself, else (no row) its category. */
+export const addOwnKey = (c: AddOwnCategory): string => c.tile ?? c.category;
 
 /** What the walk tells the page when it closes having changed something. */
 export type AddOwnOutcome = {
   kind: 'added' | 'asked';
   name: string;
   category: string;
+  /** The Suppliers-page row it went under (null: opened from no row). */
+  tile: string | null;
   /** The sentence the page says after the sheet closes. */
   said: string;
   /** False when only part of it happened (they were added, but the ask did not send). */
@@ -129,6 +140,7 @@ export type AddOwnQuotedShop = { category: string; name: string; threadHref: str
 export function AddYourOwnWalk({
   eventId,
   category: openedCategory,
+  tile: openedTile = null,
   categoryLabel: openedLabel,
   categories,
   initialName = '',
@@ -140,6 +152,8 @@ export function AddYourOwnWalk({
   eventId: string;
   /** The category the walk was opened from (`event_vendors.category`). */
   category: string;
+  /** The Suppliers-page row it was opened from — what the add files the card under. */
+  tile?: string | null;
   categoryLabel: string;
   /** ONLY the categories on the event — the dropdown offers nothing else. */
   categories: ReadonlyArray<AddOwnCategory>;
@@ -156,7 +170,11 @@ export function AddYourOwnWalk({
   const standIn = useContext(AddOwnStandInCtx);
   const [step, setStep] = useState<AddOwnStep>(1);
   const [name, setName] = useState(initialName);
-  const [category, setCategory] = useState(openedCategory);
+  // The PICKED ROW (`addOwnKey`), not the enum: Food Truck and Mocktail share `misc`.
+  const [pick, setPick] = useState<string>(openedTile ?? openedCategory);
+  const picked = categories.find((c) => addOwnKey(c) === pick) ?? null;
+  const category = picked ? picked.category : openedCategory;
+  const tile = picked ? (picked.tile ?? null) : openedTile;
   const [who, setWho] = useState('');
   const [mobile, setMobile] = useState('');
   /** What each row has KEPT (its pill). The live words above follow the typing; a ✕ puts them back to these. */
@@ -177,7 +195,7 @@ export function AddYourOwnWalk({
   const [openAsk, setOpenAsk] = useState(0);
 
   const label =
-    categories.find((c) => c.category === category)?.label ??
+    picked?.label ??
     (category === openedCategory ? openedLabel : (VENDOR_CATEGORY_LABEL[category as VendorCategory] ?? category));
   const typed = name.trim();
   const addressRequired = manualVendorNeedsAddress(category);
@@ -229,7 +247,7 @@ export function AddYourOwnWalk({
   // Once the record exists, every way out (✕, the backdrop, Esc) is "Done": the
   // row is real, so the page must refresh and say what was added.
   const finish = () => {
-    if (created) onDone({ kind: 'added', name: typed, category, said: addOwnDoneLine(typed), whole: true });
+    if (created) onDone({ kind: 'added', name: typed, category, tile, said: addOwnDoneLine(typed), whole: true });
     else onClose();
   };
 
@@ -254,7 +272,7 @@ export function AddYourOwnWalk({
     setErr(null);
     start(async () => {
       const done = () =>
-        onDone({ kind: 'asked', name: shop.business_name, category, said: addOwnAskedLine(shop.business_name), whole: true });
+        onDone({ kind: 'asked', name: shop.business_name, category, tile, said: addOwnAskedLine(shop.business_name), whole: true });
       if (standIn) {
         const res = await standIn.inquire(shop, category);
         if (res.ok) done();
@@ -265,6 +283,7 @@ export function AddYourOwnWalk({
       fd.set('event_id', eventId);
       fd.set('marketplace_vendor_id', shop.vendor_profile_id);
       fd.set('category', category);
+      if (tile) fd.set('category_key', tile);
       const attached = await attachMarketplaceVendorToCategory(fd);
       if (attached.status === 'not_signed_in') {
         window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
@@ -291,6 +310,7 @@ export function AddYourOwnWalk({
         kind: 'asked',
         name: shop.business_name,
         category,
+        tile,
         said: `${shop.business_name} is under ${label} now, but your ask did not send — press Ask for a quote on their card.`,
         whole: false,
       });
@@ -309,6 +329,8 @@ export function AddYourOwnWalk({
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('category', category);
+    // The row it is added under — `addManualSupplier` keeps it when it refines `category`.
+    if (tile) fd.set('category_key', tile);
     fd.set('business_name', typed);
     fd.set('contact_either', '1');
     fd.set('contact_person', who.trim());
@@ -474,12 +496,12 @@ export function AddYourOwnWalk({
             <p className={LABEL}>What they do</p>
             <PickMenu
               label="What they do"
-              value={category}
+              value={pick}
               buttonText={label}
               dataAttr="data-add-own-what"
               stickyGroups
-              options={categories.map((c) => ({ key: c.category, label: c.label, group: c.group }))}
-              onPick={(key) => setCategory(key)}
+              options={categories.map((c) => ({ key: addOwnKey(c), label: c.label, group: c.group }))}
+              onPick={(key) => setPick(key)}
               className="w-full border border-ink/15"
             />
             <p className="text-[12.5px] text-ink/60">Only the categories on your event.</p>

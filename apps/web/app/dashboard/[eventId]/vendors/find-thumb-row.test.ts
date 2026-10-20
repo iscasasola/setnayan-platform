@@ -184,7 +184,8 @@ test('T6 · Add opens the form for the ONE open category — otherwise it asks w
   // …carrying the name typed in the box (2026-10-10).
   assert.match(
     add,
-    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current \}\);\s*else setAddAsk\(true\);/,
+    // …and the ROW itself, so the card is filed under it (owner 2026-10-20).
+    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current, tile: scopeRow\.t\.tile \}\);\s*else setAddAsk\(true\);/,
   );
   // ONE add on Find (owner 2026-10-13): the thumb row's ＋ — no category draws its own "Add your own".
   assert.doesNotMatch(BENCH, /\{replan && rowBooked \? \(\s*<div className="morefoot">/, 'a booked category grew its own Add again');
@@ -208,7 +209,7 @@ test('T6 · the question is ONE dropdown of only the categories on the event', (
   assert.match(ask, /options=\{benchRows\.map\(\(\{ t, group \}\) => \(\{ key: t\.tile, label: t\.label, group \}\)\)\}/);
   assert.match(
     ask,
-    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current \}\);/,
+    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current, tile: row\.t\.tile \}\);/,
   );
   // A sheet must escape the page's transform.
   assert.match(ask, /createPortal\(\s*<Sheet open onClose=\{\(\) => setAddAsk\(false\)\}[\s\S]*document\.body,\s*\)/);

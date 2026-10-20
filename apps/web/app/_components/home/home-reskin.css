@@ -2640,10 +2640,19 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
 .home-reskin-ov .hr-si-or::after {
   content: '';
   flex: 1;
+  /* The rules never vanish. /signup's "or create a password with your email"
+     is long enough to wrap at a 402 px phone (iPhone 17, simulator walk
+     2026-10-20), and a wrapping label took the whole row — both rules went to
+     0 px and the words sat flush left, reading as stray text. Bigger iPhone
+     text (Dynamic Type, lib/app-text-size.ts) makes every label do it. */
+  min-width: 18px;
   height: 1px;
   background: var(--hr-line);
 }
 .home-reskin-ov .hr-si-or span {
+  /* A wrapped label stays centred between its rules, in even lines. */
+  text-align: center;
+  text-wrap: balance;
   font-family: var(--hr-mono);
   font-size: 10px;
   letter-spacing: 0.16em;

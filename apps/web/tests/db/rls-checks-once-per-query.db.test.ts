@@ -558,7 +558,7 @@ test('META: every hot table and most touched tables hold rows to test against', 
   const share = fillReport.filled.length / tables.length;
   // Measured 2026-10-20 — raise it, never lower it.
   assert.ok(
-    share >= 0.6,
+    share >= 0.85, // 277/325 on 2026-10-20
     `only ${fillReport.filled.length}/${tables.length} tables hold rows; empty: ${fillReport.empty.join(', ')}`,
   );
 });
@@ -576,6 +576,11 @@ test('META: the identities really see different things', () => {
   const writesRefused = Object.entries(mBefore).filter(([k, v]) => /· (update|delete|insert)#/.test(k) && /^(0$|ERR)/.test(v));
   assert.ok(writesOk.length >= 100, `${writesOk.length} writes went through — the write probes must reach real rows`);
   assert.ok(writesRefused.length >= 100, `${writesRefused.length} writes refused`);
+  console.log(
+    `matrix: ${ids.length} identities × ${tables.length} tables = ${Object.keys(mBefore).length} cells · ` +
+      `${distinct.size} distinct outcomes · ${writesOk.length} writes admitted · ${writesRefused.length} refused · ` +
+      `${fillReport.filled.length}/${tables.length} tables hold rows (empty: ${fillReport.empty.length})`,
+  );
 });
 
 /* ── THE PROOF ──────────────────────────────────────────────────────────── */

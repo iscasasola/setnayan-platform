@@ -33,7 +33,13 @@
 -- multiple_permissive_policies). Postgres already ORs every permissive policy
 -- for a role+command into one qual, so a merge changes no plan and no
 -- timing — and on guests/orders the overlap is with FOR ALL policies, which a
--- same-command merge cannot remove anyway. See the PR body for the measurement.
+-- same-command merge cannot remove anyway.
+--
+-- EXTENDS 20271274849201_event_day_policies_read_the_caller_once.sql, which
+-- wrapped auth.*() / is_admin() in 37 policies on the fifteen event-day tables
+-- and noted moderator_area_level(event_id, …) "cannot be hoisted" as written.
+-- This file does the remaining tables, and hoists that call by asking it the
+-- other way round (the set of events, once) instead of per row.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- The set form of moderator_area_level(): every event this caller holds a

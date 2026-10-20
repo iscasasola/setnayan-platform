@@ -141,6 +141,7 @@ export function useBlockLooksDraft() {
            another block, saved meanwhile, is kept — and shown here (the toolbar says so once, `makerSave`). */
         fd.set(MERGE_BASE_FIELD, JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: was[BLOCK_LOOKS_PREF_KEY] ?? {} } } }));
         const door = draftDoor();
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => door(eventId, fd), () => router.refresh());
         if (!r.ok) back(r.error);
         else {

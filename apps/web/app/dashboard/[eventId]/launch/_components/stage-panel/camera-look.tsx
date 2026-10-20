@@ -72,6 +72,7 @@ export function CameraPartTools() {
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { style_preferences: { [CAMERA_LOOK_PREF_KEY]: look } } }));
         const door = draftDoor();
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => door(eventId, fd), () => router.refresh());
         if (!r.ok) {
           setPickedLook(null);

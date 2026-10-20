@@ -44,6 +44,7 @@ export function SoftPost() {
           const data = (await res.json().catch(() => null)) as { ok?: unknown } | null;
           return { ok: res.ok && data?.ok === true };
         },
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         () => router.refresh(),
       )
         .catch(() => ({ ok: false }))

@@ -32,6 +32,7 @@ export function ChannelFreshness({
   channels: readonly { hasSeat: boolean }[];
 }) {
   const router = useRouter();
+  // one-render: keep (realtime) — the heartbeat re-reads channel freshness while visible; nothing was pressed here.
   useVisibleTick(() => true, () => router.refresh(), {
     intervalMs: CHANNEL_REFRESH_MS,
     // Nothing bound → nothing can change without a host action → no timer at all.

@@ -743,6 +743,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         } else {
           setNotice('Couldn’t save that change — please try again.');
         }
+        // one-render: keep (after-failure) — the save threw and revalidated nothing; re-read the plan it really holds.
         router.refresh();
       }
     },
@@ -1766,7 +1767,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     }
     void persist(async () => {
       await createTable(fd);
-      router.refresh();
     });
   }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist, router]);
 
@@ -1807,8 +1807,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   }, [selectedId, canEdit, eventId, lock.lockId, persist]);
 
   // 2D-parity: change the selected table's type (server recomputes capacity +
-  // drops surplus assignments). Refresh so the merge effect re-renders the new
-  // shape/seats, exactly like add-a-table.
+  // drops surplus assignments). The action revalidates, so its own answer brings
+  // the new shape/seats and the merge effect re-renders them, like add-a-table.
   const changeTableType = useCallback(
     (newType: string) => {
       if (!selectedId || !canEdit) return;
@@ -1819,7 +1819,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       fd.set('table_type', newType);
       void persist(async () => {
         await updateTableType(fd);
-        router.refresh();
       });
     },
     [selectedId, canEdit, eventId, lock.lockId, persist, router],
@@ -1876,6 +1875,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       await autoSeatGuests(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice('Auto-seated your guests — tap “Walk everyone in” to watch them arrive.');
     });
@@ -1921,6 +1921,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       void persist(async () => {
         const res = await seatRoleAtTable(fd);
         seatResyncRef.current = true;
+        // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
         router.refresh();
         if (res && res.overflow > 0) {
           setNotice(`Seated ${res.seated} — ${res.overflow} more ${ROLE_TIER_LABELS[tier]} need another table.`);
@@ -1960,6 +1961,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       const res = await buildSeatingDraft(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice(
         res.tables === 0
@@ -1979,6 +1981,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       await lockAndFill(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice('Filled the open seats around your locked ones.');
     });
@@ -2031,6 +2034,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       const res = await autoArrange(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       // The server's counts, not a fixed line: it may have ADDED tables (owner
       // 2026-09-30) and must never claim everyone is seated when someone isn't.
@@ -2129,6 +2133,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       void persist(async () => {
         const res = await assignGroup(fd);
         seatResyncRef.current = true;
+        // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
         router.refresh();
         if (res && res.overflow > 0) {
           setNotice(`Seated ${res.seated} — ${res.overflow} group member${res.overflow === 1 ? '' : 's'} need another table.`);
@@ -2162,7 +2167,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       fd.set('table_id_b', bId);
       void persist(async () => {
         await linkTables(fd);
-        router.refresh();
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
@@ -2242,7 +2246,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         fl.set('table_id_a', anchorId);
         fl.set('table_id_b', moverId);
         await linkTables(fl);
-        router.refresh();
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
@@ -2291,7 +2294,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     fd.set('table_id', selectedId);
     void persist(async () => {
       await unlinkTable(fd);
-      router.refresh();
     });
     setNotice('Broken apart — each table is independent again, with its own name + QR.');
   }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist, router]);

@@ -152,6 +152,7 @@ export function CoverSceneGroundRows({
       // 👥 …with the canvas this pick was built on: another host's pick on the cover meanwhile is kept.
       sendCanvasBase(fd, 'hero', canvas, canvasNext, before);
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => ({
         ok: false as const,
         intent: 'save' as const,

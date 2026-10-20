@@ -94,6 +94,7 @@ export function QrLookControls({
     setShown(next);
     inflight.current += 1;
     startTransition(async () => {
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const r = await makerSave(() => action(patch), () => router.refresh()).catch(
         () => ({ ok: false, reason: 'failed' }) as const,
       );

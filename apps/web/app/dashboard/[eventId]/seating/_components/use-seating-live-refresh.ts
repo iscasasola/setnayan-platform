@@ -35,6 +35,7 @@ export function useSeatingLiveRefresh(eventId: string, enabled: boolean): void {
       if (timer.current) clearTimeout(timer.current);
       // Coalesce the row-writes of one save (a link touches 2+ tables; an
       // auto-seat touches many assignments) into a single refresh.
+      // one-render: keep (realtime) — a seat-plan row changed (realtime); coalesced into one re-read.
       timer.current = setTimeout(() => router.refresh(), 350);
     };
 

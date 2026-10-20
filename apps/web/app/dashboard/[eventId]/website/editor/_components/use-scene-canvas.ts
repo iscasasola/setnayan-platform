@@ -64,6 +64,7 @@ export function useSceneCanvas(
       setShown(undone ? before : next);
       onWrote?.(undone ? before : next);
     };
+    // one-render: keep (no-revalidate) — handed to `makerSave` / `makerRedrawSave` below for a draft save, which revalidates nothing — the one render after it.
     const refresh = () => router.refresh();
     setShown(next);
     if (onWrote) onWrote(next);
@@ -120,6 +121,7 @@ export function useHeldEventsSave(eventId: string, draftAction: ElementDraftActi
     fd.set(HUB_DRAFT_BAR_FIELD, '1');
     /* ⚠ This promise REJECTS when the save never answered (no signal, a 5xx) — as every `makerSave` does. Its caller
        answers that (`hubDraftAnswer`, in `DressFiguresRow`); awaited bare in a transition it takes the Maker down. */
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     return makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
   };
 }

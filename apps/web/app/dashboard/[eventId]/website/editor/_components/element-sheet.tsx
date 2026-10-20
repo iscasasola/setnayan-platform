@@ -353,6 +353,7 @@ export function ElementSheet({
         const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next, serverCanvas));
         res = await makerSave(
           () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           () => router.refresh(),
           /* ↺ Its Undo is the refused put-back below, drawn at the press (`lib/canvas-pick-undo.ts`): every open panel —
              this sheet too (`hearDraftedCanvas` above re-seeds it, and what it last SAVED) — reads the undone canvas. */
@@ -441,6 +442,7 @@ export function ElementSheet({
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ events: { site_magic_traveller: logoTravelWrite(on ? LOGO_TRAVELS_ACTION : 'still') } }));
     start(async () => {
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
       if (res?.ok) return;
       setTravelling(!on);

@@ -203,6 +203,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_template: value } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('current');
@@ -234,6 +235,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: patch }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           back();
@@ -254,6 +256,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { reveal_stages: next } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('stages');
@@ -276,6 +279,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_effects: next } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('effects');
@@ -302,6 +306,7 @@ export function MakerRevealPicker({
     try {
       frame?.contentWindow?.location.reload();
     } catch {
+      // one-render: keep (other-frame) — the reveal frame could not be reloaded in place; nothing was written here — this redraws the page that holds it.
       router.refresh();
     }
   };

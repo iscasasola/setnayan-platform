@@ -168,7 +168,9 @@ test('the event dashboard is still shut to non-members, independently of this', 
   // A wording fix must never become the only thing standing between a supplier
   // and a couple's planning pages.
   const layout = stripComments(read('app/dashboard/[eventId]/layout.tsx'));
-  assert.match(layout, /from\('event_members'\)/);
+  // The gate reads the viewer's own membership — the render's one read of it (lib/event-membership-once.ts).
+  assert.match(layout, /const \{ data: membership, error: membershipError, status: membershipStatus \} =\s*await eventMemberTypeOnce\(supabase, eventId, user\.id\);/);
+  assert.match(stripComments(read('lib/event-membership-once.ts')), /\.from\('event_members'\)\s*\.select\('member_type'\)\s*\.eq\('event_id', eventId\)\s*\.eq\('user_id', userId\)/);
   assert.match(layout, /member_type !== 'couple'/);
   assert.match(layout, /notFound\(\)/);
 });

@@ -115,7 +115,10 @@ function guardsItsGuestRead(src: string): boolean {
   if (src.includes('<NotSharedWithYou')) return true;
   /*
     ⤷ 2026-10-01 (F2, the Hosts fold): a third page-level shape — the page SENDS
-    that viewer to their own access view before any read. Counted only when the
+    that viewer to their own access view before anything is DRAWN (since
+    2026-10-20 the Guests page's reads leave together, RLS refusing that viewer's
+    guest rows, and the redirect comes at the one wait — held at run time by
+    `guests/the-guests-page-asks-once.test.ts` (5)). Counted only when the
     redirect is the whole body of the `if` on the guest-list question, so a
     redirect elsewhere on the page cannot pass for it.
   */

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
-import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { fetchEventViewer, isDelegateWithoutArea, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -340,7 +340,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // the page would tell a coordinator the couple has invited nobody. They land
   // on their OWN access view instead (`/hosts`, read-only: what they may open,
   // never a 404 and never a list that looks empty). The couple never reach this.
-  const viewerRead = userRead.then((u) => (u ? fetchEventViewer(supabase, eventId, u.id) : null));
+  // (Signed out → a stranger; the sign-in redirect below sends them away before anything is drawn.)
+  const viewerRead = userRead.then((u): Promise<EventViewer> | EventViewer =>
+    u ? fetchEventViewer(supabase, eventId, u.id) : { isCouple: false, delegatePermissions: null },
+  );
 
   // ⚡ THE OPEN CARD'S READS START NOW, beside the roster's (owner, live iPhone
   // test 2026-10-02: a guest's card took ~7–8 s to open). `?inspect=` used to
@@ -521,7 +524,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     linkedGuestIdsRead,
   ]);
   if (!user) redirect('/login');
-  if (viewer && isDelegateWithoutArea(viewer, 'guest_list')) {
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
     redirect(`/dashboard/${eventId}/hosts`);
   }
   // ⚖ Sides are a WEDDING idea (owner 2026-09-30: "why is there groom and

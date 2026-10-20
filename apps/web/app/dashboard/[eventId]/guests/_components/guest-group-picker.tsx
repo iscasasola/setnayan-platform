@@ -12,6 +12,7 @@ import { plainRefusal } from './plain-refusal';
 import type { GuestGroupTeamSide, GuestSide } from '@/lib/guests';
 import { listedOwnGroups, OFF_SIDE_WORD, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
+import { revealAboveChrome } from '@/lib/reveal-above-chrome';
 
 /**
  * guest-group-picker.tsx — 👥 THE ONE GROUP DROPDOWN (owner 2026-10-20: *"there are 2 groups."* · *"before we can always
@@ -197,10 +198,32 @@ export function GuestGroupPicker({
   useEffect(() => {
     if (mode.kind === 'new' || mode.kind === 'rename') {
       const el = inputRef.current;
-      el?.focus();
+      el?.focus({ preventScroll: true });
       if (el) el.setSelectionRange(el.value.length, el.value.length);
     }
   }, [mode]);
+
+  /* 📱 ABOVE THE BOTTOM BAR (2026-10-20, the owner's 375 shot: the bar drew over the open list; "＋ New group…"'s Create
+     and × sat under it). The list opens in flow, so it is scrolled into the band the bars leave (`revealAboveChrome`,
+     lib/reveal-above-chrome.ts): on open, the list from its pill down; with an editor open, that editor and its buttons —
+     again when its sentence changes and when the phone keyboard moves the screen's edge. */
+  useEffect(() => {
+    if (!open) return;
+    const box = boxRef.current;
+    const editor = () => box?.querySelector('[data-group-rename],[data-group-delete]') ?? box?.querySelector('[data-group-new]')?.closest('li');
+    const show = () => {
+      const ed = editor();
+      revealAboveChrome(ed ?? box, ed ? null : btnRef.current);
+    };
+    const frame = requestAnimationFrame(show);
+    const vv = window.visualViewport;
+    const onKeyboard = () => (editor() ? show() : undefined);
+    vv?.addEventListener('resize', onKeyboard);
+    return () => {
+      cancelAnimationFrame(frame);
+      vv?.removeEventListener('resize', onKeyboard);
+    };
+  }, [open, mode, err, clash]);
 
   const back = () => {
     setMode({ kind: 'list' });

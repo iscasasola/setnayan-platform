@@ -401,46 +401,36 @@ export async function isDataPrivacyControlActiveWith(
 /**
  * The gate every privacy-sensitive feature reads. TRUE only when the control is
  * explicitly `active` in the DB. Fail-closed: any error / missing row → false.
- * Request-cached so many call sites in one render share a single read.
+ *
+ * 1️⃣ EVERY CONTROL IN ONE READ, REMEMBERED (2026-10-12 → 2026-10-20). One guest
+ * view used to ask this table once per control — the schedule's prep switch, the
+ * day-of announcement, the face step, the shared gallery — and on 2026-10-12 the
+ * guest tree learned to read them all at once. Everything else still asked per
+ * key: prod's gateway logged ~1,800 single-row reads a day on 2026-10-19
+ * (`device_fingerprint` alone ~780, `coordinator_prep_release` ~570), against a
+ * table of a few dozen rows that is the same for everybody. So EVERY caller —
+ * a page, an action, a route handler — now reads the one remembered list below
+ * (`lib/global-settings-cache.ts`), which the admin board clears on every write
+ * (app/admin/data-privacy/actions.ts → `GLOBAL_SETTINGS_TAGS.dataPrivacyControls`).
+ *
+ * The answer is the same one: TRUE only for a control whose row says `active`.
+ * Fail-closed the same way: an unread table is every control OFF, for this
+ * request only — a refused read is never remembered.
+ *
+ * Hook code that holds its own admin client still calls
+ * `isDataPrivacyControlActiveWith` (above), a live read of the one row.
  */
 export const isDataPrivacyControlActive = cache(
   async (key: PrivacyControlKey): Promise<boolean> => {
     try {
-      if (togetherThisRender().on) {
-        const active = await activeControlsThisRender();
-        // Unread → every control is OFF for this render: the same fail-closed answer, for each key.
-        return active ? active.has(key) : false;
-      }
-      return await isDataPrivacyControlActiveWith(createAdminClient(), key);
+      const active = await activeControlsThisRender();
+      // Unread → every control is OFF for this request: the same fail-closed answer, for each key.
+      return active ? active.has(key) : false;
     } catch {
       return false;
     }
   },
 );
-
-/**
- * 1️⃣ EVERY CONTROL IN ONE READ — for a render that asks about several
- * (2026-10-12). One guest view asked this table once per control: the
- * schedule's prep switch, the day-of announcement, the face step, the shared
- * gallery — one request each, for a table of a few dozen rows that is the same
- * for everybody. A render that calls `readDataPrivacyControlsTogether()` (the
- * guest tree does, where it reads the event) sends ONE request for all of
- * them, and every `isDataPrivacyControlActive(key)` in that render is answered
- * from it.
- *
- * The answer is the same one: TRUE only for a control whose row says `active`.
- * Fail-closed the same way: an unread table is every control OFF.
- *
- * 🔒 Per render only (`cache()`): outside a render — an action, a route
- * handler, a job — the switch below is a new object on every call, so nothing
- * is batched and nothing is remembered; a gate reads its own row every time,
- * exactly as before. A render that never calls it is unchanged too.
- */
-const togetherThisRender = cache((): { on: boolean } => ({ on: false }));
-
-export function readDataPrivacyControlsTogether(): void {
-  togetherThisRender().on = true;
-}
 
 const activeControlsThisRender = cache(async (): Promise<ReadonlySet<string> | null> => {
   try {

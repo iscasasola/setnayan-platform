@@ -261,6 +261,9 @@ export async function setShowcaseConsent(formData: FormData) {
   if (error) {
     throw new Error(`Failed to update showcase consent: ${error.message}`);
   }
+  // The published showcases are remembered for up to 300 s (`lib/showcase-db.ts`); a couple who
+  // withdraws comes off them now, not in five minutes.
+  clearHomeShelf('people');
 
   revalidatePath(`/dashboard/${eventId}/website/privacy`);
   redirect(`/dashboard/${eventId}/website/privacy?saved=1`);

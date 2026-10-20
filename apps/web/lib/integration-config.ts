@@ -9,6 +9,7 @@ import {
   type OAuthResolveSpec,
 } from '@/lib/integrations/registry';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 // Integration Activation Console — PR1 (email slice).
 //
@@ -97,15 +98,25 @@ export async function isResendConfigured(): Promise<boolean> {
 // just made must take effect on the next request, so this does NOT route through
 // unstable_cache. The leaf predicate in lib/setnayan-ai.ts stays SYNCHRONOUS —
 // callers await this once and thread the resolved boolean in.
+//
+// 🧊 REVISED 2026-10-20 (fewer-reads): REMEMBERED, and the flip is still seen on the next
+// request — because the one writer (`setAiPaywall`, app/admin/integrations/actions.ts) clears
+// `GLOBAL_SETTINGS_TAGS.platformSettings` in the same action (held by
+// `lib/global-settings-cache.test.ts` §4). A refused read throws inside and is never
+// remembered; it falls to the env var for this request only, as before.
 export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
   try {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from('platform_settings')
-      .select('setnayan_ai_paywall_enabled')
-      .eq('id', 1)
-      .maybeSingle();
-    const dbVal = data?.setnayan_ai_paywall_enabled as boolean | null | undefined;
+    const dbVal = await rememberedGlobalRead('platform_settings-ai-paywall-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from('platform_settings')
+        .select('setnayan_ai_paywall_enabled')
+        .eq('id', 1)
+        .maybeSingle();
+      if (error) throw error;
+      const v = data?.setnayan_ai_paywall_enabled as boolean | null | undefined;
+      return typeof v === 'boolean' ? v : null;
+    });
     if (typeof dbVal === 'boolean') return dbVal;
   } catch {
     // DB unreachable / column absent (pre-migration) → env fallback below.
@@ -149,15 +160,24 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
 //
 // DB-first, no env fallback, uncached — same shape as
 // resolveSetnayanAiPaywallEnabled. Flip from /admin/integrations.
+//
+// 🧊 REVISED 2026-10-20 (fewer-reads): remembered under `GLOBAL_SETTINGS_TAGS.platformSettings`,
+// which every app writer of the table clears (no app file writes THIS column today — only a
+// migration has); a refused read throws inside, is never remembered, and is OFF for this
+// request only, as before.
 export async function resolveSetnayanAiPerEventPricingEnabled(): Promise<boolean> {
   try {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from('platform_settings')
-      .select('setnayan_ai_per_event_pricing_enabled')
-      .eq('id', 1)
-      .maybeSingle();
-    const dbVal = data?.setnayan_ai_per_event_pricing_enabled as boolean | null | undefined;
+    const dbVal = await rememberedGlobalRead('platform_settings-ai-per-event-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from('platform_settings')
+        .select('setnayan_ai_per_event_pricing_enabled')
+        .eq('id', 1)
+        .maybeSingle();
+      if (error) throw error;
+      const v = data?.setnayan_ai_per_event_pricing_enabled as boolean | null | undefined;
+      return typeof v === 'boolean' ? v : null;
+    });
     if (typeof dbVal === 'boolean') return dbVal;
   } catch {
     // DB unreachable / column absent (pre-migration) → default OFF below.

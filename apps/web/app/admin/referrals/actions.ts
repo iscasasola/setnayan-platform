@@ -1,7 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -37,6 +38,7 @@ export async function setReferralProgramEnabled(formData: FormData) {
     .from('platform_settings')
     .update({ referral_program_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     return redirect(`/admin/referrals?error=${encodeURIComponent(error.message)}`);
   }

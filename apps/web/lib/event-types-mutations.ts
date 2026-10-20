@@ -31,6 +31,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { clearGlobalSettings } from '@/lib/global-settings-clear';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 
 /** Vocab keys: lowercase snake, 3–31 chars, must start with a letter. */
 export const EVENT_TYPE_KEY_RE = /^[a-z][a-z0-9_]{2,30}$/;
@@ -98,6 +100,7 @@ export async function createEventTypeCore(
     enabled: false,
   };
   const { error } = await admin.from('event_type_vocab').insert(row);
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) {
     if (error.code === '23505') return { ok: false, error: 'exists' };
     return { ok: false, error: error.message };
@@ -161,6 +164,7 @@ export async function updateEventTypeCore(
     .eq('event_type', key)
     .select('event_type')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
   clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
@@ -205,6 +209,7 @@ export async function setEventTypeEnabledCore(
     .from('event_type_vocab')
     .update({ enabled: enable, updated_at: new Date().toISOString() })
     .eq('event_type', k);
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) return { ok: false, error: error.message };
 
   await admin.from('admin_audit_log').insert({
@@ -240,6 +245,7 @@ export async function retireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
   clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
@@ -273,6 +279,7 @@ export async function unretireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
   clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };

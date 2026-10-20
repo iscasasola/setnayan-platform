@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -142,6 +143,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     .from('platform_settings')
     .update(payload)
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
@@ -162,6 +164,7 @@ export async function saveBusinessIdentity(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (validateErr) {
     return redirect(
       `/admin/settings?error=${encodeURIComponent(
@@ -188,6 +191,7 @@ export async function saveAdminDigest(formData: FormData) {
     .from('platform_settings')
     .update({ admin_digest_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   // The switch lives on Notifications now, next to the delivery log (row 38).
   // A failed save says so in words; the database's message goes to the log.
   if (error) {
@@ -232,6 +236,7 @@ export async function saveLoaderAppearance(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
@@ -283,6 +288,7 @@ async function writeAccountList(
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 }
 
 /** A fresh, readable, unique account id: "maribank-7k2q". */
@@ -544,6 +550,7 @@ export async function savePaymentInstruments(formData: FormData) {
   }
 
   const { error } = await admin.from('platform_settings').update(payload).eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
 
   revalidatePath(PAYMENT_METHODS_PATH);
@@ -1067,6 +1074,7 @@ export async function uploadBrandIcon(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     settingsError(plainRefusal('AdminSettingsActions', error));
   }
@@ -1120,6 +1128,7 @@ export async function removeBrandIcon() {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     settingsError(plainRefusal('AdminSettingsActions', error));
   }

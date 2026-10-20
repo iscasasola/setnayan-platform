@@ -3,6 +3,13 @@ import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKING_FEE, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
+
+type BookingFeeRow = {
+  booking_fee_rate_pct?: number | string | null;
+  booking_fee_tail_rate_pct?: number | string | null;
+  booking_fee_tier1_limit_php?: number | string | null;
+};
 
 /**
  * The LIVE vendor booking-fee schedule — the owner's three numbers, read from
@@ -33,23 +40,30 @@ export async function getBookingFeeSchedule(
   admin: SupabaseClient,
 ): Promise<BookingFeeSchedule> {
   try {
-    const { data, error } = await admin
-      .from('platform_settings')
-      .select(
-        'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
-      )
-      .eq('id', 1)
-      .maybeSingle();
+    // 🧊 Remembered across requests (`lib/global-settings-cache.ts`, 2026-10-20): the three
+    // numbers are the same for every reader, and this read was the single busiest request
+    // prod's gateway logged against `platform_settings` (~1,900 a day). The owner's only
+    // writer (`saveBookingFeeSchedule`, app/admin/pricing/price-control-actions.ts) clears
+    // the tag in the same action, so a new rate is quoted on the next page.
+    // ⛔ A refused read THROWS inside, so it is never remembered, and lands on the locked
+    // default below for this page only — as before.
+    const data = await rememberedGlobalRead('platform_settings-booking-fee-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
+      const res = await admin
+        .from('platform_settings')
+        .select(
+          'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+        )
+        .eq('id', 1)
+        .maybeSingle();
+      // ⚠ Supabase RESOLVES with `{ error }`; it does not throw. A `catch` alone
+      // would never see a refused read, so the error is checked explicitly.
+      if (res.error) throw res.error;
+      return (res.data ?? null) as BookingFeeRow | null;
+    });
 
-    // ⚠ Supabase RESOLVES with `{ error }`; it does not throw. A `catch` alone
-    // would never see a refused read, so the error is checked explicitly.
-    if (error || !data) return BOOKING_FEE;
+    if (!data) return BOOKING_FEE;
 
-    const row = data as {
-      booking_fee_rate_pct?: number | string | null;
-      booking_fee_tail_rate_pct?: number | string | null;
-      booking_fee_tier1_limit_php?: number | string | null;
-    };
+    const row = data;
 
     return {
       rate: pctToFraction(row.booking_fee_rate_pct, BOOKING_FEE.rate),

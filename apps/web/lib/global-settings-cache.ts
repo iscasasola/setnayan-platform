@@ -2,8 +2,8 @@ import { unstable_cache } from 'next/cache';
 import type { GlobalSettingsTag } from './global-settings-tags';
 
 /**
- * global-settings-cache.ts — THE PLATFORM'S OWN SETTINGS ARE READ ONCE A
- * MINUTE, NOT ONCE PER PAGE (2026-10-13, guest-load fix).
+ * global-settings-cache.ts — THE PLATFORM'S OWN SETTINGS ARE READ ONCE EVERY
+ * FIVE MINUTES, NOT ONCE PER PAGE (2026-10-13, guest-load fix).
  *
  * 🧯 WHY. A signed-in guest opening an invitation sent ~100 database requests
  * (production log, 2026-10-13 03:46 UTC) and several of them were the SAME
@@ -22,7 +22,7 @@ import type { GlobalSettingsTag } from './global-settings-tags';
  * are remembered across requests (Next's data cache, `unstable_cache`) for a
  * short while, and the admin screen that edits each one clears it at once
  * (`revalidateTag(GLOBAL_SETTINGS_TAGS.…)`), so an edit is seen on the next
- * page, not a minute later.
+ * page, not five minutes later.
  *
  * ─── THE RULES ───────────────────────────────────────────────────────────────
  * 🔒 ROWS, NEVER AN ANSWER ABOUT SOMEBODY. What is remembered is a table's rows
@@ -44,8 +44,19 @@ import type { GlobalSettingsTag } from './global-settings-tags';
 
 export { GLOBAL_SETTINGS_TAGS, type GlobalSettingsTag } from './global-settings-tags';
 
-/** How long a remembered row may be shown before it is read again (seconds). */
-export const GLOBAL_SETTINGS_SECONDS = 60;
+/**
+ * How long a remembered row may be shown before it is read again (seconds).
+ *
+ * 🧮 300, not 60 (2026-10-20, fewer-reads). Measured on prod's API gateway the
+ * day the database was moved off its Free Nano instance because it stalled:
+ * `bundle_components` alone was asked ~35 times an hour — once a minute, the
+ * old window, for a list only a migration writes. None of these rows changes
+ * without an admin pressing Save, and every admin write clears its tag at once
+ * (§4 of the test), so the window only bounds an edit made OUTSIDE the app (a
+ * SQL editor, a migration): five minutes, the staleness the home page has run
+ * under since the 2026-07-02 perf sweep.
+ */
+export const GLOBAL_SETTINGS_SECONDS = 300;
 
 /**
  * Read `load` through the data cache under `key`.

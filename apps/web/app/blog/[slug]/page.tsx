@@ -5,6 +5,7 @@ import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchApprovedSpotlightsForSlug } from '@/lib/journal-spotlights';
+import { keepThisRenderBriefly } from '@/lib/keep-a-degraded-render-briefly';
 import { JournalPartnerCredit } from './_components/journal-partner-credit';
 import { ShopLink } from './_components/shop-link';
 import {
@@ -39,9 +40,24 @@ import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components
 // embedded storyteller chapters (§ 3.4). Neither may ever break the article —
 // a database problem costs the page its credits or its embed, never its prose.
 // The article set itself is still an in-code constant, so the route stays on
-// hourly ISR rather than going dynamic.
+// ISR rather than going dynamic.
+//
+// 🧮 A DAY, NOT AN HOUR (2026-10-20, fewer-reads) — and nothing waits a day for it:
+//   · approving, sponsoring or removing a Journal Spotlight revalidates the
+//     article's own path in the same action (app/admin/journal-spotlights/actions.ts,
+//     and the two-admin queue in app/admin/approvals/actions.ts);
+//   · a chapter unpublished, a storyteller going private or deleted, or a shop
+//     going hidden clears the home shelf (`clearHomeShelf`), which revalidates
+//     every article too (lib/home-shelf-clear.ts) — the same writes, held by
+//     `lib/home-shelf-writes-clear.test.ts`;
+//   · a render built around a REFUSED read is kept an hour at most, never a day
+//     (`keepThisRenderBriefly`, below).
+// Held by `lib/the-journal-is-revalidated-by-its-writers.test.ts`.
 export const dynamicParams = false;
-export const revalidate = 3600;
+export const revalidate = 86400;
+
+/** How long a render built around a refused read may be kept (the old hourly ISR). */
+const DEGRADED_RENDER_SECONDS = 3600;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -259,11 +275,12 @@ function Block({
     // unavailable", no skeleton: this is a marketing page, and an error box
     // about somebody else's video would be worse than silence.
     //
-    // STALENESS, STATED: this route is dynamicParams=false + revalidate=3600,
-    // so a chapter unpublished right now can linger up to an hour — and if the
-    // database is unreachable at a revalidate tick, the degraded (absent)
-    // render is CACHED for that hour with nothing visible to blame. Accepted
-    // per § 3.4 item 4; the resolver's console.error is where it shows up.
+    // STALENESS, STATED: this route is dynamicParams=false + revalidate=86400,
+    // but a chapter unpublished right now does NOT linger a day — its writer
+    // clears the home shelf, which revalidates every article (see the header).
+    // If the database is unreachable at a revalidate tick, the degraded (absent)
+    // render is kept for an hour at most (`keepThisRenderBriefly`), as it was
+    // under the old hourly ISR; the resolver's console.error is where it shows up.
     case 'chapter': {
       const resolved = chapters.get(block.publicId);
       if (!resolved) return null;
@@ -335,13 +352,19 @@ export default async function BlogArticlePage({ params }: Props) {
   const related = relatedBlogArticles(slug);
 
   // Approved Journal Spotlights (Wave 5) crediting vendors in this article.
-  // Cookie-free admin client keeps the route on hourly ISR (not forced dynamic);
+  // Cookie-free admin client keeps the route on ISR (not forced dynamic);
   // the helper filters to admin_approved_at IS NOT NULL so only published credits
   // surface. Fail-soft — a DB hiccup must never break the article render.
+  // A read that did not answer leaves this render degraded — it is then kept briefly (below).
+  let refused = false;
+  const markRefused = () => {
+    refused = true;
+  };
   let spotlights: Awaited<ReturnType<typeof fetchApprovedSpotlightsForSlug>> = [];
   try {
-    spotlights = await fetchApprovedSpotlightsForSlug(createAdminClient(), slug);
+    spotlights = await fetchApprovedSpotlightsForSlug(createAdminClient(), slug, markRefused);
   } catch (err) {
+    markRefused();
     console.error('[blog/[slug]] spotlight fetch failed', err);
   }
 
@@ -371,7 +394,7 @@ export default async function BlogArticlePage({ params }: Props) {
   ];
   if (chapterIds.length > 0) {
     const settled = await Promise.allSettled(
-      chapterIds.map((id) => fetchPublishedChapterForShare(id)),
+      chapterIds.map((id) => fetchPublishedChapterForShare(id, markRefused)),
     );
     settled.forEach((outcome, i) => {
       // `chapterIds[i]` is `string | undefined` under noUncheckedIndexedAccess
@@ -380,6 +403,7 @@ export default async function BlogArticlePage({ params }: Props) {
       const requestedId = chapterIds[i];
       if (!requestedId) return;
       if (outcome.status === 'rejected') {
+        markRefused();
         console.error(
           '[blog/[slug]] chapter resolve threw',
           requestedId,
@@ -390,6 +414,8 @@ export default async function BlogArticlePage({ params }: Props) {
       if (outcome.value) chapters.set(requestedId, outcome.value);
     });
   }
+  // ⛔ A degraded page is never kept as long as a healthy one.
+  if (refused) await keepThisRenderBriefly(DEGRADED_RENDER_SECONDS);
 
   // First paragraph block gets the editorial drop-cap.
   const firstParagraphIndex = article.blocks.findIndex((b) => b.type === 'p');

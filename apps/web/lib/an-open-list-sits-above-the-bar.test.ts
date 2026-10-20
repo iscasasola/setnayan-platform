@@ -101,7 +101,7 @@ test('3 · a PickMenu list never reaches below the floor (the bar) — it is cap
 
 test('4 · the wiring: PickMenu floors at the bar, the Group picker reveals its list and editors, the sheet keeps its dock', () => {
   const pick = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
-  assert.match(pick, /viewport: pickViewport\(btnRef\.current, listRef\.current\),/, 'PickMenu places its list against the bare screen');
+  assert.match(pick, /viewport: pickViewport\(b, listRef\.current\),/, 'PickMenu places its list against the bare screen');
   assert.doesNotMatch(pick, /viewport: \{ width: window\.innerWidth, height: window\.innerHeight \}/, 'PickMenu still reads the bare screen');
   const place = read('app/dashboard/[eventId]/website/editor/_components/pick-menu-place.ts');
   assert.match(place, /viewport\.floor \?\? viewport\.height/, 'placePickList ignores the floor');

@@ -655,7 +655,7 @@ export async function buildPersonalDataExport(
     // lane: answering someone else's request is an action ON their record.
     supabase
       .from('event_access_requests')
-      .select('request_id, event_id, requested_areas, note, status, decisions, created_at')
+      .select('request_id, event_id, kind, requested_areas, note, status, decisions, created_at')
       .eq('requester_user_id', user.id)
       .order('created_at', { ascending: true }),
     /*

@@ -38,7 +38,13 @@ export type DayRequest = {
   note: string;
 };
 
-export type DaySupplier = { vendor_id: string; vendor_name: string };
+/** A supplier an item can be given to — shop name + "Booked"/"Shortlisted" (lib/schedule-suppliers.ts). */
+export type DaySupplier = { vendor_id: string; vendor_name: string; standing?: 'Booked' | 'Shortlisted' };
+
+/** "The Wedding Planner · Booked" — the one way an item names its supplier. */
+export function supplierOnItem(s: { vendor_name: string; standing?: 'Booked' | 'Shortlisted' }): string {
+  return s.standing ? `${s.vendor_name} · ${s.standing}` : s.vendor_name;
+}
 
 export type DayTemplate = {
   id: string;

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6739
+# facts: 6741
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     573
-#   col       4935
+#   col       4937
 #   policy    954
 #   view      8
 #   func      265
@@ -104,7 +104,7 @@ tpriv	public.drive_copy_folders|authenticated	SIUD
 tpriv	public.earned_token_vouchers|authenticated	SIUD
 tpriv	public.editorial_vendor_media|anon	SD
 tpriv	public.editorial_vendor_media|authenticated	SD
-tpriv	public.event_access_requests|authenticated	SIU
+tpriv	public.event_access_requests|authenticated	S
 tpriv	public.event_action_log|anon	SIUD
 tpriv	public.event_action_log|authenticated	SIUD
 tpriv	public.event_activity_picks|authenticated	SIUD
@@ -1225,6 +1225,8 @@ col	public.event_access_requests.decided_at	anon=- authenticated=SIU
 col	public.event_access_requests.decided_by_user_id	anon=- authenticated=SIU
 col	public.event_access_requests.decisions	anon=- authenticated=SIU
 col	public.event_access_requests.event_id	anon=- authenticated=SIU
+col	public.event_access_requests.event_vendor_id	anon=- authenticated=S
+col	public.event_access_requests.kind	anon=- authenticated=S
 col	public.event_access_requests.note	anon=- authenticated=SIU
 col	public.event_access_requests.request_id	anon=- authenticated=SIU
 col	public.event_access_requests.requested_areas	anon=- authenticated=SIU
@@ -5661,7 +5663,7 @@ policy	public.editorial_vendor_media|editorial_vendor_media_vendor_read	mode=PER
 policy	public.editorial_vendor_media|editorial_vendor_media_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))
 policy	public.event_access_requests|event_access_requests_host_answer	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_access_requests|event_access_requests_host_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL
-policy	public.event_access_requests|event_access_requests_own_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((requester_user_id = auth.uid()) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
+policy	public.event_access_requests|event_access_requests_own_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((requester_user_id = auth.uid()) AND (kind = 'areas'::text) AND (event_vendor_id IS NULL) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
 policy	public.event_access_requests|event_access_requests_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(requester_user_id = auth.uid()) check=NULL
 policy	public.event_access_requests|event_access_requests_own_withdraw	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((requester_user_id = auth.uid()) AND (status = 'pending'::text)) check=((requester_user_id = auth.uid()) AND (status = 'withdrawn'::text))
 policy	public.event_action_log|event_action_log_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin()) check=NULL

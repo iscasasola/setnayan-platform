@@ -4,6 +4,8 @@ import { ArrowRight, ShieldQuestion } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
+import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
+import { claimAsksDoorwayTitle } from '@/lib/claim-access-asks';
 
 /**
  * The doorway to /dashboard/[eventId]/access-requests — a page ships with its
@@ -21,13 +23,17 @@ export async function AccessRequestsDoorway({ eventId }: { eventId: string }) {
     .from('event_access_requests')
     .select('request_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
+    .eq('kind', 'areas')
     .eq('status', 'pending');
+  // 🤝 + the suppliers who joined from the couple's link (owner 2026-10-20) —
+  // the same doorway, the shipped pattern for "someone is waiting on you".
+  const claims = await readClaimAccessAsks(supabase, eventId);
   if (error) console.error('[supabase-error] app/dashboard/[eventId]/_components/access-requests-doorway.tsx · from:event_access_requests.select', error);
 
   // 🔑 A REFUSED COUNT IS NOT ZERO. Saying nothing here read exactly like "no
   // request is waiting" — so a coordinator's request could sit unanswered with
   // no door to it. On a failure the doorway still opens, and says why (S41b).
-  if (error) {
+  if (error || !claims.measured) {
     return (
       <Link
         href={routes.dashboard.accessRequests(eventId)}
@@ -46,7 +52,8 @@ export async function AccessRequestsDoorway({ eventId }: { eventId: string }) {
       </Link>
     );
   }
-  if (!count) return null;
+  const claimTitle = claimAsksDoorwayTitle(claims.asks);
+  if (!count && !claimTitle) return null;
 
   return (
     <Link
@@ -55,13 +62,15 @@ export async function AccessRequestsDoorway({ eventId }: { eventId: string }) {
     >
       <ShieldQuestion aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink">
-          {count === 1
-            ? 'Your coordinator is asking for access'
-            : `${formatCount(count)} access requests are waiting`}
+        <span className="block text-sm font-semibold text-ink" data-doorway-title="">
+          {claimTitle && !count
+            ? claimTitle
+            : (count ?? 0) + claims.asks.length === 1
+              ? 'Your coordinator is asking for access'
+              : `${formatCount((count ?? 0) + claims.asks.length)} access requests are waiting`}
         </span>
         <span className="mt-0.5 block text-xs text-ink/60">
-          You decide what to share, one thing at a time.
+          {claimTitle && !count ? 'Approve to let them into your event.' : 'You decide what to share, one thing at a time.'}
         </span>
       </span>
       <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />

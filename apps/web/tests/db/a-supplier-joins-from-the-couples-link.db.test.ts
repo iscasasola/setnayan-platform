@@ -38,6 +38,13 @@
  * test pins both halves: no edit on the claim alone, full add/edit/delete once
  * the grant exists, and a booked non-coordinator supplier never edits a block
  * that is not theirs.
+ *
+ * 🤝 SINCE 2026-10-20 the claim does not even link the record to the shop: it
+ * raises ONE ask the couple approves (`claim_ask_for_access`), and the couple's
+ * Approve (`answer_claim_access_request`) bonds the record and — for a
+ * coordinator — gives the host-level seat (owner: "access to the event is
+ * automatic but has an approval"). Test 4 walks both halves; the full matrix
+ * is `a-claimed-supplier-asks-for-access.db.test.ts`.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -144,7 +151,8 @@ async function finalize(supplierUid: string, token: string): Promise<string> {
     )
   ).rows[0]!;
   assert.equal(inv.status, 'pending');
-  await db.query(`SELECT public.claim_link_record_to_shop($1, $2)`, [inv.vendor_id, shop]);
+  // Since 2026-10-20 the claim ASKS — the bond waits for the couple's Approve.
+  await db.query(`SELECT public.claim_ask_for_access($1, $2, $3)`, [inv.vendor_id, shop, supplierUid]);
   await db.query(
     `UPDATE public.vendor_invites
         SET status = 'claimed', claimed_at = now(), claimed_by_user_id = $2, claimed_vendor_profile_id = $3
@@ -258,8 +266,43 @@ test('3 · finalize: the shop carries the couple\'s record — name and category
   assert.ok(s.rows[0]!.services.includes('planner_coordinator'), `the claimed shop is in no category: ${JSON.stringify(s.rows[0]!.services)}`);
 });
 
-test('4 · the couple\'s row now points at the shop, and the link is claimed', async () => {
+/** The coordinator grant every coordinator seat is created with (`answerClaimAccess` passes the same). */
+const COORDINATOR_PERMISSIONS = JSON.stringify({
+  edit_all: true, checkout: true, invite_hosts: true, remove_hosts: false,
+  areas: { guest_list: 'edit', seat_plan: 'edit', schedule: 'edit', vendors: 'edit', invitations: 'edit', mood_board: 'view', budget: null, photos: null },
+});
+
+test('4 · the link is claimed, the couple is ASKED, and nothing opens until they approve', async () => {
   await asServer();
+  const before = await db.query<{ m: string | null }>(`SELECT marketplace_vendor_id AS m FROM public.event_vendors WHERE vendor_id = $1`, [F.rowId]);
+  assert.equal(before.rows[0]!.m, null, 'the claim bonded the record to the shop before the couple approved');
+  const asks = await db.query<{ request_id: string; status: string }>(
+    `SELECT request_id, status FROM public.event_access_requests WHERE event_vendor_id = $1 AND kind = 'claim'`,
+    [F.rowId],
+  );
+  assert.equal(asks.rows.length, 1, 'the claim did not raise exactly one ask');
+  assert.equal(asks.rows[0]!.status, 'pending');
+
+  // Before the approval the claim alone grants no schedule edit.
+  await asUser(F.host);
+  const block = (
+    await db.query<{ b: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, label, start_at) VALUES ($1, 'Rehearsal', TIMESTAMPTZ '2027-02-13 17:00+08') RETURNING block_id AS b`,
+      [F.eventId],
+    )
+  ).rows[0]!.b;
+  await asUser(F.coord);
+  const pre = await db.query(`UPDATE public.event_schedule_blocks SET label = 'Moved' WHERE block_id = $1 RETURNING block_id`, [block]);
+  assert.equal(pre.rows.length, 0, 'joining from the link alone now edits the schedule — the access model changed; re-read the docblock');
+
+  // The couple approves — the coordinator gets the same access as the couple.
+  await asServer();
+  const ans = await db.query<{ r: { granted: boolean; coordinator: boolean } }>(
+    `SELECT public.answer_claim_access_request($1, $2, true, $3::jsonb) AS r`,
+    [asks.rows[0]!.request_id, F.host, COORDINATOR_PERMISSIONS],
+  );
+  assert.equal(ans.rows[0]!.r.granted, true);
+  assert.equal(ans.rows[0]!.r.coordinator, true);
   const ev = await db.query<{ m: string | null }>(`SELECT marketplace_vendor_id AS m FROM public.event_vendors WHERE vendor_id = $1`, [F.rowId]);
   assert.equal(ev.rows[0]!.m, F.coordShop);
   const inv = await db.query<{ status: string; by: string | null }>(
@@ -322,7 +365,7 @@ test('6 · the same link cannot be used again — a second person is refused at 
   await asOwner();
 });
 
-test('7 · schedule: the claim alone grants no edit; the coordinator grant gives add/edit/delete on ANY item', async () => {
+test('7 · schedule: the couple\'s Approve (test 4) gives the coordinator add/edit/delete on ANY item', async () => {
   await asUser(F.host);
   const couples = (
     await db.query<{ b: string }>(
@@ -330,23 +373,13 @@ test('7 · schedule: the claim alone grants no edit; the coordinator grant gives
       [F.eventId],
     )
   ).rows[0]!.b;
-
-  // Claim alone: no delegate seat → RLS admits no write.
-  await asUser(F.coord);
-  const before = await db.query(`UPDATE public.event_schedule_blocks SET label = 'Moved' WHERE block_id = $1 RETURNING block_id`, [couples]);
-  assert.equal(before.rows.length, 0, 'joining from the link alone now edits the schedule — the access model changed; re-read the docblock');
-
-  // The host gives Coordinator access (Event access · "Same access as you" = COORDINATOR_AREAS), accepted by the coordinator.
+  // (Before the approval the claim alone granted no edit — asserted in test 4.)
   await asServer();
-  await db.query(
-    `INSERT INTO public.event_moderators (event_id, user_id, role_subtype, permissions_json, accepted_at)
-     VALUES ($1, $2, 'wedding_planner_external',
-             jsonb_build_object('edit_all', true, 'checkout', true, 'invite_hosts', true, 'remove_hosts', false,
-               'areas', jsonb_build_object('guest_list','edit','seat_plan','edit','schedule','edit','vendors','edit',
-                                           'invitations','edit','mood_board','view','budget',NULL,'photos',NULL)),
-             now())`,
+  const seat = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.event_moderators WHERE event_id = $1 AND user_id = $2 AND accepted_at IS NOT NULL AND removed_at IS NULL`,
     [F.eventId, F.coord],
   );
+  assert.equal(seat.rows[0]!.n, 1, 'the approval did not seat the coordinator');
 
   await asUser(F.coord);
   const edited = await db.query(`UPDATE public.event_schedule_blocks SET label = 'Ceremony (moved)' WHERE block_id = $1 RETURNING block_id`, [couples]);

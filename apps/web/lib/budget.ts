@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { paidToVendorPhp } from './paid-to-vendor';
 import { VENDOR_CATEGORY_LABEL, type EventVendorRow } from './vendors';
+import { withBookedByPayment, type PaymentFact } from './booked-by-payment';
 import {
   VENDOR_PACKAGE_ITEM_SELECT,
   keptItemRows,
@@ -49,6 +50,8 @@ export type PaymentRow = {
   reference: string | null;
   notes: string | null;
   created_at: string;
+  /** Set when the supplier says this payment never reached them (20271222394035). */
+  payment_refused_at?: string | null;
 };
 
 /**
@@ -584,7 +587,7 @@ export async function fetchVendorBudgetSummary(
     supabase
       .from('event_vendors')
       .select(
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,event_vendor_package_id',
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
       )
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
@@ -710,7 +713,7 @@ export async function fetchBudgetSnapshot(
         // lineage). Both fields are nullable + non-breaking — when the
         // column is missing in prod, Supabase returns undefined and the
         // downstream code treats it as null + falls back to 'manual'.
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,event_vendor_package_id',
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,manual_vendor_id,event_vendor_package_id',
       )
       .eq('event_id', eventId)
       .order('created_at', { ascending: true }),
@@ -723,7 +726,7 @@ export async function fetchBudgetSnapshot(
     supabase
       .from('event_vendor_payments')
       .select(
-        'payment_id,event_id,vendor_id,line_item_id,amount_php,paid_at,method,reference,notes,created_at',
+        'payment_id,event_id,vendor_id,line_item_id,amount_php,paid_at,method,reference,notes,created_at,payment_refused_at',
       )
       .eq('event_id', eventId)
       .order('paid_at', { ascending: false }),
@@ -733,9 +736,14 @@ export async function fetchBudgetSnapshot(
   if (lineItemsRes.error) throw new Error(lineItemsRes.error.message);
   if (paymentsRes.error) throw new Error(paymentsRes.error.message);
 
-  const vendors = (vendorsRes.data ?? []) as EventVendorRow[];
   const lineItems = (lineItemsRes.data ?? []) as LineItemRow[];
   const payments = (paymentsRes.data ?? []) as PaymentRow[];
+  // 💳 BOOKED IF PAID (owner 2026-10-20): a hand-added supplier with a recorded
+  // payment reads as booked — the one resolver, at the load (lib/booked-by-payment.ts).
+  const vendors = withBookedByPayment(
+    (vendorsRes.data ?? []) as EventVendorRow[],
+    payments satisfies PaymentFact[],
+  );
 
   // Build the per-vendor pricing-source lookup BEFORE summarizing so each
   // VendorBudgetSummary can carry priceSource + vendor-controlled items.

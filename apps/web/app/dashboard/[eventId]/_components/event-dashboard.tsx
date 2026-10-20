@@ -119,6 +119,7 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { formatCount } from '@/lib/format-number';
+import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
 import { HomeWhatsNext, type HomeDecisionRow, type HomeDecisionVerb } from './home-parts';
 
@@ -392,7 +393,10 @@ export async function EventDashboard({
           .select(
             // `lock_request_state` (SUP-69): an asked-and-waiting category is not
             // a "go book" decision — see `hasOutstandingAsk`.
-            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+            // 💳 + manual_vendor_id and the payments (owner 2026-10-20, "booked if
+            // paid"): a hand-added supplier with a recorded payment reads Booked
+            // here too — lib/booked-by-payment.ts, applied once below.
+            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
@@ -932,15 +936,19 @@ export async function EventDashboard({
   // kept (it still catches a genuine throw), but the ERROR is what actually
   // needed reading, and nothing read it.
   const vendorsMeasured = !eventVendorsRes.error;
-  const eventVendors = (eventVendorsRes.data ?? []) as Array<{
-    vendor_id: string;
-    vendor_name: string;
-    category: VendorCategory;
-    status: string | null;
-    total_cost_php: number | string | null;
-    marketplace_vendor_id: string | null;
-    change_lines?: ChangeLineRow[] | null;
-  }>;
+  const eventVendors = withEmbeddedPayments(
+    (eventVendorsRes.data ?? []) as Array<{
+      vendor_id: string;
+      vendor_name: string;
+      category: VendorCategory;
+      status: string | null;
+      total_cost_php: number | string | null;
+      marketplace_vendor_id: string | null;
+      manual_vendor_id?: string | null;
+      vendor_payments?: Array<{ payment_refused_at: string | null }> | null;
+      change_lines?: ChangeLineRow[] | null;
+    }>,
+  );
 
   // ---- "Meanwhile" — a vendor delivered something the couple hasn't opened ---
   // Names come from the eventVendors array already loaded above; the id is the

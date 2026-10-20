@@ -88,6 +88,7 @@ import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
+import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
 import { accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
@@ -223,6 +224,9 @@ export default async function EventDetailsPage({
         return { measured: false as const };
       })
     : null;
+  // 🤝 Suppliers who joined from the couple's link, waiting for Approve (owner
+  // 2026-10-20) — the approval card at the top of Event access.
+  const claimsRead = viewer.isCouple ? readClaimAccessAsks(supabase, eventId) : null;
 
   const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
@@ -456,6 +460,10 @@ export default async function EventDetailsPage({
   const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
+  const claims = claimsRead ? await claimsRead : null;
+  // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
+  const claimsWaitingNote =
+    claims?.measured && claims.asks.length > 0 ? ` · ${formatCount(claims.asks.length)} waiting for you` : '';
   const ownAccess: PersonRow | null =
     !viewer.isCouple && viewer.delegatePermissions
       ? {
@@ -512,7 +520,7 @@ export default async function EventDetailsPage({
       lockedSuppliers.length > 0 ? `${formatCount(lockedSuppliers.length)} booked` : null,
     ]),
     // Counted from the rows the fold draws; a failed read says so — never "0".
-    access: people ? accessFoldSummary(people.measured ? people.rows : null) : 'Your access',
+    access: people ? accessFoldSummary(people.measured ? people.rows : null) + claimsWaitingNote : 'Your access',
   };
   const groupTitle = (k: RecordGroupKey) => RECORD_GROUPS.find((g) => g.key === k)!.title;
 
@@ -963,6 +971,7 @@ export default async function EventDetailsPage({
               readOnly={!people}
               failed={Boolean(people && !people.measured)}
               flash={accessFlash}
+              claims={claims}
             />
           </RecordFold>
         ) : null}

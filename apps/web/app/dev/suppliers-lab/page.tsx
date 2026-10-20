@@ -38,6 +38,8 @@
  *                       received · refused (`money-pair.ts`; the supplier's end
  *                       of the same booking is `/dev/customer-money-lab?s=…`)
  *   &booked=0           nobody asked, nobody booked
+ *   &paidbyhand=1       + "The Wedding Planner", added by hand, filed Shortlisted, with
+ *                       a recorded payment — booked by the payment (owner 2026-10-20)
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
  *
  * THE DATE AND PLACE SHEETS (PR5 — `fact-sheet-fixtures.ts`; press the date or the place on the line):
@@ -133,6 +135,7 @@ export default async function SuppliersLabPage({
     target: one('target') !== '0',
     room: one('room') === 'sent' ? 'sent' : one('room') === 'unread' ? 'unread' : 'not_sent',
     dateChange: one('datechange') === '1',
+    paidByHand: one('paidbyhand') === '1',
     booked: one('booked') !== '0',
     seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
     money: moneyStageOf(one('money')),

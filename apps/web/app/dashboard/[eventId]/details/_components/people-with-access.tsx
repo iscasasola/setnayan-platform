@@ -26,6 +26,8 @@ import {
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
+import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
 
 /**
  * people-with-access.tsx — Event Details › PEOPLE WITH ACCESS (owner
@@ -425,6 +427,7 @@ export function PeopleWithAccess({
   readOnly,
   failed,
   flash,
+  claims = null,
 }: {
   eventId: string;
   rows: PersonRow[];
@@ -434,10 +437,26 @@ export function PeopleWithAccess({
   /** The reads failed — say so, never "nobody else has access". */
   failed: boolean;
   flash: string | null;
+  /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
+  claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
       <p className="pb-1 text-[12.5px] text-ink/60">Who can open this event, and what each person can change.</p>
+      {claims && !claims.measured ? (
+        <p className="py-2.5 text-sm text-terracotta-700" data-claim-asks-refused="">
+          We could not check for suppliers who joined from your link. Reload to try again.
+        </p>
+      ) : claims && claims.asks.length > 0 ? (
+        <div className="pb-3" data-access-group="waiting">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-terracotta-700">Waiting for you</h3>
+          <ul className="divide-y divide-ink/5">
+            {claims.asks.map((a) => (
+              <ClaimAccessCard key={a.requestId} eventId={eventId} ask={a} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {flash ? (
         <p role="status" className="mb-2 text-xs text-ink/70">
           {flash}

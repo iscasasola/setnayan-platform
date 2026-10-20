@@ -76,6 +76,7 @@ import {
   type RosMetaMap,
 } from '@/lib/schedule-ros';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { readScheduleSuppliers } from '@/lib/schedule-suppliers-read';
 import { templatesForEventType } from '@/lib/schedule-templates';
 import {
   BulkRetimePanel,
@@ -314,16 +315,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
   if (rosEnabled) {
-    const [metaRes, vendorsRes] = await Promise.all([
+    // 🗓 The suppliers an item can be given to — by their SHOP name, each
+    // "Booked" or "Shortlisted" (owner 2026-10-20; lib/schedule-suppliers.ts,
+    // through the one booked-if-paid resolver).
+    const [metaRes, suppliersRes] = await Promise.all([
       fetchBlockRosMeta(supabase, eventId),
-      supabase
-        .from('event_vendors')
-        .select('vendor_id, vendor_name')
-        .eq('event_id', eventId)
-        .order('vendor_name', { ascending: true }),
+      readScheduleSuppliers(supabase, eventId),
     ]);
     rosMeta = metaRes;
-    rosVendors = (vendorsRes.data ?? []) as EventVendorOption[];
+    rosVendors = suppliersRes;
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
   const rosTemplates = rosEnabled

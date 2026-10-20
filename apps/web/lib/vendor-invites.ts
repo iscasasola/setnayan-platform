@@ -432,6 +432,22 @@ export async function ensureAutoShareInvite(
     return existing as VendorInviteRow;
   }
 
+  // 1b. THEY ALREADY JOINED. Since 2026-10-20 a claimed record stays unbonded
+  //     (no shop on the row) until the couple approves the supplier's access, so
+  //     `canInviteSupplier` still reads "no account" in that window. A second
+  //     link would let someone else claim the same record — mint nothing.
+  const { data: claimed, error: claimedErr } = await supabase
+    .from('vendor_invites')
+    .select('invite_id')
+    .eq('vendor_id', args.eventVendorId)
+    .eq('status', 'claimed')
+    .limit(1);
+  if (claimedErr) {
+    console.error('[supabase-error] lib/vendor-invites.ts · from:vendor_invites.select (claimed)', claimedErr);
+    return null;
+  }
+  if ((claimed ?? []).length > 0) return null;
+
   // 2. Create a new pending row. Email stays NULL (host shares manually);
   //    business_name + service_category are denormalized snapshots so the
   //    claim page renders stable identity even if the host later edits

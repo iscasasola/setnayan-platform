@@ -20,7 +20,8 @@ import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_li
 import { replyFaceOf, replyRefusedWords, replyWindow } from '@/lib/reply-window';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveMonogram } from '@/lib/monogram';
-import { logoSwitchedOff } from '@/lib/hero-monogram-data';
+import { heroMarkSvg, logoSwitchedOff } from '@/lib/hero-monogram-data';
+import { shareCardLookToken } from '@/lib/social/share-card-look';
 import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { heroArrivingForSkeleton, heroDesignForSkeleton } from './_lib/hero-design-of';
@@ -362,7 +363,20 @@ async function invitationMetadata({ params, searchParams }: Props) {
     version stamp could have taken down a couple's wedding page.** One guarded
     reader now owns it: a failed stamp costs the stamp, never the page.
   */
-  const ogCard = ogCardUrlFor(siteUrl, event.slug, shareState.versionAt);
+  /* 🖼 …AND THE MARK IT DRAWS (owner 2026-10-20, the cale-ice preview). The card now wears the couple's logo — the
+     cover's own `heroMarkSvg(event)`, so the Logo switch decides it here exactly as on the cover — and a changed
+     logo, or a flipped switch, must move the address too, or a crawler keeps the old face (lib/social/share-card-look.ts
+     `shareCardLookToken`). */
+  const ogCard = ogCardUrlFor(
+    siteUrl,
+    event.slug,
+    shareState.versionAt,
+    shareCardLookToken({
+      markSvg: heroMarkSvg(event),
+      monogramText: event.monogram_text ?? null,
+      monogramColor: event.monogram_color ?? null,
+    }),
+  );
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;

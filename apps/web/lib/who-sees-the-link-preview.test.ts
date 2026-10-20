@@ -46,7 +46,8 @@ test('/{slug} and /{slug}/recap decide their metadata by the rule — not by vis
   // (+ 2026-10-04: a personal link's preview is never indexed — lib/guest-pass-hop.test.ts § 6.)
   assert.match(meta, /preview\.indexable && !personalLink \? \{\} : \{ robots: \{ index: false, follow: false \} \}/);
   assert.doesNotMatch(meta, /if \(visibility !== 'public'\) \{/, 'the old gate is back: an Unlisted published story loses its card');
-  assert.match(meta, /ogCardUrlFor\(siteUrl, event\.slug, shareState\.versionAt\)/);
+  // (+ 2026-10-20: a fourth argument, the look of the mark it draws — lib/social/the-link-preview-wears-the-logo.test.ts.)
+  assert.match(meta, /ogCardUrlFor\(\s*siteUrl,\s*event\.slug,\s*shareState\.versionAt\s*[,)]/);
 
   const recap = stripComments(readFileSync(join(WEB, 'app', '[slug]', 'recap', 'page.tsx'), 'utf8'));
   const rmeta = recap.slice(recap.indexOf('export async function generateMetadata'), recap.indexOf('export default async function'));

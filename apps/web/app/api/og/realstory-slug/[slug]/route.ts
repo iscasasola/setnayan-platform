@@ -9,6 +9,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { stableMediaPath } from '@/lib/papic-display-ref';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
+import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import {
   renderRealStoryOgJpeg,
   renderCoupleMonogramOgJpeg,
@@ -83,7 +84,7 @@ export async function GET(
     const { data: ev } = await admin
       .from('events')
       .select(
-        'event_id, display_name, event_date, monogram_text, monogram_color, story_cover_kind, story_cover_ref, landing_page_hero_image_url, landing_page_visibility, scheduled_launch_at, std_launched_at',
+        'event_id, display_name, event_date, monogram_text, monogram_color, monogram_custom_svg, monogram_uploaded_svg, role_palette, logo_wanted, story_cover_kind, story_cover_ref, landing_page_hero_image_url, landing_page_visibility, scheduled_launch_at, std_launched_at',
       )
       .eq('slug', slug)
       .maybeSingle();
@@ -93,6 +94,10 @@ export async function GET(
       event_date?: string | null;
       monogram_text?: string | null;
       monogram_color?: string | null;
+      monogram_custom_svg?: string | null;
+      monogram_uploaded_svg?: string | null;
+      role_palette?: unknown;
+      logo_wanted?: boolean | null;
       story_cover_kind?: string | null;
       story_cover_ref?: string | null;
       landing_page_hero_image_url?: string | null;
@@ -177,6 +182,20 @@ export async function GET(
           : await displayUrlForStoredAsset(coverKey))
       : null;
 
+    /*
+      🖼 THE COUPLE'S LOGO, RESOLVED THE WAY THE COVER RESOLVES IT (owner 2026-10-20: "the link sent did not use the
+      logo of cale-ice on the thumbnail"). `heroMarkSvg` is the cover's own call: it honours the Logo switch
+      (DECISION_LOG 2026-10-15 (4) — `logo_wanted` false ⇒ no logo anywhere), gates the stored SVG, centres it on
+      its ink and repaints a palette-stamped mark in the reception colour. null ⇒ the card draws the initials.
+      Reached only past the visibility gate above, so it shows nobody anything the cover does not.
+    */
+    let logoSvg: string | null = null;
+    try {
+      logoSvg = heroMarkSvg(event);
+    } catch {
+      logoSvg = null; // a mark that cannot be resolved costs the logo only, never the card
+    }
+
     // A PUBLISHED editorial → the editorial card (hero photo + scrim).
     const data = await loadEditorialData(event.event_id);
     if (data?.published && cover?.kind === 'monogram') {
@@ -189,6 +208,7 @@ export async function GET(
           dateLabel: event.event_date ? formatEventDate(event.event_date) : '',
           monogramText: event.monogram_text ?? null,
           monogramColor: event.monogram_color ?? null,
+          logoSvg,
         }),
       );
     }
@@ -222,6 +242,7 @@ export async function GET(
       dateLabel: event.event_date ? formatEventDate(event.event_date) : '',
       monogramText: event.monogram_text ?? null,
       monogramColor: event.monogram_color ?? null,
+      logoSvg,
     });
     return jpegResponse(jpeg);
   } catch {

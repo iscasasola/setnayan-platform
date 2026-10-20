@@ -113,9 +113,11 @@ export const resolveRailStudioEvent = cache(
     const none = { eventId: null, count: 0, profile: null };
     try {
       const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      /* ⚡ THE ONE VERIFIED USER OF THIS REQUEST (`getCurrentUser`, cache()d) — this asked the auth
+         server itself, one more `/auth/v1/user` round trip in front of the rail on every signed-in
+         page (found 2026-10-20 by `app/dashboard/[eventId]/guests/guests-page-reads.harness.ts`).
+         Same check, same server, once — as `resolveRailAccount` below already does. */
+      const user = await getCurrentUser();
       if (!user) return none;
       // ORGANISER events only. A guest membership cannot open a Studio tool —
       // the couple dashboard admits `member_type = 'couple'` and would 404.
@@ -178,6 +180,16 @@ function initialsFrom(email: string | null, name: string | null): string {
  * which is a correct page rather than a broken one.
  */
 export async function resolveRailAccount(): Promise<FrontDoorAccount> {
+  return railAccountThisRender();
+}
+
+/**
+ * ⚡ ONCE PER RENDER, so a layout can START it with its own reads (the event
+ * layout does — `app/dashboard/[eventId]/layout.tsx`'s read block) and the
+ * rail, rendering after that layout returns, finds it already in hand instead
+ * of asking then: one database trip less in front of the first paint.
+ */
+const railAccountThisRender = cache(async (): Promise<FrontDoorAccount> => {
   const signedOut: FrontDoorAccount = {
     signedIn: false,
     initials: '··',
@@ -203,7 +215,7 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
   } catch {
     return signedOut;
   }
-}
+});
 
 async function loadRailAccount(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<FrontDoorAccount> {
   const signedOut: FrontDoorAccount = {

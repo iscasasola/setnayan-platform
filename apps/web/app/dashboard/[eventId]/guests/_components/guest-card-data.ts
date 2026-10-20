@@ -1,4 +1,6 @@
 import 'server-only';
+import { getCurrentUser } from '@/lib/auth';
+import { eventRowOnce } from '@/lib/event-row-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyMatches, isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -184,21 +186,21 @@ export async function loadGuestCard(
     // 👤 Linked to an account with a formal name → the card wears the profile's
     // name, exactly as the list does (lib/linked-profile-names.ts).
     accountNamesByGuest(supabase, eventId),
-    supabase.auth.getUser().then((r) => r.data.user?.id ?? null),
+    // The request's ONE verified user (`getCurrentUser`, cache()d) — never a second auth-server trip.
+    getCurrentUser().then((u) => u?.id ?? null),
     // Hide bride/groom from the role dropdown if someone else already has
     // them — DB partial unique indexes enforce this regardless, but the UI
     // shouldn't offer an option that will fail on save.
     fetchSingletonRoleHolders(supabase, eventId, guestId),
     resolveRoleSetForEvent(eventId),
-    supabase
-      .from('events')
-      // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
-      // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
-      // primary OR secondary. Reading only the primary would hide the tea-ceremony
-      // field from exactly the couples who need it.
-      .select('ceremony_type, secondary_ceremony_type')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
+    // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
+    // primary OR secondary. Reading only the primary would hide the tea-ceremony
+    // field from exactly the couples who need it.
+    // 🗂 From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts).
+    eventRowOnce(supabase, eventId, 'ceremony_type, secondary_ceremony_type', () =>
+      supabase.from('events').select('ceremony_type, secondary_ceremony_type').eq('event_id', eventId).maybeSingle(),
+    ),
     supabase
       .from('guests')
       .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
@@ -225,7 +227,10 @@ export async function loadGuestCard(
     loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
     // 👗 The dress code the Seat fold's "Attire · 3D seat plan" line reads — its OWN read, so a refusal drops only that
     // line and never the ceremony context above.
-    supabase.from('events').select('dress_code_config, role_palette').eq('event_id', eventId).maybeSingle(),
+    // (And from the one row too — if THAT read is refused, this one is sent on its own, as before.)
+    eventRowOnce(supabase, eventId, 'dress_code_config, role_palette', () =>
+      supabase.from('events').select('dress_code_config, role_palette').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);

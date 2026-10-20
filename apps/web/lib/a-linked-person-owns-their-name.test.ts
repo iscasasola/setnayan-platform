@@ -47,8 +47,33 @@ test('🔒 the roster overlays the profile name BEFORE anything reads the rows',
     /const guests = guestsRead\.rows\.map\(\(g\) => withProfileName\(g, profileNames\)\);/,
     'the list prints the row’s name while the card prints the profile’s',
   );
-  assert.match(page, /const profileNames = await accountNamesByGuest\(supabase, eventId\);/);
+  // The names are read beside the roster (2026-10-20, one wait) — and `profileNames` IS that read's
+  // answer: the same slot of the one wait's names and of its promises.
+  assert.match(page, /const profileNamesRead = accountNamesByGuest\(supabase, eventId\);/);
+  const wait = [...page.matchAll(/const \[([\s\S]*?)\] = await Promise\.all\(\[([\s\S]*?)\]\);/g)].find((m) => /\bprofileNames\b/.test(m[1] ?? ''));
+  assert.ok(wait, 'profileNames is no longer taken from a single wait');
+  const names = topLevel(wait[1] ?? '');
+  const reads = topLevel(wait[2] ?? '');
+  assert.ok(names.includes('profileNames'), 'profileNames is no longer taken from the one wait');
+  assert.equal(reads[names.indexOf('profileNames')], 'profileNamesRead', 'profileNames is no longer the linked-names read’s answer');
 });
+
+/** The comma-separated items of a list, at its own depth (a nested `[…]` is one item). */
+function topLevel(list: string): string[] {
+  const items: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of list.replace(/\/\/[^\n]*/g, '')) {
+    if (ch === '[' || ch === '(' || ch === '{') depth++;
+    if (ch === ']' || ch === ')' || ch === '}') depth--;
+    if (ch === ',' && depth === 0) {
+      items.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) items.push(cur.trim());
+  return items;
+}
 
 test('🔒 the card loader wears the same name, and knows when it is YOU', () => {
   const data = read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts');

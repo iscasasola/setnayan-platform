@@ -93,6 +93,8 @@ import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { withPickedDate } from '@/lib/event-anchor';
+import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,6 +116,10 @@ export const dynamic = 'force-dynamic';
   Fail-soft in both directions: no name, no row, or a refused read all fall
   back to the site default rather than rendering an id or an empty title.
 */
+/** Home's own columns of the event row — every one is carried by `DASHBOARD_EVENT_COLUMNS`. */
+const HOME_EVENT_COLUMNS =
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
+
 export async function generateMetadata({
   params,
 }: {
@@ -125,11 +131,11 @@ export async function generateMetadata({
     // A refusal costs a browser-tab title and nothing else — the fallback
     // below is the site default, which is the right answer either way. Bound
     // and logged so it cannot hide a whole-table refusal that matters elsewhere.
-    const { data, error: titleError } = await supabase
-      .from('events')
-      .select('display_name')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // The tab title is one column of the row the render reads anyway (lib/event-row-once.ts).
+    openDashboardEventRow(supabase, eventId);
+    const { data, error: titleError } = await eventRowOnce(supabase, eventId, 'display_name', () =>
+      supabase.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+    );
     if (titleError) {
       logQueryError('EventHomeMetadata.title', titleError, { event_id: eventId }, 'graceful_degrade');
     }
@@ -170,9 +176,13 @@ export default async function EventHomePage({
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
+  const supabase = await createClient();
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts) — opened before anything asks a
+  // column of it: the layout's chrome, the needs, the tab title, Home's own row (`HOME_EVENT_COLUMNS`)
+  // and the access window are each a few columns of it. The viewer's own client, under RLS.
+  openDashboardEventRow(supabase, eventId);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  const supabase = await createClient();
   // 🚪 What THIS event needs (Level 1) — started now, its own small read, degrading to "everything on".
   const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
 
@@ -188,13 +198,10 @@ export default async function EventHomePage({
   // cultural / set-date overlays) reads, with the defensive fallback-to-'*'
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
-    const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
-    const leanRes = await supabase
-      .from('events')
-      .select(leanSelect)
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // From the row opened above when it is in hand (lib/event-row-once.ts); else this read, as before.
+    const leanRes = await eventRowOnce(supabase, eventId, HOME_EVENT_COLUMNS, () =>
+      supabase.from('events').select(HOME_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle(),
+    );
     if (
       leanRes.error &&
       /column .* does not exist|undefined_column|42703/i.test(
@@ -497,13 +504,14 @@ export default async function EventHomePage({
   // membership read — it is a service-role count, so it must never start before
   // the answer is in. The pair is returned together and unpacked after the wait.
   const papicViewerRead = (async () => {
-    const { data: papicViewerMembership, error: papicViewerMembershipError } = await supabase
-      .from('event_members')
-      .select('member_type')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .in('member_type', ['couple', 'coordinator'])
-      .maybeSingle();
+    // The render's ONE membership read (lib/event-membership-once.ts — the layout's gate asks it too),
+    // narrowed here exactly as the old `.in('member_type', ['couple', 'coordinator'])` filter did.
+    const { data: memberRow, error: papicViewerMembershipError } = await eventMemberTypeOnce(supabase, eventId, user.id);
+    const papicViewerMembership = ['couple', 'coordinator'].includes(
+      (memberRow as { member_type?: string | null } | null)?.member_type ?? '',
+    )
+      ? memberRow
+      : null;
     if (papicViewerMembershipError) {
       logQueryError(
         'EventHomePage.papicViewerMembership',

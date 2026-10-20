@@ -854,7 +854,15 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
     // `/dev/suppliers-lab` draws the real Find body on FIXTURE rows — no event,
     // no database, 404 in production. No couple's agreed total is on it.
-    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx', 'app/dev/suppliers-lab/page.tsx'],
+    // `lib/cover-catalog.server.ts` (2026-10-20) keeps only the folders' row NAMES for the card's
+    // "Also covers" dropdown — it selects no price column and returns no vendor; `/dev/add-your-own-lab`
+    // builds the same list from no rows at all (no event, no database, 404 in production).
+    readsNoPrice: [
+      'app/dashboard/[eventId]/vendors/categories/page.tsx',
+      'app/dev/add-your-own-lab/page.tsx',
+      'app/dev/suppliers-lab/page.tsx',
+      'lib/cover-catalog.server.ts',
+    ],
   },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   bucketVendorsByGroup: {

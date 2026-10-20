@@ -34,7 +34,8 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
-import { SERVICE_NAMES } from '@/lib/service-names';
+import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
 import type { PapicMoment } from '@/lib/papic-glance';
 import type { GlanceLine, ServiceGlance } from '@/lib/service-glance';
@@ -284,7 +285,153 @@ export function glanceMoney(php: number | null): string {
   A read that failed prints "—".
 */
 
-export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
+export type HomeServiceKey = 'papic' | 'ai' | 'live' | 'music' | 'booth' | 'hub' | 'nikah';
+
+/*
+  ─── EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14 🧾 + ✅) ────────────
+
+  DECISION_LOG 2026-10-14 "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB
+  PRO; FREE TOOLS STAY OUT" and, the same day, "APPROVE ALL: THE SERVICES
+  PROTOTYPE" (`prototypes/services_home_rows_and_bands_2026-10-14_fable.html`):
+  Guest photos · Planner · Live stream · Music · Video booth · Event Hub Pro.
+  Owned = the full row (its state, its main door); not added = ONE slim line,
+  the price under the name and **Add** on the right. Owner, live on cale-ice
+  2026-10-20: *"i thought we will have our other paid services here in home?"* —
+  the row had only ever been built for the first two (2026-10-01).
+
+  🔑 NOTHING HERE DECIDES OWNERSHIP, OFFER OR PRICE. Each service's facts arrive
+  from the page: whether this event is offered it and where its door is
+  (`buildOurServices` — the More menu's ONE builder), whether it is on
+  (`eventSkuActive`, the feature gate — so an internal or founder-seat host reads
+  "On", exactly as the feature behaves), and its price (`platform_retail_catalog_v2`,
+  never a figure in code). This file only maps those facts onto ONE row state.
+
+  🔒 ONE STATE PER SERVICE — `homePaidState`, held by
+  `app/dashboard/[eventId]/home-shows-every-paid-service.test.ts`: owned · pending · add · open ·
+  unread · absent. "absent" is only ever the event's own fact (its type is not
+  offered the service, the day has passed for a day-of one, the store shell) —
+  never a forgotten row. What the event LEFT OFF at onboarding (`lib/event-needs.ts`:
+  guest list · suppliers · Event Hub details) never hides a paid service: Papic
+  is always on, and the rest are not needs.
+*/
+
+/** The six rows, in the approved prototype's order. Papic is first and is its own glance. */
+export const HOME_PAID_KEYS = ['papic', 'ai', 'live', 'music', 'booth', 'hub'] as const;
+export type HomePaidKey = (typeof HOME_PAID_KEYS)[number];
+/** The five that are a single catalogue SKU (Papic is credits, sold by the ladder). */
+export type HomeSkuKey = Exclude<HomePaidKey, 'papic'>;
+
+/** Each row's catalogue code — the row the price is read from and the gate asks about. */
+export const HOME_PAID_SKU: Readonly<Record<HomeSkuKey, string>> = {
+  ai: 'SETNAYAN_AI',
+  live: 'LIVE_STUDIO',
+  music: 'PAKANTA',
+  booth: 'PATIKTOK_COMPILER',
+  hub: 'COUPLE_WEBSITE_PRO',
+};
+
+/** The More menu's card each row stands for (`lib/our-services.ts`). Event Hub Pro has no card there. */
+export const HOME_PAID_CARD: Readonly<Record<Exclude<HomeSkuKey, 'hub'>, string>> = {
+  ai: 'setnayan-ai',
+  live: 'live-studio',
+  music: 'music-maker',
+  booth: 'patiktok',
+};
+
+/** Event Hub Pro's two lines (2026-10-14 🧾): its name, and what it unlocks under it. */
+export const HUB_PRO_NAME = 'Event Hub Pro';
+export const HUB_PRO_UNLOCKS = '◆ Themes · photo and video backgrounds';
+
+/** The row states. Exactly one per service — `homePaidState`. */
+export type HomePaidState = 'owned' | 'pending' | 'add' | 'open' | 'unread' | 'absent';
+
+/**
+ * What the page knows about one service — the More menu card's state
+ * (`OurServiceState`) and door, or `null` when there is no card for this event.
+ */
+export type HomePaidFact = {
+  card: { state: string; stateText: string; href: string | null } | null;
+  /** The ownership read failed — the row says "—" and sells nothing over a refusal. */
+  unread?: boolean;
+  /** The catalogue's price label ("₱2,500", "₱1,500 / day") — null when unread or not on sale. */
+  price?: string | null;
+  /** Setnayan AI's comeback window is open — its one surviving line (hours only, never a price). */
+  comebackHoursLeft?: number | null;
+};
+
+/** ONE state per service, from its facts. Pure, total. */
+export function homePaidState(fact: HomePaidFact | null | undefined): HomePaidState {
+  if (!fact) return 'absent';
+  if (fact.unread) return 'unread';
+  const card = fact.card;
+  if (!card) return 'absent';
+  switch (card.state) {
+    case 'added':
+      return 'owned';
+    case 'pending':
+      return 'pending';
+    case 'price':
+    case 'unpriced':
+      return card.href ? 'add' : 'absent';
+    case 'free':
+    case 'trial':
+      return card.href ? 'open' : 'absent';
+    default:
+      // 'closed' (a day-of service after the day) · 'soon' — no door, so no row.
+      return 'absent';
+  }
+}
+
+/** A paid row as Home draws it (state 'absent' is never drawn). */
+export type PaidRow = {
+  state: Exclude<HomePaidState, 'absent'>;
+  /** The row is a door to the service's own page. */
+  href: string;
+  /** The status line — owned / pending / open / unread. */
+  line: GlanceLine;
+  /** The slim line's words — 'add' only. Its price is the catalogue's, or "See the price". */
+  price?: string;
+  /** The owned row's main door (the prototype's words), when it is a different page from the row's own. */
+  door?: { label: string; href: string };
+};
+
+/** The words of a slim "not added" line. `price` null = an unread catalogue → never ₱0, never "Free". */
+export function paidSlimWords(key: HomeSkuKey, price: string | null, comebackHoursLeft: number | null = null): string {
+  if (key === 'ai' && comebackHoursLeft !== null && comebackHoursLeft > 0) {
+    return `Comeback price · ${formatCount(comebackHoursLeft)}h left`;
+  }
+  if (!price) return 'See the price';
+  if (key === 'live') return `1 camera free · ${price} for more`;
+  if (key === 'booth') return `Free to record · ${price} to save & share`;
+  return price;
+}
+
+/** One paid row from its facts — null when the service has no row on this Home. */
+export function paidRow(key: HomeSkuKey, fact: HomePaidFact | null | undefined, eventId: string): PaidRow | null {
+  const state = homePaidState(fact);
+  if (state === 'absent' || !fact) return null;
+  const href = fact.card?.href ?? `/dashboard/${eventId}`;
+  if (state === 'unread') return { state, href, line: { strong: '—' } };
+  if (state === 'pending') return { state, href, line: { lead: 'Payment sent · switches on once approved' } };
+  if (state === 'open') return { state, href, line: { lead: fact.card?.stateText ?? '' } };
+  if (state === 'add') {
+    return { state, href, line: {}, price: paidSlimWords(key, fact.price ?? null, fact.comebackHoursLeft ?? null) };
+  }
+  // owned — the prototype's main door, where it is another page than the row's own.
+  if (key === 'hub') {
+    return {
+      state,
+      href,
+      line: { strong: 'Pro on', tail: ' · themes, photo and video backgrounds' },
+      door: { label: 'Open the Maker', href: `/dashboard/${eventId}/launch` },
+    };
+  }
+  if (key === 'live') {
+    /* The controller is chrome-less, outside /dashboard (`liveStudioControlPath`) — its own door. */
+    return { state, href, line: { strong: 'On' }, door: { label: 'Open controller', href: liveStudioControlPath(eventId) } };
+  }
+  return { state, href, line: { strong: 'On' } };
+}
 /**
  * `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`.
  * Nikah essentials is not a Setnayan service, so it carries no brand line.
@@ -300,6 +447,8 @@ export type HomeService = {
    * "See N photos" (the gallery, opened directly). Absent = the plain row.
    */
   papic?: PapicRowDoors;
+  /** 🧾 A paid row (Planner · Live stream · Music · Video booth · Event Hub Pro) — its one state. */
+  paid?: PaidRow;
 };
 
 /** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
@@ -366,28 +515,47 @@ export function nikahStatus(done: number | null): string {
   return `${formatCount(done)} of ${formatCount(NIKAH_TRACKED_TOTAL)} in place`;
 }
 
+/** Each paid row's names — `lib/service-names.ts` (one list); Event Hub Pro is not a service card. */
+function paidNames(key: HomeSkuKey): { name: string; brand: string } {
+  if (key === 'hub') return { name: HUB_PRO_NAME, brand: HUB_PRO_UNLOCKS };
+  const n = SERVICE_NAMES[HOME_PAID_CARD[key] as ServiceNameKey];
+  return { name: n.plain, brand: n.brand };
+}
+
 export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
   papic: string;
   /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
   papicDoors?: PapicRowDoors | null;
+  /** Setnayan AI's plain status — the row as it was before `paid` (kept for a caller that has no facts). */
   ai: string;
+  /**
+   * 🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14). When given, the Planner ·
+   * Live stream · Music · Video booth · Event Hub Pro rows come from these facts — one
+   * state each (`homePaidState`) — and `ai` above is not used. Absent = yesterday's two rows.
+   */
+  paid?: Partial<Record<HomeSkuKey, HomePaidFact | null>> | null;
+  eventId?: string;
   /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
   nikah?: string | null;
 }): HomeService[] {
-  const paid: HomeService[] = input.storeShell
-    ? []
-    : [
-        {
-          key: 'papic',
-          name: SERVICE_NAMES.papic.plain,
-          brand: SERVICE_NAMES.papic.brand,
-          status: input.papic,
-          ...(input.papicDoors ? { papic: input.papicDoors } : {}),
-        },
-        { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
-      ];
+  const papicRow: HomeService = {
+    key: 'papic',
+    name: SERVICE_NAMES.papic.plain,
+    brand: SERVICE_NAMES.papic.brand,
+    status: input.papic,
+    ...(input.papicDoors ? { papic: input.papicDoors } : {}),
+  };
+  const rest: HomeService[] = input.paid
+    ? (HOME_PAID_KEYS.filter((k): k is HomeSkuKey => k !== 'papic')).flatMap((key) => {
+        const row = paidRow(key, input.paid?.[key], input.eventId ?? '');
+        return row ? [{ key, ...paidNames(key), status: row.price ?? glanceLineText(row.line), paid: row }] : [];
+      })
+    : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];
+  /* 🔒 NOT IN THE STORE SHELL — every paid row's page is web-only there (STORE_SHELL_HIDDEN_ADDON_KEYS), and the
+     iPhone app sells only through Apple (the `apple` rows HomeFirstScreen draws on their own). */
+  const paid: HomeService[] = input.storeShell ? [] : [papicRow, ...rest];
   const all: HomeService[] = [
     /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
        card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no
@@ -395,5 +563,11 @@ export function homeServices(input: {
     ...paid.filter((s) => s.key !== input.next || (s.key === 'papic' && s.papic)),
     ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah }] : []),
   ];
-  return all;
+  /* Owned first, then the slim "not added" lines — the approved prototype's order (owned · Not added). */
+  return [...all.filter((s) => s.paid?.state !== 'add'), ...all.filter((s) => s.paid?.state === 'add')];
+}
+
+/** A status line as plain words (the row's `status`, for guards and the plain tile). */
+export function glanceLineText(line: GlanceLine): string {
+  return `${line.lead ?? ''}${line.strong ?? ''}${line.tail ?? ''}`;
 }

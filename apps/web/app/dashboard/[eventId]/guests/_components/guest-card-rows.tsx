@@ -155,7 +155,7 @@ export function CardPick({ name, label, value, options, multi = false, emptyText
  * it (`GuestGroupPicker` — standard one-of, own groups several, ＋ New group…, ✎ rename / 🗑 delete in place). Posts the two
  * hidden inputs the two old rows posted — `group_category`, and `group_ids` while the own groups could be read.
  */
-export function CardGroup({ eventId, label, std, standard, own, ownPicked }: CardGroupProps) {
+export function CardGroup({ eventId, label, std, standard, own, ownPicked, side }: CardGroupProps) {
   const width = usePillWidth();
   const [list, setList] = useState<OwnGroup[] | null>(own ? [...own] : null);
   const fromServer = JSON.stringify(own);
@@ -175,6 +175,8 @@ export function CardGroup({ eventId, label, std, standard, own, ownPicked }: Car
       standard={standard}
       groups={list}
       onGroupsChange={setList}
+      side={side}
+      sideField={side === undefined ? undefined : 'side'}
       className={`${FORM_PICK_CLASS} ${width}`}
       layout={(button, panel) => (
         <FormRow name={label} data="card-group_category" attrs={{ 'data-card-field': 'group_category' }} below={panel}>

@@ -151,6 +151,22 @@ export function labSheet(vendorProfileId: string): SupplierSheetData {
 
 // ── "Add your own" (2026-10-10) ────────────────────────────────────────────
 /** `&added=1` — the row the four-step walk leaves behind, under Catering. Sample names, nobody real. */
+/**
+ * `&dunkin=before|after` — the owner's own case (2026-10-20): a doughnut cart
+ * the couple added under Everything else, which "also covers" Guest booths
+ * (`before`, as stored on his event), and then Food Truck too (`after` — the
+ * key the card sheet now stores for a Suppliers-page row no plan group names).
+ */
+export function labDunkinRow(stage: 'before' | 'after'): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-dunkin',
+    vendor_name: "Dunkin' Donuts",
+    category: 'misc',
+    manual_vendor_id: 'm-dunkin',
+    covers_plan_groups: stage === 'after' ? ['guest_booth', 'tile:food_truck'] : ['guest_booth'],
+  });
+}
+
 export const LAB_ADDED_ROW: EventVendorRowInput = row({
   vendor_id: 'v-tita',
   vendor_name: "Tita Baby's Catering",

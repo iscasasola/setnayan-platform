@@ -27,6 +27,7 @@
  */
 
 import { isAppleTouchDevice } from './apple-device';
+import { formatCount } from './format-number';
 
 /** The shape `lib/guest-session.ts` signs. Re-declared so this stays pure. */
 export type GuestSessionLike = {
@@ -209,6 +210,45 @@ export function rsvpGate(input: {
   if (input.askMobile && !(input.mobile ?? '').trim()) missing.push('mobile');
   if (missing.length === 0) return { kind: 'inside', didntReply: false };
   return { kind: 'ask', missing, coupleMarked: status === 'attending' };
+}
+
+/**
+ * ✉️ "YOU'RE COMING ✓ · N MORE ANSWERS" — N, for a guest the couple has down as ATTENDING (owner 2026-10-20, DECISION_LOG
+ * "THE COVER'S REPLY BUTTON HAS THREE STATES": *"Show "You're coming ✓ · N more answers" when answers are missing (tap
+ * opens only the missing ones)"*). Measured live that day: an attending guest who skipped the couple's switched-on meal
+ * and mobile questions met "You're coming ✓ · Change" — byte for byte the complete reply's button — while the reply page
+ * asked them "Two more things".
+ *
+ * 🔒 N IS THE REPLY PAGE'S OWN MISSING SET, COUNTED — never a second count. It reads the verdict of `rsvpGate` (above),
+ * the ONE rule the reply page asks for which questions to show (`invite/reply/page.tsx` → `RsvpWidget gate`), so the
+ * number on the button and the questions behind it cannot disagree. Held by
+ * `lib/the-cover-counts-the-reply-pages-questions.test.ts`.
+ *
+ *   · attending, and the gate asks for something  → its `missing.length` (attendance itself is never in it then);
+ *   · attending and complete, or not attending    → 0: the shipped words stand ("Change", "Confirm attendance");
+ *   · a decline → 0 by the gate's own rule: a decliner is asked nothing more (owner 2026-09-11, "a decline must not go
+ *     on to ask for the rest"), so the decline keeps its shipped "You can't make it · Change";
+ *   · `null` gate — the answers could not be read (`guestAnswersRead`) → null: the caller draws the plain "Change" and
+ *     logs. A failure must not look like success, and must never draw a wrong number.
+ */
+export function moreAnswersOf(gate: RsvpGate | null): number | null {
+  if (!gate) return null;
+  return gate.kind === 'ask' && gate.coupleMarked ? gate.missing.length : 0;
+}
+
+/** "1 more answer" · "2 more answers" — the words after "You're coming ✓ ·" (owner 2026-10-20, singular for one). */
+export function moreAnswersWords(n: number): string {
+  return n === 1 ? '1 more answer' : `${formatCount(n)} more answers`;
+}
+
+/**
+ * 🔍 DID THE ROW CARRY THE ANSWERS `rsvpGate` COUNTS? A column left out of a `.select(...)` comes back `undefined`, and
+ * the gate reads `undefined` exactly like a blank answer — so a read that dropped `mobile` would tell every attending
+ * guest they owe one more answer. Only a row that HAS the keys (null is an answer: "not given") may be counted.
+ */
+export function guestAnswersRead(row: unknown): boolean {
+  if (!row || typeof row !== 'object') return false;
+  return ['rsvp_status', 'meal_preference', 'mobile'].every((k) => k in row);
 }
 
 /**

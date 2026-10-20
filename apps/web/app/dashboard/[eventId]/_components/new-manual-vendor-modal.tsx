@@ -38,7 +38,7 @@ import { AddressPinField } from './address-pin-field';
 import { SupplierConnectPanel } from './supplier-connect-panel';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
-import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
@@ -100,6 +100,12 @@ type Props = {
    * there is one form to add a supplier and the same one to complete them.
    */
   edit?: SelfAddedSupplierPrefill;
+  /**
+   * The "Also covers" list when the caller already holds the Suppliers page's
+   * rows (the bench: `coverCatalogFromFolders(folders)`). Omitted → the picker
+   * reads the same list for this event (`loadCoverCatalog`).
+   */
+  coverCatalog?: readonly CoverCatalogFolder[];
 };
 
 // State machine for the modal's primary action.
@@ -117,6 +123,7 @@ export function NewManualVendorModal({
   category,
   categoryLabel,
   edit,
+  coverCatalog,
   onClose,
   onCreated,
 }: Props) {
@@ -135,10 +142,6 @@ export function NewManualVendorModal({
     const n = Number(priceInput.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : null;
   })();
-  /* Every plan group, with the booking's own one passed separately so the
-     picker can render it locked. Same set the workspace editor offers. */
-  const ownGroupId = planGroupForCategory(category as VendorCategory);
-  const coverOptions = PLAN_GROUPS.map((g) => ({ id: g.id as string, label: g.label }));
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -580,10 +583,14 @@ export function NewManualVendorModal({
                 <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
                   What services does this cover
                 </p>
+                {/* The Suppliers page's own rows (owner 2026-10-20) — handed
+                    in by a caller that already holds them, else read for
+                    this event. The booking's own row is locked, never offered. */}
                 <ServicesCoveredPicker
-                  options={coverOptions}
-                  ownGroupId={ownGroupId}
-                  ownGroupLabel={categoryLabel}
+                  eventId={eventId}
+                  category={category}
+                  ownLabel={categoryLabel}
+                  catalog={coverCatalog}
                   initialSelected={edit?.covers ?? []}
                   disabled={pending}
                 />

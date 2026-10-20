@@ -22,6 +22,7 @@ export function PickMenu({
   stickyGroups = false,
   grid,
   doneNote,
+  head,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
@@ -109,6 +110,7 @@ export function PickMenu({
   };
   const rows = (
     <>
+      {head}
       {pickRuns(options).map((run, ri) =>
         run.group === null ? (
           run.options.map(renderOption)

@@ -1768,7 +1768,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       await createTable(fd);
     });
-  }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist, router]);
+  }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist]);
 
   const rotateSelected = useCallback(
     (delta: number) => {
@@ -1821,7 +1821,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         await updateTableType(fd);
       });
     },
-    [selectedId, canEdit, eventId, lock.lockId, persist, router],
+    [selectedId, canEdit, eventId, lock.lockId, persist],
   );
 
   // Publish the plan. TWO things happen and the couple is told BOTH: the table
@@ -2170,7 +2170,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
-    [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
+    [canEdit, tablesById, tables, eventId, lock.lockId, persist],
   );
 
   // Manual arm-link (tap A then tap B) — 2D-parity "pull-to-join": the mover (B)
@@ -2249,7 +2249,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
-    [canEdit, tablesById, venueScaled, oraclePose, oracleZones, room, tables, eventId, lock.lockId, persist, router, doLink],
+    [canEdit, tablesById, venueScaled, oraclePose, oracleZones, room, tables, eventId, lock.lockId, persist, doLink],
   );
   // 2D-parity: remove/restore an individual chair (tap a chair on the selected
   // table). Server rejects removing an OCCUPIED seat, so guard it client-side.
@@ -2296,7 +2296,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       await unlinkTable(fd);
     });
     setNotice('Broken apart — each table is independent again, with its own name + QR.');
-  }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist, router]);
+  }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist]);
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.

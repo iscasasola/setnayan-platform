@@ -250,12 +250,12 @@ function markerFor(sf: ts.SourceFile, call: ts.CallExpression): { reason: string
   const line = sf.getLineAndCharacterOfPosition(call.getStart()).line;
   const same = lines[line] ?? '';
   const m0 = same.match(MARKER_RE);
-  if (m0) return { reason: m0[1], text: same.trim() };
+  if (m0) return { reason: m0[1] ?? null, text: same.trim() };
   for (let i = line - 1; i >= 0 && i >= line - 4; i--) {
     const t = (lines[i] ?? '').trim();
     if (!(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*') || t.startsWith('{/*'))) break;
     const m = t.match(MARKER_RE);
-    if (m) return { reason: m[1], text: t };
+    if (m) return { reason: m[1] ?? null, text: t };
   }
   return { reason: null, text: null };
 }

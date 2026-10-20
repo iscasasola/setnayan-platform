@@ -138,12 +138,14 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/[slug]/_lib/reveal-props.ts': ['resolver', "the wax seal's mark, through resolveEventMonogramSvg"],
   'app/[slug]/invite/_lib/load-invite-look.ts': ['carries', "the invite doors' crest (INVITE_MARK_COLUMNS)"],
   'app/[slug]/invite/page.tsx': ['via', "the opening's wax seal draws a row selected with INVITE_MARK_COLUMNS"],
+  'app/[slug]/page.tsx': ['via', "the link preview's address (shareCardLookToken) draws loadEventShell's event (app/[slug]/_lib/loaders.ts)"],
   'app/[slug]/print/page.tsx': ['carries', 'the recap print sheet'],
   'app/[slug]/recap/page.tsx': ['carries', 'the recap masthead'],
   'app/[slug]/seat/_components/arrival-bloom.tsx': ['lettered', 'Your seat draws the lettered mark only (the seat read selects no logo)'],
   'app/_components/account-switcher/get-switcher-data.ts': ['host', "the host's own account switcher"],
   'app/_components/event-monogram.tsx': ['resolver', "draws whatever its caller's row carries, through resolveEventMonogramSvg"],
   'app/admin/studio/_surfaces/social-queue-surface.tsx': ['host', 'the admin console'],
+  'app/api/og/realstory-slug/[slug]/route.ts': ['carries', "the link preview — the Event Hub's og:image (owner 2026-10-20)"],
   'app/api/social/card/[postId]/route.ts': ['carries', 'the shareable social card'],
   'app/dashboard/(account)/library/_components/album-shelf.tsx': ['host', "the host's own library"],
   'app/dashboard/(account)/library/_components/photos-tab.tsx': ['host', "the host's own library"],
@@ -173,6 +175,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
 const VIA_SOURCE: Record<string, string> = {
   'app/[slug]/_components/site-body.tsx': 'app/[slug]/_lib/loaders.ts',
   'app/[slug]/invite/page.tsx': 'app/[slug]/invite/_lib/load-invite-look.ts',
+  'app/[slug]/page.tsx': 'app/[slug]/_lib/loaders.ts',
   'lib/discover-events.ts': 'lib/home-public-reads-core.ts',
   'lib/event-cover-given.ts': 'lib/home-public-reads-core.ts',
 };

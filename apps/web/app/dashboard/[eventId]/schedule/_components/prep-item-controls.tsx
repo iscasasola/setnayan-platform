@@ -24,7 +24,6 @@
 // ============================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
 import { PrepKindPicker, type PrepKind } from './prep-kind-picker';
@@ -33,7 +32,6 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 // ── Add ─────────────────────────────────────────────────────────────────
 
 export function AddPreparationItem({ eventId }: { eventId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -69,7 +67,6 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not add this item.',
@@ -260,7 +257,6 @@ export function DeletePreparationItemButton({
   itemId: string;
   label: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -272,7 +268,6 @@ export function DeletePreparationItemButton({
     startTransition(async () => {
       try {
         await deletePreparationItem(fd);
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not remove this item.',

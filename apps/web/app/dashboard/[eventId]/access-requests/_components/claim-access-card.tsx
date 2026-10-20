@@ -13,14 +13,12 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 import { answerAccessRequest } from '../actions';
 import { claimAskLine, type ClaimAccessAsk } from '@/lib/claim-access-asks';
 
 export function ClaimAccessCard({ eventId, ask }: { eventId: string; ask: ClaimAccessAsk }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [answering, setAnswering] = useState<'approve' | 'decline' | null>(null);
   const [pending, startTransition] = useTransition();
@@ -36,7 +34,7 @@ export function ClaimAccessCard({ eventId, ask }: { eventId: string; ask: ClaimA
         setAnswering(null);
         return;
       }
-      router.refresh();
+      // ⚡ `answerAccessRequest` revalidates: its answer carries the redrawn page (no second render).
     });
   }
 

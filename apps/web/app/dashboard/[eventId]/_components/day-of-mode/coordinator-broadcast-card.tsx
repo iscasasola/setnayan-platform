@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Mail, Megaphone, Send } from 'lucide-react';
 import {
   emailVendorCallTimes,
@@ -55,7 +54,6 @@ function LiveBroadcastCard({
   eventId: string;
   broadcast: BroadcastCardData;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [composeError, setComposeError] = useState<string | null>(null);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
@@ -72,7 +70,6 @@ function LiveBroadcastCard({
       const result = await sendCoordinatorBroadcast(formData);
       if (result.ok) {
         if (textareaRef.current) textareaRef.current.value = '';
-        router.refresh();
       } else {
         setComposeError(result.error);
       }

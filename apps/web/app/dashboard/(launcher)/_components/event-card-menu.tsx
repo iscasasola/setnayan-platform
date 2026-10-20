@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useHydrated } from '@/lib/use-hydrated';
-import { useRouter } from 'next/navigation';
 import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
@@ -165,7 +164,6 @@ export function EventCardMenu({
   const [noteOpen, setNoteOpen] = useState(false);
   useOneOpen(open, close); // one open at a time — lib/one-open.ts
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function close() {
     setOpen(false);
@@ -201,10 +199,9 @@ export function EventCardMenu({
           return;
         }
         close();
-        /* revalidatePath marks the cache stale; it does not push fresh props
-           into a component already on screen. Without this the card does not
-           move and a silent success reads exactly like a dead button. */
-        router.refresh();
+        /* ⚡ The card moves on the action's own answer: `setEventArchived` revalidates, and an action that revalidates
+           answers WITH the page's new render, applied to what is on screen (measured 2026-10-20, `/dev/guests-lab` —
+           the old note here said it did not). A `router.refresh()` drew the whole page a second time. */
       } catch (err) {
         console.error('[event-card-menu] archive rejected', err);
         setError('We couldn’t save that just now. Please try again.');
@@ -246,7 +243,6 @@ export function EventCardMenu({
           return;
         }
         setAsked(res.asked);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] ask rejected', err);
         setError('We couldn’t send that just now. Please try again.');
@@ -266,7 +262,6 @@ export function EventCardMenu({
           return;
         }
         setAsked(null);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] withdraw rejected', err);
         setError('We couldn’t withdraw that just now. Please try again.');
@@ -289,7 +284,6 @@ export function EventCardMenu({
         }
         setRequested(true);
         setAsking(false);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] request rejected', err);
         setError('We couldn’t send that just now. Please try again.');
@@ -310,7 +304,6 @@ export function EventCardMenu({
         }
         setRequested(false);
         setImpact((prev) => (prev ? { ...prev, pendingRequest: null, canAsk: true } : prev));
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] withdraw request rejected', err);
         setError('We couldn’t withdraw that just now. Please try again.');
@@ -333,7 +326,6 @@ export function EventCardMenu({
           return;
         }
         close();
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] delete rejected', err);
         setError('We couldn’t remove that just now. Please try again.');

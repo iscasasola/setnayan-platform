@@ -32,9 +32,11 @@
  *       button's font size, and the button may not wrap or clip.
  *
  * 🪤 THE INK ESTIMATE IS MEASURED, NOT GUESSED. 0.6 em per character is the
- * conservative bound; the real "Sign in" at 11 px / 650 measured 36.9 px in
- * Chromium and 37.2 px in WebKit (lab walk, 2026-10-20) = 0.48 em, so the
- * guard's 46.2 px over-asks by ~9 px. Before the fix the strip offered 28 px.
+ * conservative bound; the real "Sign in" at 11 px / 650 measured 37.5 px in
+ * both Chromium and WebKit (walk, 2026-10-20: /help, /explore, the store shell
+ * and /dev/budget-lab?shell=1 at 1032 · 1024 · 1180 · 820) = 0.49 em, so the
+ * guard's 46.2 px over-asks by ~9 px. Before the fix the strip offered 28 px
+ * and the label measured two lines in both engines.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

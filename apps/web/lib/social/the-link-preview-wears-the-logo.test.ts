@@ -28,7 +28,7 @@ import sharp from 'sharp';
 
 import { cardLogoImage, cardLogoNode, type CardLogo } from '@/lib/social/card-logo';
 import { shareCardLookToken } from '@/lib/social/share-card-look';
-import { heroMarkSvg } from '@/lib/hero-monogram-data';
+import { HERO_MONOGRAM_COLUMNS, heroMarkSvg } from '@/lib/hero-monogram-data';
 import { ogCardUrlFor } from '@/lib/a-withdrawal-reaches-every-copy';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -94,9 +94,11 @@ test('🔘 switched off, unset, unsafe, blank, broken or slow ⇒ no logo, so th
 
 test('🧵 the card is WIRED to draw it: the route resolves the cover’s mark and every monogram card receives it', () => {
   const route = stripComments(read('app/api/og/realstory-slug/[slug]/route.ts'));
-  const select = /\.from\('events'\)\s*\.select\(\s*'([^']*)'/.exec(route);
+  const select = /\.from\('events'\)\s*\.select\(\s*(['`])([^'`]*)\1/.exec(route);
   assert.ok(select, 'the route no longer reads the event with one literal select — re-aim this guard');
-  const cols = select![1]!.split(',').map((c) => c.trim());
+  // `${HERO_MONOGRAM_COLUMNS}` stands for the canonical list, which carries both logo columns (asserted below).
+  const cols = select![2]!.split(',').map((c) => c.trim())
+    .flatMap((c) => (c === '${HERO_MONOGRAM_COLUMNS}' ? HERO_MONOGRAM_COLUMNS.split(',').map((h) => h.trim()) : [c]));
   for (const c of ['monogram_custom_svg', 'monogram_uploaded_svg', 'role_palette', 'logo_wanted']) {
     assert.ok(cols.includes(c), `the share card's read lost ${c} — ${c === 'logo_wanted' ? 'the switch would read as "on"' : 'the logo would not draw as the cover draws it'}`);
   }

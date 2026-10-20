@@ -9,7 +9,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { stableMediaPath } from '@/lib/papic-display-ref';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
-import { heroMarkSvg } from '@/lib/hero-monogram-data';
+import { HERO_MONOGRAM_COLUMNS, heroMarkSvg } from '@/lib/hero-monogram-data';
 import {
   renderRealStoryOgJpeg,
   renderCoupleMonogramOgJpeg,
@@ -83,8 +83,10 @@ export async function GET(
     const admin = createAdminClient();
     const { data: ev } = await admin
       .from('events')
+      // The couple's mark through the canonical list (HERO_MONOGRAM_COLUMNS — names, initials, colour, both logo
+      // columns), plus the two the cover's resolver also reads: the mood-board ink and the Logo switch.
       .select(
-        'event_id, display_name, event_date, monogram_text, monogram_color, monogram_custom_svg, monogram_uploaded_svg, role_palette, logo_wanted, story_cover_kind, story_cover_ref, landing_page_hero_image_url, landing_page_visibility, scheduled_launch_at, std_launched_at',
+        `${HERO_MONOGRAM_COLUMNS}, event_id, event_date, role_palette, logo_wanted, story_cover_kind, story_cover_ref, landing_page_hero_image_url, landing_page_visibility, scheduled_launch_at, std_launched_at`,
       )
       .eq('slug', slug)
       .maybeSingle();

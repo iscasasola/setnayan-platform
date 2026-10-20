@@ -163,3 +163,20 @@ test('text size — the sign-in "or … email" divider keeps both rules and cent
   assert.match(label, /text-align:\s*center/, 'a wrapped label stays centred between its rules');
   assert.match(label, /text-wrap:\s*balance/, 'a wrapped label breaks into even lines');
 });
+
+test('text size — a primary button grows with bigger text (app only), keeping the 44 px floor', () => {
+  // Walked 2026-10-20: the guest invitation's two-line door held `.button-primary`'s fixed h-11 and spilled its
+  // second line at 1.35×. The rule must key on the script's own attribute and skip the default ("1"), so the web
+  // and the default size render byte-identically.
+  const { stripComments } = require('./strip-comments') as typeof import('./strip-comments');
+  const css = stripComments(readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8'));
+  const m = css.match(/html\[data-text-scale\]:not\(\[data-text-scale='1'\]\)\s+\.button-primary\s*\{([^}]*)\}/);
+  assert.ok(m, 'the grow rule for .button-primary under a non-default text scale must exist');
+  assert.match(m![1], /height:\s*auto/, 'the fixed 44 px height gives way to the words');
+  assert.match(m![1], /min-height:\s*2\.75rem/, '44 px stays the floor');
+  assert.equal(runScript({ storeShell: true, appleSystemBody: true, bodyPx: IOS_DEFAULT_BODY_PX }).attrs.get(APP_TEXT_SCALE_ATTR), '1',
+    'at the default size the attribute reads "1", which the rule skips');
+  // It lives in the components layer, so a button's own h-*/min-h-*/py-* utility still wins.
+  const layerStart = css.lastIndexOf('@layer components', css.indexOf(m![0]));
+  assert.ok(layerStart >= 0 && css.indexOf('.button-primary {', layerStart) < css.indexOf(m![0]), 'declared after .button-primary, inside @layer components');
+});

@@ -950,6 +950,21 @@ html.guests-subnav-docked [data-shell-main] {
   .button-primary {
     @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
+  /*
+   * 🔠 With bigger iPhone text (the app only — `data-text-scale` is written by
+   * `appTextSizeScript`, lib/app-text-size.ts, and is "1" at the default size,
+   * so nothing here applies on the web or at the default), the primary button
+   * GROWS with its words instead of holding 44 px and letting them spill. The
+   * guest invitation's door ("Confirm your Booking" over "Upload your QR ·
+   * Sign in") spilled its second line at 1.35× in the simulator walk,
+   * 2026-10-20. Same layer, so a button's own `h-*` / `min-h-*` / `py-*`
+   * utility still wins; 44 px stays the floor.
+   */
+  html[data-text-scale]:not([data-text-scale='1']) .button-primary {
+    height: auto;
+    min-height: 2.75rem;
+    padding-block: 0.5rem;
+  }
 
   /*
    * THE INVITE DOOR'S BUTTON, IN THE COUPLE'S OWN COLOUR (owner Q2 = A,

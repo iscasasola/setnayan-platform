@@ -33,11 +33,16 @@
  *   · never BELOW 1. A person who chose smaller text keeps the design size: the
  *     16 px input floor (globals.css, `@media (pointer: coarse)`) is what stops
  *     iOS focus-zoom, and shrinking under it would bring that bug back.
- *   · never ABOVE `APP_TEXT_SCALE_MAX`. The largest accessibility sizes (AX3 =
- *     40 px body, 2.35×) would overflow fixed-height bars and 44 px controls
- *     whose labels are set in px. UIKit apps do the same with
- *     `maximumContentSizeCategory`. The cap is the walked size at which the
- *     store-shell screens still hold (simulator walk 2026-10-20, see the PR).
+ *   · never ABOVE `APP_TEXT_SCALE_MAX`. The accessibility sizes (AX1 = 28 px
+ *     body, 1.65× … AX3 = 40 px, 2.35×) overflow the fixed-height bars, pills
+ *     and 44 px controls whose labels are set in px. UIKit apps do the same
+ *     with `maximumContentSizeCategory`. Walked in the simulator 2026-10-20
+ *     (iPhone 17, the branch script injected into the live signed-out pages):
+ *     at 1.65× the guest invitation's door button spilled its second line and
+ *     the date broke in three; at 1.35× (XXXL, the largest standard size)
+ *     /login, /signup, /explore, /help and /web-only hold and the door holds
+ *     once `.button-primary` may grow (globals.css). So every accessibility
+ *     size is drawn at XXXL. Raising the cap is a layout job first (W5).
  *
  * ONLY IN THE STORE SHELL. The script runs after `storeShellMarkScript` and
  * returns at once unless that mark is on <html>, so Safari on an iPhone —
@@ -55,10 +60,11 @@
 export const IOS_DEFAULT_BODY_PX = 17;
 
 /**
- * The largest text scale the app applies. 1.65 ≈ AX1 (28 px body); every larger
- * accessibility size is held here. See the docblock for why there is a cap.
+ * The largest text scale the app applies: 1.35 ≈ XXXL (23 px body), the largest
+ * standard Dynamic Type size. Every accessibility size (AX1–AX5) is held here.
+ * See the docblock for why there is a cap and how it was chosen.
  */
-export const APP_TEXT_SCALE_MAX = 1.65;
+export const APP_TEXT_SCALE_MAX = 1.35;
 
 /** The attribute the script leaves on <html> with the scale it applied (React does not render it). */
 export const APP_TEXT_SCALE_ATTR = 'data-text-scale';

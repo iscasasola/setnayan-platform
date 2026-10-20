@@ -154,7 +154,7 @@ test('text size — the sign-in "or … email" divider keeps both rules and cent
   const block = (selector: RegExp): string => {
     const m = css.match(new RegExp(`${selector.source}\\s*\\{([^}]*)\\}`));
     assert.ok(m, `rule ${selector.source} must exist`);
-    return m![1];
+    return m![1] ?? '';
   };
   const rules = block(/\.home-reskin-ov \.hr-si-or::before,\s*\.home-reskin-ov \.hr-si-or::after/);
   const min = rules.match(/min-width:\s*(\d+(?:\.\d+)?)px/);
@@ -172,8 +172,9 @@ test('text size — a primary button grows with bigger text (app only), keeping 
   const css = stripComments(readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8'));
   const m = css.match(/html\[data-text-scale\]:not\(\[data-text-scale='1'\]\)\s+\.button-primary\s*\{([^}]*)\}/);
   assert.ok(m, 'the grow rule for .button-primary under a non-default text scale must exist');
-  assert.match(m![1], /height:\s*auto/, 'the fixed 44 px height gives way to the words');
-  assert.match(m![1], /min-height:\s*2\.75rem/, '44 px stays the floor');
+  const body = m![1] ?? '';
+  assert.match(body, /height:\s*auto/, 'the fixed 44 px height gives way to the words');
+  assert.match(body, /min-height:\s*2\.75rem/, '44 px stays the floor');
   assert.equal(runScript({ storeShell: true, appleSystemBody: true, bodyPx: IOS_DEFAULT_BODY_PX }).attrs.get(APP_TEXT_SCALE_ATTR), '1',
     'at the default size the attribute reads "1", which the rule skips');
   // It lives in the components layer, so a button's own h-*/min-h-*/py-* utility still wins.

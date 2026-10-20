@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Camera,
@@ -134,7 +133,6 @@ export function GuestHubBar({
   });
 
   // Self-rotation state (build ④ — flag-gated by selfRotateEnabled).
-  const router = useRouter();
   const [rotateConfirming, setRotateConfirming] = useState(false);
   const [rotateTyped, setRotateTyped] = useState('');
   const [rotateStatus, setRotateStatus] = useState<'idle' | 'done' | 'rate_limited' | 'error'>(
@@ -378,7 +376,6 @@ export function GuestHubBar({
                               if (res.ok) {
                                 setRotateStatus('done');
                                 setRotateConfirming(false);
-                                router.refresh();
                               } else if (res.reason === 'rate_limited') {
                                 setRotateStatus('rate_limited');
                               } else {

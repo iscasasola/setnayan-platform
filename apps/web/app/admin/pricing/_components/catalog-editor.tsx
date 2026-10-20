@@ -12,7 +12,9 @@
  * cost is real.
  *
  * ONE client component owns search / view / scope / which-card-is-open state
- * so none of it is lost when a save calls `router.refresh()` — a full
+ * so none of it is lost when a save's answer redraws the page — every save here
+ * revalidates (`revalidateCatalogSurfaces`), and that answer carries the render
+ * (no `router.refresh()` after it, which drew the page twice). A full
  * navigation (the old redirect-based save) would have reset all four.
  *
  * Each row is its OWN `<form>` bound to its OWN `useActionState` — this is
@@ -22,7 +24,6 @@
  */
 
 import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronDown, Lock, Search, Trash2, CircleCheck } from 'lucide-react';
 import {
   CLUSTER_ORDER,
@@ -196,7 +197,6 @@ export function PriceCatalogBrowser({
   /** [code, title][] of active retail rows, for the "Replaced by" picker. */
   retailTitlesForReplacement: [string, string][];
 }) {
-  const router = useRouter();
   const [q, setQ] = useState('');
   const [view, setView] = useState<ViewState>('sale');
   const [scope, setScope] = useState<Family | 'all'>('all');
@@ -240,10 +240,6 @@ export function PriceCatalogBrowser({
       return r.title.toLowerCase().includes(needle) || r.code.toLowerCase().includes(needle);
     });
   }, [rows, view, scope, q]);
-
-  function afterMutate() {
-    router.refresh();
-  }
 
   return (
     <div>
@@ -319,7 +315,6 @@ export function PriceCatalogBrowser({
           openCode={openCode}
           setOpenCode={setOpenCode}
           retailTitlesForReplacement={retailTitlesForReplacement}
-          afterMutate={afterMutate}
         />
       ) : (
         <SaleOrDraftShelves
@@ -328,7 +323,6 @@ export function PriceCatalogBrowser({
           openCode={openCode}
           setOpenCode={setOpenCode}
           retailTitlesForReplacement={retailTitlesForReplacement}
-          afterMutate={afterMutate}
         />
       )}
     </div>
@@ -477,7 +471,6 @@ type ShelfListProps = {
   openCode: string | null;
   setOpenCode: (c: string | null) => void;
   retailTitlesForReplacement: [string, string][];
-  afterMutate: () => void;
 };
 
 function RetiredShelves(props: ShelfListProps) {
@@ -494,7 +487,7 @@ function RetiredShelves(props: ShelfListProps) {
       {safe.length > 0 && (
         <div className="px-4">
           <Shelf title="Safe to remove" count={safe.length} tone="danger" note="never sold · nothing points at them" />
-          <RemoveAllBar count={safe.length} afterMutate={props.afterMutate} />
+          <RemoveAllBar count={safe.length} />
           {safe.map((r) => (
             <RowCard key={r.code} row={r} {...props} />
           ))}
@@ -524,16 +517,14 @@ function RetiredShelves(props: ShelfListProps) {
   );
 }
 
-function RemoveAllBar({ count, afterMutate }: { count: number; afterMutate: () => void }) {
+function RemoveAllBar({ count }: { count: number }) {
   const [confirming, setConfirming] = useState(false);
   const [state, formAction, pending] = useActionState<
     { ok: boolean; message: string | null; removed: number },
     FormData
   >(
     async (_prev, _formData) => {
-      const r = await removeAllSafeRetailRows();
-      if (r.ok) afterMutate();
-      return r;
+      return removeAllSafeRetailRows();
     },
     INITIAL_REMOVE_ALL_STATE,
   );
@@ -585,7 +576,6 @@ function RowCard(props: {
   openCode: string | null;
   setOpenCode: (c: string | null) => void;
   retailTitlesForReplacement: [string, string][];
-  afterMutate: () => void;
 }) {
   const { row } = props;
   const open = props.openCode === row.code;
@@ -701,9 +691,8 @@ function Tag({ children, tone }: { children: ReactNode; tone?: 'gold' | 'neg' })
 function CardBody(props: {
   row: PriceRowProp;
   retailTitlesForReplacement: [string, string][];
-  afterMutate: () => void;
 }) {
-  const { row, afterMutate } = props;
+  const { row } = props;
   const view = viewOf(row);
 
   return (
@@ -711,9 +700,9 @@ function CardBody(props: {
       {view === 'off' && row.kind === 'retail' && row.removability && (
         <HeldByPanel removability={row.removability} />
       )}
-      <SaveSection row={row} afterMutate={afterMutate} />
+      <SaveSection row={row} />
       <HistorySection history={row.history} />
-      <CardFooter row={row} retailTitlesForReplacement={props.retailTitlesForReplacement} afterMutate={afterMutate} />
+      <CardFooter row={row} retailTitlesForReplacement={props.retailTitlesForReplacement} />
     </div>
   );
 }
@@ -791,13 +780,11 @@ function MoneyField({
   );
 }
 
-function SaveSection({ row, afterMutate }: { row: PriceRowProp; afterMutate: () => void }) {
+function SaveSection({ row }: { row: PriceRowProp }) {
   const action = row.kind === 'retail' ? saveRetailRow : row.kind === 'bundle' ? saveBundleRow : saveVendorRow;
   const [state, formAction] = useActionState<RowActionState, FormData>(
     async (prev, fd) => {
-      const r = await action(prev, fd);
-      if (r.ok) afterMutate();
-      return r;
+      return action(prev, fd);
     },
     INITIAL_ROW_STATE,
   );
@@ -989,11 +976,9 @@ function HistorySection({ history }: { history: PricingHistoryEntryProp[] }) {
 function CardFooter({
   row,
   retailTitlesForReplacement,
-  afterMutate,
 }: {
   row: PriceRowProp;
   retailTitlesForReplacement: [string, string][];
-  afterMutate: () => void;
 }) {
   const view = viewOf(row);
   const [retiring, setRetiring] = useState(false);
@@ -1006,27 +991,20 @@ function CardFooter({
   const [retireState, retireFormAction] = useActionState<RowActionState, FormData>(
     async (prev, fd) => {
       const r = await retireAction(prev, fd);
-      if (r.ok) {
-        afterMutate();
-        setRetiring(false);
-      }
+      if (r.ok) setRetiring(false);
       return r;
     },
     INITIAL_ROW_STATE,
   );
   const [reactivateState, reactivateFormAction] = useActionState<RowActionState, FormData>(
     async (prev, fd) => {
-      const r = await reactivateAction(prev, fd);
-      if (r.ok) afterMutate();
-      return r;
+      return reactivateAction(prev, fd);
     },
     INITIAL_ROW_STATE,
   );
   const [removeState, removeFormAction] = useActionState<RowActionState, FormData>(
     async (prev, fd) => {
-      const r = await removeRetailRowForGood(prev, fd);
-      if (r.ok) afterMutate();
-      return r;
+      return removeRetailRowForGood(prev, fd);
     },
     INITIAL_ROW_STATE,
   );

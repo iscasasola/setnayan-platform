@@ -59,12 +59,15 @@ export function WidgetList({ widgets, page }: Props) {
               | null;
             setError(body?.error?.message ?? `Reorder failed (${res.status}).`);
             // Revert to server state by triggering a refresh.
+            // one-render: keep (fetch) — it follows a `fetch()` to the widgets API (a refused reorder re-reads the server order); no server action answered.
             router.refresh();
             return;
           }
+          // one-render: keep (fetch) — it follows a `fetch()` to the widgets API; no server action answered with a render.
           router.refresh();
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Network error.');
+          // one-render: keep (fetch) — it follows a `fetch()` to the widgets API; no server action answered with a render.
           router.refresh();
         }
       });
@@ -122,6 +125,7 @@ export function WidgetList({ widgets, page }: Props) {
             );
             return;
           }
+          // one-render: keep (fetch) — it follows a `fetch()` to the widgets API; no server action answered with a render.
           router.refresh();
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Network error.');

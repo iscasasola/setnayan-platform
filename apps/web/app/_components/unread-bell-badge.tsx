@@ -101,6 +101,7 @@ export function UnreadBellBadge({
           // section appears without a reload (owner 2026-09-28).
           const t = (payload.new as { type?: string } | null)?.type;
           if (t === 'cohost_added' || t === 'event_invitation') {
+            // one-render: keep (realtime) — a notification arrived (made a host / invited); nothing was pressed here.
             router.refresh();
           }
         },

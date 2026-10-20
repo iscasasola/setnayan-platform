@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   REVEAL_FINE_TUNE,
   type StudioAnimKind,
@@ -84,7 +83,6 @@ export function AnimateRows({
   /** The owned / under-review confirmation, rendered by the page. */
   unlock?: React.ReactNode;
 }) {
-  const router = useRouter();
   const [kind, setKind] = useState<StudioAnimKind>(initialKind);
   const [timing, setTiming] = useState(initialTiming);
   const [tuneOpen, setTuneOpen] = useState(false);
@@ -113,8 +111,8 @@ export function AnimateRows({
     const ok = await save(animate);
     setBusy(false);
     if (ok) {
+      // ⚡ `commitMonogram` revalidates the event: its answer carries the redraw — no second render.
       setResult({ tone: 'ok', text: animate ? 'Saved — it plays for your guests.' : 'Saved — guests see it still.' });
-      router.refresh();
     }
   }
 

@@ -58,6 +58,7 @@ export function Reconnecting({ reset, onGiveUp }: { reset: () => void; onGiveUp:
     }
     const timer = window.setTimeout(() => {
       startTransition(() => {
+        // one-render: keep (retry) — the page could not be read (offline); the reconnect step asks for it once more.
         latest.current.router.refresh();
         latest.current.reset();
       });

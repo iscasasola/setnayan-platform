@@ -4,7 +4,7 @@ Owner, after the Supabase move to Pro + Micro: *"why is it still loading slow �
 The database was healthy; the couple's signed-in pages were the wait. The Guests page awaited ten
 reads one after another and the event's `events` row was read 5–7 times per request.
 
-- `lib/event-row-once.ts` — `openDashboardEventRow` + `DASHBOARD_EVENT_COLUMNS`: the couple's
+- `lib/event-row-once.ts` — `openDashboardEventRow` + `DASHBOARD_ROW_CARRIES`: the couple's
   dashboard reads its event row ONCE per render, as the viewer's own client (RLS unchanged), and every
   `eventRowOnce` asker on that client is answered from it. A refused one read hands out nothing — each
   asker sends its own read and keeps its own failure.

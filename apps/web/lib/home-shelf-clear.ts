@@ -1,4 +1,4 @@
-import { revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { HOME_SHELF_TAGS, type HomeShelfSubject } from '@/lib/home-shelf-tags';
 
 /**
@@ -24,4 +24,22 @@ export function clearHomeShelf(...subjects: HomeShelfSubject[]): void {
       console.error(`[home-shelf] could not clear "${subject}" — the page catches up within the hard age`, error);
     }
   }
+  if (subjects.some((s) => JOURNAL_SUBJECTS.has(s))) {
+    try {
+      revalidatePath(JOURNAL_ARTICLE_ROUTE, 'page');
+    } catch (error) {
+      console.error('[home-shelf] could not revalidate the Journal articles — they catch up within their own revalidate', error);
+    }
+  }
 }
+
+/**
+ * 📰 THE JOURNAL RIDES THE SAME CLEARS (2026-10-20, fewer-reads). A Journal article
+ * (`app/blog/[slug]/page.tsx`, ISR for a day) embeds storyteller chapters and credits
+ * shops. The writes that take a chapter, a storyteller or a shop DOWN are exactly the
+ * `clears` writes of these three subjects — every one already calls this function
+ * (`lib/home-shelf-writes-clear.test.ts`) — so they revalidate every article too, and
+ * an unpublished chapter or a hidden shop leaves the Journal at once instead of a day later.
+ */
+const JOURNAL_SUBJECTS: ReadonlySet<HomeShelfSubject> = new Set<HomeShelfSubject>(['stories', 'people', 'shops']);
+export const JOURNAL_ARTICLE_ROUTE = '/blog/[slug]';

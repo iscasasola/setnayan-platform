@@ -46,6 +46,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard scene is UIWindowScene else { return }
 
+        // The storyboard's root (the Capacitor bridge) becomes the only child
+        // of a host that keeps the web view out of the LEFT/RIGHT safe areas —
+        // the iPhone Duo's outer-screen status column, a landscape notch — and
+        // leaves top/bottom exactly as before (SideSafeAreaHost.swift). Done
+        // FIRST, before the early return below, so it holds for every launch,
+        // and before `loadViewIfNeeded()`, so that call loads the host, whose
+        // `viewDidLoad` loads the bridge and its plugins.
+        if let bridge = window?.rootViewController as? SetnayanBridgeViewController {
+            window?.rootViewController = SideSafeAreaHostViewController(hosting: bridge)
+        }
+
         // A cold launch from a link does NOT call `openURLContexts` or
         // `continue` — the link arrives here, once, in `connectionOptions`.
         let urls = connectionOptions.urlContexts

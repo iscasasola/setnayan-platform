@@ -42,7 +42,12 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     /// otherwise it shows the fallback even though no error ever arrived.
     private var launchWatchdog: DispatchWorkItem?
 
-    /// How long the app may show nothing before the fallback takes over.
+    /// When the watchdog was first armed — only for the timing lines in the
+    /// log, which are how a slow launch gets MEASURED instead of guessed.
+    private var launchStartedAt: CFTimeInterval = 0
+
+    /// Phase 1 — how long the app may wait for the FIRST RESPONSE (the first
+    /// main-frame commit) before the fallback takes over.
     ///
     /// 🔴 THIS NUMBER IS MEASURED, NOT CHOSEN. `.lighthouserc.json` asserts
     /// this app's own throttled-mobile ceilings — 150ms RTT · 1638kbps · 4x CPU
@@ -56,11 +61,11 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     ///     largest-contentful-paint <= 4500ms
     ///     interactive              <= 5200ms   <- the slowest thing asserted
     ///
-    /// 12s is 2.3x the slowest measured ceiling. That is deliberate headroom
-    /// for a network materially worse than the CI profile — hotel wifi, a
-    /// congested cell, a captive portal that has not yet intercepted — while
-    /// staying inside the window where a person is still waiting rather than
-    /// concluding the app is broken. Apple's reviewer did the latter.
+    /// 12s is 2.3x the slowest measured ceiling — and a first RESPONSE comes
+    /// long before "interactive". Nothing back from the server in 12 s is the
+    /// shape Apple's reviewer met (no error, no page), so this phase keeps the
+    /// shipped number: a phone that is genuinely offline sees Retry exactly as
+    /// soon as it did in build 4.
     ///
     /// ⚠ CHANGING IT: re-read the Lighthouse assertions first. If they are
     /// ratcheted down (the file says to do that quarterly), this can follow
@@ -68,10 +73,39 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     /// — a fallback that interrupts a working load is a different bug.
     private static let launchDeadline: TimeInterval = 12
 
+    /// Phase 2 (build 5, walk D8 of PR #6716) — once the server HAS answered
+    /// (first main-frame commit), how much longer the page may take to finish
+    /// loading before the fallback takes over. The deadline is re-armed from
+    /// the commit, so the total ceiling for a reachable-but-slow launch is
+    /// "time to first response + 20 s".
+    ///
+    /// ⚖ WHY A SECOND PHASE, NOT A BIGGER SINGLE NUMBER. Build 4's single 12 s
+    /// clock ran from launch to `didFinish`, which waits for every subresource
+    /// (scripts, fonts, images) — on a slow phone or a slow network that can
+    /// pass 12 s with the server reachable and the page arriving, and the
+    /// couple was then thrown onto "You're offline" in the middle of a working
+    /// load (seen in the simulator walk, WebContent stalled 10–45 s). A commit
+    /// proves the host is reachable, so the remaining risk is only "headers
+    /// then a stalled body" — still bounded here, never white forever — while
+    /// the genuinely offline case keeps phase 1's 12 s. 20 s is ~4x the
+    /// slowest Lighthouse ceiling above.
+    private static let paintDeadline: TimeInterval = 20
+
     /// In-app plugins (no npm package) register here — Capacitor's documented
     /// hook, which runs before the web view loads, so the JS proxy is injected
     /// for the very first page. `SetnayanAuth` is the native sign-in (B3):
     /// the Sign in with Apple sheet + Google in the system browser.
+    /// The web view is a `SideSafeWebView` so `SideSafeAreaHostViewController`
+    /// (SideSafeAreaHost.swift) can keep it out of the left/right safe areas —
+    /// the Duo's outer-screen status column, a landscape iPhone's notch — under
+    /// every writer of its frame, the Keyboard plugin included. Capacitor's own
+    /// implementation is `WKWebView(frame:configuration:)`; this is the same
+    /// call on the subclass, and everything Capacitor configures afterwards
+    /// (delegates, scroll view, inspectable, user agent) is unchanged.
+    override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
+        SideSafeWebView(frame: frame, configuration: configuration)
+    }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(SetnayanAuthPlugin())
@@ -104,6 +138,7 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
             self?.showOfflineFallback()
         }
         proxy.onContentRendered = { [weak self] in self?.cancelLaunchWatchdog() }
+        proxy.onFirstCommit = { [weak self] in self?.rearmWatchdogForPaint() }
         offlineFallbackDelegate = proxy
         webView.navigationDelegate = proxy
 
@@ -124,6 +159,20 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     /// `launchShowDuration` (2s) and the WebView stays white forever. There was
     /// no timer anywhere in this file, so nothing could notice.
     private func startLaunchWatchdog() {
+        launchStartedAt = CACurrentMediaTime()
+        arm(after: Self.launchDeadline, phase: "no response")
+    }
+
+    /// The first main-frame commit: the server answered. Replace the
+    /// first-response deadline with the (longer) finish-loading one.
+    private func rearmWatchdogForPaint() {
+        guard launchWatchdog != nil else { return }
+        NSLog("[launch-watchdog] first response after %.1fs", CACurrentMediaTime() - launchStartedAt)
+        arm(after: Self.paintDeadline, phase: "responded, not finished")
+    }
+
+    private func arm(after seconds: TimeInterval, phase: String) {
+        launchWatchdog?.cancel()
         let deadline = DispatchWorkItem { [weak self] in
             guard let self else { return }
             // The proxy owns the one true answer to "has anything painted".
@@ -131,16 +180,21 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
             // the two drifting apart.
             guard self.offlineFallbackDelegate?.hasRenderedContent == false else { return }
             NSLog(
-                "[launch-watchdog] nothing painted in %.0fs — showing the bundled fallback",
-                Self.launchDeadline
+                "[launch-watchdog] %@ after %.1fs — showing the bundled fallback",
+                phase,
+                CACurrentMediaTime() - self.launchStartedAt
             )
+            self.launchWatchdog = nil
             self.showOfflineFallback()
         }
         launchWatchdog = deadline
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.launchDeadline, execute: deadline)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: deadline)
     }
 
     private func cancelLaunchWatchdog() {
+        if launchWatchdog != nil {
+            NSLog("[launch-watchdog] finished loading after %.1fs", CACurrentMediaTime() - launchStartedAt)
+        }
         launchWatchdog?.cancel()
         launchWatchdog = nil
     }
@@ -187,6 +241,11 @@ final class OfflineFallbackNavigationDelegate: NSObject, WKNavigationDelegate {
     /// controller can cancel its launch deadline.
     var onContentRendered: (() -> Void)?
 
+    /// Called once, on the first main-frame commit — the server answered — so
+    /// the view controller can move its launch deadline to the finish phase.
+    var onFirstCommit: (() -> Void)?
+    private var hasCommitted = false
+
     init(forwardingTo target: NSObject, onUnreachable: @escaping () -> Void) {
         self.target = target
         self.onUnreachable = onUnreachable
@@ -226,17 +285,19 @@ final class OfflineFallbackNavigationDelegate: NSObject, WKNavigationDelegate {
     /// no error will ever be raised. Cancelling here would re-open exactly the
     /// hole Apple found, for the harder-to-reproduce half of it.
     ///
-    /// The cost of not cancelling is bounded and recoverable: a genuinely
-    /// slow-but-working load that crosses the deadline gets replaced by the
-    /// fallback, which carries a Retry. The cost of cancelling is unbounded —
-    /// white, forever, with no control on screen. Given the deadline is 2.3x
-    /// the slowest ceiling this app asserts for itself, the first is rare and
-    /// the second is what got the app rejected.
+    /// What the FIRST commit does instead (build 5, D8) is RE-ARM the deadline
+    /// with `paintDeadline`: the host is now proven reachable, so a slow page is
+    /// given longer to finish, and a stalled body still ends on the fallback's
+    /// Retry — bounded, never white forever.
     ///
     /// It is implemented rather than omitted so the forwarding stays explicit:
     /// Capacitor's handler must still see the callback.
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         navigationTarget?.webView?(webView, didCommit: navigation)
+        if !hasCommitted && !hasRenderedContent {
+            hasCommitted = true
+            onFirstCommit?()
+        }
     }
 
     /// Capacitor's own policy handler only recognises `server.url`. It treats

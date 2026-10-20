@@ -120,6 +120,7 @@ import { JustAdded } from './just-added';
 import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
 import { useRowState } from './use-row-state';
+import { followColumn } from './dock-follows-column';
 import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
@@ -470,19 +471,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return () => cancelAnimationFrame(r);
   }, [gview]);
 
-  // ── On a computer the thumb row spans the content column (the rail stays clear).
+  // ── 🖥 From 701 the thumb row sits UNDER THE READING COLUMN, edge to edge with it, and stays there when the column
+  //    moves (owner 2026-10-20, "is the desktop view done fixing?"). The column is THIS screen — `dock-follows-column.ts`.
   useEffect(() => {
     const root = rootRef.current;
-    const col = root?.parentElement;
-    if (!root || !col) return;
-    const sync = () => {
-      const r = col.getBoundingClientRect();
-      root.style.setProperty('--gs-left', `${Math.max(0, r.left)}px`);
-      root.style.setProperty('--gs-right', `${Math.max(0, window.innerWidth - r.right)}px`);
-    };
-    sync();
-    window.addEventListener('resize', sync);
-    return () => window.removeEventListener('resize', sync);
+    return root ? followColumn(root) : undefined;
   }, []);
 
   // ── The sticky block's height → the pinned section header sits under it.

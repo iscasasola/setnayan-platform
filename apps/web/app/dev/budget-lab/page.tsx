@@ -82,7 +82,14 @@ export default async function BudgetLabPage({
   }
 
   const body = (
-    <main className="sn-col" style={{ maxWidth: 720, margin: '0 auto', padding: '8px 16px 96px' }} data-budget-lab={state}>
+    /* With `&shell=1` the column is the real page's (`budget/page.tsx`: `sn-col max-w-3xl` = the 48-rem reading column,
+       inside the layout's gutter that LabShell draws) — the old 720-px lab cap made the desktop walk measure a column
+       the real page does not have. Without the shell it stays the phone stand-in it always was. */
+    <main
+      className={q.shell === '1' ? 'sn-col max-w-3xl' : 'sn-col'}
+      style={q.shell === '1' ? undefined : { maxWidth: 720, margin: '0 auto', padding: '8px 16px 96px' }}
+      data-budget-lab={state}
+    >
       <BudgetScreen
         eventId={E}
         canEdit={state !== 'view'}

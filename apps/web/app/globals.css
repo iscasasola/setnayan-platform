@@ -7643,6 +7643,11 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 .sg-meter[data-mood="low"] > span { background: rgb(var(--color-warn)); }
 .sg-meter[data-mood="gone"] > span { background: rgb(var(--color-danger)); }
 .sg-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+/* 🧾 The slim line — a service not added (owner 2026-10-14 ✅): one line, its one door on the right. */
+.sg-row[data-slim] { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; }
+.sg-row[data-slim] .sg-acts { margin-top: 0; flex: none; }
+.sg-price { font-size: 13px; margin-top: 2px; color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent); }
+.home-svc-k { grid-column: 1 / -1; margin: 8px 0 0; }
 .sg-band { border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 28%, color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent)); border-radius: 20px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 16px 16px 14px; color: rgb(var(--color-ink)); }
 .sg-band .sg-row1 { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
 .sg-big { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }

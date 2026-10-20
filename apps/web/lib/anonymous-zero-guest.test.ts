@@ -214,6 +214,10 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // "Your shots"); their own captures, read by their own guest_id.
     'guestOwnShots',
     'kind',
+    // moreAnswers (2026-10-20) — how many of the couple's switched-on questions THIS guest,
+    // already coming, still owes ("You're coming ✓ · N more answers"). About the guest's
+    // own reply only — the key gate's missing set, counted.
+    'moreAnswers',
     'needsFaceEnroll',
     'papicGuest',
     // passCard (2026-09-29) — whether THIS guest has a pass card (accepted and

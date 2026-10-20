@@ -147,6 +147,90 @@ export function tileForPlanGroup(groupId: string): WeddingTile | null {
   return first ? tileForCategory(first) : null;
 }
 
+/* ── "ALSO COVERS" SPEAKS THE SUPPLIERS PAGE'S OWN ROWS (owner 2026-10-20) ────
+ *
+ * Owner, verbatim, on a Dunkin' card filed under Everything else: *"how do i
+ * connect the dunkin donuts to a food truck category?"* … *"we already have
+ * that food truck category"* … *"we do not have the categories synced
+ * properly"*. He was right: the card's "Also covers" dropdown listed the ~30
+ * PLAN GROUPS (`wedding-plan-groups.ts`) while the Suppliers page draws its
+ * rows from the TAXONOMY TILES (`buildShortlistFolders` — `service_categories`
+ * tier 2: Food Truck, Food Cart, Massage Chair, …). Two lists for one question,
+ * and every tile no plan group names (Food Truck among them) was unreachable.
+ *
+ * ONE LIST NOW: the dropdown offers the tiles `buildShortlistFolders` emits —
+ * the same names, folders and order as the Suppliers page — and a ticked one
+ * is stored as a COVER KEY that `linkedTilesForRow` turns straight back into
+ * that tile. Guard: `also-covers-is-the-suppliers-rows.test.ts`.
+ *
+ * ⚖ THE STORED VOCABULARY STAYS COMPATIBLE — no migration. The column
+ * `event_vendors.covers_plan_groups` already holds plan-group ids, and the
+ * Budget readers (`bucketForVendor`, `attributeCommitted`, the vendors page's
+ * category-satisfaction) read it AS plan groups. So a tile is stored as:
+ *   · the plan-group id whose tile it IS, when one exists (Cake → `cake`,
+ *     Photo Booth → `photobooth`) — byte-for-byte what the old picker wrote,
+ *     so every budget reader keeps its meaning;
+ *   · otherwise `tile:<tile id>` (Food Truck → `tile:food_truck`). NOT the bare
+ *     tile id: a plan-group id can also be a tile id the group does NOT open on
+ *     — `accommodation` the group opens on Reception, while Accommodation is a
+ *     row of its own (the guard lists every such id, so a new one is seen) — and
+ *     a bare id would be read back as the wrong row. The prefix cannot collide
+ *     with any plan-group id, and every plan-group reader drops it via
+ *     `planGroupsOfCovers` — a tile no plan group names has no budget line, so
+ *     the money stays on the card's own row, exactly as before.
+ */
+
+/** Marks a cover key that names a Suppliers-page row (tile) no plan group opens on. */
+export const COVER_TILE_PREFIX = 'tile:';
+
+const PLAN_GROUP_IDS = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+
+/** The FIRST plan group (PLAN_GROUPS order) that opens on exactly this tile, or null. */
+export function planGroupForTile(tile: string): string | null {
+  for (const g of PLAN_GROUPS) {
+    if (tileForPlanGroup(g.id) === tile) return g.id as string;
+  }
+  return null;
+}
+
+/** What "Also covers" stores for a ticked Suppliers-page row. See the block above. */
+export function coverKeyForTile(tile: string): string {
+  return planGroupForTile(tile) ?? `${COVER_TILE_PREFIX}${tile}`;
+}
+
+/** The Suppliers-page row a stored cover key draws the card under, or null. */
+export function tileForCover(key: string): WeddingTile | null {
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (key.startsWith(COVER_TILE_PREFIX)) {
+    const t = key.slice(COVER_TILE_PREFIX.length);
+    return t.length > 0 ? (t as WeddingTile) : null;
+  }
+  return tileForPlanGroup(key);
+}
+
+/** The plan group a stored cover key means for the Budget readers, or null. */
+export function planGroupForCover(key: string): string | null {
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (PLAN_GROUP_IDS.has(key)) return key;
+  if (key.startsWith(COVER_TILE_PREFIX)) return planGroupForTile(key.slice(COVER_TILE_PREFIX.length));
+  return null;
+}
+
+/**
+ * A row's cover keys as PLAN GROUPS — the only vocabulary the Budget readers
+ * speak. Order kept, de-duplicated; a key with no plan group is dropped (it is
+ * a Suppliers-page row only, and carries no money). Every reader that treats
+ * `covers_plan_groups` as plan groups goes through this, never the raw array.
+ */
+export function planGroupsOfCovers(keys: readonly unknown[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const k of Array.isArray(keys) ? keys : []) {
+    const g = typeof k === 'string' ? planGroupForCover(k) : null;
+    if (g && !out.includes(g)) out.push(g);
+  }
+  return out;
+}
+
 /**
  * Every OTHER tile a supplier row also covers, in the order the couple chose
  * them, de-duplicated, never including the row's own tile. Pure; the one
@@ -166,11 +250,58 @@ export function linkedTilesForRow(row: {
   const out: WeddingTile[] = [];
   for (const id of covers) {
     if (typeof id !== 'string') continue;
-    const t = tileForPlanGroup(id);
+    const t = tileForCover(id);
     if (!t || t === home || out.includes(t)) continue;
     out.push(t);
   }
   return out;
+}
+
+/**
+ * A row's stored cover keys, read as SUPPLIERS-PAGE ROWS: tile → the keys
+ * already stored for it (kept byte-for-byte — a legacy `music_entertainment`
+ * and `live_band` both draw under Live Band, and both stay), plus the keys that
+ * name no row (kept and still submitted). The card's own row is dropped: it is
+ * implied by the row's category and the column means "ALSO covers".
+ */
+export function coversByRow(
+  stored: readonly unknown[] | null | undefined,
+  ownTile: string | null,
+): { byTile: Map<string, string[]>; unplaced: string[] } {
+  const byTile = new Map<string, string[]>();
+  const unplaced: string[] = [];
+  for (const key of Array.isArray(stored) ? stored : []) {
+    if (typeof key !== 'string' || key.length === 0) continue;
+    const tile = tileForCover(key);
+    if (!tile) {
+      if (!unplaced.includes(key)) unplaced.push(key);
+      continue;
+    }
+    if (tile === ownTile) continue;
+    const keys = byTile.get(tile) ?? [];
+    if (!keys.includes(key)) keys.push(key);
+    byTile.set(tile, keys);
+  }
+  return { byTile, unplaced };
+}
+
+/** One "Also covers" option: a Suppliers-page row, and the key that stores it. */
+export type CoverOption = { key: string; tile: string; label: string };
+/** The dropdown's list — the Suppliers page's folders, in the page's order. */
+export type CoverCatalogFolder = { folder: string; label: string; options: CoverOption[] };
+
+/**
+ * The "Also covers" list FROM the Suppliers page's own folders — every row the
+ * page can draw (its rows and its "＋ Add to your event" pool alike), with the
+ * page's labels, folders and order. Pure, so the page, the card sheet and the
+ * workspace editor cannot each build their own.
+ */
+export function coverCatalogFromFolders(folders: readonly ShortlistFolder[]): CoverCatalogFolder[] {
+  return folders.map((f) => ({
+    folder: f.folder as string,
+    label: f.label,
+    options: f.tiles.map((t) => ({ key: coverKeyForTile(t.tile), tile: t.tile as string, label: t.label })),
+  }));
 }
 
 /**

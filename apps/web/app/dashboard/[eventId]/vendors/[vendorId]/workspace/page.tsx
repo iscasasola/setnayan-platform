@@ -76,7 +76,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { tileForCategory } from '@/lib/shortlist-taxonomy';
+import { readCoverCatalog } from '@/lib/cover-catalog.server';
 import {
   formatCentavosPhp,
   VENDOR_PACKAGE_ITEM_SELECT,
@@ -600,26 +601,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
   const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
-
-  // DIY parity (2026-06-11): "also covers" options for the host-authored
-  // links on a manual vendor — every plan group except this vendor's own.
-  const ownGroupId = planGroupForCategory(ev.category as VendorCategory);
-  // 🔑 EVERY CATEGORY IS LISTED, INCLUDING THIS SUPPLIER'S OWN (owner
-  // 2026-09-20: "what services does this cover. so they can pick all
-  // categories" · "combine categories they picked").
-  //
-  // It used to `filter((g) => g.id !== ownGroupId)`. Logically defensible —
-  // the own group is covered by construction — but what the couple SAW was a
-  // list of everything except the one thing they knew this supplier does,
-  // which reads as an omission, not an implication. The own group is now
-  // present, always on, and not togglable: it states the fact instead of
-  // hiding it, and it cannot be switched off into a lie.
-  const coverOptions = PLAN_GROUPS.map((g) => ({
-    id: g.id as string,
-    label: g.label,
-    /** Always-on, disabled: this is where the couple added them. */
-    locked: g.id === ownGroupId,
-  }));
 
   // ── The couple's own service card for a self-added supplier (2026-09-20) ──
   // Under their own RLS (`event_manual_vendors_host_all`), keyed on the
@@ -1564,6 +1545,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const hasPackageLines =
     packageIncludedItems.length + packageAddOnItems.length > 0;
 
+  // DIY parity (2026-06-11): "also covers" for the host-authored links on a
+  // manual vendor. 🔑 THE SUPPLIERS PAGE'S OWN ROWS (owner 2026-10-20, "we do
+  // not have the categories synced properly"): `readCoverCatalog` runs the same
+  // `buildShortlistFolders` call the page draws its rows with, so Food Truck,
+  // Food Cart, Massage Chair … can be ticked here as on the card sheet. The
+  // booking's own row is said under the dropdown, locked (owner 2026-09-20:
+  // "so they can pick all categories" — it states the fact, it cannot be
+  // switched off into a lie). Only read when the editor below renders.
+  const showsHostEditor = !hasPackageLines && isOffPlatformSupplier(ev);
+  const coverRead = showsHostEditor ? await readCoverCatalog(eventId) : null;
+  const coverCatalog = coverRead?.ok ? coverRead.catalog : undefined;
+  const ownTile = tileForCategory(ev.category as VendorCategory);
+  const ownCoverLabel =
+    coverCatalog?.flatMap((f) => f.options).find((o) => o.tile === ownTile)?.label ??
+    VENDOR_CATEGORY_LABEL[ev.category as VendorCategory] ??
+    'Their own category';
+
+
   const includedSection =
       packageIncludedItems.length > 0 ? (
         <section
@@ -1597,7 +1596,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             ))}
           </ul>
         </section>
-      ) : !hasPackageLines && isOffPlatformSupplier(ev) ? (
+      ) : showsHostEditor ? (
         /* DIY parity (owner doctrine 2026-06-11): an off-platform supplier has
            no vendor-authored package, so the HOST describes the order — what's
            included + which other plan categories it covers. The covers links
@@ -1615,7 +1614,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           displayName={displayName}
           initialInclusions={ev.host_inclusions ?? []}
           initialCovers={ev.covers_plan_groups ?? []}
-          options={coverOptions}
+          category={ev.category}
+          ownLabel={ownCoverLabel}
+          catalog={coverCatalog}
         />
       ) : null;
 

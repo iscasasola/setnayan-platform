@@ -43,6 +43,7 @@ export function railToolsSignedOut(): ReadonlyArray<RailTool> {
     href: a.href,
     name: a.name,
     line: a.railLine,
+    icon: a.railIcon,
     demo: a.demo?.id,
   }));
 }
@@ -143,6 +144,7 @@ export function railToolsSignedIn(
       name: a.name,
       // See the `line` note on RailTool: signed in, silence beats selling.
       line: null,
+      icon: a.railIcon,
     };
   });
 
@@ -172,7 +174,7 @@ export function railToolsSignedIn(
   if (!eventId) return rows;
   return [
     ...rows,
-    { key: '__all__', href: studioHubHref(eventId), name: STUDIO_HUB_ALL_LABEL, line: null },
+    { key: '__all__', href: studioHubHref(eventId), name: STUDIO_HUB_ALL_LABEL, line: null, icon: 'suite' },
   ];
 }
 
@@ -205,6 +207,7 @@ export function plannerDoorwayRows(insideEvent: boolean): ReadonlyArray<RailTool
     href: a.href,
     name: a.name,
     line: a.railLine,
+    icon: a.railIcon,
   }));
 }
 
@@ -238,5 +241,6 @@ export function togetherDoorwayRows(signedIn: boolean): ReadonlyArray<RailTool> 
     href: a.href,
     name: a.name,
     line: a.railLine,
+    icon: a.railIcon,
   }));
 }

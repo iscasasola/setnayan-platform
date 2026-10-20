@@ -626,8 +626,9 @@ html.dark .fd {
   padding-top: 8px;
   padding-bottom: 8px;
 }
-.fd-row-2l .fd-dot {
-  margin-top: 7px;
+.fd-row-2l .fd-gi {
+  /* The 18-px icon sits on the name's first line, not on the row's centre. */
+  margin-top: 1px;
 }
 .fd-toolwrap {
   display: flex;
@@ -650,16 +651,11 @@ html.dark .fd {
   color: var(--fd-gold);
   white-space: nowrap;
 }
-/* At the 72px icon strip the labels are hidden already; make sure the line and
-   the demo affordance go with them rather than reflowing the strip. */
-.fd-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-hi);
-  flex: 0 0 6px;
-  margin: 0 7px;
-}
+/* ⛔ `.fd-dot` IS GONE (2026-10-20). The tool rows drew a 6-px bullet in the
+   icon slot; in the 72-px strip, where the word is hidden, a bullet over a
+   caption read as an icon that never loaded (iPad 13" upright, PR #6716 walk
+   D6). Every tool row now draws its own Lucide icon through `<RailIcon>`,
+   named by `RailTool.icon`. Do not bring the bullet back for a new row. */
 .fd-ct {
   margin-left: auto;
   font-size: 12px;
@@ -1431,9 +1427,19 @@ h2.fd-sechead,
      wrapping allowed rather than clipped — the one exception to the
      "44 stays on the base rule" note above `.fd-btn-gold` itself, which is
      about HEIGHT, not this. */
+  /* 🔄 2026-10-20 — AND THEN IT WRAPPED. `white-space: normal` inside the
+     prompt's own 12-px side padding left the button 40 px for "Sign in" at
+     11 px (≈37 px of ink plus 12 px of padding), so the word broke in two and
+     the pill became a gold circle reading "Sign / in" (iPad 13" upright,
+     PR #6716 walk D6). The prompt gives up its side padding in the strip —
+     the rail's own 4 px is the gutter — and the label never wraps: 64 px holds
+     it with room to spare. `rail-tool-rows-wear-icons.test.ts` holds it. */
+  .fd-signin-prompt {
+    padding: 4px 0 8px;
+  }
   .fd-signin-prompt .fd-btn-gold {
     width: 100%;
-    white-space: normal;
+    white-space: nowrap;
     padding: 4px 6px;
     font-size: 11px;
     justify-content: center;
@@ -1552,6 +1558,12 @@ h2.fd-sechead,
   .fd-rail .fd-mchev {
     display: revert;
   }
+  /* The 280-px drawer keeps the prompt's own side padding — the strip above
+     gives it up only because 72 px has none to spare. Scoped with `.fd-rail`
+     so it outranks the strip's bare rule, which sits in an earlier block. */
+  .fd-rail .fd-signin-prompt {
+    padding: 4px 12px 8px;
+  }
   /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
      to a single 44px centred row. Restoring the text without restoring the
      height squeezes two lines into one line's worth of space. */
@@ -1561,8 +1573,8 @@ h2.fd-sechead,
     padding-top: 8px;
     padding-bottom: 8px;
   }
-  .fd-rail .fd-row-2l .fd-dot {
-    margin-top: 7px;
+  .fd-rail .fd-row-2l .fd-gi {
+    margin-top: 1px;
   }
   .fd-row {
     flex-direction: row;
@@ -2437,6 +2449,9 @@ button.fd-ask.quiet {
     min-height: 44px;
     align-items: center;
   }
+  .fd-row-2l .fd-gi {
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 1023.98px) {
@@ -2613,10 +2628,15 @@ button.fd-ask.quiet {
     min-height: 44px;
     align-items: center;
   }
-  /* The strip's value is the base rule's — restated so the drawer's copy of it
-     is undone here too, one-for-one (`the-tablet-band-is-the-strip.test.ts`). */
-  .fd[data-boundary='tab'] .fd-rail .fd-row-2l .fd-dot {
-    margin-top: 7px;
+  /* The strip's Sign-in prompt: no side padding, so the label fits on one line. */
+  .fd[data-boundary='tab'] .fd-rail .fd-signin-prompt {
+    padding: 4px 0 8px;
+  }
+  /* The strip's value — icon over caption, centred, no first-line nudge —
+     restated so the drawer's copy of it is undone here too, one-for-one
+     (`the-tablet-band-is-the-strip.test.ts`). */
+  .fd[data-boundary='tab'] .fd-rail .fd-row-2l .fd-gi {
+    margin-top: 0;
   }
   /* Icon over caption, the strip's row. */
   .fd[data-boundary='tab'] .fd-row {

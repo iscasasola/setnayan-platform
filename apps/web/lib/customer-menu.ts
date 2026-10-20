@@ -49,7 +49,8 @@
 import {
   House, BookUser, Store, AppWindow, Grip, Sparkles, Palette, Gem, Camera,
   QrCode, Images, Newspaper, Wallet, Music, Crown, CalendarDays, Armchair, Box,
-  Radio, Clapperboard, Gift,
+  Radio, Clapperboard, Gift, UsersRound, CirclePlay, MessageSquareText,
+  MessagesSquare, Scale, FileSignature,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -100,7 +101,11 @@ export type EventMenuIconName =
   | 'mood-board' | 'logo' | 'pakanta'
   | 'guests' | 'hosts' | 'hub'
   | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
-  | 'ai' | 'suite' | 'refer' | 'details' | 'product';
+  | 'ai' | 'suite' | 'refer' | 'details' | 'product'
+  /* The desktop rail's tool rows (Planner · Builder · Together · Studio) — see
+     `RailTool.icon`. Named here so the rail draws from the SAME vocabulary as
+     the event menu, not a second, private icon map. */
+  | 'groups' | 'stories' | 'supplier-chat' | 'event-chat' | 'compare' | 'contracts';
 
 /**
  * 🧭 THE FIVE DESTINATIONS WEAR ONE LINE FAMILY (owner 2026-10-07, DECISION_LOG
@@ -142,6 +147,12 @@ export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
   refer: Gift,
   details: Sparkles,
   product: Sparkles,
+  groups: UsersRound,
+  stories: CirclePlay,
+  'supplier-chat': MessageSquareText,
+  'event-chat': MessagesSquare,
+  compare: Scale,
+  contracts: FileSignature,
 };
 
 /** Each of the five tabs' icon NAME — the one place a tab key meets its glyph.

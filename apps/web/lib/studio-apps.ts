@@ -42,6 +42,7 @@
  */
 import type { DemoOverlayId } from './demo-overlay-bus';
 import type { ProfileSurface } from './event-type-profile';
+import type { EventMenuIconName } from './customer-menu';
 
 export type StudioApp = {
   /** Stable id. Also the rail row's key. */
@@ -180,6 +181,20 @@ export type StudioApp = {
    * `doorwayOnly` and `surface` still decide that, independently.
    */
   railGroup?: 'studio' | 'planner' | 'together';
+  /**
+   * THE ROW'S ICON, BY NAME — drawn from `EVENT_MENU_ICONS`, the event menu's
+   * own vocabulary, so a product wears the same glyph in the rail as it does
+   * in the event menu and the More sheet.
+   *
+   * 🔴 REQUIRED, BECAUSE THE ROW HAD NONE AND THE STRIP SHOWED IT. The tool
+   * rows drew a 6-px bullet where every other rail row draws a Lucide icon.
+   * Beside a word, at 1280+, a bullet reads as a list marker; in the 72-px
+   * strip (1024–1279, and an iPad 13" held upright at 1032) the word is gone,
+   * so seven rows rendered as a lone dot over a caption — read on the device
+   * as icons that failed to load (PR #6716 walk, D6). A name and not a
+   * component because these rows cross the server→client boundary.
+   */
+  railIcon: EventMenuIconName;
 };
 
 /**
@@ -198,6 +213,7 @@ export type StudioApp = {
 export const STUDIO_APPS: readonly StudioApp[] = [
   {
     key: 'setnayan-ai',
+    railIcon: 'ai',
     name: 'Setnayan AI',
     href: '/setnayan-ai',
     description:
@@ -208,6 +224,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'pawebsite',
+    railIcon: 'hub',
     // ⚠ NAME ≠ ROUTE, DELIBERATELY (owner 2026-08-15). The product is "Event
     // Hub"; the address stays `/pawebsite` so the sitemapped, indexed URL keeps
     // its search history. This is EXACTLY the shape Live Studio already ships
@@ -224,6 +241,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'papic',
+    railIcon: 'papic',
     name: 'Papic',
     href: '/papic',
     description:
@@ -238,6 +256,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'panood',
+    railIcon: 'live',
     name: 'Live Watch',
     href: '/panood',
     description:
@@ -256,6 +275,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'patiktok',
+    railIcon: 'patiktok',
     name: 'Patiktok',
     href: '/patiktok',
     description:
@@ -265,6 +285,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'pa3d',
+    railIcon: 'plan3d',
     name: '3D Plan',
     href: '/pa3d',
     description:
@@ -328,6 +349,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       product to.
     */
     key: 'mood-board',
+    railIcon: 'mood-board',
     name: 'Mood Board',
     href: '/mood-board',
     description:
@@ -358,6 +380,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       that, matching the `add-ons-catalog.ts` entry it opens.
     */
     key: 'pakanta',
+    railIcon: 'pakanta',
     name: 'Music Maker',
     href: '/pakanta',
     description:
@@ -400,6 +423,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       decision, recorded as open in the corpus DECISION_LOG, not made here.
     */
     key: 'marketplace',
+    railIcon: 'team',
     name: 'Marketplace',
     href: '/marketplace',
     description:
@@ -411,6 +435,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'guest-list',
+    railIcon: 'guests',
     name: 'Guest list',
     href: '/guest-list',
     description:
@@ -422,6 +447,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'seat-plan',
+    railIcon: 'seat',
     name: 'Seat plan',
     href: '/seat-plan',
     description:
@@ -443,6 +469,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       event's own rail already carries Budget and Schedule.
     */
     key: 'budget',
+    railIcon: 'budget',
     name: 'Budget',
     href: '/budget',
     description:
@@ -454,6 +481,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'schedule',
+    railIcon: 'schedule',
     name: 'Schedule',
     href: '/schedule',
     description:
@@ -482,6 +510,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       join route is untouched.
     */
     key: 'samahan',
+    railIcon: 'groups',
     name: 'Groups',
     href: '/samahan',
     description:
@@ -491,6 +520,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'palogo',
+    railIcon: 'logo',
     name: 'Logo Maker',
     href: '/palogo',
     description:

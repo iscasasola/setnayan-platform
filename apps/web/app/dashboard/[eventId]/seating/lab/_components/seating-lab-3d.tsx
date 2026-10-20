@@ -394,7 +394,9 @@ function outfitHash(id: string): number {
  * class by id hash, so roughly a third of suits arrive as barong and a third
  * of gowns as filipiniana — stable per guest, varied across a crowd.
  */
-function outfitVariantFor(attire: Lab3DGuest['attire'], id: string): FigureSpec['outfit'] {
+function outfitVariantFor(attire: Lab3DGuest['attire'], id: string, said?: Lab3DGuest['outfit']): FigureSpec['outfit'] {
+  /* 👗 A Wear their role's dress code names is worn as named (owner 2026-10-20, `seatPlanOutfitOf`) — no variety. */
+  if (said) return said;
   if (attire === 'suit') return outfitHash(id) % 3 === 0 ? 'barong' : 'suit';
   if (attire === 'gown') return outfitHash(id) % 3 === 0 ? 'filipiniana' : 'gown';
   return 'neutral';
@@ -411,7 +413,7 @@ function outfitVariantFor(attire: Lab3DGuest['attire'], id: string): FigureSpec[
 function figureSpecFor(g: Lab3DGuest, statusColor: string): FigureSpec {
   return {
     id: g.id,
-    outfit: outfitVariantFor(g.attire, g.id),
+    outfit: outfitVariantFor(g.attire, g.id, g.outfit),
     outfitColor: g.attireColor,
     photoUrl: g.photoUrl ?? null,
     statusColor,

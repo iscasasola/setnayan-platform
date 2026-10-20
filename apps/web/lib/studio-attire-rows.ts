@@ -62,6 +62,20 @@ const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: Palett
   { group: 'officiants', paletteKey: 'officiants' },
 ];
 
+/** 🏷 The four rows the Studio lists by ROLE, in its own words (the honour rows and the group rows are named below). */
+const ROLE_ROW_LABEL: Readonly<Record<string, string>> = { celebrant: 'The celebrant', bride: 'The bride', groom: 'The groom', guest: 'Guests' };
+
+/**
+ * 🏷 A STUDIO ROW'S NAME, exactly as Studio › Mood Board & Dress Code heads it — ONE source for the Studio's rows
+ * (`studioAttireRows`) and every line that says where a guest's Wear came from (the guest card's "from VIP · Immediate
+ * Family’s dress code", `guestOutfitWords`). `withOptional`: the maid's row names the man of honor too (`honourRowLabel`).
+ */
+export function studioRowLabel(row: { tier: 'roles' | 'groups'; key: string }, names?: RoleNames | null, withOptional = false): string {
+  if (row.tier === 'groups') return roleGroupLabel(row.key as RoleGroup, names);
+  if (isHonourRowKey(row.key)) return honourRowLabel(row.key, names, withOptional);
+  return ROLE_ROW_LABEL[row.key] ?? row.key;
+}
+
 /** The two honour rows, in `ATTIRE_ROWS` order (the maid of honor's, then the best man's). */
 const HONOUR_ROWS = ATTIRE_ROWS.filter((r) => r.tier === 'roles' && isHonourRowKey(r.key));
 
@@ -78,9 +92,9 @@ export function studioAttireRows(
   const callOf = (tier: 'roles' | 'groups', key: string) =>
     formatCallTime((((config as Record<string, unknown> | null)?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
   const out: StudioAttireRowData[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: 'The celebrant', paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
+  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: studioRowLabel({ tier: 'roles', key: 'celebrant' }), paletteKey: null, arrives: callOf('roles', 'celebrant') });
+  out.push({ tier: 'roles', key: 'bride', label: studioRowLabel({ tier: 'roles', key: 'bride' }), paletteKey: 'bride', arrives: callOf('roles', 'bride') });
+  out.push({ tier: 'roles', key: 'groom', label: studioRowLabel({ tier: 'roles', key: 'groom' }), paletteKey: 'groom', arrives: callOf('roles', 'groom') });
   for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
     /* 👯 The honour rows stand at the head of the entourage — just before the Bridesmaids and the Groomsmen. */
     if (group === 'bridesmaids') {
@@ -94,7 +108,7 @@ export function studioAttireRows(
         out.push({
           tier: 'roles',
           key,
-          label: honourRowLabel(key, names, row.optionalSecond ? columns.includes(1) : false),
+          label: studioRowLabel(row, names, row.optionalSecond ? columns.includes(1) : false),
           paletteKey: row.paletteKey,
           arrives: callOf('roles', key),
           people: countOf((r) => pair.includes(r)),
@@ -108,12 +122,12 @@ export function studioAttireRows(
     out.push({
       tier: 'groups',
       key: group,
-      label: roleGroupLabel(group, names),
+      label: studioRowLabel({ tier: 'groups', key: group }, names),
       paletteKey,
       arrives: callOf('groups', group),
       people: countOf((r) => roleGroupOf(r) === group && !isHonourRole(r)),
     });
   }
-  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null, people: countOf((r) => r === 'guest') });
+  out.push({ tier: 'roles', key: 'guest', label: studioRowLabel({ tier: 'roles', key: 'guest' }), paletteKey: 'guest', arrives: null, people: countOf((r) => r === 'guest') });
   return out;
 }

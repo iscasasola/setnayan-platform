@@ -146,8 +146,13 @@ export type Lab3DGuest = {
   /** Resolved selfie/avatar URL (consent-gated upstream) — worn by the 3D
    * avatar's head as a camera-facing photo disc. null → coloured token. */
   photoUrl: string | null;
-  /** Resolved attire for the avatar's body silhouette. */
+  /** Resolved attire for the avatar's body silhouette — from their role's dress code (`seatPlanOutfitOf`). */
   attire: 'gown' | 'suit' | 'neutral';
+  /**
+   * 👗 The kit garment their role's Wear names (owner 2026-10-20, `seatPlanOutfitOf`): a "Barong Tagalog" is a barong,
+   * a "Filipiniana" the Filipiniana. Null / absent — no Wear said: the class's own variety (a third barong / Filipiniana).
+   */
+  outfit?: 'gown' | 'suit' | 'barong' | 'filipiniana' | null;
   /** Motif colour for a gown/suit body (mood-board attire palette); null for
    * neutral, which keeps the RSVP-coloured token body. */
   attireColor: string | null;

@@ -37,7 +37,8 @@
  *
  * Pure. No I/O, no React.
  */
-import { guestAttireOf, isDressableRole, readerAttire, type ReaderPerson } from '@/lib/attire-rows';
+import { type ReaderPerson } from '@/lib/attire-rows';
+import { guestOutfitOf } from './guest-outfit';
 import { replyWindowWords, type ReplyWindow } from './reply-window';
 import type { GuestsGetIn } from './who-can-reply';
 import type { GuestRole } from './guests';
@@ -46,9 +47,6 @@ import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import { sanitizeRolePalette } from './mood-board';
 import { resolveDisplayPalette } from './room-palette';
-import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from './role-dress-code';
-import { singleWearerOf } from './role-figure';
-import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from './role-group-dress-code';
 import type { ArrivalAction } from './arrival-action';
 import { hostNoteHeading, hostNoteShown } from './guest-host-note';
 import { moreAnswersWords } from './guest-one-path';
@@ -91,45 +89,20 @@ export function guestMeFacts(input: {
   person?: (NonNullable<ReaderPerson> & { attire?: unknown }) | null;
 }): GuestMeFacts {
   const role = input.role ?? null;
-  const config = (input.dressCodeConfig && typeof input.dressCodeConfig === 'object' ? input.dressCodeConfig : {}) as {
-    roles?: unknown;
-    groups?: unknown;
-  };
-  const roles = sanitizeRoleAttire(config.roles, isDressableRole);
-  const groups = sanitizeGroupAttire(config.groups);
   const board = resolveDisplayPalette(sanitizeRolePalette(input.rolePalette));
-  const person = input.person ?? null;
-  const { panel, source } = resolveGuestAttireWithGroups({
-    role,
-    roles,
-    groups,
-    palette: board,
-    names: input.roleNames ?? null,
-    config,
-    person: person ? { name_prefix: person.name_prefix ?? null, display_name: person.display_name ?? null, gender: person.gender ?? null, attire: guestAttireOf(person) } : null,
-  });
-  /* 👯 The reader's OWN pick (`readerAttire`, the same reader the Dress code's "You are …" and the checklist use) — a man
-     of honor or a best woman is not told they have a Wear because the other column of their honour row has one. */
-  const own = panel
-    ? readerAttire({
-        role,
-        attire: guestAttireOf(person),
-        person,
-        source,
-        config: config as Record<string, unknown>,
-        style: panel.style,
-        hexes: panel.hexes,
-        label: (st) => ATTIRE_STYLE_LABEL[st],
-        single: singleWearerOf,
-      })
-    : null;
+  /* 👗 THE ONE READING (`guestOutfitOf`, lib/guest-outfit.ts): the role's answer (`resolveGuestAttireWithGroups`), then
+     the reader's OWN pick of it (`readerAttire`, the same reader the Dress code's "You are …" and the checklist use) — a
+     man of honor or a best woman is not told they have a Wear because the other column of their honour row has one.
+     The guest card's "Attire · 3D seat plan" line and the 3D seat plan's figure read the very same call. */
+  const outfit = guestOutfitOf({ role, dressCodeConfig: input.dressCodeConfig, palette: board, roleNames: input.roleNames ?? null, person: input.person ?? null });
+  const panel = outfit.panel;
   const named =
     role && role !== 'guest'
       ? panel?.roleLabel ?? roleLabel(role, input.roleNames) ?? guestRoleLabel(role, input.roleNames)
       : null;
   return {
     role: named && named.trim() ? named : null,
-    wear: Boolean(panel && own && (own.styleLabel !== null || own.hexes.length > 0)),
+    wear: Boolean(panel && (outfit.styleLabel !== null || (outfit.hexes?.length ?? 0) > 0)),
     arriveBy: panel?.callTime ?? input.guestsArriveBy ?? null,
     comingWith: (input.comingWith ?? []).map((n) => (n ?? '').trim()).filter((n) => n.length > 0),
   };

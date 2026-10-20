@@ -286,6 +286,9 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   let role = (clean(formData.get('role')) || 'guest') as GuestRole;
   // What the guest wears on their 3D seat-plan avatar. Validate against the
   // closed set (DB CHECK enforces the same) rather than blindly casting.
+  // 👗 2026-10-20: the guest card no longer posts it (their attire IS their role's dress code, `guestOutfitOf`), so
+  // it is written ONLY when a form posts it — a save of the card must never reset a stored Gown / Suit to neutral.
+  const attirePosted = formData.has('attire');
   const attireRaw = clean(formData.get('attire')) || 'neutral';
   const attire: GuestAttire = attireRaw === 'gown' || attireRaw === 'suit' ? attireRaw : 'neutral';
   const email = clean(formData.get('email')) || null;
@@ -549,7 +552,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       side: resolvedSide,
       group_category,
       role,
-      attire,
+      ...(attirePosted ? { attire } : {}),
       email,
       mobile,
       meal_preference,

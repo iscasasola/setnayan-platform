@@ -323,6 +323,8 @@ const SUIT_CLASS_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
  *  bits (skin tone = h % 6 — sharing parity would give every gown-wearer the
  *  same skin-tone subset). */
 function outfitForGuest(g: Plan3DGuest): FigureSpec['outfit'] {
+  /* 👗 A Wear the sample's dress code names for their role is worn as named (owner 2026-10-20) — no variety. */
+  if (g.outfit) return g.outfit;
   const h = hashGuestId(g.id) >>> 16;
   if (g.attire === 'gown') return GOWN_CLASS_OUTFITS[h % GOWN_CLASS_OUTFITS.length]!;
   if (g.attire === 'suit') return SUIT_CLASS_OUTFITS[h % SUIT_CLASS_OUTFITS.length]!;

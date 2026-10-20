@@ -190,6 +190,8 @@ const RICH = {
   seatTableId: 't-2',
   seatedAt: 'Table 2',
   groupChoices: { options: [{ groupId: 'grp-b', label: 'Barkada' }, { groupId: 'grp-c', label: 'Choir' }], memberIds: ['grp-c'] },
+  // 👗 What their role's dress code dresses them in (`guestOutfitWords`) — said, never posted.
+  outfit: { wear: 'Barong Tagalog', from: 'from Principal Sponsors’ dress code' },
 };
 
 export const SCENARIOS: Record<string, Scenario> = {
@@ -302,7 +304,11 @@ test('anti-vacuity (4B): the templated card really IS drawn by the templates, an
   assert.match(tpl, /data-fold="card-details"/);
   assert.doesNotMatch(tpl, /class="input-field"|class="sn-switch"|<details\b|<select\b/, 'a hand-made control is left on the templated card');
   for (const f of ['first_name', 'last_name', 'mobile', 'display_name', 'notes', 'dietary_restrictions']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a typed row`);
-  for (const f of ['side', 'group_category', 'role', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  for (const f of ['side', 'group_category', 'role', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  /* 👗 2026-10-20: attire is a FACT row (their role's dress code), never a dropdown, and posts nothing. */
+  assert.match(tpl, /data-card-field="attire"[^>]*data-form-row-kind="fact"|data-form-row-kind="fact"[^>]*data-card-field="attire"/, 'attire is not a fact row on the templated card');
+  assert.doesNotMatch(tpl, /name="attire"/, 'the templated card posts an attire again');
+  assert.doesNotMatch(old, /name="attire"/, 'the Maker’s card posts an attire again');
   /* 👥 2026-10-20: `group_ids` rides the ONE Group row and `extra_roles` the ONE Role row (owner: "there are 2 groups." ·
      "Roles doesn't need also serves as") — no rows of their own, still posted. */
   for (const f of ['group_ids', 'extra_roles']) assert.match(tpl, new RegExp(`name="${f}"`), `${f} is not posted by the templated card`);

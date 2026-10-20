@@ -20,6 +20,7 @@ import type {
   CardGroupProps,
   CardInvitedToProps,
   CardLockedProps,
+  CardFactProps,
   CardPickProps,
   CardRenameProps,
   CardRolesProps,
@@ -264,6 +265,11 @@ export function CardInvitedTo({ roleSelectId, initialRole, initialBlocks }: Card
 /** A fact the host cannot change here — said once, with where it is decided; nothing to tap. */
 export function CardLocked({ label, value, note }: CardLockedProps) {
   return <FactRow name={label} value={value} where={note} data="card-locked" attrs={{ 'data-card-field': 'role' }} />;
+}
+
+/** 🪪 A fact read from elsewhere — the same quiet FactRow, named for its own field (`data-card-field`). */
+export function CardFact({ field, label, value, where }: CardFactProps) {
+  return <FactRow name={label} value={value} where={where} data="card-fact" attrs={{ 'data-card-field': field }} />;
 }
 
 /** The top list of the card (the name and the mobile): ONE list of the app's Form rows. */

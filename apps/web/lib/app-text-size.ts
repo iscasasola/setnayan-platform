@@ -21,7 +21,13 @@
  *   2. SCALE every glyph, px or rem, with `-webkit-text-size-adjust: <n>%` on
  *      <html> — the same lever Capacitor's own TextZoom plugin pulls on iOS.
  *      It scales text only, never boxes, so layouts reflow around bigger words
- *      instead of the whole page zooming.
+ *      instead of the whole page zooming. The rule is written into ONE
+ *      `<style data-app-text-size>` in <head>, never onto `<html style>`: React
+ *      renders `style` on <html> (app/layout.tsx), and a script that changes it
+ *      before hydration is a hydration mismatch React never patches
+ *      (lib/nothing-touches-the-root-before-hydration.test.ts). The selector
+ *      carries `[data-store-shell]`, so it outranks Tailwind's
+ *      `html { -webkit-text-size-adjust: 100% }` whatever the stylesheet order.
  *
  * Bounds — `appTextScale`:
  *   · never BELOW 1. A person who chose smaller text keeps the design size: the
@@ -54,8 +60,11 @@ export const IOS_DEFAULT_BODY_PX = 17;
  */
 export const APP_TEXT_SCALE_MAX = 1.65;
 
-/** The attribute the script leaves on <html> with the scale it applied. */
+/** The attribute the script leaves on <html> with the scale it applied (React does not render it). */
 export const APP_TEXT_SCALE_ATTR = 'data-text-scale';
+
+/** The attribute on the one `<style>` in <head> that carries the scale. */
+export const APP_TEXT_STYLE_ATTR = 'data-app-text-size';
 
 /**
  * The text scale for a measured `-apple-system-body` size: the ratio to the
@@ -89,7 +98,9 @@ export const appTextSizeScript = `(function(){try{
     var s=1;
     if(isFinite(px)&&px>0){s=Math.round(Math.min(${APP_TEXT_SCALE_MAX},Math.max(1,px/${IOS_DEFAULT_BODY_PX}))*100)/100;}
     var pct=Math.round(s*100)+'%';
-    h.style.webkitTextSizeAdjust=pct;h.style.textSizeAdjust=pct;
+    var st=d.querySelector('style[${APP_TEXT_STYLE_ATTR}]');
+    if(!st){st=d.createElement('style');st.setAttribute('${APP_TEXT_STYLE_ATTR}','');(d.head||h).appendChild(st);}
+    st.textContent='html[data-store-shell]{-webkit-text-size-adjust:'+pct+';text-size-adjust:'+pct+'}';
     h.setAttribute('${APP_TEXT_SCALE_ATTR}',String(s));
   }
   apply();

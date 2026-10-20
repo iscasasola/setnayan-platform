@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   APP_TEXT_SCALE_ATTR,
+  APP_TEXT_STYLE_ATTR,
   APP_TEXT_SCALE_MAX,
   IOS_DEFAULT_BODY_PX,
   appTextScale,
@@ -41,24 +42,31 @@ const DYNAMIC_TYPE_BODY: ReadonlyArray<readonly [string, number]> = [
   ['accessibility-extra-extra-extra-large (AX5)', 53],
 ];
 
-type Run = { style: Record<string, string>; attrs: Map<string, string>; listeners: string[] };
+type Run = { css: string | undefined; styles: number; attrs: Map<string, string>; listeners: string[]; rootStyle: Record<string, string> };
 
 /** Run the inline script against a fake document. */
-function runScript(opts: { storeShell: boolean; appleSystemBody: boolean; bodyPx: number }): Run {
-  const style: Record<string, string> = {};
+function runScript(opts: { storeShell: boolean; appleSystemBody: boolean; bodyPx: number; times?: number }): Run {
   const attrs = new Map<string, string>();
   if (opts.storeShell) attrs.set('data-store-shell', '1');
-  const listeners: string[] = [];
+  const listeners: Array<[string, () => void]> = [];
+  const rootStyle: Record<string, string> = {};
+  const headChildren: Array<{ attrs: Map<string, string>; textContent: string }> = [];
   const documentFake = {
     visibilityState: 'visible',
     documentElement: {
-      style,
+      style: rootStyle,
       hasAttribute: (k: string) => attrs.has(k),
       setAttribute: (k: string, v: string) => attrs.set(k, v),
       appendChild: () => undefined,
       removeChild: () => undefined,
     },
-    createElement: () => {
+    head: { appendChild: (el: { attrs: Map<string, string>; textContent: string }) => headChildren.push(el) },
+    querySelector: (sel: string) => headChildren.find((el) => sel === `style[${APP_TEXT_STYLE_ATTR}]` && el.attrs.has(APP_TEXT_STYLE_ATTR)) ?? null,
+    createElement: (tag: string) => {
+      if (tag === 'style') {
+        const el = { attrs: new Map<string, string>(), textContent: '', setAttribute: (k: string, v: string) => el.attrs.set(k, v) };
+        return el;
+      }
       const s: Record<string, string> = {};
       return {
         style: new Proxy(s, {
@@ -74,11 +82,18 @@ function runScript(opts: { storeShell: boolean; appleSystemBody: boolean; bodyPx
         }),
       };
     },
-    addEventListener: (type: string) => listeners.push(type),
+    addEventListener: (type: string, fn: () => void) => listeners.push([type, fn]),
   };
   const getComputedStyle = () => ({ fontSize: `${opts.bodyPx}px` });
   new Function('document', 'getComputedStyle', appTextSizeScript)(documentFake, getComputedStyle);
-  return { style, attrs, listeners };
+  for (let i = 1; i < (opts.times ?? 1); i++) for (const [type, fn] of listeners) if (type === 'visibilitychange') fn();
+  return {
+    css: headChildren[0]?.textContent,
+    styles: headChildren.length,
+    attrs,
+    listeners: listeners.map(([t]) => t),
+    rootStyle,
+  };
 }
 
 test('text size — the default changes nothing, bigger never shrinks, nothing passes the cap', () => {
@@ -101,18 +116,21 @@ test('text size — the <head> script applies exactly what appTextScale says, fo
     const r = runScript({ storeShell: true, appleSystemBody: true, bodyPx: px });
     const want = appTextScale(px);
     assert.equal(r.attrs.get(APP_TEXT_SCALE_ATTR), String(want), `${name}: attribute`);
-    assert.equal(r.style.webkitTextSizeAdjust, `${Math.round(want * 100)}%`, `${name}: -webkit-text-size-adjust`);
-    assert.equal(r.style.textSizeAdjust, `${Math.round(want * 100)}%`, `${name}: text-size-adjust`);
+    const pct = `${Math.round(want * 100)}%`;
+    assert.equal(r.css, `html[data-store-shell]{-webkit-text-size-adjust:${pct};text-size-adjust:${pct}}`, `${name}: the <head> rule`);
+    assert.deepEqual(r.rootStyle, {}, `${name}: never <html style> — React renders it; a pre-hydration write is a mismatch`);
     assert.ok(r.listeners.includes('visibilitychange'), `${name}: re-reads when the person comes back from Settings`);
   }
+  const again = runScript({ storeShell: true, appleSystemBody: true, bodyPx: 19, times: 3 });
+  assert.equal(again.styles, 1, 'coming back from Settings rewrites the ONE <style>, never stacks another');
 });
 
 test('text size — the web, the desktop app and the Android shell are untouched', () => {
   const web = runScript({ storeShell: false, appleSystemBody: true, bodyPx: 28 });
-  assert.equal(web.style.webkitTextSizeAdjust, undefined, 'Safari on an iPhone (no store-shell mark) keeps its own text size');
+  assert.equal(web.styles, 0, 'Safari on an iPhone (no store-shell mark) keeps its own text size');
   assert.equal(web.attrs.has(APP_TEXT_SCALE_ATTR), false);
   const android = runScript({ storeShell: true, appleSystemBody: false, bodyPx: 28 });
-  assert.equal(android.style.webkitTextSizeAdjust, undefined, 'no -apple-system-body → nothing to read → nothing changes');
+  assert.equal(android.styles, 0, 'no -apple-system-body → nothing to read → nothing changes');
   assert.equal(android.attrs.has(APP_TEXT_SCALE_ATTR), false);
 });
 

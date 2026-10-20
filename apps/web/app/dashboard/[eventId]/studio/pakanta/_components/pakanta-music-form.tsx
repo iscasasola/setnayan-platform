@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Music, Loader2 } from 'lucide-react';
 import {
   savePakantaIntake,
@@ -37,7 +36,6 @@ type FieldKey = keyof PakantaIntakeResponses;
  * InlineCheckoutDrawer (the retired /orders/new redirect is gone).
  */
 export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = false }: Props) {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +61,8 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = 
       }
       // Brief saved (status=purchase_pending). For a purchase, reveal the
       // in-page checkout drawer instead of the retired /orders/new redirect.
+      // (A plain save is redrawn by the action's own answer — it revalidates — so nothing refreshes here.)
       if (intent === 'purchase') setReadyToPay(true);
-      else router.refresh();
     });
   }
 

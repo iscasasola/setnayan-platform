@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, MessageSquareReply, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
@@ -88,7 +87,6 @@ export function PageParts({
   autoReplyBody: ReactNode | null;
 }) {
   const toast = useToast();
-  const router = useRouter();
   const { draft, setDraft, clear, ready } = usePageDraft(d.vendorId, d.saved);
   const shown = useMemo(() => withDraft(d.saved, draft), [d.saved, draft]);
   const line = draftLine(draft, d.saved);
@@ -116,7 +114,6 @@ export function PageParts({
       clear();
       setStatus(null);
       toast.success(d.live ? 'Your page is updated — couples see it now.' : 'Saved — couples see it once Setnayan lists your shop.');
-      router.refresh();
     });
   };
 

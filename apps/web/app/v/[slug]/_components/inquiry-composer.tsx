@@ -514,9 +514,8 @@ export function InquiryComposer({
           kind: 'sent',
           threadHref: `/dashboard/${result.eventId}/messages/${result.threadId}`,
         });
-        // Refresh so the page re-renders into its "existing thread" state on
-        // next visit, without yanking the couple off the confirmation now.
-        router.refresh();
+        // The page re-renders into its "existing thread" state in the action's own answer (it revalidates), without
+        // yanking the couple off the confirmation — no refresh after it.
         return;
       }
       if (result.status === 'not_signed_in' || result.status === 'not_secured') {

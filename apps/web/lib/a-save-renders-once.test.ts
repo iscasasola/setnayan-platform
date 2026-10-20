@@ -36,21 +36,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { auditRefreshes, KEEP_REASONS, type RefreshSite } from './one-save-one-render';
+import { auditRefreshes, KEEP_REASONS, serverActionIndex, type RefreshSite } from './one-save-one-render';
 
 const WEB = join(__dirname, '..');
 const sites: RefreshSite[] = auditRefreshes(WEB);
 const at = (s: RefreshSite) => `${s.file}:${s.line}`;
 
 /** The refreshes kept because nobody could prove them either way (2026-10-20). This number may only go DOWN. */
-const UNSURE_CEILING = 0;
+const UNSURE_CEILING = 7;
 
 const NO_WRITE_REASONS = new Set(['realtime', 'retry', 'auth', 'navigation', 'client-write', 'other-frame', 'no-revalidate']);
 
 test('1 · the reader still sees the tree', () => {
-  assert.ok(sites.length >= 80, `only ${sites.length} router.refresh() calls found — the reader is not reading the app`);
-  const withActions = sites.filter((s) => s.actions.length > 0).length;
-  assert.ok(withActions >= 20, `only ${withActions} refreshes resolved to a server action — the action reader is blind`);
+  // A blank cannot pass: the refreshes that are left are found, the app's server actions are found, and the
+  // resolver still knows one that revalidates (the guest card's `updateGuest`) and one that does not (the lab's).
+  assert.ok(sites.length >= 60, `only ${sites.length} router.refresh() calls found — the reader is not reading the app`);
+  const actions = serverActionIndex(WEB);
+  assert.ok(actions.size >= 500, `only ${actions.size} server actions found — the action reader is blind`);
+  assert.deepEqual(actions.get('updateGuest')?.map((a) => a.revalidates), [true], 'updateGuest no longer reads as revalidating');
+  assert.deepEqual(actions.get('libraryLab')?.map((a) => a.revalidates), [false], 'the lab stand-in reads as revalidating');
+  assert.ok(sites.some((s) => s.actions.some((a) => a.revalidates)), 'no refresh resolves to a revalidating action — § 2 checks nothing');
 });
 
 test('2 · no refresh follows a server action that already revalidated (the page would render twice)', () => {

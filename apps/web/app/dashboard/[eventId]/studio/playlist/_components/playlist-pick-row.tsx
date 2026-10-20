@@ -10,7 +10,6 @@
  */
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Edit3, Music, Trash2 } from 'lucide-react';
 import { deletePlaylistPick, updatePlaylistPick } from '../actions';
 import { useConfirm } from '@/app/_components/confirm-dialog';
@@ -29,7 +28,6 @@ export function PlaylistPickRow({
   isBannedSlot,
   onError,
 }: Props) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [songLabel, setSongLabel] = useState(pick.song_label);
   const [artist, setArtist] = useState(pick.artist ?? '');
@@ -52,7 +50,6 @@ export function PlaylistPickRow({
       startTransition(async () => {
         try {
           await updatePlaylistPick(formData);
-          router.refresh();
         } catch (err) {
           onError(
             err instanceof Error
@@ -79,7 +76,6 @@ export function PlaylistPickRow({
       formData.set('event_id', eventId);
       formData.set('pick_id', pick.pick_id);
       await deletePlaylistPick(formData);
-      router.refresh();
     } catch (err) {
       onError(
         err instanceof Error

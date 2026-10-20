@@ -30,6 +30,7 @@ import { NewGuestGroupField, NewGuestRolesField } from '../_components/new-guest
 import type { OwnGroup } from '../_components/guest-group-picker';
 import { pickItems } from '@/lib/role-alternatives';
 import { createGuest } from './actions';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 export const metadata = { title: 'Add guest' };
 
@@ -283,6 +284,22 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             name="notes"
             rows={3}
             placeholder="Private to you — dietary notes, mobility needs, anything else."
+            className="input-field min-h-[88px] resize-y py-2"
+          />
+        </div>
+
+        {/* 💌 The hosts' note TO this guest (owner 2026-10-20) — the same field as the card's "Note for them · they see
+            it": shown on their own invitation, under their role, and to no other guest. */}
+        <div className="space-y-1.5">
+          <label htmlFor="host_note_for_guest" className="block text-sm font-medium text-ink">
+            Note for them · they see it
+          </label>
+          <textarea
+            id="host_note_for_guest"
+            name="host_note_for_guest"
+            rows={3}
+            maxLength={HOST_NOTE_MAX}
+            placeholder="Shown on their invitation, under their role. No other guest sees it."
             className="input-field min-h-[88px] resize-y py-2"
           />
         </div>

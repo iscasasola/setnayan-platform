@@ -29,6 +29,7 @@ const FIELD_LABELS: Record<string, string> = {
   faceblock_enabled: 'Live Wall blur',
   face_recognition_excluded: 'Face recognition',
   notes: 'Private note',
+  host_note_for_guest: 'Note for them',
   email: 'Email',
   mobile: 'Mobile',
   first_name: 'Name',

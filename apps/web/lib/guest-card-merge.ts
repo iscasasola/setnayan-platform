@@ -55,6 +55,7 @@ export const GUEST_COLUMN_FIELDS: Readonly<Record<string, readonly string[]>> = 
   plus_one_count: ['plus_one_count'],
   plus_one_allowed: ['plus_one_allowed'],
   notes: ['notes'],
+  host_note_for_guest: ['host_note_for_guest'],
   // Extra roles are filtered by the primary role, so a role change rewrites them.
   extra_roles: ['extra_roles', 'role'],
 };
@@ -79,6 +80,7 @@ export const GUEST_CARD_COMPARED: Readonly<Record<string, Kind>> = {
   seniority_rank: 'text',
   rsvp_status: { fallback: 'pending' },
   notes: 'text',
+  host_note_for_guest: 'text',
   plus_one_count: { fallback: '0' },
   photo_consent: 'bool',
   faceblock_enabled: 'bool',

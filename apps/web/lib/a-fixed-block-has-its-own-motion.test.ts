@@ -450,7 +450,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.equal((BODY.match(/lookMark=\{blockMark\('look'\)\}/g) ?? []).length, 3, 'a Welcome that can draw the guest’s look is mounted with no mark');
   /* (Five Welcomes in all; the two that are handed no look — a stranger's — draw none and need no mark.) */
   assert.equal((BODY.match(/<GuestWelcome\s/g) ?? []).length - (BODY.match(/words=\{clientWords\}\s*look=\{null\}/g) ?? []).length, 3, 'anti-vacuity: the three Welcomes that draw a guest’s look were found');
-  assert.match(BODY, /<GuestMeParts[\s\S]{0,240}?wearMark=\{blockMark\('look'\)\}\s*\/>/);
+  /* Within the ONE element (`[^<]` never crosses into the next tag) — not a character count, which a new prop on the
+     mount (Me's 💌 `note`, 2026-10-20) pushed past while the mark was still right there. */
+  assert.match(BODY, /<GuestMeParts\b[^<]{0,600}?wearMark=\{blockMark\('look'\)\}\s*\/>/);
   const DRESS = src('app/[slug]/_components/dress-code-widget.tsx');
   assert.match(DRESS, /<>\s*\{mark\}\s*<section className="space-y-3" data-me-part="wear">/);
   assert.match(DRESS, /<>\s*\{part === 'you' \? mark : null\}\s*<section className="space-y-5">\s*\{part === 'you' \? \(/);

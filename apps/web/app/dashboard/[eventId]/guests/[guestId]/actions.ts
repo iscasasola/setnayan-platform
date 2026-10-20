@@ -37,6 +37,7 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { isSafeNext } from '@/lib/safe-next';
 import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -339,6 +340,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       ? { plus_one_count: parsedCount }
       : { plus_one_allowed: clean(formData.get('plus_one_allowed')) === 'on' };
   const notes = clean(formData.get('notes')) || null;
+  /* 💌 The hosts' note TO this guest (owner 2026-10-20) — shown on their own Me page. Written ONLY when this form
+     carries the box: a form without it (an older page, a stale tab) leaves what is stored exactly as it is, never
+     nulls it. 500 characters, the column's own CHECK — cut here so a long paste never refuses the whole card. */
+  const hostNotePosted = formData.has('host_note_for_guest');
+  const host_note_for_guest = clean(formData.get('host_note_for_guest')).slice(0, HOST_NOTE_MAX) || null;
   // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
   // auto-derived from side/group/role/table at render time, host can't
   // pick free-text. Legacy column stays in schema (no migration) but
@@ -557,6 +563,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       passed_away,
       ...plusOneWrite,
       notes,
+      ...(hostNotePosted ? { host_note_for_guest } : {}),
       invited_to_blocks,
       ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
@@ -921,6 +928,8 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
       plus_one_name: null,
       dietary_restrictions: null,
       guest_note: null,
+      // 💌 The hosts' note was written to the OLD person — the new one never reads it (owner 2026-10-20).
+      host_note_for_guest: null,
       meal_preference: 'no_preference',
       rsvp_responded_at: null,
       invitation_sent_at: null,

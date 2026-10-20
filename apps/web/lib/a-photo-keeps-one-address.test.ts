@@ -201,8 +201,21 @@ test('6 · no guest-facing file draws media at the public r2.dev host, except th
 
 test('7 · the Main background still is the screen-sized copy when one can be had', () => {
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
-  const still = layer.match(/screenSizedStill\(/g) ?? [];
-  assert.ok(still.length >= 2, `the page layer and the film both draw the camera original (${still.length} screen-sized calls)`);
+  // Per function, not per file: a file-wide count also counts the helper's own definition.
+  const body = (start: string) => {
+    const from = layer.indexOf(start);
+    assert.ok(from >= 0, `${start} is gone — re-read this guard`);
+    const next = layer.indexOf('\nfunction ', from + start.length);
+    const nextAsync = layer.indexOf('\nasync function ', from + start.length);
+    const nextExport = layer.indexOf('\nexport ', from + start.length);
+    const ends = [next, nextAsync, nextExport].filter((i) => i > 0);
+    return layer.slice(from, ends.length ? Math.min(...ends) : undefined);
+  };
+  for (const fn of ['async function mainGroundOf(', 'export async function mainGroundStillFor(']) {
+    const n = (body(fn).match(/screenSizedStill\(/g) ?? []).length;
+    console.log(`${fn} → ${n} screen-sized call(s)`);
+    assert.ok(n >= 1, `${fn} draws the camera original — no screen-sized copy asked for`);
+  }
   assert.match(layer, /displayUrlForStdBackground\(siteMediaServeRef\(ref\)\)/, 'the screen-sized copy is not produced by the one existing variant pipeline');
   const lib = read('lib/std-bg-image.ts');
   assert.match(lib, /VARIANT_KNOWN\.has\(variantKey\)/, 'every render HEADs R2 again for a copy it already found');

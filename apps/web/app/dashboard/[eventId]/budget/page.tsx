@@ -38,6 +38,7 @@ import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { TraditionNotes } from './_components/tradition-notes';
+import { openDashboardEventRow } from '@/lib/event-row-once';
 
 export const metadata = { title: 'Budget' };
 
@@ -82,6 +83,9 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     redirect(yourTeamBudgetHref(eventId));
   }
   const supabase = await createClient();
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
+  // needs, the access window and the head count are each a few columns of it — one request for all.
+  openDashboardEventRow(supabase, eventId);
 
   // ── WHO IS READING THE MONEY ──────────────────────────────────────────────
   // The layout admits an accepted delegate to every event surface, and

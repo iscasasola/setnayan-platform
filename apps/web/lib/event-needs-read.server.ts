@@ -14,15 +14,21 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventRowOnce } from '@/lib/event-row-once';
 import { readEventNeeds, type EventNeedsRead, type EventNeedsRow } from '@/lib/event-needs';
 
 export async function readEventNeedsFor(supabase: SupabaseClient, eventId: string, callSite: string): Promise<EventNeedsRead> {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('guest_list_on, suppliers_on, hub_details_on')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // 🗂 From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts) — and
+    // that one read can never take these three down with it: if the database refuses it (a column it does
+    // not have yet), nothing is answered from it and THIS small select is sent on its own, as before.
+    const { data, error } = await eventRowOnce(supabase, eventId, 'guest_list_on, suppliers_on, hub_details_on', () =>
+      supabase
+        .from('events')
+        .select('guest_list_on, suppliers_on, hub_details_on')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (error) {
       logQueryError(`${callSite}.needs`, error, { event_id: eventId }, 'graceful_degrade');
       return readEventNeeds(null);

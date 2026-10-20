@@ -122,6 +122,7 @@ import { formatCount } from '@/lib/format-number';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
 import { HomeWhatsNext, type HomeDecisionRow, type HomeDecisionVerb } from './home-parts';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -702,12 +703,8 @@ export async function EventDashboard({
     // read. A person who has since lost access still appears — what they did
     // stays as a record (owner: "archive files that people can track").
     (async () => {
-      const { data: me, error: meError } = await supabase
-        .from('event_members')
-        .select('member_type')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // The render's ONE membership read (lib/event-membership-once.ts) — the layout's gate asks it too.
+      const { data: me, error: meError } = await eventMemberTypeOnce(supabase, eventId, user.id);
       if (meError) {
         logQueryError('EventDashboard.helperActivity.member', meError, { event_id: eventId }, 'graceful_degrade');
       }

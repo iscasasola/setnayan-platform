@@ -139,6 +139,14 @@ const REPORTS_MEMBER_TYPE_AS_DATA: ReadonlyArray<{ file: string; select: string;
       'RA 10173 data export: the subject’s OWN memberships, member_type included as data. ' +
       'Filtered by .eq(user_id, user.id); authorizes nothing.',
   },
+  {
+    file: join('lib', 'event-membership-once.ts'),
+    select: 'member_type',
+    why:
+      'The render’s ONE read of "what is this person on this event?" (2026-10-20). It decides nothing ' +
+      'itself: it hands the row to each asker, and EVERY caller of eventMemberTypeOnce is held below to ' +
+      'compare member_type itself — so a caller that stops comparing is still caught.',
+  },
 ];
 
 type Sweep = {
@@ -292,4 +300,23 @@ test('the seat-holder arm is not fenced behind invited_accounts only', () => {
     'the seat-holder arm must run BEFORE (and outside) the invited_accounts ' +
       "branch — a 'private' event admits seat-holders too, which is what the page does",
   );
+});
+
+test('every caller of the one membership read compares member_type itself (it decides nothing on its own)', () => {
+  const callers = sourceFiles().filter((f) => !f.endsWith('event-membership-once.ts') && readFileSync(f, 'utf8').includes('eventMemberTypeOnce('));
+  assert.ok(callers.length >= 4, `only ${callers.length} callers of eventMemberTypeOnce were found — the sweep is blind`);
+  for (const file of callers) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    let i = 0;
+    while ((i = src.indexOf('eventMemberTypeOnce(', i)) !== -1) {
+      if (!/import \{[^}]*$/.test(src.slice(Math.max(0, i - 80), i))) {
+        const win = src.slice(i, i + WINDOW);
+        assert.ok(
+          /member_type\s*(===|!==)|isHostMemberType|HOST_MEMBER_TYPES|\.includes\(\s*\(\s*\w+ as \{ member_type/.test(win),
+          `${relative(WEB, file)}:${src.slice(0, i).split('\n').length} reads the membership and never compares member_type`,
+        );
+      }
+      i += 10;
+    }
+  }
 });

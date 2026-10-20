@@ -15,6 +15,7 @@
  */
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -169,6 +170,7 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 // Your Team's Budget part IS the shipped Budget page, rendered whole — never a
 // second copy of it (owner 2026-09-29).
 import BudgetPage from '../budget/page';
+import { openDashboardEventRow } from '@/lib/event-row-once';
 
 // The browser tab says what the screen says ("supplier", never "vendor", in UI).
 export const metadata = { title: 'Suppliers' };
@@ -277,6 +279,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
+  // needs, the access window and the head count are each a few columns of it — one request for all.
+  openDashboardEventRow(supabase, eventId);
 
   // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
   // delegate the host set to Off reads no bookings (20271262573732 closed the
@@ -288,7 +293,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still
   // in contracted/deposit_paid 24h after the event flips to delivered + fires
   // a review_request. Idempotent — flipped rows no longer match.
-  await sweepRipeReviewRequests(eventId, user.id);
+  // ⚡ AFTER THE RESPONSE, NOT IN FRONT OF IT (2026-10-20, the performance audit: it was awaited
+  // inline — its read, then each flip and each notice, one after another, before anything on the
+  // Suppliers screen was drawn). It is housekeeping that only matters a day after the event, the
+  // same lazy-sweep shape the event layout already runs in `after()` (`sweepGuardNotifications`).
+  // The flip shows on the next view of this page; it is never lost — the sweep is idempotent and
+  // every view runs it.
+  after(() => sweepRipeReviewRequests(eventId, user.id));
 
   const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your

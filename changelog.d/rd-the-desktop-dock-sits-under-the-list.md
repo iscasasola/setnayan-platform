@@ -16,6 +16,13 @@ the list and not under it.
 - **Guard** `the-dock-sits-under-the-column.test.ts` — dock edges = column edges at 701…2560 for the List and the Map,
   after a card column opens and closes, across a resize; the ≥701 CSS draws exactly those edges and nothing sizes the
   dock; the screen hands the helper its own `.screen` root. Seven sabotages, all red.
+- **Also: an open panel is drawn over the top bar from 701.** The page's `<main>` (`.sn-vt-page`) carries a
+  `view-transition-name`, which makes it a stacking context, so a Sheet's `z-50` only counted inside the page and the
+  sticky top bar painted over the 440 panel's head — on Budget › Add expense the × was not hittable at 1000–1920 in
+  both engines, and the bar stayed undimmed (the prototype's frame budget-05 draws the panel full height, title and ×
+  on screen, over a scrim that dims the bar). `globals.css`: from 701, `.sn-vt-page:has([data-sheet])` is lifted to
+  z 45 (above the bar's 20 and the resting rail/scrim). Below 701 nothing changes; a Sheet portalled to `<body>` is
+  untouched. Guard `app/_components/an-open-panel-clears-the-top-bar.test.ts`, five sabotages red.
 - **Lab:** `/dev/budget-lab?shell=1` now draws the real page's 48-rem column (`sn-col max-w-3xl`) instead of a 720-px
   stand-in, so the desktop walk measures what ships.
 - Walked `/dev/*-lab?…&shell=1` at 1000 · 1180 · 1280 · 1440 · 1920, Chromium + WebKit (the Safari engine, not a real

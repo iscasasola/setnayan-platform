@@ -21,7 +21,6 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
 import { updateHostServiceDetails } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -64,7 +63,6 @@ export function HostServiceDetails({
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = useSaveLoader();
-  const router = useRouter();
 
   function onSave() {
     setErr(null);
@@ -149,9 +147,9 @@ export function HostServiceDetails({
             setSaved(false);
           }}
           // "Move <name> to another category" (owner 2026-10-20). The move is
-          // its own write; the page re-reads so the header names the new row.
+          // its own write, and it revalidates: the header names the new row on
+          // the action's own answer (no second render).
           move={{ vendorId, name: displayName?.trim() || 'This supplier', claimAsk }}
-          onMoved={() => router.refresh()}
         />
       </div>
       <p className="mt-1.5 text-[11px] text-ink/45">

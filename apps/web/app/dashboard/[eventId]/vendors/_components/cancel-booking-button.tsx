@@ -154,12 +154,8 @@ export function CancelBookingButton({
           // way so re-cancels (multi-host race) don't look broken.
           setToast({ kind: 'cancelled', vendorName });
           setDialog({ kind: 'closed' });
-          if (redirectToHomeOnSuccess) {
-            router.push(`/dashboard/${eventId}`);
-          } else {
-            // Stay on the current page — server action already revalidated.
-            router.refresh();
-          }
+          // Otherwise stay on the current page — the server action revalidated, and its answer carries the redraw.
+          if (redirectToHomeOnSuccess) router.push(`/dashboard/${eventId}`);
           return;
         case 'downpaid_use_dispute_flow':
           // Race: vendor flipped to deposit_paid between our render and

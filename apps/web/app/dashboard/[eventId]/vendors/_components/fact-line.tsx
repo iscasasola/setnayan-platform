@@ -53,6 +53,7 @@ export function FactLine({
     setOpen(null);
     if (owed.current) {
       owed.current = false;
+      // one-render: keep (no-revalidate) — a fact saved to the draft (`hubDraftAction` intent `save`) revalidates nothing; one re-read when the sheet closes.
       router.refresh();
     }
   };

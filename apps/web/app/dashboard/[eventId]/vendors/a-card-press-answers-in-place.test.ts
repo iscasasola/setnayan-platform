@@ -66,9 +66,9 @@ test('Remove on a card: the card leaves first, the write answers in place, no pa
   const write = remove.indexOf('await removeWrite(fd)');
   assert.ok(off > -1 && write > -1 && off < write, 'the card must leave BEFORE the write is awaited');
   assert.match(remove, /if \(putBack\) fd\.set\(ANSWER_IN_PLACE_FIELD, '1'\);/);
-  // The only refresh left is the fallback outside the bench.
-  assert.equal((remove.match(/router\.refresh\(\)/g) ?? []).length, 1);
-  assert.match(remove, /if \(!putBack\) router\.refresh\(\);/);
+  // No refresh at all (2026-10-20, `lib/a-save-renders-once.test.ts`): in the bench the write answers in place; outside it
+  // the write is posted WITHOUT the in-place field, so `deleteVendor` revalidates and its own answer redraws the page.
+  assert.equal((remove.match(/router\.refresh\(\)/g) ?? []).length, 0);
   // The write is the real action everywhere but the lab.
   assert.match(CARD, /const removeWrite = writes\?\.remove \?\? deleteVendor;/);
 });

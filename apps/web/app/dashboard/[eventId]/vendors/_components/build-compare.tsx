@@ -26,7 +26,6 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Bookmark,
   ChevronDown,
@@ -147,7 +146,6 @@ export function BuildCompare({
   /** B5 — the day-precision counterpart of `availability`. Never both. */
   anchoredDate?: CompareAnchoredDate | null;
 }) {
-  const router = useRouter();
   // PR-F: every user-visible delta below is gated on this. Read once so the
   // whole surface agrees within a render.
   const replan = isExploreReplanEnabled();
@@ -260,7 +258,6 @@ export function BuildCompare({
       else {
         setName('');
         setOverwriteId('');
-        router.refresh();
       }
     });
   }
@@ -295,7 +292,6 @@ export function BuildCompare({
         hint: 'Saving',
       });
       if (!res.ok) setErr(res.error);
-      else router.refresh();
     });
   }
 
@@ -358,7 +354,6 @@ export function BuildCompare({
         setErr(res.error);
         return;
       }
-      router.refresh();
       // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
       // the lock action + locked list now live in Build. The per-column "lock"
       // button keeps its "Lock" confirm-label intent but lands the couple on the

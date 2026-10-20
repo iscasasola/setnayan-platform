@@ -160,7 +160,7 @@ export function BuildBody({
     setOpenId(twin.id);
   }, [twin]);
 
-  /** One write (or a short chain of them), then the page reads itself again. */
+  /** One write (or a short chain of them). Each revalidates the page, so its own answer redraws it — no refresh after. */
   const run = useCallback(
     (steps: Array<() => Promise<Done>>, after?: (ok: boolean) => void) => {
       startTransition(async () => {
@@ -176,10 +176,9 @@ export function BuildBody({
         }
         if (failed) setToast({ text: failed, tone: 'bad' });
         after?.(failed == null);
-        if (!standIn) router.refresh();
       });
     },
-    [router, standIn],
+    [],
   );
 
   const pick = (line: BuildLine, key: string) => {

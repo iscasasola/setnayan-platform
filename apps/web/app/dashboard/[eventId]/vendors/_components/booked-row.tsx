@@ -260,7 +260,6 @@ function VerbRow({
           onClose={() => setRecord(null)}
           onCreated={() => {
             setRecord(null);
-            router.refresh();
           }}
         />
       ) : null}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -208,7 +207,6 @@ export function AccordionLockButton({
   /** Analytics only — which room the press came from. */
   source?: string;
 }) {
-  const router = useRouter();
   const [state, setState] = useState<LockState>({ kind: 'idle' });
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
@@ -320,10 +318,10 @@ export function AccordionLockButton({
               ? result.milestone
               : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null };
           setState({ kind: 'idle' });
-          // finalizeVendor revalidates the Vendors page only; a mount in any
-          // other room (the chat quote card) must re-read its own server
-          // props or it keeps offering a Lock that has already happened.
-          router.refresh();
+          // finalizeVendor revalidates — and ANY revalidation answers with a fresh
+          // render of the page the press was made on (Next 15
+          // `pathWasRevalidated`), the chat quote card's room included, so no
+          // Lock that already happened is still offered. No second render.
           // Congrats + undo toast outlives the (now revalidated) card flip.
           setToast({
             kind: 'locked',
@@ -477,12 +475,11 @@ export function AccordionLockButton({
           setState({ kind: 'proposed', vendorName: result.vendorName });
           return;
         case 'lock_requested':
-          // The ask is recorded. Say so on the button, and re-read the page so
-          // every surface built from the row (the bench's Withdraw, the chat
-          // card's "you have asked them to lock") catches up.
+          // The ask is recorded. Say so on the button; every surface built from
+          // the row (the bench's Withdraw, the chat card's "you have asked them
+          // to lock") catches up on the action's own answer (it revalidates).
           haptic('confirm');
           setState({ kind: 'requested', vendorName: result.vendorName });
-          router.refresh();
           return;
         default: {
           // 🔴 A RESULT THIS SWITCH DOES NOT NAME MUST NEVER RENDER AS NOTHING.

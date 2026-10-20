@@ -63,8 +63,8 @@ export type RefreshSite = {
 };
 
 const BATCHERS = new Set(['makerSave', 'makerRedrawSave', 'setRefresher']);
-/** A condition that is true when a write did NOT land: `!res.ok`, `!r?.ok`, `res === null`, `failed`, `error`, `!ok`. */
-const FAILURE_TEST = /^!\s*\(?\s*[\w.?]*\bok\b|\.ok\s*===\s*false|===\s*null|^!\s*\w+$|\b(failed|error|err|why|message)\b/;
+/** A condition that is true when a write did NOT land: `!res.ok`, `!r?.ok`, `res === null`, `!ok`, `failed`, `error`. */
+const FAILURE_TEST = /^!\s*\(?\s*[\w.?]*\bok\b|\.ok\s*===\s*false|===\s*null|^!\s*(ok|res|result|saved|landed)$|\b(failed|error|err|why)\b/;
 
 function onFailureBranch(n: ts.Node): boolean {
   let child: ts.Node = n;
@@ -276,14 +276,19 @@ function localFunctions(sf: ts.SourceFile): Map<string, ts.Node> {
   return m;
 }
 
-export function auditRefreshes(web: string): RefreshSite[] {
+/** Every app source file under the web root (no tests, no node_modules, no build output). */
+export function appFiles(web: string): string[] {
   const files: string[] = [];
   for (const top of readdirSync(web)) {
     const p = join(web, top);
     if (SKIP_DIRS.has(top) || top.startsWith('.') || !statSync(p).isDirectory()) continue;
     walk(p, files);
   }
-  // Every server action in the app, by its exported name → the modules exporting it and whether each revalidates.
+  return files;
+}
+
+/** Every server action in the app, by its exported name → the modules exporting it and whether each revalidates. */
+export function serverActionIndex(web: string, files: string[] = appFiles(web)): Map<string, { module: string; revalidates: boolean }[]> {
   const byName = new Map<string, { module: string; revalidates: boolean }[]>();
   for (const file of files) {
     if (!/^\s*['"]use server['"]/.test(readFileSync(file, 'utf8'))) continue;
@@ -304,6 +309,12 @@ export function auditRefreshes(web: string): RefreshSite[] {
       }
     }
   }
+  return byName;
+}
+
+export function auditRefreshes(web: string): RefreshSite[] {
+  const files = appFiles(web);
+  const byName = serverActionIndex(web, files);
   const byNameCall = (name: string): ActionCall => {
     const list = byName.get(name)!;
     return { name, module: list.map((x) => x.module).join(' | '), revalidates: list.every((x) => x.revalidates), via: 'name' };

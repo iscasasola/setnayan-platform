@@ -216,13 +216,14 @@ test('exploreHref stays on the tile type (other callers / the flag-OFF path)', (
   assert.match(code('lib/shortlist-taxonomy.ts'), /exploreHref: string;/);
 });
 
-test('add-and-stay reports back so the rail repaints', () => {
-  // saveVendorToPicks revalidates `/dashboard/[eventId]` — the OVERVIEW page,
-  // not this nested route — so without this the vendor the couple just added
-  // would not appear in the category rail until a hard reload.
+test('add-and-stay reports back, and the rail repaints from the add itself', () => {
+  // saveVendorToPicks revalidates (`/dashboard/[eventId]` among others). ANY revalidation inside a server action makes
+  // its answer carry a fresh render of the page it was pressed on (Next 15 `pathWasRevalidated`, measured 2026-10-20
+  // in /dev/guests-lab) — this nested route included — so the rail repaints with the add, and the bench no longer
+  // refreshes again when the search closes (that drew the page twice; `lib/a-save-renders-once.test.ts`).
   assert.match(code(OVERLAY), /onAdded\?\.\(vendorProfileId\)/);
-  assert.match(code(BENCH), /onAdded=\{\(\) => setSearchAdded\(true\)\}/);
-  assert.match(code(BENCH), /if \(searchAdded\) router\.refresh\(\);/);
+  assert.doesNotMatch(code(BENCH), /if \(searchAdded\) router\.refresh\(\);/);
+  assert.match(code(BENCH), /const closeSearch = \(\) => setSearch\(null\);/);
 });
 
 test('the empty state does not tell a couple to widen filters they never set', () => {

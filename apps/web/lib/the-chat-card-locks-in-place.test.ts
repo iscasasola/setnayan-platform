@@ -96,11 +96,12 @@ test('couple · the card grows no lock of its own — no action import, no form,
 });
 
 test('couple · a lock request can never render as nothing', () => {
-  // 'lock_requested' is named, says so, and re-reads the page (the chat mount
-  // is not revalidated by finalizeVendor's own revalidatePath).
+  // 'lock_requested' is named and says so. The page the button sits on (the chat mount too) is re-read by
+  // finalizeVendor's OWN answer: any revalidation in an action renders the page it was pressed on (Next 15
+  // `pathWasRevalidated`, measured 2026-10-20) — so no refresh follows it (`lib/a-save-renders-once.test.ts`).
   assert.equal(count(lock, /case 'lock_requested':/g), 1, 'the ask falls through the switch again');
   assert.equal(count(lock, /Booking requested — waiting for \{state\.vendorName\} to agree\./g), 1, 'the ask has no visible state');
-  assert.ok(count(lock, /router\.refresh\(\)/g) >= 2, 'a success no longer re-reads the page the button sits on');
+  assert.equal(count(lock, /router\.refresh\(\)/g), 0, 'a success re-reads the page a second time after finalizeVendor already did');
   // Any status the switch does not name is a compile error AND a visible error.
   assert.match(lock, /default: \{\s*const unhandled: never = result;\s*setState\(\{\s*kind: 'error'/, 'an unnamed result renders nothing');
   // The failure line the card shows is the button's own alert.

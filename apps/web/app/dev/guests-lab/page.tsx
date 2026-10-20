@@ -43,6 +43,7 @@
  *                   (default bride) and the guest is already in College (groom's side)
  */
 import { notFound } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
@@ -341,6 +342,10 @@ const LAB_PASS_SRC =
     '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="426" viewBox="0 0 320 426"><rect width="320" height="426" rx="20" fill="#fbf7f0" stroke="#d9cfbf"/><text x="160" y="150" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#1e1a12">Maria &amp; Jose</text><text x="160" y="184" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#6b6455">Digital Pass (lab sample)</text><rect x="100" y="224" width="120" height="120" rx="8" fill="#fff" stroke="#d9cfbf"/></svg>',
   );
 
+/* ⚡ ONE SAVE, ONE RENDER — the lab counts its own server renders (dev log `[one-render]`, and `data-lab-render` on the card's
+   panel), so a walk can SEE how many times one press makes the server draw this page (`lib/one-save-one-render.ts`). */
+let labRenders = 0;
+
 export default async function GuestsLabPage({
   searchParams,
 }: {
@@ -348,6 +353,8 @@ export default async function GuestsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  labRenders += 1;
+  console.log(`[one-render] /dev/guests-lab render #${labRenders} part=${typeof sp.part === 'string' ? sp.part : 'head'}`);
 
   /* 🧪 THE CARD'S WRITES, AS STAND-INS (step 4A, 2026-10-09). The card binds the shipped `updateGuest` / `releaseGuestClaim` /
      `inviteGuestByEmailAction` in the page that draws it; the lab hands in its own — INLINE server actions (not exported, so
@@ -365,6 +372,8 @@ export default async function GuestsLabPage({
       if (formData.get('quiet') === '1') return { refused: labWords };
       redirect(labRefusal);
     }
+    // …and a save that lands REVALIDATES, as the real one does (`updateGuest` → `revalidatePath(…/guests)` before its quiet return).
+    revalidatePath('/dev/guests-lab');
   }
   async function labRelease(formData: FormData) {
     'use server';
@@ -481,7 +490,7 @@ export default async function GuestsLabPage({
           <div data-shell-main>
             <div className="sn-page-enter">
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
-              <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="">
+              <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="" data-lab-render={labRenders}>
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody

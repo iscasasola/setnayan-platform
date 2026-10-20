@@ -2698,6 +2698,26 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   isolation: isolate;
 }
 
+/*
+ * 🖥 AN OPEN PANEL IS DRAWN OVER THE SHELL, NOT UNDER ITS TOP BAR (couple dashboard desktop + tablet, owner 2026-10-19,
+ * prototype `couple_dashboard_desktop_tablet_2026-10-19.html` frame budget-05: the 440-px panel runs the full height
+ * with its title and × at the top, over a scrim that dims the rail and the bar).
+ *
+ * 🔑 MEASURED 2026-10-20 (lab, Chromium + WebKit, 1000–1920): `view-transition-name` (or the `isolation` above) makes
+ * this `<main>` a stacking context, so a Sheet rendered inside the page — `fixed inset-0 z-50` — could only rise to the
+ * page's own level: the sticky top bar (`.fd-topwrap`, z 20) painted OVER the panel's head, hiding its title and its
+ * close button, and the scrim left the rail and the bar undimmed. From 701 the panel starts at the top edge, so this is
+ * where it shows; while a Sheet is open the page's stacking context is lifted above the shell's chrome. Below 701 the
+ * sheet rises from the bottom (90 dvh) and nothing changes. A Sheet portalled to <body> is not inside `<main>` and is
+ * untouched. Held by `app/_components/an-open-panel-clears-the-top-bar.test.ts`.
+ */
+@media (min-width: 701px) {
+  .sn-vt-page:has([data-sheet]) {
+    position: relative;
+    z-index: 45;
+  }
+}
+
 ::view-transition-group(sn-page) {
   overflow: clip; /* clip the off-screen layer so the slide can't scroll the page */
 }

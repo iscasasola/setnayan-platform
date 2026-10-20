@@ -523,7 +523,10 @@ button.ico {
 .lower > * {
   pointer-events: auto;
 }
-/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there.
+   🖥 Its edges are the READING COLUMN's (owner 2026-10-20, "is the desktop view done fixing?"): `--gs-left`/`--gs-right`
+   are this screen's own box, kept current by `dock-follows-column.ts` — never the stage's. Held by
+   `the-dock-sits-under-the-column.test.ts`; give this rule no width, margin or inset of its own. */
 @media (min-width: 701px) {
   .lower {
     bottom: 16px;

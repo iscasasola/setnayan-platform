@@ -58,7 +58,8 @@
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
-import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
+import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
+import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
 import { type LiveTallyBase } from '@/lib/suppliers-shell';
@@ -76,6 +77,7 @@ import {
   LAB_STANDINGS,
   labDunkinRow,
   labInviteStatuses,
+  labOwnRow,
 } from './fixtures';
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
@@ -101,9 +103,20 @@ export default async function SuppliersLabPage({
     one('dunkin') === 'before' || one('dunkin') === 'after' || one('dunkin') === 'moved'
       ? (one('dunkin') as 'before' | 'after' | 'moved')
       : null;
+  // `&own=` — the supplier the walk's Add just posted (lab stand-in), kept the way the real insert keeps it.
+  const ownParts = (one('own') ?? '').split('~');
+  const drawnTiles = new Set<string>(Object.values(WEDDING_TILES_BY_PARENT).flat() as string[]);
+  const own =
+    ownParts.length === 3 && ownParts[0]
+      ? labOwnRow(ownParts[0], categoryKeyForAdd(ownParts[0], ownParts[1], (t) => drawnTiles.has(t)), ownParts[2] ?? '')
+      : null;
   const rows = empty
     ? []
-    : [...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS), ...(dunkin ? [labDunkinRow(dunkin)] : [])];
+    : [
+        ...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS),
+        ...(dunkin ? [labDunkinRow(dunkin)] : []),
+        ...(own ? [own] : []),
+      ];
   const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
 
   const factOptions: LabFactOptions = {

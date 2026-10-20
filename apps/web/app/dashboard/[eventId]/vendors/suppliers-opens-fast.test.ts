@@ -129,10 +129,14 @@ test('(3) the page starts its independent reads together, after the gates', () =
   const body = page.slice(page.indexOf('export default async function VendorsPage('));
   const start = body.indexOf('const paywallRead = startRead(');
   assert.ok(start > -1, 'the started-reads block is gone');
-  for (const gate of ['isDelegateWithoutArea(', 'await sweepRipeReviewRequests(', 'if (!vendorsRead.measured)']) {
+  for (const gate of ['isDelegateWithoutArea(', 'if (!vendorsRead.measured)']) {
     const at = body.indexOf(gate);
     assert.ok(at > -1 && at < start, `the reads must start AFTER the gate \`${gate}\``);
   }
+  // The review sweep is housekeeping, not a gate: it runs AFTER the response (2026-10-20), never
+  // awaited in front of the screen — and still runs on every view (it is the no-cron sweep).
+  assert.match(body, /after\(\(\) => sweepRipeReviewRequests\(eventId, user\.id\)\);/, 'the review sweep no longer runs after the response');
+  assert.doesNotMatch(body, /await sweepRipeReviewRequests\(/, 'the review sweep is awaited in front of the Suppliers screen again');
   const block = body.slice(start, body.indexOf('let pendingLockProposals'));
   assert.ok(block.length > 0, 'the started-reads block lost its end anchor');
   for (const read of [

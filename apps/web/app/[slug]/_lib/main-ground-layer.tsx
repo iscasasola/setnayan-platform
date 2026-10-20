@@ -17,7 +17,8 @@ import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { compositeOver } from '@/lib/hub-legibility';
 import { pageWordBase, shadeWordInks } from './pro-site-vars';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset, stableDisplayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
 import { AmbientEffectLayer } from '../_components/ambient-effect';
 
@@ -126,8 +127,8 @@ async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
      host's own canvas as it WOULD look (`tryOn`); without it the page falls
      through to what it drew before (the theme's own ground). On ANY theme —
      Classic included: the shell drops its opaque paper whenever a layer is
-     drawn here (`site-body.tsx` `ownGround`). Setnayan's own public art, so its
-     URLs are the public ones, never signed. The veil is measured over the
+     drawn here (`site-body.tsx` `ownGround`). Setnayan's own public art, signed on the
+     bucket host like every other guest file (never `r2.dev`, 2026-10-20). The veil is measured over the
      loop's own lightest and darkest clusters (`media.samples`) with the page's
      inks — the same legibility rule an uploaded clip gets (`tint.match` off:
      a loop never recolours the page). */
@@ -139,7 +140,7 @@ async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
     const sign = async (ref: string | null) =>
       ref ? (urls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
     const [still, clip] = await Promise.all([
-      sign(mainGround.stillRef),
+      screenSizedStill(mainGround.stillRef).then((u) => u ?? sign(mainGround.stillRef)),
       sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
     ]);
     return (
@@ -200,16 +201,31 @@ export async function mainGroundStillFor(input: MainGroundInput): Promise<string
   const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
   const { mainGround, urls } = await pictureOf(main, input, ownsPro);
   const ref = mainGround?.stillRef ?? null;
-  if (ref) return urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
+  if (ref) return (await screenSizedStill(ref)) ?? urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
   /* Nothing of theirs: the theme's own loop, as its still — the page's own ground. */
   return movingBackground(theme)?.urls[INVITE_THEMES[theme]?.media?.poster ?? ''] ?? null;
 }
 
 /**
+ * 🖼 THE BACKGROUND PHOTO AT SCREEN SIZE, NOT CAMERA SIZE (owner 2026-10-20 *"we want all pages to load at its
+ * fastest"*). Measured on a live invitation: the Main background was the couple's 4.4 MB camera original, drawn
+ * full-bleed as a CSS background and fetched eagerly, while its 1600 px WebP copy (25 KB) already sat beside it in
+ * the bucket — made by the Save-the-Date's own pipeline (`displayUrlForStdBackground`, lib/std-bg-image.ts), which
+ * derives it once, caches it next to the original and reuses it forever. The couple's own photo only (a clip's still
+ * is a photo too); a video, a loop of ours or a legacy URL is left to the normal signer. Null = draw the original as before
+ * (any failure inside the pipeline already falls back to the original).
+ */
+async function screenSizedStill(ref: string | null): Promise<string | null> {
+  // The couple's own uploads only (`events/…`) — never our theme posters, which need no copy made on a guest's visit.
+  if (!ref || !/^r2:\/\/setnayan-media\/events\/.+\.(jpe?g|png|webp)$/i.test(ref)) return null;
+  return await displayUrlForStdBackground(siteMediaServeRef(ref)).catch(() => null);
+}
+
+/**
  * 🎞 One of our loops as a Main background — the same shape the couple's own
  * clip resolves to (`ResolvedMainGround`), so the ONE mount above draws it. Its
- * refs map to their PUBLIC URLs (our own art on the public bucket). Null when
- * the theme has no loop or no public host is configured.
+ * refs map to their signed bucket-host URLs (our own art on the public bucket). Null when
+ * the theme has no loop or R2 is not configured.
  */
 /**
  * 🌗 SHADE ▾ (owner 2026-10-06/07): Darker · Dark · Light · Lighter lay the
@@ -262,9 +278,10 @@ function loopLook(look: HubMainLook): HubMainLook | undefined {
 function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls: Record<string, string> } | null {
   const media = INVITE_THEMES[id]?.media ?? null;
   if (!media) return null;
+  // 📸 Signed on the bucket host, one address per window (`stableDisplayUrlForStoredAsset`) — never `r2.dev`.
   const at = (ref: string): string | null => {
     try {
-      return publicUrlForStoredAsset(ref);
+      return stableDisplayUrlForStoredAsset(ref);
     } catch {
       return null;
     }

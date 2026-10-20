@@ -27,8 +27,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import {
+  DASHBOARD_ROW_CARRIES,
   EVENT_ROW_ONCE_EXTRA_COLUMNS,
   eventRowOnce,
+  openDashboardEventRow,
   eventRowOnceBySlug,
   holdEventRow,
   withEventRowScopeForTest,
@@ -324,4 +326,155 @@ test('7 · the page’s own row carries none of the extras, and keeps its own co
   whole.date_candidates = null;
   assert.deepEqual(Object.keys(withoutOnceExtras(whole)), ['event_id', 'slug', 'gifts_on', 'date_candidates']);
   assert.equal('rsvp_backdrop' in withoutOnceExtras(whole), false, 'a guest’s row would read as a host’s drafted backdrop (`loadLiveLayer`)');
+});
+
+// ── 8–10 · 👤 the couple's dashboard: the row, once, as the viewer ─────────
+
+/** A session client that answers `events` with `answer` and counts what it sent. */
+function viewerClient(answer: (url: URL) => Response) {
+  const sent: URL[] = [];
+  const client = createClient('http://db.test', 'test-key', {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      fetch: (async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        sent.push(url);
+        return answer(url);
+      }) as typeof fetch,
+    },
+  });
+  return { client, sent };
+}
+const asJson = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+const rowFor = (url: URL) => Object.fromEntries((url.searchParams.get('select') ?? '').split(',').map((c) => [c.trim(), `db:${c.trim()}`]));
+
+test('8 · inside a render, ONE read as the viewer answers every asker of that client — exactly its columns, as copies', async () => {
+  await withEventRowScopeForTest(async () => {
+    const { client, sent } = viewerClient((url) => asJson([rowFor(url)]));
+    openDashboardEventRow(client, EVENT);
+    openDashboardEventRow(client, EVENT); // idempotent: still one read
+    const own = (cols: string) => () => client.from('events').select(cols).eq('event_id', EVENT).maybeSingle();
+    const a = await eventRowOnce(client, EVENT, 'role_names', own('role_names'));
+    const b = await eventRowOnce(client, EVENT, 'event_date, event_end_date, event_date_precision', own('event_date, event_end_date, event_date_precision'));
+    assert.deepEqual(a.data, { role_names: 'db:role_names' });
+    assert.deepEqual(b.data, { event_date: 'db:event_date', event_end_date: 'db:event_end_date', event_date_precision: 'db:event_date_precision' });
+    assert.equal(sent.length, 1, `the row was read ${sent.length} times for one viewer in one render`);
+    assert.equal(sent[0]!.searchParams.get('event_id'), `eq.${EVENT}`);
+    assert.deepEqual((sent[0]!.searchParams.get('select') ?? '').split(','), [...DASHBOARD_ROW_CARRIES], 'the one read is not the dashboard columns');
+    // A column the one read does not carry → that asker's own read.
+    await eventRowOnce(client, EVENT, 'estimated_budget_centavos', own('estimated_budget_centavos'));
+    assert.equal(sent.length, 2, 'a column the one read does not carry was answered from it');
+    // Another event → its own read.
+    await eventRowOnce(client, 'another-event', 'role_names', () => client.from('events').select('role_names').eq('event_id', 'another-event').maybeSingle());
+    assert.equal(sent.length, 3, 'another event was answered from this one’s row');
+  });
+});
+
+test('8b · never across authorities: another viewer, and the service role, each send their own read', async () => {
+  await withEventRowScopeForTest(async () => {
+    const one = viewerClient((url) => asJson([rowFor(url)]));
+    const two = viewerClient((url) => asJson([rowFor(url)]));
+    openDashboardEventRow(one.client, EVENT);
+    await eventRowOnce(two.client, EVENT, 'role_names', () => two.client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+    assert.equal(two.sent.length, 1, 'a second viewer was handed the first viewer’s row');
+    const admin = viewerClient((url) => asJson([rowFor(url)]));
+    markServiceRoleClient(admin.client);
+    openDashboardEventRow(admin.client, EVENT); // a no-op for the service role
+    assert.equal(admin.sent.length, 0, 'the service role opened a viewer’s row');
+    await eventRowOnce(admin.client, EVENT, 'role_names', () => admin.client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+    assert.equal(admin.sent.length, 1, 'the service role was answered from a row read under a viewer’s RLS');
+  });
+  // …and outside a render nothing is opened or sent at all.
+  const out = viewerClient((url) => asJson([rowFor(url)]));
+  openDashboardEventRow(out.client, EVENT);
+  assert.equal(out.sent.length, 0, 'outside a render the one read was sent for nobody to keep');
+  await eventRowOnce(out.client, EVENT, 'role_names', () => out.client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+  assert.equal(out.sent.length, 1);
+});
+
+test('9 · the one read REFUSED → every asker sends its own read and keeps its own failure; no row is an answer only from a success', async () => {
+  await withEventRowScopeForTest(async () => {
+    // The one (wide) read is refused; each asker's own small read answers as the database would.
+    const { client, sent } = viewerClient((url) =>
+      (url.searchParams.get('select') ?? '').split(',').length > 10
+        ? asJson({ code: '42703', message: 'column events.a_new_column does not exist' }, 400)
+        : url.searchParams.get('select') === 'role_names'
+          ? asJson({ code: '42501', message: 'permission denied' }, 403)
+          : asJson([rowFor(url)]),
+    );
+    openDashboardEventRow(client, EVENT);
+    const refused = await eventRowOnce(client, EVENT, 'role_names', () => client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+    assert.equal(refused.data, null);
+    assert.equal(refused.error?.code, '42501', 'the asker’s own failure was replaced — a refusal must stay a refusal');
+    const fine = await eventRowOnce(client, EVENT, 'event_date', () => client.from('events').select('event_date').eq('event_id', EVENT).maybeSingle());
+    assert.deepEqual(fine.data, { event_date: 'db:event_date' });
+    assert.equal(sent.length, 3, 'the askers did not each read for themselves after the one read was refused');
+  });
+  await withEventRowScopeForTest(async () => {
+    // The one read SUCCEEDED with no row (RLS: not theirs) → every asker is told "no row", as its own read would.
+    const { client, sent } = viewerClient(() => asJson([]));
+    openDashboardEventRow(client, EVENT);
+    const none = await eventRowOnce(client, EVENT, 'role_names', () => client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+    assert.equal(none.data, null);
+    assert.equal(none.error, null);
+    assert.equal(sent.length, 1);
+  });
+  await withEventRowScopeForTest(async () => {
+    // The one read never answered (the network) → own reads, never "no row".
+    let first = true;
+    const { client, sent } = viewerClient((url) => {
+      if (first) {
+        first = false;
+        throw new TypeError('fetch failed');
+      }
+      return asJson([rowFor(url)]);
+    });
+    openDashboardEventRow(client, EVENT);
+    const got = await eventRowOnce(client, EVENT, 'role_names', () => client.from('events').select('role_names').eq('event_id', EVENT).maybeSingle());
+    assert.deepEqual(got.data, { role_names: 'db:role_names' }, 'a read that never answered was handed out as an answer');
+    assert.ok(sent.length >= 2);
+  });
+});
+
+test('10 · every dashboard column is a production column the signed-in couple may read — never a host-only private one', () => {
+  const snapshot = readFileSync(join(ROOT, 'supabase', 'security', 'prod-schema.snapshot.txt'), 'utf8');
+  const inProd = new Set(snapshot.split('\n').filter((l) => l.startsWith('events.')).map((l) => l.slice('events.'.length).trim()));
+  for (const column of DASHBOARD_ROW_CARRIES) {
+    assert.ok(inProd.has(column), `events.${column} is not in production's schema snapshot: the one read would be refused on EVERY view and every asker would read for itself — a request added, not saved`);
+  }
+  // The private columns: SELECT is revoked from `authenticated` on the base table (the lockdown's
+  // `private_columns`, restated in full by each later lockdown migration — read the newest one).
+  const migrations = readdirSync(join(ROOT, 'supabase', 'migrations')).sort();
+  const lockdowns = migrations.filter((f) => /private_columns\s+TEXT\[\]\s*:=/i.test(readFileSync(join(ROOT, 'supabase', 'migrations', f), 'utf8')));
+  assert.ok(lockdowns.length > 0, 'no lockdown migration was found — this guard is blind');
+  const privateColumns = new Set<string>();
+  for (const f of lockdowns) {
+    const sql = readFileSync(join(ROOT, 'supabase', 'migrations', f), 'utf8');
+    const list = /private_columns\s+TEXT\[\]\s*:=\s*ARRAY\[([\s\S]*?)\];/i.exec(sql)?.[1] ?? '';
+    for (const m of list.matchAll(/'([a-z_0-9]+)'/g)) privateColumns.add(m[1]!);
+  }
+  assert.ok(privateColumns.has('estimated_budget_centavos'), 'the private column list was not read — this guard is blind');
+  for (const column of DASHBOARD_ROW_CARRIES) {
+    assert.ok(!privateColumns.has(column), `events.${column} is host-only (not granted on events): the one read would be refused on every view`);
+  }
+  assert.equal(new Set(DASHBOARD_ROW_CARRIES).size, DASHBOARD_ROW_CARRIES.length, 'a dashboard column is listed twice');
+});
+
+test('10b · every dashboard asker names only columns the one read carries — or it quietly sends its own read on every view', () => {
+  const DASHBOARD_LIBS = ['lib/event-viewer.server.ts', 'lib/event-needs-read.server.ts', 'lib/pax.ts', 'lib/role-names.server.ts'];
+  const carried = new Set<string>(DASHBOARD_ROW_CARRIES);
+  const sites = callSites().filter(({ file }) => file.startsWith('app/dashboard/') || DASHBOARD_LIBS.includes(file));
+  assert.ok(sites.length >= 10, `only ${sites.length} dashboard askers were found — the scan is not seeing them`);
+  for (const { file, call } of sites) {
+    const named = /^eventRowOnce\(\s*[\w.]+,\s*[\w.]+,\s*('[^']*'|[A-Z_]+),/.exec(call)?.[1] ?? '';
+    let columns = named.startsWith("'") ? named.slice(1, -1) : '';
+    if (!columns) {
+      const src = readFileSync(join(WEB, file), 'utf8');
+      columns = new RegExp(`const ${named} =\\s*'([^']+)'`).exec(src)?.[1] ?? '';
+      assert.ok(columns, `${file}: the column constant ${named} was not found — update this guard`);
+    }
+    for (const c of columns.split(',').map((x) => x.trim())) {
+      assert.ok(carried.has(c), `${file} asks the dashboard's row for events.${c}, which DASHBOARD_ROW_CARRIES does not carry — add it (a granted, non-private column) or the asker reads for itself`);
+    }
+  }
 });

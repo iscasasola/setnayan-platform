@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { markNotificationRead } from '@/lib/notification-actions';
@@ -18,9 +19,16 @@ import { markNotificationRead } from '@/lib/notification-actions';
  * A refused read renders nothing — the access is real either way; only the
  * announcement is skipped.
  */
-export async function CohostWelcome({ eventId, userId }: { eventId: string; userId: string }) {
+/**
+ * The one read, cache()d per render — so the event layout can START it beside
+ * its other reads (`cohostWelcomeNotice(eventId, user.id)` in its read block)
+ * instead of this component asking only after the whole rail has rendered: one
+ * database trip less in front of every event page's first paint. Same read,
+ * same failure (a refusal → nothing shown), same answer.
+ */
+export const cohostWelcomeNotice = cache(async (eventId: string, userId: string) => {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  return supabase
     .from('notifications')
     .select('notification_id, title, body')
     .eq('user_id', userId)
@@ -30,6 +38,10 @@ export async function CohostWelcome({ eventId, userId }: { eventId: string; user
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+});
+
+export async function CohostWelcome({ eventId, userId }: { eventId: string; userId: string }) {
+  const { data, error } = await cohostWelcomeNotice(eventId, userId);
   if (error) {
     logQueryError('CohostWelcome', error, { eventId }, 'graceful_degrade');
     return null;

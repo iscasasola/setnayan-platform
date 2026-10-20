@@ -89,10 +89,11 @@ test('🪤 the account ref is RESOLVED, never handed to an <img> raw', () => {
   // was written for after it shipped in four loaders at once.
   const at = PAGE.indexOf('accountRefByGuest');
   assert.notEqual(at, -1, 'the page no longer loads account photo refs');
-  const window = PAGE.slice(at, at + 900);
+  // The refs themselves are what the resolver is handed (2026-10-20: the read now leaves with the
+  // page's other reads, so the resolver is no longer a fixed distance after the first mention).
   assert.match(
-    window,
-    /guestPhotoDisplayUrls\(/,
+    PAGE,
+    /guestPhotoDisplayUrls\(\s*Object\.values\(accountRefByGuest\)/,
     'the account refs are not put through guestPhotoDisplayUrls — an r2:// ref would reach an <img>',
   );
 });

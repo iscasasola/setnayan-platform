@@ -12,6 +12,8 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { eventBoardHref } from '@/lib/event-board';
 import { fetchUserEventsOrReconnect } from '@/lib/events';
 import { isTransientReadError, rethrowIfSchemaBlip, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
@@ -44,13 +46,19 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
-import { CohostWelcome } from './_components/cohost-welcome';
+import { CohostWelcome, cohostWelcomeNotice } from './_components/cohost-welcome';
+import { resolveRailAccount, resolveRailStudioEvent } from '@/app/_components/frontdoor/rail-data';
+import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
 import { AppPreload } from '@/app/_components/app-preload';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { HomeCoverWordsProvider } from './_components/home-loading-cover';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
+
+/** The layout's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
+const LAYOUT_EVENT_COLUMNS =
+  'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
 
 type Props = {
   children: React.ReactNode;
@@ -105,15 +113,10 @@ export default async function EventLayout({ children, params }: Props) {
   // 🔁 A schema-cache BLIP is retried, and one that outlasts the window throws
   // `SchemaBlipError` (the browser shows "Reconnecting…") — it must never reach
   // the `notFound()` below as "you are not a member". lib/read-retry.ts.
+  // 👥 ONE READ PER RENDER (`lib/event-membership-once.ts`): the page's own viewer check and the
+  // entitlement client ask this same question, and are handed this same answer — retried inside.
   const { data: membership, error: membershipError, status: membershipStatus } =
-    await withSchemaRetry(() =>
-      supabase
-        .from('event_members')
-        .select('member_type')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle(),
-    );
+    await eventMemberTypeOnce(supabase, eventId, user.id);
   if (isTransientReadError(membershipError, membershipStatus)) {
     logQueryError('EventLayout (event_members)', membershipError, { event_id: eventId, user_id: user.id }, 'will_throw');
     throw schemaBlipError('EventLayout (event_members)', membershipError);
@@ -229,12 +232,30 @@ export default async function EventLayout({ children, params }: Props) {
   // RUN — one stray `await` puts a full database trip back in front of every
   // event page.
   const shellRead = getDashboardShell(user.id);
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): one request for every column
+  // this layout and its pages read of it — the page usually opened it first, and then this is free.
+  openDashboardEventRow(supabase, eventId);
+  /*
+    ⚡ THE RAIL'S AND THE CO-HOST CARD'S READS START HERE TOO (measured 2026-10-20 in the lab,
+    150 ms a trip). `<AppRailShell>` and `<CohostWelcome>` are server components that render only
+    AFTER this layout returns — so their reads (the rail's account, its search index, the Studio
+    event; the unread co-host notice) used to leave two trips later than everything else, and the
+    whole page waited for them before its first byte. Each is cache()d per render: started here,
+    the component below finds its answer in hand. Not awaited here, and each fails soft exactly
+    as it did (the rail to its signed-out slot / `[]`, the card to nothing) — the `.catch` only
+    stops a refused prefetch from being an unhandled rejection; the component's own await sees it.
+  */
+  void resolveRailAccount().catch(() => undefined);
+  void resolveCommandItems().catch(() => undefined);
+  void resolveRailStudioEvent(eventId).catch(() => undefined);
+  void cohostWelcomeNotice(eventId, user.id).catch(() => undefined);
   const eventRead = (async () => {
     try {
-      const fullSelect =
-        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
+      // From the row opened above when it is in hand (lib/event-row-once.ts); else this read, as before.
       const fullRes = await withSchemaRetry(() =>
-        supabase.from('events').select(fullSelect).eq('event_id', eventId).maybeSingle(),
+        eventRowOnce(supabase, eventId, LAYOUT_EVENT_COLUMNS, () =>
+          supabase.from('events').select(LAYOUT_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle(),
+        ),
       );
       if (
         fullRes.error &&

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { stableDisplayUrlForStoredAsset } from '@/lib/uploads';
 import { hubLegibility } from '@/lib/hub-legibility';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 
@@ -24,7 +24,7 @@ import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
  * lightest AND darkest clusters. Free: nothing here reads an entitlement — the
  * theme was already gated by `resolveHubTheme` before it got here.
  *
- * ⚠ BEST-EFFORT. With no public R2 host configured the URL cannot be built;
+ * ⚠ BEST-EFFORT. With no R2 configured at all the URL cannot be built;
  * the theme then renders on its plain canvas (still fully readable — the scrim
  * colour IS the canvas), never a broken video box.
  */
@@ -39,10 +39,15 @@ export type ThemeGround = {
   foil: boolean;
 };
 
-/** An `r2://setnayan-media/…` ref → its public URL, through the storage layer's one resolver. */
+/**
+ * An `r2://setnayan-media/…` ref → its SIGNED address on the bucket's own host (`stableDisplayUrlForStoredAsset`):
+ * one address all through a signing window and cached by the browser, never the `pub-….r2.dev` development host
+ * some networks block (#6691; owner 2026-10-20 *"we want all pages to load at its fastest"*). Still Setnayan's own
+ * art — signing changes the host, not who may see it.
+ */
 function publicUrl(ref: string): string | null {
   try {
-    return publicUrlForStoredAsset(ref);
+    return stableDisplayUrlForStoredAsset(ref);
   } catch {
     return null;
   }

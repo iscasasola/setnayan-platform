@@ -74,6 +74,7 @@ import { InsideEventContext } from './inside-event-context';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
+import { EVENT_MENU_ICONS, type EventMenuIconName } from '@/lib/customer-menu';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
   Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
@@ -255,6 +256,19 @@ export type RailTool = {
    * cannot keep is the fake door this rail forbids.
    */
   demo?: DemoOverlayId;
+  /**
+   * The row's icon, BY NAME, resolved here through `EVENT_MENU_ICONS` — a name
+   * because these rows are built by SERVER layouts and a Lucide component
+   * cannot cross into this client module (see `EventMenuIconName`).
+   *
+   * 🔴 REQUIRED. Every tool row drew a 6-px bullet (`.fd-dot`) in this slot
+   * while every other rail row drew an icon. In the 72-px strip the words are
+   * hidden, so Marketplace, Guest list, Seat plan, Budget, Schedule, Groups and
+   * Mood Board came out as a lone dot over a caption — on an iPad 13" held
+   * upright (1032 px) that read as seven icons that never loaded (PR #6716
+   * walk, D6). `rail-tool-rows-wear-icons.test.ts` holds it.
+   */
+  icon: EventMenuIconName;
 };
 
 export type FrontDoorAccount = {
@@ -1742,7 +1756,7 @@ export function FrontDoorShell({
                   {...rowProps(t.key)}
                   className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
                 >
-                  <span className="fd-dot" aria-hidden="true" />
+                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
                   <span className="fd-toolwrap">
                     <span className="fd-label-text">{t.name}</span>
                     {t.line ? <span className="fd-toolline">{t.line}</span> : null}
@@ -1765,7 +1779,7 @@ export function FrontDoorShell({
                   {...rowProps(t.key)}
                   className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
                 >
-                  <span className="fd-dot" aria-hidden="true" />
+                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
                   <span className="fd-toolwrap">
                     <span className="fd-label-text">{t.name}</span>
                     {t.line ? <span className="fd-toolline">{t.line}</span> : null}
@@ -1788,7 +1802,7 @@ export function FrontDoorShell({
                   {...rowProps(t.key)}
                   className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
                 >
-                  <span className="fd-dot" aria-hidden="true" />
+                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
                   <span className="fd-toolwrap">
                     <span className="fd-label-text">{t.name}</span>
                     {t.line ? <span className="fd-toolline">{t.line}</span> : null}
@@ -1857,7 +1871,7 @@ export function FrontDoorShell({
                   {...rowProps(t.key)}
                   className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
                 >
-                  <span className="fd-dot" aria-hidden="true" />
+                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
                   <span className="fd-toolwrap">
                     <span className="fd-label-text">
                       {t.name}

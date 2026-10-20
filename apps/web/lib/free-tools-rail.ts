@@ -81,12 +81,14 @@ export function builderRailItems(eventId: string): ReadonlyArray<RailTool> {
   return [
     {
       key: 'builder-compare',
+      icon: 'compare',
       href: '/explore/compare',
       name: 'Compare',
       line: 'Shortlist suppliers side by side.',
     },
     {
       key: 'builder-contracts',
+      icon: 'contracts',
       href: `/dashboard/${eventId}/contracts`,
       name: 'Contracts',
       line: 'Every signed thing, kept.',
@@ -114,24 +116,28 @@ export function togetherRailItems(
   return [
     {
       key: 'together-samahan',
+      icon: 'groups',
       href: '/dashboard/samahan',
       name: 'Groups',
       line: 'Your barkada, ninongs, family — organized.',
     },
     {
       key: 'together-samahan-stories',
+      icon: 'stories',
       href: '/dashboard/samahan',
       name: 'Group Stories',
       line: 'Clips that live for 24 hours, inside your group.',
     },
     {
       key: 'together-vendor-chat',
+      icon: 'supplier-chat',
       href: messagesHref,
       name: 'Supplier chat',
       line: 'Talk to your booked suppliers here.',
     },
     {
       key: 'together-event-chat',
+      icon: 'event-chat',
       href: messagesHref,
       name: 'Event chat',
       line: 'One thread for the whole entourage.',

@@ -36,6 +36,9 @@
 // /[slug] (0002 Phase 4) — never a duplicate copy under /realstories.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { rememberPublicRead } from '@/lib/remembered-read';
+import { ReadRefused } from '@/lib/remembered-read-core';
+import { HOME_SHELF_TAGS } from '@/lib/home-shelf-tags';
 import {
   UNNAMED_EDITORIAL_LABEL,
   withEditorialEventTypes,
@@ -136,13 +139,54 @@ export function deriveCity(venueName: string | null, venueAddress: string | null
   return venueName?.trim() || null;
 }
 
+/**
+ * The published showcases — consented real stories first, then the curated samples.
+ *
+ * 🧊 REMEMBERED (2026-10-20, fewer-reads), the home page's own way (`lib/remembered-read.ts`):
+ * every visitor gets the same list, and prod's gateway logged this read's sample query ~1,830
+ * times a day — once per front-door view, sitemap and search. It is kept for at most
+ * `HOME_SHELF_HARD_SECONDS` (300 s) and refreshed after `HOME_SHELF_SOFT_SECONDS`, under the
+ * home shelf's own tags, so every write that takes something DOWN clears it at once: an event
+ * leaving `public` or archived (`events`), a couple withdrawing showcase consent or an account
+ * being deleted (`people` — `users.public_summary_consent_at` is a `clears` column), a shop going
+ * hidden (`shops`). `lib/home-shelf-writes-clear.test.ts` holds every one of those writers to it.
+ *
+ * ⛔ A REFUSED READ IS NEVER REMEMBERED. Any step that did not answer makes the read throw
+ * `ReadRefused` carrying what it did build; this page renders that (or nothing), exactly as it
+ * did before anything was remembered, and the next view asks again.
+ *
+ * 🔒 Addresses ride along: the card URLs are signed for 24 h (`presignDisplayUrl`) and a
+ * remembered list is never older than 300 s, so no visitor is handed a dead link.
+ */
 export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[]> {
+  try {
+    return await rememberedShowcases(limit);
+  } catch (error) {
+    if (error instanceof ReadRefused && Array.isArray(error.partial)) return error.partial as ShowcaseEntry[];
+    return [];
+  }
+}
+
+const rememberedShowcases = rememberPublicRead((limit: number) => readPublishedShowcases(limit), {
+  key: 'showcases:published-v1',
+  tags: [HOME_SHELF_TAGS.events, HOME_SHELF_TAGS.people, HOME_SHELF_TAGS.shops],
+});
+
+/** The live read. THROWS `ReadRefused` (carrying what it built) when any step did not answer. */
+async function readPublishedShowcases(limit: number): Promise<ShowcaseEntry[]> {
   let admin: ReturnType<typeof createAdminClient>;
   try {
     admin = createAdminClient();
-  } catch {
-    return [];
+  } catch (error) {
+    throw new ReadRefused<ShowcaseEntry[]>('showcases', error, []);
   }
+  // The first step that did not answer, if any. Every degrade below still runs as it always did —
+  // it only stops the result from being remembered.
+  let refused: unknown = null;
+  const refuse = (error: unknown) => {
+    if (error && !refused) refused = error;
+  };
+  let built: ShowcaseEntry[] = [];
   try {
     const cutoff = new Date(Date.now() - GRACE_DAYS * 86_400_000)
       .toISOString()
@@ -189,11 +233,12 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       and a throw from either still lands in the catch below, as before.
     */
     const readConsented = async (): Promise<EventRow[]> => {
-      const { data: consenters } = await admin
+      const { data: consenters, error: consentersError } = await admin
         .from('users')
         .select('user_id')
         .not('public_summary_consent_at', 'is', null)
         .is('deleted_at', null);
+      refuse(consentersError);
       const userIds = (consenters ?? []).map((u) => u.user_id as string);
 
       // 2 · the events those couples belong to. (Empty until the first real
@@ -202,11 +247,12 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       // zero real couples have consented yet.)
       let eventIds: string[] = [];
       if (userIds.length > 0) {
-        const { data: members } = await admin
+        const { data: members, error: membersError } = await admin
           .from('event_members')
           .select('event_id')
           .eq('member_type', 'couple')
           .in('user_id', userIds);
+        refuse(membersError);
         eventIds = Array.from(
           new Set((members ?? []).map((m) => m.event_id as string)),
         );
@@ -279,6 +325,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
             .not('slug', 'is', null)
             .order('event_date', { ascending: false })
             .limit(limit);
+          refuse(legacy.error);
           consentedEvents = (legacy.data as EventRow[] | null) ?? [];
         } else {
           consentedEvents = (featuredAware.data as EventRow[] | null) ?? [];
@@ -318,6 +365,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
             .not('slug', 'is', null)
             .order('event_date', { ascending: false })
             .limit(limit);
+          refuse(sampleLegacy.error);
           sampleEvents = (sampleLegacy.data as EventRow[] | null) ?? [];
         } else {
           sampleEvents = (sampleFeatured.data as EventRow[] | null) ?? [];
@@ -356,11 +404,12 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // categories per event, aggregated from the SAME credit query below.
     const categoriesByEvent = new Map<string, Set<string>>();
     if (evList.length > 0) {
-      const { data: links } = await admin
+      const { data: links, error: linksError } = await admin
         .from('event_vendors')
         .select('event_id, linked_vendor_profile_id')
         .in('event_id', evList.map((e) => e.event_id))
         .not('linked_vendor_profile_id', 'is', null);
+      refuse(linksError);
       const linkRows = (links ?? []) as Array<{
         event_id: string;
         linked_vendor_profile_id: string;
@@ -369,7 +418,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         new Set(linkRows.map((r) => r.linked_vendor_profile_id).filter(Boolean)),
       );
       if (profileIds.length > 0) {
-        const { data: profs } = await admin
+        const { data: profs, error: profsError } = await admin
           .from('vendor_profiles')
           .select(
             'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city, verification_state',
@@ -393,6 +442,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
             backfill.
           */
           .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[]);
+        refuse(profsError);
         // Resolve each eligible profile's logo once (not per story).
         const profMap = new Map<string, ShowcaseVendorCredit>();
         // Canonical service categories per credited profile (facet source).
@@ -461,7 +511,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       }
     }
 
-    return await Promise.all(
+    built = await Promise.all(
       evList.map(async (e) => ({
         href: `/${e.slug as string}`,
         eventId: e.event_id,
@@ -503,8 +553,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           let cover: Awaited<ReturnType<typeof resolveStoryCover>> = null;
           try {
             cover = await resolveStoryCover(admin, e.event_id, e);
-          } catch {
+          } catch (error) {
             cover = null;
+            // The card still shows (the living hero), but a list built around a failed
+            // cover read is not one to remember.
+            refuse(error ?? new Error('story cover unread'));
           }
           if (cover) {
             try {
@@ -535,9 +588,12 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         serviceCategories: Array.from(categoriesByEvent.get(e.event_id) ?? []),
       })),
     );
-  } catch {
-    return [];
+  } catch (error) {
+    // As before, a throw anywhere renders nothing — and is not remembered.
+    throw new ReadRefused<ShowcaseEntry[]>('showcases', error, []);
   }
+  if (refused) throw new ReadRefused<ShowcaseEntry[]>('showcases', refused, built);
+  return built;
 }
 
 // ============================================================================

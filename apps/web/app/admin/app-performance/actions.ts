@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -181,6 +182,7 @@ export async function saveLoadTarget(formData: FormData): Promise<void> {
     .from('platform_settings')
     .update({ load_time_targets: targets, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (saveErr) back(`target=${encodeURIComponent('refused')}`);
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'load_time_target_saved',

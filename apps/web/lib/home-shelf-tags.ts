@@ -5,7 +5,12 @@
  * guard (`lib/home-shelf-writes-clear.test.ts`) all read this one file.
  *
  * ─── THE TWO AGES ────────────────────────────────────────────────────────────
- * SOFT 60 s — inside it a view costs no database call for these rows.
+ * SOFT 240 s — inside it a view costs no database call for these rows. (60 s
+ *   until 2026-10-20: prod's gateway then logged the world shelf's candidate read
+ *   ~520 times a day and the event-type tables ~890 — a refresh every minute or
+ *   two for rows that change when somebody presses Save. Raising the soft age
+ *   moves NO staleness bound: a view still never sees rows older than HARD, and
+ *   every `clears` write still empties the tag at once.)
  * HARD 300 s — past it the rows are never shown; they are asked again. 300 is
  * the staleness this page already ran under as an ISR page (`revalidate = 300`
  * in `app/page.tsx`, the 2026-07-02 perf sweep) — not a new number.
@@ -13,7 +18,7 @@
  * address is remembered in the first place: the readers keep ROWS, and every
  * picture is signed per request by the code that already did it.
  */
-export const HOME_SHELF_SOFT_SECONDS = 60;
+export const HOME_SHELF_SOFT_SECONDS = 240;
 export const HOME_SHELF_HARD_SECONDS = 300;
 
 export const HOME_SHELF_TAGS = {
@@ -59,6 +64,9 @@ export const HOME_SHELF_DEPENDS: Record<
       'invite_theme', 'std_background', 'landing_page_hero_image_url', 'landing_page_hero_video_r2_key',
       'monogram_custom_svg', 'monogram_uploaded_svg', 'role_palette', 'site_bg_color',
       'site_button_color', 'site_font_key', 'site_art_direction', 'monogram_studio_config',
+      // The published showcases (`lib/showcase-db.ts`, remembered 2026-10-20) read these too.
+      'venue_address', 'is_sample', 'showcase_featured_at', 'showcase_feature_rank', 'story_cover_kind',
+      'story_cover_ref',
     ],
   },
   /*
@@ -87,7 +95,9 @@ export const HOME_SHELF_DEPENDS: Record<
   },
   users: {
     subject: 'people',
-    clears: ['public_profile_enabled', 'deleted_at', 'slug'],
+    // `public_summary_consent_at` (2026-10-20): the published showcases list a couple only
+    // while they consent, and withdrawing must take their story down at once.
+    clears: ['public_profile_enabled', 'deleted_at', 'slug', 'public_summary_consent_at'],
     waits: ['display_name', 'profile_photo_url', 'followers_count', 'public_id'],
   },
 };

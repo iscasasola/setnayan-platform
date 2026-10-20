@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -32,6 +33,7 @@ export async function saveFeeReviewMin(_prev: ReviewMinState, formData: FormData
     .from('platform_settings')
     .update({ fee_review_unsettled_events_min: value, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'fee_review_min_edit',

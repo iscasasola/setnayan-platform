@@ -11,6 +11,7 @@
 // preserved by merging rather than replacing.
 
 import { revalidatePath } from 'next/cache';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
@@ -750,6 +751,9 @@ export async function setStoryShowcase(
     .update({ public_summary_consent_at: optIn ? new Date().toISOString() : null })
     .eq('user_id', userId);
   if (error) return { ok: false, error: 'Could not update. Please try again.' };
+  // The published showcases are remembered for up to 300 s (`lib/showcase-db.ts`); a couple who
+  // withdraws comes off them now, not in five minutes.
+  clearHomeShelf('people');
 
   revalidatePath(`/dashboard/${eventId}/story`);
   revalidatePath(`/dashboard/${eventId}/website/privacy`);

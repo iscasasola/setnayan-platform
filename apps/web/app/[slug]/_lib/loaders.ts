@@ -61,7 +61,7 @@ import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
-import { isDataPrivacyControlActive, readDataPrivacyControlsTogether } from '@/lib/data-privacy-controls';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
@@ -260,8 +260,6 @@ async function readEventShellRow<R extends { data: unknown; error: { message: st
 }
 
 export const loadEventShell = cache(async (slug: string) => {
-  // Every guest-tree render begins here: the data-privacy controls it asks about are read in one request.
-  readDataPrivacyControlsTogether();
   const admin = createAdminClient();
   const { data, error } = await readEventShellRow(admin, slug, () =>
     theOneEventRead(admin, slug).select(

@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -83,6 +84,7 @@ export async function saveLaunchOffer(
       if (!before.startedAt) update.launch_offer_started_at = new Date().toISOString();
     }
     const { error } = await admin.from('platform_settings').update(update).eq('id', 1);
+    revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
     if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
     await audit(intent === 'start' ? 'launch_offer_start' : 'launch_offer_edit', update);
     return done(intent === 'start' ? 'The launch offer is on.' : 'Saved.');
@@ -108,6 +110,7 @@ export async function saveLaunchOffer(
     }
     const update = { booking_fee_free_from: from, booking_fee_free_until: until, updated_at: new Date().toISOString() };
     const { error } = await admin.from('platform_settings').update(update).eq('id', 1);
+    revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
     if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
     await audit('booking_fee_free_window_edit', update);
     return done(from || until ? 'Free-fee window saved.' : 'Free-fee window cleared.');

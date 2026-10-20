@@ -40,6 +40,8 @@ const REMEMBERED_MODULES = [
   'lib/event-cover-given.ts',
   'lib/hub-look-given.ts',
   'lib/event-poster-given.ts',
+  // The published showcases (2026-10-20, fewer-reads): one remembered list for every visitor.
+  'lib/showcase-db.ts',
 ];
 
 /** A module that can see who is looking. */
@@ -153,7 +155,8 @@ function sources(dir: string, out: string[] = []): string[] {
 test('every remembered read lives in a module this guard walks', () => {
   const files = [...sources(join(WEB, 'app')), ...sources(join(WEB, 'lib'))];
   assert.ok(files.length > 500, `expected the app+lib sources, found ${files.length}`);
-  const allowed = new Set(['lib/home-public-reads.ts', 'lib/home-public-reads-core.ts', 'lib/remembered-read.ts']);
+  // Every module walked above may remember; its import graph is held session-free there.
+  const allowed = new Set([...REMEMBERED_MODULES, 'lib/remembered-read.ts']);
   const callers = files
     .filter((f) => /\b(?:rememberPublicRead|rememberWith|makeHomePublicReads)\(/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => relative(WEB, f))

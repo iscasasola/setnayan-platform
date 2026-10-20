@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { BOOKING_FEE } from '@/lib/booking-fee';
@@ -140,6 +141,7 @@ export async function saveBookingFeeSchedule(
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
   await admin.from('admin_audit_log').insert({
@@ -377,6 +379,7 @@ export async function saveSignupDiscount(
     .from('platform_settings')
     .update({ onboarding_discount_pct: pct, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (setErr) return { ok: false, message: `Couldn't save — ${setErr.message}` };
 
   let moved = 0;
@@ -475,6 +478,7 @@ export async function setEventTypeBand(
     .from('event_type_vocab')
     .update({ ai_price_tier: band, updated_at: new Date().toISOString() })
     .eq('event_type', eventType);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
   await admin.from('admin_audit_log').insert({

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { openChannels } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 export type PlatformSettingsRow = {
   id: 1;
@@ -189,10 +190,51 @@ const SOFT_DEFAULTS: SoftColumns = {
   bdo_available_as_of: null,
 };
 
+/**
+ * The settings row, as every receipt, checkout and studio page reads it.
+ *
+ * 🧊 REMEMBERED ACROSS REQUESTS (2026-10-20, fewer-reads) — `lib/global-settings-cache.ts`,
+ * under `GLOBAL_SETTINGS_TAGS.platformSettings`. The row is one singleton, the same for every
+ * signed-in reader (policy `platform_settings_read_authenticated` is `USING (true)`), and it was
+ * read three requests at a time on every dynamic render that showed a price or a rail. Every
+ * app file that writes the table clears the tag in the same action
+ * (`lib/global-settings-cache.test.ts` §4), so an admin flipping a rail OFF at its monthly cap
+ * is seen on the very next page; an edit made outside the app is seen within
+ * `GLOBAL_SETTINGS_SECONDS`.
+ *
+ * ⛔ A REFUSED OR DEGRADED READ IS NEVER REMEMBERED. The core read refused (→ FALLBACK), the soft
+ * probe refused (→ static QR, rails OPEN) or the accounts list refused (→ the two fixed rails):
+ * each of those answers is handed to THIS page only, exactly as before, and the next page asks
+ * again. Only a read where all three probes answered is kept.
+ *
+ * 🔒 Every caller sits behind a sign-in (mapped when `anon` lost the table, migration
+ * 20271014400000 — "every session-client read sits behind an auth gate"), and the editing
+ * surfaces never come here: they read `fetchPlatformSettingsMeasured`, which is never
+ * remembered, so a form is always seeded from the row as it is now.
+ */
 export async function fetchPlatformSettings(
   supabase: SupabaseClient,
 ): Promise<PlatformSettingsRow> {
-  return (await fetchPlatformSettingsMeasured(supabase)).settings;
+  try {
+    return await rememberedGlobalRead('platform_settings-row-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
+      const measured = await readPlatformSettings(supabase);
+      if (measured.readFailed || measured.accountsReadFailed || measured.softReadFailed) {
+        throw new DegradedSettingsRead(measured.settings);
+      }
+      return measured.settings;
+    });
+  } catch (error) {
+    if (error instanceof DegradedSettingsRead) return error.settings;
+    throw error;
+  }
+}
+
+/** A read that answered only in part — handed to this page, never remembered. */
+class DegradedSettingsRead extends Error {
+  constructor(readonly settings: PlatformSettingsRow) {
+    super('platform_settings answered only in part');
+    this.name = 'DegradedSettingsRead';
+  }
 }
 
 /**
@@ -216,6 +258,14 @@ export async function fetchPlatformSettings(
 export async function fetchPlatformSettingsMeasured(
   supabase: SupabaseClient,
 ): Promise<{ settings: PlatformSettingsRow; readFailed: boolean; accountsReadFailed: boolean }> {
+  const { settings, readFailed, accountsReadFailed } = await readPlatformSettings(supabase);
+  return { settings, readFailed, accountsReadFailed };
+}
+
+/** The three probes, live, with what each one answered. Never remembered itself. */
+async function readPlatformSettings(
+  supabase: SupabaseClient,
+): Promise<{ settings: PlatformSettingsRow; readFailed: boolean; accountsReadFailed: boolean; softReadFailed: boolean }> {
   const { data, error } = await supabase
     .from('platform_settings')
     .select(SELECT)
@@ -223,14 +273,15 @@ export async function fetchPlatformSettingsMeasured(
     .maybeSingle();
   if (error) {
     logQueryError('platform-settings: fetchPlatformSettings', error);
-    return { settings: FALLBACK, readFailed: true, accountsReadFailed: true };
+    return { settings: FALLBACK, readFailed: true, accountsReadFailed: true, softReadFailed: true };
   }
-  if (!data) return { settings: FALLBACK, readFailed: false, accountsReadFailed: false };
+  if (!data) return { settings: FALLBACK, readFailed: false, accountsReadFailed: false, softReadFailed: false };
 
   // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
   // rails OPEN. Never let it take the core payment details down with it, and
   // never let it close checkout.
   let soft: SoftColumns = { ...SOFT_DEFAULTS };
+  let softReadFailed = false;
   try {
     const { data: softRow, error: softError } = await supabase
       .from('platform_settings')
@@ -253,9 +304,12 @@ export async function fetchPlatformSettingsMeasured(
         bdo_available_php: row.bdo_available_php ?? null,
         bdo_available_as_of: row.bdo_available_as_of ?? null,
       };
+    } else if (softError) {
+      softReadFailed = true;
     }
   } catch {
     /* keep the defaults — static QR, both rails open */
+    softReadFailed = true;
   }
 
   // The receiving-accounts LIST, in a probe of its own for the same reason the
@@ -289,6 +343,7 @@ export async function fetchPlatformSettingsMeasured(
     } as PlatformSettingsRow,
     readFailed: false,
     accountsReadFailed,
+    softReadFailed,
   };
 }
 

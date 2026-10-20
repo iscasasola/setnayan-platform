@@ -28,11 +28,14 @@
  *
  * Cached per request via React `cache()` (same pattern as lib/taxonomy-db) —
  * one vocab read per render tree regardless of how many server components
- * await it. Server-only — reads cookies via the Supabase client.
+ * await it — and, since 2026-10-20, remembered ACROSS requests too
+ * (`lib/global-settings-cache.ts`), read with the service client: the table is
+ * public-read, so no viewer's session is involved.
  */
 import { cache } from 'react';
 
-import { createClient } from './supabase/server';
+import { createAdminClient } from './supabase/admin';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from './global-settings-cache';
 import { resolveProfile } from './event-type-profile';
 import { vendorServableEventTypes } from './vendor-servable-event-types';
 import {
@@ -72,17 +75,28 @@ function toRow(v: VocabRow): EventTypeRow {
  */
 export const getEventTypeVocab = cache(async (): Promise<EventTypeRow[]> => {
   try {
-    const sb = await createClient();
-    const { data, error } = await sb
-      .from('event_type_vocab')
-      .select(
-        'event_type, label_en, emoji, enabled, status, sort_order, onboarding_href, hero_photo_url, description',
-      )
-      .eq('status', 'active')
-      .order('sort_order', { ascending: true });
-    if (error) console.error('[supabase-error] lib/event-types-db.ts · from:event_type_vocab.select', error);
-    if (error || !data || data.length === 0) return [...EVENT_TYPES_FALLBACK];
-    return (data as VocabRow[]).map(toRow);
+    // 🧊 Remembered across requests (`lib/global-settings-cache.ts`, 2026-10-20) under
+    // `GLOBAL_SETTINGS_TAGS.eventTypeVocab`, which every app writer of the table clears
+    // (`lib/global-settings-cache.test.ts` §4). The table is public-read (`USING (TRUE)`), the
+    // same rows for every reader, so it is read with the SERVICE client — never the viewer's
+    // session, which a remembered read must not touch. A refused read throws inside, is never
+    // remembered, and lands on the fallback roster for this page only — as before.
+    const data = await rememberedGlobalRead('event_type_vocab-active-v1', GLOBAL_SETTINGS_TAGS.eventTypeVocab, async () => {
+      const { data: rows, error } = await createAdminClient()
+        .from('event_type_vocab')
+        .select(
+          'event_type, label_en, emoji, enabled, status, sort_order, onboarding_href, hero_photo_url, description',
+        )
+        .eq('status', 'active')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.error('[supabase-error] lib/event-types-db.ts · from:event_type_vocab.select', error);
+        throw error;
+      }
+      return (rows ?? []) as VocabRow[];
+    });
+    if (data.length === 0) return [...EVENT_TYPES_FALLBACK];
+    return data.map(toRow);
   } catch {
     return [...EVENT_TYPES_FALLBACK];
   }
@@ -128,12 +142,18 @@ export const getVendorServableEventTypes = cache(async (): Promise<EventTypeRow[
   const vocab = await getEventTypeVocab();
   const flags = new Map<string, boolean | null>();
   try {
-    const sb = await createClient();
-    const { data, error } = await sb
-      .from('event_type_profiles')
-      .select('event_type, marketplace_enabled');
-    if (error) throw error;
-    for (const r of (data ?? []) as { event_type: string; marketplace_enabled: boolean | null }[]) {
+    // 🧊 Remembered (`lib/global-settings-cache.ts`), cleared by the profile writer
+    // (app/admin/categories/event-type-actions.ts → `GLOBAL_SETTINGS_TAGS.eventTypeProfiles`).
+    // Public-read rows, read with the service client; a refused read throws inside and is
+    // never remembered.
+    const data = await rememberedGlobalRead('event_type_profiles-marketplace-v1', GLOBAL_SETTINGS_TAGS.eventTypeProfiles, async () => {
+      const { data: rows, error } = await createAdminClient()
+        .from('event_type_profiles')
+        .select('event_type, marketplace_enabled');
+      if (error) throw error;
+      return (rows ?? []) as { event_type: string; marketplace_enabled: boolean | null }[];
+    });
+    for (const r of data) {
       flags.set(r.event_type, r.marketplace_enabled);
     }
   } catch (err) {

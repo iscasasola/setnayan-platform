@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -1911,6 +1912,7 @@ export async function relabelEventTypeVocab(formData: FormData): Promise<never> 
     .from('event_type_vocab')
     .update({ label_en: label, updated_at: new Date().toISOString() })
     .eq('event_type', key);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
   clearHomeShelf('eventTypes');
   if (error) redirectBack(formData, 'error', error.message);
@@ -1957,6 +1959,7 @@ export async function reorderEventTypeVocab(formData: FormData): Promise<never> 
     .from('event_type_vocab')
     .update({ sort_order: a.sort_order, updated_at: new Date().toISOString() })
     .eq('event_type', b.event_type);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (e1 || e2) redirectBack(formData, 'error', (e1 ?? e2)!.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.vocab_event_reorder',

@@ -37,7 +37,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Search, Users, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { GuestPopup } from './guest-popup';
@@ -121,7 +120,6 @@ export function AddFromPeopleSheet({
   const [side, setSide] = useState<GuestSide>(defaultSide);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
   const { addGuestsFromPeople, listPeopleYouCanInvite } = useGuestActions();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -247,12 +245,12 @@ export function AddFromPeopleSheet({
         // The sheet STAYS OPEN on a partial, so this one is not redundant with
         // the reset in `onOpen` — nothing re-opens it. It is what makes the
         // rows that DID land show as "already here" without closing the panel.
+        // (The guest list behind it is already redrawn: the action revalidates whenever a name landed, and its
+        // answer carries the render — no `router.refresh()`, which drew the page twice.)
         setRows(null);
-        router.refresh();
         return;
       }
       close();
-      router.refresh();
     });
   };
 

@@ -141,6 +141,7 @@ export function BudgetSummary({
     let stop = () => {};
     const refresh = () => {
       if (timer) clearTimeout(timer);
+      // one-render: keep (realtime) — a payment or line item changed somewhere else; nothing was pressed here.
       timer = setTimeout(() => router.refresh(), 400);
     };
     try {

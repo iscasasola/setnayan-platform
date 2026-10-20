@@ -25,7 +25,22 @@ import ts from 'typescript';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
-export const KEEP_REASONS = ['fetch', 'client-write', 'auth', 'realtime', 'client-only', 'prop-action', 'unsure'] as const;
+/**
+ * Why a refresh is KEPT — one of these, on the line above it: `// one-render: keep (<reason>) — <why>`.
+ *   fetch          · it follows a `fetch()` to an API route — no server action answered with a render.
+ *   client-write   · it follows a write the BROWSER made (a cookie, the browser's Supabase client, a native store).
+ *   auth           · the session changed (signed in / out) — the server components must be read with it.
+ *   realtime       · nothing was pressed here: a live event, a pulse, a poll, the tab coming back.
+ *   retry          · a person's Try again / Reload — the page's read failed, and this asks for it once more.
+ *   batched        · the ONE render after writes that deliberately revalidate nothing (the guest add queue's
+ *                    `{ refresh: false }`, the Maker's draft saves through `lib/maker-refresh.ts`).
+ *   after-failure  · a write that was refused or never answered revalidated nothing; this re-read shows what was kept.
+ *   no-revalidate  · the write before it (named in the why) revalidates nothing, on purpose — this IS its one render.
+ *   navigation     · after a `router.push`, with no write: the router cache (`staleTimes.dynamic`) could serve a stale page.
+ *   other-frame    · the write happened in ANOTHER document (the Maker frame) — this document's server render is not in it.
+ *   unsure         · not proven either way; kept exactly as it was. Counted, and the count may only fall.
+ */
+export const KEEP_REASONS = ['fetch', 'client-write', 'auth', 'realtime', 'retry', 'batched', 'after-failure', 'no-revalidate', 'navigation', 'other-frame', 'unsure'] as const;
 export type KeepReason = (typeof KEEP_REASONS)[number];
 /** `// one-render: keep (<reason>) — <why>` on the line(s) right above the refresh. */
 export const MARKER_RE = /one-render:\s*keep\s*\(([a-z-]+)\)\s*[—–-]\s*\S/;
@@ -41,7 +56,41 @@ export type RefreshSite = {
   fetches: boolean; // a fetch( precedes it
   marker: string | null; // the keep reason, when marked
   markerText: string | null;
+  /** The refresh only runs when a write failed: inside a `catch`, or a branch taken on a refusal. */
+  onFailure: boolean;
+  /** The refresh is handed to the one-render batcher (`makerSave` / `makerRedrawSave` / the add queue's `setRefresher`). */
+  batched: boolean;
 };
+
+const BATCHERS = new Set(['makerSave', 'makerRedrawSave', 'setRefresher']);
+/** A condition that is true when a write did NOT land: `!res.ok`, `!r?.ok`, `res === null`, `failed`, `error`, `!ok`. */
+const FAILURE_TEST = /^!\s*\(?\s*[\w.?]*\bok\b|\.ok\s*===\s*false|===\s*null|^!\s*\w+$|\b(failed|error|err|why|message)\b/;
+
+function onFailureBranch(n: ts.Node): boolean {
+  let child: ts.Node = n;
+  for (let p: ts.Node | undefined = n.parent; p; child = p, p = p.parent) {
+    if (ts.isCatchClause(p)) return true;
+    if (ts.isIfStatement(p)) {
+      const test = p.expression.getText().trim();
+      if (child === p.thenStatement && FAILURE_TEST.test(test)) return true;
+      if (child === p.elseStatement && /\.ok\b/.test(test) && !test.startsWith('!')) return true;
+    }
+    if (isFunctionLike(p) && isComponentBoundary(p)) break;
+  }
+  return false;
+}
+
+function inBatcher(n: ts.Node): boolean {
+  for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
+    if (ts.isCallExpression(p)) {
+      const callee = p.expression;
+      const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : '';
+      if (BATCHERS.has(name)) return true;
+    }
+    if (isFunctionLike(p) && isComponentBoundary(p)) break;
+  }
+  return false;
+}
 
 const SKIP_DIRS = new Set(['node_modules', '.next', 'e2e', 'tests', 'public', 'build-sessions']);
 
@@ -274,11 +323,33 @@ export function auditRefreshes(web: string): RefreshSite[] {
         let fetches = false;
         // Every enclosing function up to (and including) the component: the calls made before this refresh.
         const scopes: ts.Node[] = [];
+        let component: ts.Node | null = null;
         for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
           if (isFunctionLike(p)) {
-            if (isComponentBoundary(p)) break;
+            if (isComponentBoundary(p)) { component = p; break; }
             scopes.push(p);
           }
+        }
+        // `useActionState(serverAction, …)` in the same component: a refresh in its effect follows that action's answer.
+        if (component) {
+          const seenState = new Set<string>();
+          const findState = (c: ts.Node): void => {
+            if (ts.isCallExpression(c) && ts.isIdentifier(c.expression) && c.expression.text === 'useActionState') {
+              const a0 = c.arguments[0];
+              const id = a0 && ts.isIdentifier(a0) ? a0.text : null;
+              const imp = id ? imports.get(id) : undefined;
+              if (id && imp && !seenState.has(id)) {
+                const def = definingModule(web, imp.file, imp.name) ?? imp.file;
+                if (isUseServerModule(parse(def))) {
+                  seenState.add(id);
+                  const hit = findFunction(web, imp.file, imp.name);
+                  actions.push({ name: id, module: relative(web, def), revalidates: !!hit && revalidates(web, hit.sf, hit.node), via: 'import' });
+                }
+              }
+            }
+            ts.forEachChild(c, findState);
+          };
+          ts.forEachChild(component, findState);
         }
         const outer = scopes[scopes.length - 1];
         if (outer) {
@@ -329,6 +400,8 @@ export function auditRefreshes(web: string): RefreshSite[] {
           fetches,
           marker: mk.reason,
           markerText: mk.text,
+          onFailure: onFailureBranch(n),
+          batched: inBatcher(n),
         });
       }
       ts.forEachChild(n, visit);

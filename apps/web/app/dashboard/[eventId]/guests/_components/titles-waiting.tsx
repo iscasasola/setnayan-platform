@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { UserPen } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -41,15 +40,12 @@ export function TitlesWaiting({
   const [saved, setSaved] = useState<Record<string, true>>({});
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [, start] = useTransition();
-  const router = useRouter();
   const headingId = useId();
   const left = people.filter((p) => !saved[p.guestId]).length;
   if (people.length === 0) return null;
 
-  const close = () => {
-    setOpen(false);
-    router.refresh();
-  };
+  // ⚡ Each Woman / Man pick revalidates the guest list (`setGuestTitleGender`), so the page is already redrawn.
+  const close = () => setOpen(false);
   const save = (guestId: string, key: string) =>
     start(async () => {
       const res = await setGuestTitleGender(eventId, guestId, key);

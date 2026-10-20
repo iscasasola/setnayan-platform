@@ -77,9 +77,14 @@ export async function answerAccessRequest(
     kind?: string | null;
   };
   if (req.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
-  // A supplier who joined from the couple's link is answered by
-  // `answerClaimAccess` below — one Approve, not line by line.
-  if (req.kind === 'claim') return { ok: false, error: 'Answer this one with Approve or Decline.' };
+  // A supplier who joined from the couple's link is ONE Approve / Decline, not
+  // line by line: `verdicts.access` carries it to `answerClaimAccess` below.
+  // (The same exported action, not a second one — the server-action budget.)
+  if (req.kind === 'claim') {
+    const v = verdicts.access;
+    if (v !== 'granted' && v !== 'declined') return { ok: false, error: 'Choose Approve or Decline.' };
+    return answerClaimAccess(eventId, requestId, v === 'granted');
+  }
 
   // Only areas that were actually ASKED for can be answered — a host cannot
   // hand over something the coordinator never requested through this door.
@@ -189,7 +194,7 @@ export async function answerAccessRequest(
  * ask. Approve: the bond to the shop (merge-aware), booked-if-paid, a
  * coordinator's host-level seat. Decline: the answer, nothing else.
  */
-export async function answerClaimAccess(
+async function answerClaimAccess(
   eventId: string,
   requestId: string,
   approve: boolean,

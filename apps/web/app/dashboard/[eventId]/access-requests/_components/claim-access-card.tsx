@@ -16,7 +16,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-import { answerClaimAccess } from '../actions';
+import { answerAccessRequest } from '../actions';
 import { claimAskLine, type ClaimAccessAsk } from '@/lib/claim-access-asks';
 
 export function ClaimAccessCard({ eventId, ask }: { eventId: string; ask: ClaimAccessAsk }) {
@@ -29,7 +29,8 @@ export function ClaimAccessCard({ eventId, ask }: { eventId: string; ask: ClaimA
     setError(null);
     setAnswering(approve ? 'approve' : 'decline');
     startTransition(async () => {
-      const res = await answerClaimAccess(eventId, ask.requestId, approve);
+      // The one access-answer action; a claim's single line is `access`.
+      const res = await answerAccessRequest(eventId, ask.requestId, { access: approve ? 'granted' : 'declined' });
       if (!res.ok) {
         setError(res.error ?? 'Could not send that.');
         setAnswering(null);

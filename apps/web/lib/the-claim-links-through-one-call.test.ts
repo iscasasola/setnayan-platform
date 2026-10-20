@@ -15,8 +15,9 @@
  *      neither the merge-aware call nor a bare `marketplace_vendor_id` update.
  *   2. No TypeScript file calls `claim_link_record_to_shop` at all — the only
  *      door to the bond is the SQL answer, so the app cannot grow a second one.
- *   3. The answer goes through ONE server action (`answerClaimAccess`), which
- *      reads the ask on the couple's own session before the grant runs.
+ *   3. The answer goes through ONE path (`answerAccessRequest` → the module's
+ *      own `answerClaimAccess`), which reads the ask on the couple's own session
+ *      before the grant runs.
  * The SQL itself is held by `tests/db/a-claimed-supplier-asks-for-access.db.test.ts`.
  */
 import { test } from 'node:test';
@@ -71,7 +72,7 @@ test("2 · no app code calls the bond directly — only the couple's answer reac
 
 test("3 · the answer is one server action that reads the ask on the couple's session first", () => {
   const actions = read('app/dashboard/[eventId]/access-requests/actions.ts');
-  const answer = body(actions, 'export async function answerClaimAccess(');
+  const answer = body(actions, 'async function answerClaimAccess(');
   const readAt = answer.indexOf(".from('event_access_requests')");
   const grantAt = answer.indexOf(".rpc('answer_claim_access_request'");
   assert.ok(readAt > 0, "the answer no longer reads the ask on the couple's own session");

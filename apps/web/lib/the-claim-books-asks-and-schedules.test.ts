@@ -107,7 +107,9 @@ test('B2 · the card offers exactly Approve and Decline, each its own answer', (
   const card = read('app/dashboard/[eventId]/access-requests/_components/claim-access-card.tsx');
   assert.match(card, /onClick=\{\(\) => answer\(true\)\}[\s\S]*?Approve/);
   assert.match(card, /onClick=\{\(\) => answer\(false\)\}[\s\S]*?Decline/);
-  assert.match(card, /answerClaimAccess\(eventId, ask\.requestId, approve\)/);
+  assert.match(card, /answerAccessRequest\(eventId, ask\.requestId, \{ access: approve \? 'granted' : 'declined' \}\)/);
+  const actions = read('app/dashboard/[eventId]/access-requests/actions.ts');
+  assert.match(actions, /if \(req\.kind === 'claim'\) \{[\s\S]{0,300}return answerClaimAccess\(eventId, requestId, v === 'granted'\)/, 'a claim ask is not routed to the one Approve / Decline');
 });
 
 test('B3 · the card says what Approve gives', () => {

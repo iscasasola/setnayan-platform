@@ -112,7 +112,10 @@ test('Home and the Event Hub cover read the event through withPickedDate', () =>
   const root = join(__dirname, '..', '..');
   const home = readFileSync(join(root, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
   assert.match(home, /const event = eventRes\.data \? withPickedDate\(eventRes\.data\) : null;/);
-  assert.match(home, /leanSelect =\s*'[^']*\bdate_candidates\b/);
+  // Home's row is its own column list, read through the dashboard's one row (2026-10-20) — which must carry it too.
+  assert.match(home, /HOME_EVENT_COLUMNS =\s*'[^']*\bdate_candidates\b/);
+  assert.match(home, /eventRowOnce\(supabase, eventId, HOME_EVENT_COLUMNS, \(\) =>\s*supabase\.from\('events'\)\.select\(HOME_EVENT_COLUMNS\)/);
+  assert.match(readFileSync(join(root, 'lib/event-row-once.ts'), 'utf8'), /DASHBOARD_ROW_CARRIES = \[[\s\S]*?'date_candidates',[\s\S]*?\] as const;/);
   const shell = readFileSync(join(root, 'app/[slug]/_lib/loaders.ts'), 'utf8');
   assert.match(shell, /return data \? withPickedDate\(data\) : data;/);
   assert.match(shell, /gifts_on, date_candidates'/);

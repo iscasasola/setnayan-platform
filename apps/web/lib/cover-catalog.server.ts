@@ -40,7 +40,7 @@ export async function readCoverCatalog(eventId: string): Promise<CoverCatalogRea
       .maybeSingle(),
     supabase
       .from('event_vendors')
-      .select('vendor_id, vendor_name, category, status, covers_plan_groups')
+      .select('vendor_id, vendor_name, category, category_key, status, covers_plan_groups')
       .eq('event_id', eventId),
     getTaxonomy(),
   ]);

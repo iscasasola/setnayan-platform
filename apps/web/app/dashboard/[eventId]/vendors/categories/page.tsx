@@ -36,11 +36,10 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import {
   buildShortlistFolders,
+  homeTileForRow,
   LOCKED_VENDOR_STATUSES,
-  tileForCategory,
 } from '@/lib/shortlist-taxonomy';
 import { TAXONOMY_MAP } from '@/lib/taxonomy';
-import type { VendorCategory } from '@/lib/vendors';
 import {
   fetchVendorCountsByService,
   rollUpCountsToTile,
@@ -129,7 +128,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   // page says once that it could not check.
   const { data: bookedRows, error: bookedError } = await supabase
     .from('event_vendors')
-    .select('category')
+    .select('category, category_key')
     .eq('event_id', eventId)
     .is('archived_at', null)
     .in('status', [...LOCKED_VENDOR_STATUSES]);
@@ -138,8 +137,9 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   }
   const bookedMeasured = !bookedError && bookedRows !== null;
   const booked: Set<string> | null = bookedMeasured ? new Set<string>() : null;
-  for (const r of (bookedRows ?? []) as Array<{ category: string | null }>) {
-    const tile = r.category ? tileForCategory(r.category as VendorCategory) : null;
+  for (const r of (bookedRows ?? []) as Array<{ category: string | null; category_key: string | null }>) {
+    // The row the supplier is drawn under — a moved one's may be finer than its category.
+    const tile = r.category ? homeTileForRow({ category: r.category, category_key: r.category_key }) : null;
     if (tile) booked?.add(tile);
   }
 

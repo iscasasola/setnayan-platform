@@ -97,7 +97,10 @@ export default async function SuppliersLabPage({
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : null);
   const empty = one('empty') === '1';
-  const dunkin = one('dunkin') === 'before' || one('dunkin') === 'after' ? (one('dunkin') as 'before' | 'after') : null;
+  const dunkin =
+    one('dunkin') === 'before' || one('dunkin') === 'after' || one('dunkin') === 'moved'
+      ? (one('dunkin') as 'before' | 'after' | 'moved')
+      : null;
   const rows = empty
     ? []
     : [...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS), ...(dunkin ? [labDunkinRow(dunkin)] : [])];

@@ -76,7 +76,9 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { tileForCategory } from '@/lib/shortlist-taxonomy';
+import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { hasClaimAsk } from '@/lib/move-supplier-category.server';
+import { WEDDING_TILE_LABEL } from '@/lib/taxonomy';
 import { readCoverCatalog } from '@/lib/cover-catalog.server';
 import {
   formatCentavosPhp,
@@ -337,7 +339,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -465,6 +467,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     event_vendor_package_id: string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    category_key?: string | null;
     crew_size: number | null;
     crew_meal_covered: boolean | null;
     created_at: string;
@@ -1069,8 +1072,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // --------------------------------------------------------------------------
   const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
   const logoUrl = safeHttpUrl(marketplaceProfile?.logo_url);
+  // A supplier moved to a row the enum cannot name (Food Truck stores `misc`)
+  // is called by that row's name, not by the enum's generic one.
+  const movedRow =
+    ev.category_key && homeTileForRow(ev) === ev.category_key
+      ? (WEDDING_TILE_LABEL as Record<string, string>)[ev.category_key]
+      : undefined;
   const categoryLabel =
-    (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
+    movedRow ?? (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
 
   // ── MB16 · colour access for this booking ────────────────────────────────
   // The lane comes from the CATEGORY, resolved by the same map
@@ -1554,9 +1563,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // "so they can pick all categories" — it states the fact, it cannot be
   // switched off into a lie). Only read when the editor below renders.
   const showsHostEditor = !hasPackageLines && isOffPlatformSupplier(ev);
-  const coverRead = showsHostEditor ? await readCoverCatalog(eventId) : null;
+  const [coverRead, claimAsk] = showsHostEditor
+    ? await Promise.all([readCoverCatalog(eventId), hasClaimAsk(supabase, eventId, ev.vendor_id)])
+    : [null, false];
   const coverCatalog = coverRead?.ok ? coverRead.catalog : undefined;
-  const ownTile = tileForCategory(ev.category as VendorCategory);
+  // The row the card is drawn under — a moved supplier's `category_key` when
+  // the enum cannot name it (Food Truck), so the locked row and the Suppliers
+  // page say the same thing.
+  const ownTile = homeTileForRow(ev);
   const ownCoverLabel =
     coverCatalog?.flatMap((f) => f.options).find((o) => o.tile === ownTile)?.label ??
     VENDOR_CATEGORY_LABEL[ev.category as VendorCategory] ??
@@ -1615,6 +1629,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           initialInclusions={ev.host_inclusions ?? []}
           initialCovers={ev.covers_plan_groups ?? []}
           category={ev.category}
+          homeTile={ownTile}
+          claimAsk={claimAsk}
           ownLabel={ownCoverLabel}
           catalog={coverCatalog}
         />

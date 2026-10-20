@@ -81,7 +81,9 @@ export default async function AddYourOwnLabPage({
             contactNumber: '',
             address: '',
             pin: null,
-            covers: dunkin ? ['guest_booth'] : [],
+            covers: dunkin ? ['guest_booth', 'tile:food_truck'] : [],
+            // `&claim=1` — they claimed the couple's link and wait for Approve (#6709).
+            claimAsk: sp.claim === '1',
             inclusions: '',
             price: '',
             planRows: [],

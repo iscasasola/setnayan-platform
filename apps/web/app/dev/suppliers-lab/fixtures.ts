@@ -157,12 +157,15 @@ export function labSheet(vendorProfileId: string): SupplierSheetData {
  * (`before`, as stored on his event), and then Food Truck too (`after` — the
  * key the card sheet now stores for a Suppliers-page row no plan group names).
  */
-export function labDunkinRow(stage: 'before' | 'after'): EventVendorRowInput {
+/** `moved` — after "Move Dunkin' Donuts to another category" → Food Truck (2026-10-20):
+ *  the enum stays `misc` (Food Truck has no label of its own) and `category_key` names the row. */
+export function labDunkinRow(stage: 'before' | 'after' | 'moved'): EventVendorRowInput {
   return row({
     vendor_id: 'v-dunkin',
     vendor_name: "Dunkin' Donuts",
     category: 'misc',
     manual_vendor_id: 'm-dunkin',
+    ...(stage === 'moved' ? { category_key: 'food_truck' } : {}),
     covers_plan_groups: stage === 'after' ? ['guest_booth', 'tile:food_truck'] : ['guest_booth'],
   });
 }

@@ -126,3 +126,22 @@ test('text size — wiring: mounted once in <head>, after the store-shell mark i
     'must run AFTER storeShellMarkScript — it reads the data-store-shell mark that script sets',
   );
 });
+
+test('text size — the sign-in "or … email" divider keeps both rules and centres a wrapped label', () => {
+  // Walked 2026-10-20 (iPhone 17 simulator, 402 px): /signup's long label wrapped, the two flex rules went to 0 px
+  // and the words sat flush left. Bigger iPhone text makes every label wrap, so this is a property of the rule,
+  // not of one string: the rules carry a positive min-width, and the label centres and balances its lines.
+  const { stripComments } = require('./strip-comments') as typeof import('./strip-comments');
+  const css = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'home', 'home-reskin.css'), 'utf8'));
+  const block = (selector: RegExp): string => {
+    const m = css.match(new RegExp(`${selector.source}\\s*\\{([^}]*)\\}`));
+    assert.ok(m, `rule ${selector.source} must exist`);
+    return m![1];
+  };
+  const rules = block(/\.home-reskin-ov \.hr-si-or::before,\s*\.home-reskin-ov \.hr-si-or::after/);
+  const min = rules.match(/min-width:\s*(\d+(?:\.\d+)?)px/);
+  assert.ok(min && Number(min[1]) > 0, 'both rules keep a positive min-width, so a wrapping label cannot squeeze them to nothing');
+  const label = block(/\.home-reskin-ov \.hr-si-or span/);
+  assert.match(label, /text-align:\s*center/, 'a wrapped label stays centred between its rules');
+  assert.match(label, /text-wrap:\s*balance/, 'a wrapped label breaks into even lines');
+});

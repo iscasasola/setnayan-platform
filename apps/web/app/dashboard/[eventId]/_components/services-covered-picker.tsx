@@ -280,7 +280,7 @@ export function ServicesCoveredPicker({
       {/* MOVE — the same one list, single pick: it changes the locked row above. */}
       {move && lists && !target ? (
         <PickMenu
-          label={`Move ${move.name} to another category`}
+          label="Move to another category"
           value={null}
           buttonText={`Move ${move.name} to another category`}
           dataAttr="data-move-category"
@@ -291,12 +291,14 @@ export function ServicesCoveredPicker({
             setMoveErr(null);
             setTarget(tile);
           }}
-          className="w-full border border-ink/15"
+          className="min-h-11 w-full border border-ink/15"
         />
       ) : null}
 
+      {/* Confirmed in place: one line, then the two buttons — no frame round the
+          words (frames only on what you press). */}
       {move && target ? (
-        <div className="space-y-2 rounded-xl bg-ink/[0.04] p-3" data-move-confirm={target}>
+        <div className="space-y-2 pt-1" data-move-confirm={target}>
           <p className="text-[13px] leading-snug text-ink">
             {moveConfirmLine({
               name: move.name,

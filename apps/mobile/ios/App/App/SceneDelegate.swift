@@ -31,8 +31,10 @@ import Capacitor
  * WHAT DID NOT MOVE. The window still comes from `Main.storyboard`
  * (`UISceneStoryboardFile` in Info.plist), whose root is
  * `SetnayanBridgeViewController`, so the in-app plugins (SetnayanAuth,
- * SetnayanStore), the offline fallback and the 12 s launch watchdog are
- * created exactly as before.
+ * SetnayanStore), the offline fallback and the launch watchdog are
+ * created exactly as before. Since build 5 that controller is wrapped, at the
+ * top of `willConnectTo`, in `SideSafeAreaHostViewController` — the one change
+ * to the window's root — so the web view clears the left/right safe areas.
  */
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 

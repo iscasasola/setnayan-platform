@@ -54,7 +54,8 @@
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Check, Lock, Search } from 'lucide-react';
+import { ArrowRight, Check, Lock, Search, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { coversByRow, tileForCategory, type CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
@@ -308,25 +309,18 @@ export function ServicesCoveredPicker({
               claimAsk: move.claimAsk,
             })}
           </p>
+          {/* The house buttons (ActionButton) — the page's own Move / Cancel look. */}
           <div className="flex gap-2">
-            <button
-              type="button"
+            <ActionButton
+              tone="brand"
+              main
+              icon={ArrowRight}
+              label={busy ? 'Moving…' : 'Move'}
               onClick={confirmMove}
               disabled={busy || disabled}
-              data-move-yes=""
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-700 disabled:opacity-60"
-            >
-              {busy ? 'Moving…' : 'Move'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTarget(null)}
-              disabled={busy}
-              data-move-no=""
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-ink/15 px-4 text-sm font-medium text-ink hover:bg-ink/[0.04] disabled:opacity-60"
-            >
-              Cancel
-            </button>
+              waiting={busy}
+            />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setTarget(null)} disabled={busy} />
           </div>
         </div>
       ) : null}

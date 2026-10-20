@@ -27,7 +27,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import {
-  DASHBOARD_EVENT_COLUMNS,
+  DASHBOARD_ROW_CARRIES,
   EVENT_ROW_ONCE_EXTRA_COLUMNS,
   eventRowOnce,
   openDashboardEventRow,
@@ -360,7 +360,7 @@ test('8 · inside a render, ONE read as the viewer answers every asker of that c
     assert.deepEqual(b.data, { event_date: 'db:event_date', event_end_date: 'db:event_end_date', event_date_precision: 'db:event_date_precision' });
     assert.equal(sent.length, 1, `the row was read ${sent.length} times for one viewer in one render`);
     assert.equal(sent[0]!.searchParams.get('event_id'), `eq.${EVENT}`);
-    assert.deepEqual((sent[0]!.searchParams.get('select') ?? '').split(','), [...DASHBOARD_EVENT_COLUMNS], 'the one read is not the dashboard columns');
+    assert.deepEqual((sent[0]!.searchParams.get('select') ?? '').split(','), [...DASHBOARD_ROW_CARRIES], 'the one read is not the dashboard columns');
     // A column the one read does not carry → that asker's own read.
     await eventRowOnce(client, EVENT, 'estimated_budget_centavos', own('estimated_budget_centavos'));
     assert.equal(sent.length, 2, 'a column the one read does not carry was answered from it');
@@ -439,7 +439,7 @@ test('9 · the one read REFUSED → every asker sends its own read and keeps its
 test('10 · every dashboard column is a production column the signed-in couple may read — never a host-only private one', () => {
   const snapshot = readFileSync(join(ROOT, 'supabase', 'security', 'prod-schema.snapshot.txt'), 'utf8');
   const inProd = new Set(snapshot.split('\n').filter((l) => l.startsWith('events.')).map((l) => l.slice('events.'.length).trim()));
-  for (const column of DASHBOARD_EVENT_COLUMNS) {
+  for (const column of DASHBOARD_ROW_CARRIES) {
     assert.ok(inProd.has(column), `events.${column} is not in production's schema snapshot: the one read would be refused on EVERY view and every asker would read for itself — a request added, not saved`);
   }
   // The private columns: SELECT is revoked from `authenticated` on the base table (the lockdown's
@@ -454,15 +454,15 @@ test('10 · every dashboard column is a production column the signed-in couple m
     for (const m of list.matchAll(/'([a-z_0-9]+)'/g)) privateColumns.add(m[1]!);
   }
   assert.ok(privateColumns.has('estimated_budget_centavos'), 'the private column list was not read — this guard is blind');
-  for (const column of DASHBOARD_EVENT_COLUMNS) {
+  for (const column of DASHBOARD_ROW_CARRIES) {
     assert.ok(!privateColumns.has(column), `events.${column} is host-only (not granted on events): the one read would be refused on every view`);
   }
-  assert.equal(new Set(DASHBOARD_EVENT_COLUMNS).size, DASHBOARD_EVENT_COLUMNS.length, 'a dashboard column is listed twice');
+  assert.equal(new Set(DASHBOARD_ROW_CARRIES).size, DASHBOARD_ROW_CARRIES.length, 'a dashboard column is listed twice');
 });
 
 test('10b · every dashboard asker names only columns the one read carries — or it quietly sends its own read on every view', () => {
   const DASHBOARD_LIBS = ['lib/event-viewer.server.ts', 'lib/event-needs-read.server.ts', 'lib/pax.ts', 'lib/role-names.server.ts'];
-  const carried = new Set<string>(DASHBOARD_EVENT_COLUMNS);
+  const carried = new Set<string>(DASHBOARD_ROW_CARRIES);
   const sites = callSites().filter(({ file }) => file.startsWith('app/dashboard/') || DASHBOARD_LIBS.includes(file));
   assert.ok(sites.length >= 10, `only ${sites.length} dashboard askers were found — the scan is not seeing them`);
   for (const { file, call } of sites) {
@@ -474,7 +474,7 @@ test('10b · every dashboard asker names only columns the one read carries — o
       assert.ok(columns, `${file}: the column constant ${named} was not found — update this guard`);
     }
     for (const c of columns.split(',').map((x) => x.trim())) {
-      assert.ok(carried.has(c), `${file} asks the dashboard's row for events.${c}, which DASHBOARD_EVENT_COLUMNS does not carry — add it (a granted, non-private column) or the asker reads for itself`);
+      assert.ok(carried.has(c), `${file} asks the dashboard's row for events.${c}, which DASHBOARD_ROW_CARRIES does not carry — add it (a granted, non-private column) or the asker reads for itself`);
     }
   }
 });

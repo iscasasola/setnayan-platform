@@ -116,7 +116,7 @@ export const dynamic = 'force-dynamic';
   Fail-soft in both directions: no name, no row, or a refused read all fall
   back to the site default rather than rendering an id or an empty title.
 */
-/** Home's own columns of the event row — every one is carried by `DASHBOARD_EVENT_COLUMNS`. */
+/** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
   'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
 

@@ -56,7 +56,7 @@ import { homeCoverWords } from '@/lib/home-cover-words';
 import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
 
-/** The layout's own columns of the event row — every one is carried by `DASHBOARD_EVENT_COLUMNS`. */
+/** The layout's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const LAYOUT_EVENT_COLUMNS =
   'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
 

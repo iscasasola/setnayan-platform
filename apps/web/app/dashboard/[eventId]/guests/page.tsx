@@ -490,7 +490,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const inviteSetupRead = loadInviteSetup(supabase, eventId);
   /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
      profile photo, it will show here too" — the account photos, beside everything else. */
-  const accountRefRead = userRead.then((user) => (user ? accountPhotoRefsByGuest(supabase, eventId, user.id) : {}));
+  const accountRefRead = userRead.then((user) => (user ? accountPhotoRefsByGuest(supabase, eventId, user.id) : ({} as Record<string, string>)));
   // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
   // → null, and no row claims an account nobody measured.
   const linkedGuestIdsRead = readLinkedGuestIds(supabase, eventId);

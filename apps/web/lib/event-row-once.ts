@@ -265,7 +265,7 @@ export async function withEventRowScopeForTest<T>(fn: () => Promise<T>): Promise
   WHAT THIS DOES. The dashboard OPENS the row for its viewer once per render
   (`openDashboardEventRow`, called first thing by the event layout and by the
   pages whose reads it carries): ONE request, as the viewer's own client, for
-  every column in `DASHBOARD_EVENT_COLUMNS`. Every `eventRowOnce` asker using
+  every column in `DASHBOARD_ROW_CARRIES`. Every `eventRowOnce` asker using
   that same client, for that event, naming only those columns, is answered
   from it; its own read is not sent.
 
@@ -301,8 +301,14 @@ export async function withEventRowScopeForTest<T>(fn: () => Promise<T>): Promise
  * it is not granted on `events`, so the one read would be refused on every
  * view — every asker would fall back, a request ADDED, not saved.
  * `lib/event-row-once.test.ts` fails on either.
+ *
+ * 🔑 NOT A CANONICAL SELECT, and named so (not `*_COLUMNS`). It is the UNION of
+ * what many dashboard readers each want — no reader is meant to ask for all of
+ * it, and a reader that names fewer (the account switcher's own list of events,
+ * a three-column access window) is not "dropping" any of it. `lint:dup-rule`'s
+ * omitted-column guard is for lists every caller should reproduce whole.
  */
-export const DASHBOARD_EVENT_COLUMNS = [
+export const DASHBOARD_ROW_CARRIES = [
   // The event layout's own row (the rail, the menu, the monogram, the phase).
   'event_id',
   'public_id',
@@ -361,7 +367,7 @@ export const DASHBOARD_EVENT_COLUMNS = [
   'final_pax',
 ] as const;
 
-const DASHBOARD = new Set<string>(DASHBOARD_EVENT_COLUMNS);
+const DASHBOARD = new Set<string>(DASHBOARD_ROW_CARRIES);
 
 type ViewerHeld = { ok: true; row: Row | null } | { ok: false };
 
@@ -396,7 +402,7 @@ export function openDashboardEventRow(client: SupabaseClient, eventId: string): 
   map.set(
     key,
     Promise.resolve(
-      client.from('events').select(DASHBOARD_EVENT_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
+      client.from('events').select(DASHBOARD_ROW_CARRIES.join(', ')).eq('event_id', eventId).maybeSingle(),
     ).then(
       (res): ViewerHeld => {
         if (res.error) {

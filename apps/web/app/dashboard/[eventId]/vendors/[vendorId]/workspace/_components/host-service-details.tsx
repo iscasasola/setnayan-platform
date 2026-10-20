@@ -21,6 +21,7 @@
  */
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
 import { updateHostServiceDetails } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -34,6 +35,7 @@ export function HostServiceDetails({
   initialInclusions,
   initialCovers,
   category,
+  homeTile,
   ownLabel,
   catalog,
 }: {
@@ -45,6 +47,8 @@ export function HostServiceDetails({
   initialCovers: string[];
   /** The booking's own category — its row is said locked, never offered. */
   category: string;
+  /** The row the card is drawn under (`homeTileForRow`) — a moved supplier's may be finer than `category`. */
+  homeTile?: string | null;
   ownLabel: string;
   /** The Suppliers page's rows; omitted (a failed read) → the picker reads them itself. */
   catalog?: readonly CoverCatalogFolder[];
@@ -57,6 +61,7 @@ export function HostServiceDetails({
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = useSaveLoader();
+  const router = useRouter();
 
   function onSave() {
     setErr(null);
@@ -131,6 +136,7 @@ export function HostServiceDetails({
         <ServicesCoveredPicker
           eventId={eventId}
           category={category}
+          homeTile={homeTile}
           ownLabel={ownLabel}
           catalog={catalog}
           initialSelected={initialCovers}
@@ -139,6 +145,10 @@ export function HostServiceDetails({
             setCovers(keys);
             setSaved(false);
           }}
+          // "Move <name> to another category" (owner 2026-10-20). The move is
+          // its own write; the page re-reads so the header names the new row.
+          move={{ vendorId, name: displayName?.trim() || 'This supplier' }}
+          onMoved={() => router.refresh()}
         />
       </div>
       <p className="mt-1.5 text-[11px] text-ink/45">

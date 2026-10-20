@@ -30,6 +30,9 @@ import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { COVER_TILE_PREFIX, tileForCover } from '@/lib/shortlist-taxonomy';
 import { restoreTileToPlan } from '../../category-decision-actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { planSupplierMove } from '@/lib/move-supplier-category';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   WORKING_NOTE_BODY_MAX,
   isCoordinatorVendorNotesEnabled,
@@ -204,6 +207,144 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
   // pick up the new covers/inclusions on the next paint.
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// moveSupplierToCategory (owner 2026-10-20 — "Move to another category" → "okay")
+//
+// Moves the card's OWN row: Dunkin' Donuts, typed in under Everything else, is
+// really a Food Truck. The plan is `planSupplierMove` (pure, shared with the
+// guard): `category` = the enum label the rest of the app keys on,
+// `category_key` = the row itself when the enum cannot name it, and "also
+// covers" without the new home or the old one. Price, payments, notes and the
+// contact card live on this same row, so they move with it.
+//
+// AUTH — THE SAME AS THE CARD'S OTHER EDITS (`updateHostServiceDetails`): a
+// signed-in session, the write under RLS (the event's own couple / a writing
+// coordinator), and off-platform rows only (`marketplace_vendor_id IS NULL`).
+// A supplier with a shop of their own never shows this block: their card is
+// theirs, and what they may see of the event is decided by this very column
+// (`get_vendor_seat_plan` / `get_vendor_event_brief` key on
+// `event_vendors.category`), so it is not moved from here.
+//
+// 🔑 A ZERO-ROW UPDATE IS NOT A MOVE. `.select()` reads the row back; nothing
+// returned means RLS or the off-platform rule refused it, and the couple is
+// told so instead of seeing "Moved".
+//
+// The supplier's pending claim link (`vendor_invites.service_category`, the
+// category the claim files their shop under) is kept in step — on the admin
+// client, AFTER the session write above proved the caller may write this row,
+// because a coordinator holds no RLS on `vendor_invites`.
+// ============================================================================
+
+export type MoveSupplierResult =
+  | { ok: true; from: string | null; to: string; removedCovers: string[]; warning?: string }
+  | { ok: false; error: string };
+
+export async function moveSupplierToCategory(input: {
+  eventId: string;
+  vendorId: string;
+  tile: string;
+  /** Undo only: "also covers" keys the move took off, put back. Validated like a save. */
+  restoreCovers?: string[];
+}): Promise<MoveSupplierResult> {
+  const eventId = typeof input?.eventId === 'string' ? input.eventId : '';
+  const vendorId = typeof input?.vendorId === 'string' ? input.vendorId : '';
+  const tile = typeof input?.tile === 'string' ? input.tile.trim() : '';
+  if (!eventId || !vendorId || !tile) return { ok: false, error: 'Invalid input' };
+
+  // The target must be a row the Suppliers page can draw — the same snapshot
+  // the page and the picker are built from.
+  const knownTiles = (await getTaxonomy()).tileLabel as Record<string, string>;
+  if (typeof knownTiles[tile] !== 'string') return { ok: false, error: 'That category is not on the list.' };
+  const validGroups = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+  const restore = (Array.isArray(input.restoreCovers) ? input.restoreCovers : []).filter(
+    (c): c is string =>
+      typeof c === 'string' &&
+      (validGroups.has(c) ||
+        (c.startsWith(COVER_TILE_PREFIX) && typeof knownTiles[c.slice(COVER_TILE_PREFIX.length)] === 'string')),
+  );
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  // Under the caller's own RLS — the read is the ownership check.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, category, category_key, covers_plan_groups, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+  if (readErr) {
+    logQueryError('moveSupplierToCategory.read', readErr, { event_id: eventId, vendor_id: vendorId });
+    return { ok: false, error: 'That did not load. Please try again.' };
+  }
+  if (!row) return { ok: false, error: 'Supplier not found.' };
+  const name = typeof row.vendor_name === 'string' && row.vendor_name.trim() ? row.vendor_name.trim() : 'This supplier';
+  if (row.marketplace_vendor_id) {
+    return { ok: false, error: `${name} is on Setnayan now — their card can’t be moved from here.` };
+  }
+
+  const plan = planSupplierMove(
+    {
+      category: row.category as string,
+      category_key: (row.category_key as string | null) ?? null,
+      covers_plan_groups: (row.covers_plan_groups as string[] | null) ?? [],
+    },
+    tile,
+    restore,
+  );
+  if ('refused' in plan) return { ok: false, error: `${name} is already in that category.` };
+
+  const { data: moved, error: moveErr } = await supabase
+    .from('event_vendors')
+    .update({ category: plan.category, category_key: plan.category_key, covers_plan_groups: plan.covers })
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .is('marketplace_vendor_id', null)
+    .select('vendor_id');
+  if (moveErr) {
+    logQueryError('moveSupplierToCategory.update', moveErr, { event_id: eventId, vendor_id: vendorId, tile });
+    // 23505: a category that holds one booked supplier only already has one.
+    return {
+      ok: false,
+      error:
+        moveErr.code === '23505'
+          ? `${knownTiles[tile]} already has a booked supplier, so ${name} can’t move there.`
+          : `${name} did not move. Please try again.`,
+    };
+  }
+  if (!moved || moved.length === 0) return { ok: false, error: `${name} did not move. Please try again.` };
+
+  const warnings: string[] = [];
+  const { error: inviteErr } = await createAdminClient()
+    .from('vendor_invites')
+    .update({ service_category: plan.category })
+    .eq('vendor_id', vendorId)
+    .eq('status', 'pending');
+  if (inviteErr) {
+    logQueryError('moveSupplierToCategory.invite', inviteErr, { event_id: eventId, vendor_id: vendorId });
+    warnings.push('their sign-up link still names the old category');
+  }
+
+  // A row the event does not have yet is put on it the way "Also covers" and
+  // "＋ Add to your event" do — the one writer of which rows an event has. Its
+  // refusal is not the move's failure: a row holding a supplier always draws.
+  await restoreTileToPlan({ eventId, tile }).catch(() => null);
+
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  revalidatePath(`/dashboard/${eventId}/budget`);
+  return {
+    ok: true,
+    from: plan.from,
+    to: plan.to,
+    removedCovers: plan.removedCovers,
+    ...(warnings.length > 0 ? { warning: `Moved — but ${warnings.join(' and ')}.` } : {}),
+  };
 }
 
 // ============================================================================

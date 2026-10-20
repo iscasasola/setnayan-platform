@@ -23,6 +23,7 @@ import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { readCoverCatalog, type CoverCatalogRead } from '@/lib/cover-catalog.server';
+import { homeTileForRow } from '@/lib/shortlist-taxonomy';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
@@ -5523,6 +5524,8 @@ export type SelfAddedSupplierPrefill = {
   address: string;
   pin: { lat: number; lng: number } | null;
   covers: string[];
+  /** The row the card is drawn under (`homeTileForRow`) — finer than `category` for a moved supplier. */
+  homeTile?: string | null;
   inclusions: string;
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
@@ -5551,7 +5554,7 @@ export async function loadSelfAddedSupplier(
   const { data: ev, error: evErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, manual_vendor_id, marketplace_vendor_id',
+      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
@@ -5565,6 +5568,7 @@ export async function loadSelfAddedSupplier(
     total_cost_php: number | string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    category_key: string | null;
     manual_vendor_id: string | null;
     marketplace_vendor_id: string | null;
   };
@@ -5628,6 +5632,7 @@ export async function loadSelfAddedSupplier(
       address: m?.address ?? '',
       pin: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
       covers: Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [],
+      homeTile: homeTileForRow({ category: row.category ?? '', category_key: row.category_key }),
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
       planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),

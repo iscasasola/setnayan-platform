@@ -282,6 +282,8 @@ export type EventVendorRow = {
    */
   host_inclusions: string[] | null;
   covers_plan_groups: string[] | null;
+  /** The Suppliers-page row a moved supplier lives under when `category` cannot name it — read via `homeTileForRow`. */
+  category_key?: string | null;
   created_at: string;
   /**
    * FK to vendor_profiles. NULL = off-platform (couple-encoded only).
@@ -331,7 +333,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,category_key,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

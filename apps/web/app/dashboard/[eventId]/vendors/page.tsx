@@ -999,6 +999,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // via the enrichment merge below.
       host_inclusions: v.host_inclusions ?? null,
       covers_plan_groups: v.covers_plan_groups ?? null,
+      // A moved supplier's row when the enum cannot name it (`homeTileForRow`).
+      category_key: v.category_key ?? null,
       // Hero photo (#8) — vendor's own service photo wins, then a manual
       // contact's uploaded photo; both null for off-platform picks with
       // neither → card falls through to logo → initials. Never fabricated.

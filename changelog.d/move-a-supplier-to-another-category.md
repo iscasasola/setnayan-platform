@@ -1,0 +1,15 @@
+## 2026-10-20 · feat(suppliers): move a supplier to another category
+
+Owner, asked "Do you want a 'Move to another category' option for suppliers?" → "okay". The case: Dunkin' Donuts, typed in under Everything else, is really a Food Truck.
+
+- On the card's "What services does this cover" block (the workspace and the card sheet), beside the locked row: **Move <name> to another category** — the same searchable one list from #6706, single pick. The pick is confirmed in place: "Dunkin' Donuts moves from Everything else to Food Truck. Its price and payments move with it." · Move · Cancel, then a toast with Undo.
+- One server action, `moveSupplierToCategory` (workspace/actions.ts), with the card's other edits' auth: session + RLS + off-platform rows only, read back so a zero-row update is never reported as a move. What it writes is the pure `planSupplierMove` (lib/move-supplier-category.ts).
+- 🔑 `event_vendors.category` is an enum that cannot name 48 of the 80 Suppliers-page rows (Food Truck stores `misc`, which draws as Everything else). A move therefore also writes `event_vendors.category_key` (the existing taxonomy-keyed column, FK → service_categories, never read until now), and `homeTileForRow` reads it back — only when it refines the category, never when it contradicts it, and never for a row the page does not draw. Zero live production rows carried a `category_key` (measured 2026-10-20), so no existing card moves.
+- Also covers loses the new home; the old home is not added. Budget follows the category (`bucketForVendor`); a row with no enum label of its own (Food Truck) has no budget line of its own, so its money stays where `misc` buckets — exactly as for a supplier added under that row today.
+- A pending claim link (`vendor_invites.service_category`) is kept in step.
+- A supplier with a shop of their own is refused: the block is off-platform-only (shipped rule), and supplier access keys on `event_vendors.category` (`get_vendor_seat_plan`, `get_vendor_event_brief`).
+- Placement readers moved to `homeTileForRow`: the Suppliers page builder, also-covers, the workspace's locked row and header label, the card sheet, Find's "Booked".
+- `mapAddPlusOne` (guests/map-actions.ts, no caller since the 2026-10-07 map rewrite) removed to stay under the server-action ceiling (1225).
+- Guards: `lib/a-moved-supplier-is-drawn-once-under-its-new-row.test.ts` (every row: drawn once under the new row, money in that row's bucket, covers without its home, Undo restores); `tests/db/a-supplier-moves-only-for-its-own-couple.db.test.ts` (the action's statements under RLS).
+
+SPEC IMPACT: None — implements the owner's 2026-10-20 "okay"; no locked document changes. (The controller records the ruling.)

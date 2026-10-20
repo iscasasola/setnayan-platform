@@ -133,6 +133,48 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
 }
 
 /**
+ * THE ROW A SUPPLIER IS DRAWN UNDER — its "home" on the Suppliers page.
+ * (owner 2026-10-20: *"Move to another category"* → "okay")
+ *
+ * 🔑 `event_vendors.category` IS AN ENUM THAT CANNOT NAME MOST ROWS. Of the 80
+ * rows the page can draw, 48 have no enum label of their own — Food Truck,
+ * Food Cart, Dessert, DJ … all store `misc` (or a coarse neighbour) through
+ * `categoryForTile`, and `tileForCategory('misc')` is Everything else. So
+ * "move Dunkin' Donuts to Food Truck" cannot be said in `category` alone: it
+ * would land straight back under Everything else.
+ *
+ * The finer word already has a column: `event_vendors.category_key`, the
+ * taxonomy-keyed TEXT (FK → `service_categories.id`) added for exactly this
+ * ("a freshly-promoted tile the rigid vendor_category enum can't store",
+ * 20260815000000) and never read until now. A move writes it; this reads it.
+ *
+ * ⚖ THE KEY ONLY EVER REFINES, NEVER CONTRADICTS. It is taken as the home only
+ * when `categoryForTile(key)` is the row's own `category` — i.e. the key names a
+ * row the enum stores under that very label. A key that disagrees with the
+ * category (written by an older path, or the category moved since) is ignored,
+ * so the money (`bucketForVendor`, keyed on `category`) and the drawing can
+ * never point at two different places. `isTile`, when given, also refuses a key
+ * the taxonomy does not draw — a pick must never vanish from the page.
+ *
+ * Measured 2026-10-20: zero live production rows carried a `category_key`, so
+ * reading it moves no existing card.
+ */
+export function homeTileForRow(
+  row: { category: VendorCategory | string; category_key?: string | null },
+  isTile?: (tile: string) => boolean,
+): WeddingTile | null {
+  const key = typeof row.category_key === 'string' ? row.category_key.trim() : '';
+  if (
+    key.length > 0 &&
+    (!isTile || isTile(key)) &&
+    categoryForTile(key as WeddingTile) === row.category
+  ) {
+    return key as WeddingTile;
+  }
+  return tileForCategory(row.category as VendorCategory);
+}
+
+/**
  * The bench tile a PLAN GROUP id opens on — the group's `catalogTile`, else the
  * tile its first category bridges to (Attire / Band-DJ-Performer / Logistics
  * span several tiles and carry no `catalogTile`). Null for an id that is not a
@@ -240,13 +282,18 @@ export function planGroupsOfCovers(keys: readonly unknown[] | null | undefined):
  * (`budget/cost-actions.ts`), which bridges back to its home tile — that is why
  * the home tile is excluded here rather than assumed absent.
  */
-export function linkedTilesForRow(row: {
-  category: VendorCategory;
-  covers_plan_groups?: readonly string[] | null;
-}): WeddingTile[] {
+export function linkedTilesForRow(
+  row: {
+    category: VendorCategory;
+    category_key?: string | null;
+    covers_plan_groups?: readonly string[] | null;
+  },
+  /** The row's home as the caller drew it (`homeTileForRow`); omitted → derived here. */
+  homeTile?: WeddingTile | null,
+): WeddingTile[] {
   const covers = Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [];
   if (covers.length === 0) return [];
-  const home = tileForCategory(row.category);
+  const home = homeTile !== undefined ? homeTile : homeTileForRow(row);
   const out: WeddingTile[] = [];
   for (const id of covers) {
     if (typeof id !== 'string') continue;
@@ -739,8 +786,13 @@ export function buildShortlistFolders(args: {
   // Bucket considered vendors by tile (exhaustive bridge → never dropped).
   const byTile = new Map<WeddingTile, ShortlistVendor[]>();
   const linkedByTile: Array<[WeddingTile, ShortlistVendor]> = [];
+  // The rows this page can draw — a moved supplier's `category_key` is its home
+  // only when it names one of them (`homeTileForRow`), so a stale key can never
+  // file a pick under a row that is not drawn.
+  const drawnTiles = new Set<string>(Object.values(tilesByParent).flat() as string[]);
+  const isDrawnTile = (t: string) => drawnTiles.has(t);
   for (const v of vendorRows) {
-    const tile = tileForCategory(v.category);
+    const tile = homeTileForRow(v, isDrawnTile);
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
     const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
@@ -854,7 +906,7 @@ export function buildShortlistFolders(args: {
     // The same supplier, again, in every category their package also covers —
     // queued and appended AFTER every tile's own vendors (below), so a
     // category's own candidates always lead its rail.
-    const linked = linkedTilesForRow(v);
+    const linked = linkedTilesForRow(v, tile);
     if (linked.length > 0) {
       const homeLabel = tileLabelMap[tile] ?? tile;
       const copy: ShortlistVendor = {

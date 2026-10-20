@@ -157,10 +157,13 @@ export function NewManualVendorModal({
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
   // route through onCreated so the parent refreshes the page — the row is
   // real even if the host skips the quick options.
+  // A supplier MOVED to another category from this sheet (owner 2026-10-20)
+  // is drawn under a different row now — every close refreshes, the same way.
+  const [moved, setMoved] = useState(false);
   const dismissRef = useRef(onClose);
   useEffect(() => {
-    dismissRef.current = created ? onCreated : onClose;
-  }, [created, onClose, onCreated]);
+    dismissRef.current = created || moved ? onCreated : onClose;
+  }, [created, moved, onClose, onCreated]);
   const dismiss = () => dismissRef.current();
 
   // Focus trap, scroll lock and Esc are the house Sheet's own (it routes its
@@ -589,10 +592,15 @@ export function NewManualVendorModal({
                 <ServicesCoveredPicker
                   eventId={eventId}
                   category={category}
+                  homeTile={edit?.homeTile}
                   ownLabel={categoryLabel}
                   catalog={coverCatalog}
                   initialSelected={edit?.covers ?? []}
                   disabled={pending}
+                  // Only a supplier already on the event can be moved — an add
+                  // files them under the row the sheet was opened from.
+                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier' } : undefined}
+                  onMoved={() => setMoved(true)}
                 />
               </div>
 
@@ -674,7 +682,7 @@ export function NewManualVendorModal({
           {/* PINNED FOOTER — the primary action never scrolls away on a long
               sheet (the sheet scrolls inside itself; this sticks to its foot). */}
           <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-ink/10 bg-cream px-5 py-3">
-            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} disabled={pending} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
               main

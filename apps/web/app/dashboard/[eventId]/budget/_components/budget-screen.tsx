@@ -142,6 +142,7 @@ export function BudgetScreen({
   const shown = useMemo(() => filterBudgetList(list, filter, query), [list, filter, query]);
   const router = useRouter();
   const [retrying, startRetry] = useTransition();
+  // one-render: keep (retry) — the person's Try again on a budget that could not be read; no write came before it.
   const retry = () => startRetry(() => router.refresh());
   const line = filterLine(filter);
   // Once a sheet has been opened its code stays mounted, so the next open is instant.

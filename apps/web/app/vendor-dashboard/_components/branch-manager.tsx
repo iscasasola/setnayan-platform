@@ -13,7 +13,6 @@
  */
 
 import { useActionState, useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -71,7 +70,6 @@ export function BranchManager({
   pay,
 }: Props) {
   const toast = useToast();
-  const router = useRouter();
   const [adding, setAdding] = useState(false);
   // Bumped after a successful add so the form remounts fresh (pin back to the
   // HQ centre, city cleared, manual-edit flag reset) for the next branch.
@@ -103,7 +101,7 @@ export function BranchManager({
             onDone={() => {
               setAdding(false);
               setFormKey((k) => k + 1);
-              router.refresh();
+              // ⚡ `createBranch` revalidates: its own answer drew the new branch — no second render.
             }}
             toastSuccess={(m) => toast.success(m)}
             toastError={(m) => toast.error(m)}
@@ -163,7 +161,6 @@ export function BranchManager({
               key={b.branch_id}
               branch={b}
               feePhp={feePhp}
-              onDone={() => router.refresh()}
               toastSuccess={(m) => toast.success(m)}
               toastError={(m) => toast.error(m)}
             />
@@ -337,13 +334,11 @@ function AddBranchForm({
 function BranchRow({
   branch,
   feePhp,
-  onDone,
   toastSuccess,
   toastError,
 }: {
   branch: VendorBranchView;
   feePhp: number;
-  onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
 }) {
@@ -362,8 +357,8 @@ function BranchRow({
     if (renewState === BRANCH_IDLE || renewState === handledRenew.current) return;
     handledRenew.current = renewState;
     if (renewState.status === 'success') {
+      // ⚡ Renew and Cancel revalidate: the row is redrawn by the action's own answer.
       toastSuccess(renewState.message);
-      onDone();
     } else if (renewState.status === 'error') {
       toastError(renewState.message);
     }
@@ -375,7 +370,6 @@ function BranchRow({
     handledCancel.current = cancelState;
     if (cancelState.status === 'success') {
       toastSuccess(cancelState.message);
-      onDone();
     } else if (cancelState.status === 'error') {
       toastError(cancelState.message);
     }

@@ -38,7 +38,9 @@ export function LiveRefresher({
 }) {
   const router = useRouter();
   const pulsed = Boolean(slug && pulse);
+  // one-render: keep (realtime) — the event pulse says something changed elsewhere; nothing was pressed here.
   useEventPulse(slug, eventDate, pulse, () => router.refresh());
+  // one-render: keep (realtime) — the day-of cadence while no pulse is wired; nothing was pressed here.
   useDayOfLiveTick(pulsed ? null : eventDate, () => router.refresh(), { intervalMs });
   return null;
 }

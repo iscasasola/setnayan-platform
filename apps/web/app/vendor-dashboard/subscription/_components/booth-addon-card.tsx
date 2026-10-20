@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Clock, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -99,7 +98,6 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
   const freeCycle = first5Free || trialAvailable;
 
   const toast = useToast();
-  const router = useRouter();
   const [state, formAction] = useActionState(activateVendor3dBooth, IDLE);
   const handled = useRef<Vendor3dBoothActionState | null>(null);
 
@@ -108,10 +106,10 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
     if (state.status === 'activated') {
+      // ⚡ The action revalidates: its own answer redrew the page — no second render.
       toast.success(state.message);
-      router.refresh();
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   return (
     <section className="sn-tile mt-8 p-6">

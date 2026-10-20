@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Plus, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -67,7 +66,6 @@ export function AddCardPicks({
   /** A group made here — the screen keeps it in the list before the re-read lands. */
   onMadeGroup: (g: GroupOpt) => void;
 }) {
-  const router = useRouter();
   const offeredRoles = resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles;
   const standard = (Object.keys(GROUP_CATEGORY_LABELS) as GuestGroupCategory[]).map((c) => ({ key: c, label: GROUP_CATEGORY_LABELS[c] }));
   /* The picks as of the tap — a group made in place answers after an await, and must not undo a tick made meanwhile. */
@@ -123,8 +121,8 @@ export function AddCardPicks({
           groups={groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side }))}
           side={hasSides ? picks.side : undefined}
           onGroupsChange={(next) => {
+            // ⚡ The group's create / rename / delete revalidates the guest list (`editGuestGroupInPlace`): no second render.
             for (const g of next) if (!groups.some((x) => x.group_id === g.groupId)) onMadeGroup({ group_id: g.groupId, label: g.label, team_side: g.teamSide });
-            router.refresh();
           }}
           emptyText="No group"
           className="w-full justify-between"

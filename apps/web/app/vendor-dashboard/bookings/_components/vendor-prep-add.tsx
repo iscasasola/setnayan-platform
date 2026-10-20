@@ -17,7 +17,6 @@
 // ============================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarPlus, Loader2, Plus, Trash2, Users, Wallet, X } from 'lucide-react';
 import {
   vendorAddPreparationItem,
@@ -74,7 +73,6 @@ export function VendorPrepForBooking({
   eventName: string;
   items: VendorPrepItem[];
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -113,7 +111,6 @@ export function VendorPrepForBooking({
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not add this item.',
@@ -322,7 +319,6 @@ export function VendorPrepForBooking({
 }
 
 function VendorDeletePrepItem({ itemId, label }: { itemId: string; label: string }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -333,7 +329,6 @@ function VendorDeletePrepItem({ itemId, label }: { itemId: string; label: string
     startTransition(async () => {
       try {
         await vendorDeletePreparationItem(fd);
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not remove this item.',

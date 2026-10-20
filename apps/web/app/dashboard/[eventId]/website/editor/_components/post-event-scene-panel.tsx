@@ -113,6 +113,7 @@ function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify(patch));
           if (built) fd.set(MERGE_BASE_FIELD, JSON.stringify(built(patch)));
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
           if (!r.ok) {
             setDrawn(null);

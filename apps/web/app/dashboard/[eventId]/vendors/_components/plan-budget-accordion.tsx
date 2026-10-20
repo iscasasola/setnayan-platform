@@ -1145,7 +1145,6 @@ function ChildRail({
   // Its post-save step (2026-06-11) offers the quick price (opens the
   // Add-to-build gate) + the claim-invite link; locking later also
   // auto-creates the invite via finalizeVendor.
-  const router = useRouter();
   const [manualOpen, setManualOpen] = useState(false);
   // The single vendor pinned to the build for this category (if any) — passed to
   // every OTHER card so "Add to build" knows to open the Replace/Add-both popup.
@@ -1354,7 +1353,6 @@ function ChildRail({
           onClose={() => setManualOpen(false)}
           onCreated={() => {
             setManualOpen(false);
-            router.refresh();
           }}
         />
       ) : null}

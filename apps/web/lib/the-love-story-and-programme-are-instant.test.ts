@@ -275,7 +275,6 @@ const STILL_REFRESHES = new Set([
   'app/dashboard/[eventId]/launch/_components/soft-post.tsx',
   'app/dashboard/[eventId]/launch/_components/view-as-free.tsx',
   'app/dashboard/[eventId]/schedule/_components/announce-button.tsx',
-  'app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx',
   'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',

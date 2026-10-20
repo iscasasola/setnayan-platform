@@ -146,7 +146,7 @@ export function QuickAddSheet({
   // against names that aren't in the server snapshot yet.
   const [addedLocal, setAddedLocal] = useState<ExistingGuest[]>([]);
   // role changes applied this session (add-role / change-role), keyed by
-  // guest_id, so the resolver reflects them before router.refresh() lands
+  // guest_id, so the resolver reflects them before the redrawn list lands
   const [roleOverrides, setRoleOverrides] = useState<
     Record<string, { role: GuestRole; extra_roles: GuestRole[] }>
   >({});
@@ -158,7 +158,7 @@ export function QuickAddSheet({
   const groupRef = useRef<HTMLInputElement>(null);
 
   // existing groups + ones created this session (deduped by id), so a
-  // just-created group shows in the picker before router.refresh() lands
+  // just-created group shows in the picker before the redrawn list lands
   const allGroups = useMemo(() => {
     const seen = new Set<string>();
     const merged: GroupOpt[] = [];
@@ -176,6 +176,7 @@ export function QuickAddSheet({
   // A name typed this session stands in under its queue key until the write answers; then it carries the real id, so
   // "Add … too" / "Change … to" reach the saved guest.
   const adds = useGuestAdds();
+  // one-render: keep (batched) — the queued writes go `{ refresh: false }`; this is their one re-read.
   useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
   const pool = useMemo(() => {
     const realId = new Map(adds.filter((a) => a.guestId).map((a) => [a.key, a.guestId!] as const));
@@ -328,12 +329,11 @@ export function QuickAddSheet({
           [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
         }));
         clearNames();
-        router.refresh();
         showToast(`${g.first_name} is now also ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast, addRoleToGuest],
+    [eventId, role, roleNames, clearNames, showToast, addRoleToGuest],
   );
   const applyChangeRole = useCallback(
     (g: ExistingGuest) => {
@@ -349,12 +349,11 @@ export function QuickAddSheet({
           [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
         }));
         clearNames();
-        router.refresh();
         showToast(`${g.first_name} → ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast, setGuestPrimaryRole],
+    [eventId, role, roleNames, clearNames, showToast, setGuestPrimaryRole],
   );
 
   /* resolver state for the TOP name match (dups are sorted best-first) */
@@ -396,11 +395,10 @@ export function QuickAddSheet({
       setGroupId(res.group.group_id); // lock the new group for the next adds
       setNewGroupMode(false);
       setNewGroupName('');
-      router.refresh();
       // back to the names so the rapid loop keeps going
       setTimeout(() => fnRef.current?.focus(), 0);
     });
-  }, [newGroupName, eventId, cancelNewGroup, router, quickCreateGroup]);
+  }, [newGroupName, eventId, cancelNewGroup, quickCreateGroup]);
 
   return (
     <>

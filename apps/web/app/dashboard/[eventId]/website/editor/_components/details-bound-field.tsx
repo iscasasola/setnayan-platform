@@ -144,6 +144,7 @@ export function DetailsBoundField({
       /* 📵 …and a save that never answered (no signal, a 5xx) is a refusal, SAID under the box with the words still
          in it and the question still open — thrown into this transition it replaced the whole Maker with the app's
          error screen, and the paragraph just typed went with it (`hubDraftAnswer`). */
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const res = await hubDraftAnswer('save', () => makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }));
       if (!res.ok) {
         if (nextCanvas) forgetCanvasSent(widgetType);

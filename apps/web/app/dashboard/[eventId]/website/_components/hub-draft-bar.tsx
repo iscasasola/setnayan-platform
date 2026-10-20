@@ -170,6 +170,7 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
       fd.set('intent', 'undo');
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       if (expect) fd.set(HUB_DRAFT_EXPECT_FIELD, expect);
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       return hubDraftAnswer('undo', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' }));
     },
     /* The server stepped back from a state the Maker did not draw: the first render after it is the truth (#6485). */
@@ -231,6 +232,7 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
     const fd = new FormData();
     for (const [k, v] of Object.entries(fields)) fd.set(k, v);
     fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     void hubDraftAnswer('apply', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' })).then((r) => {
       setSettling(null);
       if (r.ok) {
@@ -260,6 +262,7 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
       /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
       /* (its own write leaves a barrier in the ↺ journal, like any unheld write — the trim below takes it off again) */
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: false }));
       /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
       if (!r.ok) watch?.cancel();
@@ -383,6 +386,7 @@ export function HubDraftToolbar({
      once in every Maker with a work area, so it answers. */
   const router = useRouter();
   useEffect(() => {
+    // one-render: keep (no-revalidate) — a Maker control with no router of its own (the RSVP settings) saved to the draft — which revalidates nothing — and asks for its one render here.
     const refresh = () => router.refresh();
     window.addEventListener(MAKER_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(MAKER_REFRESH_EVENT, refresh);

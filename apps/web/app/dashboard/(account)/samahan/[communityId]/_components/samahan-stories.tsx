@@ -332,6 +332,7 @@ export function SamahanStories({
           setMessage(ERROR_COPY[json?.error ?? ''] ?? 'That didn’t go up. Try again.');
           return;
         }
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/samahan/story; no server action answered with a render.
         router.refresh();
       } catch {
         setMessage('That didn’t go up. Try again.');
@@ -453,6 +454,7 @@ export function SamahanStories({
           const next = gone >= 0 ? reel[gone + 1] : undefined;
           setPlayingId(next ? next.story_id : null);
         }
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/samahan/story; no server action answered with a render.
         router.refresh();
       }
     } finally {

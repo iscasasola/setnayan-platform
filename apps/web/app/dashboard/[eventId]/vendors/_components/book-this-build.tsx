@@ -84,7 +84,6 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
       }
       const done = next.flatMap((r) => (r.outcome?.kind === 'done' ? [r.outcome.how] : []));
       const open = next.some((r) => r.outcome?.kind !== 'done');
-      if (!standIn) router.refresh();
       if (!open) {
         agreed.current.clear();
         setRows(null);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowDown,
   ArrowUp,
@@ -101,7 +100,6 @@ export function PabuyaManager({
   /** The event's own mid-sentence noun — 'the couple' · 'the family'. */
   theOrganizer: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -142,8 +140,8 @@ export function PabuyaManager({
     setDraft(EMPTY_DRAFT);
   }
 
-  // Run a server action from a plain FormData, then refresh so the server
-  // page re-reads the fresh set. Surfaces the action's error on failure.
+  // Run a server action from a plain FormData. Each one revalidates the page (`revalidateSurfaces`), so its own answer
+  // re-reads the fresh set — no refresh after it. Surfaces the action's error on failure.
   function run(
     action: (fd: FormData) => Promise<EgiftActionResult>,
     fd: FormData,
@@ -161,7 +159,6 @@ export function PabuyaManager({
       }
       if (res.ok) {
         onOk?.();
-        router.refresh();
       } else {
         setError(res.error);
       }

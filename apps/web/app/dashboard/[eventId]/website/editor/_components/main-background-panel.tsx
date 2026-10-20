@@ -302,6 +302,7 @@ export function HeroFrameSync({
         if (!res.ok) throw new Error(String(res.status));
         const frame = await readFrame(await res.blob());
         if (frame.length === 0) throw new Error('empty frame');
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame }, ...(effectNow.current ? { effect: effectNow.current } : {}) }), () => router.refresh());
         if (!r.ok) throw new Error(r.error);
         if (!cancelled) setState('idle');
@@ -699,9 +700,12 @@ export function MainBackgroundPanel({
       try {
         pickMark('write-sent');
         const r = opts.render
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           ? await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh())
           : worn
+            // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
             ? await makerSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { held: true })
+            // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
             : await makerRedrawSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh());
         pickMark('write-answered');
         if (!worn && !opts.render) pickMark('redraw-asked');
@@ -786,6 +790,7 @@ export function MainBackgroundPanel({
     start(async () => {
       setError(null);
       try {
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => saveMain(eventId, main, draftAction), () => router.refresh());
         if (!r.ok) setError(r.error);
         else after?.();

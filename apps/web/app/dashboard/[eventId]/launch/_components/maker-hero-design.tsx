@@ -59,6 +59,7 @@ export function MakerHeroDesignPicker({
         fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: next } } }));
         // 👥 …with the canvas this pick was built on: another host's pick on the hero meanwhile is kept.
         sendCanvasBase(fd, 'hero', canvas, next, built);
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forgetCanvasSent('hero');

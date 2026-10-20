@@ -28,6 +28,7 @@ export function RefreshOnReturn({ minAwayMs = 60_000 }: { minAwayMs?: number }) 
       }
       const since = hiddenAt.current;
       hiddenAt.current = null;
+      // one-render: keep (realtime) — the tab came back after a while away; nothing was pressed here.
       if (since !== null && Date.now() - since >= minAwayMs) router.refresh();
     };
     document.addEventListener('visibilitychange', onChange);

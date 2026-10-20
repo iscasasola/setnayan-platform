@@ -1437,7 +1437,6 @@ export function SeatingEditor({
       setPositions((p) => ({ ...p, ...back }));
       setDirty(new Set());
       setNotice('Put back — the seat plan is as it was before Auto arrange.');
-      router.refresh();
     });
   };
 
@@ -1738,12 +1737,11 @@ export function SeatingEditor({
     // switch.
     startTransition(async () => {
       /* 📵 The sheet is already opening (it reads live data); a stamp that never answered is said, never thrown. */
-      const stamped = await runGated(async () => {
+      // ⚡ `stampTableSigns` revalidates: its own answer redraws the plan — no second render.
+      await runGated(async () => {
         await stampTableSigns(fd);
         return true;
       });
-      if (stamped === null) return;
-      if (details) router.refresh();
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
@@ -1940,10 +1938,10 @@ export function SeatingEditor({
         await commitWeld(fw);
         await linkTables(fl);
         setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
-        router.refresh();
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
         // Re-read the saved plan so the screen shows what was really kept.
+        // one-render: keep (after-failure) — a link that threw revalidated nothing; this shows what landed.
         router.refresh();
       }
     });
@@ -5800,7 +5798,6 @@ export function SeatingEditor({
       try {
         if (open) await publishSeating(fd);
         else await unpublishSeating(fd);
-        router.refresh();
       } catch {
         setDoorOpen(was);
         setDoorNote('That did not save — nothing changed. Please try again.');
@@ -6030,8 +6027,10 @@ export function SeatingEditor({
       }
       fd.set('seat_guest_ids', JSON.stringify(party.map((g) => g.guest_id)));
       startTransition(async () => {
-        await runGated(() => createTable(fd));
-        router.refresh();
+        const made = await runGated(() => createTable(fd));
+        // A table that landed is redrawn by `createTable`'s own answer (it revalidates); only a refused one re-reads.
+        // one-render: keep (after-failure) — the refused create revalidated nothing; re-read what the plan really holds.
+        if (made === null) router.refresh();
       });
       return;
     }
@@ -6202,7 +6201,6 @@ export function SeatingEditor({
             guestOptions={blueprintGuests}
             saveAction={async (fd) => {
               await saveEntrance(fd);
-              router.refresh();
             }}
             noSeatsNote="Seat a guest on the plan and you can preview their map here."
           />

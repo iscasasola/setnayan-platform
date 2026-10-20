@@ -15,6 +15,7 @@ export function TimelineReadProblem({ title, children }: { title: string; childr
   const [asking, start] = useTransition();
   return (
     <div data-timeline-read-problem="" aria-busy={asking}>
+      {/* one-render: keep (retry) — the person’s Try again on a list that could not be read; no write came before it. */}
       <TimelineProblem title={title} onRetry={asking ? null : () => start(() => router.refresh())}>
         {children}
       </TimelineProblem>

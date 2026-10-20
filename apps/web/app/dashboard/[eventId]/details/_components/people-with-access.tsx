@@ -213,11 +213,12 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
         if (!res.ok) {
           setOn(!next);
           setError(res.error);
+          // one-render: keep (after-failure) — the refused write revalidated nothing; re-read what the earlier ones landed.
           router.refresh();
           return;
         }
       }
-      router.refresh();
+      // ⚡ Each landed write revalidated the page — its answer carried the redraw; no second render.
     });
   };
   const locked = readOnly || row.ended || busy;
@@ -258,7 +259,6 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
 }
 
 function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
-  const router = useRouter();
   const [level, setLevel] = useState<GuestAccessLevel>(row.access?.level ?? 'none');
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -274,9 +274,9 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
     setLevel(next);
     setError(null);
     startTransition(async () => {
+      // ⚡ A landed change revalidates the page, so the answer carries the redraw; a refusal puts the pick back and says why.
       const res = await setGuestAccess(eventId, guestId, next);
-      if (res.ok) router.refresh();
-      else {
+      if (!res.ok) {
         setLevel(before);
         setError(res.error);
       }
@@ -349,7 +349,6 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
 }
 
 function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: string; name: string }[] }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [adding, startTransition] = useTransition();
   if (addable.length === 0) return null;
@@ -359,8 +358,7 @@ function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: 
       // A new person starts as a limited helper — View on every area — and the
       // host raises what they need, area by area, on the row that appears.
       const res = await setGuestAccess(eventId, guestId, 'limited_helper');
-      if (res.ok) router.refresh();
-      else setError(res.error);
+      if (!res.ok) setError(res.error);
     });
   };
   return (

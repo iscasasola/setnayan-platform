@@ -29,6 +29,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
         body: JSON.stringify({ eventId, code: code.trim() }),
       });
       if (res.ok) {
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/wall/claim; no server action answered with a render.
         router.refresh();
         return;
       }

@@ -302,6 +302,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       sentPalette.current = p;
     };
     draftedBoard.set(`${eventId}:palette`, JSON.stringify(wrote));
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? was : wrote)) })
       .then((r) => {
         if (r.ok) {
@@ -470,6 +471,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       setDress(before);
       failed(text);
     };
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? before : (next as typeof dress))) })
       .then((r) => {
         if (r.ok) {
@@ -592,7 +594,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       if (r.status === 'ok' || r.status === 'already') {
         settle(c.id);
         setProblem(null);
-        router.refresh();
+        // ⚡ `rejectColourChange` revalidates the board: its answer carries the redraw — no second render.
       } else {
         failed(r.status === 'frozen' ? 'That part is agreed with your supplier — ask them to reopen it first.' : MOOD_BOARD_NOT_SAVED.undo);
       }

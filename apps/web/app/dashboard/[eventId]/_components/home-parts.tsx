@@ -183,6 +183,7 @@ export function HomeReload({ main = false }: { main?: boolean }) {
       icon={RotateCw}
       label="Reload"
       data-testid="home-reload"
+      // one-render: keep (retry) — the person’s Reload on a Home that could not be read; no write came before it.
       onClick={() => (router ? router.refresh() : window.location.reload())}
     />
   );

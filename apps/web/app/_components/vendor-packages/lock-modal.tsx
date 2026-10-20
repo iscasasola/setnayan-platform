@@ -381,8 +381,8 @@ export function LockPackageModal({
         result.status === 'lock_requested'
       ) {
         setOpen(false);
+        // ⚡ The action revalidated (the router cache is cleared with it), so the push reads a fresh page — no refresh.
         router.push(`/dashboard/${eventId}/vendors/packages/${result.bookingId}`);
-        router.refresh();
         return;
       }
       if (result.status === 'not_signed_in') {
@@ -904,6 +904,7 @@ export function LockPackageModal({
                         const href = askState.threadHref;
                         setOpen(false);
                         router.push(href);
+                        // one-render: keep (navigation) — a plain push to the thread, no write: within `staleTimes.dynamic` (60 s) the router could serve a stale copy.
                         router.refresh();
                       }}
                       className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"

@@ -365,6 +365,7 @@ export function MakerLogoDoor({
            the toolbar's count reads the draft. The action used to re-render the
            whole Maker in its own response on EVERY autosave (`revalidatePath`),
            whether `refresh` was asked for or not; this is that render, once. */
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (r.ok) {
           gate.current.saved(svg);

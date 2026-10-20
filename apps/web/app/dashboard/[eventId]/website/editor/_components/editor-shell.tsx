@@ -4169,6 +4169,7 @@ function StdLeadSwitch({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
     if (!res?.ok) {
       setPicked((p) => (p === next ? null : p));

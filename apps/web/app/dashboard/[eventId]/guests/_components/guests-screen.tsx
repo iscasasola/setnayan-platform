@@ -315,6 +315,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // queue is empty; a re-read that holds a saved name lets its waiting row step aside (guest-add-queue.ts).
   const adds = useGuestAdds();
   const waiting = adds.filter((a) => a.eventId === eventId && !a.landed);
+  // one-render: keep (batched) — the add queue's writes go `{ refresh: false }`; this is the ONE re-read when it empties.
   useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
   useEffect(() => {
     guestAdds.reconcile(guests.map((g) => g.guest_id));
@@ -525,8 +526,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const fd = new FormData();
     for (const id of selected) fd.append('guest_ids[]', id);
     fd.set(field, value);
+    // ⚡ The action revalidates the guest list, so its answer carries the redrawn page — no second render.
     await bulkApplyRoleAndGroup(eventId, fd);
-    router.refresh();
   };
 
   // ── Section header tap (rule 6): open and scrolled into → back to its first

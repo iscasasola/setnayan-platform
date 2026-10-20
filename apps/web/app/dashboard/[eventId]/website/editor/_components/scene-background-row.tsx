@@ -329,7 +329,9 @@ function SceneBackgroundRows({
          NOT drawn by the bridge: it is redrawn on the canvas in place once it
          lands (`makerRedrawSave`) — never a whole-Maker render. */
       const res = await (redrawsBox
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         : makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true })
       ).catch(
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),

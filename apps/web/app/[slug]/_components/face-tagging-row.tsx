@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronRight, ScanFace } from 'lucide-react';
 import { DayOfFaceEnroll } from './day-of-face-enroll';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -36,7 +35,6 @@ export function FaceTaggingRow({
   /** `withdrawFaceConsent`, bound to this event and guest. */
   turnOff: (formData: FormData) => Promise<void>;
 }) {
-  const router = useRouter();
   const [camera, setCamera] = useState(false);
   const [menu, setMenu] = useState(false);
 
@@ -99,10 +97,8 @@ export function FaceTaggingRow({
           faceMode={faceMode}
           wish={wish}
           onSkip={() => setCamera(false)}
-          onDone={() => {
-            setCamera(false);
-            router.refresh();
-          }}
+          // ⚡ `enrollGuestFace` revalidates the guest's pages: the page behind was redrawn by the save's own answer.
+          onDone={() => setCamera(false)}
         />
       ) : null}
     </div>

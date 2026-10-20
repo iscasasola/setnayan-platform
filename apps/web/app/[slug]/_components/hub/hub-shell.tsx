@@ -224,7 +224,9 @@ function HubStageFrame({
   // (one shared answer per event, every ~12 s) and re-draws only on a change —
   // it used to re-render the whole hub (~32 database reads) every 45 s per phone.
   // No baseline → the 45 s refresh, exactly as before.
+  // one-render: keep (realtime) — the event pulse says something changed elsewhere; nothing was pressed here.
   useEventPulse(slug, eventDate, pulse, () => router.refresh());
+  // one-render: keep (realtime) — the day-of cadence while no pulse is wired; nothing was pressed here.
   useDayOfLiveTick(slug && pulse ? null : eventDate, () => router.refresh());
 
   const panels: Record<HubPanelKey, ReactNode | null> = {

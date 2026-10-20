@@ -30,14 +30,13 @@ function Said({ said }: { said: { ok: boolean; text: string } | null }) {
 }
 
 function useRun() {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const run = (fn: () => Promise<Result>, after?: (r: Result) => void) =>
     start(async () => {
       const res = await fn();
+      // ⚡ Every write here revalidates /admin/categories: its own answer redraws the page — no refresh after it.
       setSaid(res.ok ? { ok: true, text: res.message } : { ok: false, text: res.error });
-      if (res.ok) router.refresh();
       after?.(res);
     });
   return { pending, said, run };
@@ -159,7 +158,6 @@ export function DeleteCategory({
             const res = await remove(needsDest ? dest : undefined);
             if (res.ok) {
               router.push(goToAfter);
-              router.refresh();
             } else {
               setSaid({ ok: false, text: res.error });
             }

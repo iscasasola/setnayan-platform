@@ -880,6 +880,7 @@ export function EditorBridge() {
         /* ⚡ …and a background laid ahead of its save steps aside for THIS render — never before it is on screen. */
         groundPreview.current?.redrawStarted();
         startRedrawRef.current(() => {
+          // one-render: keep (other-frame) — the Maker saved in the PARENT document; its answer re-rendered the Maker, never this canvas page.
           routerRef.current.refresh();
         });
         return;

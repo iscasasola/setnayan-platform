@@ -1724,7 +1724,6 @@ function VendorCard({
           onClose={() => setDetails(null)}
           onCreated={() => {
             setDetails(null);
-            router.refresh();
           }}
         />
       ) : null}
@@ -2734,9 +2733,11 @@ export function ShortlistCategories({
   // if they left the page instead, when the bench is next mounted.
   const { mode: suppliersMode } = useSuppliersMode();
   useEffect(() => {
+    // one-render: keep (no-revalidate) — the bench presses answered in place (`ANSWER_IN_PLACE_FIELD`) and revalidated nothing; this pays them back once.
     if (suppliersMode !== 'find' && payBenchDebt(eventId)) router.refresh();
   }, [suppliersMode, eventId, router]);
   useEffect(() => {
+    // one-render: keep (no-revalidate) — the last visit’s in-place presses revalidated nothing; this pays them back once, on return.
     if (payBenchDebt(eventId)) router.refresh();
     // On mount only: a return visit pays what the last one owed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2799,16 +2800,12 @@ export function ShortlistCategories({
     tile: string;
     label: string;
   } | null>(null);
-  const [searchAdded, setSearchAdded] = useState(false);
   const openSearch = (tile: string, label: string) => {
-    setSearchAdded(false);
     setSearch({ ...benchSearchScopeForTile(tile), label });
   };
-  const closeSearch = () => {
-    setSearch(null);
-    if (searchAdded) router.refresh();
-    setSearchAdded(false);
-  };
+  /* ⚡ No refresh on close: each add from the search (`saveVendorToPicks`) revalidates, so the page behind was redrawn
+     by the add's own answer — a refresh here drew it a second time. */
+  const closeSearch = () => setSearch(null);
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
@@ -2936,7 +2933,6 @@ export function ShortlistCategories({
         return;
       }
       setOpenTile((cur) => (cur === tile ? null : cur));
-      router.refresh();
     });
   }
 
@@ -2949,7 +2945,6 @@ export function ShortlistCategories({
         return;
       }
       openPlan(folder, tile, slug);
-      router.refresh();
     });
   }
   const reqDialogRef = useRef<HTMLDivElement>(null);
@@ -3026,9 +3021,8 @@ export function ShortlistCategories({
       });
       if (res.status === 'ok') {
         setReqPhase('sent');
-        // Refresh so the icon reflects the new state (added/kept/cleared), then
-        // close shortly after the "Saved" confirmation.
-        router.refresh();
+        // The icon reflects the new state (added/kept/cleared) on the action's own answer — it revalidates —
+        // then the sheet closes shortly after the "Saved" confirmation.
         window.setTimeout(closeReqModal, 700);
         return;
       }
@@ -4092,7 +4086,6 @@ export function ShortlistCategories({
                                       eventId,
                                       planGroupId: coveredGroup,
                                     });
-                                    router.refresh();
                                   })
                                 }
                               />
@@ -4495,6 +4488,7 @@ export function ShortlistCategories({
           onClose={() => setManual(null)}
           // ONE refresh, the moment the record exists — behind the link step,
           // so the card is under its category by the time they press Done.
+          // one-render: keep (no-revalidate) — the add-your-own walk files the card in place (`ANSWER_IN_PLACE_FIELD`): `addManualSupplier` revalidates nothing.
           onRecorded={() => router.refresh()}
           onDone={(outcome) => {
             setManual(null);
@@ -4507,6 +4501,7 @@ export function ShortlistCategories({
             // not happen (they were added, the ask did not send) reads red.
             setToast({ tone: outcome.whole ? 'ok' : 'bad', text: outcome.said, key: Date.now() });
             // An add already refreshed behind the link; an ask has not.
+            // one-render: keep (unsure) — the ask’s write path was not traced on 2026-10-20; kept as it was.
             if (outcome.kind === 'asked') router.refresh();
           }}
         />
@@ -4520,7 +4515,6 @@ export function ShortlistCategories({
           onClose={() => setManual(null)}
           onCreated={() => {
             setManual(null);
-            router.refresh();
           }}
         />
       ) : null}
@@ -4539,7 +4533,6 @@ export function ShortlistCategories({
           tile={search.tile}
           label={search.label}
           onClose={closeSearch}
-          onAdded={() => setSearchAdded(true)}
         />
       ) : null}
 

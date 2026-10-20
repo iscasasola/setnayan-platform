@@ -29,6 +29,7 @@ export function LibraryLab({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // one-render: keep (no-revalidate) — the lab’s `libraryLab` stand-in revalidates nothing; this is its one render.
   const refresh = () => router.refresh();
 
   if (view === 'review') {

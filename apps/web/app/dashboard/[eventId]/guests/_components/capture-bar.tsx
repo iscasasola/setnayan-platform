@@ -61,6 +61,7 @@ export function CaptureBar({
   const router = useRouter();
   const { addSingleGuest } = useGuestActions();
   // The list re-reads ONCE when every queued name is written (guest-add-queue.ts).
+  // one-render: keep (batched) — the queued writes go `{ refresh: false }`; this is their one re-read.
   useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
 
   /* ⚡ ONE ENTER = ONE GUEST, AT ONCE (owner 2026-10-19: "need to enter button twice to add … adding multiple person needs

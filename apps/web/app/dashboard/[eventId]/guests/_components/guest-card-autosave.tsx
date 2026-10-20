@@ -44,7 +44,6 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { Check } from 'lucide-react';
 import { pushUndo } from './undo-store';
@@ -159,7 +158,6 @@ export function AutosaveForm({
   /** The last payload known to be on the row — what an undo goes back to. */
   const lastSaved = useRef<FormData | null>(null);
   const restoring = useRef(false);
-  const router = useRouter();
   const [outcome, setOutcome] = useState<AutosaveOutcome>({ kind: 'idle' });
   /** The change a submit is carrying: what it replaced, and what it posts. Its Undo is offered once the save LANDS, not before. */
   const carried = useRef<{ prev: FormData | null; next: FormData } | null>(null);
@@ -204,11 +202,11 @@ export function AutosaveForm({
       } finally {
         restoring.current = false;
       }
-      // The row and the inputs now agree; bring the rest of the page along too
-      // — the roster row behind the panel, the tags, the status line.
-      router.refresh();
+      /* The row and the inputs now agree — and the rest of the page (the roster row behind the panel, the tags, the status
+         line) comes with the answer: `updateGuest` revalidates before its quiet return, so the action re-rendered the page.
+         ⚡ No `router.refresh()` — it drew the whole page a second time (measured in /dev/guests-lab 2026-10-20: 2 → 1). */
     },
-    [send, router, withBase],
+    [send, withBase],
   );
 
   /* React 19 resets a form after its action returns — and a save that FAILED returns too (the failure is caught below, so the form is not

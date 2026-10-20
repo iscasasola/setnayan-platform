@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Archive, RotateCcw } from 'lucide-react';
 
 import { setEventArchived } from '../../archive-actions';
@@ -38,7 +37,6 @@ export function PutAwayCard({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function submit(next: boolean) {
     setError(null);
@@ -61,18 +59,19 @@ export function PutAwayCard({
         }
         setConfirming(false);
         /*
-          🪤 THE SERVER SAVED IT AND THE SCREEN DID NOT MOVE. Owner test,
-          2026-08-18: pressing "Put this away" wrote the change, and the card
-          kept showing the un-pressed state until the page was reloaded by hand.
-          The action's `revalidatePath` marks the cache stale; it does not push
-          fresh props into a client component that is already on screen. This
-          card's whole state — which half renders, what the sentence says — is a
-          prop from the server, so without this it is stale on purpose.
+          🪤 THE SERVER SAVED IT AND THE SCREEN DID NOT MOVE (owner test,
+          2026-08-18) — this card's whole state is a prop from the server, and a
+          silent success reads exactly like a dead button.
 
-          🔑 Pressing a button and seeing nothing happen is how somebody presses
-          it twice. A silent success reads exactly like a dead button.
+          ⚡ CORRECTED 2026-10-20: the fix is NOT a `router.refresh()` here. The
+          note that stood here said `revalidatePath` "does not push fresh props
+          into a client component already on screen" — measured not to hold on
+          Next 15.5 (`/dev/guests-lab`): an action that revalidates answers WITH the page's
+          new render and the router applies it to what is on screen (Next 15,
+          `pathWasRevalidated`). `setEventArchived` revalidates this page, so the
+          card flips on the action's own answer; a refresh drew the page twice.
+          Held by `lib/a-save-renders-once.test.ts`.
         */
-        router.refresh();
       } catch (err) {
         console.error('[put-away] action rejected', err);
         setError('We couldn’t save that just now. Please try again.');

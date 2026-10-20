@@ -95,13 +95,13 @@ export function AnnounceButton({
         result = await sendCoordinatorBroadcast(fd);
       } catch {
         setError(ANNOUNCE_NOT_CONFIRMED);
+        // one-render: keep (after-failure) — a send that never answered revalidated nothing here; re-read whether it went.
         router.refresh();
         return;
       }
       if (result.ok) {
         setText('');
         setSent(true);
-        router.refresh();
       } else {
         setError(result.error);
       }

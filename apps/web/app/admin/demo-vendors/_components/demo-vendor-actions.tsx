@@ -69,6 +69,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         return;
       }
       setResult({ kind: 'done', deleted: body.deleted ?? 0 });
+      // one-render: keep (fetch) — it follows a `fetch()` to an admin API route; no server action answered with a render.
       startTransition(() => router.refresh());
     } catch (err) {
       setResult({ kind: 'error', message: String(err) });
@@ -89,6 +90,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         return;
       }
       setResult({ kind: 'done', deleted: body.deleted ?? 0 });
+      // one-render: keep (fetch) — it follows a `fetch()` to an admin API route; no server action answered with a render.
       startTransition(() => router.refresh());
     } catch (err) {
       setResult({ kind: 'error', message: String(err) });
@@ -112,6 +114,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         deleted: body.deleted ?? 0,
         nextStep: body.nextStep,
       });
+      // one-render: keep (fetch) — it follows a `fetch()` to an admin API route; no server action answered with a render.
       startTransition(() => router.refresh());
     } catch (err) {
       setResult({ kind: 'error', message: String(err) });
@@ -157,6 +160,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         if (chunk.done) break;
       }
       setCreate({ kind: 'done', vendors });
+      // one-render: keep (fetch) — it follows a `fetch()` to an admin API route; no server action answered with a render.
       startTransition(() => router.refresh());
     } catch (err) {
       setCreate({

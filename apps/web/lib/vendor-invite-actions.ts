@@ -371,7 +371,7 @@ export async function applyClaimAutoLink(args: {
   claimedByUserId: string;
   claimedVendorProfileId: string;
 }): Promise<
-  | { ok: true; vendorId: string; coupleUserIds: string[] }
+  | { ok: true; vendorId: string; coupleUserIds: string[]; accessRequestId: string | null }
   | { ok: false; code: string; message: string }
 > {
   const admin = createAdminClient();
@@ -379,7 +379,7 @@ export async function applyClaimAutoLink(args: {
   // 1. Look up the invite.
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
-    .select('invite_id,vendor_id,invited_by_user_id,status,expires_at')
+    .select('invite_id,vendor_id,invited_by_user_id,status,expires_at,business_name')
     .eq('claim_token', args.claimToken)
     .maybeSingle();
   if (invErr || !invite) {
@@ -404,53 +404,27 @@ export async function applyClaimAutoLink(args: {
     return { ok: false, code: 'INVITE_EXPIRED', message: 'This invite link has expired.' };
   }
 
-  // 2. Write marketplace_vendor_id on the parent event_vendors row.
-  //    CONDITIONAL re-point guard: this multi-step sequence is non-transactional,
-  //    so if a later step fails the invite stays 'pending' and a DIFFERENT second
-  //    claimer could otherwise overwrite the couple's marketplace_vendor_id and
-  //    re-point their vendor. Only set the bond when it's currently unset (null)
-  //    or already this same profile (idempotent retry) — a re-claim by a
-  //    different profile matches 0 rows and is refused. The legitimate FIRST
-  //    claim has marketplace_vendor_id = null → the .or() admits it. A same-
-  //    profile retry matches via the second predicate → still succeeds.
+  // 2. ASK FOR ACCESS — never take it (owner 2026-10-20, DECISION_LOG "A
+  //    CLAIMED SUPPLIER ARRIVES BOOKED IF PAID, ASKS FOR ACCESS ON ITS OWN…":
+  //    *"access to the event is automatic but has an approval"*).
   //
-  //    ⚠ ONE SQL CALL, `claim_link_record_to_shop` (migration 20271268139017,
-  //    2026-10-12). It keeps that guard AND handles the case that used to fail the
-  //    claim outright: the shop is ALREADY a live row on this event (a save from
-  //    Find), and the one-row-per-shop-per-event index refused a second. The
-  //    couple's record then MERGES onto that row (the earliest sourced fact
-  //    stays), and the call returns the row that now carries the booking.
-  const { data: linkedId, error: linkErr } = await admin.rpc('claim_link_record_to_shop', {
+  //    🔒 THE CLAIM NO LONGER BONDS THE COUPLE'S RECORD TO THE SHOP. Every
+  //    supplier-side read of the event finds the supplier through
+  //    `event_vendors.marketplace_vendor_id`; writing it here handed a record the
+  //    couple had marked booked its category's access before anyone approved.
+  //    The claim raises ONE pending ask (`claim_ask_for_access`, migration
+  //    20271280900282); the couple's Approve runs the bond — the merge-aware
+  //    `claim_link_record_to_shop`, the sibling pass, a coordinator's host-level
+  //    seat — inside `answer_claim_access_request`. Nothing before that.
+  //    The ask refuses a record already bonded to a DIFFERENT shop (the shipped
+  //    re-point guard), so a second claimer is still turned away here.
+  const { data: askId, error: askErr } = await admin.rpc('claim_ask_for_access', {
     p_record_vendor_id: invite.vendor_id,
     p_vendor_profile_id: args.claimedVendorProfileId,
+    p_user_id: args.claimedByUserId,
   });
-  if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
-  const bookingVendorId = typeof linkedId === 'string' && linkedId ? linkedId : (invite.vendor_id as string);
-  const merged = bookingVendorId !== invite.vendor_id;
-
-  // 2b. Reconcile SIBLING category rows for the same manually-added vendor.
-  //     A couple who added this vendor under multiple categories has N distinct
-  //     event_vendors rows (own vendor_id, shared manual_vendor_id); the claim
-  //     binds to only ONE. Upgrade the siblings too so the couple doesn't end up
-  //     with one real linked account + leftover unclaimed manual contacts for a
-  //     single real vendor. Best-effort (never fails the claim), scoped to the
-  //     couple's OWN event, same null-or-same-profile re-point guard as step 2,
-  //     and skipped cleanly when the row has no manual_vendor_id (admin-source).
-  const { data: parentRow } = await admin
-    .from('event_vendors')
-    .select('manual_vendor_id,event_id')
-    .eq('vendor_id', invite.vendor_id)
-    .maybeSingle();
-  // (Not after a merge: the shop's one live row on this event is the survivor.)
-  if (!merged && parentRow?.manual_vendor_id && parentRow.event_id) {
-    await admin
-      .from('event_vendors')
-      .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-      .eq('manual_vendor_id', parentRow.manual_vendor_id)
-      .eq('event_id', parentRow.event_id)
-      .neq('vendor_id', invite.vendor_id)
-      .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
-  }
+  if (askErr) return { ok: false, code: 'ASK_FAILED', message: askErr.message };
+  const accessRequestId = typeof askId === 'string' && askId ? askId : null;
 
   // 3. Mark the invite claimed.
   const { error: inviteErr } = await admin
@@ -495,6 +469,29 @@ export async function applyClaimAutoLink(args: {
           onConflict: 'follower_user_id,vendor_profile_id',
           ignoreDuplicates: true,
         });
+    }
+
+    // 4b. Tell the couple there is something to approve — IN THE APP, never an
+    // email (owner 2026-10-11, "we can manage without emails?"; `vendor_joined`
+    // is app-only in lib/couple-supplier-notices.ts). It opens the approval.
+    if (accessRequestId && coupleUserIds.length > 0) {
+      const name = ((invite.business_name as string | null) ?? '').trim() || 'Your supplier';
+      try {
+        await Promise.all(
+          coupleUserIds.map((uid) =>
+            emitNotification({
+              userId: uid,
+              type: 'vendor_joined',
+              title: `${name} joined from your link`,
+              body: 'Approve to let them into your event.',
+              relatedUrl: `/dashboard/${parent.event_id as string}/access-requests`,
+              eventId: parent.event_id as string,
+            }),
+          ),
+        );
+      } catch (e) {
+        console.warn('[claim] vendor_joined (approval) notify skipped:', e);
+      }
     }
 
     // 5. Upsert a chat_thread so the vendor's /vendor-dashboard/bookings
@@ -552,7 +549,7 @@ export async function applyClaimAutoLink(args: {
     }
   }
 
-  return { ok: true, vendorId: bookingVendorId, coupleUserIds };
+  return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds, accessRequestId };
 }
 
 // ---------------------------------------------------------------------------
@@ -747,7 +744,12 @@ export async function registerClaimedServiceToCouple(args: {
     .maybeSingle();
   if (parentErr) return { ok: false, code: 'PARENT_LOOKUP_FAILED', message: parentErr.message };
   if (!parent) return { ok: false, code: 'PARENT_NOT_FOUND', message: 'Couple row not found.' };
-  if (parent.marketplace_vendor_id !== vendorProfileId) {
+  // Since 2026-10-20 the claim leaves the record UNBONDED until the couple
+  // approves the supplier's access (`applyClaimAutoLink` step 2), so a fresh
+  // claimant's record still reads null here. The invite checks above (claimed BY
+  // this user, TO this shop) are the proof the couple invited them; a record
+  // bonded to a DIFFERENT shop is still refused.
+  if (parent.marketplace_vendor_id != null && parent.marketplace_vendor_id !== vendorProfileId) {
     return {
       ok: false,
       code: 'LINK_MISMATCH',
@@ -769,7 +771,7 @@ export async function registerClaimedServiceToCouple(args: {
     .from('event_vendors')
     .update({ service_id: args.vendorServiceId })
     .eq('vendor_id', eventVendorId)
-    .eq('marketplace_vendor_id', vendorProfileId)
+    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${vendorProfileId}`)
     .is('service_id', null)
     .select('vendor_id')
     .maybeSingle();

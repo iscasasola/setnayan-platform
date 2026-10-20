@@ -74,6 +74,7 @@
  */
 
 import { paidToVendorCentavos } from './paid-to-vendor';
+import { withBookedByPayment } from './booked-by-payment';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -400,6 +401,7 @@ export type VendorMoneyRow = Pick<
   package_role?: string | null;
   event_vendor_package_id?: string | null;
   marketplace_vendor_id?: string | null;
+  manual_vendor_id?: string | null;
 };
 
 export type LineItemMoneyRow = {
@@ -425,6 +427,7 @@ export type PaymentMoneyRow = {
   line_item_id: string | null;
   amount_php: number | string | null;
   paid_at: string;
+  payment_refused_at?: string | null;
 };
 
 /**
@@ -1679,7 +1682,7 @@ export function checkMoneyInvariant(money: EventMoney): string | null {
 const VENDOR_SELECT =
   'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,' +
   'total_cost_php,transport_php,food_allowance_php,deposit_paid_php,covers_plan_groups,' +
-  'archived_at,voided_by_fraud,package_role,notes,created_at,marketplace_vendor_id,' +
+  'archived_at,voided_by_fraud,package_role,notes,created_at,marketplace_vendor_id,manual_vendor_id,' +
   'event_vendor_package_id';
 
 /** PostgREST's "relation does not exist" — graceful-degrade, same as lib/budget.ts. */
@@ -1755,7 +1758,7 @@ export async function resolveEventMoney(
         .order('created_at', { ascending: true }),
       supabase
         .from('event_vendor_payments')
-        .select('payment_id,vendor_id,line_item_id,amount_php,paid_at')
+        .select('payment_id,vendor_id,line_item_id,amount_php,paid_at,payment_refused_at')
         .eq('event_id', eventId)
         .order('paid_at', { ascending: false }),
       // R7 — the "booked with us" half. Today this reaches exactly one stat on
@@ -1808,6 +1811,11 @@ export async function resolveEventMoney(
   const paymentRows = rowsOrRefused<PaymentMoneyRow>(paymentsRes, (e) =>
     refused('event_vendor_payments', e),
   );
+  // 💳 BOOKED IF PAID (owner 2026-10-20): a hand-added supplier with a recorded
+  // payment is committed money, not an estimate — the one resolver, applied to
+  // the rows before anything reads their status (lib/booked-by-payment.ts).
+  // A refused payments read leaves every row at its stored status.
+  if (vendorRows && paymentRows) vendorRows = withBookedByPayment(vendorRows, paymentRows);
   // A MISSING relation is an ANSWER, not a refusal: on an environment where the
   // table has not been migrated in, there are provably no rows to lose, and a
   // budget page that renders without the source is strictly better than one

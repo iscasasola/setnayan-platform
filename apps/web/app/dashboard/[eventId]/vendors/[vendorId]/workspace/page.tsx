@@ -77,6 +77,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { hasClaimAsk } from '@/lib/move-supplier-category.server';
 import { WEDDING_TILE_LABEL } from '@/lib/taxonomy';
 import { readCoverCatalog } from '@/lib/cover-catalog.server';
 import {
@@ -1562,7 +1563,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // "so they can pick all categories" — it states the fact, it cannot be
   // switched off into a lie). Only read when the editor below renders.
   const showsHostEditor = !hasPackageLines && isOffPlatformSupplier(ev);
-  const coverRead = showsHostEditor ? await readCoverCatalog(eventId) : null;
+  const [coverRead, claimAsk] = showsHostEditor
+    ? await Promise.all([readCoverCatalog(eventId), hasClaimAsk(supabase, eventId, ev.vendor_id)])
+    : [null, false];
   const coverCatalog = coverRead?.ok ? coverRead.catalog : undefined;
   // The row the card is drawn under — a moved supplier's `category_key` when
   // the enum cannot name it (Food Truck), so the locked row and the Suppliers
@@ -1627,6 +1630,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           initialCovers={ev.covers_plan_groups ?? []}
           category={ev.category}
           homeTile={ownTile}
+          claimAsk={claimAsk}
           ownLabel={ownCoverLabel}
           catalog={coverCatalog}
         />

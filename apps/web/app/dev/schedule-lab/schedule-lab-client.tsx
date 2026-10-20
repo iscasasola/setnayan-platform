@@ -10,6 +10,7 @@
  * rail say so. Nothing here reaches a database.
  */
 
+import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
@@ -30,12 +31,32 @@ const LAB_SLOT = 'schedule-lab-inspector';
 /** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
 const QUIET = Symbol('quiet');
 
-const SUPPLIERS: DaySupplier[] = [
-  { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals' },
-  { vendor_id: 'v-kat', vendor_name: 'HMUA by Kat' },
-  { vendor_id: 'v-casa', vendor_name: 'Casa Catering' },
-  { vendor_id: 'v-lum', vendor_name: 'Lumière Photo' },
-];
+/* Through the REAL schedule-suppliers resolver (owner 2026-10-20): shop name +
+   Booked / Shortlisted. "The Wedding Planner" was added by hand, filed
+   Considering, and has a recorded payment — so it reads Booked; its row is
+   bonded to a shop whose own name the schedule shows. */
+const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
+  [
+    { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals', status: 'contracted', marketplace_vendor_id: 'p-gaia', manual_vendor_id: null },
+    { vendor_id: 'v-kat', vendor_name: 'HMUA by Kat', status: 'shortlisted', marketplace_vendor_id: null, manual_vendor_id: 'c-kat' },
+    { vendor_id: 'v-casa', vendor_name: 'Casa Catering', status: 'contracted', marketplace_vendor_id: 'p-casa', manual_vendor_id: null },
+    { vendor_id: 'v-lum', vendor_name: 'Lumière Photo', status: 'considering', marketplace_vendor_id: 'p-lum', manual_vendor_id: null },
+    {
+      vendor_id: 'v-planner',
+      vendor_name: 'Tita Lorna (typed)',
+      status: 'considering',
+      marketplace_vendor_id: 'p-planner',
+      manual_vendor_id: 'c-planner',
+      vendor_payments: [{ payment_refused_at: null }],
+    },
+  ],
+  new Map([
+    ['p-gaia', 'Gaia Florals'],
+    ['p-casa', 'Casa Catering'],
+    ['p-lum', 'Lumière Photo'],
+    ['p-planner', 'The Wedding Planner'],
+  ]),
+);
 
 type Seed = [
   id: string,
@@ -51,7 +72,7 @@ const SEEDS: Seed[] = [
   ['hmua', 'Hair & makeup', 'pre_ceremony', '08:00', '12:00', false, { responsible_vendor_ids: ['v-kat'], responsible_party: 'HMUA team', location: 'Bridal suite, Peninsula Manila', notes: 'Claire first, then the entourage. Mom at 10:30 AM.' }],
   ['ingress', 'Supplier ingress & styling', 'pre_ceremony', '10:00', '13:00', false, { responsible_vendor_ids: ['v-gaia'], location: 'San Agustin Church · Grand ballroom' }],
   ['arrive', 'Guests arrive', 'pre_ceremony', '13:30', '14:00', true, { location: 'San Agustin Church, Intramuros', notes: 'Ushers at both doors. Programs on the pews.' }],
-  ['cer', 'Ceremony', 'ceremony', '14:00', '15:30', true, { responsible_party: 'Coordinator', location: 'San Agustin Church, Intramuros', notes: 'Unplugged ceremony — ushers remind at the door.' }],
+  ['cer', 'Ceremony', 'ceremony', '14:00', '15:30', true, { responsible_vendor_ids: ['v-planner'], responsible_party: 'Coordinator', location: 'San Agustin Church, Intramuros', notes: 'Unplugged ceremony — ushers remind at the door.' }],
   ['cer-1', 'Procession', 'ceremony', '14:00', null, true, { parent_block_id: 'cer' }],
   ['cer-2', 'Vows & rings', 'ceremony', '14:25', null, true, { parent_block_id: 'cer' }],
   ['cer-3', 'Recessional', 'ceremony', '15:15', null, true, { parent_block_id: 'cer' }],

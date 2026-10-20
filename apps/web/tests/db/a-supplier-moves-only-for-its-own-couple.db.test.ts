@@ -15,8 +15,8 @@
  *   3. a supplier with a shop of their own (`marketplace_vendor_id` set) is not
  *      moved by the statement, even by their couple;
  *   4. a `category_key` the taxonomy does not have is refused by the database;
- *   5. the pending claim link is kept in step on the service role, and a
- *      stranger cannot touch it.
+ *   5. the claim link — pending, or claimed and waiting for Approve (#6709) —
+ *      is kept in step on the service role, and a stranger cannot touch it.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -188,6 +188,14 @@ test('5 · the pending claim link keeps step on the service role; a stranger can
       [v, `tok-${uniq()}`],
     )
   ).rows[0]!.id;
+  // Since #6709 a claim waits for Approve with the record unlinked — its link is kept in step too.
+  const claimedId = (
+    await db.query<{ id: string }>(
+      `INSERT INTO public.vendor_invites (vendor_id, business_name, service_category, claim_token, source, status, expires_at)
+       VALUES ($1, 'Dunkin'' Donuts', 'misc', $2, 'auto_share_link', 'claimed', now() + interval '90 days') RETURNING invite_id AS id`,
+      [v, `tok-${uniq()}`],
+    )
+  ).rows[0]!.id;
 
   // A stranger's session reaches no invite row.
   await asUser(b.couple);
@@ -201,12 +209,14 @@ test('5 · the pending claim link keeps step on the service role; a stranger can
   assert.equal(await move(a.couple, a.eventId, v, plan), 1);
   await asService();
   const synced = await db.query(
-    `UPDATE public.vendor_invites SET service_category = $1 WHERE vendor_id = $2 AND status = 'pending' RETURNING invite_id`,
+    `UPDATE public.vendor_invites SET service_category = $1 WHERE vendor_id = $2 AND status IN ('pending', 'claimed') RETURNING invite_id`,
     [plan.category, v],
   );
-  assert.equal(synced.rows.length, 1);
+  assert.equal(synced.rows.length, 2);
   await reset();
-  const inv = await db.query<{ service_category: string }>(`SELECT service_category FROM public.vendor_invites WHERE invite_id = $1`, [inviteId]);
-  assert.equal(inv.rows[0]!.service_category, plan.category);
+  for (const id of [inviteId, claimedId]) {
+    const inv = await db.query<{ service_category: string }>(`SELECT service_category FROM public.vendor_invites WHERE invite_id = $1`, [id]);
+    assert.equal(inv.rows[0]!.service_category, plan.category);
+  }
   assert.equal(plan.category, 'cake_maker', 'Cake is stored as cake_maker — the claim files the shop as a cake maker');
 });

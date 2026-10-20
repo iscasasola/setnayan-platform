@@ -38,6 +38,8 @@ import {
 } from '@/lib/schedule-ros';
 import { SCHEDULE_TEMPLATES, type ScheduleTemplate } from '@/lib/schedule-templates';
 import { SubmitButton } from '@/app/_components/submit-button';
+import type { SupplierStandingWord } from '@/lib/booked-by-payment';
+import { supplierOnItem } from './day-types';
 import {
   bulkRetimeScheduleBlocks,
   loadScheduleTemplate,
@@ -46,7 +48,10 @@ import {
 
 export type EventVendorOption = {
   vendor_id: string;
+  /** The shop name, or the couple's own name for them (lib/schedule-suppliers.ts). */
   vendor_name: string;
+  /** "Booked" · "Shortlisted" — the one booked-if-paid resolver (owner 2026-10-20). */
+  standing?: SupplierStandingWord;
 };
 
 /** Parse the `?ros=` search param into a lens. Unknown values → master. */
@@ -317,7 +322,7 @@ export function ResponsiblePartyEditor({
   const taggedIds = new Set(rowMeta?.responsible_vendor_ids ?? []);
   const taggedNames = vendors
     .filter((v) => taggedIds.has(v.vendor_id))
-    .map((v) => v.vendor_name);
+    .map((v) => supplierOnItem(v));
   const summaryText =
     [party, ...taggedNames].filter(Boolean).join(' · ') || 'Assign responsible party';
   return (
@@ -354,7 +359,7 @@ export function ResponsiblePartyEditor({
             >
               {vendors.map((v) => (
                 <option key={v.vendor_id} value={v.vendor_id}>
-                  {v.vendor_name}
+                  {supplierOnItem(v)}
                 </option>
               ))}
             </select>

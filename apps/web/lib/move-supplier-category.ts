@@ -35,6 +35,7 @@ import {
   tileForCover,
 } from '@/lib/shortlist-taxonomy';
 import type { WeddingTile } from '@/lib/taxonomy';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import type { VendorCategory } from '@/lib/vendors';
 
 export type SupplierMoveRow = {
@@ -85,4 +86,30 @@ export function planSupplierMove(
     covers.push(key);
   }
   return { from, to, category, category_key, covers, removedCovers };
+}
+
+/**
+ * The one line the confirm says (owner brief, verbatim shape): "Dunkin' Donuts
+ * moves from Everything else to Food Truck. Its price and payments move with
+ * it." Pure, so the guard reads the same sentence the card draws.
+ *
+ * 🔑 A SUPPLIER WAITING TO BE LET IN (#6709: a claim asks, the couple's Approve
+ * links the record) has no shop link yet, so this card can still move — and
+ * what Approve then gives them is decided by THIS category
+ * (`answer_claim_access_request` reads `event_vendors.category`). So the line
+ * says what they will see once approved, in `claimAskLine`'s own words.
+ */
+export function moveConfirmLine(args: {
+  name: string;
+  fromLabel: string;
+  toLabel: string;
+  toTile: string;
+  claimAsk?: boolean;
+}): string {
+  const base = `${args.name} moves from ${args.fromLabel} to ${args.toLabel}. Its price and payments move with it.`;
+  if (!args.claimAsk) return base;
+  const coordinator = isCoordinatorTrade([categoryForTile(args.toTile as WeddingTile)]);
+  return coordinator
+    ? `${base} When you approve them, they get the same access as you.`
+    : `${base} When you approve them, they see what a booked ${args.toLabel.toLowerCase()} sees.`;
 }

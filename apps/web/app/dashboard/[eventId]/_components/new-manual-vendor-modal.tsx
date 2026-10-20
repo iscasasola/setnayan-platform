@@ -599,7 +599,7 @@ export function NewManualVendorModal({
                   disabled={pending}
                   // Only a supplier already on the event can be moved — an add
                   // files them under the row the sheet was opened from.
-                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier' } : undefined}
+                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk } : undefined}
                   onMoved={() => setMoved(true)}
                 />
               </div>

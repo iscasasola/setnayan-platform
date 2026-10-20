@@ -41,7 +41,7 @@ import {
   linkedTilesForRow,
   tileForCover,
 } from '@/lib/shortlist-taxonomy';
-import { planSupplierMove, type SupplierMovePlan } from '@/lib/move-supplier-category';
+import { moveConfirmLine, planSupplierMove, type SupplierMovePlan } from '@/lib/move-supplier-category';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
 import { bucketForVendor } from '@/lib/budget-truth';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
@@ -203,7 +203,22 @@ test('6 · the action writes the plan in one read-back update, refuses a supplie
   assert.match(body, /if \(row\.marketplace_vendor_id\)\s*\{\s*return \{ ok: false/, 'a supplier with a shop is not refused');
   assert.match(
     body,
-    /\.from\('vendor_invites'\)\s*\.update\(\{ service_category: plan\.category \}\)[\s\S]{0,120}\.eq\('status', 'pending'\)/,
-    'a pending claim link keeps the old category',
+    /\.from\('vendor_invites'\)\s*\.update\(\{ service_category: plan\.category \}\)[\s\S]{0,120}\.in\('status', \['pending', 'claimed'\]\)/,
+    'a pending (or claimed, waiting for Approve) claim link keeps the old category',
+  );
+});
+
+test('7 · the confirm line says what moves — and, for a supplier waiting for Approve, what Approve will give', () => {
+  const base = { name: "Dunkin' Donuts", fromLabel: 'Everything else', toLabel: 'Food Truck', toTile: 'food_truck' };
+  assert.equal(
+    moveConfirmLine(base),
+    "Dunkin' Donuts moves from Everything else to Food Truck. Its price and payments move with it.",
+  );
+  // #6709: Approve gives what this category gets, so a waiting claim is told.
+  assert.match(moveConfirmLine({ ...base, claimAsk: true }), /When you approve them, they see what a booked food truck sees\.$/);
+  // Into the coordinator trade, Approve gives the couple's own access — said in those words.
+  assert.match(
+    moveConfirmLine({ ...base, toLabel: 'Coordinator', toTile: 'coordinator', claimAsk: true }),
+    /When you approve them, they get the same access as you\.$/,
   );
 });

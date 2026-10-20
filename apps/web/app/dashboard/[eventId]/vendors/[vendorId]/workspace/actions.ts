@@ -231,8 +231,9 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
 // returned means RLS or the off-platform rule refused it, and the couple is
 // told so instead of seeing "Moved".
 //
-// The supplier's pending claim link (`vendor_invites.service_category`, the
-// category the claim files their shop under) is kept in step — on the admin
+// The supplier's claim link (`vendor_invites.service_category`, the category
+// the claim files their shop under) is kept in step while it is pending or
+// claimed-and-waiting-for-Approve — on the admin
 // client, AFTER the session write above proved the caller may write this row,
 // because a coordinator holds no RLS on `vendor_invites`.
 // ============================================================================
@@ -324,7 +325,10 @@ export async function moveSupplierToCategory(input: {
     .from('vendor_invites')
     .update({ service_category: plan.category })
     .eq('vendor_id', vendorId)
-    .eq('status', 'pending');
+    // 'claimed' too: since #6709 a claim waits for the couple's Approve with the
+    // record still unlinked (this row passed `marketplace_vendor_id IS NULL`),
+    // and the claim's own service registration checks this category.
+    .in('status', ['pending', 'claimed']);
   if (inviteErr) {
     logQueryError('moveSupplierToCategory.invite', inviteErr, { event_id: eventId, vendor_id: vendorId });
     warnings.push('their sign-up link still names the old category');

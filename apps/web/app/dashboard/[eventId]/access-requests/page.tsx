@@ -9,6 +9,8 @@ import Link from 'next/link';
 import type { DelegateArea } from '@/lib/event-moderators';
 import { peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { RequestCard, type PendingRequest } from './_components/request-card';
+import { ClaimAccessCard } from './_components/claim-access-card';
+import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
 
 export const metadata: Metadata = { title: 'Access requests' };
 
@@ -60,8 +62,12 @@ export default async function AccessRequestsPage({
       'request_id, requester_user_id, vendor_profile_id, requested_areas, note, status, decisions, created_at',
     )
     .eq('event_id', eventId)
+    // The coordinator's line-by-line asks. A supplier who joined from the
+    // couple's link is the other kind, drawn by `ClaimAccessCard` below.
+    .eq('kind', 'areas')
     .order('created_at', { ascending: false })
     .limit(50);
+  const claimsRead = await readClaimAccessAsks(supabase, eventId);
   // ⚠ PEOPLE ASKING FOR ACCESS. Refused, the couple sees no requests — and somebody
   // ⚠ waiting to be let in is invisible, with no sign anything was asked.
   if (dataError) {
@@ -114,11 +120,25 @@ export default async function AccessRequestsPage({
         title="Access requests"
       />
 
-      {pending.length === 0 ? (
+      {/* 🤝 Suppliers who joined from your link (owner 2026-10-20) — one
+          Approve each; nothing is open to them before it. */}
+      {!claimsRead.measured ? (
+        <p className="mt-6 text-sm text-terracotta-700" data-claim-asks-refused="">
+          We could not check for suppliers who joined from your link. Reload to try again.
+        </p>
+      ) : claimsRead.asks.length > 0 ? (
+        <ul className="sn-tile mt-6 divide-y divide-ink/5 px-4 py-1" data-claim-asks="">
+          {claimsRead.asks.map((a) => (
+            <ClaimAccessCard key={a.requestId} eventId={eventId} ask={a} />
+          ))}
+        </ul>
+      ) : null}
+
+      {pending.length === 0 && !(claimsRead.measured && claimsRead.asks.length > 0) ? (
         <p className="sn-tile mt-6 p-6 text-center text-sm text-ink/55">
           Nothing waiting on you.
         </p>
-      ) : (
+      ) : pending.length === 0 ? null : (
         <ul className="mt-6 space-y-4">
           {pending.map((r) => (
             <RequestCard key={r.requestId} eventId={eventId} request={r} />

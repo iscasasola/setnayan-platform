@@ -4,7 +4,7 @@ import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type K
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -36,12 +36,12 @@ export function PickMenu({
   const asSheet = pickOpensAsSheet(Boolean(sheet), typeof window === 'undefined' ? 1e4 : window.innerWidth);
 
   const place = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
+    const b = btnRef.current;
+    if (!b) return;
     const next = placePickList({
-      button: r,
+      button: b.getBoundingClientRect(),
       listHeight: listRef.current?.scrollHeight ?? 0,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport: pickViewport(b, listRef.current),
     });
     setAt((prev) =>
       prev &&

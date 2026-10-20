@@ -61,6 +61,7 @@ import { coversByRow, tileForCategory, type CoverCatalogFolder } from '@/lib/sho
 import type { VendorCategory } from '@/lib/vendors';
 import { loadCoverCatalog } from '../vendors/actions';
 import { moveSupplierToCategory } from '../vendors/[vendorId]/workspace/actions';
+import { moveConfirmLine } from '@/lib/move-supplier-category';
 
 type Offered = { key: string; tile: string; label: string; group: string };
 
@@ -116,8 +117,9 @@ export function ServicesCoveredPicker({
   disabled?: boolean;
   /** Fires with the ALSO-covers keys only; the own row is never included. */
   onChange?: (keys: string[]) => void;
-  /** A supplier already on the event — offers "Move <name> to another category". */
-  move?: { vendorId: string; name: string };
+  /** A supplier already on the event — offers "Move <name> to another category".
+   *  `claimAsk`: they claimed the couple's link and wait for Approve (#6709). */
+  move?: { vendorId: string; name: string; claimAsk?: boolean };
   /** The card's own row changed (a move, or its Undo). */
   onMoved?: (tile: string) => void;
 }) {
@@ -296,7 +298,13 @@ export function ServicesCoveredPicker({
       {move && target ? (
         <div className="space-y-2 rounded-xl bg-ink/[0.04] p-3" data-move-confirm={target}>
           <p className="text-[13px] leading-snug text-ink">
-            {move.name} moves from {homeLabel} to {labelOf(target) ?? target}. Its price and payments move with it.
+            {moveConfirmLine({
+              name: move.name,
+              fromLabel: homeLabel,
+              toLabel: labelOf(target) ?? target,
+              toTile: target,
+              claimAsk: move.claimAsk,
+            })}
           </p>
           <div className="flex gap-2">
             <button

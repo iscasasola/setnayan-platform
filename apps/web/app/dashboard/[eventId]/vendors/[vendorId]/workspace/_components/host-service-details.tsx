@@ -36,6 +36,7 @@ export function HostServiceDetails({
   initialCovers,
   category,
   homeTile,
+  claimAsk,
   ownLabel,
   catalog,
 }: {
@@ -49,6 +50,8 @@ export function HostServiceDetails({
   category: string;
   /** The row the card is drawn under (`homeTileForRow`) — a moved supplier's may be finer than `category`. */
   homeTile?: string | null;
+  /** They claimed the couple's link and wait for Approve — the move's confirm says what Approve will give. */
+  claimAsk?: boolean;
   ownLabel: string;
   /** The Suppliers page's rows; omitted (a failed read) → the picker reads them itself. */
   catalog?: readonly CoverCatalogFolder[];
@@ -147,7 +150,7 @@ export function HostServiceDetails({
           }}
           // "Move <name> to another category" (owner 2026-10-20). The move is
           // its own write; the page re-reads so the header names the new row.
-          move={{ vendorId, name: displayName?.trim() || 'This supplier' }}
+          move={{ vendorId, name: displayName?.trim() || 'This supplier', claimAsk }}
           onMoved={() => router.refresh()}
         />
       </div>

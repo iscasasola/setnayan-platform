@@ -32,6 +32,7 @@ import { themeBootstrapScript } from './_components/theme-bootstrap-script';
 import { THEME_COLOR } from '@/lib/appearance';
 import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
 import { storeShellMarkScript } from '@/lib/store-shell';
+import { appTextSizeScript } from '@/lib/app-text-size';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_ICON_SVG_192,
@@ -650,6 +651,13 @@ export default async function RootLayout({
           `storeShellMarkScript` in lib/store-shell.ts.
         */}
         <script dangerouslySetInnerHTML={{ __html: storeShellMarkScript }} />
+        {/*
+          iPhone text size (Dynamic Type) — in the App Store shell only, right
+          after the mark above that it reads: scales the app's text to the
+          person's Settings size before the first paint. See
+          `appTextSizeScript` in lib/app-text-size.ts (owner ruling 2026-10-20).
+        */}
+        <script dangerouslySetInnerHTML={{ __html: appTextSizeScript }} />
         {/*
           Organization JSON-LD — Google Knowledge Graph + AI answer engine
           entity grounding. Renders on every public page. Page-specific JSON-LD

@@ -58,6 +58,7 @@ import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -84,7 +85,7 @@ import { tableWords } from '@/lib/table-words';
  *   NAME   open and writable: Prefix (dropdown) · First · Middle · Last · Suffix
  *          · Shown as.
  *   then seven rows, CLOSED, each with a one-line summary — Details · RSVP ·
- *   Seat · Photos · Private note · Access · Tags. One open at a time (a native
+ *   Seat · Photos · Note for them · Private note · Access · Tags. One open at a time (a native
  *   exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
  *   choice = one dropdown, several = a dropdown with checkmarks.
  *
@@ -825,8 +826,28 @@ export function GuestCardBody({
             />
           </K.Fold>
 
+          {/* ── 💌 NOTE FOR THEM — the hosts' note TO this guest (owner 2026-10-20, DECISION_LOG "A NOTE FOR ONE
+              GUEST"): shown on their own Me, under Your role — to them and nobody else (`lib/guest-host-note.ts`).
+              Beside the private note, and said plainly which one the guest reads. ─────────────────────── */}
+          <K.Fold summary="Note for them · they see it" value={guest.host_note_for_guest?.trim() || null} emptyValue="None">
+            <K.Field
+              id="host_note_for_guest"
+              long
+              maxLength={HOST_NOTE_MAX}
+              label="Note for them"
+              defaultValue={guest.host_note_for_guest ?? ''}
+              placeholder="e.g. We saved you a seat beside Lola — she can’t wait to see you."
+              about={`${guest.first_name} sees this on their invitation, under their role. No other guest does.`}
+            />
+            {templated ? null : (
+              <p className="text-xs text-ink/50">
+                {guest.first_name} sees this on their invitation, under their role. No other guest does.
+              </p>
+            )}
+          </K.Fold>
+
           {/* ── PRIVATE NOTE — the couple's own, never the guest's ─────────── */}
-          <K.Fold summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
+          <K.Fold summary="Private note · only you" value={guest.notes?.trim() || null} emptyValue="None" last>
             <K.Field
               id="notes"
               long
@@ -995,7 +1016,7 @@ function Toggle({ name, defaultChecked, label, note, soft = false }: CardToggleP
   );
 }
 
-function Field({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false }: CardFieldProps) {
+function Field({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false, maxLength }: CardFieldProps) {
   if (long) {
     return (
       <textarea
@@ -1005,6 +1026,7 @@ function Field({ id, label, required = false, type = 'text', defaultValue, place
         aria-label={label}
         defaultValue={defaultValue}
         placeholder={placeholder}
+        maxLength={maxLength === undefined ? undefined : Math.max(maxLength, defaultValue.length)}
         className="input-field min-h-[88px] resize-y py-2"
       />
     );

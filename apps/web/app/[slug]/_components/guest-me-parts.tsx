@@ -6,7 +6,7 @@ import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import type { RoleNames } from '@/lib/role-names';
-import type { GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
+import type { GuestMeNote, GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
 import { DressCodeWidget } from './dress-code-widget';
 import type { GuestNameParts } from '@/lib/attire-rows';
 
@@ -34,7 +34,13 @@ export function GuestMeParts({
   comingWith,
   partLooks = null,
   wearMark = null,
+  note = null,
 }: {
+  /**
+   * 💌 The hosts' note to THIS guest (`guestMeNoteShown`, owner 2026-10-20) — drawn under Your role and above What to
+   * wear, headed "A note from …". Null: nothing. Settled elsewhere, like the parts.
+   */
+  note?: GuestMeNote | null;
   /** 🧱 What to wear's own look (`lib/block-looks.ts`, block `look`): its hidden mark, handed to the `wear` part
    *  alone, which draws it right before its root only when it draws. */
   wearMark?: ReactNode;
@@ -59,11 +65,22 @@ export function GuestMeParts({
   };
   comingWith: readonly string[];
 }) {
-  if (parts.length === 0) return null;
+  if (parts.length === 0 && !note) return null;
+  const noteBlock = note ? (
+    <section key="note" className="space-y-2" data-me-note="">
+      <p className="pahina-eyebrow">
+        <span>{note.heading}</span>
+      </p>
+      <p className="whitespace-pre-wrap font-pahina text-xl font-light leading-snug text-ink">{note.text}</p>
+    </section>
+  ) : null;
+  // Under Your role when it is drawn; else first — always above What to wear.
+  const noteAfterRole = parts.includes('role');
   return (
     <div data-me-parts="" className="space-y-10">
-      {parts.map((p) =>
-        p === 'guests' ? (
+      {noteAfterRole ? null : noteBlock}
+      {parts.flatMap((p) => {
+        const drawn = p === 'guests' ? (
           <section key={p} className="space-y-2" data-me-part="guests" {...(partLooks?.guests ? { 'data-part-look': partLooks.guests } : {})}>
             <p className="pahina-eyebrow">
               <span>Coming with you</span>
@@ -82,8 +99,9 @@ export function GuestMeParts({
           </div>
         ) : (
           <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
-        ),
-      )}
+        );
+        return p === 'role' && noteAfterRole && noteBlock ? [drawn, noteBlock] : [drawn];
+      })}
     </div>
   );
 }

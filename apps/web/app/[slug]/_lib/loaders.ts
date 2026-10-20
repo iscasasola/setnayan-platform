@@ -1462,6 +1462,13 @@ async function readFirstScan(admin: AdminClient, guestId: string) {
  * request each — and now ride in the same read (`loadGuestOwnRow`).
  */
 const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'] as const;
+/**
+ * 💌 …and the hosts' note TO this guest (`host_note_for_guest`, owner 2026-10-20 — `lib/guest-host-note.ts`), which
+ * stays ON the row (Me draws it under Your role). It rides in the same tolerant half: a database that does not know it
+ * yet (42703) reads the row without it, and Me simply has no note — never "we couldn't find your invitation". This is
+ * the ONLY guest-page read of that column, and it is the reader's own row: no other guest's view can carry it.
+ */
+const GUEST_OWN_TOLERANT_COLUMNS = [...GUEST_OWN_ANSWER_COLUMNS, 'host_note_for_guest'] as const;
 
 /**
  * 1️⃣ THE GUEST'S OWN ROW — its own `cache()`d loader (2026-10-12), read by
@@ -1486,7 +1493,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
   const read = <S extends string>(columns: S) =>
     admin.from('guests').select(columns).eq('guest_id', guestId).is('deleted_at', null).maybeSingle();
   const select = async <S extends string>(columns: S) => {
-    const whole = await read(`${columns}, ${GUEST_OWN_ANSWER_COLUMNS.join(', ')}` as S);
+    const whole = await read(`${columns}, ${GUEST_OWN_TOLERANT_COLUMNS.join(', ')}` as S);
     if (whole.error) {
       return whole.error.code === '42703' ? { ...(await read(columns)), answers: null } : { ...whole, answers: null };
     }

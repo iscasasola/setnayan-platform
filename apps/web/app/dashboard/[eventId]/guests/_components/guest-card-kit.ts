@@ -27,6 +27,8 @@ export type CardFieldProps = {
   placeholder?: string;
   /** A long message (the private note): a taller box. */
   long?: boolean;
+  /** The most characters the box takes (the note for them: the column's CHECK). A stored value longer is never cut. */
+  maxLength?: number;
   /** The sentence behind the row's ⓘ (the old kit prints it beside the control instead — the body decides). */
   about?: string;
 };

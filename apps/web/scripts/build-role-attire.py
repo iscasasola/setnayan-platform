@@ -37,6 +37,15 @@ ART = {
     '35': 'bridesmaid-filipiniana', '36': 'ninang-long_gown', '37': 'mother-long_gown', '38': 'sponsor_w-filipiniana',
     '39': 'ring_bearer-barong_tagalog', '40': 'bible_bearer-vest_and_bow_tie', '41': 'flower_girl-filipiniana',
     '42': 'guest_m-suit', '43': 'guest_m-smart_casual', '44': 'guest_w-long_gown', '45': 'guest_w-filipiniana',
+    # 👔 THE GUESTS' FIVE DESIGNS A STYLE (owner 2026-10-21, "up to 5 different attires"; Higgsfield Nano Banana Pro, the
+    # same 1792×2400 as the 45; prompts in shots-2026-10-21/attire-5-designs-proto/PROMPTS.md). Each is written into its
+    # style's folder — `<role>-<style>/<variant>` — the registry key of `lib/attire-library.ts`, where its printed width goes.
+    '46': 'guest_m-suit/double_breasted', '47': 'guest_m-suit/three_piece', '48': 'guest_m-suit/shawl', '49': 'guest_m-suit/slim',
+    '50': 'guest_m-barong_tagalog/polo', '51': 'guest_m-barong_tagalog/jusi', '52': 'guest_m-barong_tagalog/modern', '53': 'guest_m-barong_tagalog/coat',
+    '54': 'guest_m-smart_casual/linen', '55': 'guest_m-smart_casual/polo_slacks', '56': 'guest_m-smart_casual/blazer_tee', '57': 'guest_m-smart_casual/cuban',
+    '58': 'guest_w-long_gown/aline', '59': 'guest_w-long_gown/wrap', '60': 'guest_w-long_gown/off_shoulder', '61': 'guest_w-long_gown/halter',
+    '62': 'guest_w-cocktail_dress/sheath', '63': 'guest_w-cocktail_dress/fit_flare', '64': 'guest_w-cocktail_dress/off_shoulder_midi', '65': 'guest_w-cocktail_dress/slip',
+    '66': 'guest_w-filipiniana/terno_gown', '67': 'guest_w-filipiniana/barot_saya', '68': 'guest_w-filipiniana/butterfly_midi', '69': 'guest_w-filipiniana/terno_pantsuit',
 }
 
 # ── per drawing: where the head ends, the props, and how each zone is found ─────────────────────────────────────
@@ -113,6 +122,53 @@ ANN = {
     '44': dict(head=165, props=[(493, 523, 592, 650)]),
     '45': dict(sheer=[(235, 185, 615, 350)], head=170, props=[(313, 508, 387, 632)], below=1110),
 }
+# 👔 The 24 new guest designs (2026-10-21). New keys, beside the shipped ones:
+#   shirt_head: the shirt zone stops at the head line (a champagne shirt meets the neck)
+#   never: boxes or polygons that are never a zone (arms drawn pale enough to read as fabric)
+#   pants ('khaki', poly): the chinos by their own colour inside the polygon (khaki reads as skin to the garment rule)
+#   a_poly: the garment's colour zone is only inside this polygon; the rest of the garment is pants (a grey coat over the
+#           barong wears what the pants wear — it never takes the palette)
+_M = dict(head=188, shirt='auto', shirt_head=True)
+ANN.update({
+    '46': dict(_M, tie=[(415, 198, 455, 322)]),
+    '47': dict(_M, tie=[(428, 198, 468, 328)]),
+    '48': dict(_M, tie=[(430, 198, 474, 395)]),
+    '49': dict(_M, tie=[(415, 193, 450, 378)]),
+    # a barong is sheer over a champagne undershirt: inside `sheer` only strong skin is skin, so the whole top takes the
+    # colour; `a_poly` keeps the colour above the hem (the rest of the garment is pants — a sock, a cuff)
+    # (the polo's short sleeves: its bare forearms are never sheer)
+    '50': dict(head=185, pants=('grey', 590), sheer=[(350, 185, 545, 600), (255, 185, 645, 378)],
+               a_poly=[(255, 180), (645, 180), (645, 378), (545, 378), (548, 560), (552, 600), (335, 600), (340, 560), (352, 378), (255, 378)]),
+    '51': dict(head=185, pants=('grey', 590), sheer=[(250, 185, 650, 614)], a_poly=[(250, 180), (650, 180), (650, 612), (250, 612)]),
+    '52': dict(head=185, pants=('grey', 590), sheer=[(250, 185, 650, 614)], a_poly=[(250, 180), (650, 180), (650, 612), (250, 612)]),
+    '53': dict(head=185, pants=('grey', 590), sheer=[(380, 185, 525, 585)], a_poly=[(395, 170), (500, 170), (520, 300), (520, 580), (385, 580), (380, 300)]),
+    # smart casual: nothing below the pants hem is a zone (an ankle drawn pale, a sock); the chinos traced between the
+    # hands and, for the blazer, between its flaps
+    '54': dict(head=185, below=1068, pants=('khaki', [(345, 505), (558, 505), (560, 1066), (345, 1066)]),
+               never=[(288, 500, 345, 665), (560, 500, 614, 665)]),
+    '55': dict(head=185, below=1068, pants=('poly', [(345, 470), (560, 470), (560, 1066), (345, 1066)]),
+               never=[(280, 360, 355, 640), (545, 360, 620, 640)]),
+    '56': dict(head=185, below=1068, pants=('khaki', [(408, 515), (553, 515), (556, 600), (562, 640), (566, 1066), (345, 1066), (345, 600), (405, 600)])),
+    '57': dict(head=185, below=1068, pants=('khaki', [(355, 478), (565, 478), (568, 1064), (352, 1064)]),
+               never=[(292, 440, 352, 662), (568, 440, 618, 662)]),
+    '58': dict(head=160, props=[(492, 420, 600, 515)]),
+    # the wrap's skirt is shaded warm: below the hip only strong skin is skin, the leg in the slit traced as never
+    '59': dict(head=160, props=[(305, 570, 360, 655)], sheer=[(355, 380, 545, 600), (300, 600, 620, 1180)],
+               never=[[(452, 640), (468, 640), (488, 800), (498, 850), (492, 900), (484, 950), (473, 1000), (470, 1050), (470, 1100), (478, 1170), (420, 1170), (428, 1000), (437, 800)]]),
+    '60': dict(head=160, props=[(290, 566, 358, 688)]),
+    '61': dict(head=145, props=[(295, 555, 340, 670)]),
+    # short and midi dresses: nothing below the hem is a zone (a vent's lining, the gap between the legs, nude shoes)
+    '62': dict(head=160, below=782, props=[(458, 405, 540, 485)]),
+    '63': dict(head=160, below=832, props=[[(555, 570), (586, 556), (592, 612), (540, 656), (522, 642), (524, 598), (540, 582)]],
+               sheer=[(352, 175, 548, 400), (330, 400, 570, 560), (300, 560, 600, 832)]),
+    '64': dict(head=160, below=914, props=[[(555, 598), (578, 596), (594, 660), (588, 694), (568, 694), (540, 642), (545, 610)]]),
+    '65': dict(head=160, below=922, props=[[(325, 588), (340, 585), (352, 605), (358, 668), (352, 688), (335, 684), (314, 620), (316, 598)]]),
+    '66': dict(head=160, props=[(295, 548, 358, 645)]),
+    '67': dict(head=160, props=[[(485, 556), (547, 532), (572, 530), (588, 575), (562, 606), (503, 616), (487, 590)]], sheer=[(240, 200, 660, 470)]),
+    '68': dict(head=160, below=948, props=[[(488, 536), (570, 515), (590, 577), (568, 590), (497, 604), (486, 585)]]),
+    '69': dict(head=160, props=[[(506, 590), (538, 566), (582, 548), (592, 598), (562, 624), (522, 637), (506, 615)]]),
+})
+
 ZONES_OF = {  # design → its zones, in DOT ORDER (lib/attire-figures.ts holds the labels and defaults)
     'suit': 'ats', 'three_piece_suit': 'atsv', 'tuxedo': 'ats', 'vest_and_tie': 'ats', 'vest_and_bow_tie': 'ats',
     'barong_tagalog': 'ap', 'smart_casual': 'ap',
@@ -242,6 +298,8 @@ def build(src, num):
         veil = close(opn(veil, 2), 6) & fig & box(shp, *ann['veil'])
         veil &= ~keep
     never |= props | veil
+    for nv in ann.get('never', []):
+        never |= poly(shp, nv) if isinstance(nv[0], tuple) else box(shp, *nv)
 
     garment = fig & ~never
     garment = close(garment, 2) & fig & ~(props | veil | skin) & ~box(shp, 0, 0, shp[1], ann.get('head', 0))
@@ -249,7 +307,7 @@ def build(src, num):
         garment &= ~box(shp, 0, ann['below'], shp[1], shp[0])
     garment &= ~(mn < 70) & ~(box(shp, 0, 1060, shp[1], shp[0]) & (mn < 180))
 
-    design = ART[num].split('-', 1)[1]
+    design = ART[num].split('-', 1)[1].split('/')[0]
     zones = {}
     # tie / bow tie (+ pocket squares)
     if 't' in ZONES_OF.get(design, ''):
@@ -291,6 +349,8 @@ def build(src, num):
             s &= poly(shp, ann['shirt_clip'])
         for p in ann.get('shirt_polys', []):
             s |= poly(shp, p) & fig & (mn >= 150) & ~hands & ~dark & ~props
+        if ann.get('shirt_head'):
+            s &= ~box(shp, 0, 0, shp[1], ann['head'])
         zones['s'] = s & fig & ~hands & ~props & ~zones.get('t', np.zeros(shp, bool))
     # vest (3-piece)
     if 'v' in ZONES_OF.get(design, ''):
@@ -306,8 +366,13 @@ def build(src, num):
             legs = cand & box(shp, 0, 950, shp[1], 1010)  # the legs, well under any hem
             p = flood(cand, legs)
             p = close(p, 5) & garment & below
+        elif kind == 'khaki':
+            p = poly(shp, arg) & fig & (mn >= 110) & ((r - b) >= 12) & ~props
+            p = close(p, 2) & poly(shp, arg) & fig & ~dark
         else:
             p = poly(shp, arg) & garment
+        if 'a_poly' in ann:
+            p |= garment & ~poly(shp, ann['a_poly']) & ~box(shp, 0, 0, shp[1], ann.get('head', 0))
         zones['p'] = p
     taken = np.zeros(shp, bool)
     for k in zones:
@@ -353,6 +418,7 @@ def main():
         if only and num not in only:
             continue
         draw, masks, size = build(src, num)
+        os.makedirs(os.path.dirname(os.path.join(out, f'{art}.webp')), exist_ok=True)
         draw.save(os.path.join(out, f'{art}.webp'), 'WEBP', quality=82, method=6)
         sizes = {'draw': os.path.getsize(os.path.join(out, f'{art}.webp'))}
         for k, mm in masks.items():

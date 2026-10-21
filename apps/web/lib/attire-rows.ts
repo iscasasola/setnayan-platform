@@ -280,7 +280,8 @@ export function firstStyleOf(config: Config, tier: AttireTier, key: string): Att
  *     drawing table's "a man's Long gown is a suit" was a drawing fallback, not the couple's word.
  * An `either` row's one person is whoever wears its style (a reader in a gown is drawn a woman).
  */
-export type ReadPick = { who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null };
+/** `designs` — set only by `picksWithDesigns` (lib/attire-design-picks.ts): the column's allowed styles and designs. */
+export type ReadPick = { who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null; designs?: string[] };
 export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   const first = firstStyleOf(config, row.tier, row.key);
   /* 👔 A row with its own designs reads a stored Wear INTO the column's role (`designOf`: its own design, or an old word

@@ -49,7 +49,8 @@ const FORM_ROW = stripComments(readFileSync(join(WEB, 'app', '_components', 'for
 // ── the stylesheet ──────────────────────────────────────────────────────────
 const cssStart = BENCH_SRC.indexOf('const SLCAT_CSS = `');
 const cssEnd = BENCH_SRC.indexOf('\n`;', cssStart);
-const CSS = BENCH_SRC.slice(cssStart + 'const SLCAT_CSS = `'.length, cssEnd).replace(/\/\*[\s\S]*?\*\//g, '');
+// The repo's ONE comment stripper (CSS here has no `//`, so only its block comments go).
+const CSS = stripComments(BENCH_SRC.slice(cssStart + 'const SLCAT_CSS = `'.length, cssEnd));
 
 type Rule = { selector: string; decls: Map<string, string>; order: number };
 

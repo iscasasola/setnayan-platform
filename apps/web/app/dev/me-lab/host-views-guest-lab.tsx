@@ -35,7 +35,6 @@ function MeFor({ account, hostOpened }: { account: GuestAccountState; hostOpened
         askPlusOnes={false}
         eventName="Maria & Jose"
         guests={[{ guestId: '00000000-0000-4000-8000-00000000a009', name: 'Rico Santos', inviteUrl: '/dev/me-lab' }]}
-        passes={{}}
         account={account}
         personalLink="/dev/me-lab"
         userAgent={null}

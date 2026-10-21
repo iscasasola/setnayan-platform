@@ -37,6 +37,7 @@
  *                   and the ticket are a real event's, so they do not draw here.
  *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
  *                   same fixture, so the two doors can be compared side by side
+ *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
@@ -596,9 +597,18 @@ export default async function GuestsLabPage({
   if (part === 'screen' || part === 'setup') {
     const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
     /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
-    const roster = sp.marked === '1'
+    const roster1 = sp.marked === '1'
       ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))
       : roster0;
+    /* 🪪 `&typed=1` — two names typed all lower case (guest_page_fixes_2_4 fix 3, owner 2026-10-21): the list SHOWS them
+       cased ("Pamela Labriaga", "Jose de los Santos"), the rows keep what was typed. */
+    const TYPED: Record<string, [string, string]> = { Daniel: ['jose', 'dela cruz'], Gabriel: ['gabriel', 'de los santos'] };
+    const roster = sp.typed === '1'
+      ? roster1.map((g) => {
+          const t = g.first_name ? TYPED[g.first_name] : undefined;
+          return t ? { ...g, first_name: t[0], last_name: t[1], display_name: null } : g;
+        })
+      : roster1;
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],

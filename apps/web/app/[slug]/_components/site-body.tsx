@@ -3091,8 +3091,10 @@ export async function SiteBody({
        drawn for a guest (owner 2026-10-11, one reply form), so it now stands directly above "Sign out of this
        invitation" — on Me on a tabbed page, at the foot of a page that is one scroll. In the Maker's canvas the
        sheet still carries it (below), so there are exactly two mounts, complements of one expression. */
+    /* 🃏 `card` — on a tabbed page this note is drawn on Me (below), where it is one of the stage's scene cards
+       (guest_page_fixes_2_4, fix 2; `ScanTrailForm`); at the foot of a page that is one scroll it stays a line. */
     const scanTrail = replySheetDrawn ? null : (
-      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} card={tabs.on} />
     );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
     const signOut = sampleViewer !== null ? null : (

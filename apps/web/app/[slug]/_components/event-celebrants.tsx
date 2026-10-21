@@ -48,7 +48,7 @@ export function EventCelebrants({
     <section aria-labelledby="event-celebrants-title" data-event-celebrants>
       <h2
         id="event-celebrants-title"
-        className="mb-1 font-mono text-xs font-medium uppercase tracking-[0.12em] text-ink/70"
+        className="mb-1 font-mono !text-xs font-medium uppercase tracking-[0.12em] text-ink/70"
       >
         The celebrants
       </h2>

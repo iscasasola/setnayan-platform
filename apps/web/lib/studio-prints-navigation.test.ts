@@ -149,10 +149,11 @@ test('2 · "Always printed" is said ONCE in Studio › Prints — in Print setti
   assert.match(src, /editors\.qr = <StudioTool part="quiet" \/>;/, 'the Studio no longer replaces the shipped QR editor — its QR line would be drawn twice');
 });
 
-test('3 · Print settings holds every switch of every piece, under the prototype’s headings, with the ONE Save', () => {
+test('3 · Print settings holds every switch of every piece, under the prototype’s headings, with NO Save', () => {
   const src = read(`${L}/maker-details.tsx`);
   const every = settingsBlock(src);
-  assert.match(every, /<StudioTool\s+part="print-settings"\s+save=\{save\}/, 'the sheet’s Save is not the print words form’s one Save');
+  assert.match(every, /<StudioTool\s+part="print-settings"\s+form=\{WORDS_FORM\}/, 'the sheet is not tied to the print words form (its toast’s Try again posts it)');
+  assert.doesNotMatch(every, /save=\{/, 'the sheet was handed a Save again — every press already posts (owner 2026-10-21)');
   assert.match(every, /key: 'every',[\s\S]*?\{qrAlways\}\s*\{nfcToggle\}/, '"On every print" is not QR line · NFC switch');
   for (const [key, body] of [
     ['invitation', /\{parentsSwitch\}\{openingSwitch\}/],
@@ -169,7 +170,7 @@ test('3 · Print settings holds every switch of every piece, under the prototype
   for (const c of ['parentsSwitch', 'openingSwitch', 'detailsSwitches', 'guestNamesSwitch', 'seatPlanSwitch']) {
     assert.equal([...src.matchAll(new RegExp(`\\{${c}\\}|body: ${c}\\b`, 'g'))].length, 2, `${c} is drawn somewhere new`);
   }
-  /* The sheet keeps its fields mounted while shut — a Save always sends every field. */
+  /* The sheet keeps its fields mounted while shut — every post sends every field. */
   const sheet = read(`${L}/studio-prints-settings.tsx`);
   assert.match(sheet, /<div data-print-settings-layer="" hidden=\{!open\}/, 'the sheet is not simply hidden while shut');
   assert.match(sheet, /\{body \? createPortal\(panel, body\) : panel\}/, 'the sheet is not ALWAYS drawn (shut or open)');

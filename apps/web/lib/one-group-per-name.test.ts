@@ -23,7 +23,7 @@
  *
  * ── Caveats ───────────────────────────────────────────────────────────────────────────────────────────────────────
  *   · § 1 reads chains: a client stored in a variable and written later (`const t = supabase.from(…); t.insert(…)`)
- *     would pass. No such shape exists today; the scan prints what it covered.
+ *     would pass. No such shape exists today; the scan asserts how many files and chains it read.
  *   · No database runs here: that RLS lets the write through is the shipped actions' own tests' claim.
  *   · Existing twins in production are left as they are — this decides only what is written next.
  */

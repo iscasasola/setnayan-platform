@@ -521,6 +521,8 @@ async function inviteEnterPage({ params, searchParams }: Props) {
       last_name: guest.last_name as string | null,
     }),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
+    // 🔒 A host on a guest's thank-you is never offered the seat (lib/seat-binding.ts `'manager'`).
+    viewerManagesEvent: user ? await loadHostMembership(admin, event.event_id as string, user.id) : false,
   });
   const userAgent = (await headers()).get('user-agent');
 

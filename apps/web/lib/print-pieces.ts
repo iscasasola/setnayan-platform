@@ -950,14 +950,40 @@ export function coupleNames(displayName: string | null | undefined): { first: st
 }
 
 /** `2026-12-18` → "Friday, the eighteenth of December, 2026" is the formal
- *  form; paper uses the plain one: "Friday · December 18, 2026". */
-export function printedDate(eventDate: string | null | undefined): string | null {
+ *  form; paper uses the plain one: "Friday · December 18, 2026".
+ *
+ *  📅 ONE DATE, TWO DOORS (owner 2026-10-21, *"most of the settings is already on the event hub"*): the print says the date AS
+ *  PRECISE AS THE EVENT HUB HOLDS IT (`events.event_date_precision`, the Hub's `dateDisplayOf`). A couple who has only picked a
+ *  month ("December 2026") stores the month's first day — the print used to read that stand-in day as the wedding day and
+ *  print "Tuesday · December 1, 2026". A month prints "December 2026"; a year prints "2026"; only a day prints a weekday. */
+export function printedDate(eventDate: string | null | undefined, precision?: string | null): string | null {
   if (!eventDate || !/^\d{4}-\d{2}-\d{2}/.test(eventDate)) return null;
   const [y, m, d] = eventDate.slice(0, 10).split('-').map(Number) as [number, number, number];
   const date = new Date(Date.UTC(y, m - 1, d));
+  if (precision === 'year') return String(y);
+  if (precision === 'month') return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
   const md = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   return `${weekday} · ${md}`;
+}
+
+/**
+ * 📍 ONE VENUE, TWO DOORS (owner 2026-10-21, *"most of the settings is already on the event hub. like parents and other
+ * details."*; DECISION_LOG 2026-10-04 "venues follow the booking"). The print's venue lines are the Event Hub's own venues —
+ * `resolveEventVenues` (lib/event-venues.ts), the pick the Hub's Venue scene and the Maker's Venues row draw — never a
+ * second pick. Before, the print took a Schedule moment's typed `location` FIRST (a place the Hub's Venue scene never shows),
+ * and for an unbooked reception preferred the Save-the-Date's typed name over `events.venue_name` (the Hub's order is the
+ * reverse) — so a card could print a place the Event Hub did not name.
+ *
+ *   · one place for both ("Ceremony & Reception") → the venue line, no "Reception to follow" place;
+ *   · a ceremony and a reception → each its own line;
+ *   · no venue the Hub knows → no line (never a guess).
+ */
+export function printVenueLines(venues: ReadonlyArray<{ role: string; name: string | null }>): { ceremony: string | null; reception: string | null } {
+  const named = (v: { name: string | null } | undefined) => v?.name?.trim() || null;
+  const both = venues.find((v) => v.role === 'both');
+  if (both) return { ceremony: named(both), reception: null };
+  return { ceremony: named(venues.find((v) => v.role === 'ceremony')), reception: named(venues.find((v) => v.role === 'reception')) };
 }
 
 /**

@@ -14,7 +14,8 @@ import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR, GIFT_REGISTRY_URL_MAX } 
 import { egiftEnabledFields, egiftMethodFields, egiftMethodNeedsSaving, registryFields } from '@/lib/studio-egifts-saves';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { HUB_LIVE_WORDS, HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
+import { tellTheForm } from '@/lib/tell-the-form';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { setLaunchPhase, setOpenBrowse } from '../../website/editor/actions';
 import { updateLandingPageVisibility } from '../../website/privacy/actions';
@@ -62,7 +63,7 @@ import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
-import { Check, RotateCcw, Undo } from 'lucide-react';
+import { RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PrintChoicePicker } from './print-choice-picker';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
@@ -1063,24 +1064,33 @@ export function StudioIncludeSwitch({
 /** 🖨 The seat plan's kind (3D · 2D · List) — a choice of three: the one dropdown, posting through the print words form as the radios did. */
 export function StudioSeatKind({ form, name, value, options }: { form: string; name: string; value: string; options: Array<[string, string]> }) {
   const [now, setNow] = useState(value);
+  /* 📮 A PERSON's pick tells the form (it posts on every press — `SoftPost autosave`); a render or a re-seed never does. */
+  const carrier = useRef<HTMLInputElement>(null);
+  const picked = useRef(false);
+  useEffect(() => {
+    if (!picked.current) return;
+    picked.current = false;
+    tellTheForm(carrier.current);
+  }, [now]);
   return (
     <FormRows data="seat-kind" attrs={STUDIO_PRINT_ROWS}>
-      <ChosenRow name="Show it as" value={now} options={options.map(([key, label]) => ({ key, label }))} onPick={setNow} dataAttr="data-seat-plan-kind" />
-      <input type="hidden" form={form} name={name} value={now} data-form-pick="" />
+      <ChosenRow
+        name="Show it as"
+        value={now}
+        options={options.map(([key, label]) => ({ key, label }))}
+        onPick={(k) => {
+          picked.current = true;
+          setNow(k);
+        }}
+        dataAttr="data-seat-plan-kind"
+      />
+      <input ref={carrier} type="hidden" form={form} name={name} value={now} data-form-pick="" />
     </FormRows>
   );
 }
 
-/** 🖨 The print words form's Save: THE ONE ActionButton, submitting that form (`form=`); the live note stays beside it. */
-export function StudioPrintSave({ form }: { form: string }) {
-  return (
-    <div data-print-words-save="" className="flex flex-wrap items-center gap-3 pt-1">
-      <ActionButton type="submit" form={form} tone="brand" main icon={Check} label="Save" />
-      <HubSavesImmediately />
-    </div>
-  );
-}
-
+/* 🖨 The print words form's Save (`StudioPrintSave`) was retired on 2026-10-21 (owner *"why is there a save here? when any press changes it
+   right away?"*): every press posts the form itself (`SoftPost autosave`), and ⚙ Print settings says "Saved" in the house toast. */
 
 /* 🎫 "The ticket guests save" rows, the all-in-one part and "Pass for ▾" were retired on 2026-10-17 (owner *"ok on prints"*): each guest
    print's View as ▾ · Download · All guests ◆ is `StudioGuestPiece`, Everything ◆ is `StudioEverything` (`studio-prints-settings.tsx`). */
@@ -1122,7 +1132,6 @@ export type StudioToolProps =
   | ({ part: 'print-head' } & Parameters<typeof StudioPrintHead>[0])
   | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
   | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
-  | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0])
   /* 🎁 E-Gifts › Wish list (owner 2026-10-08) rides the same door — never the Maker's first load. */
   | ({ part: 'wish-list' } & Parameters<typeof StudioWishListLive>[0])
   /* 🖨 Prints' six (owner "approved" 2026-10-13, `studio-prints-six.tsx`) — the same one door. */
@@ -1179,8 +1188,6 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioIncludeSwitch {...props} />;
     case 'seat-kind':
       return <StudioSeatKind {...props} />;
-    case 'print-save':
-      return <StudioPrintSave {...props} />;
     case 'wish-list':
       return <StudioWishListLive {...props} />;
     case 'parents':

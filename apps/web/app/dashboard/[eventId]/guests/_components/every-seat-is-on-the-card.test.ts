@@ -20,12 +20,36 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
+import { createRequire } from 'node:module';
 
 import { plusOneSeatLines } from '@/lib/extra-seats';
 import { stripComments } from '@/lib/strip-comments';
 import type { GuestRow } from '@/lib/guests';
 
 const WEB = path.join(__dirname, '..', '..', '..', '..', '..');
+
+// `server-only` / `client-only` resolve to an empty module (lib/an-unnamed-plus-one-has-no-name.test.ts does the same).
+type CjsModuleCtor = {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  _cache: Record<string, unknown>;
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+};
+{
+  const nodeRequire = createRequire(import.meta.url);
+  const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
+  const STUB = path.join(process.cwd(), '__server_only_stub_every_seat__.js');
+  const stub = new CjsModule(STUB);
+  stub.filename = STUB;
+  stub.loaded = true;
+  stub.exports = {};
+  stub.paths = [];
+  CjsModule._cache[STUB] = stub;
+  const original = CjsModule._resolveFilename;
+  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return STUB;
+    return original.call(this, request, ...rest);
+  };
+}
 const BRINGER = 'g-antonio';
 
 /* ── 1 · every seat row is a line ────────────────────────────────────────────────────────────────────────────────── */

@@ -875,6 +875,7 @@ button.countsDoor {
   background: none;
   border: 0;
   padding: 0;
+  min-height: 0; /* the 44 px target is the door's ::after (above), as "to invite" — the line keeps its height */
   font: inherit;
   color: inherit;
   cursor: pointer;

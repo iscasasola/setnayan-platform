@@ -3,10 +3,12 @@
  * `create-event/page.tsx` (2026-10-21) so `/dev/you-lab?door=picker` draws the same head the page does.
  *
  * 🚪 `nothingBehind` — a brand-new account's first screen after the You card (owner 2026-10-21, prototype
- * first_run_you_and_next_steps P2) has no board behind it yet, so it draws no "Back to events".
+ * first_run_you_and_next_steps P2) has no board behind it yet, so it draws no "Back to events" — the SETNAYAN
+ * brand line stands in its place.
  */
 import Link from 'next/link';
 import { ArrowLeft, Sparkles } from 'lucide-react';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 
 export function NewEventHead({
   nothingBehind,
@@ -27,7 +29,11 @@ export function NewEventHead({
         "+ Create event" points here (2026-08-15); before that, almost nobody
         arrived from the board.
       */}
-      {nothingBehind ? null : (
+      {nothingBehind ? (
+        /* The first-run brand line (owner 2026-10-21, "make sure there is Setnayan") in the way back's place:
+           a new account's first screen after the You card carries SETNAYAN like every first-run step. */
+        <FirstRunBrand color="rgb(var(--color-ink))" size={13} />
+      ) : (
         <Link
           href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
           className="sn-chip sn-press w-fit"

@@ -1240,13 +1240,8 @@ export function FileUpload({
         </span>
       )}
       <div className="grid min-w-0 gap-[3px]">
-        {rowPhase === 'empty' || rowPhase === 'refused' ? (
-          <label htmlFor={inputId} className={row!.titleClassName ?? 'font-mono text-xs uppercase tracking-[0.12em] text-ink/60'}>
-            {row!.title}
-          </label>
-        ) : (
-          <span className={row!.titleClassName ?? 'font-mono text-xs uppercase tracking-[0.12em] text-ink/60'}>{row!.title}</span>
-        )}
+        {/* Plain words: the circle is the one press on the row (it carries the title as its name). */}
+        <span className={row!.titleClassName ?? 'font-mono text-xs uppercase tracking-[0.12em] text-ink/60'}>{row!.title}</span>
         {rowPhase === 'empty' ? (
           <span className={rowHint}>
             {[help, `${typeWords} · up to ${formatCount(maxSizeMB)} MB`].filter(Boolean).join(' · ')}

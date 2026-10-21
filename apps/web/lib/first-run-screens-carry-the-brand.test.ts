@@ -6,8 +6,8 @@
  * The properties held here (each sabotaged RED, then restored — see the PR body):
  *   1. EVERY FIRST-RUN SCREEN CARRIES THE SHIPPED WORDMARK: sign-up, the You card, "What do you need?" (the
  *      generic wizard and the Get-together form), and the open-shop wizard (one line above its four segments, so
- *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw. The event-type
- *      picker sits in the app's own bar, which already draws the mark + name (`app/home-brand-name.test.ts`).
+ *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw — and so does the
+ *      event-type picker for an account with nothing behind it (the app bar draws only the mark on a phone).
  *   2. A BRAND-NEW COUPLE'S DONE LANDS ON THE PICKER: `youCardOnward` swaps the default board for the event-type
  *      picker only when the account holds no event; an unknown count keeps the board; a real destination is never
  *      replaced. The page passes the swapped address to the card — so Done AND Later (which goes where Done goes).
@@ -72,7 +72,7 @@ test('2 · a brand-new couple’s Done goes to the picker — and only then', ()
   assert.match(create, /nothingBehind = !error && \(count \?\? 0\) === 0;/, 'an unread count would hide the way back');
   assert.match(create, /<NewEventHead nothingBehind=\{nothingBehind\}/);
   const head = read('app/dashboard/(account)/create-event/_components/new-event-head.tsx');
-  assert.match(head, /\{nothingBehind \? null : \(\s*<Link/, 'the way back is drawn with nothing behind it');
+  assert.match(head, /\{nothingBehind \? \(\s*<FirstRunBrand[^>]*\/>\s*\) : \(\s*<Link/, 'with nothing behind it the picker draws the way back, or no brand line');
 });
 
 test('3 · the welcome shows once, and is not one of the steps', () => {

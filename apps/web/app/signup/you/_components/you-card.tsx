@@ -151,7 +151,8 @@ export function YouCard({
             {/* The formal name, folded — a <details> needs no script and opens
                 itself when a part is already filled in. */}
             <details open={!formalEmpty} className="hr-si-field">
-              <summary style={{ cursor: 'pointer' }}>
+              {/* 44 px to press (the house minimum), the words unchanged. */}
+              <summary className="sn-hit" style={{ cursor: 'pointer' }}>
                 Full name{' '}
                 <span className="hr-si-hint">
                   · for guest lists and invitations · optional
@@ -231,7 +232,7 @@ export function YouCard({
           </form>
 
           <div className="hr-si-foot">
-            <Link href={next} className="hr-si-link">
+            <Link href={next} className="hr-si-link sn-hit">
               Later
             </Link>{' '}
             · everything here lives under Profile &amp; settings

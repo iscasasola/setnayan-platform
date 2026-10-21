@@ -521,8 +521,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   const free = freePrintParts(eventId, slug, prints);
   /* 🧭 Studio › Prints: the same prints for the day, drawn as rows of its one list (blurb · small Saves). */
   const freeStudio = props.studio ? freePrintParts(eventId, slug, prints, true) : null;
-  /* 🧭 Studio › Prints: the print words form's Save is the ONE ActionButton (`StudioTool part="print-save"`); the shipped Maker keeps its own. */
-  const save = props.studio ? <StudioTool part="print-save" form={WORDS_FORM} /> : <SaveWords />;
+  /* 🧭 Studio › Prints has NO Save (owner 2026-10-21, *"why is there a save here? when any press changes it right away?"*): every press
+     posts the print words form itself (`SoftPost autosave`, below). The shipped Maker keeps its own Save. */
+  const save = props.studio ? null : <SaveWords />;
   /* 🧭 …and each include switch is the Form row's switch (`part="include-switch"`) — the SAME fields, the SAME form, only drawn by the template. */
   const IncludeSwitch = (p: Parameters<typeof Toggle>[0]) => (props.studio ? <StudioTool part="include-switch" {...p} /> : <Toggle {...p} />);
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -1180,14 +1181,14 @@ export function MakerDetails(props: MakerDetailsProps) {
     editors.qr = <StudioTool part="quiet" />;
     /* ⚙ PRINT SETTINGS (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE…"; prototype
        `prints_settings_and_downloads_2026-10-17.html`): the head of the Prints form is ONE row that opens ONE sheet — every switch and
-       field that sat inside a piece row, under the prototype's headings, with the one Save. The SAME switches, posting the SAME print
-       words form by `form=`; the sheet is hidden while shut, never unmounted, so a Save always sends every field. */
+       field that sat inside a piece row, under the prototype's headings. The SAME switches, posting the SAME print words form by
+       `form=` — on every press since 2026-10-21 (no Save); the sheet is hidden while shut, never unmounted, so every post sends every field. */
     const chartFree = free.find((f) => f.key === 'seating-chart');
     editors[EVERY_PRINT_ITEM] = (
       <div data-print-studio="" data-print-every="" className="flex flex-col">
         <StudioTool
           part="print-settings"
-          save={save}
+          form={WORDS_FORM}
           sections={[
             {
               key: 'every',
@@ -1411,8 +1412,8 @@ export function MakerDetails(props: MakerDetailsProps) {
               {/* The include marker: a posted form ALWAYS carries it, so an
                   all-off form still saves "off" instead of looking like no answer. */}
               <input type="hidden" name="include_form" value="1" />
-              {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). */}
-              <SoftPost />
+              {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). In the Studio it saves on every press — there is no Save. */}
+              <SoftPost autosave={Boolean(props.studio)} />
             </form>
           </>
         }

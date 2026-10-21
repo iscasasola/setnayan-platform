@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { makerSave } from '@/lib/maker-refresh';
+import { oneAtATime, printWordsAutosaveWait } from '@/lib/print-words-autosave';
 
 /**
  * 🧷 A PLAIN FORM THAT SAVES WITHOUT LEAVING THE PAGE.
@@ -19,8 +20,14 @@ import { makerSave } from '@/lib/maker-refresh';
  * instead of redirecting, and the Maker refreshes its data in place (once,
  * `lib/maker-refresh.ts`) — the page never unloads. The form itself is
  * untouched, so without JavaScript it still posts and comes back as before.
+ *
+ * ⚡ `autosave` (Studio › Prints, owner 2026-10-21 *"why is there a save here? when any press changes it right away?"*): the form has
+ * NO Save button — a person's change to any of ITS fields (wherever the field is drawn, joined by `form=`) submits it: a press at once,
+ * typing after a pause (`lib/print-words-autosave.ts`). The submit is the form's own (`requestSubmit`), so it is this same handler —
+ * the same post to the same route — and one post at a time: a change made while one is in flight is sent once more after it lands.
+ * Off (the shipped Maker), the form posts only when its Save is pressed, as it always did.
  */
-export function SoftPost() {
+export function SoftPost({ autosave = false }: { autosave?: boolean } = {}) {
   const router = useRouter();
   const ref = useRef<HTMLSpanElement>(null);
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -28,12 +35,12 @@ export function SoftPost() {
   useEffect(() => {
     const form = ref.current?.closest('form');
     if (!form) return;
-    const onSubmit = (e: SubmitEvent) => {
-      e.preventDefault();
+    /* The one post (named for the Maker-save guard's listed exception: what the couple pressed or typed IS the visible change). */
+    const onSubmit = () => {
       setState('saving');
       announceMakerSave({ state: 'saving' });
       const body = new FormData(form);
-      void makerSave(
+      return makerSave(
         async () => {
           const res = await fetch(form.action, {
             method: 'POST',
@@ -46,18 +53,37 @@ export function SoftPost() {
         },
         // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         () => router.refresh(),
-      )
-        .catch(() => ({ ok: false }))
-        .then((r) => {
-          setState(r.ok ? 'saved' : 'error');
-          announceMakerSave(
-            r.ok ? { state: 'saved' } : { state: 'error', text: 'That did not save. Nothing changed — please try again.' },
-          );
-        });
+      ).catch(() => ({ ok: false }));
     };
-    form.addEventListener('submit', onSubmit);
-    return () => form.removeEventListener('submit', onSubmit);
-  }, [router]);
+    const send = oneAtATime<{ ok: boolean }>(onSubmit, (r) => {
+      setState(r.ok ? 'saved' : 'error');
+      announceMakerSave(r.ok ? { state: 'saved' } : { state: 'error', text: 'That did not save. Nothing changed — please try again.' });
+    });
+    const onSubmitEvent = (e: SubmitEvent) => {
+      e.preventDefault();
+      send();
+    };
+    form.addEventListener('submit', onSubmitEvent);
+    /* ⚡ A person's change to one of this form's fields posts it — on the document, because a field joined by `form=` is drawn
+       elsewhere (⚙ Print settings is on `<body>`) and its events bubble there, not to the form. */
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onEdit = (e: Event) => {
+      const wait = printWordsAutosaveWait(e.type, e.target, form);
+      if (wait === null) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => form.requestSubmit(), wait);
+    };
+    if (autosave) {
+      document.addEventListener('input', onEdit);
+      document.addEventListener('change', onEdit);
+    }
+    return () => {
+      form.removeEventListener('submit', onSubmitEvent);
+      document.removeEventListener('input', onEdit);
+      document.removeEventListener('change', onEdit);
+      clearTimeout(timer);
+    };
+  }, [router, autosave]);
 
   return (
     <span

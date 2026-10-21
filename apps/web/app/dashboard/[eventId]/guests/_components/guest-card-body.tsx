@@ -534,6 +534,8 @@ export function GuestCardBody({
       <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-4">
         {/* ── NAME · open, and saves itself (no caption — owner 2026-10-03) ── */}
         <section className="space-y-2.5" data-guest-card-name="">
+          {/* 🪪 A +1 seat's name boxes may post empty — `updateGuest` then asks the row (`plusOneNameSave`). */}
+          {isSeat ? <input type="hidden" name="plus_one_seat" value="1" /> : null}
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="sn-eye">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">

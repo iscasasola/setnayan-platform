@@ -407,16 +407,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   /* 🪪 A +1 SEAT MAY BE SAVED WITH ITS NAME BOXES EMPTY (owner 2026-10-21: "there is no last name yet until we type on
      it"). The card shows an unnamed seat's First and Last empty, so a save of its Mobile posts them empty — whether that is
      "keep the seat open" or a name cleared by accident is the ROW's to say, read below (`plusOneNameSave`) — the refusal
-     decides it. Anyone who is not a +1 seat is refused right here, first, exactly as before. */
+     decides it. The card says it drew a +1 seat (`plus_one_seat`); that only DEFERS the refusal to the row read below — a
+     post that says so for a row that is not a seat is refused there, the same words. Anyone else is refused right here,
+     first, before any read, exactly as before. */
   const namesMissing = !first_name || !last_name;
-  if (namesMissing) {
-    const { data: seatRow } = await (await createClient())
-      .from('guests')
-      .select('plus_one_of_guest_id')
-      .eq('event_id', eventId)
-      .eq('guest_id', guestId)
-      .maybeSingle<{ plus_one_of_guest_id: string | null }>();
-    if (!seatRow?.plus_one_of_guest_id) return refuse('missing_name');
+  if (namesMissing && clean(formData.get('plus_one_seat')) !== '1') {
+    return refuse('missing_name');
   }
   // 🔑 THE FORM AND THE ACTION MUST ANSWER THIS THE SAME WAY. The Side control
   // is absent on an event whose role set names no side principals, so an action
@@ -572,12 +568,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      screen — the name keys are left OUT of the write, so what is stored stays. */
   const nameLocked = await linkedNameLocked(createAdminClient(), eventId, guestId);
   const wholeCard: Record<string, unknown> = {
-      ...(nameLocked
-        ? {}
-        : seatName
-          ? // A +1 seat: only what was typed, never a stand-in as a typed name (`plusOneNameSave`).
-            { ...(seatName.kind === 'missing' ? {} : seatName.columns), name_prefix, middle_name, name_suffix }
-          : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
+      ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
       // The gender rides with the title. A linked person's title is theirs, so only its woman / man is written —
       // and only when the posted title IS the stored one (the card narrows their pick to it).
       ...(titled && (!nameLocked || titled.name_prefix === ((prevGuest?.name_prefix as string | null) ?? null))
@@ -605,6 +596,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
   };
+  // 🪪 A +1 seat: its name columns are what `plusOneNameSave` decided — only what was typed, never a stand-in as a typed
+  // name; an unnamed seat's stored stand-ins are left exactly as they are.
+  if (!nameLocked && seatName && seatName.kind !== 'missing') {
+    delete wholeCard.first_name;
+    delete wholeCard.last_name;
+    delete wholeCard.display_name;
+    Object.assign(wholeCard, seatName.columns);
+  }
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({

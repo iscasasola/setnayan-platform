@@ -196,6 +196,7 @@ test('1 · an unnamed +1’s First, Last and Shown as are EMPTY on the card — 
         assert.notEqual(v, null, `${label}: ${f} is not on the form (the scan is blind)`);
         assert.equal(v, '', `${label}: ${f} is drawn as "${v}" — a stand-in shown as a typed name`);
       }
+      assert.equal(posted(html, 'plus_one_seat'), '1', `${label}: the card does not say it drew a +1 seat — its empty name would be refused`);
       const text = nameSectionText(html);
       assert.doesNotMatch(text, /\bTBA\b/i, `${label}: the NAME section says TBA`);
       assert.doesNotMatch(text.replace(/\+63/g, ''), /\+\d/, `${label}: the NAME section says +1`);
@@ -211,6 +212,7 @@ test('1b · anti-vacuity: a real person’s name, and a +1 named Ben, are drawn 
     assert.equal(posted(ana, 'first_name'), 'Ana');
     assert.equal(posted(ana, 'last_name'), 'Cruz');
     assert.equal(posted(ana, 'display_name'), 'Tita Ana');
+    assert.equal(posted(ana, 'plus_one_seat'), null, 'a guest who is not a +1 says they are a seat');
     // A guest who is not a +1 is never touched, even with the odd word "TBA" typed as a name.
     const odd = await paint(row({ first_name: 'TBA', last_name: 'Guest', display_name: null, plus_one_of_guest_id: null }), withKit);
     assert.equal(posted(odd, 'first_name'), 'TBA');
@@ -294,8 +296,13 @@ test('3 · updateGuest decides a +1’s name with plusOneNameSave, and writes on
   const write = fn.indexOf(".from('guests')\n    .update(");
   assert.ok(decided > 0, 'updateGuest no longer asks plusOneNameSave');
   assert.ok(write > decided, 'the guests write happens before the seat’s name is decided');
-  // The seat branch spreads the decision's columns — never the posted first_name / last_name / display_name.
-  assert.match(fn, /seatName\s*\?[\s\S]{0,200}?seatName\.columns/, 'the seat branch does not write plusOneNameSave’s columns');
+  // The seat branch replaces the posted first_name / last_name / display_name with the decision's columns.
+  assert.match(
+    fn,
+    /delete wholeCard\.first_name;\s*delete wholeCard\.last_name;\s*delete wholeCard\.display_name;\s*Object\.assign\(wholeCard, seatName\.columns\)/,
+    'the seat branch does not write plusOneNameSave’s columns (and only them)',
+  );
+  assert.ok(fn.indexOf('Object.assign(wholeCard, seatName.columns)') < write, 'the seat’s columns are set after the write');
   // The merge compares an unnamed seat in the card's own (empty) spelling.
   assert.match(fn, /guestCardMerge\([\s\S]{0,120}?comparedRow\)/, 'the merge reads the raw stand-ins as "another screen moved it"');
   assert.match(fn, /seatName\.force\.includes\(column\)/, 'a forced column (the stand-in Shown as) is not written');

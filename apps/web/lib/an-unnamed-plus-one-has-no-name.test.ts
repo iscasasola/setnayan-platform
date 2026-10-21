@@ -20,7 +20,8 @@
  *
  * SABOTAGE (each seen RED, then restored — see the PR body): `seatNameAsTyped` returns the stored parts · the card's
  * First reads `guest.first_name` again · `plusOneNameSave` writes posted stand-ins · `exportRows` keeps unnamed seats ·
- * `exportRows` places named +1s by the caller's sort · `greetingName` stops skipping stand-ins.
+ * `exportRows` places named +1s by the caller's sort · `greetingName` stops skipping stand-ins · `updateGuest` stops
+ * writing `plusOneNameSave`'s columns. 7 of 7 RED, restored GREEN (2026-10-21).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

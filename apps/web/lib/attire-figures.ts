@@ -172,7 +172,7 @@ export const DESIGN_ZONES: Readonly<Partial<Record<AttireStyle, readonly DesignZ
  * man in a design with a tie or a bow tie, each colour OPTION is worn on the tie (zone `t`, the pocket square with it);
  * the coat, the pants and a vest are black; the shirt stays white. Only the DEFAULT: a figure given its colours zone by
  * zone (more than the one option colour) wears them as given. Read by `zoneTints` and `pickDots` (lib/role-figure.ts),
- * so the Studio's Guests row, the guest's Dress with us and the reader's own panel draw it the same.
+ * so the Studio's Guests row and the guest's Dress with us (the Guests card) draw it the same.
  * ⚠ The guests' Barong Tagalog and Smart casual keep the 2026-10-16 zones (dot 1 the garment) — not ruled, an owner
  * question. Entourage roles are unchanged. Women are unchanged.
  */

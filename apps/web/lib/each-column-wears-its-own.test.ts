@@ -79,9 +79,16 @@ test('1 · a column offers only its own person’s styles', () => {
   }
   /* The Studio's Wear ▾ is built from it — per column, never from the person's whole list or every style. */
   const studio = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), 'utf8'));
-  assert.match(studio, /options=\{\[\{ key: '', label: 'Not said yet' \}, \.\.\.\(def \? pickOptions\(def, pi === 0 \? 0 : 1\)/, 'the Studio’s Wear ▾ is not the column’s own list');
-  assert.match(studio, /const picks = def \? picksOf\(dress, def\)/, 'the Studio does not read the picks per column');
-  assert.match(studio, /const garment = role \? garmentOfPick\(pick\) : garmentFor\(pick\.who, pick\.style\);/, 'a column’s figure is not drawn from its own pick');
+  /* (2026-10-21: the one Wear ▾ takes its props as an object — `options: [` — beside the guests' styles-and-designs.) */
+  assert.match(studio, /options(?:=\{|: )\[\{ key: '', label: 'Not said yet' \}, \.\.\.\(def \? pickOptions\(def, pi === 0 \? 0 : 1\)/, 'the Studio’s Wear ▾ is not the column’s own list');
+  /* (2026-10-21: the guests' columns also read their ticks — `picksWithDesigns` wraps `picksOf` — and their people wear
+     the column's first allowed design, `heroArt`, else the pick's own drawing as before.) */
+  assert.match(studio, /const picks = def \? picks(?:Of|WithDesigns)\(dress, def\)/, 'the Studio does not read the picks per column');
+  assert.match(
+    studio,
+    /const garment = (?:role \? garmentOfPick\(pick\) : garmentFor\(pick\.who, pick\.style\)|\(role \? \(heroArt\(pick\) \?\? garmentOfPick\(pick\)\) : null\) \?\? garmentFor\(pick\.who, pick\.style\));/,
+    'a column’s figure is not drawn from its own pick',
+  );
   assert.match(studio, /people=\{\[\{ who: pick\.who, garment, main:/, 'a column’s figure is not drawn from its own pick');
 });
 

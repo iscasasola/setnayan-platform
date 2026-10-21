@@ -81,14 +81,14 @@ import { fetchHubMusicChoices } from '@/lib/hub-music-server';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
-  DressCodePanel,
   PhotoMomentsPanel,
   StoryPanel,
   SchedulePeekPanel,
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import {LaunchPhasePanel,
+import {DressCodePanel,
+  LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
   } from '../../launch/_components/details-lazy';
@@ -102,7 +102,7 @@ import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { mainColoursOf } from '@/lib/main-colours';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
-import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-config';
 import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';

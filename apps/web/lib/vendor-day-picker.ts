@@ -90,3 +90,31 @@ export function pickConfigureDay<T extends VendorDay>(
     null
   );
 }
+
+/** Today in Manila (UTC+8, no DST) as `YYYY-MM-DD` — the calendar the days above are kept in. */
+export function phTodayIso(now: number = Date.now()): string {
+  return new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * WHEN THE EVENT HUB IS OPEN, IN PLAIN WORDS — read off the gate, not invented.
+ *
+ * The Hub's live console is shown when a booking's date equals `phTodayIso()`
+ * (see `hasDayToday` below and `/vendor-dashboard/on-the-day`): the Philippine
+ * calendar day, UTC+8. There is no hour offset anywhere in that rule — it opens
+ * at midnight on the booked date and closes at the next midnight. The page used
+ * to say "(T-1h → T+8h)", which was jargon AND untrue (2026-10-21 sweep). If the
+ * gate ever gains hours, this sentence must change with it — the guard
+ * `the-hub-says-when-it-opens.test.ts` reads both.
+ */
+export const HUB_OPEN_WINDOW_PLAIN = 'midnight to midnight, Philippine time';
+
+/**
+ * Is one of this shop's days TODAY — the Event Hub's own "an event is on" rule
+ * (`/vendor-dashboard/on-the-day` shows the live console exactly then). The
+ * layout asks it for a helper's bar: a teammate gets the Hub tab on that day
+ * only (owner "Yes to all", 2026-10-21, item 6).
+ */
+export function hasDayToday(days: readonly Pick<VendorDay, 'bookedDate'>[], today: string): boolean {
+  return days.some((d) => d.bookedDate === today);
+}

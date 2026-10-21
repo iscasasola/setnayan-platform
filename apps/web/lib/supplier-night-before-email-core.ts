@@ -62,7 +62,7 @@ export type SupplierNightBeforeEmailParts = {
 export function buildSupplierNightBeforeEmail(parts: SupplierNightBeforeEmailParts): SupplierNightBeforeEmail {
   const { businessName, eventDisplayName, eventDayLabel, callTimeLabel, ctaHref } = parts;
   const who = businessName.trim() || 'there';
-  const event = eventDisplayName.trim() || 'the celebration';
+  const event = eventDisplayName.trim() || 'the event';
 
   const subject = `Tomorrow is ${event}'s day`;
   const callTimeLine = callTimeLabel

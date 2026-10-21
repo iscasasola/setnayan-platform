@@ -1598,7 +1598,7 @@ function SetnayanGiftField({
       </div>
       <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
         Say yes and every couple who books this card gets free Papic photos for their
-        celebration — a real Setnayan product, given in your name. How many is worked out from
+        event — a real Setnayan product, given in your name. How many is worked out from
         your booking fee and appears on the quote, so there is nothing here to set. It is added
         to your lock bill beside the fee, capped at 40% of it.
       </p>

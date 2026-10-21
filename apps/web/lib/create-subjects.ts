@@ -311,7 +311,7 @@ export function buildSelfSubject(
     id: SELF_SUBJECT_ID,
     kind: 'self',
     name: name || 'You',
-    subtitle: 'Your own celebration',
+    subtitle: 'Your own event',
     birthDate,
     sex,
   };

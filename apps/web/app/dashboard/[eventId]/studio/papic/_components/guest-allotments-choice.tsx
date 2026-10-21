@@ -328,7 +328,7 @@ export async function GuestAllotmentsChoice({
                 no idea why their number was not the one that applied. */}
             {everyoneElse !== null && everyoneElse > split.perHead ? (
               <p className="text-xs text-terracotta">
-                Your celebration holds enough for {formatCount(split.perHead)} credits each right now, so that is
+                Your event holds enough for {formatCount(split.perHead)} credits each right now, so that is
                 what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
               </p>
             ) : null}
@@ -462,7 +462,7 @@ export async function GuestAllotmentsChoice({
             <p className="text-xs text-ink/55">
               {releasedAt
                 ? 'Already open — every limit is lifted and the whole pot is anyone’s.'
-                : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your celebration too.'}
+                : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your event too.'}
             </p>
             {releasedAt ? null : (
               <SubmitButton className="sn-btn-secondary">Open the rest to everyone</SubmitButton>

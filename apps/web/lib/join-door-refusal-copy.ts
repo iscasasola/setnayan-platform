@@ -64,7 +64,7 @@ export type JoinDoorErrorKey = (typeof JOIN_DOOR_ERROR_KEYS)[number];
 export function joinDoorRefusalMessages(w: JoinDoorOrganizerWords): Record<JoinDoorErrorKey, string> {
   return {
     invalid_token: `This invite link is no longer valid. Ask ${w.theOrganizer} to send you a fresh one.`,
-    event_is_private: `This celebration is set to private right now — ask ${w.theOrganizer} to make it visible, or to send you a personal invite instead.`,
+    event_is_private: `This event is set to private right now — ask ${w.theOrganizer} to make it visible, or to send you a personal invite instead.`,
     invalid_role: 'Please pick a valid role.',
     missing_name: `Please enter your name so ${w.theOrganizer} can find you on their list.`,
     already_member: "You're already on this event's guest list.",

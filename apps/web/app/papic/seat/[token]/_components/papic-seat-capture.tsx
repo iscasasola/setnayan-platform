@@ -807,7 +807,7 @@ export function PapicSeatCapture({
         // number here to print even by accident.
         if (result.eventPool?.soft) {
           setPoolNotice(
-            'Running low — this celebration’s credits are nearly spent. Make the next few count.',
+            'Running low — this event’s credits are nearly spent. Make the next few count.',
           );
         } else if (result.eventPool) {
           setPoolNotice(null);

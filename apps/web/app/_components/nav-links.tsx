@@ -46,9 +46,12 @@ export function NavLinksRow({
 
   if (!hasCoords && !addressFallback?.trim()) return null;
 
+  // 👆 EVERY CHIP IS A 44 PX PRESS (house floor; the 2026-10-21 Hub button walk measured the compact chips at 26 px
+  // tall on the Invitation's and The Day's venue cards — a thumb aimed at Waze landed on Apple Maps). The chip keeps
+  // its own words and border; only its height is floored. Held by `every-hub-press-is-44px.test.ts`.
   const chipBase = compact
-    ? 'inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta'
-    : 'inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta';
+    ? 'inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta'
+    : 'inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta';
 
   if (!hasCoords) {
     // Text-search fallback — single Google Maps chip.

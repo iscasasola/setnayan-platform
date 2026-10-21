@@ -26,4 +26,4 @@
  * rather than the generic error.
  */
 export const SHOP_ACCOUNT_CANNOT_CREATE_COPY =
-  'This is your business account, so it doesn’t plan celebrations. To plan your own, sign up with a personal account using a different email — your shop stays exactly as it is.';
+  'This is your business account, so it doesn’t plan events. To plan your own, sign up with a personal account using a different email — your shop stays exactly as it is.';

@@ -181,7 +181,7 @@ export default async function PapicGuestPage({
         sub={
           access === 'unknown'
             ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation.'
-            : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the celebration!`
+            : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the event!`
         }
       >
         {backSlug ? (

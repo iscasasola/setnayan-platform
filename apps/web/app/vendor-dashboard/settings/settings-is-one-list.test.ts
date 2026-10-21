@@ -6,8 +6,9 @@
  *   · More tools IS the shop's shelves (`shopToolShelves`): a tool added there appears here; the grant gates stay
  *     (Moodboard library, Repertoire); "Team & Setnayan" is not doubled (Helpers is its own row); Deep Search is
  *     withheld in the store shell (the route is refused there);
- *   · every href on Settings, Help and More resolves to a page in this app (no dead row);
- *   · More lists Settings, and Settings / Help light the More tab;
+ *   · every href on Settings and Help, and every row of the avatar sheet, resolves to a page in this app (no dead row);
+ *   · Settings opens from the profile picture for an owner AND a helper — the only door since More left the bar
+ *     (owner "Yes to all", 2026-10-21: Today · Customers · Shop · Hub);
  *   · Settings carries NO sign-out (owner 2026-08-13 — the avatar only; `seam-invariants.test.ts` holds the rule);
  *   · the account sheet gets the supplier's rows from the supplier layout only.
  */
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { shopToolShelves, TOOLS_WITH_OTHERS } from '../shop/shop-tool-shelves';
 import { SUPPLIER_HELP_ROWS, SETTINGS_HELP_HREF, settingsMoreTools } from './settings-rows';
-import { VENDOR_MORE_MATCH, VENDOR_MORE_ROWS } from '@/lib/vendor-more-rows';
+import { scopedMemberAvatarRows, supplierAvatarRows } from '../_components/supplier-avatar-rows';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // app/vendor-dashboard/settings
 const APP = join(HERE, '..', '..');
@@ -81,7 +82,7 @@ test('every row goes to a real page', () => {
   const hrefs = [
     ...all({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: false }),
     ...SUPPLIER_HELP_ROWS.map((r) => r.href),
-    ...VENDOR_MORE_ROWS.map((r) => r.href),
+    ...supplierAvatarRows().map((r) => r.href),
     SETTINGS_HELP_HREF,
     ...[...SETTINGS.matchAll(/href="([^"]+)"/g)].map((m) => m[1] ?? ''),
   ];
@@ -89,10 +90,10 @@ test('every row goes to a real page', () => {
   assert.deepEqual(dead, [], `rows that go nowhere: ${dead.join(', ')}`);
 });
 
-test('More lists Settings; Settings and Help light More', () => {
-  assert.ok(VENDOR_MORE_ROWS.some((r) => r.href === '/vendor-dashboard/settings'));
-  assert.ok(VENDOR_MORE_MATCH.includes('/vendor-dashboard/settings'));
-  assert.ok(VENDOR_MORE_MATCH.includes('/vendor-dashboard/help'));
+test('Settings opens from the profile picture — for an owner, in the app shell, and for a helper', () => {
+  for (const rows of [supplierAvatarRows(), supplierAvatarRows({ storeShell: true }), scopedMemberAvatarRows()]) {
+    assert.ok(rows.some((r) => r.href === '/vendor-dashboard/settings'), 'an avatar sheet lost Settings — its only door now');
+  }
 });
 
 test('Settings carries no sign-out; the account sheet carries the supplier rows', () => {

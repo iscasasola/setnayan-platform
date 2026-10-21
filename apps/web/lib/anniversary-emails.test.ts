@@ -99,7 +99,8 @@ const base = { coupleName: 'Maria & Jose', eventName: 'Maria & Jose', ctaHref: '
  * email, directly beneath each email's own true reason line. That is shared
  * chrome across many senders, so it is reported rather than changed here.
  */
-const SHARED_CHROME_LINE = 'Setnayan · Plan, share and relive every celebration';
+// Owner 2026-10-22 (DECISION_LOG "TAGLINE SAYS EVENT"): "…every celebration" → "…every event".
+const SHARED_CHROME_LINE = 'Setnayan · Plan, share and relive every event';
 
 /** Every rendered surface of the email as one string — subject, text, html. */
 const rendered = (e: { subject: string; text: string; html: string } | null): string =>

@@ -537,7 +537,7 @@ function ContactCard({
           sentence and the control below are what replaced them. */}
       <p className="text-xs text-ink/65">
         You talk to {vendorBusinessName} here on Setnayan — every message, quote
-        and booking stays with this celebration.
+        and booking stays with this event.
       </p>
       {reach}
       {/* The shop's own website used to sit here as a link-out. Owner ruling

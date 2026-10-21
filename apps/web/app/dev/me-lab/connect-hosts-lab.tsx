@@ -2,10 +2,9 @@ import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { ConnectHostsTick } from '@/app/[slug]/_components/connect-hosts-tick';
-import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/people-roster-view';
+import { LabHostRequests } from './connect-hosts-lab-requests';
 import { connectHostsLine } from '@/lib/guest-connects-hosts';
 import { seatConfirmLine } from '@/lib/seat-binding';
-import type { PeopleRoster } from '@/lib/people-roster';
 
 /**
  * 🤝 `/dev/me-lab?connect=1` — the two screens of "Also connect with <the hosts>" (owner 2026-10-21), with no
@@ -17,38 +16,6 @@ import type { PeopleRoster } from '@/lib/people-roster';
 export function ConnectHostsLab() {
   const line = seatConfirmLine({ seatName: 'Sarah Bernaldo', accountEmail: 'sarah.bernaldo@example.com' });
   const tick = connectHostsLine(['Indalecio', 'Claire']);
-  const roster: PeopleRoster = {
-    people: [
-      {
-        key: 'lab-sarah',
-        kind: 'connection',
-        connectionId: 'lab-connection',
-        name: 'Sarah Bernaldo',
-        relation: null,
-        storedRelation: null,
-        ask: null,
-        sharesAnEvent: null,
-        careLabel: null,
-        state: 'waiting_you',
-        fromEvent: { name: 'Indalecio & Claire', type: 'wedding' },
-        samahan: [],
-        canLabel: false,
-      } as PeopleRoster['people'][number],
-    ],
-    mySamahan: [],
-    samahanUnavailable: false,
-    connectionsUnavailable: false,
-    counts: {
-      all: 1,
-      connected: 0,
-      waitingThem: 0,
-      waitingYou: 1,
-      labelAsksForYou: 0,
-      unlabelled: 1,
-      alaga: 0,
-      samahan: 0,
-    } as PeopleRoster['counts'],
-  };
   return (
     <main className="min-h-dvh bg-cream text-ink">
       <section data-lab-connect="confirm">
@@ -80,7 +47,7 @@ export function ConnectHostsLab() {
         </form>
       </section>
       <section data-lab-connect="requests" className="mx-auto max-w-[430px] px-4 py-8">
-        <PeopleRosterView roster={roster} relations={[]} spouseNote={null} mode="requests" />
+        <LabHostRequests />
       </section>
     </main>
   );

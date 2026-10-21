@@ -78,13 +78,22 @@ import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
-/** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group. */
+/** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group;
+ *  and (measured 2026-10-21, the owner's "why do i see dupes on group names") the same-name pairs on two sides — Bob ·
+ *  Loo · Mama on both sides and the groom's, and a both-sides Relatives beside the bride's and the groom's. */
 const SIDE_GROUPS: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[] = [
   { group_id: 'lab-sg-barkada', label: 'Barkada', team_side: 'both' },
+  { group_id: 'lab-sg-bob', label: 'Bob', team_side: 'both' },
+  { group_id: 'lab-sg-bob-g', label: 'Bob', team_side: 'groom' },
   { group_id: 'lab-sg-childhood', label: 'Childhood', team_side: 'groom' },
   { group_id: 'lab-sg-college', label: 'College', team_side: 'groom' },
   { group_id: 'lab-sg-family-b', label: 'Family', team_side: 'bride' },
   { group_id: 'lab-sg-family-g', label: 'Family', team_side: 'groom' },
+  { group_id: 'lab-sg-loo', label: 'Loo', team_side: 'both' },
+  { group_id: 'lab-sg-loo-g', label: 'Loo', team_side: 'groom' },
+  { group_id: 'lab-sg-mama', label: 'Mama', team_side: 'both' },
+  { group_id: 'lab-sg-mama-g', label: 'Mama', team_side: 'groom' },
+  { group_id: 'lab-sg-relatives', label: 'Relatives', team_side: 'both' },
   { group_id: 'lab-sg-relatives-b', label: 'Relatives', team_side: 'bride' },
   { group_id: 'lab-sg-relatives-g', label: 'Relatives', team_side: 'groom' },
 ];

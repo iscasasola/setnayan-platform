@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 677 files · 1857 lines
+# 673 files · 1851 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -115,7 +115,6 @@
 3 apps/web/app/[slug]/_components/your-photos-widget.tsx
 1 apps/web/app/[slug]/avatar/_components/avatar-maker-loader.tsx
 2 apps/web/app/[slug]/avatar/_components/avatar-maker.tsx
-2 apps/web/app/[slug]/everyone/page.tsx
 2 apps/web/app/[slug]/find-my-table/page.tsx
 11 apps/web/app/[slug]/hub/page.tsx
 1 apps/web/app/[slug]/invite/_components/invite-qr-panel.tsx
@@ -280,7 +279,6 @@
 1 apps/web/app/dashboard/(account)/samahan/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
 1 apps/web/app/dashboard/(launcher)/_components/home-command-bar.tsx
-1 apps/web/app/dashboard/(launcher)/_components/home-pill-nav.tsx
 1 apps/web/app/dashboard/(launcher)/_components/year-moments-list.tsx
 5 apps/web/app/dashboard/(launcher)/page.tsx
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx
@@ -311,7 +309,6 @@
 1 apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx
 5 apps/web/app/dashboard/[eventId]/alaala/page.tsx
 1 apps/web/app/dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx
-2 apps/web/app/dashboard/[eventId]/budget/page.tsx
 1 apps/web/app/dashboard/[eventId]/clearance/page.tsx
 4 apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx
 1 apps/web/app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx
@@ -658,7 +655,6 @@
 1 apps/web/app/vendor-dashboard/shop/_components/public-line-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/reach-map.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/service-radius-fields.tsx
-1 apps/web/app/vendor-dashboard/shop/_components/shop-rail.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/venue-match-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/venue-type-card.tsx

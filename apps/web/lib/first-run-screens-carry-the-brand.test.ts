@@ -6,8 +6,9 @@
  * The properties held here (each sabotaged RED, then restored — see the PR body):
  *   1. EVERY FIRST-RUN SCREEN CARRIES THE SHIPPED WORDMARK: sign-up, the You card, "What do you need?" (the
  *      generic wizard and the Get-together form), and the open-shop wizard (one line above its four segments, so
- *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw — and so does the
- *      event-type picker for an account with nothing behind it (the app bar draws only the mark on a phone).
+ *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw. The event-type picker
+ *      draws NONE: it sits under the account bar, whose top bar already shows the mark + "Setnayan" at every
+ *      width (2026-10-21) — one wordmark per screen, never two.
  *   2. A BRAND-NEW COUPLE'S DONE LANDS ON THE PICKER: `youCardOnward` swaps the default board for the event-type
  *      picker only when the account holds no event; an unknown count keeps the board; a real destination is never
  *      replaced. The page passes the swapped address to the card — so Done AND Later (which goes where Done goes).
@@ -76,7 +77,16 @@ test('2 · a brand-new couple’s Done goes to the picker — and only then', ()
   // a long subtitle held them at 334 px and the whole page zoomed out to 350).
   assert.match(read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx'), /<ul className="grid max-w-lg grid-cols-\[minmax\(0,1fr\)\] gap-2">/);
   const head = read('app/dashboard/(account)/create-event/_components/new-event-head.tsx');
-  assert.match(head, /\{nothingBehind \? \(\s*<FirstRunBrand[^>]*\/>\s*\) : \(\s*<Link/, 'with nothing behind it the picker draws the way back, or no brand line');
+  assert.match(head, /\{nothingBehind \? null : \(\s*<Link/, 'the way back is drawn with nothing behind it');
+  // ONE wordmark on the picker: the account bar's top bar (mark + "Setnayan" at every width) — never a second
+  // brand line in the page under it.
+  assert.doesNotMatch(head, /<FirstRunBrand\b/, 'the picker says SETNAYAN twice (the top bar already does)');
+  assert.match(read('app/dashboard/(account)/layout.tsx'), /<AccountBarSlot\b/, 'the picker lost the account bar — and with it the word');
+  assert.match(
+    read('app/_components/frontdoor/front-door.css'),
+    /\.fd\[data-chrome='app'\]:has\(\[data-account-bar\]\) \.fd-wordmark-text \{\s*display: inline;/,
+    'the account bar no longer draws the word on a phone',
+  );
 });
 
 test('3 · the welcome shows once, and is not one of the steps', () => {

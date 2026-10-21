@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation';
 import { YouCard, type YouCardMe } from '@/app/signup/you/_components/you-card';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
+import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
 import { NewEventHead } from '@/app/dashboard/(account)/create-event/_components/new-event-head';
 import { EventTypePicker } from '@/app/dashboard/(account)/create-event/_components/event-type-picker';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -85,6 +86,8 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
             todayISO={manilaToday()}
           />
         </div>
+        {/* The account bar the (account) layout draws — its marker is what puts "Setnayan" beside the mark above. */}
+        <AccountBarSlot tabs={['events', 'discover', 'memories', 'people']} />
       </FrontDoorShell>
     );
   }

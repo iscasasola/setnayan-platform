@@ -7596,7 +7596,10 @@ html:has([data-sticky-top]) [data-home-after-cover] {
  * 9% wash, 45% border, muted word — one line, never wrapped. */
 .home-doors > :is(button, a).ab.ab-neutral {
   --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
-  height: 40px;
+  /* 44, not 40 (fits-every-phone 2026-10-21): the pill clips its own overflow (so the row's fit pass reads it as
+   * one box and drops to icons), which also clips the `.ab::after` expander — so the PAINT is the press, and the
+   * paint is 44. Held by action-link-presses-at-44.test.ts. */
+  height: 44px;
   overflow: hidden;
   white-space: nowrap;
   color: var(--home-door);

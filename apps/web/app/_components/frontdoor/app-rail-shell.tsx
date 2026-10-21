@@ -61,6 +61,7 @@ import {
 } from '@/lib/free-tools-rail';
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
 import { resolveCommandItems } from './command-data';
+import { discoverOpensHere } from '@/lib/request-platform';
 import { SignedInCluster } from './signed-in-cluster';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
@@ -153,7 +154,7 @@ export async function AppRailShell({
   /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
   boundary?: ShellBoundary;
 }) {
-  const [account, navLabels, commandItems, studioEvent] = await Promise.all([
+  const [account, navLabels, commandItems, studioEvent, discoverOpen] = await Promise.all([
     resolveRailAccount(),
     /*
       🔑 LABELS COME FROM THE NAV REGISTRY, which is where an admin renames
@@ -189,6 +190,13 @@ export async function AppRailShell({
       All reads are React cache()d and shared with the resolvers above.
     */
     resolveRailStudioEvent(studioEventId ?? null),
+    /*
+      IS DISCOVER A DOOR HERE? In the app shell middleware bounces `/` to the
+      board while it is in `APP_EXCLUDED_MARKETING_PATHS`, so the rail's first
+      row — Discover — was a press that landed you where you stood (the
+      designer found it on the iPad app, 2026-10-21). Asked once, on the server.
+    */
+    discoverOpensHere(),
   ]);
 
   return (
@@ -339,6 +347,17 @@ export async function AppRailShell({
         ) : undefined)
       }
     >
+      {/*
+        🍎 WHERE DISCOVER DOES NOT OPEN, ITS RAIL ROW IS NOT DRAWN. This marker
+        is the whole signal: `front-door.css` hides the row (and the divider
+        under it) on a shell that contains it — `display: none`, so the row
+        leaves the tab order and the accessibility tree too, not just the
+        paint. Said from HERE, a server component, so the shell's client
+        JavaScript — which the Maker's first load carries, at its ceiling on
+        2026-10-21 — gains no byte. The account bar drops its Discover tab on
+        the same answer (lib/account-bar.ts).
+      */}
+      {discoverOpen ? null : <span hidden data-discover-bounced="" />}
       {children}
     </FrontDoorShell>
   );

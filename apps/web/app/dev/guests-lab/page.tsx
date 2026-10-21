@@ -50,7 +50,7 @@ import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
-import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
+import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
@@ -417,7 +417,7 @@ export default async function GuestsLabPage({
             </div>
           </div>
         </main>
-        <HomePillNav hasSpaces spacesHref="/vendor-dashboard" />
+        <AccountBottomNav tabs={['events', 'discover', 'memories', 'people', 'shop']} />
       </div>
     );
   }

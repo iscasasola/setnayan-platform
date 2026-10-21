@@ -125,8 +125,27 @@ test('sign out is a POST form, never a link', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2 · THE WORDMARK IS THE WAY OUT OF THE APP, STILL SIGNED IN
+   2 · THE APP'S MARK GOES TO EVENTS (2026-10-21) — THE FRONT DOOR'S TO `/`
    ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  🔁 CHANGED ON PURPOSE, 2026-10-21 — OWNER, "yes to all" to the controller's
+  four recommendations on `account_bottom_bar_2026-10-21.html` (DECISION_LOG
+  2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"), ruling
+  3: *tapping the Setnayan mark, signed in, goes to Events.* That is the
+  2026-07-16 "Wordmark-as-Home" this block said to restore "IF the owner asks
+  for it back" — he did. It SUPERSEDES the 2026-08-13 lock below for the APP
+  variant only. The way out to the public site is now Discover: its own tab on
+  the account bar and the rail's first row.
+
+  WHAT DID NOT MOVE, and is still pinned here: the front-door / doorway
+  wordmark — the signed-out world — goes to `/`, so a stranger is never sent
+  to /dashboard (it 307s to /login). The app variant is mounted only by
+  layouts that redirect a stranger first.
+
+  The note below is the history this ruling superseded, kept so nobody
+  re-derives either answer from a comment.
+*/
 
 /*
   🔒 OWNER, VERBATIM — `DECISION_LOG.md` 2026-08-13, SESSION 6 (the seam):
@@ -178,22 +197,32 @@ function wordmarkTargets(src: string): { className: string; href: string }[] {
   return out;
 }
 
-test("the wordmark is the way out of the app — '/' on every variant, never /dashboard", () => {
+test("the app's mark goes to Events (/dashboard?hub=1); the front door's to '/'", () => {
   const targets = wordmarkTargets(SHELL_CODE);
   const app = targets.filter((t) => t.className.includes('fd-wordmark-app'));
   const frontDoor = targets.filter((t) => t.className === 'fd-wordmark');
   // Floors: an empty scan must never read as a pass.
   assert.equal(app.length, 1, `expected exactly one app-variant wordmark, found ${app.length}`);
   assert.equal(frontDoor.length, 1, `expected exactly one front-door wordmark, found ${frontDoor.length}`);
-  for (const t of targets) {
-    assert.ok(
-      !t.href.includes('/dashboard'),
-      `a wordmark (${t.className}) points at ${t.href}. Owner 2026-08-13: "The WORDMARK is ` +
-        'the way out of the app, still signed in." /dashboard also 307s a stranger to /login.',
-    );
-  }
-  assert.equal(app[0]!.href, '/', `the app-variant wordmark goes to ${app[0]!.href}, not the front door`);
-  assert.equal(frontDoor[0]!.href, '/', `the front-door wordmark goes to ${frontDoor[0]!.href}, not /`);
+  assert.equal(
+    app[0]!.href,
+    '/dashboard?hub=1',
+    `the app-variant mark goes to ${app[0]!.href}. Owner 2026-10-21: the mark, signed in, goes to ` +
+      'Events — and `?hub=1`, or the board auto-jumps a one-event couple back into their wedding.',
+  );
+  assert.equal(
+    frontDoor[0]!.href,
+    '/',
+    `the front-door / doorway wordmark goes to ${frontDoor[0]!.href}, not / — a stranger sent to ` +
+      '/dashboard is bounced to /login.',
+  );
+  // The app branch is the ONLY one that may name /dashboard: it must stay behind `inApp`.
+  const appAt = SHELL_CODE.indexOf('className="fd-wordmark fd-wordmark-app"');
+  assert.match(
+    SHELL_CODE.slice(Math.max(0, appAt - 120), appAt),
+    /\{inApp \? \(\s*<Link href="\/dashboard\?hub=1"\s*$/,
+    'the Events-bound mark is no longer behind `inApp` — a signed-out page could send a stranger to /dashboard',
+  );
 });
 
 test('the wordmark leaving did not lose the one-press way home', () => {

@@ -2182,10 +2182,12 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
      position stay put — `top`/`right` shift with it so the circle still sits
      the same visual distance from the card's corner. */
   position: absolute;
-  top: 13px;
-  right: 13px;
-  width: 40px;
-  height: 40px;
+  /* 44px (fits-every-phone 2026-10-21: 40px was under the floor) — top/right
+     move in by 2px so the circle's centre stays where it was. */
+  top: 11px;
+  right: 11px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--hr-line);
   background: #fff;
@@ -2725,6 +2727,21 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
   color: var(--hr-pop1);
   text-decoration: none;
   font-weight: 500;
+}
+/* "Forgot password?" and the foot's "Create one, free" / "Sign in" stand on
+   their own line, so they press 44px tall (they measured 17–19px). An
+   expander, not padding, so the card's lines do not move. The Terms and
+   Privacy links inside the agreement sentence are left inline on purpose:
+   an expander there would steal the checkbox label's own press. */
+.home-reskin-ov .hr-si-row .hr-si-link,
+.home-reskin-ov .hr-si-foot .hr-si-link {
+  position: relative;
+}
+.home-reskin-ov .hr-si-row .hr-si-link::after,
+.home-reskin-ov .hr-si-foot .hr-si-link::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
 }
 .home-reskin-ov .hr-si-link:hover {
   text-decoration: underline;

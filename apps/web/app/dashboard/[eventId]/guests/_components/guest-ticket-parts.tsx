@@ -411,7 +411,8 @@ export function GuestMoreMenu({
             Unlink account
           </button>
         ) : null}
-        {deletable && seatWithNoName ? (
+        {deletable ? (
+          seatWithNoName ? (
           <button
             type="button"
             role="menuitem"
@@ -431,7 +432,7 @@ export function GuestMoreMenu({
             <Armchair aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Release seat
           </button>
-        ) : deletable ? (
+          ) : (
           <button
             type="button"
             role="menuitem"
@@ -445,6 +446,7 @@ export function GuestMoreMenu({
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Delete guest
           </button>
+          )
         ) : null}
       </div>,
       )}

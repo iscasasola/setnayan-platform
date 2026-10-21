@@ -705,13 +705,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
         label="Sort — groups the list by"
         value={plusFilter ? `plus:${plusFilter}` : view}
         buttonText={plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined}
-        options={[
-          ...views.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+        options={views.map((v): PickOption => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })).concat(
           // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
-          ...(plusTally.named + plusTally.unnamed > 0
+          plusTally.named + plusTally.unnamed > 0
             ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-            : []),
-        ]}
+            : [],
+        )}
         onPick={(k) => {
           if (k.startsWith('plus:')) {
             setPlusFilter(k.slice(5) as PlusOneFilter);
@@ -1490,7 +1489,7 @@ function GuestRowLine({
           ) : null}
           {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
           {verbs.includes('release') ? (
-            <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release ${name}`} onClick={onRelease} />
+            <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release seat ${name}`} onClick={onRelease} />
           ) : null}
         </span>
       )}

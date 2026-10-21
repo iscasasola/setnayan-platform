@@ -117,7 +117,7 @@ export function useGuestRemoval(eventId: string) {
     try {
       let result;
       try {
-        result = o.release ? await bulkSoftDeleteGuestsForUndo(eventId, ids, { release: true }) : await bulkSoftDeleteGuestsForUndo(eventId, ids);
+        result = await bulkSoftDeleteGuestsForUndo(eventId, ids, o.release ? { release: true } : {});
       } catch {
         guestOptimistic.clear(mutation); // rollback the hide
         for (const m of also) guestOptimistic.clear(m);
@@ -126,8 +126,9 @@ export function useGuestRemoval(eventId: string) {
         return said;
       }
 
+      // A refusal: roll back, and SAY it in plain words where they acted.
       if (!result.ok) {
-        guestOptimistic.clear(mutation); // rollback — and SAY it, in plain words, where they acted
+        guestOptimistic.clear(mutation);
         for (const m of also) guestOptimistic.clear(m);
         const said = plainRefusal(result.error, couldnt);
         guestToast.error(said);

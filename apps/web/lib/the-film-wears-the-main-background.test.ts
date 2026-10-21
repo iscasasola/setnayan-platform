@@ -34,7 +34,7 @@ test('1 · the film wears the picture, else the page colour — and keeps its Re
 });
 
 test('2 · ONE resolution: the film\'s still and the page\'s layer ask the same picture resolver', () => {
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   const of = layer.slice(layer.indexOf('async function mainGroundOf('), layer.indexOf('async function pictureOf('));
   const still = layer.slice(layer.indexOf('export async function mainGroundStillFor('));
   assert.match(of, /await pictureOf\(main, input, ownsPro\)/, 'the page\'s layer resolves its picture some other way');

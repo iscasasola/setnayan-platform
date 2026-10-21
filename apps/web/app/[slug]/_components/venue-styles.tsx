@@ -62,9 +62,20 @@ export function venueStopTimes(blocks: readonly ScheduleBlockRow[] | null | unde
  * ONE MAP FOR EVERY PLACE — the standard OSM tiles with a numbered pin per
  * located venue (`lib/scene-map-tiles.ts`); `route` joins the pins in the order
  * of the day. Null when nothing is located.
+ *
+ * 📍 A PLACE WITH NO PIN SAYS SO, ON THE MAP (owner 2026-10-21, cale-ice: "why
+ * do i see a map"). The map is framed to fit every pin it holds — and the
+ * ceremony had none, so the "one map for both" was one street-level map with a
+ * lone "2" on it: nothing told a guest (or the couple) that pin 1 was missing,
+ * which reads exactly like a map that is working. Every venue is now either a
+ * numbered pin or a numbered line "Ceremony · not on the map" in the corner,
+ * so the gap shows where it is, and its card's directions still search by name
+ * and address. Held by `every-venue-is-on-the-map-or-says-so.test.ts`.
  */
 export function PinnedMap({ venues, route = false }: { venues: readonly EventVenue[]; route?: boolean }) {
-  const located = venues.map((v, i) => ({ v, n: i + 1 })).filter(({ v }) => hasPin(v));
+  const numbered = venues.map((v, i) => ({ v, n: i + 1 }));
+  const located = numbered.filter(({ v }) => hasPin(v));
+  const unplaced = numbered.filter(({ v }) => !hasPin(v));
   const box = { width: 360, height: 220 };
   const frame = mapFrame(
     located.map(({ v }) => ({ latitude: v.latitude as number, longitude: v.longitude as number })),
@@ -72,12 +83,16 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
   );
   if (!frame) return null;
   const label = located.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ');
+  const missing = unplaced.length
+    ? `. ${unplaced.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ')} ${unplaced.length > 1 ? 'are' : 'is'} not on the map`
+    : '';
   const line = route && located.length > 1 ? frame.spots.map((s) => `${s.leftPct},${s.topPct}`).join(' ') : null;
   return (
     <figure
       role="img"
-      aria-label={`Map showing ${label}`}
+      aria-label={`Map showing ${label}${missing}`}
       data-venue-map-pins={located.length}
+      data-venue-map-unplaced={unplaced.length}
       className="relative w-full overflow-hidden bg-veil"
       style={{ aspectRatio: `${box.width} / ${box.height}` }}
     >
@@ -120,6 +135,21 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
           {n}
         </span>
       ))}
+      {unplaced.length ? (
+        <ul data-venue-map-missing="" className="absolute left-0 top-0 space-y-0.5 bg-cream/90 px-2 py-1 font-sans text-xs text-ink">
+          {unplaced.map(({ v, n }) => (
+            <li key={v.role} className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/60 font-mono text-[0.65rem] text-cream"
+              >
+                {n}
+              </span>
+              {VENUE_ROLE_LABEL[v.role]} · not on the map
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <a
         href="https://www.openstreetmap.org/copyright"
         target="_blank"

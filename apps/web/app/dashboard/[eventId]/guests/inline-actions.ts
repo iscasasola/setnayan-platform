@@ -450,6 +450,9 @@ export async function addSingleGuest(
     // Extra seats from the parsed `+N` (the trigger sets plus_one_allowed).
     setPlusOne: async (guestId, count) => {
       const supabase = await createClient();
+      // 🚫 The one seat rule — a +1 (or a finalized list) is refused here as everywhere (`checkExtraSeats`).
+      const check = await checkExtraSeats(supabase, eventId, guestId, Math.min(4, Math.max(1, count)));
+      if (!check.ok) return;
       await supabase
         .from('guests')
         .update({ plus_one_count: Math.min(4, Math.max(1, count)), updated_at: new Date().toISOString() })

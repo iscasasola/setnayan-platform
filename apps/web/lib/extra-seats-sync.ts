@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { PLACEHOLDER_FIRST_NAME, planExtraSeats, seatNumbersAfter, seatPlaceholderLabel, type ExtraSeatRow } from '@/lib/extra-seats';
+import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne } from '@/lib/guests';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Make a guest's seat rows match their `plus_one_count`, then seat them beside
@@ -31,13 +33,15 @@ type Primary = {
   group_category: string;
   invited_to_blocks: string[] | null;
   plus_one_count: number | null;
+  /** Set ⇒ this guest IS a +1, and brings nobody (`isAPlusOne`, owner 2026-10-21). */
+  plus_one_of_guest_id: string | null;
 };
 
 async function readSeats(supabase: SupabaseClient, eventId: string, guestId: string) {
   const [{ data: primary, error: pErr }, { data: rows, error: rErr }] = await Promise.all([
     supabase
       .from('guests')
-      .select('guest_id, first_name, side, group_category, invited_to_blocks, plus_one_count')
+      .select('guest_id, first_name, side, group_category, invited_to_blocks, plus_one_count, plus_one_of_guest_id')
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .is('deleted_at', null)
@@ -142,11 +146,16 @@ export async function checkExtraSeats(
   supabase: SupabaseClient,
   eventId: string,
   guestId: string,
-  want: number,
+  /** The number asked for — or, for an old form that posts only the on/off box, how it moves the current one. */
+  want: number | ((current: number) => number),
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const read = await readSeats(supabase, eventId, guestId);
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats — nothing was changed.' };
-  if ((read.primary.plus_one_count ?? 0) !== want) {
+  const now = read.primary.plus_one_count ?? 0;
+  const next = typeof want === 'function' ? want(now) : want;
+  // 🚫 A +1 cannot have their own +1 (owner 2026-10-21) — refused before anything is saved.
+  if (next > 0 && isAPlusOne(read.primary)) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+  if (now !== next) {
     const { data: ev, error: evErr } = await supabase
       .from('events')
       .select('guest_count_locked_at, guest_list_edit_deadline, event_date')
@@ -165,6 +174,25 @@ export async function checkExtraSeats(
   return { ok: true };
 }
 
+/** Is this guest seated while one of their live seats has no chair? A refused read answers no (nothing is moved on a guess). */
+async function aSeatWaitsForItsChair(
+  supabase: SupabaseClient,
+  eventId: string,
+  guestId: string,
+  seats: readonly ExtraSeatRow[],
+): Promise<boolean> {
+  if (seats.length === 0) return false;
+  const ids = [guestId, ...seats.map((s) => s.guest_id)];
+  const { data, error } = await supabase.from('event_seat_assignments').select('guest_id').eq('event_id', eventId).in('guest_id', ids);
+  if (error) {
+    logQueryError('syncExtraSeats.seatsWaitingForChairs', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    return false;
+  }
+  if (!Array.isArray(data)) return false;
+  const seated = new Set((data as Array<{ guest_id: string }>).map((r) => r.guest_id));
+  return seated.has(guestId) && seats.some((s) => !seated.has(s.guest_id));
+}
+
 export async function syncExtraSeats(
   supabase: SupabaseClient,
   eventId: string,
@@ -173,7 +201,8 @@ export async function syncExtraSeats(
   const read = await readSeats(supabase, eventId, guestId);
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats.' };
   const { primary, seats } = read;
-  const plan = planExtraSeats(primary.plus_one_count ?? 0, seats);
+  // 🚫 A +1 never gets seats of their own, whatever their row says (owner 2026-10-21) — `isAPlusOne`.
+  const plan = planExtraSeats(isAPlusOne(primary) ? 0 : (primary.plus_one_count ?? 0), seats);
 
   // The seats already there take the guest's side (the card's save changes it) — `carrySideToTheirPlusOnes`.
   if (seats.length > 0) {
@@ -222,8 +251,10 @@ export async function syncExtraSeats(
     if (error) return { ok: false, error: error.message };
   }
 
-  // Beside the person invited: re-seating the guest pulls their seats in.
-  if (plan.create > 0 || plan.remove.length > 0) {
+  // Beside the person invited: re-seating the guest pulls their seats in. 🪑 Since 2026-10-21 the DATABASE mints the
+  // seats with the number (`a_plus_ones_count_is_their_rows`), so by the time this runs they usually exist already and
+  // the plan is empty — the re-seat is then asked for when a seated guest has a seat with no chair yet.
+  if (plan.create > 0 || plan.remove.length > 0 || (await aSeatWaitsForItsChair(supabase, eventId, primary.guest_id, seats))) {
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [primary.guest_id] });
   }
   return { ok: true, created: plan.create, removed: plan.remove.length };

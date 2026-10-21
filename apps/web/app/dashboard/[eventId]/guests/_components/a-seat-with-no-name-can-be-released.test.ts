@@ -215,6 +215,19 @@ test('3b · Release lowers its guest’s "+N" by exactly one per seat, frees the
   assert.equal(count('bert'), 1, 'Bert’s number moved');
   assert.ok(!DB.event_seat_assignments.some((s) => s.guest_id === 'ana-1'), 'the seat’s chair is still taken');
   assert.ok(DB.event_seat_assignments.some((s) => s.guest_id === 'ana-2'), 'Ben lost his chair');
+  // 🪑 Under #6728's trigger (the number IS the rows): Dia's +2 is two seats with no name; releasing the OLDER one leaves
+  // the newer — the trigger, run by the lowered number, finds nothing more to take (no double delete).
+  seed();
+  DB.guests.push(
+    { event_id: EV, guest_id: 'dia', role: 'guest', rsvp_status: 'pending', first_name: 'Dia', last_name: 'Cruz', plus_one_of_guest_id: null, plus_one_count: 2, plus_one_allowed: true, deleted_at: null, created_at: '2026-10-01' },
+    { event_id: EV, guest_id: 'dia-1', first_name: 'TBA', last_name: '+1', plus_one_of_guest_id: 'dia', plus_one_name_confirmed_at: null, deleted_at: null, created_at: '2026-10-02' },
+    { event_id: EV, guest_id: 'dia-2', first_name: 'TBA', last_name: '+1', plus_one_of_guest_id: 'dia', plus_one_name_confirmed_at: null, deleted_at: null, created_at: '2026-10-03' },
+  );
+  const older = await quiet(() => bulkSoftDeleteGuestsForUndo(EV, ['dia-1'], { release: true }));
+  assert.ok(older.ok);
+  assert.ok(row('dia-1').deleted_at, 'the chosen seat stayed');
+  assert.equal(row('dia-2').deleted_at, null, 'releasing one seat took a second (the number moved before the chosen seat went)');
+  assert.equal(count('dia'), 1);
   // Many at once (Select): each guest one lower per seat.
   seed();
   const many = await quiet(() => bulkSoftDeleteGuestsForUndo(EV, ['ana-1', 'bert-1'], { release: true }));

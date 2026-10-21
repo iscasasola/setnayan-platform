@@ -1396,12 +1396,37 @@ export async function fetchGroupMembershipsByEventMeasured(
 }
 
 /**
+ * 🚫 A +1 CANNOT HAVE THEIR OWN +1. Owner, verbatim, 2026-10-21: *"a +1 of a guest cannot have their own +1."*
+ *
+ * A +1 is a guest row whose `plus_one_of_guest_id` names the guest who brings them — the predicate every surface
+ * already used inline (`Boolean(guest.plus_one_of_guest_id)`), named here once. Such a row never brings anyone:
+ *   · the guest card draws `A_PLUS_ONE_BRINGS_NO_ONE` where "Extra seats" would be, and posts 0;
+ *   · `plusOneSeats` reads 0 for them, so the List's "+N" chip, the head counts and their own reply never offer one;
+ *   · every writer refuses a number above 0 (`checkExtraSeats`, `nameTheSeats`, the import), and the database refuses
+ *     it too — CHECK `a_plus_one_brings_no_one` + trigger `a_plus_one_has_no_plus_one` (migration
+ *     `*_a_plus_one_brings_no_plus_one.sql`), and `guest_plus_one_seat_mint` answers `bringer_is_plus_one`.
+ * 🔒 apps/web/lib/a-plus-one-brings-no-plus-one.test.ts
+ */
+export function isAPlusOne(guest: { plus_one_of_guest_id?: string | null }): boolean {
+  return Boolean(guest.plus_one_of_guest_id);
+}
+
+/** The one quiet line said wherever a +1's extra seats would be offered — and every refusal's words. */
+export const A_PLUS_ONE_BRINGS_NO_ONE = 'A +1 can’t bring their own +1.';
+
+/**
  * How many extra seats a guest brings — 0 to 4 (owner 2026-09-21: "+1/+2/+3/+4
  * … for the additional seats"). Reads the count; a row from a read that did not
  * select it (older callers) falls back to the boolean's one seat, so a missing
  * column under-counts by the old rule rather than reading zero.
  */
-export function plusOneSeats(guest: { plus_one_count?: number | null; plus_one_allowed?: boolean | null }): number {
+export function plusOneSeats(guest: {
+  plus_one_count?: number | null;
+  plus_one_allowed?: boolean | null;
+  plus_one_of_guest_id?: string | null;
+}): number {
+  // 🚫 A +1 brings nobody (owner 2026-10-21) — whatever a stale row says.
+  if (isAPlusOne(guest)) return 0;
   const n = guest.plus_one_count;
   if (typeof n === 'number' && Number.isFinite(n)) return Math.max(0, Math.min(4, Math.trunc(n)));
   return guest.plus_one_allowed ? 1 : 0;

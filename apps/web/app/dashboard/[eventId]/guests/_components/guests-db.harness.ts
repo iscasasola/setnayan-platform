@@ -21,6 +21,31 @@ export const DB: { guests: Row[]; event_seat_assignments: Row[]; event_tables: R
   afterFirstGuestRead: null,
 };
 
+/**
+ * #6728's `a_plus_ones_count_is_their_rows` trigger (migration 20271281805227), as the database runs it after a guest's
+ * number changes: fewer live +1 rows than the number → "TBA" seats are minted; more → ONLY unnamed placeholders go,
+ * NEWEST first, their chairs released. (tests/db/a-released-seat-is-taken-once.db.test.ts runs the real one.)
+ */
+let minted = 0;
+function followCount(b: Row) {
+  const target = Math.max(0, Math.min(4, Number(b.plus_one_count ?? 0)));
+  const live = DB.guests.filter((g) => g.plus_one_of_guest_id === b.guest_id && !g.deleted_at);
+  if (live.length < target) {
+    for (let i = live.length; i < target; i++) {
+      DB.guests.push({ guest_id: `minted-${++minted}`, event_id: b.event_id, first_name: 'TBA', last_name: '+1', display_name: `+${i + 1} · TBA`, plus_one_of_guest_id: b.guest_id, plus_one_name_confirmed_at: null, plus_one_count: 0, deleted_at: null, created_at: `9999-${minted}` });
+    }
+    return;
+  }
+  const drop = live
+    .filter((g) => !g.plus_one_name_confirmed_at && String(g.first_name ?? '').trim().toUpperCase() === 'TBA')
+    .sort((x, y) => String(y.created_at ?? '').localeCompare(String(x.created_at ?? '')))
+    .slice(0, live.length - target);
+  for (const g of drop) {
+    DB.event_seat_assignments = DB.event_seat_assignments.filter((x) => x.guest_id !== g.guest_id);
+    g.deleted_at = 'trigger';
+  }
+}
+
 function table(name: Table) {
   const filters: ((r: Row) => boolean)[] = [];
   let op: { kind: 'select' } | { kind: 'update'; patch: Row } | { kind: 'delete' } | { kind: 'upsert'; rows: Row[] } = { kind: 'select' };
@@ -54,7 +79,9 @@ function table(name: Table) {
       if (name === 'guests' && op.patch.rsvp_status === 'declined' && r.rsvp_status !== 'declined') {
         DB.event_seat_assignments = DB.event_seat_assignments.filter((x) => !(x.guest_id === r.guest_id && x.event_id === r.event_id));
       }
+      const countMoved = name === 'guests' && 'plus_one_count' in op.patch && op.patch.plus_one_count !== r.plus_one_count;
       Object.assign(r, op.patch);
+      if (countMoved && !r.plus_one_of_guest_id && !r.deleted_at) followCount(r);
     }
     return { data: returning ? hit.map((r) => ({ ...r })) : null, error: null };
   };

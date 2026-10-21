@@ -125,6 +125,23 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   const healsStart = at(body, 'const freeCamerasHeal = provisionFreeCamerasAdmin(unlockAdmin, eventId');
   const healsAwait = at(body, 'await Promise.all([freeCamerasHeal, freePoolHeal, uploadsCameraHeal]);');
   assert.ok(notFound < healsStart, 'a self-heal WRITE starts before the event row is confirmed');
+  // …and NO write of any kind is reached before the event row is confirmed — the started block
+  // above it is reads only.
+  for (const write of [
+    'provisionFreeCamerasAdmin(',
+    'provisionUploadsCameraAdmin(',
+    'ensureFreePapicPoolGrantAdmin(',
+    'reconcileLimitedSnapshot(',
+    'syncGuestCameras(',
+    '.insert(',
+    '.upsert(',
+    '.update(',
+    '.delete(',
+    '.rpc(',
+  ]) {
+    const first = body.indexOf(write);
+    assert.ok(first === -1 || first > notFound, `\`${write}\` is reached before the event row is confirmed`);
+  }
   assert.ok(at(body, 'const freePoolHeal = (async () => {') > healsStart);
   assert.ok(at(body, 'const uploadsCameraHeal = provisionUploadsCameraAdmin(unlockAdmin, eventId') < healsAwait);
   // Every started read that must see the heals starts after them.

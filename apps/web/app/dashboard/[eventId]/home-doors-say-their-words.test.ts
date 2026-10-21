@@ -44,9 +44,9 @@ test('1 · each door says the word of the tab it opens — short enough to keep 
   for (const key of KEYS) {
     const tab = tree.find((t) => t.key === key);
     assert.ok(tab, `the bar has no ${key} tab — the comparison is blind`);
-    const a = anchors.find((x) => x.includes(`data-testid="home-door-${key}"`));
+    const a: string | undefined = anchors.find((x: string) => x.includes(`data-testid="home-door-${key}"`));
     assert.ok(a, `the ${key} door is missing`);
-    const word = /<span class="lbl">([^<]*)<\/span>/.exec(a!)?.[1] ?? '';
+    const word: string = /<span class="lbl">([^<]*)<\/span>/.exec(a!)?.[1] ?? '';
     assert.equal(word, HOME_DOOR_LABELS[key], `the ${key} door shows "${word}", not its label`);
     assert.ok(
       word.endsWith(tab!.label),

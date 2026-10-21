@@ -122,6 +122,13 @@ async function cutMoney(page: Page): Promise<string[]> {
       if (!t.includes('₱') || e.children.length > 6) continue;
       const s = getComputedStyle(e);
       if (s.display === 'none' || s.visibility === 'hidden') continue;
+      // Only what is shown: a peek card waiting off-stage (opacity 0, inert) is measured the moment it shows.
+      let hidden = false;
+      for (let p: Element | null = e; p && p !== document.body; p = p.parentElement) {
+        const ps = getComputedStyle(p);
+        if (+ps.opacity < 0.05 || p.hasAttribute('inert') || p.getAttribute('aria-hidden') === 'true') hidden = true;
+      }
+      if (hidden) continue;
       const ell = s.textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1;
       const clamp = s.webkitLineClamp !== 'none' && s.webkitLineClamp !== '' && e.scrollHeight > e.clientHeight + 2;
       if (ell || clamp) out.push(`“${t.trim().slice(0, 40)}” ${e.clientWidth}/${e.scrollWidth}px`);

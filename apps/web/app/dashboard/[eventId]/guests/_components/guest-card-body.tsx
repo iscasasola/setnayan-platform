@@ -21,6 +21,8 @@ import {
   type RsvpStatus,
   RSVP_ROW_WORDS,
   PLUS_ONE_CHOICES,
+  A_PLUS_ONE_BRINGS_NO_ONE,
+  isAPlusOne,
   plusOneSeats,
   guestNameAsGiven,
   guestHasTicket,
@@ -313,6 +315,8 @@ export function GuestCardBody({
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
   const hasTicket = guestHasTicket(guest);
   const seats = plusOneSeats(guest);
+  /** This guest IS a +1 — they bring nobody (`isAPlusOne`, owner 2026-10-21). */
+  const plusOne = isAPlusOne(guest);
   // The creator is the Host; a couple row someone chose is a Co-host (owner 2026-10-04).
   const hostWord = access?.level === 'co_host' ? accessWordFor(access) : 'Host';
 
@@ -732,6 +736,13 @@ export function GuestCardBody({
               {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
               {isCouple ? (
                 <input type="hidden" name="plus_one_count" value={String(seats)} />
+              ) : plusOne ? (
+                /* 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — no Extra seats pick, one quiet line, and 0 is
+                   posted (the server refuses more: `checkExtraSeats`). lib/a-plus-one-brings-no-plus-one.test.ts */
+                <>
+                  <input type="hidden" name="plus_one_count" value="0" />
+                  <K.Fact field="plus_one_count" label="Extra seats" value="None" where={A_PLUS_ONE_BRINGS_NO_ONE} />
+                </>
               ) : (
                 <K.Pick
                   name="plus_one_count"
@@ -748,7 +759,7 @@ export function GuestCardBody({
                 options={MEAL_OPTIONS.map((v) => ({ key: v, label: MEAL_LABELS[v] }))}
               />
             </K.Cols>
-            {isCouple ? null : plusOneStateLabel ? (
+            {isCouple || plusOne ? null : plusOneStateLabel ? (
               <p className="rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">+1: {plusOneStateLabel}</p>
             ) : guest.plus_one_allowed ? (
               <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>

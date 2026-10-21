@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
-import { plusOneSeats } from '@/lib/guests';
+import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
@@ -926,12 +926,15 @@ async function nameTheSeats(
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin
       .from('guests')
-      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category, plus_one_of_guest_id')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
     // Unread is not "not allowed": said, never shown as a saved name.
     if (primaryErr) return { ok: false, error: 'Their name did not save — try again.' };
+    // 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — their door never offers it, and a crafted post is refused
+    // here, before any seat is read or minted (`isAPlusOne`; the mint itself answers `bringer_is_plus_one`).
+    if (primary && isAPlusOne(primary)) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
 
     // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
     // regardless of what a crafted POST carries — a MASTER switch beside the
@@ -1049,6 +1052,8 @@ async function nameTheSeats(
             },
           });
           const mintStatus = (minted as { status?: string } | null)?.status;
+          // 🚫 The bringer turned out to be a +1 (asked inside the lock): refused, said — never logged as a fault.
+          if (!error && mintStatus === 'bringer_is_plus_one') return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
           if (error || (mintStatus !== 'ok' && mintStatus !== 'full')) {
             logQueryError(
               'submitRsvp.mintSeat',

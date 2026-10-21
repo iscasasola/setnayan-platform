@@ -449,8 +449,13 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // A finalized list refuses a seat change BEFORE anything on this form is
   // saved (owner 2026-09-21). Below the NAMED seats is allowed since 2026-09-29
   // — the named people are kept, never removed by a number.
+  // 🚫 …and a +1 is refused ANY seat of their own (owner 2026-10-21) — the number, or an old form's on-box, which the
+  // DB trigger turns into "at least one" (`guests_plus_one_count_sync`).
   if (typeof plusOneWrite.plus_one_count === 'number') {
     const check = await checkExtraSeats(supabase, eventId, guestId, plusOneWrite.plus_one_count);
+    if (!check.ok) return refuse(check.error);
+  } else if (plusOneWrite.plus_one_allowed) {
+    const check = await checkExtraSeats(supabase, eventId, guestId, (now) => Math.max(1, now));
     if (!check.ok) return refuse(check.error);
   }
   // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write

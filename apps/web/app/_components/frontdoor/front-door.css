@@ -1825,6 +1825,18 @@ h2.fd-sechead,
   white-space: nowrap;
   cursor: pointer;
 }
+/* fits-every-phone 2026-10-21: the pill never runs past its card. At 320 the
+   two-up grid leaves the text column 88px, and "Guest list only" (nowrap,
+   119px in WebKit) stuck out 15px and scrolled the whole page sideways
+   (iPad Audit W7). It may wrap inside its own column instead — still ≥ 44px. */
+.fd-act .fd-ask {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .fd-ask.quiet {
   background: #f0ede6;
   color: var(--fd-ink);
@@ -2775,11 +2787,19 @@ button.fd-ask.quiet {
   font-size: 15px;
 }
 .fd-opening-alt {
+  /* 44px press with no change to the line it sits on (was 22px tall) —
+     the same `::after` expander the top bar uses. */
+  position: relative;
   font-size: 14.5px;
   font-weight: 650;
   /* link slate, 8.22:1 — never the decorative gold, which is 3.48:1 and fails
      as text. Same rule the doors work closed in #4484. */
   color: var(--fd-link);
+}
+.fd-opening-alt::after {
+  content: '';
+  position: absolute;
+  inset: -11px -8px;
 }
 .fd-opening-alt:hover {
   text-decoration: underline;

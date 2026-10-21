@@ -38,6 +38,14 @@ export const LAB_BUILD_TILES: ReadonlyArray<{ tile: string; label: string; vendo
   { tile: 'bridal_car', label: 'Bridal Car', vendors: [] },
 ];
 
+/** `&covers=1` — Seda's "Also covers" Cake and Catering: the venue shown again,
+ *  booked, on those two lines — the copy `buildShortlistFolders` makes. */
+export const LAB_COVERED_TILES: ReadonlySet<string> = new Set(['cake', 'catering']);
+export const LAB_SEDA_COVERED: BuildLineInputVendor = {
+  ...v('v-seda', 'Seda Vertis North', 'reception_venue', 'locked'),
+  includedWith: 'Reception',
+};
+
 export const LAB_BUILD_PRICES: Readonly<Record<string, number>> = {
   'v-seda': 1_056_000,
   'v-bituin': 171_000,

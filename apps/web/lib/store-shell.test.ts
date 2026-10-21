@@ -484,8 +484,14 @@ test('wiring: the link guard is mounted once, in the root layout, and hides with
   assert.equal((layout.match(/<StoreShellLinkGuard \/>/g) ?? []).length, 1);
   const guard = src('app/_components/store-shell-link-guard.tsx');
   assert.match(guard, /if \(!isStoreShellInBrowser\(navigator\.userAgent, document\.cookie\)\) return;/, 'must be a no-op off the store shell');
-  assert.match(guard, /setProperty\('display', 'none', 'important'\)/, '`hidden` alone loses to utility classes');
-  assert.match(guard, /storeShellHidesHref\(/, 'must key on the registry, not a list of its own');
+  /* RE-AIMED 2026-10-21: the work is its own chunk (`store-shell-link-guard-run.ts`), fetched only after that check —
+     the Maker's first load sits at its ceiling. Same three properties, read across the two files. */
+  const after = guard.slice(guard.indexOf('if (!isStoreShellInBrowser('));
+  assert.match(after, /import\('\.\/store-shell-link-guard-run'\)\.then\(\(m\) => \{\s*if \(!gone\) stop = m\.guardStoreShellLinks\(\);/, 'the work is not started after the store-shell check');
+  assert.doesNotMatch(guard, /^import[^;]*store-shell-link-guard-run/m, 'the work is imported statically — back in every first load');
+  const run = src('app/_components/store-shell-link-guard-run.ts');
+  assert.match(run, /setProperty\('display', 'none', 'important'\)/, '`hidden` alone loses to utility classes');
+  assert.match(run, /storeShellHidesHref\(/, 'must key on the registry, not a list of its own');
 });
 
 test('wiring: wedding onboarding drops every priced screen in the store shell', () => {

@@ -111,7 +111,8 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(SetnayanAuthPlugin())
         // `SetnayanStore` is Apple In-App Purchase (StoreKit 2) — Papic credits,
         // Event Hub Pro, Live Watch (owner 2026-10-18). The web asks for it only
-        // when this build's user-agent carries `SetnayanIAP/1`.
+        // when this build's user-agent carries `SetnayanIAP/2` or higher (1.1+;
+        // capacitor.config.ts). 1.0 (build 5) announces `/1` and is never sold to.
         bridge?.registerPluginInstance(SetnayanStorePlugin())
     }
 

@@ -29,6 +29,7 @@ import { formatCount } from '@/lib/format-number';
 import type { MapBranch, PlusOneWords } from '@/lib/guest-roster-view';
 import { layoutMap, type MapNode } from '@/lib/guest-map-layout';
 import styles from './guests-screen.module.css';
+import { displayPersonName } from '@/lib/person-name-case';
 
 const useIso = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -210,7 +211,7 @@ export function GuestMapCanvas({
                   ? styles.leafNo
                   : '';
           const words = plusWords?.get(g.guest_id);
-          const name = words?.name ?? guestDisplayName(g);
+          const name = words?.name ?? displayPersonName(guestDisplayName(g));
           const side = words?.side ?? g.side;
           return (
             <button

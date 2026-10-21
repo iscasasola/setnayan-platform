@@ -172,10 +172,14 @@ export type HomeFirstScreenProps = {
    * build, the owner's switch. Then "Your services" carries Papic (Buy more →
    * Apple) and Live Watch (Activate → Apple, or "On" once owned, whichever side
    * paid). No row links to a controller the app still sends to /web-only.
+   *
+   * 🍎 Version 1.1 (`IAP_OPENED_ROUTE`, lib/store-shell.ts): the two control pages open in that app, so the Papic
+   * row opens the Papic page (`open`) and an owned Live Watch carries its Go live door (`goLive`, the controller).
+   * Absent / null = the row as #6637 shipped it.
    */
   apple?: {
-    papic: { status: string; buy: boolean } | null;
-    liveWatch: { status: string; owned: boolean; askReady: boolean } | null;
+    papic: { status: string; buy: boolean; open?: string | null } | null;
+    liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
   } | null;
 };
 
@@ -380,6 +384,7 @@ export function HomeFirstScreen({
                   brand={SERVICE_NAMES.papic.brand}
                   icon={<Camera aria-hidden strokeWidth={1.9} />}
                   status={apple.papic.status}
+                  href={apple.papic.open ?? null}
                   action={apple.papic.buy ? <IapPapicSheet eventId={eventId} left={papicLeft} /> : null}
                 />
               ) : null}
@@ -390,7 +395,15 @@ export function HomeFirstScreen({
                   brand={SERVICE_NAMES['live-studio'].brand}
                   icon={<Radio aria-hidden strokeWidth={1.9} />}
                   status={apple.liveWatch.status}
-                  action={apple.liveWatch.owned ? null : <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />}
+                  action={
+                    apple.liveWatch.owned ? (
+                      apple.liveWatch.goLive ? (
+                        <ActionButton tone="neutral" icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Go live" href={apple.liveWatch.goLive} />
+                      ) : null
+                    ) : (
+                      <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />
+                    )
+                  }
                 />
               ) : null}
               {services.map((svc, i) => {
@@ -561,6 +574,7 @@ function AppleServiceRow({
   icon,
   status,
   action,
+  href = null,
 }: {
   marker: string;
   name: string;
@@ -568,17 +582,28 @@ function AppleServiceRow({
   icon: ReactNode;
   status: string;
   action: ReactNode;
+  /** 🍎 The service's own page, where the app opens it (version 1.1) — the words open it; the button stays beside. */
+  href?: string | null;
 }) {
+  const words = (
+    <>
+      <span className="home-t">
+        {icon}
+        <span className="truncate">{name}</span>
+      </span>
+      <span className="block truncate text-[11px] text-ink/50">{brand}</span>
+      <span className="block truncate text-[12.5px] text-ink/60">{status}</span>
+    </>
+  );
   return (
     <div data-home-service={marker} data-home-apple-row="" className="home-tile flex items-center gap-3">
-      <span className="min-w-0 flex-1">
-        <span className="home-t">
-          {icon}
-          <span className="truncate">{name}</span>
-        </span>
-        <span className="block truncate text-[11px] text-ink/50">{brand}</span>
-        <span className="block truncate text-[12.5px] text-ink/60">{status}</span>
-      </span>
+      {href ? (
+        <Link href={href} data-home-apple-open="" className="min-w-0 flex-1 self-stretch py-1">
+          {words}
+        </Link>
+      ) : (
+        <span className="min-w-0 flex-1">{words}</span>
+      )}
       {action}
     </div>
   );

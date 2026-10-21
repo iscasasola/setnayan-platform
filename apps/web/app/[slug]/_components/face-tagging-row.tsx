@@ -54,12 +54,14 @@ export function FaceTaggingRow({
   const tappable = on || open;
 
   return (
-    <div data-face-tagging-row className="border-y border-ink/10">
+    /* 🃏 A SECTION OF ITS OWN: on Me it is one of the Hub's scene cards (`guest-me.tsx`, `.sn-hub-cards > section`),
+       so the card gives the paper and the edge — the row draws no rules or gutter of its own (guest_page_fixes_2_4). */
+    <section data-face-tagging-row="">
       <button
         type="button"
         disabled={!tappable}
         onClick={() => (on ? setMenu((m) => !m) : setCamera(true))}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left"
+        className="flex min-h-14 w-full items-center gap-3 text-left"
       >
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
           <ScanFace aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
@@ -71,7 +73,7 @@ export function FaceTaggingRow({
         {tappable ? <ChevronRight aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} /> : null}
       </button>
       {on && menu ? (
-        <div className="flex gap-2 border-t border-ink/10 px-4 py-3">
+        <div className="mt-3 flex gap-2 border-t border-ink/10 pt-3">
           {open ? (
             <button
               type="button"
@@ -101,6 +103,6 @@ export function FaceTaggingRow({
           onDone={() => setCamera(false)}
         />
       ) : null}
-    </div>
+    </section>
   );
 }

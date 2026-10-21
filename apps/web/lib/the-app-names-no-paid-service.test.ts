@@ -151,6 +151,8 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],
+  ['app/dashboard/[eventId]/_components/event-dashboard.tsx', '"Setnayan AI · The Watch" is drawn only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule: off in the app while the paywall is on)'],
+  ['app/dashboard/[eventId]/studio/save-the-date/page.tsx', 'the "part of Event Hub PRO" upsell is the last arm of `) : storeShell ? null : sellable ? (…) : (…)` — a chained ternary this scan does not follow'],
   ['app/dashboard/(account)/profile/concierge/page.tsx', '`notFound()` while CONCIERGE_ENABLED, which lib/concierge.ts holds permanently false'],
   ['app/dashboard/(account)/profile/page.tsx', 'the Setnayan AI rows sit under CONCIERGE_ENABLED (permanently false); the face-profile line under NEXT_PUBLIC_ACCOUNT_FACE_PROFILE_ENABLED (off) — OPEN if either flips'],
 ]);
@@ -188,9 +190,27 @@ function routeOf(rel: string): string {
   return '/' + segs.join('/');
 }
 
-/** Does an expression around `at` ask the store shell? The innermost four enclosing ( / { and the 240 chars before each. */
+/**
+ * Does the expression that draws `at` ask the store shell? Walks out through the
+ * innermost four enclosing `(` / `{`, and for each reads only ITS OWN condition —
+ * the text back to the previous `{ } ; >` (so `{storeShell ? null : (`,
+ * `if (x && !storeShell) {`, `open={storeShell ? null : {`) — plus, for the
+ * innermost, the text from it to the hit (`storeShell ? a : studioHubHref(…)`).
+ * A word wrapped in an element marked `data-web-only` counts too. Reading the
+ * whole stretch to a far-out opener would find any `storeShell` in the file —
+ * the sabotage runs (work/sabotage.sh) are what keep this narrow.
+ */
 const ASKS = /(?<![\w.])!?storeShell\b(?!\s*=(?!=))|\.storeShell\b|data-web-only/;
+function conditionBefore(src: string, i: number): string {
+  let j = i - 1;
+  // `>` ends a tag (`">`, `}>`, `div>`), never a comparison (`a > 0`) or an arrow (`=>`).
+  const ends = (k: number) => '{};'.includes(src[k]!) || (src[k] === '>' && k > 0 && !/[\s=]/.test(src[k - 1]!));
+  while (j >= 0 && i - j < 300 && !ends(j)) j--;
+  return src.slice(j + 1, i + 1);
+}
 function askedAround(src: string, at: number): boolean {
+  const tagStart = src.lastIndexOf('<', at);
+  if (tagStart >= 0 && /data-web-only/.test(src.slice(tagStart, at)) && !src.slice(tagStart, at).includes('</')) return true;
   let depthParen = 0;
   let depthBrace = 0;
   let openers = 0;
@@ -198,16 +218,16 @@ function askedAround(src: string, at: number): boolean {
     const c = src[i];
     if (c === ')') depthParen++;
     else if (c === '}') depthBrace++;
-    else if (c === '(') {
-      if (depthParen === 0) {
-        openers++;
-        if (ASKS.test(src.slice(Math.max(0, i - 240), at))) return true;
-      } else depthParen--;
-    } else if (c === '{') {
-      if (depthBrace === 0) {
-        openers++;
-        if (ASKS.test(src.slice(Math.max(0, i - 240), at))) return true;
-      } else depthBrace--;
+    else if (c === '(' || c === '{') {
+      const open = c === '(' ? depthParen : depthBrace;
+      if (open > 0) {
+        if (c === '(') depthParen--;
+        else depthBrace--;
+        continue;
+      }
+      openers++;
+      if (ASKS.test(conditionBefore(src, i))) return true;
+      if (openers === 1 && ASKS.test(src.slice(i, at))) return true;
     }
   }
   return false;

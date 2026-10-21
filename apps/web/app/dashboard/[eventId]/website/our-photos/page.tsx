@@ -123,13 +123,12 @@ export default async function OurPhotosEditorPage({
             Saved — your guests will see this gallery on your Event Hub.
           </div>
         ) : null}
-        {!proActive && storeShell ? (
-          heldForPro || drafted ? (
-            <p role={drafted ? 'status' : undefined} className="text-sm text-ink/70">
-              Saved in your Event Hub draft.
-            </p>
-          ) : null
-        ) : !proActive ? (
+        {!proActive && storeShell && (heldForPro || drafted) ? (
+          <p role={drafted ? 'status' : undefined} className="text-sm text-ink/70">
+            Saved in your Event Hub draft.
+          </p>
+        ) : null}
+        {!proActive && !storeShell ? (
           <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
             <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
             <span>

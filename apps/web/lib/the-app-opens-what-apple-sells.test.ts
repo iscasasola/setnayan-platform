@@ -1,0 +1,391 @@
+/**
+ * the-app-opens-what-apple-sells.test.ts — 🍎 VERSION 1.1: WHERE APPLE SELLS IN
+ * THE APP, WHAT IT SELLS IS USABLE THERE — AND NOWHERE ELSE DOES ANYTHING CHANGE.
+ *
+ * #6637 (merged flag-dark 2026-10-18) put Papic credits, Event Hub Pro and Live
+ * Watch on Apple's sheet; its "Not built here" list is this file's subject:
+ *
+ *   1 · the Papic and Live Watch CONTROL pages open in the app — only where Apple
+ *       sells (`iapAvailable`: the store shell, a StoreKit build announcing
+ *       `SetnayanIAP/1`, the owner's switch) — and draw no web price, no
+ *       GCash / BDO, no web link there; a Live Watch bought in the app has a
+ *       Go live door (App Review: a purchase must be usable in the app);
+ *   2 · Live Watch's Home line says where it was bought;
+ *   3 · Hero / Reveal / Logo and the Our Story page try Pro exactly where the
+ *       Maker editor's own Pro rows do (`proShell`).
+ *
+ * 🔒 THE OTHER HALF IS THE POINT: App 1.0 (build 5) is in App Review and the
+ * reviewer sees the LIVE web inside it. That build has no `SetnayanIAP/1`, and
+ * the switch is off — so with the gate off every door below must be ABSENT and
+ * every refused route still refused. Each part asserts both directions.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { isStoreShellWebOnlyPath, storeShellHidesHref } from './store-shell';
+import { iapAvailable } from './iap/iap-gate';
+import { boughtWhere, liveWatchHomeStatus } from './iap/where-bought';
+import { APP_STORE_CHANNEL_KEY } from './iap/products';
+import { POOL_ONLY_APP_NOTICE, POOL_ONLY_DEFAULT_NOTICE, poolOnlyConnectNotice } from './live-studio-pool-only';
+import { stripComments } from './strip-comments';
+
+(globalThis as unknown as { React: unknown }).React = React;
+
+// `server-only` / `client-only` are build-time markers; under node they resolve to an empty stub (the repo's pattern).
+type CjsModuleCtor = {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  _cache: Record<string, unknown>;
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+};
+const nodeRequire = createRequire(import.meta.url);
+const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
+const STUB = join(process.cwd(), '__server_only_stub_app_opens__.js');
+{
+  const stub = new CjsModule(STUB);
+  stub.filename = STUB;
+  stub.loaded = true;
+  stub.exports = {};
+  stub.paths = [];
+  CjsModule._cache[STUB] = stub;
+  const original = CjsModule._resolveFilename;
+  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return STUB;
+    return original.call(this, request, ...rest);
+  };
+}
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const WEB = join(HERE, '..');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const E = '00000000-0000-4000-8000-000000000000';
+const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+const CONTROLLER = 'app/panood/control/[eventId]/page.tsx';
+
+/* ═══ 1 · THE GATE — what opens, only where Apple sells ════════════════════ */
+
+const OPENS = [
+  `/dashboard/${E}/studio/papic`,
+  `/dashboard/${E}/studio/papic/`,
+  `/dashboard/${E}/studio/papic/crew`,
+  `/dashboard/${E}/studio/papic/moderation`,
+  `/dashboard/${E}/studio/papic/recap`,
+  `/panood/control/${E}`,
+  `/dashboard/${E}/studio/panood/cameras`,
+  `/dashboard/${E}/studio/panood/cameras/print`,
+];
+const STAYS_REFUSED = [
+  `/dashboard/${E}/studio/live-studio-control`, // the Live Watch buy page — its price, plans, checkout
+  `/dashboard/${E}/studio/live-studio-control/setup`,
+  `/dashboard/${E}/studio/panood`,
+  `/dashboard/${E}/studio/panood/setup`, // legacy, priced
+  `/dashboard/${E}/studio/panood/broadcast`,
+  `/panood/program/${E}`,
+  `/panood/control`, // no event: not the controller
+  `/dashboard/${E}/studio/about/papic`, // the App-Store-style detail page: a price + Get
+  `/dashboard/${E}/studio/papic-guest`,
+  `/dashboard/${E}/studio/patiktok`,
+  `/dashboard/${E}/studio/pakanta`,
+  `/dashboard/${E}/studio/setnayan-ai`,
+  `/dashboard/${E}/studio/website-pro`,
+  `/dashboard/${E}/orders/new`,
+  `/dashboard/${E}/checkout`,
+  `/dashboard/${E}/live`, // the Live Photo Wall — a web extra Apple does not sell
+  '/papic/order/tok',
+  '/pricing',
+  '/papic',
+  '/panood',
+  '/features/papic',
+  '/features/live-watch',
+  '/vendor-dashboard/subscription',
+];
+
+test('1 · GATE OFF — every page this build opens is still refused, exactly as before In-App Purchase', () => {
+  for (const p of OPENS) {
+    assert.equal(isStoreShellWebOnlyPath(p), true, `${p} opened with the gate off`);
+    assert.equal(isStoreShellWebOnlyPath(p, false), true, `${p} opened with iap=false`);
+  }
+  for (const p of STAYS_REFUSED) assert.equal(isStoreShellWebOnlyPath(p), true, `premise: ${p} is refused`);
+});
+
+test('1 · GATE ON — the Papic page and the Live Watch controller open; nothing that sells on the web does', () => {
+  for (const p of OPENS) assert.equal(isStoreShellWebOnlyPath(p, true), false, `${p} is still refused where Apple sells`);
+  for (const p of STAYS_REFUSED) assert.equal(isStoreShellWebOnlyPath(p, true), true, `${p} opened where Apple sells — it sells on the web`);
+  // The free planning routes are not touched either way.
+  for (const p of [`/dashboard/${E}`, `/dashboard/${E}/guests`, `/dashboard/${E}/studio`]) {
+    assert.equal(isStoreShellWebOnlyPath(p, true), false);
+    assert.equal(isStoreShellWebOnlyPath(p, false), false);
+  }
+});
+
+test('1 · the link guard keeps a link only where the page opens — same rule, same switch', () => {
+  const here = `https://www.setnayan.com/dashboard/${E}`;
+  const papic = `/dashboard/${E}/studio/papic`;
+  const goLive = `/panood/control/${E}`;
+  assert.equal(storeShellHidesHref(papic, here), true, 'gate off: the Papic link is hidden');
+  assert.equal(storeShellHidesHref(goLive, here), true, 'gate off: Go live is hidden');
+  assert.equal(storeShellHidesHref(papic, here, true), false, 'gate on: the Papic link stays');
+  assert.equal(storeShellHidesHref(goLive, here, true), false, 'gate on: Go live stays');
+  for (const p of STAYS_REFUSED) assert.equal(storeShellHidesHref(p, here, true), true, `gate on: a link to ${p} is shown`);
+  assert.equal(storeShellHidesHref(`/dashboard/${E}?more=services`, here, true), true, 'the More menu address stays hidden');
+});
+
+test('1 · middleware and the link guard ask the ONE three-part gate (`iapAvailable` + the owner switch)', () => {
+  const mw = code('middleware.ts');
+  assert.match(
+    mw,
+    /isStoreShellWebOnlyPath\(pathname, iapAvailable\(\{ storeShell, userAgent: ua, enabled: isAppleIapEnabled\(\) \}\)\)/,
+    'middleware does not hand the gate to the route rule',
+  );
+  assert.match(mw, /storeShell &&\s*isStoreShellWebOnlyPath\(pathname, iapAvailable/, 'the refusal no longer requires the store shell');
+  const guard = code('app/_components/store-shell-link-guard.tsx');
+  assert.match(guard, /iap = iapAvailable\(\{ storeShell: true, userAgent: navigator\.userAgent, enabled: isAppleIapEnabled\(\) \}\);/);
+  assert.match(guard, /storeShellHidesHref\(a\.getAttribute\('href'\), window\.location\.href, iap\)/);
+  // The gate itself: any one of the three missing → no Apple.
+  const ua = 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1 SetnayanIAP/1';
+  assert.equal(iapAvailable({ storeShell: true, userAgent: ua, enabled: true }), true);
+  assert.equal(iapAvailable({ storeShell: true, userAgent: ua, enabled: false }), false, 'the switch off');
+  assert.equal(iapAvailable({ storeShell: true, userAgent: 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1', enabled: true }), false, 'build 5 — no StoreKit plugin');
+  assert.equal(iapAvailable({ storeShell: false, userAgent: ua, enabled: true }), false, 'not the store shell');
+});
+
+/* ═══ 2 · HOME — the doors exist only where Apple sells ═══════════════════ */
+
+let Screen: typeof import('@/app/dashboard/[eventId]/_components/home-first-screen').HomeFirstScreen | null = null;
+test.before(async () => {
+  Screen = (await import('@/app/dashboard/[eventId]/_components/home-first-screen')).HomeFirstScreen;
+});
+
+function home(apple: unknown): string {
+  return renderToStaticMarkup(
+    React.createElement(Screen!, {
+      eventId: E,
+      cover: { title: 'Ana & Miguel', date: null, place: null },
+      next: null,
+      days: 120,
+      coming: 10,
+      noReply: 4,
+      noReplyWaiting: false,
+      money: null,
+      figures: null,
+      services: [],
+      papicLeft: 320,
+      apple,
+    } as never),
+  );
+}
+
+test('2 · GATE OFF — Home draws no Papic door, no Go live, no Apple row (the app as App Review sees it)', () => {
+  const html = home(null);
+  assert.doesNotMatch(html, /data-home-apple-row/, 'an Apple row with the gate off');
+  assert.doesNotMatch(html, /data-home-apple-open/, 'a Papic door with the gate off');
+  assert.doesNotMatch(html, />Go live</, 'a Go live door with the gate off');
+  assert.ok(!html.includes(`/panood/control/${E}`) && !html.includes(`/studio/papic`), 'a link to a control page with the gate off');
+  // …and #6637's own shape (no `open`, no `goLive`) draws no door either.
+  const shipped = home({
+    papic: { status: '320 credits left', buy: true },
+    liveWatch: { status: 'On', owned: true, askReady: false },
+  });
+  assert.match(shipped, /data-home-apple-row/, 'premise: the Apple rows draw');
+  assert.doesNotMatch(shipped, /data-home-apple-open|>Go live</, '#6637\'s shape grew a door');
+});
+
+test('2 · GATE ON — Papic opens its page; an owned Live Watch says where it was bought and has Go live', () => {
+  const html = home({
+    papic: { status: '320 credits left', buy: true, open: `/dashboard/${E}/studio/papic` },
+    liveWatch: { status: 'On · bought in the app', owned: true, askReady: false, goLive: `/panood/control/${E}` },
+  });
+  assert.match(html, new RegExp(`<a[^>]*href="/dashboard/${E}/studio/papic"[^>]*data-home-apple-open`), 'the Papic row does not open its page');
+  assert.match(html, new RegExp(`<a[^>]*href="/panood/control/${E}"[^>]*>[\\s\\S]*?Go live`), 'no Go live door to the controller');
+  assert.match(html, /On · bought in the app/);
+  assert.match(html, /data-testid="iap-papic-buy-more"/, 'Papic keeps its Apple Buy more');
+  assert.doesNotMatch(html, /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
+  // Not owned: Activate (Apple's sheet), never Go live.
+  const notOwned = home({ papic: null, liveWatch: { status: 'Not on yet · one camera is free', owned: false, askReady: true, goLive: null } });
+  assert.doesNotMatch(notOwned, />Go live</);
+});
+
+test('2 · the page hands `open` and `goLive` ONLY inside the Apple branch (appleFacts — the three-part gate)', () => {
+  const page = code('app/dashboard/[eventId]/page.tsx');
+  const branch = page.slice(page.indexOf('apple={'), page.indexOf('ground={homeCover}'));
+  assert.match(branch, /^apple=\{\s*appleFacts\s*\?/, 'the Apple prop is no longer behind appleFacts');
+  assert.match(branch, /open: `\/dashboard\/\$\{eventId\}\/studio\/papic`/);
+  assert.match(branch, /goLive: appleFacts\.liveActive && liveStudioRoamEnabled\(\) \? liveStudioControlPath\(eventId\) : null/);
+  assert.equal((page.match(/studio\/papic`/g) ?? []).length, 1, 'a second Papic door outside the Apple branch');
+});
+
+test('2 · Live Watch reads where it was bought — and claims nothing it cannot read', () => {
+  const app = { status: 'paid', payment_method_key: APP_STORE_CHANNEL_KEY };
+  const web = { status: 'paid', payment_method_key: 'gcash' };
+  assert.equal(boughtWhere([app]), 'app');
+  assert.equal(boughtWhere([web]), 'web');
+  assert.equal(boughtWhere([{ status: 'submitted', payment_method_key: null }]), 'web');
+  assert.equal(boughtWhere([app, web]), null, 'both: no single answer');
+  assert.equal(boughtWhere([{ ...app, status: 'refunded' }, web]), 'web', 'a refunded App Store order no longer counts');
+  assert.equal(boughtWhere([]), null, 'no order (an internal host, a comp grant)');
+  assert.equal(boughtWhere(null), null, 'a failed read');
+  assert.equal(liveWatchHomeStatus({ active: true, owned: true, where: 'web' }), 'On · bought on the web');
+  assert.equal(liveWatchHomeStatus({ active: true, owned: true, where: 'app' }), 'On · bought in the app');
+  assert.equal(liveWatchHomeStatus({ active: true, owned: true, where: null }), 'On');
+  assert.equal(liveWatchHomeStatus({ active: false, owned: true, where: 'app' }), 'Being switched on');
+  assert.equal(liveWatchHomeStatus({ active: false, owned: false, where: null }), 'Not on yet · one camera is free');
+  assert.equal(liveWatchHomeStatus({ active: null, owned: true, where: 'app' }), '—', 'a failed read says "—"');
+  // One spelling of the App Store channel: the fulfilment writes what Home reads.
+  assert.match(code('lib/iap/fulfil.server.ts'), /export const APP_STORE_CHANNEL = APP_STORE_CHANNEL_KEY;/);
+});
+
+/* ═══ 3 · THE PAPIC PAGE — opened, de-priced ══════════════════════════════ */
+
+/**
+ * Does the expression that mounts `at` ask `appleIap`? Walks out through the innermost six enclosing `(` / `{`, and
+ * for each reads its own condition: the text just before it (back to the previous `{ } ;`) and the head of the
+ * expression it opens (up to the mount, at most 140 characters) — the shapes `{appleIap ? null : <X …/>}`,
+ * `{!appleIap && … ? (`, `{appleIap ? null : ownsKeepFullRes ? (`, `{appleIap && live ? null : … ? (…) : (<X`.
+ */
+function asksAppleIap(src: string, at: number): boolean {
+  const depth: Record<string, number> = { '(': 0, '{': 0 };
+  const CLOSES: Record<string, string> = { ')': '(', '}': '{' };
+  let openers = 0;
+  for (let i = at - 1; i >= 0 && openers < 6; i--) {
+    const c = src[i]!;
+    if (c in CLOSES) depth[CLOSES[c]!]!++;
+    else if (c in depth) {
+      if (depth[c]! > 0) {
+        depth[c]!--;
+        continue;
+      }
+      openers++;
+      let j = i - 1;
+      while (j >= 0 && i - j < 240 && !'{};'.includes(src[j]!)) j--;
+      if (/\bappleIap\b/.test(src.slice(j + 1, i + 1))) return true;
+      if (/\bappleIap\b/.test(src.slice(i, Math.min(at, i + 140)))) return true;
+    }
+  }
+  return false;
+}
+
+test('3 · the Papic page reads the gate once, and every web-only offer on it asks it', () => {
+  const src = code(PAPIC_PAGE);
+  assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
+  // Each mount of a thing sold only on the web (apply-then-pay → /pay) — found by name, counted, every one gated.
+  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'ExtraCamerasPicker', 'GuestCameraTierPicker', 'DslrBridgeSection'];
+  let mounts = 0;
+  const ungated: string[] = [];
+  for (const name of SOLD_ON_THE_WEB) {
+    for (const m of src.matchAll(new RegExp(`<${name}\\b`, 'g'))) {
+      mounts++;
+      const inLimitedCard = name === 'GuestCameraTierPicker';
+      // The tier picker sits inside LimitedCard, whose own `appleIap` prop decides it (and the page hands it in).
+      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}${inLimitedCard ? ' (LimitedCard)' : ''}`);
+    }
+  }
+  assert.ok(mounts >= 5, `found only ${mounts} web-offer mounts — the anchor moved`);
+  assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
+  // The ₱ fallbacks of both offers sit inside the same gated sections.
+  for (const m of src.matchAll(/formatPhp\((papicUnlockPricePhp|keepFullResPricePhp)\)/g)) {
+    assert.ok(asksAppleIap(src, m.index!), `a bare ₱ (${m[1]}) is drawn in the app`);
+  }
+  // Every part handed the gate.
+  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<LimitedCard', '<GalleryPreviewCard']) {
+    const at = src.indexOf(mount);
+    assert.ok(at > 0, `${mount} moved`);
+    assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);
+  }
+  assert.match(src, /preservationTotals=\{appleIap \? null : preservationTotals\}/, 'the keep-at-full-size ₱ line is drawn in the app');
+  assert.match(src, /href=\{appleIap \? `\/dashboard\/\$\{eventId\}` : studioHubHref\(eventId\)\}/, 'Back goes to the More menu, which the app does not build');
+  assert.match(code('app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx'), /if \(appleIap\) return null;/);
+});
+
+test('3 · GATE ON — Buy more on the Papic page is Apple\'s sheet; GATE OFF — the web\'s, unchanged', async () => {
+  const { PapicTopBand } = await import('@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band');
+  const glance = { mood: 'ok', count: 320, total: 500, photos: 12, onFrom: null, phase: 'on', status: '320', pct: 64, buy: true } as never;
+  const draw = (apple: boolean) => renderToStaticMarkup(React.createElement(PapicTopBand, { eventId: E, glance, canBuy: true, apple }));
+  const web = draw(false);
+  assert.match(web, /data-testid="papic-buy-more"/, 'premise: the web band draws the web sheet');
+  assert.doesNotMatch(web, /iap-papic-buy-more/, 'the web band drew Apple');
+  const app = draw(true);
+  assert.match(app, /data-testid="iap-papic-buy-more"/, 'the app band does not draw Apple\'s sheet');
+  assert.doesNotMatch(app, /data-testid="papic-buy-more"/, 'the app band draws the web sheet (₱ · GCash · /pay)');
+  // Absent = the web's (every caller that does not know).
+  assert.match(renderToStaticMarkup(React.createElement(PapicTopBand, { eventId: E, glance, canBuy: true })), /data-testid="papic-buy-more"/);
+});
+
+/* ═══ 4 · THE LIVE WATCH CONTROLLER — the Go live door of an OWNED Live Watch ═══ */
+
+test('4 · in the app the controller opens only for an owned Live Watch, reads no web price, and exits Home', () => {
+  const src = code(CONTROLLER);
+  assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
+  assert.match(src, /const sku = appleIap \? null : await formatV2Sku\(LIVE_STUDIO_SKU\)/, 'the app reads the web price');
+  const owned = src.indexOf('const owned = broadcastWindow.multiCam;');
+  const turnAway = src.indexOf('if (appleIap && !owned) redirect(`/dashboard/${eventId}`);');
+  const lock = src.indexOf('const lock = liveStudioControlLock(');
+  assert.ok(owned > 0 && turnAway > owned && lock > turnAway, 'a not-owned event reaches the unlock surfaces in the app');
+  assert.match(src, /const exitHref = appleIap \? `\/dashboard\/\$\{eventId\}` : detailHref;/);
+  assert.match(src, /href=\{exitHref\}/, 'Exit still goes to the web buy page');
+  assert.match(src, /poolOnlyConnectNotice\(ownsHostedChannel, appleIap\)/);
+  // The hosted channel is a web extra Apple does not sell: the app's notice does not offer it.
+  assert.doesNotMatch(POOL_ONLY_APP_NOTICE, /hosted channel|Add the|Rather have/i);
+  assert.ok(POOL_ONLY_APP_NOTICE.length > 40 && POOL_ONLY_DEFAULT_NOTICE.startsWith(POOL_ONLY_APP_NOTICE), 'the app notice is not the default\'s own first sentences');
+  assert.equal(poolOnlyConnectNotice(false), POOL_ONLY_DEFAULT_NOTICE, 'gate off: the web\'s notice, unchanged');
+  assert.equal(poolOnlyConnectNotice(false, true), POOL_ONLY_APP_NOTICE);
+});
+
+/* ═══ 5 · PRO IN HERO · REVEAL · LOGO · OUR STORY — tried where the editor's rows are ═══ */
+
+test('5 · the made-once panels and Our Story try Pro by `proShell` — which IS `storeShell` with the gate off', () => {
+  const made = code('app/dashboard/[eventId]/launch/_components/maker-made-once.tsx');
+  // Each panel defaults `proShell` to `storeShell`: a caller that does not know gets the store shell's old rule.
+  assert.equal((made.match(/proShell = storeShell,/g) ?? []).length, 3, 'a made-once panel lost its gate-off default');
+  assert.match(made, /const canUpload = ownsPro \|\| !proShell;/);
+  assert.match(made, /proShell && !ownsPro \? \[\] : openings/);
+  assert.match(made, /motionMark=\{makerProMark\(\{ owns: ownsMotion, storeShell: proShell \}\)\}/);
+  // The tour still asks the store shell (a tour slide that sells stays dropped in the app).
+  assert.match(made, /<MiniTour tourKey="customer_hero_designs_v1" storeShell=\{storeShell\} \/>/);
+  const editor = code('app/dashboard/[eventId]/website/editor/page.tsx');
+  assert.match(editor, /const proShell = storeShell && !iapGate\.iap;/, 'premise: the editor\'s own rule (#6637)');
+  assert.equal((editor.match(/<Maker(?:Hero|Reveal|Logo)Panel[^>]*?proShell=\{proShell\}/g) ?? []).length, 3, 'a made-once panel is not handed the editor\'s proShell');
+  const story = code('app/dashboard/[eventId]/website/our-story/page.tsx');
+  assert.match(story, /const proShell = storeShell && !iapGate\.iap;/);
+  assert.match(story, /makerProUsable\(\{ owns: proActive, storeShell: proShell \}\)/);
+  // Prices and the Pro link still key on the store shell — never on proShell.
+  assert.match(story, /const proPrice = !storeShell && proSku\?\.price_php != null/);
+});
+
+test('5 · Our Story: the ◆ mark shows where Pro is tried in the app; gate off the app is unchanged', async () => {
+  const { LoveStoryBook } = await import('@/app/dashboard/[eventId]/website/our-story/_components/love-story-book');
+  const m = (id: string, y: number) => ({ id, date: { y }, line: `The words of ${id}`, canvas: {} });
+  const base = {
+    eventId: 'E1',
+    names: 'Ana & Miguel',
+    partners: ['Ana', 'Miguel'],
+    eyebrow: '14 Feb 2027',
+    moments: [m('a', 2019), m('b', 2020)],
+    since: 2019,
+    daysToTheDay: 120,
+    themeName: 'Vintage',
+    motionLabel: 'Calm',
+    makerHref: '/dashboard/E1/launch',
+    guestHref: null,
+    proHref: '/dashboard/E1/studio/website-pro',
+    proPrice: null,
+    refused: null,
+    sectionHidden: false,
+    mediaUrls: {},
+    action: () => {},
+    pickSlot: null,
+  };
+  const draw = (o: Record<string, unknown>) => renderToStaticMarkup(React.createElement(LoveStoryBook, { ...base, ...o } as never));
+  // Gate off, in the app: a free couple keeps the free cap's words, no mark (proUsable false there).
+  const off = draw({ storeShell: true, ownsPro: false, tryingPro: false });
+  assert.match(off, /stories, in your words, are free\./);
+  assert.doesNotMatch(off, /try it here; Apply asks/);
+  // Gate on: Pro is tried — the mark says so, and the page never claims Pro is theirs.
+  const on = draw({ storeShell: true, ownsPro: true, tryingPro: true, appleIap: true });
+  assert.match(on, /try it here; Apply asks for it/, 'the app tries Pro with no ◆ mark');
+  assert.doesNotMatch(on, /Add as many moments as you like/, 'the app tells a non-Pro couple Pro is theirs');
+  assert.doesNotMatch(on, /website-pro|₱/, 'a web Pro link or price in the app');
+});

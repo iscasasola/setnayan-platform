@@ -7,7 +7,7 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { formatPhp } from '@/lib/php';
-import { appStorePriceFloorPhp, type IapProduct } from './products';
+import { APP_STORE_CHANNEL_KEY, appStorePriceFloorPhp, type IapProduct } from './products';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
 
 /**
@@ -76,7 +76,7 @@ export function appStoreReferenceCode(transactionId: string): string {
 }
 
 /** The payment's `channel` and the order's `payment_method_key`. */
-export const APP_STORE_CHANNEL = 'app_store';
+export const APP_STORE_CHANNEL = APP_STORE_CHANNEL_KEY;
 
 /** Create the intent row whose key Apple signs into the purchase (`appAccountToken`). */
 export async function createPurchaseIntent(

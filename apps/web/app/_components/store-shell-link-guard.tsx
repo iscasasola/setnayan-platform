@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import { isStoreShellInBrowser, storeShellHidesHref } from '@/lib/store-shell';
+import { iapAvailable } from '@/lib/iap/iap-gate';
+import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 
 /**
  * STORE-SHELL LINK GUARD — in the App Store / Play Store shell, no link to a
@@ -20,11 +22,16 @@ import { isStoreShellInBrowser, storeShellHidesHref } from '@/lib/store-shell';
  * nothing else. It never runs outside the store shell — desktop
  * (`SetnayanApp/desktop`) and the web are untouched — and the pages stay
  * whole: only the door to /web-only goes. Mounted once, in app/layout.tsx.
+ *
+ * 🍎 Where Apple sells in this app it asks `iapAvailable` exactly as
+ * middleware does, so a link to a page In-App Purchase opens (Papic, the Live
+ * Watch controller — `IAP_OPENED_ROUTE`) stays; with it off, nothing changes.
  */
 const MARK = 'storeShellHidden';
+let iap = false;
 
 function apply(a: HTMLAnchorElement): void {
-  const hide = storeShellHidesHref(a.getAttribute('href'), window.location.href);
+  const hide = storeShellHidesHref(a.getAttribute('href'), window.location.href, iap);
   if (hide) {
     if (a.dataset[MARK] === '1') return;
     a.hidden = true;
@@ -53,6 +60,7 @@ export function StoreShellLinkGuard() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (!isStoreShellInBrowser(navigator.userAgent, document.cookie)) return;
+    iap = iapAvailable({ storeShell: true, userAgent: navigator.userAgent, enabled: isAppleIapEnabled() });
 
     sweep(document);
     const observer = new MutationObserver((records) => {

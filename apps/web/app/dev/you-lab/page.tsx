@@ -16,8 +16,8 @@
  *   &dark=1           (a walk adds `html.dark`) — the card's dark rules are inert until the route is DARK_READY
  *
  * The photo's live moments (chosen and not saved yet · uploading · refused) are the REAL upload widget
- * driven by a walk that answers `/api/upload` locally — the lab itself sends nothing anywhere. Done posts to
- * a do-nothing stand-in, so a lab press never reaches the database.
+ * driven by a walk that answers `/api/upload` locally — the lab itself sends nothing anywhere. Done is a plain
+ * GET back to the lab (no server action), so a lab press never reaches the database.
  */
 import { notFound } from 'next/navigation';
 import { YouCard, type YouCardMe } from '@/app/signup/you/_components/you-card';
@@ -59,11 +59,6 @@ const STATES: Record<string, { me: YouCardMe; email: string; photos: Record<stri
     photos: { [LAB_PHOTO_REF]: LAB_PHOTO_URL },
   },
 };
-
-/** The lab's Done: nothing is saved, nothing is sent — the card simply re-draws. */
-async function labDone(): Promise<void> {
-  'use server';
-}
 
 export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string; behind?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -130,7 +125,8 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
   return (
     <div data-you-lab={key}>
       <YouCard
-        action={labDone}
+        // The lab's Done is a plain GET back to the lab: nothing is saved, nothing is sent.
+        action="/dev/you-lab"
         next="/dashboard"
         errorMessage={null}
         userId="lab-user"

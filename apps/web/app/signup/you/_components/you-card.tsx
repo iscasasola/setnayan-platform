@@ -55,7 +55,8 @@ export function YouCard({
   me,
   photoDisplayMap,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  /** `saveYou` on the page; the lab's plain address (a GET back to itself) so a lab press saves nothing. */
+  action: string | ((formData: FormData) => void | Promise<void>);
   next: string;
   errorMessage: string | null;
   userId: string;

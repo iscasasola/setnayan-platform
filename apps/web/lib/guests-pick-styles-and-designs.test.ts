@@ -26,10 +26,10 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey, type LibraryDesign } from './attire-library';
-import { allowedDesigns, allowedStyles, designArt, drawnDesigns, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
+import { allowedDesigns, allowedStyles, designArt, drawnDesigns, keepWomenDesigns, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
 import { FIGURE_ART, GUEST_SUIT_BLACK, TIE_DESIGNS, DESIGN_ZONES, type FigureGarment } from './attire-figures';
 import { roleArtKey, roleDesigns, type FigureRole } from './attire-designs';
-import { attireRow, sanitizeSecondPicks, withSecondColours } from './attire-rows';
+import { attireRow, withSecondColours } from './attire-rows';
 import type { AttireStyle } from './role-dress-code';
 import { zoneTints } from './role-figure';
 import { withAttireStyle, withCallTime } from './mood-board-studio';
@@ -348,11 +348,16 @@ test('6 · every drawn guest design takes the palette by its own zones — never
 
 test('7 · the stored ticks survive every other write, and paper says every allowed style', () => {
   const stored = config(['suit', 'barong_tagalog/pina'], ['long_gown', 'filipiniana']);
-  assert.deepEqual(sanitizeSecondPicks(stored.women).roles?.guest?.designs, ['long_gown', 'filipiniana']);
-  /* Every other write to a column keeps its ticks — a colour change rebuilds the women's picks through the sanitizer,
-     the men's Wear line is spread as stored (`withAttireStyle`). */
-  const recoloured = withSecondColours(stored, 'roles', 'guest', ['#123456']);
+  /* Every other write to a column keeps its ticks — a colour change rebuilds the women's picks through the sanitizer
+     (the Studio's writes run through `keepWomenDesigns`), the men's Wear line is spread as stored (`withAttireStyle`). */
+  const recoloured = keepWomenDesigns(stored, withSecondColours(stored, 'roles', 'guest', ['#123456']));
   assert.deepEqual(picksWithDesigns(recoloured, GUEST_ROW)[1]!.designs, ['long_gown', 'filipiniana'], 'a colour change dropped the women’s designs');
+  /* The men's Wear changed (it pins the women's): the women keep theirs. */
+  const menNow = withColumnDesigns(stored, 'roles', 'guest', 0, 'barong_tagalog', ['barong_tagalog'], withAttireStyle);
+  assert.deepEqual(picksWithDesigns(menNow, GUEST_ROW)[1]!.designs, ['long_gown', 'filipiniana'], 'the men’s write dropped the women’s designs');
+  /* A women's narrowing back to one whole style is NOT undone by the keeper. */
+  const back = withColumnDesigns(stored, 'roles', 'guest', 1, 'long_gown', ['long_gown'], withAttireStyle);
+  assert.equal(picksWithDesigns(back, GUEST_ROW)[1]!.designs ?? null, null, 'ticking back to one whole style was undone');
   const renoted = withCallTime(stored, 'roles', 'guest', '14:00');
   assert.deepEqual(picksWithDesigns(renoted, GUEST_ROW)[0]!.designs, ['suit', 'barong_tagalog/pina'], 'a call time dropped the men’s designs');
   const palette = sanitizeRolePalette({ guest: COLOURS, touched_roles: ['guest'] });

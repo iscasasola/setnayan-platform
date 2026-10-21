@@ -24,7 +24,8 @@ import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey, type Lib
 import { columnRole, designLabel, roleDesigns, type FigureRole } from './attire-designs';
 import { FIGURE_ART, artZoneKeys, type FigureArt, type FigureGarment } from './attire-figures';
 import { isAttireStyle, type AttireStyle } from './role-dress-code';
-import { picksOf, sanitizeSecondPicks, withFirstStyle, withSecondStyle, type AttireRowDef, type AttireTier, type ReadPick } from './attire-rows';
+import { formatCount } from './format-number';
+import { picksOf, withFirstStyle, withSecondStyle, type AttireRowDef, type AttireTier, type ReadPick } from './attire-rows';
 
 /* 👔 Every DRAWN design of a style's five joins the drawings (`FIGURE_ART`) — here, the one door to a design key. The
    shipped first design already is one of the 45.
@@ -175,7 +176,7 @@ const WORD = ['no', 'one', 'two', 'three', 'four', 'five'];
  */
 export function styleAllowedSaid(a: AllowedStyle | undefined, drawn: number): string {
   if (!a) return 'not allowed';
-  if (a.designs.length < drawn) return `${a.designs.length} of ${drawn}`;
+  if (a.designs.length < drawn) return `${formatCount(a.designs.length)} of ${formatCount(drawn)}`;
   if (drawn === 1) return a.designs[0]!.label;
   return drawn === 2 ? 'both' : `all ${WORD[drawn] ?? drawn}`;
 }
@@ -195,11 +196,42 @@ export function picksWithDesigns(config: Config, row: AttireRowDef): ReadPick[] 
   const raw = (i: number): unknown =>
     i === 0
       ? (((config?.[row.tier] ?? {}) as Record<string, { designs?: unknown }>)[row.key] ?? {}).designs
-      : sanitizeSecondPicks(config?.women)[row.tier]?.[row.key]?.designs;
+      : womenPick(config, row.tier, row.key)?.designs;
   return picks.map((p, i) => {
     const t = sanitizeDesignTicks(columnRole(row.key, i as 0 | 1), p.style, raw(i));
     return t ? { ...p, designs: t } : p;
   });
+}
+
+type Picks = Record<string, Record<string, Record<string, unknown>>>;
+/** The women's (second) pick of a row, as stored — raw, so its `designs` are seen. */
+function womenPick(config: Config, tier: AttireTier, key: string): Record<string, unknown> | undefined {
+  const w = config?.women as Picks | undefined;
+  const pick = w?.[tier]?.[key];
+  return pick && typeof pick === 'object' ? pick : undefined;
+}
+
+/**
+ * 🔁 EVERY OTHER WRITE KEEPS THE WOMEN'S TICKS. The second picks are rebuilt through `sanitizeSecondPicks` on every write
+ * to them (`withSecondStyle`, `withSecondColours`, and the first column's write that pins them) — which knows nothing of
+ * `designs` (kept so, so the Maker's first load never grows: `check-maker-js-budget.mjs`). So a write the Studio makes
+ * runs through here: each pick that had ticks and still holds the same Wear gets them back; one whose Wear changed, or
+ * that a write deliberately cleared (`withColumnDesigns`), is left as written.
+ */
+export function keepWomenDesigns<C extends Record<string, unknown>>(before: Record<string, unknown> | null | undefined, after: C): C {
+  const was = before?.women as Picks | undefined;
+  const now = after.women as Picks | undefined;
+  if (!was || !now) return after;
+  let out: Picks | null = null;
+  for (const [tier, map] of Object.entries(was)) {
+    for (const [key, pick] of Object.entries(map ?? {})) {
+      const next = now[tier]?.[key];
+      if (!Array.isArray(pick?.designs) || !next || 'designs' in next || next.style !== pick.style) continue;
+      out ??= { ...now };
+      out[tier] = { ...(out[tier] ?? {}), [key]: { ...next, designs: pick.designs } };
+    }
+  }
+  return out ? { ...after, women: out } : after;
 }
 
 /** The drawing a column's people wear: its first allowed design's — or null where its person has no library. */
@@ -230,10 +262,13 @@ export function withColumnDesigns<C extends Record<string, unknown>>(
     return { ...map, [key]: keep ? { ...rest, designs: keep } : rest };
   };
   if (index === 1) {
-    const next = withSecondStyle(config, tier, key, style) as C & { women?: Record<string, Record<string, Record<string, unknown>>> };
+    /* Every other pick keeps its ticks; this one is then set as asked. */
+    const { [key]: _mine, ...others } = ((config.women as Picks | undefined)?.[tier] ?? {}) as Record<string, Record<string, unknown>>;
+    const base = { ...config, women: { ...((config.women as Picks | undefined) ?? {}), [tier]: others } } as C;
+    const next = keepWomenDesigns(base, withSecondStyle(config, tier, key, style)) as C & { women?: Picks };
     const women = next.women ?? {};
     return { ...next, women: { ...women, [tier]: setOn({ ...(women[tier] ?? {}) }) } };
   }
-  const next = withFirstStyle(config, tier, key, style, write);
+  const next = keepWomenDesigns(config, withFirstStyle(config, tier, key, style, write));
   return { ...next, [tier]: setOn({ ...((next[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) }) };
 }

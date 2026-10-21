@@ -28,7 +28,7 @@ import {
 } from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
-import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns } from '@/lib/attire-design-picks';
+import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns, keepWomenDesigns } from '@/lib/attire-design-picks';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
 import { garmentOfPick, pickDots, zoneColours } from '@/lib/role-figure';
@@ -402,15 +402,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
      has always been stored, the second (women · girls) in `women` (`lib/attire-rows.ts`), the note on the row's rule. */
   const wear = (row: StudioAttireRow, style: string | null) => {
     if (!dress) return;
-    saveDress(withFirstStyle(dress, row.tier, row.key, style, withAttireStyle));
+    saveDress(keepWomenDesigns(dress, withFirstStyle(dress, row.tier, row.key, style, withAttireStyle)));
   };
   const wearSecond = (row: StudioAttireRow, style: string | null) => {
     if (!dress) return;
-    saveDress(withSecondStyle(dress, row.tier, row.key, isAttireStyle(style) ? style : null));
+    saveDress(keepWomenDesigns(dress, withSecondStyle(dress, row.tier, row.key, isAttireStyle(style) ? style : null)));
   };
   const secondColours = (row: StudioAttireRow, colours: string[] | null) => {
     if (!dress) return;
-    saveDress(withSecondColours(dress, row.tier, row.key, colours));
+    saveDress(keepWomenDesigns(dress, withSecondColours(dress, row.tier, row.key, colours)));
   };
   const noteFor = (row: StudioAttireRow) => (((dress?.[row.tier] ?? {}) as Record<string, { note?: unknown }>)[row.key]?.note as string | undefined) ?? '';
   const writeNote = (row: StudioAttireRow, note: string) => {
@@ -1223,9 +1223,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       ? {
                           label: `${pickLabel} · Wear`,
                           value: null,
-                          wide: true,
                           picked: allowed.flatMap((a) => a.designs.map((d) => designKey(d.id))),
-                          doneNote: `${designCount} ${designCount === 1 ? 'design' : 'designs'}`,
+                          doneNote: `${formatCount(designCount)} ${designCount === 1 ? 'design' : 'designs'}`,
                           head: (
                             <li role="none" className="px-3 pb-2 text-[13px] leading-snug text-ink/70" data-mood-board-wear-how="">
                               Tick a style and guests may wear any of its designs. Untick a design to narrow it.
@@ -1270,7 +1269,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           buttonText:
                             allowed.length === 0
                               ? 'Not said yet'
-                              : `${allowed[0]!.label}${allowed.length > 1 ? ` +${allowed.length - 1}` : ''}${designCount > 1 ? ` · ${designCount} designs` : ''}`,
+                              : `${allowed[0]!.label}${allowed.length > 1 ? ` +${allowed.length - 1}` : ''}${designCount > 1 ? ` · ${formatCount(designCount)} designs` : ''}`,
                           attrs: { 'data-mood-board-wear-for': pick.who, 'data-mood-board-wear-designs': String(designCount) } as Readonly<Record<`data-${string}`, string>>,
                         }
                       : {
@@ -1282,7 +1281,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           attrs: { 'data-mood-board-wear-for': pick.who } as Readonly<Record<`data-${string}`, string>>,
                         };
                     const wearRow = dress ? (
-                      <FormRows width={library ? 'wide' : 'short'} data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
+                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
                         <ChosenRow name="Wear" dataAttr="data-mood-board-wear" {...wearPick} />
                         {library && designCount > 1 ? (
                           <p className="mt-1.5 text-[12px] leading-snug text-ink/65" data-mood-board-wear-allowed="">

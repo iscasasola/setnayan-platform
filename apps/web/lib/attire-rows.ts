@@ -225,8 +225,7 @@ export const PICK_LABEL: Readonly<Record<FigureWho, string>> = { m: 'For men', f
 
 /* ── the second pick, stored ─────────────────────────────────────────────── */
 
-/** `designs` — the column's allowed styles and designs (`lib/attire-design-picks.ts`), its first being `style`'s. */
-export type SecondPick = { style?: AttireStyle | null; colours?: string[]; designs?: string[] };
+export type SecondPick = { style?: AttireStyle | null; colours?: string[] };
 export type SecondPicks = { roles?: Record<string, SecondPick>; groups?: Record<string, SecondPick> };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -255,8 +254,6 @@ export function sanitizeSecondPicks(raw: unknown): SecondPicks {
         const colours = v.colours.filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, secondPickColoursMax(key));
         if (colours.length > 0) pick.colours = colours;
       }
-      /* 👔 Its styles and designs (owner 2026-10-21) — kept as written, read against its person by `sanitizeDesignTicks`. */
-      if (Array.isArray(v.designs) && pick.style) pick.designs = v.designs.filter((t): t is string => typeof t === 'string').slice(0, 30);
       if (!('style' in pick) && !pick.colours) continue;
       (out[tier] ??= {})[key] = pick;
     }

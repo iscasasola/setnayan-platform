@@ -15,6 +15,7 @@ import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 export const metadata = { title: 'Create a Simple Event' };
 
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give your event a name.',
@@ -91,6 +92,8 @@ export default async function SimpleOnboardingPage({
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
       <header className={setupView ? 'mb-4 space-y-2' : 'mb-8 space-y-2'}>
+        {/* The brand line (owner 2026-10-21, "make sure there is Setnayan") — the same one every first-run screen carries. */}
+        <FirstRunBrand color="rgb(var(--color-ink))" size={13} className="pb-1" />
         <Link
           href="/dashboard/create-event"
           className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"

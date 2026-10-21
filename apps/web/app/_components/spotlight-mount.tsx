@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { SpotlightScript, TourKey } from '@/lib/tours';
+import { spotlightSteps } from '@/lib/spotlight-steps';
 
 /* 📦 THE ENGINE LOADS ONLY WHEN A TOUR RUNS. A bare `React.lazy` (as `couple-logo.tsx` does): the
    tour never renders on the server, so it needs none of `next/dynamic`'s SSR machinery. A person
@@ -28,6 +29,7 @@ export function SpotlightMount({
   script,
   seen,
   replay = false,
+  name = null,
   completeAction,
 }: {
   tourKey: TourKey;
@@ -35,6 +37,8 @@ export function SpotlightMount({
   seen: boolean;
   /** Answers "Show me around" (one mount per layout — never two tours at once). */
   replay?: boolean;
+  /** The person's display name, for a welcome step's "Welcome, {name}". */
+  name?: string | null;
   completeAction: (tourKey: TourKey) => Promise<void>;
 }) {
   const [run, setRun] = useState<{ record: boolean; restart: boolean; n: number } | null>(null);
@@ -58,7 +62,8 @@ export function SpotlightMount({
       <SpotlightTour
         key={run.n}
         tourKey={tourKey}
-        steps={script.steps}
+        steps={spotlightSteps(script.steps, run.record)}
+        name={name}
         finale={script.finale}
         record={run.record}
         restart={run.restart}

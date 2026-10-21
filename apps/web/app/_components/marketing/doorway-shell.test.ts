@@ -639,9 +639,12 @@ test('the gold button opens the create flow, not the board', () => {
     …and the way OUT of that flow must not re-fire the board's auto-jump.
     `?hub=1` is the only escape from it.
   */
+  // The way back is drawn by the page's head (`NewEventHead`, split out 2026-10-21), which the page renders.
   const createPage = code(read(join(APP, 'dashboard', '(account)', 'create-event', 'page.tsx')));
+  assert.match(createPage, /<NewEventHead\b/, 'the create page no longer draws its head');
+  const createHead = code(read(join(APP, 'dashboard', '(account)', 'create-event', '_components', 'new-event-head.tsx')));
   assert.match(
-    createPage,
+    createHead,
     /'\/dashboard\?hub=1'/,
     "The create page's back link dropped `?hub=1`, so leaving it dumps a " +
       'one-event couple INSIDE their wedding rather than on their board.',

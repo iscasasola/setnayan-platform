@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ArrowLeft, HeartHandshake, Sparkles, Users } from 'lucide-react';
+import { HeartHandshake, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
@@ -22,6 +22,7 @@ import {
 import { getInPlanningWedding } from './wedding-guard';
 import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
+import { NewEventHead } from './_components/new-event-head';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
    lands in DIY by default. */
@@ -118,6 +119,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     data: { user },
   } = await supabase.auth.getUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
+  // 🚪 A brand-new account's FIRST screen after the You card (owner 2026-10-21, prototype
+  // first_run_you_and_next_steps P2): there is no board behind it yet, so no "Back to events". A count, not the
+  // rows; an unread count (error) keeps the way back — the unknown never reads as "nothing behind you".
+  let nothingBehind = false;
+  if (user && !params.samahan) {
+    const { count, error } = await supabase
+      .from('event_members')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (error) logQueryError('CreateEventPage.eventCount', error, { user_id: user.id }, 'graceful_degrade');
+    nothingBehind = !error && (count ?? 0) === 0;
+  }
 
   // Samahan context (plan §7): `?samahan=<communityId>` turns this into
   // COMMUNITY event creation — organizer-gated. A non-organizer, a plain
@@ -315,29 +328,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-2 space-y-2">
-{/*
-          🔴 `?hub=1`, NOT A BARE `/dashboard`. The board AUTO-JUMPS a couple who
-          holds exactly one upcoming event straight back into that event
-          (`(launcher)/page.tsx:348`) — an owner ruling that stays. So the
-          routine way OUT of this page would have dumped them INSIDE their
-          wedding instead of on their events board, and `?hub=1` is the only
-          escape hatch that exists. This matters now because the rail's
-          "+ Create event" points here (2026-08-15); before that, almost nobody
-          arrived from the board.
-        */}
-        <Link
-          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
-          className="sn-chip sn-press w-fit"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
-        </Link>
-        <p className="sn-eye">
-          <Sparkles aria-hidden strokeWidth={1.75} />
-          New event
-        </p>
-      </div>
+      <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker
         types={typesForContext}

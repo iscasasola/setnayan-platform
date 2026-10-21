@@ -283,13 +283,13 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} />;
+    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} />;
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;

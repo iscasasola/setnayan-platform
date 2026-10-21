@@ -32,6 +32,8 @@ import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { dateChangeShort } from '@/lib/supplier-today';
+import { formatCount } from '@/lib/format-number';
+import type { FirstStepThen } from '@/lib/vendor-first-steps';
 import type {
   ShopPill,
   SupplierIcon,
@@ -288,6 +290,8 @@ export type SupplierTodayFirstScreenProps = {
   second: TodayNextSecond | null;
   /** "1 of 3", or null. */
   counter: string | null;
+  /** "Then" — the next first steps under a setup Next card (`firstStepsThen`). */
+  then?: readonly FirstStepThen[];
   /** A few words after the eyebrow ("Waiting 2 h"), or null. */
   meta: string | null;
   /** The couple's initials, in the circle before the title ("RC"), or null (`nextWho`). */
@@ -396,6 +400,7 @@ export function SupplierTodayFirstScreen({
   answerOnCard = null,
   outcome = null,
   nextNote = null,
+  then = [],
   numbers,
   alsoToday = [],
   comingUp,
@@ -492,6 +497,24 @@ export function SupplierTodayFirstScreen({
               className="min-h-11 shrink-0"
             />
           ) : null}
+        </div>
+      ) : null}
+
+      {/* 🛤 THEN — the short road after the Next card while the shop is being set up (owner 2026-10-21, prototype
+          first_run_you_and_next_steps S4): the next steps of the shipped rail, in its own order, each a door; the
+          approval says what it is and is pressed by nobody. Hairline rows, no boxes. */}
+      {then.length > 0 ? (
+        <div data-today-then>
+          <TodayEyebrow>Then</TodayEyebrow>
+          <div className="[&>*:first-child]:border-t-0">
+            {then.map((s) =>
+              s.href ? (
+                <TodayRow key={s.key} href={s.href} label={`${formatCount(s.n)} · ${s.title}`} line={null} marker={`then-${s.key}`} />
+              ) : (
+                <TodayNoteRow key={s.key} label={`${formatCount(s.n)} · ${s.title}`} line={null} rowIcon="check" marker={`then-${s.key}`} />
+              ),
+            )}
+          </div>
         </div>
       ) : null}
 

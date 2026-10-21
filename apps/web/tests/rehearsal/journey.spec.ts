@@ -334,7 +334,7 @@ test('the launch-critical journey', async ({ browser }) => {
     expect(comingBefore).toBeGreaterThanOrEqual(FIXTURE.attendingAtStart);
     expect(comingBefore).toBeLessThanOrEqual(FIXTURE.attendingAtStart + 2);
     check(`the "coming" tile reads ${comingBefore} (the fixture has ${FIXTURE.attendingAtStart} guests who said yes)`);
-    await expect(host.getByRole('link', { name: 'Edit your Event Hub' }).first()).toBeVisible();
+    await expect(host.getByRole('link', { name: 'Event Hub', exact: true }).first()).toBeVisible();
     check('the Event Hub door is on the Home');
   });
 

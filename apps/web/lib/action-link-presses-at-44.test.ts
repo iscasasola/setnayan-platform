@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,4 +42,56 @@ test('an ActionButton — link or button — carries a press expander that reach
 test('the producer still renders a link for href — the rule above has something to hold', () => {
   const src = stripComments(readFileSync(join(WEB, 'components/action-button.tsx'), 'utf8'));
   assert.ok(/props\.href !== undefined/.test(src) && /<Link\b/.test(src), 'ActionButton no longer renders <Link> for href');
+});
+
+// ── NOTHING CLIPS THE EXPANDER (fits-every-phone 2026-10-21) ───────────────────────────────────────────────────
+// The expander is an `::after` that reaches past the pill; an `overflow: hidden` ON the pill clips it back to the
+// paint. The Home's three doors ("Edit your Event Hub / Guest list / Suppliers") pressed at 40px for exactly that
+// reason (`.home-doors > :is(button, a).ab.ab-neutral { overflow: hidden }`), measured by pressing in the sweep.
+// Read from every stylesheet: no rule whose subject is an ActionButton (`.ab` in the LAST compound of a selector)
+// may clip its overflow — unless that same rule paints it at least 44px tall, so the paint itself is the press
+// (the Home doors' fix: they clip on purpose, for the row's fit pass, and are drawn 44).
+function cssFiles(dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) cssFiles(rel, out);
+    else if (rel.endsWith('.css')) out.push(rel);
+  }
+  return out;
+}
+/** Split a selector list on top-level commas only — `:is(button, a)` stays whole. */
+function selectors(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of list) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+test('no stylesheet clips an ActionButton — the overflow would swallow its own 44px expander', () => {
+  const files = ['app', 'components', 'lib'].flatMap((d) => cssFiles(d));
+  assert.ok(files.includes('app/globals.css') && files.length > 5, `only ${files.length} stylesheets found — the walk is broken`);
+  const bad: string[] = [];
+  for (const f of files) {
+    const src = stripComments(readFileSync(join(WEB, f), 'utf8'));
+    for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!/(?:^|[;\s])overflow(?:-[xy])?\s*:\s*(?:hidden|clip)/.test(m[2]!)) continue;
+      const tall = Number(m[2]!.match(/(?:^|[;\s])(?:min-)?height:\s*(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+      if (tall >= 44) continue;
+      for (const sel of selectors(m[1]!)) {
+        const subject = sel.split(/\s+|>|\+|~/).filter(Boolean).pop() ?? '';
+        if (/\.ab(?![\w-])/.test(subject.replace(/:global\(([^)]*)\)/g, '$1'))) bad.push(`${f}: ${sel}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, [], `an ActionButton is clipped, so it presses at its paint:\n${bad.join('\n')}`);
 });

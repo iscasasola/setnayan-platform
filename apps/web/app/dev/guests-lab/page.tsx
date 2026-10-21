@@ -16,6 +16,9 @@
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1
+ *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
+ *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
+ *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -50,7 +53,7 @@ import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
-import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
+import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
@@ -64,6 +67,7 @@ import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneSeatLines } from '@/lib/extra-seats';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
@@ -199,7 +203,7 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     groupOptions: ['family', 'friends'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: isCouple ? 'Sweetheart Table' : 'Entourage',
@@ -290,7 +294,7 @@ function planningRoster(): GuestRow[] {
  * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
  * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
  */
-function withPlusOnes(roster: GuestRow[], backfilled = false): GuestRow[] {
+function withPlusOnes(roster: GuestRow[], backfilled = false, paired = false): GuestRow[] {
   const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
     guest({
       guest_id: id,
@@ -318,8 +322,14 @@ function withPlusOnes(roster: GuestRow[], backfilled = false): GuestRow[] {
     /* 🪑 2026-10-20, live cale-ice, read-only: two of the groom's immediate family (`groom_immediate_family`, groom's side)
        whose "+1" seat rows were REMOVED (soft-deleted 2026-10-14) while their "+1" stayed — so the List drew a +1 pill
        over a seat with no row. Stand-in names, the same roles, sides and numbers; no seat row for either. */
-    guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
-    guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true, ...(paired ? { pair_with_guest_id: 'g-p1-h002' } : {}) }),
+    guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true, ...(paired ? { pair_with_guest_id: 'g-p1-h001' } : {}) }),
+    /* 🤝 `&paired=1` — the same two as a PAIR (`pair_with_guest_id`, as live: Juanita ↔ Maxima Sacdalan) after the owner
+       re-added their +1 on 2026-10-22: each has a live "+1 · TBA" row again, made the older way (host_seeded, limited).
+       A pair is not drawn on the List (pairs live in the Wedding March) — each +1 still sits under their own guest. */
+    ...(paired
+      ? [seat('g-p1-0h01', 'g-p1-h001', { side: 'groom', group_category: 'family' }), seat('g-p1-0h02', 'g-p1-h002', { side: 'groom', group_category: 'family' })]
+      : []),
     /* 🪑 2026-10-21, live cale-ice, read-only: a guest allowed +1 since 2026-09-14 whose seat was NEVER made (Antonio
        Loo, Ronald Llarena — owner: "why does Ronald Dane Llarena have a +1 but no row under him"). `&backfilled=1`
        draws the row the backfill (20271282098748) mints for him; without it, the List as it stood. */
@@ -417,7 +427,7 @@ export default async function GuestsLabPage({
             </div>
           </div>
         </main>
-        <HomePillNav hasSpaces spacesHref="/vendor-dashboard" />
+        <AccountBottomNav tabs={['events', 'discover', 'memories', 'people', 'shop']} />
       </div>
     );
   }
@@ -447,7 +457,23 @@ export default async function GuestsLabPage({
           : guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
         : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
     /* 🖐 `&marked=1` — the guest's reply was set by the host (owner 2026-10-21): the RSVP row reads "Attending · Marked by you". */
-    const g: GuestRow = sp.marked === '1' ? { ...g0, rsvp_status: 'attending', rsvp_set_by: 'host' } : g0;
+    const g1: GuestRow = sp.marked === '1' ? { ...g0, rsvp_status: 'attending', rsvp_set_by: 'host' } : g0;
+    /* 🪑 `&seats=2` — live: Antonio Loo / Darryl Jan Patrick Lim bring two +1s each. Here one is named, one is not yet. */
+    const twoSeats = sp.seats === '2' && !seatCard && !host;
+    const g: GuestRow = twoSeats ? { ...g1, plus_one_count: 2, plus_one_allowed: true } : g1;
+    const seatLines = twoSeats
+      ? {
+          plusOneLines:
+            sp.seatread === 'fail'
+              ? null
+              : sp.seatread === 'empty'
+                ? []
+                : plusOneSeatLines(g.guest_id, [
+                    { guest_id: 'g-lab-s1', first_name: 'Ana', last_name: 'Cruz', plus_one_name_confirmed_at: '2026-10-01T00:00:00Z', created_at: '2026-09-30T00:00:00Z' },
+                    { guest_id: 'g-lab-s2', first_name: 'TBA', last_name: '+1', plus_one_name_confirmed_at: null, created_at: '2026-09-30T00:00:01Z' },
+                  ]),
+        }
+      : {};
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
@@ -517,7 +543,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"
@@ -595,7 +621,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
+    const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
     /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
     const roster1 = sp.marked === '1'
       ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))

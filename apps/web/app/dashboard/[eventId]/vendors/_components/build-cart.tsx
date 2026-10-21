@@ -88,7 +88,8 @@ export function BuildCart({ tally }: { tally: BuildTally }) {
           <b className="font-semibold">{added?.name}</b>
           {added?.category ? <span className="text-cream/65 dark:text-ink/65"> · {added.category}</span> : null}
         </p>
-        <p className="truncate">
+        {/* 💸 carries the build's peso total, so it wraps — never cut (the-page-never-scrolls-sideways.spec.ts) */}
+        <p className="break-words">
           <span className="text-cream/65 dark:text-ink/65">
             This build · <Count value={tally.filled} id="sup-peek-filled" /> of{' '}
             <Count value={tally.total} id="sup-peek-total" />

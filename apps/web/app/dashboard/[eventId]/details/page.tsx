@@ -36,7 +36,7 @@ import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
 import { guestsArriveFrom, guestsArriveSource } from '@/lib/guests-arrive';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
-import { computeGuestStats, fetchGuestsByEventMeasured } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEventMeasured, seatsNotYetOnTheList } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney } from '@/lib/budget-truth';
 import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
@@ -411,6 +411,8 @@ export default async function EventDetailsPage({
 
   // ── Guests ────────────────────────────────────────────────────────────────
   const stats = guestsRead && guestsRead.ok && guestsRead.v.measured ? computeGuestStats(guestsRead.v.rows) : null;
+  // 🪑 The +1 rows are already on the list (`total`) — only seats with no row yet are added (`seatsNotYetOnTheList`).
+  const seatsWithoutARow = stats && guestsRead && guestsRead.ok ? seatsNotYetOnTheList(guestsRead.v.rows) : 0;
   const estimate = num('estimated_pax');
 
   // ── Venues: LOCKED first (the Event Hub reads the same), else the typed name as drafted ──
@@ -862,7 +864,7 @@ export default async function EventDetailsPage({
                     ? `${formatCount(stats.total)} on your list`
                     : COULD_NOT_LOAD
               }
-              hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
+              hint={stats && seatsWithoutARow > 0 ? `${formatCount(stats.total + seatsWithoutARow)} expected with their plus-ones` : null}
             />
             <Row row="list-closes" label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} open={opens('list-closes')} record={record} />
             <Row

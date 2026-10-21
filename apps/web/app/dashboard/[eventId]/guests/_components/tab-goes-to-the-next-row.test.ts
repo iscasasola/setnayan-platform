@@ -158,7 +158,7 @@ async function paintCard(over: Partial<GuestRow>): Promise<string> {
   const { TEMPLATE_KIT } = await import('./guest-card-template-kit');
   const data = {
     isCouple: false, hasSides: false, availableRoles: ['guest'], groupOptions: ['other'], isIncWedding: false, showTeaCeremony: false,
-    plusOneStateLabel: null, plusOneGuestId: null, initialInvited: [] as string[], seatedAt: null, customGroups: [] as Array<{ label: string }>,
+    plusOneLines: [], plusOneGuestId: null, initialInvited: [] as string[], seatedAt: null, customGroups: [] as Array<{ label: string }>,
     recordedAt: null, access: null, canManageAccess: true, offersThisIsMe: false, nameLinked: false, linkedAccount: null, profileName: null,
     roleNames: {}, tables: null, seatTableId: null, groupChoices: null, guest: guest(over),
   };

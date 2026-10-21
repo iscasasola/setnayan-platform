@@ -59,7 +59,7 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  * else: every figure arrives already read and already worded
  * (`lib/home-first-screen.ts`), so this file adds no client weight and no read.
  *
- *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
+ *   ONE Next card (one button) → the Event Hub door (always) → days to go ·
  *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
  *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line); the one
  *   "What's next" row (a sheet: decisions, then Coming up) sits above the services.
@@ -274,9 +274,9 @@ export function HomeFirstScreen({
           }
         />
 
-        {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
-            Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
-        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} hide={doorsHidden} hubOnlyCover={needs?.hubDetails === false} />
+        {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons") — the bottom bar's icons,
+            named Guests · Suppliers · Event Hub (owner 2026-10-22, `HOME_DOOR_LABELS`). */}
+        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} hide={doorsHidden} />
 
         {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
             (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}

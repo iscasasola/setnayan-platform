@@ -167,8 +167,8 @@ export const PILLAR_TAB_ICON: Readonly<Record<CustomerMenuKey, EventMenuIconName
 
 /**
  * 🚪 THE HOME DOORWAY ROW WEARS THE TABS' OWN ICONS (owner 2026-10-07: *"make
- * the logo of guests, supplier and event hub consistent"*). "Edit your Guest
- * list · Edit your Suppliers · Edit your Event Hub" open the Guests, Suppliers
+ * the logo of guests, supplier and event hub consistent"*). "Guests ·
+ * Suppliers · Event Hub" (`HOME_DOOR_LABELS`) open the Guests, Suppliers
  * and Hub tabs, so each button draws exactly that tab's glyph — these three
  * constants, never a second pick. With the nav registry in hand, resolve through
  * `homeDoorwayIcon(key, navSlots)` (`lib/nav-line-icon.ts`) so an admin re-icon

@@ -762,6 +762,11 @@ export function FrontDoorShell({
     condition — see the button below.
   */
   /**
+   * ⚠ SINCE 2026-10-21 THIS IS THE FRONT DOOR'S AND THE DOORWAYS' WORDMARK
+   * ONLY. The app variant's mark goes to Events (`/dashboard?hub=1`), by the
+   * owner's 2026-10-21 ruling — see the note at the app branch below. The rest
+   * of this note is the history that ruling superseded.
+   *
    * 🔒 THE WORDMARK IS THE WAY OUT OF THE APP — `/` for EVERY variant.
    * Owner, verbatim, `DECISION_LOG.md` 2026-08-13 (SESSION 6, the seam):
    * *"The WORDMARK is the way out of the app, still signed in."* Pressing it
@@ -1139,8 +1144,22 @@ export function FrontDoorShell({
             makes the front door's match UNIQUE by construction, and the
             styling is unaffected because `.fd-wordmark` is still applied.
           */}
+          {/*
+            🔁 THE APP'S MARK GOES TO EVENTS (owner "yes to all", 2026-10-21 —
+            DECISION_LOG "THE ACCOUNT BAR"). This SUPERSEDES the 2026-08-13 lock
+            "The WORDMARK is the way out of the app, still signed in" for the
+            app variant: it asked for the 2026-07-16 "Wordmark-as-Home" back. The
+            way out to the public site is now Discover — its own tab on the
+            phone bar and the rail's first row. `?hub=1` so the board does not
+            auto-jump a one-event couple back into their wedding (the avatar
+            sheet's Home carries it for the same reason). Every app-variant
+            layout is signed in (each redirects a stranger to /login first), so
+            no stranger is ever sent to /dashboard by it; the front-door and
+            doorway branch below — the signed-out world — still goes to `/`.
+            Pinned by `seam-invariants.test.ts`.
+          */}
           {inApp ? (
-            <Link href={homeHref} className="fd-wordmark fd-wordmark-app">
+            <Link href="/dashboard?hub=1" className="fd-wordmark fd-wordmark-app">
               <LogoMark size={28} className="fd-mark" />
               <span className="fd-wordmark-text">Setnayan</span>
             </Link>

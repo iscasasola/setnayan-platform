@@ -2,8 +2,8 @@
  * home-doorways-wear-the-nav-icons.test.ts — A DOORWAY WEARS ITS TAB'S ICON.
  *
  * Owner, verbatim (2026-10-07): *"make the logo of guests, supplier and event
- * hub consistent"*. Home's doorway row — "Edit your Guest list · Edit your
- * Suppliers · Edit your Event Hub" (PR 4e) — opens the Guests, Suppliers and Hub
+ * hub consistent"*. Home's doorway row — "Guests · Suppliers · Event Hub" (PR 4e;
+ * the words since 2026-10-22, `HOME_DOOR_LABELS`) — opens the Guests, Suppliers and Hub
  * tabs, so each button draws EXACTLY that tab's icon: BookUser · Store ·
  * AppWindow (the owner's pick, DECISION_LOG "THE BOTTOM NAV'S FIVE ICONS").
  *
@@ -83,13 +83,17 @@ function tsxFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const PHRASES = ['Edit your Guest list', 'Edit your Suppliers', 'Edit your Event Hub'];
+/* The row is found by its MARK, not its words — since 2026-10-22 the words are
+   "Guests · Suppliers · Event Hub", which half the app also says. Every drawing of the
+   row carries `data-home-doors` (the Home tests slice on it) or names the labels' home. */
+const ROW_MARKS = [/data-home-doors/, /\bHOME_DOOR_LABELS\b/];
 
 test('3 · a file that draws the doorway row takes its icons from the nav', () => {
   const rows = tsxFiles(APP).filter((f) => {
     const src = stripComments(readFileSync(f, 'utf8'));
-    return PHRASES.filter((p) => src.includes(p)).length >= 2;
+    return ROW_MARKS.some((m) => m.test(src));
   });
+  assert.ok(rows.length >= 1, 'no file draws the doorway row — the scan is looking at nothing');
   // Printed, so a reader can see whether part 3 bound anything this run
   // (0 until PR 4e lands the row; 1+ after).
   console.log(`doorway-row files: ${rows.length} ${rows.map((f) => relative(APP, f)).join(', ')}`);

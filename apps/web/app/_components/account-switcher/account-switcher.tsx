@@ -204,8 +204,12 @@ function SwitcherPanelBody({
                 className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50"
               >
                 <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
-                <span>HQ</span>
-                <span className="text-[10px] font-normal text-ink/50">Setnayan</span>
+                {/* "Admin" — the owner's own word for it (21 Oct, and 2026-09-21
+                    "… Shop · Admin"). Admin is never a tab on the account bar
+                    (lib/account-bar.ts); THIS tile is how an internal account
+                    reaches it from the phone. */}
+                <span>Admin</span>
+                <span className="text-[10px] font-normal text-ink/50">Setnayan HQ</span>
               </Link>
             ) : null}
           </div>

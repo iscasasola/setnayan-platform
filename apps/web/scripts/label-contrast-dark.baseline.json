@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 297,
+  "total": 296,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -98,7 +98,6 @@
     "app/dashboard/(account)/samahan/[communityId]/page.tsx · ink on white": 1,
     "app/dashboard/(account)/samahan/[communityId]/page.tsx · white on mulberry": 1,
     "app/dashboard/(launcher)/_components/event-card-menu.tsx · ink on white": 3,
-    "app/dashboard/(launcher)/_components/home-pill-nav.tsx · white on ink": 1,
     "app/dashboard/(launcher)/page.tsx · white on ink": 2,
     "app/dashboard/[eventId]/_components/event-dashboard.tsx · #FFFFFF on sn-gold-700": 1,
     "app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx · ink on white": 1,

@@ -105,7 +105,7 @@ export function StaleTabNotice() {
       ref={bar}
       data-app-chrome=""
       role="status"
-      className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 text-center text-sm text-ink/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-center text-sm text-ink/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur"
     >
       <span>Setnayan was updated while this page was open.</span>
       <button

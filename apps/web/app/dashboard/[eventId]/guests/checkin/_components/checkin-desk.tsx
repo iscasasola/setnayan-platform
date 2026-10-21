@@ -32,7 +32,8 @@ export type DeskGuest = {
   role: GuestRole;
   rsvpStatus: 'pending' | 'attending' | 'declined' | 'maybe';
   photoUrl: string | null;
-  plusOneName: string | null;
+  /** Who they bring, by name — every named seat (`companionNames`); `[]` when none is named. */
+  plusOneNames: readonly string[];
   qrToken: string;
   tableLabel: string | null;
 };
@@ -150,7 +151,7 @@ export function CheckinDesk({
             role: 'guest',
             rsvpStatus: 'attending',
             photoUrl: null,
-            plusOneName: null,
+            plusOneNames: [],
             qrToken: token,
             tableLabel: null,
           }),
@@ -277,7 +278,7 @@ export function CheckinDesk({
       .filter(
         (g) =>
           g.name.toLowerCase().includes(q) ||
-          (g.plusOneName ? g.plusOneName.toLowerCase().includes(q) : false),
+          g.plusOneNames.some((n) => n.toLowerCase().includes(q)),
       )
       .slice(0, 12);
   }, [guests, query]);
@@ -571,9 +572,9 @@ export function CheckinDesk({
                   <Utensils className="h-3.5 w-3.5" />
                   {selected.tableLabel ? tableWords(selected.tableLabel) : 'No table assigned'}
                 </span>
-                {selected.plusOneName ? (
+                {selected.plusOneNames.length > 0 ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-ink/70">
-                    <UserRound className="h-3.5 w-3.5" /> +1 · {selected.plusOneName}
+                    <UserRound className="h-3.5 w-3.5" /> +{selected.plusOneNames.length} · {selected.plusOneNames.join(', ')}
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (

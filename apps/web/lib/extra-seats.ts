@@ -1,5 +1,5 @@
 import { normalizeNamePart } from '@/lib/formal-name';
-import { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME, isPlaceholderNameWord, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
+import { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME, isPlaceholderNameWord, realNameParts, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
 
 export { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME } from '@/lib/seat-placeholder-words';
 
@@ -82,6 +82,76 @@ export function seatReleaseRefusal(
   return rows.length === 1
     ? 'This +1 has a name — only a seat with no name yet can be released. Remove them instead.'
     : 'Only seats with no name yet can be released — a +1 with a name is removed instead.';
+}
+
+/**
+ * 🪑 THE GUEST CARD'S "+1" LINES — ONE PER SEAT ROW, EVERY SEAT (2026-10-22, live cale-ice: Antonio Loo and Darryl Jan
+ * Patrick Lim each bring two +1s, and their cards said "Allowed, but no +1 added yet."). The card read its guest's +1
+ * with `.maybeSingle()`: two rows are an error to PostgREST, the error was logged and the card drew the EMPTY state —
+ * a guest with two seats was told they had none. Now every live seat row is a line, oldest first ("+2" is the second
+ * seat everywhere — the reply, the List, `bringerSeatsFrom`): a seat with a name says who ("Bringing Ana Cruz"), a seat
+ * with no name yet (`plusOneHasNoName`, the List's own test) is waiting for one. Pure; the card's loader reads the rows.
+ * 🔒 guests/_components/every-seat-is-on-the-card.test.ts
+ */
+export function plusOneSeatLines(
+  bringerGuestId: string,
+  rows: readonly {
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at?: string | null;
+  }[],
+): string[] {
+  return [...rows]
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id))
+    .map((r) => {
+      if (plusOneHasNoName({ ...r, plus_one_of_guest_id: bringerGuestId })) return 'Awaiting +1 to confirm their name';
+      const n = realNameParts(r.first_name, r.last_name);
+      return `Bringing ${[n.first, n.last].filter(Boolean).join(' ')}`;
+    });
+}
+
+/** One +1 seat row as the companion readers select it. */
+export type CompanionSeatRow = {
+  guest_id: string;
+  plus_one_of_guest_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  plus_one_name_confirmed_at: string | null;
+  rsvp_status?: string | null;
+  created_at?: string | null;
+};
+
+/**
+ * 🪑 WHO A GUEST BRINGS, BY NAME — FROM THEIR SEAT ROWS, EVERY ONE (2026-10-22). The check-in desk, the souvenir desk
+ * and the find-your-seat pass each printed the bringer's old one-name mirror (`guests.plus_one_name`): ONE name for a
+ * guest who brings two, a stale name after the seat was renamed, nothing for a seat named on its own row, and a name
+ * for a guest whose +1 was set to None. The seat rows are the +1s (owner 2026-09-21: "+3" is three rows), so:
+ *   · a guest WITH seat rows → the names of their named seats (`plusOneHasNoName` is the List's own test), oldest
+ *     first, a seat whose own reply says they can't come left out — zero rows named is `[]`, never the mirror;
+ *   · a guest with NO seat rows at all → the mirror, only while they are allowed a +1 (the pass card's own rule,
+ *     `readPartyCounts`: "the mirror only speaks for a bringer with no rows at all").
+ * Pure. 🔒 lib/every-seat-is-counted.test.ts
+ */
+export function companionNames(
+  bringer: { guest_id: string; plus_one_allowed?: boolean | null; plus_one_name?: string | null },
+  seats: readonly CompanionSeatRow[],
+): string[] {
+  const mine = seats
+    .filter((r) => r.plus_one_of_guest_id === bringer.guest_id && r.guest_id !== bringer.guest_id)
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id));
+  if (mine.length === 0) {
+    const mirror = (bringer.plus_one_name ?? '').trim();
+    return bringer.plus_one_allowed && mirror && !isPlaceholderNameWord('first', mirror) ? [mirror] : [];
+  }
+  return mine
+    .filter((r) => !plusOneHasNoName(r) && r.rsvp_status !== 'declined')
+    .map((r) => {
+      const n = realNameParts(r.first_name, r.last_name);
+      return [n.first, n.last].filter(Boolean).join(' ');
+    })
+    .filter(Boolean);
 }
 
 /** A +1 who HAS a name — every seat row that is not `plusOneHasNoName`. */

@@ -122,7 +122,7 @@ const DATA = {
   groupOptions: ['other'],
   isIncWedding: false,
   showTeaCeremony: false,
-  plusOneStateLabel: null,
+  plusOneLines: [],
   plusOneGuestId: null,
   initialInvited: [] as string[],
   seatedAt: null,

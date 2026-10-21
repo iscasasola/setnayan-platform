@@ -218,7 +218,7 @@ test('the import never gives a +1 extra seats — the row waits for a look; the 
 /* Which files write a guest's seats: a call to the seat sync or the mint, or an `.update(…)` / `.insert(…)` /
    `.upsert(…)` whose argument sets the number. Each must ask `checkExtraSeats` (the one gate that knows a +1), or say
    why not. A type or a select that merely NAMES the column is not a write. */
-const SEAT_CALL = /\bsyncExtraSeats\s*\(|guest_plus_one_seat_mint/;
+const SEAT_CALL = /\bsyncExtraSeats\s*\(|\.rpc\(\s*['"]guest_plus_one_seats?_(?:mint|follow)/;
 const writesSeats = (src: string) =>
   SEAT_CALL.test(src) ||
   [...src.matchAll(/\.(?:update|insert|upsert)\(/g)].some((m) => /\bplus_one_(?:count|allowed)\s*:/.test(src.slice(m.index!, m.index! + 400).split(/\)\s*\n?\s*\.(?:eq|in|select|match)\(/)[0]!));

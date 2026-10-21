@@ -297,9 +297,11 @@ test('9 · the Studio row says whose picks the table holds; Apply answers with t
   // A stored choice that IS our pick is not a change.
   assert.equal(guestsSeeRowStatus(table(withParts({ gifts: { event: true } }))), 'Our picks');
   const SHEET = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx'), 'utf8'));
-  const apply = SHEET.slice(SHEET.indexOf('const apply = '), SHEET.indexOf('return (', SHEET.indexOf('const apply = ')));
+  /* 🔁 RE-AIMED 2026-10-21 (the button became Keep, and a refusal is read by `guestsSeeKeepOutcome`): the same order —
+     the count asked for with the write, a refusal returning, then the redraw. */
+  const apply = SHEET.slice(SHEET.indexOf('const keep = '), SHEET.indexOf('return (', SHEET.indexOf('const keep = ')));
   // The count is asked for WITH the write, and the page is redrawn as soon as the write lands — before the Maker's render.
-  assert.match(apply, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*const r = await makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\);\s*if \(!r\.ok\) return setLine\(r\.error \|\| W\.notKept\);\s*requestCanvasRedraw\(\);/);
+  assert.match(apply, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*const r = await makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\);\s*const out = guestsSeeKeepOutcome\(r\);\s*setLine\(out\.line\);\s*if \(!out\.kept\) return;\s*requestCanvasRedraw\(\);/);
   assert.equal((apply.match(/makerSave\(/g) ?? []).length, 1, 'one Apply is one save');
 });
 

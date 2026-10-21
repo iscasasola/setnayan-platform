@@ -126,6 +126,8 @@ const KEYS = outcomeKeys();
  * passed in and never shown — the exact defect the two tests below exist for.
  *   • connectedAccount — words inside another banner
  *   • eventId — the route's own id, always present, never an outcome
+ *   • appleIap — WHO reads (the iPhone app where Apple sells, 2026-10-21): it trims the web-price words of two
+ *     banners and is the request's own gate, never a param a redirect sends
  *
  * 🗑 SHRANK 2026-09-20. `papicRef` · `papicAmount` · `papicOrder` were the
  * three words inside the "Order received" banner, and that banner is gone: the
@@ -134,7 +136,7 @@ const KEYS = outcomeKeys();
  * subject — kept, it would silence the two tests below for a prop that could
  * come back as a real trigger.
  */
-const DETAIL_ONLY_PROPS = ['connectedAccount', 'eventId'];
+const DETAIL_ONLY_PROPS = ['connectedAccount', 'eventId', 'appleIap'];
 
 /** The `<StatusBanners … />` call site, and the component's bail-out condition. */
 function bannerCallSite(): string {
@@ -246,9 +248,12 @@ test('the detail-only exemption list is exactly what it claims', () => {
   // not a quiet way to make a red run green.
   assert.deepEqual(
     [...DETAIL_ONLY_PROPS].sort(),
-    ['connectedAccount', 'eventId'],
+    ['appleIap', 'connectedAccount', 'eventId'],
     'the exemption list changed — every entry must be a prop that DETAILS a banner, never one that triggers it',
   );
+  // 🍎 `appleIap` (2026-10-21) is the request's own gate (`getIapGate().iap`) — never a param any redirect here sends.
+  assert.ok(![...KEYS].includes('appleIap'), 'appleIap arrives as a URL outcome — it is a trigger, not a detail');
+  assert.match(PAGE, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
 });
 
 test('🚨 nothing handed to the banner dies at the bail-out', () => {

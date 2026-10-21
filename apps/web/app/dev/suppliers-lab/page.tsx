@@ -21,7 +21,8 @@
  *   &links=fail         …and the claim-link read fails (the rows must say so)
  *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
  *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
- *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report)
+ *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
+ *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
  *   ?tab=build          open on Build — the REAL Build body on fixtures
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
@@ -238,6 +239,7 @@ export default async function SuppliersLabPage({
         <LabSuppliersShell
           start={one('build')}
           answer={one('answer')}
+          covers={covers}
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={

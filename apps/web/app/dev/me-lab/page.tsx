@@ -7,6 +7,7 @@ import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { guestMeFacts, guestMeNoteShown, guestMePartsShown } from '@/lib/guest-me-parts';
 import { LAB_PEOPLE, labMeDressConfig, labMeRolePalette } from './lab-people';
 import { ConnectHostsLab } from './connect-hosts-lab';
+import { HostViewsGuestLab } from './host-views-guest-lab';
 
 /**
  * 👤 THE ME LAB — Invitation › Me's own parts (Your role · What to wear · Arrive by) and the digital ticket under them,
@@ -16,12 +17,14 @@ import { ConnectHostsLab } from './connect-hosts-lab';
  * guest_page_fixes_2_4), `&dark=1` under Candlelight, `&guests=2` with a second plus-one.
  * `?note=1` gives each person the hosts' note to them (💌 owner 2026-10-20) — drawn under Your role by the same gate.
  * `?connect=1` draws the 🤝 "Also connect with <the hosts>" link step and the host's Requests row (`./connect-hosts-lab`).
+ * `?host=1` draws Me on a guest's invitation for the HOST (before / after) and for the guest (`./host-views-guest-lab`).
  */
 export default async function MeLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   if (sp.stage === '1') return <MeStageLab dark={sp.dark === '1'} two={sp.guests === '2'} />;
   if (sp.connect === '1') return <ConnectHostsLab />;
+  if (sp.host === '1') return <HostViewsGuestLab only={typeof sp.only === 'string' ? sp.only : null} />;
   const words = await eventWordsFor('wedding');
   const config = labMeDressConfig();
   const rolePalette = labMeRolePalette();

@@ -2168,6 +2168,10 @@ async function invitationBody({
     seatHolderUserId,
     seatName: seatDisplayName(guest),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
+    // 🔒 THE HOST HOLDS A GUEST'S LINK TO LOOK, NEVER TO KEEP (owner 2026-10-21, Pam's link on his own wedding):
+    // `ownerCapability` is the page's one host check (couple · coordinator · accepted delegate), so a host who
+    // pressed "Open as <name>" meets "You're viewing <name>'s invitation as the host", never "Save it to <you>?".
+    viewerManagesEvent: ownerCapability !== null,
   });
 
   const rsvpFlash =

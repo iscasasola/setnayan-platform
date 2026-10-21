@@ -11,14 +11,13 @@
  *   1 · A DOOR IS NAMED BY WHAT IS BEHIND IT — the tab it opens. Each rendered door's word ends with
  *       the bottom bar's own label for the same key ("Guests", "Suppliers", "…Hub") and is at most two
  *       words, so no verb phrase ("Edit your …") can come back and push the row to icons.
- *   2 · A CLIPPED WORD IS "TIGHT". The pill may not clip (its 44 px press reaches past it), so the
- *       word clips itself with an ellipsis and the BUTTON never overflows. `fitAsOne` must still see
- *       the clipped word and drop the icons as one — never settle on icon + "Supp…".
- *   3 · THE PILL NEVER CLIPS ITS OWN PRESS. No stylesheet rule whose subject is a door pill sets
- *       `overflow: hidden` — that clipped the `.ab::after` expander and the doors pressed at 40 px.
+ *   2 · THE DOOR PRESSES AT 44 PX. The pill clips its own overflow — that is how `fitAsOne` reads a word that
+ *       does not fit as one box and drops the icons as one — which also clips the `.ab::after` expander, so the
+ *       PAINT is the press. Any rule on the door pill that clips its overflow must paint it at least 44 px tall
+ *       (the 44 is #6756's, rd/fits-every-phone; this holds it from the door's side).
  *
- * SABOTAGE (each seen RED, then restored — see the PR): the old "Edit your Guest list" label · the
- * label check dropped from `fitAsOne` · `overflow: hidden` put back on `.home-doors > .ab.ab-neutral`.
+ * SABOTAGE (each seen RED, then restored — see the PR): the old "Edit your Guest list" label · the door
+ * pill's height put back to 40px while it clips its overflow.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +28,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import { stripComments } from '@/lib/strip-comments';
-import { HOME_DOOR_LABELS, HomeDoorways, doorsFor, fitAsOne } from './_components/home-parts';
+import { HOME_DOOR_LABELS, HomeDoorways, doorsFor } from './_components/home-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -60,53 +59,7 @@ test('1 · each door says the word of the tab it opens — short enough to keep 
   assert.deepEqual(doorsFor('e1', ['explore']).map((d) => d.label), [HOME_DOOR_LABELS.guests, HOME_DOOR_LABELS.launch]);
 });
 
-/* ── 2 · fitAsOne, on a stand-in DOM: the pill never overflows, only its word does. ── */
-type Fake = { scrollWidth: number; clientWidth: number; offsetParent: object | null };
-function fakeRow(wordFitsWith: { icon: boolean; text: boolean }) {
-  let state: '' | 'text-only' | 'icon-only' = '';
-  // Live getters: fitAsOne collects the words once, then re-measures them after each state change.
-  const clipped = () => state !== 'icon-only' && (state === '' ? !wordFitsWith.icon : !wordFitsWith.text);
-  const word = (): Fake => ({
-    get scrollWidth() {
-      return clipped() ? 80 : 50;
-    },
-    clientWidth: 50,
-    get offsetParent() {
-      return state === 'icon-only' ? null : {};
-    },
-  });
-  const button = () => ({
-    scrollWidth: 100,
-    clientWidth: 100,
-    classList: {
-      remove: () => {
-        state = '';
-      },
-      add: (c: string) => {
-        state = c as typeof state;
-      },
-    },
-  });
-  const buttons = [button(), button(), button()];
-  const row = {
-    scrollWidth: 320,
-    clientWidth: 320,
-    querySelectorAll: (sel: string) => (sel === '.ab' ? buttons : sel === '.ab .lbl' ? [word(), word(), word()] : []),
-  };
-  return row as unknown as HTMLElement;
-}
-
-test('2 · a word that clips makes the row tight — the icons drop as one, the words stay', () => {
-  assert.equal(fitAsOne(fakeRow({ icon: true, text: true })), '', 'room for icon + word: keep both');
-  assert.equal(
-    fitAsOne(fakeRow({ icon: false, text: true })),
-    'text-only',
-    'the word clipped beside its icon and fitAsOne did not see it — the row would read icon + "Supp…"',
-  );
-  assert.equal(fitAsOne(fakeRow({ icon: false, text: false })), 'icon-only', 'no room for a word at all: icons');
-});
-
-/* ── 3 · the pill never clips its own press expander ── */
+/* ── 2 · the door presses at 44 ── */
 function cssFiles(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
@@ -117,9 +70,10 @@ function cssFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('3 · no rule on a door pill clips its overflow — the doors press at 44 px', () => {
+test('2 · a door pill that clips its overflow paints at least 44 px — the paint is the press', () => {
   const files = cssFiles('app');
   let doorRules = 0;
+  let clipping = 0;
   for (const rel of files) {
     const css = stripComments(readFileSync(join(WEB, rel), 'utf8'));
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -128,12 +82,16 @@ test('3 · no rule on a door pill clips its overflow — the doors press at 44 p
       const onPill = sels.filter((s) => /\.home-doors\b/.test(s) && /\.ab(?![-\w])[^\s>+~]*$/.test(s));
       if (onPill.length === 0) continue;
       doorRules += 1;
-      assert.doesNotMatch(
-        m[2]!,
-        /overflow(-x|-y)?\s*:\s*(hidden|clip)/,
-        `${rel}: "${onPill.join(', ')}" clips the door pill — its 44 px press expander (.ab::after) is cut to the 40 px paint`,
+      if (!/overflow(-x|-y)?\s*:\s*(hidden|clip)/.test(m[2]!)) continue;
+      clipping += 1;
+      const h = /(?:^|[;\s])(?:min-)?height\s*:\s*(\d+(?:\.\d+)?)px/.exec(m[2]!);
+      assert.ok(
+        h && Number(h[1]) >= 44,
+        `${rel}: "${onPill.join(', ')}" clips its overflow (and with it the .ab::after press expander) but paints ` +
+          `${h ? h[1] + 'px' : 'no height'} — a door must press at 44`,
       );
     }
   }
   assert.ok(doorRules >= 2, `found ${doorRules} door-pill rules across ${files.length} stylesheets — the scan is blind`);
+  console.log(`door-pill rules: ${doorRules}, clipping: ${clipping}`);
 });

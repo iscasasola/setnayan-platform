@@ -80,12 +80,7 @@ export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
       b.classList.remove('text-only', 'icon-only');
       if (c) b.classList.add(c);
     });
-  /* A WORD THAT CLIPS IS TIGHT TOO. The pill no longer clips (its 44 px press expander must reach past
-     it), so the word clips itself (`.home-doors > .ab .lbl` — ellipsis) and the BUTTON never overflows;
-     measuring only the buttons would settle on icon + "Supp…" instead of dropping the icons as one. */
-  const labels = Array.from(row.querySelectorAll<HTMLElement>('.ab .lbl'));
-  const over = (el: HTMLElement) => el.scrollWidth > el.clientWidth + 1;
-  const tight = () => over(row) || buttons.some(over) || labels.some((l) => l.offsetParent !== null && over(l));
+  const tight = () => row.scrollWidth > row.clientWidth + 1 || buttons.some((b) => b.scrollWidth > b.clientWidth + 1);
   set('');
   if (!tight()) return '';
   set('text-only');

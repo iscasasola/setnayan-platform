@@ -67,20 +67,20 @@ async function input(ownsPro = false, storeShell = false) {
   return { eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro, storeShell, passGuests: GUESTS, passCardsZip: 'rosa-ben-tickets.zip', formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
 }
 
-test('1 · ⚙ Print settings: always in the page, its fields mounted while shut; the prototype’s headings in its order; ONE Save', async () => {
+test('1 · ⚙ Print settings: always in the page, its fields mounted while shut; the prototype’s headings in its order; NO Save (every press posts — `print-settings-has-one-way-to-save.test.ts`)', async () => {
   const { StudioPrintSettings } = await import(`../${L}/studio-prints-settings`);
   const field = React.createElement('input', { form: 'details-print-words', name: 'inc_nfc', type: 'checkbox', defaultChecked: true, 'aria-label': 'nfc' });
   const html = await renderSettled(
     React.createElement(StudioPrintSettings as never, {
       sections: [{ key: 'every', title: 'On every print', line: 'QR · NFC spot', body: field }],
-      save: React.createElement('button', { type: 'submit', form: 'details-print-words' }, 'Save'),
+      form: 'details-print-words',
     } as never),
   );
   /* Shut (its first render): the ⚙ row shows, the sheet is hidden — and its field is IN the page, posting with the form. */
   assert.match(html, /data-print-settings-open=""[^>]*>[\s\S]*?Print settings[\s\S]*?QR · NFC spot · words on the cards · passes · seat plan/, 'the ⚙ row is not "Print settings" with its line');
   assert.match(html, /<div data-print-settings-layer="" hidden=""/, 'the sheet is not drawn hidden while shut');
-  assert.match(html, /<input form="details-print-words"[^>]*name="inc_nfc"/, 'a field of the sheet is not in the page while it is shut — Save would not send it');
-  assert.match(html, /data-print-settings-foot=""[\s\S]*?<button type="submit" form="details-print-words">Save<\/button>/, 'the sheet’s foot is not the print words form’s Save');
+  assert.match(html, /<input form="details-print-words"[^>]*name="inc_nfc"/, 'a field of the sheet is not in the page while it is shut — a post would not send it');
+  assert.doesNotMatch(html, /type="submit"|data-print-settings-foot/, 'the sheet grew a Save again — every press already posts (owner 2026-10-21)');
   /* The headings, as the prototype draws them, in its order. */
   assert.deepEqual(Object.values(PRINT_SETTINGS_HEADS).map((h) => h.title), ['On every print', 'The invitation', 'The Finer Details', 'Passes', 'Our Story poster', 'Seat plan & the door']);
   const details = read(`${L}/maker-details.tsx`);

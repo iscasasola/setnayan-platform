@@ -13,7 +13,7 @@
  * and the wiring: the Studio uses the new parts, the shipped Maker keeps its `Toggle`/`Segmented`/`SaveWords` byte for byte.
  *
  * SABOTAGE (each seen RED, then restored): the carrier checkbox loses its `form=` · a switch that posts when off · the children unmounted while off ·
- * the seat plan's hidden input renamed · the Save not submitting the words form · a Studio call site that still draws the old `Toggle`.
+ * the seat plan's hidden input renamed · the Studio's form not posting on every press · a Studio call site that still draws the old `Toggle`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -133,19 +133,17 @@ test('3 · the seat plan’s kind posts as the radios did: one `seat_plan_kind`,
   }
 });
 
-test('4 · Save submits the print words form, as the old Save did — one filled button, the live note beside it', async () => {
-  const { StudioPrintSave } = await import(`../${L}/studio-tools`);
-  const m = await html(React.createElement(StudioPrintSave, { form: W }));
-  assert.match(m, /<button[^>]*type="submit"[^>]*form="details-print-words"|<button[^>]*form="details-print-words"[^>]*type="submit"/, 'Save no longer submits the words form');
-  assert.match(m, /class="ab ab-brand ab-main/, 'Save is not the one filled forward step');
-  assert.match(m, /Guests see this right away/, 'the live note is gone from beside Save');
+test('4 · the Studio has no Save — every press posts the SAME form to the SAME route (SoftPost autosave); the shipped Maker keeps its Save', () => {
+  const tools = read(`${L}/studio-tools.tsx`);
+  assert.doesNotMatch(tools, /function StudioPrintSave\b|part: 'print-save'/, 'the Studio’s Save came back — every press already posts (owner 2026-10-21)');
   const old = read(`${L}/maker-details.tsx`);
+  assert.match(old, /<SoftPost autosave=\{Boolean\(props\.studio\)\} \/>/, 'the Studio’s print words form does not post on every press');
   assert.match(old, /<button type="submit" form=\{WORDS_FORM\} className="button-primary text-sm">\s*Save\s*<\/button>/, 'the shipped Maker’s Save changed');
 });
 
 test('5 · the Studio uses the new parts; the shipped Maker keeps its own, untouched', () => {
   const src = read(`${L}/maker-details.tsx`);
-  assert.match(src, /const save = props\.studio \? <StudioTool part="print-save" form=\{WORDS_FORM\} \/> : <SaveWords \/>;/);
+  assert.match(src, /const save = props\.studio \? null : <SaveWords \/>;/);
   assert.match(src, /const IncludeSwitch = \(p: Parameters<typeof Toggle>\[0\]\) => \(props\.studio \? <StudioTool part="include-switch" \{\.\.\.p\} \/> : <Toggle \{\.\.\.p\} \/>\);/);
   const body = src.slice(0, src.indexOf('export function Toggle({'));
   assert.equal((body.match(/<Toggle\b/g) ?? []).length, 1, 'a Studio call site draws the old Toggle');

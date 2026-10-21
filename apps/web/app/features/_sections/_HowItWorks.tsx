@@ -1,5 +1,6 @@
 import { Heart, Briefcase, Mailbox, Shield, Globe, QrCode, type LucideIcon } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
+import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-mode';
 
 // How it works — the six kinds of people on Setnayan and how the flow connects.
 // Folded in from the standalone /how-it-works page (retired 2026-09-01; that URL
@@ -138,7 +139,7 @@ const COPY: Record<
         where: [
           'Moves through 5 stages as the date approaches',
           'Each guest gets their own slug for personalised RSVP',
-          'Activates day-of mode from T-1h on the day itself',
+          `Switches to day-of mode from ${DAY_OF_STARTS_PLAIN}`,
         ],
       },
     ],
@@ -167,7 +168,7 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: 'T-1h flips the event into live mode — tables, schedule, photo wall, broadcast.',
+        what: `From ${DAY_OF_STARTS_PLAIN}, the event switches to live mode — tables, schedule, photo wall, broadcast.`,
       },
       {
         from: 'Post-event',
@@ -233,7 +234,7 @@ const COPY: Record<
         where: [
           'Dumadaan sa 5 stages habang papalapit ang date',
           'May sariling slug ang bawat guest para sa personalised RSVP',
-          'Nag-a-activate ng day-of mode from T-1h sa mismong araw',
+          'Nag-a-activate ng day-of mode mula tanghali ng araw bago ang event',
         ],
       },
     ],
@@ -262,7 +263,7 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: 'Sa T-1h nagiging live mode ang event — tables, schedule, photo wall, broadcast.',
+        what: 'Mula tanghali ng araw bago nito, nagiging live mode ang event — tables, schedule, photo wall, broadcast.',
       },
       {
         from: 'Post-event',

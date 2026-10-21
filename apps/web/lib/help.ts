@@ -621,12 +621,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'find-your-table',
         title: 'Find your seat',
-        body: "From T-1 hour on the wedding day, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.",
+        body: "From noon the day before the wedding, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.",
       },
       {
         slug: 'live-schedule',
         title: "What's happening right now",
-        body: 'The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what\'s next and roughly when. Available T-1 hour to T+8 hours.',
+        body: 'The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what\'s next and roughly when. Available from noon the day before until noon the day after.',
       },
       {
         slug: 'photo-wall',

@@ -255,7 +255,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'The Day',
-        body: 'From T-1 hour, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
+        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
       },
     ],
   },

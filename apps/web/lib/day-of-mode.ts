@@ -45,6 +45,16 @@ const LIVE_WINDOW_START_MS = 12 * HOUR_MS; // T - 12h  (noon the day before)
 const LIVE_WINDOW_END_MS = 36 * HOUR_MS; // T + 36h (noon the day after)
 const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
 
+/**
+ * When day-of mode switches on, in plain words — for copy that must not say
+ * "T-1h" (2026-10-21 sweep: /features said "from T-1h on the day itself", which
+ * was jargon AND two windows out of date). It is `LIVE_WINDOW_START_MS` before
+ * midnight on the event day, i.e. noon the day before.
+ * `the-hub-says-when-it-opens.test.ts` checks this sentence against
+ * `getDayOfPhase`, so the words cannot drift from the window again.
+ */
+export const DAY_OF_STARTS_PLAIN = 'noon the day before';
+
 /*
   ─── WHEN IS IT OVER? 06:00 ON THE DAY AFTER THE LAST DAY ─────────────────
 

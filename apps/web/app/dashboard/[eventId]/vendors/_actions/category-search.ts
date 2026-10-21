@@ -25,11 +25,9 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
-import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
-import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -674,21 +672,8 @@ export async function searchCategoryVendors(input: {
   // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
   // profile + the demo cookie) does. Cheap fast-path: skip the admin lookup
   // unless the demo cookie is present.
-  const cookieStore = await cookies();
-  const hasDemoCookie =
-    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
-  let inDemoMode = false;
-  if (hasDemoCookie) {
-    const { data: viewerProfile } = await supabase
-      .from('users')
-      .select('account_type, is_internal, is_team_member')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    inDemoMode = isAdminProfile(viewerProfile);
-  }
-  const excludeVendorIds: ReadonlyArray<string> = inDemoMode
-    ? []
-    : await fetchDemoVendorIds(admin);
+  // ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
+  const excludeVendorIds: ReadonlyArray<string> = await demoVendorIdsHiddenFrom(supabase, admin, user.id);
 
   const recs = await fetchWizardVendorRecommendations(admin, {
     canonicalServices: canonicals,

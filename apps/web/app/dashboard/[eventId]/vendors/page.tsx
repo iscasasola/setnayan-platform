@@ -51,6 +51,8 @@ import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
 import { addedCategoriesOf, resolveBenchRing, ringBuildCount } from '@/lib/explore-in-plan';
 import { popularTilesFor } from '@/lib/supplier-find';
+import { readFindList } from '@/lib/supplier-find-read';
+import { FindCategoryList } from './_components/find-category-list';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
@@ -467,6 +469,25 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // one-screen page only; `null` from it = the read failed, and the card says so.
   const inviteStatusRead = isExploreReplanEnabled()
     ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
+    : null;
+  // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
+  // button is gone; the search shows the categories when nothing is typed): the
+  // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
+  // One-screen page only — the pre-replan bench has no bottom search.
+  const findListRead = isExploreReplanEnabled()
+    ? startRead(
+        taxonomyRead.then((taxonomy) =>
+          readFindList({
+            supabase,
+            eventId,
+            eventType: ev?.event_type ?? 'wedding',
+            ceremonyType: ev?.ceremony_type ?? null,
+            secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
+            taxonomy,
+            solemn: profile.terminology.register === 'solemn',
+          }),
+        ),
+      )
     : null;
 
   // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
@@ -1925,6 +1946,23 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
   const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
+  // The bottom search's empty state. A refused read is said, never drawn as an
+  // empty list: the box then opens on one line that says it could not load.
+  const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
+  const findPanel =
+    findRead === undefined ? null : findRead === null ? (
+      <p role="alert" className="pt-4 text-[13px] text-ink/60">
+        We couldn&rsquo;t load the categories — reload in a moment.
+      </p>
+    ) : (
+      <FindCategoryList
+        eventId={eventId}
+        list={findRead.list}
+        bookedMeasured={findRead.bookedMeasured}
+        eventType={ev?.event_type ?? 'wedding'}
+        solemn={profile.terminology.register === 'solemn'}
+      />
+    );
   async function readCoveredTiles(): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
@@ -2206,6 +2244,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // The starter ring for an event with no plan of its own — the four a
         // host of its type books first (the Find page's own "Popular" list).
         starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
+        // The bottom search, tapped empty: the Find page's own category list.
+        findPanel={findPanel}
         // Each pick's own service card (name · offer · price · what's included).
         // Null = the read failed: the cards then say nothing about a service
         // card, rather than "Price on request".

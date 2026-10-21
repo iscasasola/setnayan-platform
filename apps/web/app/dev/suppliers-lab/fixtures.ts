@@ -15,6 +15,7 @@ import type { SupplierSheetData } from '@/lib/supplier-sheet';
 import type { CategoryVendorResult } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
 import type { MarketplaceVendorSuggestion } from '@/app/dashboard/[eventId]/vendors/actions';
 import { supplierInviteStatus, type SupplierInviteStatus } from '@/lib/supplier-invite-status';
+import type { BenchMarketResult } from '@/app/dashboard/[eventId]/vendors/_actions/bench-marketplace-search';
 
 export const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -230,3 +231,28 @@ export function labNameMatches(query: string, category: string): MarketplaceVend
 
 /** A sample claim link — the shape `buildClaimUrl` makes; the token is not a real one. */
 export const LAB_CLAIM_URL = 'https://www.setnayan.com/vendor/claim/x7k2qp-sample';
+
+/**
+ * The whole-marketplace NAME search's stand-in (`MarketSearchStandInCtx`) — the
+ * bottom search typed with no category open. "Saysay Host and Band" is the
+ * owner's 2026-10-21 case ("and typing saysay did not show?"); here it is a
+ * fixture, not the production shop.
+ */
+const LAB_SHOPS: BenchMarketResult[] = [
+  { vendorProfileId: 'p-saysay', name: 'Saysay Host and Band', nameAnonymized: false, city: null, logoUrl: null, rating: null, reviewCount: 0, slug: null },
+  { vendorProfileId: 'p-luntian', name: 'Luntian Buffet', nameAnonymized: false, city: 'Makati', logoUrl: null, rating: 4.9, reviewCount: 120, slug: null },
+  { vendorProfileId: 'p-mesa', name: 'Mesa Kusina', nameAnonymized: false, city: 'Pasig', logoUrl: null, rating: 4.6, reviewCount: 12, slug: null },
+];
+export function labMarketSearch(query: string): BenchMarketResult[] {
+  const q = query.trim().toLowerCase();
+  return q.length < 2 ? [] : LAB_SHOPS.filter((r) => r.name.toLowerCase().includes(q));
+}
+
+/** Verified suppliers per category for the Find list — a soft signal (0 → "Joining soon"). */
+export const LAB_FIND_COUNTS = new Map<string, number>([
+  ['catering', 3],
+  ['photo_video', 2],
+  ['cake', 1],
+  ['live_band', 1],
+  ['host_mc', 1],
+]);

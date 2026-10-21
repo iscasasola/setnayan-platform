@@ -29,35 +29,19 @@ import { ArrowLeft, ChevronRight, Search, Star } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
-import {
-  buildShortlistFolders,
-  homeTileForRow,
-  LOCKED_VENDOR_STATUSES,
-} from '@/lib/shortlist-taxonomy';
-import { TAXONOMY_MAP } from '@/lib/taxonomy';
-import {
-  fetchVendorCountsByService,
-  rollUpCountsToTile,
-} from '@/lib/vendor-counts';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import {
-  applyFindFilter,
-  buildFindList,
-  parseFindFilter,
-  popularHeading,
-  supplierCountLabel,
-  type FindCategory,
-} from '@/lib/supplier-find';
+import { applyFindFilter, parseFindFilter, type FindCategory } from '@/lib/supplier-find';
+import { readFindList } from '@/lib/supplier-find-read';
 import { searchCategoryVendors } from '../_actions/category-search';
+import { searchMarketplaceForBench } from '../_actions/bench-marketplace-search';
 import { ContactShortlistVendorButton } from '../_components/contact-shortlist-vendor-button';
+import { FindCategoryList } from '../_components/find-category-list';
 import { FindFilterMenu, SaveToBenchButton } from './_components/find-supplier-controls';
 
 export const metadata = { title: 'Find a supplier' };
@@ -66,20 +50,6 @@ type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{ q?: string; c?: string; f?: string }>;
 };
-
-/** tile → the words of every service under it, so the one search finds
- *  "tent" inside Chairs & tents. Built once per process from the code map. */
-const SERVICES_BY_TILE: ReadonlyMap<string, readonly string[]> = (() => {
-  const out = new Map<string, string[]>();
-  for (const [service, entry] of Object.entries(TAXONOMY_MAP)) {
-    if (!entry.tile) continue;
-    const words = service.replace(/_/g, ' ');
-    const arr = out.get(entry.tile);
-    if (arr) arr.push(words);
-    else out.set(entry.tile, [words]);
-  }
-  return out;
-})();
 
 export default async function FindSupplierPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -110,57 +80,18 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   ]);
   const solemn = profile.terminology.register === 'solemn';
 
-  // The bench's own scope — the ONLY place the category list comes from.
-  const folders = buildShortlistFolders({
-    vendorRows: [],
-    eventType,
-    faithSet: buildCoupleFaithSet({
-      eventType,
-      ceremonyType: (ev.ceremony_type as string | null) ?? null,
-      secondaryCeremonyType: (ev.secondary_ceremony_type as string | null) ?? null,
-    }),
-    taxonomy,
-    eventId,
-  });
-
-  // Booked = a committed supplier in that category. ⚠ A refused read is NOT
-  // "nothing booked": `booked` stays null, no row says "Booked ✓", and the
-  // page says once that it could not check.
-  const { data: bookedRows, error: bookedError } = await supabase
-    .from('event_vendors')
-    .select('category, category_key')
-    .eq('event_id', eventId)
-    .is('archived_at', null)
-    .in('status', [...LOCKED_VENDOR_STATUSES]);
-  if (bookedError) {
-    logQueryError('FindSupplierPage.booked', bookedError, { event_id: eventId }, 'graceful_degrade');
-  }
-  const bookedMeasured = !bookedError && bookedRows !== null;
-  const booked: Set<string> | null = bookedMeasured ? new Set<string>() : null;
-  for (const r of (bookedRows ?? []) as Array<{ category: string | null; category_key: string | null }>) {
-    // The row the supplier is drawn under — a moved one's may be finer than its category.
-    const tile = r.category ? homeTileForRow({ category: r.category, category_key: r.category_key }) : null;
-    if (tile) booked?.add(tile);
-  }
-
-  // Supplier counts — a soft signal; unknown (null) when the read fails.
-  let counts: Map<string, number> | null = null;
-  try {
-    const perTile = rollUpCountsToTile(await fetchVendorCountsByService(createAdminClient()));
-    counts = new Map([...perTile].map(([t, c]) => [t as string, c.total]));
-  } catch {
-    counts = null;
-  }
-
   const q = (sp.q ?? '').trim().slice(0, 80);
-  const list = buildFindList({
-    folders,
+  // The ONE read behind the category list — the Suppliers page's bottom search
+  // draws the same result when it is empty (`lib/supplier-find-read.ts`).
+  const { list, bookedMeasured } = await readFindList({
+    supabase,
+    eventId,
     eventType,
+    ceremonyType: (ev.ceremony_type as string | null) ?? null,
+    secondaryCeremonyType: (ev.secondary_ceremony_type as string | null) ?? null,
+    taxonomy,
     solemn,
-    booked,
-    counts,
     query: sp.c ? '' : q,
-    servicesByTile: SERVICES_BY_TILE,
   });
   const byTile = new Map<string, FindCategory>();
   for (const g of list.groups) for (const c of g.categories) byTile.set(c.tile, c);
@@ -322,24 +253,11 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   }
 
   // ── The category list (frames 4–6) ────────────────────────────────────────
-  const row = (c: FindCategory) => {
-    const sub = c.booked ? 'Booked ✓' : supplierCountLabel(c.supplierCount);
-    return (
-      <li key={c.tile} className="border-t border-ink/10">
-        <Link
-          href={`${base}?c=${encodeURIComponent(c.tile)}`}
-          className="flex items-center gap-3 py-3"
-          data-find-tile={c.tile}
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium text-ink">{c.label}</span>
-            {sub ? <span className="block text-[12.5px] text-ink/55">{sub}</span> : null}
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-ink/35" aria-hidden />
-        </Link>
-      </li>
-    );
-  };
+  // A typed name is a SHOP as often as a service (owner 2026-10-21: "and typing
+  // saysay did not show?"). The box said "Search suppliers or a service" and
+  // matched only category words — so shops are searched by name too, with the
+  // bench's own whole-marketplace search (one rule for who may be listed).
+  const shops = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(q) : [];
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-5">
@@ -368,38 +286,41 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
             </label>
           </form>
 
-          {!bookedMeasured ? (
-            <p role="alert" className="mt-3 text-[13px] text-ink/60">
-              We couldn&rsquo;t check what you&rsquo;ve booked — reload in a moment.
-            </p>
-          ) : null}
-
-          {list.total === 0 ? (
-            <p className="mt-6 text-[15px] text-ink/65">
-              {q ? `Nothing matches “${q}”.` : 'No categories for this event yet.'}
-            </p>
-          ) : null}
-
-          {list.popular.length > 0 ? (
-            <section className="mt-6" aria-label={popularHeading(eventType, solemn)}>
-              <h3 className="text-[12px] font-medium uppercase tracking-wide text-ink/50">
-                {popularHeading(eventType, solemn)}
-              </h3>
-              <ul className="mt-1">{list.popular.map(row)}</ul>
+          {shops.length > 0 ? (
+            <section className="mt-6" aria-label="Suppliers" data-find-shops="">
+              <h3 className="text-[12px] font-medium uppercase tracking-wide text-ink/50">Suppliers</h3>
+              <ul className="mt-1">
+                {shops.map((r) => (
+                  <li key={r.vendorProfileId} className="border-t border-ink/10">
+                    <Link
+                      href={r.slug ? `/v/${r.slug}` : '#'}
+                      prefetch={false}
+                      className="flex min-h-11 items-center gap-3 py-3"
+                      data-find-shop={r.vendorProfileId}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-medium text-ink">{r.name}</span>
+                        {r.city ? <span className="block text-[12.5px] text-ink/55">{r.city}</span> : null}
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink/35" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
 
-          {list.groups.map((g) => (
-            <section key={g.id} className="mt-6" aria-label={g.label} data-find-group={g.id}>
-              <h3 className="flex items-baseline justify-between text-[12px] font-medium uppercase tracking-wide text-ink/50">
-                <span>{g.label}</span>
-                {g.bookedCount ? (
-                  <span className="normal-case tracking-normal">{formatCount(g.bookedCount)} booked</span>
-                ) : null}
-              </h3>
-              <ul className="mt-1">{g.categories.map(row)}</ul>
-            </section>
-          ))}
+          {/* A shop found by name is an answer — "Nothing matches" would deny it. */}
+          {shops.length > 0 && list.total === 0 ? null : (
+            <FindCategoryList
+              eventId={eventId}
+              list={list}
+              bookedMeasured={bookedMeasured}
+              eventType={eventType}
+              solemn={solemn}
+              query={q}
+            />
+          )}
         </>
       )}
     </div>

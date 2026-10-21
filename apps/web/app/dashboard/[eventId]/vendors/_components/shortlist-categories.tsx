@@ -2541,6 +2541,13 @@ export const MoreRowStandInCtx = createContext<
   null | ((input: Parameters<typeof fetchInlineMoreRow>[0]) => ReturnType<typeof fetchInlineMoreRow>)
 >(null);
 
+/**
+ * A STAND-IN FOR THE WHOLE-MARKETPLACE NAME SEARCH — `/dev/suppliers-lab` only
+ * (no session, no database there). `null` everywhere else: the real page always
+ * calls `searchMarketplaceForBench`.
+ */
+export const MarketSearchStandInCtx = createContext<null | typeof searchMarketplaceForBench>(null);
+
 export function ShortlistCategories({
   folders: foldersFromServer,
   eventId,
@@ -2561,6 +2568,7 @@ export function ShortlistCategories({
   teamCalendar = [],
   benchArrangement,
   standings = {},
+  findPanel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2681,8 +2689,17 @@ export function ShortlistCategories({
    * browser's localStorage and is deliberately private.
    */
   benchArrangement?: Record<string, BenchPin[]>;
+  /**
+   * The bottom search's EMPTY STATE (owner 2026-10-21: the big "Find a supplier"
+   * button is gone; the search shows the categories when nothing is typed) —
+   * the Find page's own list, `FindCategoryList` drawn on the server from
+   * `readFindList`, handed to the thumb row as it is. Null → the box opens on
+   * nothing, as before.
+   */
+  findPanel?: ReactNode;
 }) {
   const router = useRouter();
+  const marketSearch = useContext(MarketSearchStandInCtx) ?? searchMarketplaceForBench;
 
   // ── A PRESS ANSWERS IN PLACE (owner 2026-10-12, `bench-local.ts`) ─────────
   // A removed supplier leaves THIS list at once and for the visit, whatever
@@ -3509,7 +3526,7 @@ export function ShortlistCategories({
     let cancelled = false;
     setMktLoading(true);
     const handle = window.setTimeout(() => {
-      searchMarketplaceForBench(q)
+      marketSearch(q)
         .then((res) => {
           if (!cancelled) {
             setMktResults(res);
@@ -3527,7 +3544,7 @@ export function ShortlistCategories({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [q]);
+  }, [q, marketSearch]);
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
   // `measured: false` when the prop is absent, so a page that has not plumbed
@@ -4423,6 +4440,7 @@ export function ShortlistCategories({
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
           onAdd={addYourOwn}
+          emptyPanel={findPanel}
         />
       ) : null}
       {/* "＋ Add your own" with no category open: which category, first — ONE

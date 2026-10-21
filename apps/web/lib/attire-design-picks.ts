@@ -13,8 +13,8 @@
  *   · `"suit/classic"`  — that one design.
  * `style` is ALWAYS the first entry's style, so every reader that knows only `style` (the seat plan, the prints, the
  * reminders, the reader's own panel) reads the hero's style, unchanged.
- * 🔁 BACKWARD COMPATIBLE BOTH WAYS: no `designs` (every dress code before today) is `[style]` — the whole style, i.e.
- * exactly the one drawing it always drew; `designs` whose first style is not `style` (an older writer changed `style`
+ * 🔁 BACKWARD COMPATIBLE BOTH WAYS: no `designs` (every dress code before today) is the style's shipped design alone
+ * (`legacyTick`) — exactly the one drawing it always drew, never a board the hosts did not choose; `designs` whose first style is not `style` (an older writer changed `style`
  * and kept them) is IGNORED — `style` wins, as before this existed. A writer that never heard of `designs` cannot make
  * a column draw what it did not say.
  *
@@ -57,6 +57,16 @@ export function drawnDesigns(role: FigureRole, style: AttireStyle): LibraryDesig
   return (DESIGN_LIBRARY[role] ?? []).filter((d) => d.style === style && isDrawn(d)).slice(0, DESIGNS_PER_STYLE_MAX);
 }
 
+/**
+ * 🔁 WHAT A COLUMN WITH NO TICKS ALLOWS — the one design it always drew: its style's FIRST drawn design (the shipped
+ * drawing). Every dress code before 2026-10-21 holds only `style`; reading it as the whole style would turn every one of
+ * them into a board of five the hosts never chose. A tick of the whole style is written as such (`["suit"]`).
+ */
+export function legacyTick(role: FigureRole, style: AttireStyle): string {
+  const first = drawnDesigns(role, style)[0];
+  return first ? `${style}/${first.variant}` : style;
+}
+
 /** The drawing of a drawn design: the shipped role drawing, or its own folder's. */
 export function designArt(role: FigureRole, d: LibraryDesign): FigureGarment {
   /* A design's own drawing is a key of `FIGURE_ART` once added above — typed as a role drawing. */
@@ -68,7 +78,7 @@ const styleOfTick = (t: string): string => (t.includes('/') ? t.slice(0, t.index
 /**
  * A column's ticks as stored → the ticks a reader may vouch for: known styles of THIS role, known designs of the
  * library, each once, the first one's style being `style`. Null when there is nothing to read past `style` (absent,
- * malformed, or written for another `style`) — the column is then `[style]`, exactly as before.
+ * malformed, or written for another `style`) — the column is then its one shipped design (`legacyTick`), as before.
  */
 export function sanitizeDesignTicks(role: FigureRole | null | undefined, style: AttireStyle | null | undefined, raw: unknown): string[] | null {
   if (!hasDesignLibrary(role) || !style || !Array.isArray(raw)) return null;
@@ -101,12 +111,12 @@ export type AllowedStyle = {
 };
 
 /**
- * What a column allows, as drawn designs grouped by style, in tick order (`ticks` null = `[style]`). Only DRAWN designs
+ * What a column allows, as drawn designs grouped by style, in tick order (`ticks` null = the shipped design alone, `legacyTick`). Only DRAWN designs
  * — an allowed design with no drawing yet is not drawn anywhere; a style left with none drawn is not listed.
  */
 export function allowedStyles(role: FigureRole, style: AttireStyle | null, ticks: readonly string[] | null): AllowedStyle[] {
   if (!style) return [];
-  const list = ticks ?? [style];
+  const list = ticks ?? [legacyTick(role, style)];
   const order: AttireStyle[] = [];
   for (const t of list) {
     const s = styleOfTick(t) as AttireStyle;
@@ -140,7 +150,7 @@ export const designKey = (id: string): string => `design:${id}`;
  * Returns the column's new `style` (the first tick's — null when nothing is left) and `designs`.
  */
 export function toggleDesignTick(role: FigureRole, style: AttireStyle | null, ticks: readonly string[] | null, key: string): { style: AttireStyle | null; designs: string[] } {
-  let list: string[] = style ? [...(ticks ?? [style])] : [];
+  let list: string[] = style ? [...(ticks ?? [legacyTick(role, style)])] : [];
   const indexOfStyle = (s: string) => list.findIndex((t) => styleOfTick(t) === s);
   const replaceStyle = (s: string, next: string[]) => {
     const at = indexOfStyle(s);
@@ -148,6 +158,7 @@ export function toggleDesignTick(role: FigureRole, style: AttireStyle | null, ti
     if (at < 0) list = [...rest, ...next];
     else list = [...rest.slice(0, at), ...next, ...rest.slice(at)];
   };
+  /* A tick of the whole style stays written whole — never collapsed to `[style]` (that would read as one design). */
   if (key.startsWith('style:')) {
     const s = key.slice(6);
     if (!isAttireStyle(s) || !libraryStyles(role).includes(s)) return { style, designs: list };
@@ -242,8 +253,8 @@ export function heroArt(p: { style: AttireStyle | null; role?: FigureRole | null
 /**
  * 👔 A COLUMN'S STYLES AND DESIGNS, WRITTEN (`toggleDesignTick`): its Wear is the first tick's style, written where each
  * Wear has always been written (the first column through `withFirstStyle`, the second through `withSecondStyle`), and
- * `designs` beside it. A column back to ONE whole style stores no `designs` at all — the shape every dress code had
- * before, byte for byte.
+ * `designs` beside it. A column back to the one shipped design of its style (`legacyTick`) stores no `designs` at all —
+ * the shape every dress code had before, byte for byte.
  */
 export function withColumnDesigns<C extends Record<string, unknown>>(
   config: C,
@@ -254,7 +265,9 @@ export function withColumnDesigns<C extends Record<string, unknown>>(
   designs: readonly string[],
   write: (config: C, tier: AttireTier, key: string, style: string | null) => C,
 ): C {
-  const keep = style && !(designs.length === 1 && designs[0] === style) ? [...designs] : null;
+  /* Back to the one design it always drew (`legacyTick`): the shape every dress code had before, byte for byte. */
+  const role = columnRole(key, index);
+  const keep = style && !(role && designs.length === 1 && designs[0] === legacyTick(role, style)) ? [...designs] : null;
   const setOn = (map: Record<string, Record<string, unknown>>) => {
     const rule = map[key];
     if (!rule) return map;

@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey } from './attire-library';
-import { allowedDesigns, allowedStyles, designArt, drawnDesigns, keepWomenDesigns, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
+import { allowedDesigns, allowedStyles, designArt, drawnDesigns, keepWomenDesigns, legacyTick, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
 import { FIGURE_ART, GUEST_SUIT_BLACK, TIE_DESIGNS, DESIGN_ZONES, type FigureGarment } from './attire-figures';
 import { roleArtKey, roleDesigns, type FigureRole } from './attire-designs';
 import { attireRow, withSecondColours } from './attire-rows';
@@ -194,7 +194,12 @@ test('3 · every allowed (drawn) design renders on the guest’s board, under it
       const style = c.ticks[0]!.split('/')[0] as AttireStyle;
       return { ...c, allowed: allowedStyles(c.role, style, sanitizeDesignTicks(c.role, style, c.ticks)) };
     });
-    const isBoard = cols.some((c) => c.allowed.flatMap((a) => a.designs).length > 1);
+    /* A board once a column allows more than one design — or its one design is not its style's shipped drawing (the
+       shipped row could not draw it). */
+    const isBoard = cols.some((c) => {
+      const ds = c.allowed.flatMap((a) => a.designs);
+      return ds.length > 1 || (ds.length === 1 && ds[0]!.art !== `${c.role}-${c.allowed[0]!.style}`);
+    });
     assert.equal(row.includes('data-dress-code-board='), isBoard, `seed ${i}: the board shows ${!isBoard} for ${JSON.stringify([men, women])}`);
     if (!isBoard) continue;
     boards += 1;
@@ -230,20 +235,24 @@ test('3 · a style with five drawings: every design renders, wearing the colours
 
 /* ── 4 · the legacy shape renders as it did ──────────────────────────────── */
 
-test('4 · a legacy single `style` renders exactly as before — and a column ticked back to one whole style stores it so', async () => {
+test('4 · a legacy single `style` renders exactly as before — and a column ticked back to its shipped design stores it so', async () => {
   for (const [m, w] of [['suit', 'long_gown'], ['barong_tagalog', 'filipiniana'], ['smart_casual', 'cocktail_dress']] as const) {
+    const lm = legacyTick('guest_m', m);
+    const lw = legacyTick('guest_w', w);
     const legacy = { roles: { guest: { style: m } }, women: { roles: { guest: { style: w } } } };
-    const same = { roles: { guest: { style: m, designs: [m] } }, women: { roles: { guest: { style: w, designs: [w] } } } };
+    const same = { roles: { guest: { style: m, designs: [lm] } }, women: { roles: { guest: { style: w, designs: [lw] } } } };
     const a = await widget(legacy);
-    assert.equal(a, await widget(same), 'designs: [style] is not the legacy row');
-    assert.ok(!a.includes('data-dress-code-board'), 'a one-design column drew the board');
+    assert.equal(a, await widget(same), 'the shipped design alone is not the legacy row');
+    assert.ok(!a.includes('data-dress-code-board'), 'a legacy single style drew the board');
     assert.equal((guestRow(a).match(/data-garment="/g) ?? []).length, 2 * COLOURS.length, 'the legacy row is one person per colour per column');
     assert.ok(guestRow(a).includes(`data-garment="guest_m-${m}"`) && guestRow(a).includes(`data-garment="guest_w-${w}"`));
+    /* The whole style ticked IS a board — five drawings, not the legacy row. */
+    assert.ok((await widget({ roles: { guest: { style: m, designs: [m] } } })).includes('data-dress-code-board'), `a whole ${m} tick is not the board`);
     /* A stale `designs` (an older writer changed `style`) is ignored — `style` wins. */
     const stale = { roles: { guest: { style: m, designs: ['smart_casual' === m ? 'suit' : 'smart_casual', m] } } };
     assert.equal(picksWithDesigns(stale, GUEST_ROW)[0]!.designs ?? null, null, 'designs written for another Wear were read');
-    /* Ticked back to one whole style: no `designs` stored — the legacy shape exactly. */
-    const back = withColumnDesigns({ roles: { guest: { style: m, designs: [m, 'suit/classic'] } } }, 'roles', 'guest', 0, m, [m], withAttireStyle);
+    /* Ticked back to the shipped design alone: no `designs` stored — the legacy shape exactly. */
+    const back = withColumnDesigns({ roles: { guest: { style: m, designs: [m, 'suit/classic'] } } }, 'roles', 'guest', 0, m, [lm], withAttireStyle);
     /* (The women's Wear is pinned to what they read, as every first-column write does — `withFirstStyle`.) */
     assert.deepEqual(back.roles, { guest: { style: m } });
   }
@@ -289,10 +298,13 @@ test('5 · one tap on a style allows all its designs; unticking narrows; `style`
 
 test('5 · the Studio’s Wear ▾ lists the styles, then their drawn designs, ticked as stored; the pill says the count', async () => {
   const html = await studio(config(['suit', 'barong_tagalog'], ['long_gown']));
-  assert.match(html, /aria-label="Guests — for men · Wear: Suit and tie \+1 · 2 designs"/);
-  assert.match(html, /aria-label="Guests — for women · Wear: Long dress"/);
+  /* Two whole styles of five drawings each; the women's one whole style. */
+  assert.match(html, /aria-label="Guests — for men · Wear: Suit and tie \+1 · 10 designs"/);
+  assert.match(html, /aria-label="Guests — for women · Wear: Long dress · 5 designs"/);
   assert.match(html, /data-mood-board-wear-allowed=""/);
-  assert.match(html, /data-mood-board-wear-designs="2"/);
+  assert.match(html, /data-mood-board-wear-designs="10"/);
+  /* A legacy single Wear says exactly what it said: one design, no count. */
+  assert.match(await studio({ roles: { guest: { style: 'suit' } } }), /aria-label="Guests — for men · Wear: Suit and tie"/);
   /* The colour people wear the first allowed design. */
   assert.ok(html.includes('data-garment="guest_m-suit"'));
 });
@@ -337,9 +349,9 @@ test('7 · the stored ticks survive every other write, and paper says every allo
   /* The men's Wear changed (it pins the women's): the women keep theirs. */
   const menNow = withColumnDesigns(stored, 'roles', 'guest', 0, 'barong_tagalog', ['barong_tagalog'], withAttireStyle);
   assert.deepEqual(picksWithDesigns(menNow, GUEST_ROW)[1]!.designs, ['long_gown', 'filipiniana'], 'the men’s write dropped the women’s designs');
-  /* A women's narrowing back to one whole style is NOT undone by the keeper. */
-  const back = withColumnDesigns(stored, 'roles', 'guest', 1, 'long_gown', ['long_gown'], withAttireStyle);
-  assert.equal(picksWithDesigns(back, GUEST_ROW)[1]!.designs ?? null, null, 'ticking back to one whole style was undone');
+  /* A women's narrowing back to the shipped design alone is NOT undone by the keeper. */
+  const back = withColumnDesigns(stored, 'roles', 'guest', 1, 'long_gown', [legacyTick('guest_w', 'long_gown')], withAttireStyle);
+  assert.equal(picksWithDesigns(back, GUEST_ROW)[1]!.designs ?? null, null, 'ticking back to the shipped design was undone');
   const renoted = withCallTime(stored, 'roles', 'guest', '14:00');
   assert.deepEqual(picksWithDesigns(renoted, GUEST_ROW)[0]!.designs, ['suit', 'barong_tagalog/pina'], 'a call time dropped the men’s designs');
   const palette = sanitizeRolePalette({ guest: COLOURS, touched_roles: ['guest'] });

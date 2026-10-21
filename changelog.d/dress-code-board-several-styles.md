@@ -5,12 +5,14 @@ well."* → *"Show me a prototype. Where up to 5 different attires. Meaning 5 di
 barong"* (prototype `attire_five_designs_per_style_2026-10-21.html`).
 
 - **Library** (`lib/attire-library.ts`): the guests' six styles × five designs = 30 rows, one registry entry per
-  drawing. The six shipped drawings (#16 #17 #42–#45) are drawn; the 24 new rows are flagged not-yet-drawn and are
-  never offered or rendered. A new drawing ships by adding its webp + zone masks under
-  `public/attire/roles/<role>-<style>/<variant>…` and setting that row's `w` — no other code change.
+  drawing. 29 are drawn: the six shipped (#16 #17 #42–#45) and 23 new Higgsfield drawings (#46–#69) cut through the
+  shipped pipeline (`scripts/build-role-attire.py`: zone boxes, sheer barong tops, traced chinos and clutches) into
+  `public/attire/roles/<role>-<style>/<variant>…`. **Held:** "Polo and slacks" — its figure came back with white skin,
+  so it stays not drawn (never offered, never rendered) until regenerated; a drawing ships by its files + its row's `w`.
 - **Stored shape** (no migration): `designs: string[]` beside each guests' column's `style` (`"suit"` = the whole
   style, `"suit/classic"` = one design). `style` is always the first tick's, so every older reader is unchanged; no
-  `designs` (every dress code before today) reads as `[style]`; `designs` written for another `style` are ignored.
+  `designs` (every dress code before today) reads as the style's shipped design alone — never a board nobody chose;
+  `designs` written for another `style` are ignored.
 - **Studio › Mood Board & Dress Code › Guests** (the Maker too): the same Wear ▾, now ticking — each style a row
   (one tap allows all its designs), its drawn designs as tiles under it (a tap narrows). The pill says
   "Suit and tie +1 · 2 designs"; a line under it names what is allowed. Other roles' Wear ▾ unchanged.

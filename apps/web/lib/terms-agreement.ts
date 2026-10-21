@@ -106,3 +106,39 @@ export function needsTermsAgreement(
   if (!profile.created_at) return false;
   return profile.created_at.slice(0, 10) >= CLICKWRAP_SINCE;
 }
+
+/**
+ * ✅ THE SIGN-UP CARD'S ONE TICK, carried through Google / Apple (owner 2026-10-22, "Yes to all" — Host 1 option B,
+ * prototype `journey_fixes_2026-10-22.html`): one Terms box ABOVE the email, Google and Apple doors.
+ *
+ * The email door posts the box with its form. Google and Apple leave the page, so the agreement travels the way the
+ * RSVP page's tick already does: an httpOnly cookie set BY THE SERVER from the posted tick
+ * (`app/auth/terms-carry-action.ts`), read and spent by `app/auth/callback`, which records it on an account with none
+ * on record. Scoped to the callback's path and short-lived — it lives only across one provider round trip.
+ *
+ * 🔑 NOT OAuth `state`. Supabase's auth server writes and consumes its own `state` on the provider leg; our callback
+ * only ever receives `?code=` and the `redirectTo` query — which is a URL anyone can type, i.e. a claim, not a tick.
+ */
+export const SIGNUP_TERMS_COOKIE = 'sn_signup_terms';
+/** Only the callback reads it. */
+export const SIGNUP_TERMS_COOKIE_PATH = '/auth/callback';
+/** 30 minutes — one Google / Apple round trip, with room for a slow consent screen. */
+export const SIGNUP_TERMS_COOKIE_MAX_AGE = 30 * 60;
+
+/** Does the sign-up card's carried cookie say they ticked the version in force now? */
+export function signupTermsCarried(value: string | null | undefined): boolean {
+  return value === TERMS_VERSION;
+}
+
+/**
+ * Should the callback record an agreement on this sign-in? Only on a tick the person performed and the server
+ * carried: the RSVP page's (on the event-connect route only, as before), or the sign-up card's. Nothing carried →
+ * nothing recorded, and the one-time re-ask (`needsTermsAgreement`) still stands in front of the dashboard.
+ */
+export function carriedTermsAgreement(input: {
+  eventConnect: boolean;
+  rsvpCookie: string | null | undefined;
+  signupCookie: string | null | undefined;
+}): boolean {
+  return (input.eventConnect && rsvpTermsCarried(input.rsvpCookie)) || signupTermsCarried(input.signupCookie);
+}

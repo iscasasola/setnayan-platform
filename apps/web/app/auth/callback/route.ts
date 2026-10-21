@@ -8,7 +8,13 @@ import { appleWasJustUsed } from '@/lib/apple-sign-in';
 import { holdAppleRefreshToken } from '@/lib/apple-sign-in-store';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
-import { RSVP_TERMS_COOKIE, TERMS_VERSION, rsvpTermsCarried } from '@/lib/terms-agreement';
+import {
+  RSVP_TERMS_COOKIE,
+  SIGNUP_TERMS_COOKIE,
+  SIGNUP_TERMS_COOKIE_PATH,
+  TERMS_VERSION,
+  carriedTermsAgreement,
+} from '@/lib/terms-agreement';
 import {
   NATIVE_LANDING_COOKIE,
   NATIVE_MARKER_PARAM,
@@ -81,6 +87,13 @@ export async function GET(request: NextRequest) {
     return spend(NextResponse.redirect(new URL(fallbackNext, url.origin)));
   }
   const nativeSession = nativeFlag; // past this line, the marker matched
+  /** The sign-up card's carried tick is one round trip's worth: spent on the way out of a sign-in that read it. */
+  const spendSignupTerms = (res: NextResponse): NextResponse => {
+    if (request.cookies.get(SIGNUP_TERMS_COOKIE)) {
+      res.cookies.set(SIGNUP_TERMS_COOKIE, '', { path: SIGNUP_TERMS_COOKIE_PATH, maxAge: 0 });
+    }
+    return res;
+  };
 
   if (code || nativeSession) {
     const supabase = await createClient();
@@ -169,7 +182,18 @@ export async function GET(request: NextRequest) {
       // bound for the event-connect route, which is where "Save to my account"
       // goes — it is written onto the account, and only onto one with no
       // agreement on record (an existing agreement is never rewritten).
-      if (isEventConnectNext(fallbackNext) && rsvpTermsCarried(request.cookies.get(RSVP_TERMS_COOKIE)?.value)) {
+      //
+      // ✅ AND THE SIGN-UP CARD'S ONE TICK (owner 2026-10-22, Host 1 option B): the box above Google / Apple /
+      // email, carried here by `carrySignupTerms` in `SIGNUP_TERMS_COOKIE` — so a new Google / Apple account that
+      // ticked never meets the "One quick thing" re-ask. Same write, same never-rewrite rule; the cookie is spent
+      // on the way out (`spendSignupTerms`).
+      if (
+        carriedTermsAgreement({
+          eventConnect: isEventConnectNext(fallbackNext),
+          rsvpCookie: request.cookies.get(RSVP_TERMS_COOKIE)?.value,
+          signupCookie: request.cookies.get(SIGNUP_TERMS_COOKIE)?.value,
+        })
+      ) {
         try {
           const { error: termsErr } = await createAdminClient()
             .from('users')
@@ -249,5 +273,5 @@ export async function GET(request: NextRequest) {
     return spend(NextResponse.redirect(back));
   }
 
-  return spend(NextResponse.redirect(new URL(landing, url.origin)));
+  return spendSignupTerms(spend(NextResponse.redirect(new URL(landing, url.origin))));
 }

@@ -50,7 +50,14 @@ const FACEBOOK_ENABLED =
 const BTN_LIGHT =
   'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
 
-export function DesktopOAuthButtons({ next }: { next: string }) {
+export function DesktopOAuthButtons({
+  next,
+  termsBoxId,
+}: {
+  next: string;
+  /** /signup's one Terms box (owner 2026-10-22): ticked at the press → the agreement is recorded after sign-in. */
+  termsBoxId?: string;
+}) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);
   if (!GOOGLE_ENABLED && !APPLE_ENABLED && !FACEBOOK_ENABLED) return null;
   const BTN = BTN_LIGHT;
@@ -60,7 +67,9 @@ export function DesktopOAuthButtons({ next }: { next: string }) {
     setPending(provider);
     // On success the helper navigates away; on any failure it routes to
     // /login?error. Either way, clear pending if it rejects synchronously.
-    signInWithProviderDesktop(provider, next).catch(() => setPending(null));
+    const box = termsBoxId ? document.getElementById(termsBoxId) : null;
+    const agreed = box instanceof HTMLInputElement && box.checked;
+    signInWithProviderDesktop(provider, next, null, { agreed }).catch(() => setPending(null));
   };
 
   return (

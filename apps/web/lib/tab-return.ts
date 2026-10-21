@@ -72,8 +72,13 @@ export function browserTabEnv(): TabEnv {
 export const COUNT_POLL_MS = 60_000;
 /** Coming back to the tab re-asks at once — unless the last ask was this recent (focus + visibility fire together). */
 export const RETURN_MIN_GAP_MS = 10_000;
-/** A live channel whose page is re-read on resubscribe is let go after the tab has been hidden this long. */
-export const HIDDEN_PAUSE_MS = 45_000;
+/**
+ * A live channel whose page is re-read on resubscribe is let go after the tab has been hidden this long. The SOCKET
+ * then closes once realtime-js's own empty-socket grace has passed (2 × its 25 s heartbeat = 50 s — kept so a quick
+ * page change between two live pages does not reconnect): measured in the lab, a hidden live page's channel leaves at
+ * 30 s and its socket closes at about 80 s (PR body, `census-*.json`).
+ */
+export const HIDDEN_PAUSE_MS = 30_000;
 
 /**
  * Re-ask a count on a slow timer while the tab is in view, and at once on return. The first ask is deferred: the

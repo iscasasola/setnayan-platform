@@ -37,22 +37,22 @@ const ROOTS = ['app', 'lib', 'components'];
 
 /** Every file that opens a Realtime channel, and why it is live. Keys are paths from apps/web. */
 const LIVE: Record<string, string> = {
-  'app/_components/chat-message-stream.tsx': 'an open chat thread streams its messages (lets go after 45 s hidden)',
+  'app/_components/chat-message-stream.tsx': 'an open chat thread streams its messages (lets go after 30 s hidden)',
   'app/_components/thread-call-launcher.tsx': 'an incoming call rings on an open thread — only when calling is unlocked',
   'app/_components/appointment-join.tsx': 'Join on a confirmed online appointment, inside its join window',
   'lib/call-webrtc.ts': 'call signalling, only while in a call',
-  'app/_components/run-of-show-header.tsx': 'the day-of now / next header (lets go after 45 s hidden)',
+  'app/_components/run-of-show-header.tsx': 'the day-of now / next header (lets go after 30 s hidden)',
   'app/[slug]/_components/day-of-announcement.tsx':
-    "the coordinator's announcement to guests, mounted only once one was sent (lets go after 45 s hidden)",
+    "the coordinator's announcement to guests, mounted only once one was sent (lets go after 30 s hidden)",
   'app/dashboard/[eventId]/_actions/day-of-broadcast.ts': 'SERVER: sends one announcement ping — no browser socket',
   'app/dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts':
-    "a view-only seat plan follows the editor's changes (lets go after 45 s hidden)",
+    "a view-only seat plan follows the editor's changes (lets go after 30 s hidden)",
   'app/dashboard/[eventId]/seating/_components/use-seating-presence.ts': 'co-planners on the seat plan — presence',
   'app/_components/plan3d/use-plan3d-room.ts': 'the 3D plan room — presence',
   'app/_components/demo-session/use-demo-channel.ts': 'a Papic demo pairing, only once a phone has paired',
   'lib/demo-webrtc.ts': 'Papic demo camera signalling',
   'app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx':
-    "the supplier's payments-to-confirm, on the thread and the Payments tab (lets go after 45 s hidden)",
+    "the supplier's payments-to-confirm, on the thread and the Payments tab (lets go after 30 s hidden)",
   'app/vendor-dashboard/on-the-day/_components/live-reviews.tsx': "the supplier's on-the-day console — reviews arriving",
   'app/wall/[eventId]/_components/wall-projection.tsx': 'the live photo wall on a projector',
   'lib/panood-webrtc.ts': 'Panood / Live Studio camera signalling',

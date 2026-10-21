@@ -162,7 +162,7 @@ test('a live channel is let go after the tab is hidden long enough, and opened a
         return new Promise<void>((r) => (release = r));
       };
     },
-    { hiddenMs: 45_000, env: tab.env },
+    { hiddenMs: 30_000, env: tab.env },
   );
   assert.equal(opens, 1, 'the channel opens at mount');
 
@@ -173,8 +173,8 @@ test('a live channel is let go after the tab is hidden long enough, and opened a
   assert.equal(closes, 0, 'a short look away must not drop a live channel');
 
   await tab.setVisible(false);
-  await tab.advance(45_000);
-  assert.equal(closes, 1, 'a tab hidden 45 s must let its channel go');
+  await tab.advance(30_000);
+  assert.equal(closes, 1, 'a tab hidden 30 s must let its channel go');
   await tab.advance(10 * 60_000);
   assert.equal(closes, 1);
 

@@ -38,7 +38,7 @@ function fail(message: string): never {
  */
 function failWithDbMessage(message: string): never {
   if (message.includes('chapter_event_not_yours')) {
-    fail('You can only attach a celebration you host or worked on.');
+    fail('You can only attach an event you host or worked on.');
   }
   fail(message);
 }
@@ -218,7 +218,7 @@ async function readEventLink(
   // 🔒 The tie is proven server-side — a form can be posted with any id, and
   // attaching surfaces that day's name, date, venue and booked suppliers.
   const tie = await resolveEventTie(userId, picked);
-  if (!tie) fail('You can only attach a celebration you host or worked on.');
+  if (!tie) fail('You can only attach an event you host or worked on.');
   return picked;
 }
 
@@ -347,7 +347,7 @@ export async function setChapterAudience(formData: FormData) {
 
   if (audience === 'event' && !canShareWithEvent(row.event_id as string | null)) {
     fail(
-      'Pick which celebration this chapter is about first — that is who you would be sharing it with.',
+      'Pick which event this chapter is about first — that is who you would be sharing it with.',
     );
   }
 

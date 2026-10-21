@@ -3,6 +3,7 @@ import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-mode';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -621,12 +622,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'find-your-table',
         title: 'Find your seat',
-        body: "From noon the day before the wedding, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.",
+        body: `From ${DAY_OF_STARTS_PLAIN} the wedding, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.`,
       },
       {
         slug: 'live-schedule',
         title: "What's happening right now",
-        body: 'The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what\'s next and roughly when. Available from noon the day before until noon the day after.',
+        body: `The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what's next and roughly when. Available from ${DAY_OF_STARTS_PLAIN} until ${DAY_OF_ENDS_PLAIN}.`,
       },
       {
         slug: 'photo-wall',

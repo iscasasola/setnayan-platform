@@ -531,7 +531,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   part_reopen_requested: 'A couple wants to change an agreed part',
   part_reopen_answered: 'Your re-open request was answered',
   colour_changed_in_lane: 'A colour on your board was changed',
-  deletion_request_received: 'A celebration you were paid for is being removed',
+  deletion_request_received: 'An event you were paid for is being removed',
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
   deletion_request_declined: 'A supplier would rather keep it for now',

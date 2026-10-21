@@ -178,7 +178,7 @@ export default async function AlaalaPage({
         {active === 'albums' ? (
           <div className="space-y-4">
             <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
-              One card per celebration — this is where a whole event downloads at
+              One card per event — this is where a whole event downloads at
               once. Your memories themselves live in the lenses above.
             </p>
             <PhotosTab userId={user.id} />

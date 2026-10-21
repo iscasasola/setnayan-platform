@@ -649,7 +649,7 @@ export function SaveTheDateFilm({
       anim: ANIM.slideR,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className={LABEL}>The celebration</p>
+          <p className={LABEL}>The event</p>
           <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
           <h2 className={`${theme.fontCls} text-5xl font-medium`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (

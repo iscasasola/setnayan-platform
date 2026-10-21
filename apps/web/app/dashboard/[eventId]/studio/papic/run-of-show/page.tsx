@@ -380,7 +380,7 @@ function MomentShelf({
       <p className="text-xs text-ink/50">
         {shelf.basis === 'sequence'
           ? 'Made for this moment:'
-          : 'We haven’t written prompts for this moment at a celebration like yours — here are strong ones from the whole library:'}
+          : 'We haven’t written prompts for this moment at an event like yours — here are strong ones from the whole library:'}
       </p>
       <ul className="mt-1.5 space-y-1.5">
         {shelf.candidates.map((c) => (

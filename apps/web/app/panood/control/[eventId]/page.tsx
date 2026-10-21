@@ -931,7 +931,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         </Link>
 
         <span className="min-w-0 truncate text-xs font-medium text-ink/70">
-          {event.display_name ?? 'Your celebration'}
+          {event.display_name ?? 'Your event'}
         </span>
 
         {!owned ? (
@@ -2246,7 +2246,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </h2>
           <p className="max-w-prose text-sm text-ink/65">
             Start your broadcast on YouTube, then paste the watch link — your event page shows a
-            “Watch Live” player during the celebration.
+            “Watch Live” player during the event.
           </p>
         </div>
         {youtubeWatchUrl ? (
@@ -2643,7 +2643,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
             <CopyButton value={camera.claimUrl} label="Copy the link" copiedLabel="Copied" />
           ) : null}
           <p className="text-[11px] text-ink/45">
-            This code only works for this celebration and only for this channel.
+            This code only works for this event and only for this channel.
           </p>
         </div>
       </div>

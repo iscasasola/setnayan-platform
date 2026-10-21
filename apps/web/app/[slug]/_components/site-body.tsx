@@ -3739,7 +3739,7 @@ export async function SiteBody({
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a supplier? Keep them.</h2>
                   <p className="mt-1 text-sm text-ink/70">
                     Save any supplier here to your Setnayan account — they&rsquo;ll be waiting when you
-                    plan your own celebration.
+                    plan your own event.
                   </p>
                   {saveFlash ? (
                     <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">

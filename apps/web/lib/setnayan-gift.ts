@@ -338,7 +338,7 @@ export function giftQuoteCopy(
   return {
     headline: `Includes a Setnayan gift — you get ${photos} free Papic photos`,
     detail: from
-      ? `For your celebration, from ${from}. They arrive in your Papic once the booking is confirmed.`
-      : `For your celebration. They arrive in your Papic once the booking is confirmed.`,
+      ? `For your event, from ${from}. They arrive in your Papic once the booking is confirmed.`
+      : `For your event. They arrive in your Papic once the booking is confirmed.`,
   };
 }

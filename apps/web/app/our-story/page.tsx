@@ -117,7 +117,7 @@ export default async function OurStoryPage() {
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-[var(--m-slate)]">
               Setnayan is a Filipino wedding platform — and a place that keeps
-              every celebration you hold. The couple plans the whole
+              every event you hold. The couple plans the whole
               event in one place — and on the day, every guest leaves with their
               own tagged photos and a personal highlight reel of the moments that
               involved them. The day doesn&rsquo;t just happen for the couple

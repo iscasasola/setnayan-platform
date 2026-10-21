@@ -173,7 +173,7 @@ export default function AboutPageTaglish() {
             Ang Setnayan (<span className="font-medium">SET-na-yan</span>, galing sa
             Tagalog na <em>&ldquo;Set na &rsquo;yan.&rdquo;</em>) ang all-in-one
             wedding at life-events platform ng Pilipinas — at ang una ditong gawa
-            para gawin ang buong celebration sa isang place: i-plan ang event,
+            para gawin ang buong event sa isang place: i-plan ang event,
             mag-hire from a 0%-commission marketplace ng verified local suppliers, at
             i-capture ang araw para may sariling highlight reel ang bawat guest.
           </p>

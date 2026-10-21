@@ -54,6 +54,8 @@ const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
  * `getDayOfPhase`, so the words cannot drift from the window again.
  */
 export const DAY_OF_STARTS_PLAIN = 'noon the day before';
+/** …and when it switches off: `LIVE_WINDOW_END_MS` after midnight on the day. Same guard. */
+export const DAY_OF_ENDS_PLAIN = 'noon the day after';
 
 /*
   ─── WHEN IS IT OVER? 06:00 ON THE DAY AFTER THE LAST DAY ─────────────────

@@ -285,7 +285,7 @@ export function lensNote(args: {
 }): string {
   switch (args.state) {
     case 'no_venue':
-      return 'No seating plan for this day — the plan belongs to the reception venue, on the day it is used. A celebration that moves never gets one at all.';
+      return 'No seating plan for this day — the plan belongs to the reception venue, on the day it is used. An event that moves never gets one at all.';
     case 'not_built':
       return 'The room had not been drawn yet. The seating plan is a different thing again, and appears only when the reception opens.';
     case 'ceremony':

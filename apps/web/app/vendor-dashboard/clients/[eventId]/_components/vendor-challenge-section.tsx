@@ -85,7 +85,7 @@ export async function VendorChallengeSection({
         ) : null}
       </h3>
       <p className="mt-1 text-xs text-ink/55">
-        Set a guest photo mission at this celebration — ask guests to photograph your
+        Set a guest photo mission at this event — ask guests to photograph your
         service (your signature dish, the booth, the pour). It&rsquo;s free and fun for
         every guest; each challenge needs the couple&rsquo;s okay before it goes live.
       </p>

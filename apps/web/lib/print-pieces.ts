@@ -924,7 +924,7 @@ export function coupleNames(displayName: string | null | undefined): { first: st
   const raw = (displayName ?? '').trim();
   const parts = raw.split(/\s+(?:&|and|\+)\s+/i).map((s) => s.trim()).filter(Boolean);
   if (parts.length >= 2) return { first: parts[0]!, second: parts.slice(1).join(' & ') };
-  return { first: raw || 'Our celebration', second: null };
+  return { first: raw || 'Our event', second: null };
 }
 
 /** `2026-12-18` → "Friday, the eighteenth of December, 2026" is the formal

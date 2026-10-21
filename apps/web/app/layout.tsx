@@ -336,7 +336,7 @@ const vidaloka = localFont({
 // ⚠ The description names the services, is event-type neutral, and says
 // "supplier", never "vendor". Guarded by lib/public-copy-is-not-wedding-only.test.ts.
 // ⚠ Pages with their own title (the homepage's HOME_TITLE) are unaffected.
-const SITE_TITLE = 'Setnayan · Plan, share and relive every celebration';
+const SITE_TITLE = 'Setnayan · Plan, share and relive every event';
 const SITE_DESCRIPTION =
   'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.';
 

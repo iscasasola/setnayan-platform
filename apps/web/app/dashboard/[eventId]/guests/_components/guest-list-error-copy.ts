@@ -25,7 +25,7 @@ export function guestListErrorCopy(raw: string): string {
   })();
 
   const COPY: Record<string, string> = {
-    invalid_role: "That role isn't available for this celebration — pick one from the list.",
+    invalid_role: "That role isn't available for this event — pick one from the list.",
     invalid_side: 'Pick Bride, Groom, or Both.',
     no_selection: 'Select at least one guest first.',
     missing_name: 'Please enter both a first and last name.',

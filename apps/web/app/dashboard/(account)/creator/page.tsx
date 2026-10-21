@@ -769,7 +769,7 @@ function ChapterFields({
         />
         <span className="block text-[11px] text-ink/55">
           This decides which year your chapter files under. Leave it blank if you
-          pick a celebration below — we’ll use that day.
+          pick an event below — we’ll use that day.
         </span>
       </label>
 
@@ -785,12 +785,12 @@ function ChapterFields({
             is derived from this answer in the action — never a second box. */}
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/80">
-            Which celebration is this about?
+            Which event is this about?
           </span>
           {myEvents.length > 0 ? (
             <>
               <select name="event_id" defaultValue={pickedEventId} className="input-field">
-                <option value="">Not about one of my celebrations</option>
+                <option value="">Not about one of my events</option>
                 {myEvents.map((e) => (
                   <option key={e.event_id} value={e.event_id}>
                     {e.label}
@@ -798,7 +798,7 @@ function ChapterFields({
                 ))}
               </select>
               <span className="block text-[11px] text-ink/55">
-                Only celebrations that are over show up here — this is the story
+                Only events that are over show up here — this is the story
                 of a day that happened. Attach it and your chapter stands on it:
                 its photos, and the suppliers who were really there. Setnayan’s
                 own write-up of the same day will link to your chapter, and yours
@@ -810,7 +810,7 @@ function ChapterFields({
             <>
               <input type="hidden" name="event_id" value="" />
               <span className="block text-[11px] text-ink/55">
-                Nothing to attach yet — a celebration appears here once its day
+                Nothing to attach yet — an event appears here once its day
                 has passed. Your chapter stands on its own until then. If you
                 were a guest at someone else’s day, asking them to link it is
                 coming.
@@ -827,7 +827,7 @@ function ChapterFields({
             action that makes the suppliers appear. Narrowing which of them show
             is a later refinement; nobody can narrow a list they never had. */}
         <p className="text-[11px] text-ink/55">
-          The suppliers who worked your celebration appear on your published
+          The suppliers who worked your event appear on your published
           chapter on their own, once you attach the day above — there&rsquo;s
           nothing to type. Anyone your story merely mentions in writing stays
           plain text, never a bookable card.

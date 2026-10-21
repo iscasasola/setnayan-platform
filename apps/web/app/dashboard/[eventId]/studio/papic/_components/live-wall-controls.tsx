@@ -102,7 +102,7 @@ export function LiveWallControls({
         </p>
         <p className="mt-1.5 text-sm text-ink/70">
           {mirror
-            ? 'On your venue screens and on your guests’ own phones while the celebration is on.'
+            ? 'On your venue screens and on your guests’ own phones while the event is on.'
             : 'On your venue screens only. Guests won’t see the wall on their phones.'}
         </p>
         <button

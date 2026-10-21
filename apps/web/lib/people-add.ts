@@ -83,7 +83,7 @@ export const RELATION_HINT: Record<ConnectionRelation, string> = {
   sibling: 'Your brother or sister',
   godparent: 'Your own ninong or ninang',
   godchild: 'A child you stood for',
-  friend: 'Close enough to be at your celebrations',
+  friend: 'Close enough to be at your events',
   partner: 'The one you’re with — together you’re a couple',
 };
 

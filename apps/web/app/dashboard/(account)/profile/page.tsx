@@ -819,7 +819,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                   is separate, narrower and opt-in (owner 2026-09-20); it is not
                   read or written here.
                 */
-                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · shows your name, your profile photo and the celebrations you’ve made public. Off: hidden from everyone but you, never in search.`}
+                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · shows your name, your profile photo and the events you’ve made public. Off: hidden from everyone but you, never in search.`}
               >
                 <input
                   type="hidden"
@@ -840,7 +840,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                     View public profile
                   </Link>
                   {hasPublicChapter ? null : (
-                    <p className="text-xs text-ink/60">Publish a celebration to share your profile.</p>
+                    <p className="text-xs text-ink/60">Publish an event to share your profile.</p>
                   )}
                 </div>
               ) : null}
@@ -883,7 +883,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 on={findableByName}
                 id="findable-by-name"
                 label="Can people find you by name?"
-                help="They see your name and photo — never your email, phone or celebrations — and nothing connects until you confirm. Off: only someone with your email can add you."
+                help="They see your name and photo — never your email, phone or events — and nothing connects until you confirm. Off: only someone with your email can add you."
               >
                 <input
                   type="hidden"
@@ -897,7 +897,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 on={sharePhotoWithHosts}
                 id="photo-with-hosts"
                 label="Share my profile photo with hosts"
-                help="Couples whose celebration you joined see it on their guest list. Never shared automatically."
+                help="Couples whose event you joined see it on their guest list. Never shared automatically."
               >
                 <input
                   type="hidden"

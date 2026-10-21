@@ -200,7 +200,7 @@ export function buildEventManifest(input: {
   /** The tile's first open, when it must carry a guest in (a path inside `base`). Default: `base`. */
   startUrl?: string | null;
 }): Record<string, unknown> {
-  const name = (input.displayName ?? '').trim() || 'Our celebration';
+  const name = (input.displayName ?? '').trim() || 'Our event';
   const base = `/${input.slug}`;
   const start = input.startUrl && input.startUrl.startsWith(`${base}/`) ? input.startUrl : base;
   const bg = safeHex(input.background, DEFAULT_ICON_BG);

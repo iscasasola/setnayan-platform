@@ -692,7 +692,7 @@ export async function loadPrintSet(
 
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
-    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',
+    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',
     dateLabel: printedDate(event.event_date),
     ceremonyTime: blockTime(ceremony),
     ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,

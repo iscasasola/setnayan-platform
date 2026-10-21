@@ -54,7 +54,7 @@ export type StoryAudience = (typeof STORY_AUDIENCES)[number];
 /** What a person reads. Never the stored word — see the note above. */
 export const STORY_AUDIENCE_LABEL: Record<StoryAudience, string> = {
   draft: 'Only me',
-  event: 'The people of this celebration',
+  event: 'The people of this event',
   published: 'Everyone',
   taken_back: 'Only me — taken back',
 };
@@ -66,7 +66,7 @@ export const STORY_AUDIENCE_NOTE: Record<StoryAudience, string> = {
   event:
     'The people of that day can read it — the hosts, the guests who have a seat, ' +
     'and the shops you booked, including the staff those shops send to work your ' +
-    'celebration. It stays off Setnayan’s Stories and off search engines.',
+    'event. It stays off Setnayan’s Stories and off search engines.',
   published:
     'Anyone with your link can read it, and Setnayan may feature it on Stories.',
   taken_back:
@@ -93,7 +93,7 @@ export const STORY_AUDIENCE_NOTE: Record<StoryAudience, string> = {
  */
 export const STORY_AUDIENCE_SAVED: Record<StoryAudience, string> = {
   draft: 'Saved · only me can read it.',
-  event: 'Saved · the people of this celebration can read it.',
+  event: 'Saved · the people of this event can read it.',
   published: 'Saved · everyone can read it.',
   taken_back: 'Taken back · only you can read it now.',
 };

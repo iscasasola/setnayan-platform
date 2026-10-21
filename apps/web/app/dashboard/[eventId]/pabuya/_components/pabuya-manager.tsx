@@ -261,7 +261,7 @@ export function PabuyaManager({
               We couldn&rsquo;t load your event details just now.
             </span>{' '}
             Your gift methods below are correct and saved — but your
-            celebration&rsquo;s name and whether its page is live aren&rsquo;t
+            event&rsquo;s name and whether its page is live aren&rsquo;t
             shown on this screen until it loads. Reload in a moment; nothing
             here has changed.
           </p>

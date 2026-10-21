@@ -1229,13 +1229,13 @@ export default async function LauncherPage({
       >
         <SectionLabel
           sub="today"
-          info="Your celebration is running today. It leaves this row on its own tomorrow."
+          info="Your event is running today. It leaves this row on its own tomorrow."
         >
           Now happening
         </SectionLabel>
         {happeningNow.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
-            On the day itself, your celebration moves up here — and moves on by
+            On the day itself, your event moves up here — and moves on by
             itself the morning after.
           </p>
         ) : null}
@@ -1286,7 +1286,7 @@ export default async function LauncherPage({
             has an empty Planning shelf too — so it never says "no events". */}
         {upcoming.length === 0 ? (
           <CollectionEmptyState
-            title="Start a celebration"
+            title="Start an event"
             body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
             action={
               <Link
@@ -1434,7 +1434,7 @@ export default async function LauncherPage({
           info={
             storiesMeasured
               ? 'The day has passed and its story isn’t written. Pick the ones worth telling.'
-              : 'Celebrations move here on their own once the day has passed.'
+              : 'Events move here on their own once the day has passed.'
           }
         >
           {storiesMeasured ? 'Untold' : 'Ended'}
@@ -1442,8 +1442,8 @@ export default async function LauncherPage({
         {unwritten.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
             {storiesMeasured
-              ? 'Celebrations move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
-              : 'Celebrations move here on their own once the day has passed. Nothing you keep is ever taken away.'}
+              ? 'Events move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
+              : 'Events move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
         ) : (
           <>
@@ -1515,8 +1515,8 @@ export default async function LauncherPage({
         {written.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
             {storiesMeasured
-              ? 'The celebrations you write up land here, as chapters of your story.'
-              : 'This is where the celebrations you have written up live.'}
+              ? 'The events you write up land here, as chapters of your story.'
+              : 'This is where the events you have written up live.'}
           </p>
         ) : null}
         <CollectionGrid>

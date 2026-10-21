@@ -205,6 +205,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   // 🔴 A failed read is not "you are not seated" — throw, never draw A4 over it.
   if (guestErr) throw new Error(`find-seat: could not read the guest: ${guestErr.message}`);
   if (assignmentErr) throw new Error(`find-seat: could not read the seat: ${assignmentErr.message}`);
+  // 🪑 Who they bring, refused: logged, and the pass leaves its party line off (below) — never a guessed party.
+  if (seatRowsErr) logQueryError('find-seat.seats', seatRowsErr, { event_id: event.event_id }, 'graceful_degrade');
   if (!guest) redirect(`/${slug}`); // removed from the list since the key was issued
 
   const firstName = guest.first_name?.trim() || 'there';
@@ -274,7 +276,6 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
     const checkedIn = (checkin?.checked_in_at as string | null) ?? null;
     /* 🪑 "party of N" counts EVERY named seat who is coming (2026-10-22: a guest bringing two printed "party of 2" with
        one name, from the one-name mirror). A refused read omits the line — never a guessed party. */
-    if (seatRowsErr) logQueryError('find-seat.seats', seatRowsErr, { event_id: event.event_id }, 'graceful_degrade');
     const companions = seatRowsErr ? [] : companionNames(guest, (seatRows ?? []) as unknown as CompanionSeatRow[]);
     const companionWords = companions.map((n) => {
       const parts = n.split(/\s+/);

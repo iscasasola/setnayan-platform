@@ -121,6 +121,7 @@ export function PhotoDeliveryPanel({
         eventId={eventId}
         disconnectedFlash={disconnectedFlash}
         oauthReady={oauthReady}
+        storeShell={storeShell}
       />
     );
   }
@@ -165,10 +166,12 @@ function IdleState({
   eventId,
   disconnectedFlash,
   oauthReady,
+  storeShell,
 }: {
   eventId: string;
   disconnectedFlash: boolean;
   oauthReady: boolean;
+  storeShell: boolean;
 }) {
   return (
     <div className="space-y-6">

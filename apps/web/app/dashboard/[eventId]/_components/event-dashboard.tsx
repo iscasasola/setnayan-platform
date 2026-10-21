@@ -1449,7 +1449,7 @@ export async function EventDashboard({
   // 🍎 The offer names Setnayan AI ("Setnayan AI · Free", "Let Sai find…") — a paid web
   // extra the iPhone app does not offer, so the app draws no offer at all.
   const venueOfferAvailable =
-    !storeShell && marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled && !storeShell && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));

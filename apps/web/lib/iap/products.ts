@@ -139,3 +139,9 @@ export function papicCreditsMatch(product: IapProduct, tierPoints: number | null
   if (product.kind !== 'papic-credits') return true;
   return tierPoints !== null && product.credits === tierPoints;
 }
+
+/**
+ * The payment `channel` and the order's `payment_method_key` of every App Store purchase — ONE spelling, read by
+ * the fulfilment (`fulfil.server.ts` `APP_STORE_CHANNEL`) and by Home's "bought in the app" (`where-bought.ts`).
+ */
+export const APP_STORE_CHANNEL_KEY = 'app_store';

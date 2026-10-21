@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "14b0707fc9",
+  "generatedFromRef": "ee5e38edf1",
   "routeCount": 451,
   "destinations": 995,
   "actions": 664,
-  "blocks": 6723,
+  "blocks": 6724,
   "routes": {
     "/": {
       "files": [
@@ -10929,6 +10929,7 @@
       "files": [
         "dev/me-lab/connect-hosts-lab-requests.tsx",
         "dev/me-lab/connect-hosts-lab.tsx",
+        "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
         "dev/me-lab/page.tsx"
       ],
@@ -10941,10 +10942,14 @@
         "ConnectHostsTick",
         "DoorActions",
         "DoorShell",
+        "GuestMe",
         "GuestMeParts",
         "GuestTicket",
+        "HeldPassLine",
+        "HostViewsGuestLab",
         "LabHostRequests",
         "Link",
+        "MeFor",
         "PeopleRosterView",
         "SubmitButton"
       ]
@@ -14090,6 +14095,7 @@
         "ServiceScopeSelectClient",
         "ServiceScopeSelector",
         "ShopCard",
+        "ShopSegments",
         "SourceBreakdown",
         "T",
         "Tile",
@@ -14493,7 +14499,7 @@
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
-        "vendor-dashboard/shop/_components/shop-rail.tsx",
+        "vendor-dashboard/shop/_components/shop-door-section.tsx",
         "vendor-dashboard/shop/_components/shop-segments.tsx",
         "vendor-dashboard/shop/_components/suggested-coverage-card.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
@@ -14600,7 +14606,6 @@
         "ReceiptLine",
         "RegNumberSaveResult",
         "RegistrationNumberLine",
-        "ReviewStatsRow",
         "Row",
         "RowPreview",
         "ServiceCoverageRow",
@@ -14610,12 +14615,9 @@
         "ShopData",
         "ShopDoorSection",
         "ShopHome",
-        "ShopRail",
         "ShopSectionBody",
         "ShopSegments",
-        "ShopTools",
         "SocialLinksInput",
-        "StatTile",
         "StatusChip",
         "StatusLine",
         "StepPill",

@@ -50,6 +50,7 @@ import {
   resolveVendorTier,
 } from '@/lib/vendor-feature-gate';
 import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
+import { ShopSegments } from '../shop/_components/shop-segments';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { ReplyClaimCard } from './_components/reply-claim-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
@@ -194,12 +195,20 @@ export default async function PerformanceHome({
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
     return (
+      <>
+        {/* Shop › How it is going — the segment stays on the upsell too, so a
+            supplier who tapped it from Shop can tap back (owner "Yes to all",
+            2026-10-21, item 2). */}
+        <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
+          <ShopSegments on="insights" />
+        </div>
       <VendorTierGate
         feature="My Performance"
         requiredTier="solo"
         blurb="See how your shop is doing — a business-health snapshot, growth tips, and your booking momentum. My Performance starts with Solo."
         icon={<Gauge aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
+      </>
     );
   }
 
@@ -736,6 +745,13 @@ export default async function PerformanceHome({
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* SHOP › HOW IT IS GOING (owner "Yes to all", 2026-10-21, item 2). This
+          page is the third Shop segment, so it draws the Shop switcher and the
+          bar lights Shop here — it used to draw no segments and light More, so
+          a supplier who tapped Shop landed on a page that said More. */}
+      <div className="mx-auto w-full max-w-3xl">
+        <ShopSegments on="insights" />
+      </div>
       {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
           the full cards, unchanged ("only the words change"). */}
       <div className="mx-auto w-full max-w-xl lg:mx-0">

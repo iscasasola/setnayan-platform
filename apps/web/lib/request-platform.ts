@@ -121,7 +121,7 @@ export async function isStoreShellRequest(): Promise<boolean> {
  * 🍎 The store shell, and whether it may sell through Apple on this request.
  *
  * `iap` is true only when ALL of: the store shell, a build carrying the StoreKit
- * plugin (`SetnayanIAP/1`), and the owner's switch — the rule is
+ * plugin (`SetnayanIAP/2` or higher — 1.1+; build 5's `/1` never), and the owner's switch — the rule is
  * `iapAvailable` in lib/iap/iap-gate.ts. With `iap` false every reader keeps
  * the store-shell behaviour it had before In-App Purchase existed. Safe outside
  * a request scope → both false.

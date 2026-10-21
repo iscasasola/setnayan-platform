@@ -19,29 +19,26 @@
  * on both sides; nothing here calls `navIconComponent`, so
  * `vendor-nav-boundary.test.ts` has nothing to fear from it.
  *
- * ⚠ THE DOORS NAME THEIR SECTION. Messages and Earnings & payday link the
- * Customers hub at their own fold through `customerLandingHref` (the anchors
- * module — ONE table, also read by Today's tiles, the Next card and the old
- * redirect stubs). They used to link the bare `/messages` and `/payday` stubs,
- * which dropped the supplier at the top of the roster. Calendar still links its
- * stub: `/vendor-dashboard/calendar` already lands on the month grid.
+ * ⚙ SETTINGS IS A ROW (simpler supplier dashboard step 6, owner-APPROVED
+ * 2026-10-14; prototype SCREENS.more = Event Hub · Settings · More tools).
+ * `/vendor-dashboard/settings` holds Notifications, Plan, Getting paid, Helpers,
+ * More tools, Help and Sign out as rows.
  *
- * ⚙ SETTINGS IS A ROW NOW (simpler supplier dashboard step 6, owner-APPROVED
- * 2026-10-14; prototype SCREENS.more = Event Hub · Settings · More tools). Until
- * then there was no settings page, so a Settings row would have pretended; now
- * `/vendor-dashboard/settings` exists and holds Notifications, Plan, Getting
- * paid, Helpers, More tools, Help and Sign out as rows. The rows that left:
- *   · Calendar · Money in — Customers › Dates / Money carry them (each was
- *     already one tap there);
- * Messages STAYS (owner answer 1, 2026-10-01, held by vendor-nav-boundary.test.ts)
- * until the envelope opens its own Messages screen (plan S-PR9) — the prototype's
- * three-row More assumes that screen, which is not built yet;
- *   · Notifications · Plan — Settings rows (and the bell, and the avatar);
- * "How is my business doing" stays here until Shop › How it is going lands
- * (the prototype's shopSeg — another step owns Shop).
+ * ✂ RE-PLOT B FINISHED (owner "Yes to all", 2026-10-21 — items 1 and 3 of the
+ * supplier-dashboard audit `shots-2026-10-21/supplier-dash-audit/AUDIT.md`;
+ * DECISION_LOG 2026-10-08 answer 1 = B). More is **Event Hub · Settings**:
+ *   · Messages LEFT — the envelope in the top bar lands on the IDENTICAL URL
+ *     (`customerLandingHref('messages')`), so the row bought nothing. The old
+ *     docblock's "until the envelope opens its own screen" was a wait for a
+ *     screen the row never needed;
+ *   · How is my business doing LEFT — it is Shop › How it is going now (the
+ *     page draws the Shop switcher and lights Shop), and Today keeps its row;
+ *   · More tools LEFT — ONE door, in Settings (the approved 2026-10-14
+ *     prototype). The Shop fold that copied it went the same day;
+ *   · Calendar · Money in left earlier — Customers › Dates / Money carry them;
+ *   · Notifications · Plan — Settings rows (and the bell, and the avatar).
  */
-import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import { BarChart2, CalendarCheck, MessageSquare, Settings, Wrench, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, Settings, type LucideIcon } from 'lucide-react';
 
 export type VendorMoreRow = {
   key: string;
@@ -51,10 +48,9 @@ export type VendorMoreRow = {
   href: string;
   Icon: LucideIcon;
   /**
-   * The nav-registry slot whose admin rename follows this row. Only the two
-   * rows that WERE bar tabs carry one (`vendor.bottom-nav.performance` ·
-   * `vendor.bottom-nav.onday`), so an admin rename of those tabs still reaches
-   * them now that they live in More.
+   * The nav-registry slot whose admin rename follows this row. Only the Event
+   * Hub row, which WAS a bar tab, carries one (`vendor.bottom-nav.onday`), so
+   * an admin rename of that tab still reaches it now that it lives in More.
    */
   slot?: string;
   /** The Plan hub is web-only in the App Store / Play Store shell. */
@@ -71,33 +67,11 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
     slot: 'vendor.bottom-nav.onday',
   },
   {
-    key: 'messages',
-    label: 'Messages',
-    sub: 'Every conversation in one inbox.',
-    href: customerLandingHref('messages'),
-    Icon: MessageSquare,
-  },
-  {
-    key: 'performance',
-    label: 'How is my business doing',
-    sub: 'Who looked at you, who asked, who booked.',
-    href: '/vendor-dashboard/performance',
-    Icon: BarChart2,
-    slot: 'vendor.bottom-nav.performance',
-  },
-  {
     key: 'settings',
     label: 'Settings',
     sub: 'Account · notifications · plan · getting paid · helpers · help',
     href: '/vendor-dashboard/settings',
     Icon: Settings,
-  },
-  {
-    key: 'more-tools',
-    label: 'More tools',
-    sub: 'What couples see · with others · protection',
-    href: '/vendor-dashboard/settings#more-tools',
-    Icon: Wrench,
   },
 ];
 
@@ -114,8 +88,9 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
  */
 export const VENDOR_MORE_MATCH: readonly string[] = [
   '/vendor-dashboard/more',
-  '/vendor-dashboard/performance',
-  '/vendor-dashboard/demand',
+  // ⚠ NOT /performance or /demand any more (2026-10-21, item 2): How it is going
+  // is a Shop segment, so Shop is the tab lit there (`vendor-bottom-nav.tsx`,
+  // `VENDOR_SHOP_EXTRA_MATCH` for the rail).
   '/vendor-dashboard/on-the-day',
   '/vendor-dashboard/notifications',
   '/vendor-dashboard/settings',

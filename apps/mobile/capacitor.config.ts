@@ -57,13 +57,15 @@ const config: CapacitorConfig = {
     backgroundColor: '#FBFBFA',
     // Lets the WebView surface camera/mic permission prompts natively.
     limitsNavigationsToAppBoundDomains: false,
-    // 🍎 `SetnayanIAP/1` (2026-10-18): this iOS build carries the StoreKit 2
+    // 🍎 `SetnayanIAP/2` (1.1, owner 2026-10-21; `/1` from 2026-10-18 is what
+    // 1.0 (build 5) announces, and the web NEVER sells to `/1` — that build was
+    // submitted as an app that sells nothing). This iOS build carries the StoreKit 2
     // plugin (ios/App/App/SetnayanStorePlugin.swift), so the web may offer Apple
     // In-App Purchase — only when the owner's NEXT_PUBLIC_APPLE_IAP_ENABLED is
     // also on (apps/web/lib/iap/iap-gate.ts). iOS ONLY: the Android shell has no
     // Play Billing, so it must never claim the token. This REPLACES the global
     // `appendUserAgent` on iOS, so the two shared tokens are repeated here.
-    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/1',
+    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/2',
   },
   plugins: {
     SplashScreen: {

@@ -17,7 +17,7 @@ import { eventCoupleWebsiteProActive, eventOwnsCoupleWebsitePro } from '@/lib/co
 import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { formatEventDate } from '@/lib/events';
 import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -186,16 +186,21 @@ export default async function OurStoryEditorPage({
 
   // The EVENT holds Pro, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
-  const [proActive, proOwned, proSku, storeShell, look, otherEvents] = await Promise.all([
+  const [proActive, proOwned, proSku, iapGate, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
     asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
     asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
-    isStoreShellRequest(),
+    getIapGate(),
     resolveHubTheme(event).catch(() => null),
     inStudio ? Promise.resolve<OtherEvent[] | null>(null) : readOurEventsOffer(user.id, eventId),
   ]);
   const theme = INVITE_THEMES[look?.theme ?? 'house'];
+  const storeShell = iapGate.storeShell;
+  /* 🍎 The store shell FOR PRO TRYING only (the Maker editor's `proShell`, owner 2026-10-18): where Apple sells Pro at
+     Apply, more stories and photos are TRIED here as on the web, and Apply asks for Pro through Apple's sheet.
+     Every price, link and tour keeps `storeShell` (no ₱, no "Go Event Hub Pro" link in the app). */
+  const proShell = storeShell && !iapGate.iap;
 
   // Every photo the page draws, signed in ONE pass.
   const refs = [...new Set(moments.flatMap((m) => m.media ?? []))];
@@ -238,7 +243,7 @@ export default async function OurStoryEditorPage({
   /* 💎 Every save here drafts, so on the web more stories and photos are TRIED
      without Pro (◆ PRO) and Apply asks (owner 2026-09-28); the app-store shell
      keeps the free cap in the UI. */
-  const proUsable = makerProUsable({ owns: proActive, storeShell });
+  const proUsable = makerProUsable({ owns: proActive, storeShell: proShell });
   const refused = search.pro === 'photos' ? 'photos' : search.pro === 'stories' ? 'stories' : null;
   /* 🎨 The scrapbook wears the page's colours — the Mood Board over the theme
      (`themeColours`, owner 2026-10-05 "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
@@ -271,6 +276,7 @@ export default async function OurStoryEditorPage({
     ownsPro: proUsable,
     tryingPro: proUsable && !proActive,
     storeShell,
+    appleIap: iapGate.iap,
     proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,
     proPrice,
     refused,

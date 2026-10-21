@@ -80,7 +80,7 @@ export async function labOpenMarchCard(eventId: string, guestId: string): Promis
     groupOptions: ['family', 'friends'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: null,

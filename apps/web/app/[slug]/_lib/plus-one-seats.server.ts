@@ -20,9 +20,10 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * those keys by the owner's ruling ("the guest who brings plus-ones hands each
  * one their own key"), and never anybody else's.
  *
- * A failed read returns `[]`, which the callers draw as "no guests listed" —
- * never as "you are bringing nobody": the reply card falls back to its single
- * box and the thank-you simply omits the section.
+ * 🪑 A failed read returns NULL — never `[]`, which is "this guest has no seats" (2026-10-22: the reply page took the
+ * `[]` as real and drew empty boxes over a guest's named +1s). Each caller says it its own way: the reply card falls
+ * back to its single box (`plus_one_seats` undefined, as `loadGuestContext` does), the thank-you omits its count, and
+ * Me omits "Coming with you".
  */
 export type PlusOneSeat = {
   guest_id: string;
@@ -77,7 +78,7 @@ export async function yourGuestsFor(
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
   passes: Record<string, string>;
 }> {
-  const seats = await plusOneSeatsFor(admin, event.event_id, bringerGuestId);
+  const seats = (await plusOneSeatsFor(admin, event.event_id, bringerGuestId)) ?? [];
   if (seats.length === 0) return { guests: [], passes: {} };
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
@@ -99,7 +100,7 @@ export async function plusOneSeatsFor(
   admin: AdminClient,
   eventId: string,
   bringerGuestId: string,
-): Promise<PlusOneSeat[]> {
+): Promise<PlusOneSeat[] | null> {
   const { data, error } = await admin
     .from('guests')
     .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token, meal_preference, dietary_restrictions`)
@@ -109,7 +110,7 @@ export async function plusOneSeatsFor(
     .order('created_at', { ascending: true });
   if (error) {
     console.error('[supabase-error] app/[slug]/_lib/plus-one-seats.server.ts · from:guests.select', error);
-    return [];
+    return null;
   }
   const linked = await linkedSeatIds(admin, eventId, (data ?? []).map((r) => r.guest_id as string));
   return (data ?? []).map((r) => {

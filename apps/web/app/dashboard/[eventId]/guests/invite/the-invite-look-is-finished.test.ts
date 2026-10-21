@@ -133,17 +133,21 @@ test('nothing still calls them "the seven"', () => {
       `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
   }
-  // Nine since 2026-09-24 — the animated logo joined (owner "A then"). Ten on
-  // 2026-09-28 — the Pro QR joined ("Your logo on every QR code") — and nine
-  // again the same day: the free-vs-Pro redraw took both colours off the list
-  // and put "Photo and video backgrounds" on it.
-  assert.equal(WEBSITE_PRO_ITEMS.length, 9, 'the list and the sentences below disagree on the count');
-  assert.match(read('lib/event-hub-pro.ts'), /ctaLabel: 'Unlock all nine'/, 'the one button says the wrong number');
-  assert.match(
-    read('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx'),
-    /One unlock covers all nine:/,
-    'the editor tells the couple the wrong number',
-  );
+  /*
+    2026-10-22 — THE SENTENCES COMPUTE THE COUNT. Nine since 2026-09-24, then the
+    list became fourteen (the six gates the code already enforced joined; the free
+    "Editorial editing" left), and each sentence that spoke for it held the word
+    "nine". A typed count is the thing that rots, so the two sentences a couple
+    reads and presses now print `WEBSITE_PRO_ITEMS.length`, and no number word may
+    stand in for it.
+  */
+  const COUNT_WORD = /\b(?:Unlock|covers) all (two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|\d+)\b/i;
+  const hubPro = read('lib/event-hub-pro.ts');
+  assert.match(hubPro, /ctaLabel: `Unlock all \$\{formatCount\(WEBSITE_PRO_ITEMS\.length\)\}`/, 'the one button no longer counts the list');
+  assert.doesNotMatch(hubPro, COUNT_WORD, 'the controller types a count about the list');
+  const panels = read('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx');
+  assert.match(panels, /One unlock covers all \{formatCount\(WEBSITE_PRO_ITEMS\.length\)\}:/, 'the editor no longer counts the list');
+  assert.doesNotMatch(panels, COUNT_WORD, 'the editor types a count about the list');
 
   /*
     🪤 AND TWO MORE THE SWEEP ABOVE COULD NOT SEE. `read()` STRIPS COMMENTS, and
@@ -164,7 +168,9 @@ test('nothing still calls them "the seven"', () => {
       /(seven Pro items|for all seven|eight Pro items|for all eight|ten Pro items|for all ten)/,
       `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
-    assert.match(raw, /(nine Pro items|for all nine)/, `${rel} stopped naming the count at all`);
+    // 2026-10-22: these comments name no count at all — the list is the count.
+    assert.doesNotMatch(raw, /(nine Pro items|for all nine|fourteen Pro items|for all fourteen)/, `${rel} types a count about the list`);
+    assert.match(raw, /WEBSITE_PRO_ITEMS|Pro items are ONE|every Pro item/, `${rel} stopped describing the list at all`);
   }
 });
 

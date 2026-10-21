@@ -18,7 +18,8 @@ export type DeskGuest = {
   guestId: string;
   name: string;
   photoUrl: string | null;
-  plusOneName: string | null;
+  /** Who they bring, by name — every named seat (`companionNames`); `[]` when none is named. */
+  plusOneNames: readonly string[];
   qrToken: string;
   tableLabel: string | null;
 };
@@ -179,7 +180,7 @@ export function SouvenirDesk({
       .filter(
         (g) =>
           g.name.toLowerCase().includes(q) ||
-          (g.plusOneName ? g.plusOneName.toLowerCase().includes(q) : false),
+          g.plusOneNames.some((n) => n.toLowerCase().includes(q)),
       )
       .slice(0, 12);
   }, [guests, query]);

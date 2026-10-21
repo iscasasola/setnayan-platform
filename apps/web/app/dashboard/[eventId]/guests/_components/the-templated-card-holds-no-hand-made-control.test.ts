@@ -59,14 +59,14 @@ function guest(over: Partial<GuestRow> = {}): GuestRow {
 }
 const BASE = {
   isCouple: false, hasSides: true, availableRoles: ['guest', 'best_man'], groupOptions: ['family', 'other'], isIncWedding: true, showTeaCeremony: true,
-  plusOneStateLabel: null, plusOneGuestId: null, initialInvited: ['ceremony'], seatedAt: 'Table 1', customGroups: [], recordedAt: 'Sep 12', access: null,
+  plusOneLines: [], plusOneGuestId: null, initialInvited: ['ceremony'], seatedAt: 'Table 1', customGroups: [], recordedAt: 'Sep 12', access: null,
   canManageAccess: true, offersThisIsMe: false, nameLinked: false, linkedAccount: null, profileName: null, roleNames: {},
   tables: [{ tableId: 't-1', label: 'Table 1' }], seatTableId: 't-1', groupChoices: { options: [{ groupId: 'g1', label: 'Barkada' }], memberIds: [] },
 };
 type State = { guest?: Partial<GuestRow>; data?: Record<string, unknown>; error?: string; flash?: { ok: boolean; msg: string }; noInvite?: boolean };
 export const STATES: Record<string, State> = {
   'a guest who has not replied (Give-this-spot form), unclaimed': { guest: { rsvp_status: 'pending' } },
-  'a guest, +1, claimed by an account': { guest: { plus_one_count: 2, plus_one_allowed: true }, data: { nameLinked: true, linkedAccount: { email: 'a@x.com', memberType: 'guest' }, plusOneStateLabel: 'named — Ben' } },
+  'a guest, +1, claimed by an account': { guest: { plus_one_count: 2, plus_one_allowed: true }, data: { nameLinked: true, linkedAccount: { email: 'a@x.com', memberType: 'guest' }, plusOneLines: ['named — Ben'] } },
   'the couple (bride), partner sign-in offered': { guest: { role: 'bride', side: 'bride', email: 'maria@x.com' }, data: { isCouple: true } },
   'the couple, "This is me" offered': { guest: { role: 'groom', side: 'groom' }, data: { isCouple: true, offersThisIsMe: true } },
   'a guest who passed away (finalized list)': { guest: { passed_away: true, rsvp_status: 'declined' }, data: { seatedAt: null, seatTableId: null } },

@@ -162,7 +162,7 @@ const BASE_DATA = {
   groupOptions: ['other'],
   isIncWedding: false,
   showTeaCeremony: false,
-  plusOneStateLabel: null,
+  plusOneLines: [],
   plusOneGuestId: null,
   initialInvited: [] as string[],
   seatedAt: null,
@@ -198,7 +198,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   '01 a plain guest, unclaimed, nothing set': {},
   '02 a guest with sides, a seat, groups, extra roles, +1 of 2': {
     guest: { side: 'groom', group_category: 'friends', role: 'principal_sponsor_ninong', extra_roles: ['groomsman'] as never, plus_one_allowed: true, plus_one_count: 2, mobile: '0917 555 0101', meal_preference: 'beef', dietary_restrictions: 'halal', notes: 'Driver drops him at the side gate', host_note_for_guest: 'Please bring the Santo Niño for the blessing', rsvp_status: 'maybe', attire: 'suit' },
-    data: { ...RICH, plusOneStateLabel: 'named — Ben', recordedAt: 'Sep 12' },
+    data: { ...RICH, plusOneLines: ['named — Ben'], recordedAt: 'Sep 12' },
   },
   '03 every toggle ON': { guest: { photo_consent: true, faceblock_enabled: true, face_recognition_excluded: true, passed_away: true } },
   '04 every toggle OFF': { guest: { photo_consent: false, faceblock_enabled: false, face_recognition_excluded: false, passed_away: false } },

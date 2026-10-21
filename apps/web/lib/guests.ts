@@ -914,6 +914,36 @@ export function computeGuestStats(all: GuestRow[]): GuestStats {
   return stats;
 }
 
+/**
+ * 🪑 SEATS THAT ARE NOT A ROW YET — the heads `computeGuestStats().total` does not already hold. Every +1 seat is its
+ * own guest row (`plus_one_of_guest_id`, owner 2026-09-21) and `total` counts those rows, so "N expected with their
+ * plus-ones" adding `plus_ones` (the NUMBER) counted every seat twice (2026-10-22: a guest with +2 and their two rows
+ * read as five heads). This is each counted guest's number minus their live seat rows, never below zero.
+ * 🔒 lib/every-seat-is-counted.test.ts
+ */
+export function seatsNotYetOnTheList(
+  all: readonly {
+    guest_id: string;
+    plus_one_of_guest_id?: string | null;
+    plus_one_count?: number | null;
+    plus_one_allowed?: boolean | null;
+    entry_source?: string | null;
+    passed_away?: boolean | null;
+  }[],
+): number {
+  const rows = new Map<string, number>();
+  for (const g of all) {
+    const h = g.plus_one_of_guest_id;
+    if (h && h !== g.guest_id) rows.set(h, (rows.get(h) ?? 0) + 1);
+  }
+  let n = 0;
+  for (const g of all) {
+    if (!countsTowardEvent(g)) continue;
+    n += Math.max(0, plusOneSeats(g) - (rows.get(g.guest_id) ?? 0));
+  }
+  return n;
+}
+
 // Which guests count toward the live headcount + the pax sent to vendors
 // (events.headcount_basis). 'attending' = sure guests only (the owner-locked
 // default + the basis vendor pricing keys off); 'attending_plus_maybe' adds

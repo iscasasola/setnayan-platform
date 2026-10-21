@@ -65,16 +65,16 @@ test('the invitation is sold on the photos, not on the reveal', () => {
   assert.equal(offer.lead, 'Photo gallery');
 });
 
-test('NINE chips, in catalog order, with exactly ONE lit', () => {
+test('one chip per Pro item, in list order, with exactly ONE lit', () => {
   const offer = resolveHubProOffer({ channel: 'rsvp', phase: 'plan', ownsPro: false });
   assert.ok(offer);
   assert.deepEqual(
     offer.chips.map((c) => c.name),
     [...WEBSITE_PRO_ITEMS],
-    'the chips ARE the nine items — one list, not a second copy of it',
+    'the chips ARE the Pro items — one list, not a second copy of it',
   );
   const lit = offer.chips.filter((c) => c.here);
-  assert.equal(lit.length, 1, 'one price nine times, not nine prices — exactly one chip is lit');
+  assert.equal(lit.length, 1, 'one price shown many times, not many prices — exactly one chip is lit');
   assert.equal(lit[0]?.name, offer.lead, 'and the lit one is where the couple is standing');
 });
 
@@ -114,7 +114,12 @@ test('⛔ THE UMBRELLA IS NEVER SOLD ON SOMETHING THAT IS ALREADY FREE', () => {
     is free." Showing the item is right; leading on it is asking for money for
     something the couple already has.
   */
-  assert.ok(NOT_SOLD_ON.includes('Editorial editing'), 'the free item must be on the list');
+  // 2026-10-22: the free item left the list itself (owner, "Yes to all"), so
+  // nothing is left to refuse — the stronger form. The mechanism still holds.
+  assert.ok(
+    !(WEBSITE_PRO_ITEMS as readonly string[]).some((i) => /editorial/i.test(i)),
+    'the Pro list names editorial editing, which every couple has for free',
+  );
   for (const channel of CHANNELS) {
     const offer = resolveHubProOffer({ channel, phase: 'plan', ownsPro: false });
     if (offer === null) continue;
@@ -125,11 +130,19 @@ test('⛔ THE UMBRELLA IS NEVER SOLD ON SOMETHING THAT IS ALREADY FREE', () => {
   }
 });
 
-test('all nine items are still SHOWN, including the free one', () => {
-  const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
-  assert.ok(offer);
-  assert.ok(
-    offer.chips.some((c) => c.name === 'Editorial editing'),
-    'the unlock genuinely covers it — hiding it would misdescribe what is bought',
-  );
+test('every channel that can sell has copy for the item it leads on', () => {
+  /*
+    PITCH is partial since 2026-10-22 (six listed items no channel leads with
+    carry no invented copy). A lead with no pitch would be NO offer — a silent
+    loss, so it is asserted here rather than discovered on a page.
+  */
+  let sold = 0;
+  for (const channel of CHANNELS) {
+    const offer = resolveHubProOffer({ channel, phase: 'plan', ownsPro: false });
+    if (offer === null) continue;
+    sold += 1;
+    assert.ok(offer.headline.length > 0 && offer.blurb.length > 0, `${channel} led on "${offer.lead}" with no copy`);
+    assert.equal(offer.chips.length, WEBSITE_PRO_ITEMS.length, `${channel}: every Pro item is shown`);
+  }
+  assert.ok(sold >= 2, `only ${sold} channel(s) made an offer — save-the-date and RSVP both sell in planning`);
 });

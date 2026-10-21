@@ -91,7 +91,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     groupOptions: ['other'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: null,

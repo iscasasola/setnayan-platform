@@ -32,6 +32,7 @@ import { PRINT_FORMATS, PRINT_SET_KEYS, formatFamilyOf, printLookFor, type Print
 import {
   CORNER_QR_PT,
   PRINT_MIN_BODY_PT,
+  layoutPasses,
   layoutPieceDocs,
   printedEntourageLines,
   safeContainsBox,
@@ -40,6 +41,7 @@ import {
   type PrintSetData,
 } from './print-layout';
 import { flattenSvgMark } from './print-mark';
+import { printHubFonts, printLookFromHub } from './print-hub-look';
 
 const WEB = join(__dirname, '..');
 
@@ -565,4 +567,52 @@ test('GUARD: the Our Story poster is never printed blank', () => {
   // The Love Story lives in Details: "Add your Love Story" opens that item IN PLACE — no link out.
   assert.match(maker, /<DetailsGoTo item="love-story"/, 'the poster opens Details › Love Story in place');
   assert.doesNotMatch(maker, /tool=love-story/, 'never a link out of the Maker to the Love Story');
+});
+
+/**
+ * 🖨 THE HUB'S PICTURE, AT EVERY SIZE (owner 2026-10-21, *"yes wire all, and yes it's Pro"* — `lib/print-hub-look.ts`). A Pro
+ * print over the Hub's picture keeps its words on the paper panel — never on the bare picture or in the panel's feathered edge —
+ * on every set piece, in every format (the CR80 pass, the A3 posters, the A5 card), front and back, and on every guest's ticket.
+ * The panel's inks are held to 4.5 : 1 by `printLookFromHub`; this holds that the words are WHERE that panel is full.
+ */
+test('a Hub picture look: every word sits on the full paper panel — every piece, every format, every guest’s ticket', () => {
+  const board = { reception: ['#6B7F5E', '#E9E4D4', '#B08D57', '#FBF8F1', '#C9A9A6'] };
+  const look = printLookFromHub(printLookFor('house'), {
+    theme: 'house',
+    rolePalette: board,
+    vars: null,
+    fonts: printHubFonts('playfair', { body: { font: 'lora' }, highlight: { font: 'manrope' } }),
+    picture: { samples: ['#595607', '#484707', '#f8d8a1', '#282a0e'], scrim: 0.45 },
+    wearsThemeLoop: true,
+  });
+  assert.ok(look.frame, 'the premise: a picture look with a panel');
+  const inset = look.frame!.inset + look.frame!.feather - 0.5;
+  const problems: string[] = [];
+  let sheets = 0;
+  const check = (doc: PrintDoc, where: string) => {
+    sheets += 1;
+    for (const o of doc.ops) {
+      if (o.t !== 'path' || !o.text) continue;
+      const b = pathBounds(o.d);
+      if (!b) continue;
+      if (b.x < inset || b.y < inset || b.x + b.w > doc.w - inset || b.y + b.h > doc.h - inset) {
+        problems.push(`${where}: "${o.text.s.slice(0, 30)}" at ${b.x.toFixed(1)},${b.y.toFixed(1)} ${b.w.toFixed(1)}×${b.h.toFixed(1)} is off the panel of a ${doc.w.toFixed(0)}×${doc.h.toFixed(0)} sheet`);
+      }
+    }
+  };
+  for (const paired of [true, false]) {
+    const data = heavy(paired);
+    for (const piece of PRINT_SET_KEYS) {
+      for (const format of formatsOf(piece)) {
+        layoutPieceDocs(piece, { look, data, mode: 'print', foil: false, format }).forEach((doc, i) => check(doc, `${piece}${format ? `·${format}` : ''}·side ${i + 1}`));
+      }
+    }
+    for (const format of formatsOf('pass')) {
+      layoutPasses({ look, data, mode: 'print', foil: false, format }, [
+        { name: 'Regional Prosecutor Serafino T. Villaseñor-Castañeda', seat: 'Table 12', seatNumber: '8', qrRef: 'eventqr', serial: 'Nº 0101', bringing: 'Atty. Purificacion M. Villaseñor-Castañeda', party: 1 },
+      ]).forEach((doc) => check(doc, `passes·${format}`));
+    }
+  }
+  assert.ok(sheets >= 30, `only ${sheets} sheets were measured`);
+  assert.deepEqual(problems, [], problems.slice(0, 20).join('\n'));
 });

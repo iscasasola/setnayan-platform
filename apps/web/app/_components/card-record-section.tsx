@@ -219,7 +219,7 @@ export function CardRecordSection({
           <Camera className="h-3 w-3 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
           <span className="font-mono text-ink/80">{documentedEvents}</span>
           <span>
-            celebration{documentedEvents === 1 ? '' : 's'} documented · this shop
+            event{documentedEvents === 1 ? '' : 's'} documented · this shop
           </span>
         </p>
       ) : null}

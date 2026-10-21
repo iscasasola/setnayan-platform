@@ -65,14 +65,14 @@ export function ClusterTools({
 
       {/* ── add ──────────────────────────────────────────────────────────── */}
       <div>
-        <h3 className="text-sm font-medium text-ink">Add a celebration</h3>
+        <h3 className="text-sm font-medium text-ink">Add an event</h3>
         {!linkableMeasured ? (
           <p className="mt-1 text-sm text-ink-soft" role="status">
-            We could not load your other celebrations just now. Refresh to try again.
+            We could not load your other events just now. Refresh to try again.
           </p>
         ) : linkable.length === 0 ? (
           <p className="mt-1 text-sm text-ink-soft">
-            You have no other celebrations to add. A celebration can be in one group at a time.
+            You have no other events to add. An event can be in one group at a time.
           </p>
         ) : (
           <form
@@ -81,10 +81,10 @@ export function ClusterTools({
           >
             <input type="hidden" name="event_cluster_id" value={clusterId} />
             <label className="sr-only" htmlFor="link-event">
-              Choose a celebration
+              Choose an event
             </label>
             <select id="link-event" name="event_id" required className="input-field flex-1">
-              <option value="">Choose a celebration…</option>
+              <option value="">Choose an event…</option>
               {linkable.map((e) => (
                 <option key={e.event_id} value={e.event_id}>
                   {e.display_name}
@@ -101,7 +101,7 @@ export function ClusterTools({
       {/* ── anchor ───────────────────────────────────────────────────────── */}
       {membersMeasured && members.length > 0 ? (
         <div>
-          <h3 className="text-sm font-medium text-ink">The main celebration</h3>
+          <h3 className="text-sm font-medium text-ink">The main event</h3>
           <p className="sn-sec-sub">
             The one the others are shown beside — usually the wedding. A group does not need one.
           </p>
@@ -111,7 +111,7 @@ export function ClusterTools({
           >
             <input type="hidden" name="event_cluster_id" value={clusterId} />
             <label className="sr-only" htmlFor="anchor-event">
-              Choose the main celebration
+              Choose the main event
             </label>
             <select
               id="anchor-event"
@@ -119,7 +119,7 @@ export function ClusterTools({
               defaultValue={anchored?.event_id ?? ''}
               className="input-field flex-1"
             >
-              <option value="">No main celebration</option>
+              <option value="">No main event</option>
               {members.map((m) => (
                 <option key={m.event_id} value={m.event_id}>
                   {m.display_name}
@@ -172,7 +172,7 @@ export function ClusterTools({
             reasonably reads the button as destroying the celebration.
           */}
           <p className="sn-sec-sub">
-            This only ungroups it. The celebration, its guests, its shots and its money are not
+            This only ungroups it. The event, its guests, its shots and its money are not
             touched.
           </p>
           <ul className="mt-2 space-y-2">

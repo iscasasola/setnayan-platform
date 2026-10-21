@@ -86,7 +86,7 @@ export default async function VendorTrackRecordPage() {
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/45">
             Once a couple marks one of your bookings delivered, it lands here —
             grouped by the kind of event so your strengths across weddings,
-            debuts, and every other celebration are clear at a glance.
+            debuts, and every other event are clear at a glance.
           </p>
         </div>
       )}

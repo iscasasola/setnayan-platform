@@ -337,7 +337,7 @@ const BUNDLE_ASSET = (key: string) => `/onboarding/bundle/${key}.webp`;
 const KIND_PHOTO: Record<OnboardingKind, { img: string; cap: string }> = {
   religious: { img: 'wed_catholic', cap: 'A faith ceremony' },
   civil: { img: 'wed_civil', cap: 'A city-hall ceremony' },
-  mixed: { img: 'wed_mixed', cap: 'A blended celebration' },
+  mixed: { img: 'wed_mixed', cap: 'A blended event' },
 };
 
 /* Faith → hero photo + caption (prototype setFaithPhoto, religious mode).
@@ -399,7 +399,7 @@ const PAXTIERS = [
   { max: 80, t: 't2', tag: 'Warm & intimate', line: 'Family and close friends, in a room where you can greet everyone.' },
   { max: 200, t: 't3', tag: 'The classic size', line: 'The most-loved Filipino wedding — full, lively, complete.' },
   { max: 400, t: 't4', tag: 'Grand', line: 'Extended family and the whole barkada — a big, joyful day.' },
-  { max: 1e9, t: 't5', tag: 'A grand fiesta', line: 'A community-scale celebration — the whole town, it feels like.' },
+  { max: 1e9, t: 't5', tag: 'A grand fiesta', line: 'A community-scale event — the whole town, it feels like.' },
 ];
 const paxTierFor = (n: number) => PAXTIERS.find((x) => n <= x.max) ?? PAXTIERS[PAXTIERS.length - 1]!;
 
@@ -470,7 +470,7 @@ const PICK_GROUPS_FALLBACK: PickGroup[] = [
 const BASIC_CATS = ['ceremony', 'catering', 'coordinator', 'photo_video'] as const;
 const BASIC_SET = new Set<string>(BASIC_CATS);
 const PICK_INFO: Record<string, { d: string }> = {
-  reception: { d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
+  reception: { d: 'Where your event happens — the dinner, the program, and the dancing.' },
   ceremony: { d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
   coordinator: { d: 'Runs your timeline and suppliers so you can just enjoy the day.' },
   catering: { d: 'Food and service for your guests — buffet, plated, or family-style.' },
@@ -480,7 +480,7 @@ const PICK_INFO: Record<string, { d: string }> = {
   florist: { d: 'Bouquets, centerpieces, and floral styling throughout.' },
   lights_sound: { d: 'Lighting design and the sound system for the day.' },
   dance_floor: { d: 'A proper dance floor for the first dance and the party.' },
-  outdoor: { d: 'Tents, draping, and setup for an outdoor celebration.' },
+  outdoor: { d: 'Tents, draping, and setup for an outdoor event.' },
   fireworks: { d: 'A fireworks or pyro send-off for the big moment.' },
   led_wall: { d: 'An LED video wall for visuals, the live feed, and your monogram.' },
   live_band: { d: 'A live band to play your reception.' },

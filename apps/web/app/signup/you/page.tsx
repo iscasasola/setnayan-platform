@@ -242,7 +242,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
                   style={{ marginTop: 3 }}
                 />
                 <span>
-                  Include my celebrations in Setnayan&rsquo;s Stories showcase. 30 days after each
+                  Include my events in Setnayan&rsquo;s Stories showcase. 30 days after each
                   event, its editorial page becomes publicly searchable on setnayan.com/realstories.
                   I can keep any of them private at any time.
                 </span>

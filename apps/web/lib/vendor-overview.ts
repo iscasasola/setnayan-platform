@@ -782,7 +782,7 @@ export async function fetchVendorOverviewData(
       id: `done-${b.vendor_id}`,
       eventVendorId: b.vendor_id,
       eventId: b.event_id,
-      eventName: meta?.displayName ?? 'A celebration',
+      eventName: meta?.displayName ?? 'An event',
       eventDate: meta?.eventDate ?? null,
       // The day after the event is when this started waiting — not now, or it
       // would sort to the top of an oldest-first desk forever.

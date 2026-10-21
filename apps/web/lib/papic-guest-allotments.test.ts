@@ -77,7 +77,7 @@ test('🚨 over-commitment is REPORTED, never clamped', () => {
   const split = splitTheRest({ pot: 100, guestCount: 10, named: [80, 80], everyoneElse: null });
   assert.equal(split.overCommitted, true);
   assert.equal(split.namedTotal, 160);
-  assert.match(summariseAllotments({ pot: 100, guestCount: 10, named: [80, 80], everyoneElse: null }), /60 credits more than this celebration holds/);
+  assert.match(summariseAllotments({ pot: 100, guestCount: 10, named: [80, 80], everyoneElse: null }), /60 credits more than this event holds/);
 });
 
 test("the couple's own number cannot promise more than the celebration holds", () => {

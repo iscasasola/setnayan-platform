@@ -133,7 +133,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           <p className="mt-1 max-w-prose text-sm text-ink/65">
             Ask guests to photograph your work — the signature dish, the booth, the
             pour — and collect the shots they choose to share with you. Unlimited
-            challenges at every celebration you&rsquo;re booked for, not one at a
+            challenges at every event you&rsquo;re booked for, not one at a
             time. Free and fun for guests; each challenge needs the
             couple&rsquo;s okay before it goes live.
           </p>

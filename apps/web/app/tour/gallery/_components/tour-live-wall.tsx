@@ -86,7 +86,7 @@ export function TourLiveWall({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8C6932]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1B1A17]" />
-          Live from the celebration
+          Live from the event
         </p>
         {count > 0 ? (
           <p className="text-xs text-[#5F5E5A]">

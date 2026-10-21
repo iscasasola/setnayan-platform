@@ -350,7 +350,7 @@ export function SupplierDesk({
               couple's team fills in gradually. */}
           {desk.vendorRoster.length > 0 ? (
             <ConsolePlate className="space-y-2">
-              <ConsoleHeading as="h3">Also locked on this celebration</ConsoleHeading>
+              <ConsoleHeading as="h3">Also locked on this event</ConsoleHeading>
               <ul className="space-y-1">
                 {desk.vendorRoster.map((v, i) => (
                   <li

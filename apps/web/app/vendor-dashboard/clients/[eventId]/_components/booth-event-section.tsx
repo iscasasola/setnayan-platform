@@ -89,12 +89,12 @@ export async function BoothEventSection({
 
       {cycleActive ? (
         <p className="mt-1 text-xs text-ink/55">
-          Your 3D Booth cycle covers this celebration{cycleUntil ? ` until ${cycleUntil}` : ''} — logo and
+          Your 3D Booth cycle covers this event{cycleUntil ? ` until ${cycleUntil}` : ''} — logo and
           poster are on in the couple&rsquo;s room. Nothing more to buy here.
         </p>
       ) : orderState === 'active' ? (
         <p className="mt-1 text-xs text-ink/55">
-          Branded at this celebration — your logo and poster stay in the couple&rsquo;s room for as long as
+          Branded at this event — your logo and poster stay in the couple&rsquo;s room for as long as
           they keep it up. One-time; nothing renews.
         </p>
       ) : orderState === 'pending' ? (
@@ -120,7 +120,7 @@ export async function BoothEventSection({
         <>
           <p className="mt-1 text-xs text-ink/55">
             Right now the couple sees a plain booth with your name. Brand it with your logo and poster for
-            this celebration only — <strong className="text-ink/80">{peso(eventPricePhp)}, one-time</strong>.
+            this event only — <strong className="text-ink/80">{peso(eventPricePhp)}, one-time</strong>.
             It stays for as long as the couple keeps their room up.
           </p>
           <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />

@@ -170,7 +170,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
             screen&rsquo;s browser and enter a screen code. The same wall also appears
-            on your guests&rsquo; phones on your event page while the celebration is
+            on your guests&rsquo; phones on your event page while the event is
             running — so everyone sees the photos, screen or no screen. If you
             would rather keep it to the venue, you can switch the phones off below.
           </p>

@@ -215,7 +215,7 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
     case 'delete_request':
       return {
         kind: 'answer',
-        title: 'A couple wants to remove a celebration',
+        title: 'A couple wants to remove an event',
         body: 'Only you can release it. Read what they asked first.',
         action: 'Answer',
         // 🔴 WAS the customer card's details — a page that has never carried

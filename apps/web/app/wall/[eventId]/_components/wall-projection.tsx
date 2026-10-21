@@ -171,10 +171,10 @@ export function WallProjection({
           </span>
         ) : null}
         <h1 className="mt-6 text-5xl font-semibold tracking-tight">
-          {initial.displayName ?? 'The celebration'}
+          {initial.displayName ?? 'The event'}
         </h1>
         <p className="mt-6 max-w-xl text-lg text-cream/60">
-          The photo wall lights up when the celebration starts.
+          The photo wall lights up when the event starts.
         </p>
         <ConnDot conn={conn} />
       </main>

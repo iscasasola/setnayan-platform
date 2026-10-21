@@ -350,7 +350,7 @@ export default async function PapicModerationPage({
               There is ONE product, Papic. Setting shots aside for a particular
               camera is a feature of it, not a second thing to name. */}
           Photos from your guests will appear here once Papic is on for this
-          celebration.
+          event.
         </p>
       ) : captureRows.length === 0 ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">

@@ -1147,9 +1147,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                             })
                           }
                         />
-                        {/* 🎛 Three controls side by side in a men's column at 375 px (owner 2026-10-21, "3 palette controls"):
-                            a two-word label wraps under its own dot rather than pushing the third dot onto a new line. */}
-                        <small className={`-mt-1 ${two ? 'max-w-[52px]' : 'max-w-[64px]'} text-center text-[10.5px] leading-tight text-ink/65`} data-mood-board-dot-word={zoneLabel}>{zoneLabel}</small>
+                        <small className="-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65" data-mood-board-dot-word={zoneLabel}>{zoneLabel}</small>
                       </span>
                     );
                     const figure = (
@@ -1162,7 +1160,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       </span>
                     );
                     const swatches = !row.paletteKey ? null : zoned ? (
-                      <span className="flex flex-wrap items-start gap-x-1" data-mood-board-swatches={pick.who} data-mood-board-zones={zones.length}>
+                      <span className={`flex flex-wrap items-start gap-x-1 ${two ? '[&_small]:max-w-[52px]' : ''}`} data-mood-board-swatches={pick.who} data-mood-board-zones={zones.length}>
+                        {/* 🎛 Three controls side by side in a men's column at 375 px (owner 2026-10-21, "3 palette controls"): in a
+                            row of two, a two-word label wraps under its own dot (the words keep the one `DOT_WORD` type;
+                            only their width narrows here) rather than pushing the third dot onto a new line. */}
                         {/* 🏷 EVERY DOT SAYS WHAT IT COLOURS (owner 2026-10-17: "for the dress code of women, there are palettes
                             but no indication of what the colors control") — `pickDots`, the guest page's own words: each
                             zone's, a one-colour design's own name ("Long gown"), "Accent" for a colour past the zones. */}

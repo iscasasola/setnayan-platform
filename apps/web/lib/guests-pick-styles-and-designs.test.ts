@@ -25,7 +25,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey, type LibraryDesign } from './attire-library';
+import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey } from './attire-library';
 import { allowedDesigns, allowedStyles, designArt, drawnDesigns, keepWomenDesigns, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
 import { FIGURE_ART, GUEST_SUIT_BLACK, TIE_DESIGNS, DESIGN_ZONES, type FigureGarment } from './attire-figures';
 import { roleArtKey, roleDesigns, type FigureRole } from './attire-designs';
@@ -213,33 +213,19 @@ test('3 · every allowed (drawn) design renders on the guest’s board, under it
   assert.ok(boards >= 10, `the fuzz drew only ${boards} boards`);
 });
 
-test('3 · once a style has several drawings, its designs wear the colours in turn along the row', async () => {
-  /* Draw every suit design for this test only — each borrowing the shipped suit's files — as a landed drawing would be. */
-  const lib = DESIGN_LIBRARY.guest_m! as LibraryDesign[];
-  const extra = lib.filter((d) => d.style === 'suit' && !isDrawn(d));
-  const art = FIGURE_ART as Record<string, unknown>;
-  for (const d of extra) {
-    (d as { w?: number }).w = 76;
-    art[variantArtKey('guest_m', d)] = FIGURE_ART['guest_m-suit'];
-  }
-  try {
-    const row = guestRow(await widget(config(['suit'], ['long_gown'])));
-    const ids = ['suit/classic', ...extra.map((d) => `suit/${d.variant}`)];
-    assert.equal(ids.length, DESIGNS_PER_STYLE_MAX);
-    assert.match(row, /any of five/);
-    ids.forEach((id, j) => {
-      const at = row.indexOf(`data-dress-code-design="${id}"`);
-      assert.ok(at >= 0, `${id} is allowed (the whole style) and not drawn`);
-      assert.equal(/data-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length], `${id} does not wear colour ${(j % COLOURS.length) + 1}`);
-      /* …and on the tie, over black — the guest man's rule, for every suit design. */
-      assert.equal(/data-zone="t" data-zone-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length]);
-    });
-  } finally {
-    for (const d of extra) {
-      delete (d as { w?: number }).w;
-      delete art[variantArtKey('guest_m', d)];
-    }
-  }
+test('3 · a style with five drawings: every design renders, wearing the colours in turn along the row, on the tie', async () => {
+  const drawn = drawnDesigns('guest_m', 'suit');
+  assert.equal(drawn.length, DESIGNS_PER_STYLE_MAX, 'Suit and tie does not have its five drawings');
+  const row = guestRow(await widget(config(['suit'], ['long_gown'])));
+  assert.match(row, /any of five/);
+  drawn.forEach((d, j) => {
+    const id = `suit/${d.variant}`;
+    const at = row.indexOf(`data-dress-code-design="${id}"`);
+    assert.ok(at >= 0, `${id} is allowed (the whole style) and not drawn`);
+    assert.equal(/data-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length], `${id} does not wear colour ${(j % COLOURS.length) + 1}`);
+    /* …and on the tie, over black — the guest man's rule, for every suit design. */
+    assert.equal(/data-zone="t" data-zone-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length]);
+  });
 });
 
 /* ── 4 · the legacy shape renders as it did ──────────────────────────────── */
@@ -269,31 +255,27 @@ test('4 · a legacy single `style` renders exactly as before — and a column ti
 /* ── 5 · the writer ──────────────────────────────────────────────────────── */
 
 test('5 · one tap on a style allows all its designs; unticking narrows; `style` is always the first tick’s', () => {
-  /* Give suit three drawn designs for this test only (the drawings land later); the reader reads the library live. */
-  const lib = DESIGN_LIBRARY.guest_m! as LibraryDesign[];
-  const patched = lib.filter((d) => d.style === 'suit' && !isDrawn(d)).slice(0, 2) as Array<LibraryDesign & { w?: number }>;
-  for (const d of patched) (d as { w?: number }).w = 80;
-  try {
+  const suits = drawnDesigns('guest_m', 'suit').map((d) => `suit/${d.variant}`);
+  assert.equal(suits.length, 5);
+  {
     let st: { style: AttireStyle | null; designs: string[] } = { style: null, designs: [] };
     const tap = (k: string) => (st = toggleDesignTick('guest_m', st.style, st.designs, k));
     tap(styleKey('suit'));
     assert.deepEqual(st, { style: 'suit', designs: ['suit'] }, 'one tap on a style is not all of it');
-    assert.equal(allowedDesigns('guest_m', st.style, st.designs).length, 3, 'a whole style does not allow every drawn design');
+    assert.equal(allowedDesigns('guest_m', st.style, st.designs).length, 5, 'a whole style does not allow every drawn design');
     tap(styleKey('barong_tagalog'));
     assert.deepEqual(st.designs, ['suit', 'barong_tagalog']);
-    tap(designKey(`suit/${patched[0]!.variant}`));
-    assert.deepEqual(st.designs, ['suit/classic', `suit/${patched[1]!.variant}`, 'barong_tagalog'], 'unticking a design did not narrow its style in place');
+    tap(designKey(suits[1]!));
+    assert.deepEqual(st.designs, [suits[0], suits[2], suits[3], suits[4], 'barong_tagalog'], 'unticking a design did not narrow its style in place');
     assert.equal(st.style, 'suit');
-    tap(designKey(`suit/${patched[0]!.variant}`));
+    tap(designKey(suits[1]!));
     assert.deepEqual(st.designs, ['suit', 'barong_tagalog'], 'every design ticked again is not the whole style');
     tap(styleKey('suit'));
     assert.deepEqual(st, { style: 'barong_tagalog', designs: ['barong_tagalog'] }, 'the first style went, and `style` did not follow the first tick');
-    tap(designKey('barong_tagalog/pina'));
-    assert.deepEqual(st, { style: null, designs: [] }, 'unticking the last design left a Wear');
+    for (const d of drawnDesigns('guest_m', 'barong_tagalog')) tap(designKey(`barong_tagalog/${d.variant}`));
+    assert.deepEqual(st, { style: null, designs: [] }, 'unticking every design left a Wear');
     /* Never more than five a style, whatever is stored. */
     for (const s of libraryStyles('guest_m')) assert.ok(drawnDesigns('guest_m', s).length <= DESIGNS_PER_STYLE_MAX);
-  } finally {
-    for (const d of patched) delete (d as { w?: number }).w;
   }
   /* The write round-trips through the one reader, for both columns. */
   const c0 = withColumnDesigns({}, 'roles', 'guest', 0, 'barong_tagalog', ['barong_tagalog', 'suit'], withAttireStyle);

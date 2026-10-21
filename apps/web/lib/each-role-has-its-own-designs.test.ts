@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
-import { DESIGN_ZONES, FIGURE_ART, ROLE_ART_KEYS, designOfArt, zonesOf } from './attire-figures';
+import { COAT_AND_PANTS, DESIGN_ZONES, FIGURE_ART, LONG_SLEEVES, ROLE_ART_KEYS, TIE_AND_ACCENT, artZoneKeys, designOfArt } from './attire-figures';
 import { FIGURE_ROLES, GUEST_OPTIONS_MAX, ROLE_DESIGNS, ROW_FIGURE_ROLES, designLabel, designOf, roleArtKey, wearLabelFor, type FigureRole } from './attire-designs';
 import { ATTIRE_ROWS, attireRow, pickOptions, picksOf, readerAttire, sanitizeSecondPicks, withSecondColours } from './attire-rows';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type AttireStyle } from './role-dress-code';
@@ -180,7 +180,7 @@ test('3 · each zone’s mask paints its own part of the figure, and nothing out
   for (const key of ROLE_ART_KEYS) {
     const art = FIGURE_ART[key];
     const style = designOfArt(key)!;
-    assert.deepEqual(art.zones!.map((z) => z.key), zonesOf(style).map((z) => z.key), `${key}: its masks are not its design's zones`);
+    assert.deepEqual(art.zones!.map((z) => z.key), artZoneKeys(style), `${key}: its masks are not its design's zones`);
     const drawing = await alphaOf(art.src);
     assert.equal(drawing.h, 280, `${key} is not 280 tall`);
     const masks: Record<string, Alpha> = {};
@@ -211,8 +211,9 @@ test('3 · a pick’s colours reach their zones — dot 2 the accent, dot 3 the 
   const tints = (g: Parameters<typeof zoneTints>[0], c: string[]) => Object.fromEntries(zoneTints(g, c).map((t) => [t.key, t.colour]));
   assert.deepEqual(tints('groom-suit', ['#646B38']), { a: '#646B38', t: deeper('#646B38'), s: '#FFFFFF' }, 'one colour: the tie deeper, the shirt white');
   assert.deepEqual(tints('groom-suit', ['#646B38', '#F3E5B9', '#F7F2EC']), { a: '#646B38', t: '#F3E5B9', s: '#F7F2EC' });
-  assert.deepEqual(tints('groom-three_piece_suit', ['#646B38', '#F3E5B9', '#F7F2EC', '#6B4226']), { a: '#646B38', t: '#F3E5B9', s: '#F7F2EC', v: '#6B4226' });
-  assert.equal(tints('groom-three_piece_suit', ['#646B38']).v, '#646B38', 'a 3-piece vest is the suit’s cloth unless said');
+  /* 2026-10-21 (owner, "3 palette controls"): a 3-piece's vest has no dot of its own — it is drawn in Coat & pants. */
+  assert.deepEqual(tints('groom-three_piece_suit', ['#646B38', '#F3E5B9', '#F7F2EC']), { a: '#646B38', t: '#F3E5B9', s: '#F7F2EC', v: '#646B38' });
+  assert.equal(tints('groom-three_piece_suit', ['#646B38']).v, '#646B38', 'a 3-piece vest is the suit’s cloth');
   assert.deepEqual(Object.keys(tints('ninong-barong_tagalog', ['#5C0700'])), ['a', 'p']);
   assert.deepEqual(tints('bride-mermaid', ['#F7F2EC', '#5C0700']), { a: '#F7F2EC' }, 'a gown is one colour');
   /* A zone's mask is its own file. */
@@ -267,8 +268,8 @@ test('4 · an entourage role wears one labelled dot per zone and offers no "+"; 
   const html = await studio({ groom: ['#646B38', '#F3E5B9'], principal_sponsors: ['#5C0700'], guest: ['#5C0700', '#669C35'] }, CONFIG);
   const groom = section(html, 'groom');
   assert.match(groom, /data-garment="groom-three_piece_suit"/, 'the groom is not drawn as the groom in his 3-piece');
-  assert.match(groom, /data-mood-board-zones="4"/);
-  for (const word of ['Coat &amp; pants', 'Tie', 'Shirt', 'Vest']) assert.ok(groom.includes(`>${word}</small>`), `the groom's "${word}" dot has no label`);
+  assert.match(groom, /data-mood-board-zones="3"/);
+  for (const word of [COAT_AND_PANTS, TIE_AND_ACCENT, LONG_SLEEVES].map((w) => w.replace(/&/g, '&amp;'))) assert.ok(groom.includes(`>${word}</small>`), `the groom's "${word}" dot has no label`);
   assert.doesNotMatch(groom, /Add a colour/, 'the groom offers "+ add a colour"');
   /* Dot 2 is the tie as said; dot 3 the shirt, white by default; the figure wears them zone by zone. */
   assert.match(groom, /data-zone="t" data-zone-colour="#F3E5B9"/);

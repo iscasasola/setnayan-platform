@@ -16,6 +16,7 @@
  *
  * PURE: the claim page and its test both read this file.
  */
+import { coupleFirstNamesLine } from './typed-names';
 import { suppliersDateFact } from './suppliers-shell';
 
 export type ClaimInviterNames = {
@@ -36,10 +37,8 @@ export function inviterFirstNames(ev: ClaimInviterNames | null): string | null {
   if (!ev) return null;
   const display = (ev.display_name ?? '').trim();
   if (display) return display;
-  const firsts = [ev.bride_name, ev.groom_name]
-    .map((n) => (n ?? '').trim().split(/\s+/)[0] ?? '')
-    .filter(Boolean);
-  return firsts.length > 0 ? firsts.join(' & ') : null;
+  // The first word of each, in the event's order (`coupleFirstNamesLine`) — the one composition every surface uses.
+  return coupleFirstNamesLine(ev) || null;
 }
 
 /**

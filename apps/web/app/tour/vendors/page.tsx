@@ -10,6 +10,7 @@ import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isSetnayanAiActive } from '@/lib/setnayan-ai';
 import { TourShortlist, type TourCategory, type TourVendor } from './_components/tour-shortlist';
 import { TourChatThread } from '../_components/tour-chat-thread';
+import { coupleNamesLine } from '@/lib/typed-names';
 
 /**
  * /tour/vendors — Stop 2 of the public Maria & Jose tour: "The AI did the hard part."
@@ -211,8 +212,8 @@ export default async function TourVendorsPage() {
     (counterparty as { business_name?: string | null } | null)?.business_name ??
     'Liwanag Studios';
 
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
@@ -221,7 +222,7 @@ export default async function TourVendorsPage() {
           The AI did the hard part
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          {bride} & {groom} didn&rsquo;t scroll through hundreds of suppliers. Setnayan AI
+          {couple} didn&rsquo;t scroll through hundreds of suppliers. Setnayan AI
           shortlisted a team that fits the wedding — ranked by distance, reviews, and
           verification. Flip the switch to see how it sorts.
         </p>

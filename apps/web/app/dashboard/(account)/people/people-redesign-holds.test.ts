@@ -39,6 +39,7 @@ const FOLLOW_BUTTON = read('app/u/_components/follow-button.tsx');
 const SAMAHAN = read('app/dashboard/(account)/people/_components/samahan-people-section.tsx');
 const PICKER = read('app/dashboard/(account)/people/_components/people-view-picker.tsx');
 const CELEBRANTS = read('lib/event-celebrants.server.ts');
+const WRITER = read('lib/people-connection-request.server.ts');
 
 const count = (hay: string, needle: string | RegExp) =>
   typeof needle === 'string' ? hay.split(needle).length - 1 : (hay.match(needle) ?? []).length;
@@ -176,8 +177,9 @@ test('🔴 an Add from an event re-decides everything on the server', () => {
   assert.match(body, /celebrantAccountsFor\(admin, eventId\)/, 'the target is not checked to be a celebrant');
   assert.match(body, /\.eq\('public_id', publicId\)/);
   assert.match(body, /fromEvent: \{\s*eventId,/);
-  // The stamp reaches the insert.
-  assert.match(c, /created_by_event_id: fromEvent\?\.eventId \?\? null,/);
+  // The stamp reaches the insert — in the ONE writer, which the event's Add calls.
+  assert.match(body, /return requestConnection\(/, 'the event Add no longer goes through the one writer');
+  assert.match(WRITER.code, /created_by_event_id: fromEvent\?\.eventId \?\? null,/);
 });
 
 test('🔴 a celebrant is the MAIN role only — an extra-role-only celebrant is not listed', () => {

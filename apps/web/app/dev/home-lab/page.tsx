@@ -27,6 +27,7 @@
  *                                    none, so a walk injects a stand-in `window.Capacitor`.
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
+ *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
  *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
@@ -36,6 +37,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { coupleNameColumns } from '@/lib/typed-names';
+import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -129,16 +132,29 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const unread = q.unread === '1' || q.fail === '1';
   const proto = q.proto === '1';
   /* The prototype's own figures, for the side-by-side (prototypes/home_and_guests_2026-10-07_fable.html). */
-  const F = proto
+  const F0 = proto
     ? { eyebrow: 'Wedding · Fri, Dec 18, 2026', name: 'Cale & Ice', days: 72, coming: 7, noReply: 2, paid: 0, owing: 1056000 }
     : { eyebrow: 'Wedding · March 13, 2027', name: 'Ana & Miguel', days: 163, coming: 96, noReply: 35, paid: 120000, owing: 45000 };
+  /* 🔀 `?order=a|b` — the owner's couple, its event name stored either way round (owner 2026-10-21): the header is
+     the REAL `homeCoverWords` over that stored name, as the dashboard draws it. */
+  const F =
+    q.order === 'a' || q.order === 'b'
+      ? {
+          ...F0,
+          ...homeCoverWords({
+            event_type: 'wedding',
+            event_date: '2026-12-18',
+            display_name: coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, q.order === 'b' ? 'b-first' : 'a-first').display_name,
+          }),
+        }
+      : F0;
   const picked = proto
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;

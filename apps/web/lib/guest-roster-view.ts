@@ -33,7 +33,7 @@ import {
   type GuestRow,
   type RsvpStatus,
 } from '@/lib/guests';
-import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, type GuestSearchFacts } from '@/lib/guest-search';
+import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, replyStatusOf, type GuestSearchFacts } from '@/lib/guest-search';
 import {
   importanceGroupOf,
   isHonoreeRole,
@@ -43,6 +43,7 @@ import {
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
 import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneHasNoName, plusOneIsNamed } from '@/lib/extra-seats';
 
 /** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
 export const SEARCH_WAIT_MS = 250;
@@ -226,10 +227,72 @@ export function rosterStats(guests: readonly GuestRow[]): {
   const counted = guests.filter((g) => countsTowardEvent(g));
   return {
     total: counted.length,
-    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
-    no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    none: counted.filter((g) => hasNotAnswered(g)).length,
+    // The three reply counts ARE their filters' rows (`replyFilterMatches`) — a tap shows exactly what was said.
+    yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
+    no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
+    none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
     toInvite: counted.filter((g) => isToInvite(g)).length,
+  };
+}
+
+/**
+ * 👆 THE COUNTS ARE DOORS (owner 2026-10-21, verbatim: *"How do we double check those who did not answer yet. so we can
+ * manually accept them in case they just forgot to say yes?"* → *"tappable counts that filter"*). "N attending · N not
+ * coming · N no reply" each filter the list to exactly the guests they count — and the search words for the same
+ * replies ("attending", "not coming", "no reply"…) read this SAME predicate (`rosterSearchMatches`), so the tap, the
+ * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
+ * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
+ */
+export type ReplyFilter = 'attending' | 'declined' | 'none';
+
+export function replyFilterMatches(
+  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>,
+  f: ReplyFilter | null,
+): boolean {
+  if (f === null) return true;
+  if (!countsTowardEvent(g)) return false;
+  return f === 'none' ? hasNotAnswered(g) : g.rsvp_status === f;
+}
+
+/**
+ * ✋ MAY A HOST SET THIS GUEST'S REPLY? Everyone but the couple and the honoree — they are always attending (the DB
+ * trigger, owner 2026-06-03). The ONE answer Select → Set reply ▾ (the screen's optimistic draw) and the server's write
+ * (`setGuestRsvp`, guests/inline-actions.ts) both read, so the list never draws a reply the server will not write.
+ */
+export function hostMaySetReply(g: Pick<GuestRow, 'role'>): boolean {
+  return g.role !== 'bride' && g.role !== 'groom' && !isHonoreeRole(g.role);
+}
+
+/* ─── THE +1s: WHO HAS A NAME, WHO HAS NONE YET ─────────────────────────── */
+
+/**
+ * 🪑 FINALIZING THE LIST: WHICH +1 HAS A NAME (owner 2026-10-21, verbatim: *"when we finalize the guest list. how do I
+ * know which +1 has names and has no names? so we can alot the seat to another person in case they said no or they
+ * will not add a +1 anymore"* → *"Yes, build it: count at the top, +1 ▾ Named / No name yet filter, Release seat with
+ * Undo and bulk Select"*). The counts line's "+1s: N named · M no name yet", the Sort dropdown's "+1 ▾" and the rows
+ * it leaves all read `plusOneFilterMatches` — the number said IS the rows shown (`plusOneTally` counts the filter).
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export type PlusOneFilter = 'named' | 'unnamed';
+
+export const PLUS_ONE_FILTERS: readonly { key: PlusOneFilter; label: string }[] = [
+  { key: 'named', label: 'Named' },
+  { key: 'unnamed', label: 'No name yet' },
+];
+
+type PlusFilterFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name' | 'last_name' | 'plus_one_name_confirmed_at'>;
+
+/** Is this row one of the +1s the filter shows? `null` → every row (no +1 filter). */
+export function plusOneFilterMatches(g: PlusFilterFields, f: PlusOneFilter | null): boolean {
+  if (f === null) return true;
+  return f === 'unnamed' ? plusOneHasNoName(g) : plusOneIsNamed(g);
+}
+
+/** The counts line's "+1s: N named · M no name yet" — the filter's own rows, counted. */
+export function plusOneTally(roster: readonly PlusFilterFields[]): { named: number; unnamed: number } {
+  return {
+    named: roster.filter((g) => plusOneFilterMatches(g, 'named')).length,
+    unnamed: roster.filter((g) => plusOneFilterMatches(g, 'unnamed')).length,
   };
 }
 
@@ -623,7 +686,10 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (!q) return true;
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
-  if (NO_REPLY_WORDS.includes(q)) return hasNotAnswered(g);
+  if (NO_REPLY_WORDS.includes(q)) return replyFilterMatches(g, 'none');
+  // "attending" / "not coming" (and every other word for them) — the counts' own filter (`replyFilterMatches`).
+  const reply = replyStatusOf(q);
+  if (reply === 'attending' || reply === 'declined') return replyFilterMatches(g, reply);
   if (facts.hasSides && SIDE_WORDS[q]) {
     const side = SIDE_WORDS[q]!;
     return g.side === side || g.side === 'both' || g.role === side;
@@ -658,7 +724,7 @@ export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'role
 
 /* ─── A ROW'S VERBS ─────────────────────────────────────────────────────── */
 
-export type RowVerb = 'message' | 'edit' | 'remove';
+export type RowVerb = 'message' | 'edit' | 'remove' | 'release';
 
 /**
  * The verbs a guest row carries, in order. `💬 Message` only when the guest's
@@ -667,13 +733,16 @@ export type RowVerb = 'message' | 'edit' | 'remove';
  * There is NO invite and NO nudge here — inviting is the one run (G28, G34).
  */
 export function rowVerbsFor(
-  g: Pick<GuestRow, 'role'>,
+  g: Pick<GuestRow, 'role'> & Partial<PlusFilterFields>,
   opts: { linked: boolean | null; chatHref: string | null },
 ): RowVerb[] {
   const verbs: RowVerb[] = [];
   if (opts.linked === true && opts.chatHref) verbs.push('message');
   verbs.push('edit');
-  if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
+  // 🪑 A +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their guest's "+N" one
+  // lower) in place of Remove. A named +1 is a person — the shipped Remove, with its warning (owner 2026-10-21).
+  if (plusOneHasNoName({ ...g, first_name: g.first_name ?? null })) verbs.push('release');
+  else if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
   return verbs;
 }
 

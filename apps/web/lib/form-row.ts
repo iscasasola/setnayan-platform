@@ -11,6 +11,17 @@
  */
 import { formatCount } from './format-number';
 
+/* ── THE ROW'S LOOK, as classes (2026-10-21) ──────────────────────────────
+ * Here, not in the component, so a screen that draws its own row (the Suppliers page's category rows,
+ * `shortlist-categories.tsx`) can wear the template's line and second line without importing the component
+ * and everything it draws with. `form-row.tsx` builds its own rows from these same two strings. */
+
+/** The thin line between rows — one row's top edge. (`FORM_ROW_BAND` drops it from a list's first row; a list split
+ *  across several boxes wears this on every row, so no box's first row loses its line.) */
+export const FORM_ROW_RULE = 'border-t border-ink/10';
+/** A row's quiet second line under its name — the words' look only; the screen places it. */
+export const FORM_ROW_SUBLINE = 'text-[12.5px] font-normal leading-snug text-ink/55';
+
 /* ── A LONG ANSWER IN ITS PILL ────────────────────────────────────────── */
 
 /** It rests this long at its start, and again at its end (owner: "pause for 1 second"). */

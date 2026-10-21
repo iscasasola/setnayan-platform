@@ -6,6 +6,7 @@ import { getWallSnapshot } from '@/lib/live-wall';
 import { sanitizeRolePalette, PALETTE_LIMITS, type PaletteKey } from '@/lib/mood-board';
 import { TourLiveWall, type TourWallTile } from './_components/tour-live-wall';
 import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-palette-preview';
+import { coupleNamesLine } from '@/lib/typed-names';
 
 /**
  * STOP 5 — "See it come alive."
@@ -182,8 +183,8 @@ export default async function TourGalleryPage() {
       caption: r.caption ?? null,
     }));
 
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
@@ -192,7 +193,7 @@ export default async function TourGalleryPage() {
           See it come alive
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          On the day, every photo {bride} & {groom}&rsquo;s guests take flows onto one live wall &mdash; the same feed the
+          On the day, every photo {couple}&rsquo;s guests take flows onto one live wall &mdash; the same feed the
           venue screen shows, mirrored to every phone. And it all stays true to the palette they set months before.
         </p>
       </header>
@@ -251,7 +252,7 @@ export default async function TourGalleryPage() {
               <h3 className="font-serif text-xl text-[#1B1A17]">Their inspirations</h3>
             </div>
             <p className="mt-1.5 text-sm text-[#5F5E5A]">
-              The references {bride} & {groom} pinned &mdash; the look they&rsquo;re building toward.
+              The references {couple} pinned &mdash; the look they&rsquo;re building toward.
             </p>
             <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {inspirations.map((item) => (

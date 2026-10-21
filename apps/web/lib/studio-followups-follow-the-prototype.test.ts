@@ -202,7 +202,7 @@ test('3 · Studio › Info: "Event name · Maria & Jose" is composed as the hero
     'Studio › Info does not draw the Event name row — or draws it for a one-person event',
   );
   const body = read(`${L}/studio-event-name.tsx`);
-  assert.match(body, /const shown = coupleNameColumns\(names\[0\], names\[1\]\)\.display_name \?\? '';/, 'the row does not compose the name as the hero does');
+  assert.match(body, /const shown = asStored \?\? coupleNameColumns\(names\[0\], names\[1\], order\)\.display_name \?\? '';/, 'the row does not show the stored name, or compose it in the event’s order');
   assert.match(body, /name="Event name"\s+about=\{\{/, 'Event name has no ⓘ saying where it is read');
   assert.match(body, /<OpensRow\s+data="event-name"[\s\S]*?answer=\{shown\}/, 'the Event name is not ONE row that opens the two people in place');
 });

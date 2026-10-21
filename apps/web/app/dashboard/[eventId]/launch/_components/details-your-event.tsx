@@ -30,7 +30,7 @@ import {
 } from '@/lib/venue-picture-choice';
 import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
-import { coupleNameColumns } from '@/lib/typed-names';
+import { coupleNameColumns, nameOrderOf } from '@/lib/typed-names';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { DateClashNote } from './details-date-clash';
 
@@ -104,12 +104,15 @@ export function NamesEditor({
   eventId,
   people,
   initial,
+  storedName,
   onNames,
 }: {
   eventId: string;
   /** The two people's words from the event type (`peopleLabels`). */
   people: readonly [string, string];
   initial: readonly [PersonName, PersonName];
+  /** 🔀 The event's name as stored — its order is kept by every save (`nameOrderOf`; changed only by Name order ▾). */
+  storedName?: string | null;
   /** 🏷 The names as typed — Studio › Info's "Event name" row composes its line from them (no write). */
   onNames?: (a: PersonName, b: PersonName) => void;
 }) {
@@ -126,11 +129,13 @@ export function NamesEditor({
   };
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /* 🔀 The order the stored name keeps, read once from what was read (owner 2026-10-21). */
+  const [order] = useState(() => nameOrderOf(storedName, initial[0].first, initial[1].first));
 
   const save = () => {
     setError(null);
-    // The Personalization writer's own composition; an all-blank form leaves the page's names alone.
-    const events = coupleNameColumns(a, b);
+    // The Personalization writer's own composition, in the event's order; an all-blank form leaves the page's names alone.
+    const events = coupleNameColumns(a, b, order);
     start(async () => {
       try {
         const refused = await draftFacts(eventId, events);

@@ -100,7 +100,7 @@ const REPLY_WORDS: Record<RsvpStatus, readonly string[]> = {
  * substring of "not coming", so without this the attending search would also
  * list everybody who declined.
  */
-function replyStatusOf(normalizedQuery: string): RsvpStatus | null {
+export function replyStatusOf(normalizedQuery: string): RsvpStatus | null {
   // "yes" / "no" alone are too easily the start of a name ("Nora") — they only
   // count inside the haystack, never as a whole-query reply filter.
   if (normalizedQuery === 'yes' || normalizedQuery === 'no') return null;

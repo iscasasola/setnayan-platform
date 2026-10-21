@@ -27,7 +27,7 @@
  * suit below stay what the reception scene draws its crowd with.
  */
 
-import { FIGURE_ART, designOfArt, garmentFor, roleOfArt, tieZoneColours, wearsColourOnTie, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
+import { FIGURE_ART, controlOfZone, designOfArt, garmentFor, roleOfArt, tieZoneColours, wearsColourOnTie, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel, roleArtKey, type FigureRole } from './attire-designs';
 import type { AttireStyle } from './role-dress-code';
 
@@ -191,11 +191,12 @@ export function zoneColours(style: AttireStyle | null | undefined, colours: read
  * The approved zones prototype (`prototypes/attire_colour_zones_2026-10-16.md`, "How the editor says it") put a word
  * only under a ZONED garment's dots ("Coat & pants · Tie · Shirt") and "nothing under a one-zone garment's dots" — so
  * a gown's colours, and every colour past a design's zones, said nothing. The words now:
- *   · a zone's own word (`DESIGN_ZONES`, the record's) — Coat & pants · Tie · Shirt · Vest · Jacket · Bow tie · Barong · Pants;
+ *   · a zone's own word (`DESIGN_ZONES`, the record's) — Coat & pants · Tie & accent · Long sleeves · Vest & pants · Barong · Pants;
  *   · a ONE-colour design (a gown, a terno, a dress) — the design's own name for the person ("Long gown", "Filipiniana
  *     (terno)", "Tulle dress"): the colour IS that garment;
  *   · a colour past the design's zones — `DOT_WORD_ACCENT`, the record's word for every colour after the garment
- *     ("Dot 2 is the accent", DECISION_LOG 2026-10-16) — it paints nothing on the drawing, and is still the couple's;
+ *     ("Dot 2 is the accent", DECISION_LOG 2026-10-16), numbered past the first (`accentWord`: Accent · Accent 2) — it
+ *     paints nothing on the drawing, and is still the couple's;
  *   · no Wear said yet — `DOT_WORD_OUTFIT` for the first colour (the word the guest's own panel already says,
  *     "Outfit to be confirmed"), accents after.
  *   · guests (`options`) — every colour is its own outfit, so each says the first zone's word.
@@ -207,6 +208,14 @@ export function zoneColours(style: AttireStyle | null | undefined, colours: read
  */
 export const DOT_WORD_OUTFIT = 'Outfit';
 export const DOT_WORD_ACCENT = 'Accent';
+/**
+ * 🔢 NO TWO DOTS OF ONE PERSON SAY THE SAME WORD (owner 2026-10-21, on Secondary Sponsors' women — "Long gown · Accent ·
+ * Accent"): the accents are numbered as the record already numbers them (2026-09-21, "the editor labels them Main /
+ * Accent / Accent 2…") — Accent · Accent 2 · Accent 3. They still paint nothing on a one-zone drawing (it has one mask).
+ */
+export function accentWord(n: number): string {
+  return n === 0 ? DOT_WORD_ACCENT : `${DOT_WORD_ACCENT} ${n + 1}`;
+}
 export type PickDot = { hex: string; word: string };
 export function pickDots(
   style: AttireStyle | null | undefined,
@@ -216,7 +225,7 @@ export function pickDots(
 ): PickDot[] {
   const own = colours.filter((h) => HEX.test(h));
   if (own.length === 0) return [];
-  if (!style) return own.map((hex, i) => ({ hex, word: options || i === 0 ? DOT_WORD_OUTFIT : DOT_WORD_ACCENT }));
+  if (!style) return own.map((hex, i) => ({ hex, word: options || i === 0 ? DOT_WORD_OUTFIT : accentWord(i - 1) }));
   const zones = zonesOf(style);
   const zoneWord = (i: number) => zones[i]?.label ?? designLabel(role ?? null, style);
   /* 👔 A guest man in a tie wears each colour on the tie (`wearsColourOnTie`, owner 2026-10-21) — so it says "Tie". */
@@ -226,7 +235,7 @@ export function pickDots(
     return own.map((hex) => ({ hex, word: optionWord }));
   }
   const worn = onTie && own.length === 1 ? tieZoneColours(style, own[0]!) : zoneColours(style, own);
-  return [...zones.map((_, i) => ({ hex: worn[i]!, word: zoneWord(i) })), ...own.slice(zones.length).map((hex) => ({ hex, word: DOT_WORD_ACCENT }))];
+  return [...zones.map((_, i) => ({ hex: worn[i]!, word: zoneWord(i) })), ...own.slice(zones.length).map((hex, i) => ({ hex, word: accentWord(i) }))];
 }
 
 /**
@@ -242,7 +251,9 @@ export function zoneTints(garment: FigureGarment, colours: readonly string[]): A
   /* 👔 A GUEST MAN'S ONE OPTION COLOUR IS HIS TIE (owner 2026-10-21, `wearsColourOnTie`): coat & pants black, shirt
      white. Colours given zone by zone (more than one) are the host's own and are worn as given. */
   const worn = design && own.length === 1 && wearsColourOnTie(roleOfArt(garment), design) ? tieZoneColours(design, own[0]!) : zoneColours(design, own);
-  return art.zones.map((z, i) => ({ key: z.key, mask: z.mask, colour: worn[i]! }));
+  /* Each mask wears its control's colour — a zone with no control of its own (a 3-piece's vest) wears the one it follows. */
+  const controls = zonesOf(design).map((z) => z.key);
+  return art.zones.map((z) => ({ key: z.key, mask: z.mask, colour: worn[controls.indexOf(controlOfZone(design, z.key))]! }));
 }
 
 /** The drawing for a pick: its role's own drawing of the design, else the shipped garment of that style (`garmentFor`). */

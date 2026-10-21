@@ -240,9 +240,9 @@ test('3 · every colour a guest sees says what it colours — and the Studio’s
 
 test('3 · a women’s gown says it is the gown; a colour past the garment says it is an accent', () => {
   const dots = pickDots('long_gown', ['#5C0700', '#248191', '#3E3350'], 'mother');
-  assert.deepEqual(dots.map((d) => d.word), ['Long gown', 'Accent', 'Accent']);
+  assert.deepEqual(dots.map((d) => d.word), ['Long gown', 'Accent', 'Accent 2']);
   const suit = pickDots('suit', ['#2C2A29'], 'father');
-  assert.deepEqual(suit.map((d) => d.word), ['Coat & pants', 'Tie', 'Shirt']);
+  assert.deepEqual(suit.map((d) => d.word), ['Coat & pants', 'Tie & accent', 'Long sleeves']);
   assert.deepEqual(pickDots(null, ['#2C2A29', '#808080'], null).map((d) => d.word), ['Outfit', 'Accent']);
 });
 

@@ -51,6 +51,8 @@ export type GuestFieldOverride = Partial<{
    *  shows a count and a boolean that disagree — the DB keeps them equal. */
   plus_one_count: number;
   plus_one_allowed: boolean;
+  /** 🖐 Who set the reply — drawn with a host's Set reply ("marked"), until the server's row says the same. */
+  rsvp_set_by: 'guest' | 'host' | null;
 }>;
 
 /** A local, not-yet-confirmed change the roster applies immediately. */

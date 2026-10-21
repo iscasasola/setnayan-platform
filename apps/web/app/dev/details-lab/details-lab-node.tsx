@@ -61,6 +61,7 @@ import { HUB_THEMES } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { labWishList, labWishState } from './wish-list-fixture';
 import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP, LAB_SUGGEST_SWATCHES } from '../supplier-lab/suggestion-lab-fixture';
+import { coupleNameColumns } from '@/lib/typed-names';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -200,6 +201,13 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                 : fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
+              /* 🔀 `&order=b` — the event's name stored the other way round ("Indalecio & Claire", the owner's own,
+                 2026-10-21): the Event name row and its Name order ▾ read it as stored (`nameOrderOf`). */
+              storedName: mj
+                ? 'Maria & Jose'
+                : fresh
+                ? null
+                : coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, one('order') === 'b' ? 'b-first' : 'a-first').display_name,
               wholeForm: null,
             }
           : null,

@@ -20,8 +20,9 @@
  *   (4) NO SURFACE BUILDS THE COUPLE NAME ITSELF — no line in `app/` or `lib/` joins two people's names with "&"
  *       outside the helper (a join whose operands are read from the people: bride / groom / person A·B / partner A·B).
  *
- * Sabotage (2026-10-21, each restored): `nameOrderOf` always the default → (1)(2) red; the Studio row's keep without
- * its order → (2)(3) red; the details page's Names row back to `${personA} & ${personB}` → (4) red.
+ * Sabotage (2026-10-21, each restored, then all green): `nameOrderOf` always the default → (1)(2) red; the Studio
+ * row's keep without its order → (3) red; the details page's Names row back to `${personA} & ${personB}` → (4) red; a
+ * tour page's JSX back to `{ev.bride_name} &amp; {ev.groom_name}` → (4) red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

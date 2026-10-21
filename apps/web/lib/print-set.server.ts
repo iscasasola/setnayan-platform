@@ -15,12 +15,15 @@ import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
-import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
+import { guestLookFrom, loadEntourageSectionOrder, type EventShellRow } from '@/app/[slug]/_lib/loaders';
+import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
+import { mainGroundPictureFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
+import { printHubFonts, printLookForEvent, printLooksFor, type WornHub } from '@/lib/print-hub-look';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { dressCodeForEveryone, dressCodeLines } from '@/lib/dress-code-for-everyone';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
@@ -31,7 +34,7 @@ import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
-import type { PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
+import type { PrintEntourageStyle, PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
 import {
   blockTime,
   ceremonyBlock,
@@ -44,7 +47,6 @@ import {
   type MenuMoment,
   printedDate,
   printVenueLines,
-  printLookFor,
   type PrintLook,
   type PrintMode,
   type PrintParent,
@@ -76,7 +78,7 @@ import { isPlaceholderSeat } from '@/lib/extra-seats';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, event_date_precision, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, ceremony_type, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
+  'event_id, display_name, event_type, event_date, event_date_precision, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_art_direction, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, ceremony_type, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -96,6 +98,10 @@ export type PrintEventRow = {
   site_button_color?: string | null;
   site_button_style?: string | null;
   site_font_key?: string | null;
+  /** 🔤 The Hub's Headings · Text · Labels & buttons fonts (`lib/site-roles.ts`) — a Pro print wears them (`hubPrintInput`). */
+  site_roles?: unknown;
+  /** 🕯 Daylight · Candlelight — the page's art direction, read by the guest page's own look (`guestLookFrom`). */
+  site_art_direction?: 'daylight' | 'candlelight' | null;
   venue_name: string | null;
   venue_address: string | null;
   std_film_ceremony_name: string | null;
@@ -537,6 +543,64 @@ async function posterPhotoBytes(ref: string, mode: PrintMode): Promise<Uint8Arra
   }
 }
 
+/**
+ * 🖨 WHAT THE HUB ITSELF RESOLVED, FOR PAPER — read only behind the Pro door (`printLookForEvent`). Nothing here decides a
+ * colour, a font or a background: the guest page's own look (`guestLookFrom` over `resolveHubTheme`, Pro already measured),
+ * the couple's four fonts as the page reads them, and the Main background as the page draws it (`mainGroundPictureFor` —
+ * the page's own `pictureOf`, its measured frame and scrim). The picture is fetched at the print's size.
+ */
+async function hubPrintInput(admin: SupabaseClient, event: PrintEventRow, mode: PrintMode): Promise<WornHub> {
+  const hub = await resolveHubTheme(event);
+  const page = guestLookFrom(event as unknown as EventShellRow, hub, true);
+  const heroConfig = await readHeroConfig(admin, event.event_id);
+  const ground = await mainGroundPictureFor(
+    { theme: hub.theme, heroConfig, event: event as unknown as Parameters<typeof mainGroundPictureFor>[0]['event'], viewerIsHost: true },
+    { full: mode === 'print' },
+  );
+  const picture = ground.picture ? await pictureBytes(ground.picture.url, mode) : null;
+  return {
+    hub: {
+      theme: hub.theme,
+      rolePalette: event.role_palette,
+      vars: page.vars,
+      fonts: printHubFonts(event.site_font_key, event.site_roles),
+      picture: ground.picture ? { samples: ground.picture.samples, scrim: ground.picture.scrim } : null,
+      wearsThemeLoop: ground.wearsThemeLoop,
+    },
+    picture,
+  };
+}
+
+/** The Hub's hero row's `config_json` — where the Main background is stored (`hubMainGround`). Refused → null: no picture. */
+async function readHeroConfig(admin: SupabaseClient, eventId: string): Promise<unknown> {
+  const { data, error } = await admin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle();
+  if (error) logQueryError('print-set.readHeroConfig', error, { event_id: eventId }, 'graceful_degrade');
+  return (data as { config_json?: unknown } | null)?.config_json ?? null;
+}
+
+/** The Hub's picture as the print needs it (screen: small; print: the full picture) — `heroStill`'s own sizes. */
+async function pictureBytes(url: string, mode: PrintMode): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const sharp = (await import('sharp')).default;
+    const src = new Uint8Array(await res.arrayBuffer());
+    const out = mode === 'print'
+      ? await sharp(src).rotate().jpeg({ quality: 92 }).toBuffer()
+      : await sharp(src).rotate().resize({ width: 600, withoutEnlargement: true }).jpeg({ quality: 60 }).toBuffer();
+    return new Uint8Array(out);
+  } catch (err) {
+    console.error('[print-set] Hub picture unavailable', String(err));
+    return null;
+  }
+}
+
+/** 👫 The entourage style the Hub draws on its invitation stage, as paper can draw it — The march has no card of its own. */
+function hubEntourageStyle(event: PrintEventRow): PrintEntourageStyle | undefined {
+  const style = fixedSceneStyleOf(event.style_preferences, 'entourage', 'rsvp', event.event_type);
+  return style === 'roll-call' || style === 'lines' ? style : undefined;
+}
+
 async function sepia(bytes: Uint8Array): Promise<Uint8Array> {
   const sharp = (await import('sharp')).default;
   return new Uint8Array(
@@ -601,11 +665,15 @@ export async function printInputsVersion(eventId: string): Promise<string | null
   const admin = createAdminClient();
   const event = await readPrintEvent(admin, eventId);
   if (!event) return null;
-  const [inputs, qrLook] = await Promise.all([
+  const [inputs, qrLook, ownsPro] = await Promise.all([
     readPrintSetInputs(admin, eventId, event),
     resolveEventQrLook(admin, eventId, event),
+    printOwnsPro(eventId),
   ]);
-  return printPreviewVersion({ event, inputs, qrLook });
+  /* 🖨 A Pro print wears the Hub (`printLookForEvent`): its Main background is part of the drawing, and so is the entitlement
+     itself — an unlock or a lapse is a new picture, never last week's cached one. */
+  const hub = ownsPro ? { heroConfig: await readHeroConfig(admin, eventId) } : null;
+  return printPreviewVersion({ event, inputs, qrLook, hub });
 }
 
 export async function loadPrintSet(
@@ -633,22 +701,33 @@ export async function loadPrintSet(
   const liveEvent = await readPrintEvent(admin, eventId);
   if (!liveEvent) return null;
   const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
-  const theme = printThemeFor(event, opts.previewTheme);
-  // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the
-  // resolver the guest page wears) — drafted over live when the Maker asks.
-  const look = printLookFor(
-    theme,
-    themeColours(theme, opts.samplePalette !== undefined ? opts.samplePalette : event.role_palette),
-  );
+  const ownsPro = await printOwnsPro(eventId);
+  const sampleGallery = opts.samplePalette !== undefined;
+  /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is
+     pro"*) — Classic's type on white paper, whatever theme it saved: the set is drawn as Classic (its file name, its spot layers).
+     The theme gallery's samples (`samplePalette`) still show each theme as the theme. */
+  const theme = !sampleGallery && !ownsPro ? 'house' : printThemeFor(event, opts.previewTheme);
+  // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the resolver the guest page wears) — the ground a Pro
+  // print's Hub look is laid on (`printLooksFor`).
+  const looks = printLooksFor(theme, sampleGallery ? opts.samplePalette : event.role_palette, { sampleGallery });
+  /* 🖨 EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21: *"shouldn't this mimic the event hub
+     design? and so does the other prints?"* → *"yes wire all, and yes it's Pro"*). The ONE door (`printLookForEvent`): a free
+     event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
+     Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
+  const worn = await printLookForEvent(looks, !sampleGallery && ownsPro, () => hubPrintInput(admin, event, opts.mode));
+  const look = worn.look;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
   const [{ stored, blocks: liveBlocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
     readPrintSetInputs(admin, eventId, event),
-    look.still !== 'none'
-      ? heroMayBePageGround(theme, heroGroundNeedsOwnership(theme) ? await printOwnsPro(eventId) : false)
-        ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
-        : themeStill(theme, opts.mode)
-      : Promise.resolve(null),
+    /* The Hub's own picture, when the print wears it; else the theme's still as it always was. */
+    worn.picture
+      ? Promise.resolve(worn.picture)
+      : look.still !== 'none'
+        ? heroMayBePageGround(theme, heroGroundNeedsOwnership(theme) ? ownsPro : false)
+          ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
+          : themeStill(theme, opts.mode)
+        : Promise.resolve(null),
     printMarkFor(event),
   ]);
   const inc = stored.include;
@@ -734,6 +813,8 @@ export async function loadPrintSet(
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
+    /* 👫 A Hub-worn print sets the Entourage as the Hub draws it (On the axis · Lines); the classic card keeps its own. */
+    ...(worn.wearsHub && hubEntourageStyle(event) ? { entourageStyle: hubEntourageStyle(event) } : {}),
     attire: attireLines(event.dress_code_config, event.role_palette, event.ceremony_type, readRoleNames(event.role_names)),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,

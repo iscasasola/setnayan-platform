@@ -207,6 +207,34 @@ export async function mainGroundStillFor(input: MainGroundInput): Promise<string
 }
 
 /**
+ * 🖨 THE PRINTS WEAR THE MAIN BACKGROUND (owner 2026-10-21, *"shouldn't this mimic the event hub design? and so does the
+ * other prints?"* → *"yes wire all, and yes it's Pro"*). The SAME answer the page draws (`pictureOf`, the page's own
+ * Pro rule and all), handed back as what paper needs: the picture's address, the colours its frame was measured to
+ * (`HubTint.frame` — never re-measured), and the paper veil the page lays over it (`resolveAdaptiveTheme(…).scrim`).
+ *   · `picture` null = no picture of theirs behind the event (a colour, a pattern, "just the colour", the theme's own);
+ *   · `wearsThemeLoop` false = the page shows NO loop of the theme's ("just the colour", a pattern), so paper shows none.
+ */
+export async function mainGroundPictureFor(input: MainGroundInput, opts: { full?: boolean } = {}): Promise<{
+  picture: { url: string; samples: string[]; scrim: number | null } | null;
+  wearsThemeLoop: boolean;
+}> {
+  const { theme, heroConfig, event, signed = {} } = input;
+  const main = hubMainGround(heroConfig);
+  if (mainGroundIsNone(main) || (main && 'ground' in main && main.ground === 'pattern')) return { picture: null, wearsThemeLoop: false };
+  const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
+  const { mainGround, urls } = await pictureOf(main, input, ownsPro);
+  const ref = mainGround?.stillRef ?? null;
+  const frame = mainGround?.tint?.frame ?? [];
+  if (!mainGround || !ref || frame.length === 0) return { picture: null, wearsThemeLoop: true };
+  /* A print-ready file takes the original; a preview the page's own screen-sized copy. */
+  const url =
+    (opts.full ? null : await screenSizedStill(ref)) ?? urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
+  if (!url) return { picture: null, wearsThemeLoop: true };
+  const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
+  return { picture: { url, samples: [...frame], scrim: adaptive.scrim }, wearsThemeLoop: true };
+}
+
+/**
  * 🖼 THE BACKGROUND PHOTO AT SCREEN SIZE, NOT CAMERA SIZE (owner 2026-10-20 *"we want all pages to load at its
  * fastest"*). Measured on a live invitation: the Main background was the couple's 4.4 MB camera original, drawn
  * full-bleed as a CSS background and fetched eagerly, while its 1600 px WebP copy (25 KB) already sat beside it in

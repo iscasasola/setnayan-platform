@@ -10,8 +10,6 @@
  *   ?hidden=1                        the budget is not shared with this viewer
  *   ?proto=1                         the prototype's own figures (Cale & Ice, 72 days, 7 coming…)
  *   ?store=1                         the App Store / Play shell (no Your services row)
- *   ?store=1&shell=1                 🍎 the app's REAL bar + rail / ☰ (owner 2026-10-21: no More —
- *                                    Home · Guests · Suppliers · Hub); `?shell=1` alone = the web's
  *   ?view=papic                      🎨 the Papic page's TOP BAND instead of Home, in the same
  *                                    ?papic= state (the real PapicTopBand; the Buy more sheet
  *                                    on the prototype's ladder seed — no database)
@@ -319,5 +317,5 @@ export default async function HomeLab({
     </div>
   );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
-  return q.shell === '1' ? <LabShell eventId={E} gutter={false} storeShell={q.store === '1'}>{home}</LabShell> : home;
+  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{home}</LabShell> : home;
 }

@@ -24,7 +24,6 @@ import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-ra
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
 import { builderRailItems, togetherRailItems } from '@/lib/free-tools-rail';
-import { CustomerBottomNav } from '@/app/dashboard/[eventId]/_components/customer-bottom-nav';
 
 const SERVICES: EventMenuChild[] = [
   { key: 'setnayan-ai', label: 'Setnayan AI', href: '#ai', icon: 'ai' },
@@ -38,28 +37,13 @@ export function LabShell({
   eventId,
   children,
   gutter = true,
-  storeShell,
 }: {
   eventId: string;
   children: ReactNode;
   /** Draw the event layout's own content gutter (`px-4 sm:px-6 lg:px-8`). Off for a lab that draws it itself. */
   gutter?: boolean;
-  /**
-   * Given → the REAL `CustomerBottomNav` replaces the stand-in dock, and the
-   * rail / ☰ rows are built for that shell (true = the iPhone app). In the
-   * app the services list is empty, exactly as `layout.tsx` hands it there
-   * (`STORE_SHELL_HIDDEN_ADDON_KEYS` drops all five). Omitted → the stand-in.
-   */
-  storeShell?: boolean;
 }) {
-  const inputs = {
-    eventId,
-    guestCount: 32,
-    services: storeShell ? [] : SERVICES,
-    websiteEnabled: true,
-    seatingEnabled: true,
-    ...(storeShell ? { storeShell } : {}),
-  };
+  const inputs = { eventId, guestCount: 32, services: SERVICES, websiteEnabled: true };
   return (
     <>
       <FrontDoorShell
@@ -91,9 +75,6 @@ export function LabShell({
         </div>
       </FrontDoorShell>
       <BottomDock boundary="tab">
-        {storeShell !== undefined ? (
-          <CustomerBottomNav {...inputs} />
-        ) : (
         <nav className="flex h-16 items-center justify-around text-xs text-ink/70" data-lab-dock="">
           <span>Home</span>
           <span>Guests</span>
@@ -101,7 +82,6 @@ export function LabShell({
           <span>Hub</span>
           <span>More</span>
         </nav>
-        )}
       </BottomDock>
     </>
   );

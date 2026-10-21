@@ -275,12 +275,45 @@ const STUDIO_ROUTE = /^\/dashboard\/[^/]+\/studio\/([^/]+)(?:\/([^/]+))?(?:\/|$)
 export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
 
 /**
+ * 🍎 OPENED BY IN-APP PURCHASE (version 1.1) — the control pages of the two
+ * services Apple sells in the app, and ONLY where Apple can sell
+ * (`iapAvailable` in lib/iap/iap-gate.ts: the store shell, a build carrying
+ * the StoreKit plugin, the owner's switch). Guideline 3.1.3(b): a thing bought
+ * outside the app may be USED in it once the same thing is also sold by In-App
+ * Purchase — and App Review asks that a Live Watch bought IN the app have a
+ * door to use it there.
+ *
+ *   · `/dashboard/<id>/studio/papic` and its own pages (crew, moderation,
+ *     recap…) — the Papic host page. In the app it draws no web price, no
+ *     GCash / BDO and no web link: Buy more is Apple's sheet, and every web
+ *     offer on it is skipped (`studio/papic/page.tsx`, `appleIap`).
+ *   · `/panood/control/<id>` — the Live Watch controller, "Go live". In the app
+ *     it opens only for an event that owns Live Watch (it sends any other to
+ *     Home, where Activate is Apple's sheet), and its Exit goes Home.
+ *   · `/dashboard/<id>/studio/panood/cameras` (+ `/print`) — the camera QR
+ *     codes the controller links to; they carry no price.
+ *
+ * NOT here, deliberately: the Live Watch detail / buy page
+ * (`studio/live-studio-control`), the legacy setup and broadcast rooms, the
+ * program output, `/studio/about/<key>` and every purchase route — those keep
+ * landing on /web-only. With `iap` false (every build in people's hands, and
+ * every build while the switch is off) nothing here opens.
+ */
+const IAP_OPENED_ROUTE =
+  /^\/(?:dashboard\/[^/]+\/studio\/(?:papic|panood\/cameras)|panood\/control\/[^/]+)(?:\/|$)/;
+
+/**
  * Does this pathname belong to a feature the store shell must not open?
  * Pure; used by middleware. The hub page itself (`/studio`) stays open — it
  * filters its own grid with STORE_SHELL_HIDDEN_ADDON_KEYS.
+ *
+ * `iap` — Apple can sell in this app (`iapAvailable`); only then do the
+ * routes in `IAP_OPENED_ROUTE` open. Default false: every caller that does not
+ * know answers exactly as before In-App Purchase existed.
  */
-export function isStoreShellWebOnlyPath(pathname: string): boolean {
+export function isStoreShellWebOnlyPath(pathname: string, iap = false): boolean {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (iap && IAP_OPENED_ROUTE.test(path)) return false;
   if (STORE_SHELL_WEB_ONLY_DOORWAYS.has(path)) return true;
   if (WEB_ONLY_PURCHASE_ROUTE.test(path)) return true;
   if (WEB_ONLY_FEATURE_ROUTE.test(path)) return true;
@@ -309,8 +342,11 @@ export function isStoreShellWebOnlyPath(pathname: string): boolean {
  * (2026-10-21). Pages that draw one gate it server-side; this is the net
  * under them, the same way as the refused routes. Held by
  * `lib/the-app-names-no-paid-service.test.ts`.
+ *
+ * `iap` — Apple sells in this app: a link to a route `IAP_OPENED_ROUTE` opens
+ * stays (the guard asks `iapAvailable` the same way middleware does).
  */
-export function storeShellHidesHref(href: string | null | undefined, currentUrl: string): boolean {
+export function storeShellHidesHref(href: string | null | undefined, currentUrl: string, iap = false): boolean {
   if (!href) return false;
   let url: URL;
   let here: URL;
@@ -322,7 +358,7 @@ export function storeShellHidesHref(href: string | null | undefined, currentUrl:
   }
   if (url.origin !== here.origin) return false;
   if (asksForMoreServices(url.search)) return true;
-  return isStoreShellWebOnlyPath(url.pathname);
+  return isStoreShellWebOnlyPath(url.pathname, iap);
 }
 
 /**

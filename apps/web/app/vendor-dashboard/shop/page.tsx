@@ -4,27 +4,15 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
-  Eye,
   Globe,
-  Handshake,
-  Heart,
-  Images,
   Package as PackageIcon,
   ShieldCheck,
-  Sparkles,
-  Star,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
-import { isMusicToolCategory } from '@/lib/songs';
-import { shopToolShelves } from './shop-tool-shelves';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile, businessProfileChecklist } from '@/lib/vendor-profile';
 import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
-import { fetchReviewStats, type ReviewStatsRow } from '@/lib/reviews';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
-import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
-import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -35,7 +23,7 @@ import {
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import { ShopRail, ShopDoorSection } from './_components/shop-rail';
+import { ShopDoorSection } from './_components/shop-door-section';
 import { ShopSegments } from './_components/shop-segments';
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
@@ -57,8 +45,9 @@ const DOCS_HREF = '/vendor-dashboard/profile#docs';
  * everything acts INLINE. Profile / Website / Team / Branch each expand their
  * function in place (ManageTiles + Collapsible) — Profile joined the inline
  * set 2026-07-02 (was the lone navigate-out tile); the QR row card toggles
- * Shortlist ↔ Locked, both rendering a real QR; the metrics strip is a
- * read-only pulse (its detail pages live in the sidebar).
+ * Shortlist ↔ Locked, both rendering a real QR. The metrics strip and the
+ * "On this page" rail left 2026-10-21 (owner "Yes to all", item 4): the
+ * numbers are Shop › How it is going.
  *
  * DATA — every number is LIVE (owner rule: never fabricate). The whole loader
  * is wrapped so a single query error degrades to zeros rather than crashing.
@@ -70,18 +59,6 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 const DISPLAY_HOST = SITE_URL.replace(/^https?:\/\//, '');
-
-const nf = new Intl.NumberFormat('en-PH');
-
-/** Start of the current ISO-ish week (Mon 00:00 local), as an ISO string. */
-function startOfWeekIso(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0 = Sun
-  const diff = (day + 6) % 7; // days since Monday
-  d.setDate(d.getDate() - diff);
-  return d.toISOString();
-}
 
 function titleCase(s: string): string {
   return s
@@ -115,19 +92,6 @@ type ShopData = {
     emailConfirmedAt: string | null;
     phoneConfirmedAt: string | null;
   };
-  profileViewsWeek: number;
-  rating: number;
-  reviewCount: number;
-  savedByCouples: number;
-  storiesTagged: number;
-  /*
-   * Labels of the optional reads that FAILED on this render (see lib/soft-read).
-   * A tile consults this before printing a number, because 0 and "could not be
-   * read" are different claims and only one of them is about the supplier.
-   */
-  unreadable: string[];
-  recapClips: number;
-  recommendedByShops: number;
   /** 🌱🖼 The shop's trades supply an inspiration part — "Add to the inspiration library" is drawn (owner 2026-10-19). */
   libraryOpen: boolean;
 };
@@ -195,23 +159,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     return tier;
   })();
 
-  const weekStart = startOfWeekIso();
-
   /*
-   * 🔑 EVERY OPTIONAL READ BELOW USED TO FAIL INTO A ZERO, AND A ZERO ON A
-   * PERFORMANCE TILE IS A CLAIM.
-   *
-   * "Saved by couples: 0", "rating 0", "views this week: 0" are not blanks.
-   * They assert that nobody saved this shop, nobody rated it and nobody looked
-   * at it — and the supplier cannot tell that apart from the truth. An error
-   * says the system failed; a zero says THEY failed. That is the worse of the
-   * two to be wrong about.
-   *
-   * ⚠ `soft.count` / `soft.rpcNumber` exist because a supabase builder does
-   * NOT reject: it RESOLVES with `{ count: null, error }`. The old
-   * `.then(r => r.count ?? 0, () => 0)` had a rejection arm that almost never
-   * ran, and the real failure arrived through the SUCCESS path as a null that
-   * `?? 0` turned into a confident zero.
+   * ✂ THE SIX NUMBER TILES LEFT THIS PAGE (owner "Yes to all", 2026-10-21, item
+   * 4 — the approved S-PR6 shape: "ShopRail/ManageTiles removed"), AND THEIR
+   * SIX READS WITH THEM: reviews, saves, views this week, the pool bookings, the
+   * stories + recaps that waited on it, and the partnerships count. Those numbers
+   * are Shop › How it is going's job (`/vendor-dashboard/performance`); a new
+   * supplier saw a long page of empty tiles. `my-shop-reads-at-once.test.ts`
+   * fails if one drifts back.
    */
   const soft = new SoftReadLog('VendorShopPage');
 
@@ -223,51 +178,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     () => fetchLatestApplication(supabase, vendorId),
     null,
   );
-  /*
-   * 🔑 `null`, NOT A ZEROED ROW — the Reviews tile consults `cantRead('reviewStats')`.
-   */
-  const reviewStatsRead = soft.read<ReviewStatsRow | null>(
-    'reviewStats',
-    () => fetchReviewStats(supabase, vendorId),
-    null,
-  );
-  const savesRead = soft.rpcNumber('savedByCouples', () =>
-    supabase.rpc('count_saves_for_vendor', { p_vendor_profile_id: vendorId }),
-  );
-  const viewsRead = soft.count('profileViewsWeek', () =>
-    supabase
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorId)
-      .gte('viewed_at', weekStart),
-  );
-  // LEFT ON THE POOL READ: a public claim (a story tagged to this shop) needs
-  // the pool row, not the handshake.
-  const bookingsRead = soft.read(
-    'poolBookings',
-    () => fetchVendorPoolBookings(supabase, vendorId),
-    [],
-  );
-  const partnershipsRead = soft.count('partnerships', () =>
-    supabase
-      .from('vendor_partnerships')
-      .select('id', { count: 'exact', head: true })
-      .eq('recommended_vendor_id', vendorId)
-      .eq('status', 'accepted')
-      .eq('is_active', true),
-  );
-
-  // Stories + recaps need the pool bookings' eventIds — they wait for that read
-  // alone, and run beside each other once it lands.
-  const storiesAndRecapsRead = (async () => {
-    const bookings = await bookingsRead;
-    const eventIds = bookings.map((b) => b.eventId);
-    return Promise.all([
-      soft.read('featuredStories', () => loadVendorFeaturedStories(eventIds), []),
-      soft.read('recaps', () => loadVendorRecaps(eventIds).then((r) => r.length), 0),
-    ]);
-  })();
-
   // The hero's logo. A presign hiccup must not blank the page — and must not
   // look like a shop with no logo either (`logoUnavailable`).
   const logoRead = (async () => {
@@ -281,23 +191,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   })();
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [
-    tier,
-    verifyApp,
-    reviewStats,
-    savesRes,
-    viewsRes,
-    partnershipsRes,
-    [stories, recapCount],
-    { logoUrl, logoUnavailable },
-  ] = await Promise.all([
+  const [tier, verifyApp, { logoUrl, logoUnavailable }] = await Promise.all([
     tierRead,
     verifyAppRead,
-    reviewStatsRead,
-    savesRead,
-    viewsRead,
-    partnershipsRead,
-    storiesAndRecapsRead,
     logoRead,
   ]);
 
@@ -325,16 +221,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
       phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
     },
-    profileViewsWeek: viewsRes ?? 0,
-    rating: Number(reviewStats?.avg_rating_overall ?? 0) || 0,
-    reviewCount: Number(reviewStats?.total_count ?? 0) || 0,
-    savedByCouples: savesRes ?? 0,
-    storiesTagged: stories.length,
-    unreadable: soft.labels,
-    recapClips: recapCount,
     // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
     libraryOpen: moodboardLibraryAccessForProfile(profile).allowed,
-    recommendedByShops: partnershipsRes ?? 0,
   };
 }
 
@@ -405,18 +293,6 @@ async function ShopHome({
 
   // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}); the
   // /v/{slug} route still resolves but the editor surfaces the clean address.
-  /*
-   * Did the number behind this tile actually get read?
-   *
-   * 🪤 TAKES THE UPSTREAM LABELS TOO, AND THAT IS THE POINT. `featuredStories`
-   * and `recaps` consume the ids that `poolBookings` produced. When that read
-   * fails it degrades to `[]`, so both of those then SUCCEED and correctly
-   * return nothing — their own probes are honest, and their tiles would print a
-   * truthful-looking 0 caused by a failure two steps upstream. A failure marker
-   * has to travel with the DATA, not sit on the probe that reported it.
-   */
-  const cantRead = (...labels: string[]) => labels.some((l) => data.unreadable.includes(l));
-
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
@@ -428,61 +304,9 @@ async function ShopHome({
       </div>
       <HeroCard data={data} publicPath={publicPath} />
 
-      {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar).
-          Sits above "Manage your shop" (owner 2026-07-02): see your numbers first,
-          then act on them. */}
-      <section className="space-y-3">
-        {/* Heading kept for the a11y outline but visually removed (owner
-            2026-07-02: "remove the How you're doing text"). */}
-        <h2 className="sr-only">How you&rsquo;re doing</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <StatTile
-            unavailable={cantRead('profileViewsWeek')}
-            icon={<Eye className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.profileViewsWeek)}
-            label="Profile views"
-            sub="this week"
-          />
-          <StatTile
-            unavailable={cantRead('reviewStats')}
-            icon={<Star className="h-4 w-4" strokeWidth={1.75} />}
-            value={data.reviewCount > 0 ? data.rating.toFixed(1) : '—'}
-            label="Reviews"
-            sub={`${nf.format(data.reviewCount)} review${data.reviewCount === 1 ? '' : 's'}`}
-          />
-          <StatTile
-            unavailable={cantRead('savedByCouples')}
-            icon={<Heart className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.savedByCouples)}
-            label="Saved"
-            sub="couples saved you"
-          />
-          <StatTile
-            unavailable={cantRead('featuredStories', 'poolBookings')}
-            icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.storiesTagged)}
-            label="Stories"
-            sub="editorials tagged"
-          />
-          <StatTile
-            unavailable={cantRead('recaps', 'poolBookings')}
-            icon={<Images className="h-4 w-4" strokeWidth={1.75} />}
-            value={data.recapClips > 0 ? nf.format(data.recapClips) : '—'}
-            label="Recap"
-            sub="day-of clips"
-          />
-          <StatTile
-            unavailable={cantRead('partnerships')}
-            icon={<Handshake className="h-4 w-4" strokeWidth={1.75} />}
-            value={nf.format(data.recommendedByShops)}
-            label="Recommend"
-            sub={`${data.recommendedByShops === 1 ? 'shop recommends' : 'shops recommend'} you`}
-          />
-        </div>
-      </section>
-
-      {/* The map of the six doors — see _components/shop-rail.tsx. */}
-      <ShopRail />
+      {/* ✂ The six number tiles and the "On this page" box left here (owner
+          "Yes to all", 2026-10-21, item 4 — S-PR6). The numbers are Shop ›
+          How it is going; the doors below are the page. */}
 
       {/*
         ── DOOR 1 · "Your shop" (G1, drawing approved 2026-09-14) ───────────
@@ -848,50 +672,6 @@ function CompletenessRing({ pct }: { pct: number }) {
   );
 }
 
-/* ─── Read-only metric tile ─────────────────────────────────────────────── */
-function StatTile({
-  icon,
-  value,
-  label,
-  sub,
-  unavailable,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  sub: string;
-  /*
-   * 🔑 THE READ FAILED, SO THERE IS NO NUMBER — as opposed to the number being
-   * zero. Printing `0` here would assert that nobody saved this shop, nobody
-   * rated it and nobody looked at it. An error blames the system; a zero blames
-   * the supplier, and only one of those can be wrong in a way that hurts.
-   */
-  unavailable?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <span
-        className="inline-flex items-center justify-center gap-1.5 text-xs"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        <span aria-hidden style={{ color: 'var(--m-orange-2)' }}>
-          {icon}
-        </span>
-        {label}
-      </span>
-      <p
-        className="mt-1 font-mono text-2xl font-bold"
-        style={{ color: unavailable ? 'var(--m-slate-3)' : 'var(--m-ink)' }}
-      >
-        {unavailable ? '–' : value}
-      </p>
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        {unavailable ? "couldn't load — not a zero" : sub}
-      </p>
-    </div>
-  );
-}
-
 /* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
  * One menu item, the whole business integrated: the shop home (profile ·
  * services · verify · website — this file's original body, incl. the
@@ -899,7 +679,7 @@ function StatTile({
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
 import { Suspense } from 'react';
-import { HardHat, Boxes } from 'lucide-react';
+import { HardHat } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
@@ -932,86 +712,22 @@ const SHOP_SECTIONS: AccordionSection[] = [
     sub: 'Pick up paid crew gigs from events already booked',
     icon: <HardHat className="h-4 w-4" strokeWidth={1.75} />,
   },
-  {
-    key: 'tools',
-    label: 'More tools',
-    sub: 'What couples see · Working with others · Protection',
-    icon: <Boxes className="h-4 w-4" strokeWidth={1.75} />,
-  },
 ];
 
 /*
-  ── THE FOURTEEN TOOLS, ON THREE NAMED SHELVES (2026-08-26) ─────────────────
-  Owner re-cut ("yes i agree"). Until now these were one undifferentiated grid
-  of fourteen cards, so finding "Theft Watch" meant reading all fourteen labels.
-  NOTHING IS REMOVED, RENAMED OR RE-ROUTED — every href, label and sub-line
-  below is byte-identical to the flat list it replaces. The only new thing is
-  which of three headings a card sits under. That is the same discipline the
-  admin console's own re-cut used: order the pile, never shorten it.
-
-  The cut is by WHO THE TOOL IS FOR, which is the only question a shop owner
-  can answer without opening the card:
-    · what couples see   — the shopfront's proof and its detail
-    · working with others — other shops, creators, and your own team
-    · protection          — the two rooms you open when something is wrong
+  ── MORE TOOLS LEFT THIS PAGE (owner "Yes to all", 2026-10-21, item 3) ──────
+  ONE door, in Settings › More tools, as the approved 2026-10-14 prototype draws
+  it. The shelves are still `shop-tool-shelves.ts` — Settings reads them
+  (`settings/settings-rows.ts`), so not one tool was lost, only the copy. An old
+  `?open=tools` link lands on Settings' fold (below).
 */
-function ShopTools({
-  hasMoodboardLibraryAccess,
-  hasMusicRepertoireAccess,
-}: {
-  hasMoodboardLibraryAccess: boolean;
-  hasMusicRepertoireAccess: boolean;
-}) {
-  const shelves = shopToolShelves(hasMoodboardLibraryAccess, hasMusicRepertoireAccess);
-  return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
-      <div className="space-y-7">
-        {shelves.map((shelf) => (
-          <div key={shelf.key}>
-            {/* The shelf heading is the whole point of the re-cut: it is the
-                one word that tells you whether the card you want is on this
-                shelf without reading the cards. */}
-            <h3 className="sn-eye mb-2.5">{shelf.label}</h3>
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {shelf.tools.map((t) => (
-                <li key={t.href}>
-                  {/* Flat `.sn-row` cards — 14 across this section, so blur is
-                      banned here (blur budget § 1.6: no blur in >10-item
-                      collections). Shelving them does not lower the count. */}
-                  <Link
-                    href={t.href}
-                    className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
-                    <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /** The open section's body — async so <Suspense> streams a skeleton while its
  *  queries run. Only the matching one renders, so folded sections cost nothing
- *  until expanded. `tools` awaits the cheap stylist check internally so the
- *  accordion headers paint instantly. */
+ *  until expanded. */
 async function ShopSectionBody({ open }: { open: string }) {
   switch (open) {
     case 'manpower':
       return <ManpowerSurface />;
-    case 'tools': {
-      const [hasMoodboard, hasMusic] = await Promise.all([
-        shopHasMoodboardLibraryAccess(),
-        shopHasMusicRepertoireAccess(),
-      ]);
-      return (
-        <ShopTools hasMoodboardLibraryAccess={hasMoodboard} hasMusicRepertoireAccess={hasMusic} />
-      );
-    }
     default:
       return null;
   }
@@ -1040,18 +756,18 @@ export default async function VendorShopHub({
     const query = qs.toString();
     redirect(`/vendor-dashboard/profile${query ? `?${query}` : ''}#pay`);
   }
+  // MORE TOOLS is Settings' fold now (2026-10-21, item 3) — one door, not two.
+  if (openRaw === 'tools') redirect('/vendor-dashboard/settings#more-tools');
   const open =
     openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
 
   return (
     <>
-      {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
+      {/* Home stays on top: identity · the door rows · services. */}
       <ShopHome searchParams={Promise.resolve(sp) as never} />
 
       {/* Everything else folds in below — one open at a time, loaded on expand.
-          The id is what door 6 on the rail points at: the folds are where those
-          tools live today, and a map must not point at a room that is not
-          there. Naming an existing room is not building a door. */}
+          The id is where Settings' Manpower row lands (`settings-rows.ts`). */}
       <div id="shop-folds" className="scroll-mt-24">
         <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
           {open ? (
@@ -1063,34 +779,4 @@ export default async function VendorShopHub({
       </div>
     </>
   );
-}
-
-/** Moodboard library card gate for the More-tools tab — the shared predicate
- * both the page and the server action use (lib/moodboard-library-access.ts). */
-async function shopHasMoodboardLibraryAccess(): Promise<boolean> {
-  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
-  const { resolveMoodboardLibraryAccess } = await import('@/lib/moodboard-library-access');
-  const supabase = await createShopToolsClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return (await resolveMoodboardLibraryAccess(supabase, user?.id)).allowed;
-}
-
-/**
- * D2 (2026-09-11): the Repertoire card on the More-tools shelf listed itself
- * for EVERY shop — a caterer got a "Song bank & setlist" card that led
- * nowhere they could use. Same "one music rule" (`isMusicToolCategory`,
- * `lib/songs.ts`) the public songs block and `addRepertoireSong`'s
- * server-side refusal now share.
- */
-async function shopHasMusicRepertoireAccess(): Promise<boolean> {
-  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
-  const supabase = await createShopToolsClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  return isMusicToolCategory(profile?.services ?? null);
 }

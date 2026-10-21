@@ -5,6 +5,7 @@ import { formatCount } from '@/lib/format-number';
 import { POOL_METER_LOW_PCT } from '@/lib/papic-pool-meter';
 import { PAPIC_UNTIL_WORDS, type PapicGlance } from '@/lib/papic-glance';
 import { PapicBuySheet } from './papic-buy-sheet';
+import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { PapicSeePhotos } from './papic-see-photos';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 
@@ -25,6 +26,7 @@ export function PapicTopBand({
   buyOpen = false,
   error = null,
   sizes = null,
+  apple = false,
 }: {
   eventId: string;
   glance: PapicGlance;
@@ -35,6 +37,11 @@ export function PapicTopBand({
   error?: string | null;
   /** The ladder, only when a dev lab already holds it — the page reads it on the tap. */
   sizes?: PoolRung[] | null;
+  /**
+   * 🍎 The iPhone app where Apple sells (`getIapGate().iap`): Buy more is Apple's sheet (`IapPapicSheet` — the five
+   * App Store packs at StoreKit's prices), never the web's ladder, ₱ or GCash. False everywhere else.
+   */
+  apple?: boolean;
 }) {
   const { mood, count, total, photos, onFrom, phase } = glance;
   const big = count === null ? glance.status : formatCount(count);
@@ -80,7 +87,11 @@ export function PapicTopBand({
       see={see}
       buy={
         canBuy && glance.buy ? (
-          <PapicBuySheet eventId={eventId} left={count} main defaultOpen={buyOpen} error={error} sizes={sizes} />
+          apple ? (
+            <IapPapicSheet eventId={eventId} left={count} main />
+          ) : (
+            <PapicBuySheet eventId={eventId} left={count} main defaultOpen={buyOpen} error={error} sizes={sizes} />
+          )
         ) : null
       }
     />

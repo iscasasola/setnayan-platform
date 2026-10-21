@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ee5e38edf1",
+  "generatedFromRef": "e3443b9e8a",
   "routeCount": 451,
-  "destinations": 995,
+  "destinations": 996,
   "actions": 664,
-  "blocks": 6724,
+  "blocks": 6734,
   "routes": {
     "/": {
       "files": [
@@ -1014,6 +1014,7 @@
         "[slug]/_components/ticket-picture.tsx",
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
+        "[slug]/_components/ticket-show.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
         "[slug]/_components/type-in-place-canvas.ts",
         "[slug]/_components/upload-your-qr.tsx",
@@ -1268,6 +1269,7 @@
         "GuestMeParts",
         "GuestMeSection",
         "GuestPreload",
+        "GuestSheet",
         "GuestTicket",
         "GuestToHostCta",
         "GuestWelcome",
@@ -1495,6 +1497,7 @@
         "SaveTheDateFilm",
         "SaveTheDateView",
         "SaveToAccount",
+        "ScanTrailForm",
         "ScanTrailNotice",
         "SceneClip",
         "ScenePlaceholder",
@@ -1574,6 +1577,8 @@
         "ThankYouScene",
         "TheirSong",
         "TicketPicture",
+        "TicketRow",
+        "TicketShow",
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
@@ -5355,12 +5360,12 @@
     },
     "/dashboard/(launcher)": {
       "files": [
+        "dashboard/(launcher)/_components/account-bottom-nav.tsx",
         "dashboard/(launcher)/_components/create-event-panel.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/guests-top-search.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
-        "dashboard/(launcher)/_components/home-pill-nav.tsx",
         "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
@@ -5371,8 +5376,8 @@
         "dashboard/(launcher)/page.tsx"
       ],
       "destinations": [
+        "/",
         "/admin",
-        "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/create-event",
         "/dashboard/library",
@@ -5381,6 +5386,7 @@
         "/dashboard/profile",
         "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
+        "/dashboard?hub=1",
         "/vendor-dashboard"
       ],
       "actions": [
@@ -5388,11 +5394,14 @@
         "muteInviter"
       ],
       "blocks": [
+        "AccountBottomNav",
         "AccountSwitcher",
         "AppPreload",
         "AppRailShell",
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
+        "BottomDock",
+        "BottomNav",
         "ClashNotice",
         "CollectionCard",
         "CollectionEmptyState",
@@ -5411,7 +5420,6 @@
         "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLInputElement",
-        "HomePillNav",
         "Icon",
         "Image",
         "ImpactLines",
@@ -8938,6 +8946,7 @@
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLInputElement",
+        "IapPapicSheet",
         "InlineCheckoutDrawer",
         "LegendDot",
         "LifeFlashCard",
@@ -10739,6 +10748,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AccountBottomNav",
         "AddGuestSheet",
         "BottomDock",
         "DockStandIn",
@@ -10749,7 +10759,6 @@
         "GuestRow",
         "GuestSetupRows",
         "GuestsScreen",
-        "HomePillNav",
         "LabGuestActions",
         "LabShell",
         "MakerRsvpSettings",
@@ -10931,6 +10940,7 @@
         "dev/me-lab/connect-hosts-lab.tsx",
         "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
+        "dev/me-lab/me-stage-lab.tsx",
         "dev/me-lab/page.tsx"
       ],
       "destinations": [
@@ -10944,13 +10954,16 @@
         "DoorShell",
         "GuestMe",
         "GuestMeParts",
+        "GuestMeSection",
         "GuestTicket",
         "HeldPassLine",
         "HostViewsGuestLab",
         "LabHostRequests",
         "Link",
         "MeFor",
+        "MeStageLab",
         "PeopleRosterView",
+        "ScanTrailForm",
         "SubmitButton"
       ]
     },

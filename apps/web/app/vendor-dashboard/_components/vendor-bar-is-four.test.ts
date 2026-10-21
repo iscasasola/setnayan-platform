@@ -159,21 +159,27 @@ function oneTap(): Set<string> {
   ]);
 }
 
-/** What is one tap further: Shop's segments and every Settings row (its rooms, its More tools, Help). */
-function twoTaps(): Set<string> {
-  const settings = read('settings/settings-view.tsx') + read('settings/page.tsx');
-  const literal = [...settings.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
-  const tools = settingsMoreTools({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: false }).flatMap((g) => g.tools.map((t) => t.href));
-  // The More tools fold is a place of its own: Settings carries its anchor.
-  assert.match(settings, /id="more-tools"/, 'premise: Settings’ More tools fold has its anchor');
-  return new Set([
-    ...Object.values(SHOP_SEGMENT_HREF),
-    ...literal,
-    ...tools,
-    SETTINGS_HELP_HREF,
-    ...SUPPLIER_HELP_ROWS.map((r) => r.href),
-    '/vendor-dashboard/settings#more-tools',
-  ]);
+/**
+ * What is one tap further — but ONLY behind a door that is itself one tap away:
+ * Shop's segments if Shop is on the bar, every Settings row (its rooms, its More
+ * tools fold, Help) if Settings is reachable. A room is never counted as
+ * reachable because something inside it links somewhere.
+ */
+function twoTaps(one: ReadonlySet<string>): Set<string> {
+  const onePaths = new Set([...one].map(pathOf));
+  const out = new Set<string>();
+  if (onePaths.has(pathOf(SHOP_SEGMENT_HREF.services))) for (const h of Object.values(SHOP_SEGMENT_HREF)) out.add(h);
+  if (onePaths.has('/vendor-dashboard/settings')) {
+    const settings = read('settings/settings-view.tsx') + read('settings/page.tsx');
+    for (const m of settings.matchAll(/href="([^"]+)"/g)) out.add(m[1]!);
+    const tools = settingsMoreTools({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: false });
+    for (const t of tools.flatMap((g) => g.tools)) out.add(t.href);
+    out.add(SETTINGS_HELP_HREF);
+    for (const r of SUPPLIER_HELP_ROWS) out.add(r.href);
+    // The More tools fold is a place of its own — counted only while Settings carries its anchor.
+    if (/id="more-tools"/.test(settings)) out.add('/vendor-dashboard/settings#more-tools');
+  }
+  return out;
 }
 
 /** Where a redirect stub sends you, read from its page — or null when the page is a real screen. */
@@ -186,7 +192,8 @@ function stubTarget(path: string): string | null {
 }
 
 test('🔑 every route the old More reached is reachable from Today · Customers · Shop · Hub', () => {
-  const near = new Set([...oneTap(), ...twoTaps()]);
+  const one = oneTap();
+  const near = new Set([...one, ...twoTaps(one)]);
   const nearPaths = new Set([...near].map(pathOf));
   // The ONE route whose anchor matters: More tools is a fold, not a page.
   const has = (href: string) => (href.includes('#more-tools') ? near.has(href) : nearPaths.has(pathOf(href)));

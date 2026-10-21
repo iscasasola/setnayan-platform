@@ -49,7 +49,8 @@ test('the producer still renders a link for href — the rule above has somethin
 // paint. The Home's three doors ("Edit your Event Hub / Guest list / Suppliers") pressed at 40px for exactly that
 // reason (`.home-doors > :is(button, a).ab.ab-neutral { overflow: hidden }`), measured by pressing in the sweep.
 // Read from every stylesheet: no rule whose subject is an ActionButton (`.ab` in the LAST compound of a selector)
-// may clip its overflow. Clip the word (`.ab .lbl`) instead.
+// may clip its overflow — unless that same rule paints it at least 44px tall, so the paint itself is the press
+// (the Home doors' fix: they clip on purpose, for the row's fit pass, and are drawn 44).
 function cssFiles(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
@@ -84,6 +85,8 @@ test('no stylesheet clips an ActionButton — the overflow would swallow its own
     const src = stripComments(readFileSync(join(WEB, f), 'utf8'));
     for (const m of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       if (!/(?:^|[;\s])overflow(?:-[xy])?\s*:\s*(?:hidden|clip)/.test(m[2]!)) continue;
+      const tall = Number(m[2]!.match(/(?:^|[;\s])(?:min-)?height:\s*(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+      if (tall >= 44) continue;
       for (const sel of selectors(m[1]!)) {
         const subject = sel.split(/\s+|>|\+|~/).filter(Boolean).pop() ?? '';
         if (/\.ab(?![\w-])/.test(subject.replace(/:global\(([^)]*)\)/g, '$1'))) bad.push(`${f}: ${sel}`);

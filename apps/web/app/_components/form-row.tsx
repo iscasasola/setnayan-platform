@@ -939,7 +939,7 @@ export function ChosenRow({
   picked?: readonly string[];
   doneNote?: string;
   head?: ReactNode;
-  /** The pill at the wide width whatever its row's (a longer answer: "Suit and tie +1 · 2 designs"). */
+  /** The pill as wide as its answer, up to its row (a longer answer: "Suit and tie +1 · 2 designs"). */
   wide?: boolean;
   name: string;
   about?: FormRowAbout | null;
@@ -963,7 +963,7 @@ export function ChosenRow({
   attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   const shared = usePillWidth();
-  const width = wide ? FORM_PILL_WIDTH.wide : shared;
+  const width = wide ? 'w-auto max-w-full' : shared;
   return (
     <FormRow name={name} about={about} mark={mark} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
       <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} picked={picked} doneNote={doneNote} head={head} />

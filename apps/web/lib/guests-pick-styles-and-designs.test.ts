@@ -255,7 +255,7 @@ test('4 · a legacy single `style` renders exactly as before — and a column ti
     assert.ok(guestRow(a).includes(`data-garment="guest_m-${m}"`) && guestRow(a).includes(`data-garment="guest_w-${w}"`));
     /* A stale `designs` (an older writer changed `style`) is ignored — `style` wins. */
     const stale = { roles: { guest: { style: m, designs: ['smart_casual' === m ? 'suit' : 'smart_casual', m] } } };
-    assert.equal(picksOf(stale, GUEST_ROW)[0]!.designs, null, 'designs written for another Wear were read');
+    assert.equal(picksOf(stale, GUEST_ROW)[0]!.designs ?? null, null, 'designs written for another Wear were read');
     /* Ticked back to one whole style: no `designs` stored — the legacy shape exactly. */
     const back = withColumnDesigns({ roles: { guest: { style: m, designs: [m, 'suit/classic'] } } }, 'roles', 'guest', 0, m, [m], withAttireStyle);
     /* (The women's Wear is pinned to what they read, as every first-column write does — `withFirstStyle`.) */
@@ -263,7 +263,7 @@ test('4 · a legacy single `style` renders exactly as before — and a column ti
   }
   /* Every other role's row is untouched by a library it does not have. */
   const sponsors = { groups: { principal_sponsors: { style: 'suit', designs: ['suit', 'barong_tagalog'] } } };
-  assert.equal(picksOf(sponsors, attireRow('groups', 'principal_sponsors')!)[0]!.designs, null, 'a role with no library read designs');
+  assert.equal(picksOf(sponsors, attireRow('groups', 'principal_sponsors')!)[0]!.designs ?? null, null, 'a role with no library read designs');
 });
 
 /* ── 5 · the writer ──────────────────────────────────────────────────────── */

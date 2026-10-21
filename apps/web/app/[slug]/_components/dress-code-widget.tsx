@@ -805,7 +805,7 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
           ) : null}
           {p.allowed.map((a) => (
             <div key={a.style} className="mt-3" data-dress-code-style={a.style}>
-              <p className="mb-1.5 text-[12.5px] font-semibold text-ink/85">
+              <p className="mb-1.5 text-[12.5px] font-semibold text-ink">
                 {a.label}
                 {any(a.designs.length) ? <small className="font-normal text-ink/55"> · {any(a.designs.length)}</small> : null}
               </p>
@@ -817,7 +817,7 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
                       <span className="flex justify-center">
                         <RoleFigure roleKey={row.key} people={[{ who: p.who, garment: d.art, main: c, colours: [c] }]} className="h-[104px]" />
                       </span>
-                      <p className="mt-1 text-[10.5px] leading-tight text-ink/70">{d.label}</p>
+                      <p className="mt-1 text-xs leading-tight text-ink/70">{d.label}</p>
                     </div>
                   );
                 })}

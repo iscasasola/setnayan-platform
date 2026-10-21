@@ -310,11 +310,15 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   };
   /* 👔 Each column's styles and designs (owner 2026-10-21) — only where its person has a library (the guests), only
      when they start with the column's own Wear; else null, the one Wear as before. */
-  const ticks = (index: 0 | 1, style: AttireStyle | null, raw: unknown) => sanitizeDesignTicks(columnRole(row.key, index), style, raw);
+  /* Only a column that HAS ticks carries the key — every other pick keeps the shape it always had. */
+  const ticks = (index: 0 | 1, style: AttireStyle | null, raw: unknown): { designs?: string[] } => {
+    const t = sanitizeDesignTicks(columnRole(row.key, index), style, raw);
+    return t ? { designs: t } : {};
+  };
   if (row.who.length === 1) {
     const style = own(0, first);
     const who = row.either && style && !fitsWho(row.who[0], style) ? COUNTERPART[row.who[0]] : row.who[0];
-    return [{ who, style, colours: null, role: columnRole(row.key, 0), designs: ticks(0, style, firstDesignsOf(config, row.tier, row.key)) }];
+    return [{ who, style, colours: null, role: columnRole(row.key, 0), ...ticks(0, style, firstDesignsOf(config, row.tier, row.key)) }];
   }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
   /* 🤵‍♂️ An `optionalSecond` column never reads the first column's Wear (the maid's gown said nothing about a man). */
@@ -322,8 +326,8 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   const firstStyle = own(0, first);
   const secondStyle = own(1, second && 'style' in second ? (second.style ?? null) : inherited);
   return [
-    { who: row.who[0], style: firstStyle, colours: null, role: columnRole(row.key, 0), designs: ticks(0, firstStyle, firstDesignsOf(config, row.tier, row.key)) },
-    { who: row.who[1]!, style: secondStyle, colours: second?.colours ?? null, role: columnRole(row.key, 1), designs: ticks(1, secondStyle, second?.designs) },
+    { who: row.who[0], style: firstStyle, colours: null, role: columnRole(row.key, 0), ...ticks(0, firstStyle, firstDesignsOf(config, row.tier, row.key)) },
+    { who: row.who[1]!, style: secondStyle, colours: second?.colours ?? null, role: columnRole(row.key, 1), ...ticks(1, secondStyle, second?.designs) },
   ];
 }
 

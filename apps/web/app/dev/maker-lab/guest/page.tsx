@@ -76,7 +76,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labCaleRoleDressConfig, labCaleRoleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labCaleRoleDressConfig, labCaleRoleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette, labCaleIceDressConfig, labCaleIceRolePalette, LAB_CALE_ICE_ROLE_NAMES, labDesignsDressConfig, labDesignsRolePalette } from './lab-sample';
 import { previewRoleOf } from '@/lib/preview-role';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { LabStagePages } from './lab-stage';
@@ -757,10 +757,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   ) : words ? (
     <DressCodeWidget
       words={words}
-      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour, caleGuestMan) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={sp.attire === 'designs' ? (labDesignsDressConfig(one('gmd'), one('gwd')) as never) : caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour, caleGuestMan) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
+      rolePalette={sp.attire === 'designs' ? labDesignsRolePalette() : caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
       guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : (rolesAttire || caleIce) && one('you') ? (one('you') as never) : null}
       readerOnly={dressReader === 'visitor'}
       roleNames={caleIce ? LAB_CALE_ICE_ROLE_NAMES : null}

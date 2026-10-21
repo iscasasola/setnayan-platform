@@ -304,7 +304,7 @@ test('6d · a name or date typed in Details › Your event is DRAFTED — the Ma
   const editors = read(`${L}details-your-event.tsx`);
   assert.doesNotMatch(editors, /updateEventDate|updateEventMatchCriteria/, 'a Maker editor still writes the names or the date live');
   assert.match(editors, /fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\);/);
-  assert.match(editors, /const events = coupleNameColumns\(a, b\);/, 'the Personalization writer’s own composition');
+  assert.match(editors, /const events = coupleNameColumns\(a, b, order\);/, 'the Personalization writer’s own composition, in the event’s order');
   assert.match(editors, /draftFacts\(eventId, \{ display_name: typed \}\)/, 'one person’s name');
   assert.match(editors, /draftDate\(\{ event_date: `\$\{m\}-01`, event_date_precision: 'month' \}\)/, 'a month');
   assert.match(editors, /draftDate\(\{ event_date: value, event_date_precision: 'day' \}\)/, 'a day');
@@ -316,7 +316,7 @@ test('6d · a name or date typed in Details › Your event is DRAFTED — the Ma
     assert.doesNotMatch(read(`${L}${f}`), /\bupdateEventDate\(|\bupdateEventMatchCriteria\(/, `${f} writes the date or the names live`);
   }
   // The Personalization page's writer and the Maker's draft compose the names ONE way.
-  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(/);
+  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(postedPeople\[0\], postedPeople\[1\], storedOrder\);/);
   assert.deepEqual(coupleNameColumns({ first: 'Ana', last: 'Reyes' }, { first: 'Miguel', last: 'Santos' }), {
     bride_name: 'Ana Reyes',
     groom_name: 'Miguel Santos',

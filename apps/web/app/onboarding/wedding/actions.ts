@@ -16,6 +16,7 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { joinCoupleNames } from '@/lib/typed-names';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -468,8 +469,8 @@ export async function commitOnboardingWedding(
   const groomLast = payload.groomLastName?.trim() ?? '';
   const brideFullName = [brideFirst, brideLast].filter(Boolean).join(' ');
   const groomFullName = [groomFirst, groomLast].filter(Boolean).join(' ');
-  const displayName =
-    [brideFirst, groomFirst].filter(Boolean).join(' & ') || 'Our Wedding';
+  // The first event name, through the one composition (`joinCoupleNames`) — a new event reads the first person first.
+  const displayName = joinCoupleNames(brideFirst, groomFirst) || 'Our Wedding';
 
   let admin: ReturnType<typeof createAdminClient>;
   try {

@@ -169,7 +169,7 @@ export async function loadYourEvent({
     nameStyle: shownNameStyle,
     names:
       namesWritable && people
-        ? { people, initial: [a, b], wholeForm: null }
+        ? { people, initial: [a, b], storedName: row.display_name, wholeForm: null }
         : null,
     date: {
       confirmedVendorCount,

@@ -1130,6 +1130,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           eventId={eventId}
           people={yeIn.names.people}
           initial={yeIn.names.initial}
+          storedName={yeIn.names.storedName}
           nameStyle={yeIn.nameStyle ?? DEFAULT_NAME_STYLE}
         />
       );

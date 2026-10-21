@@ -1109,7 +1109,7 @@ export default async function LauncherPage({
     : undefined;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
           No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 
@@ -1579,8 +1579,9 @@ export default async function LauncherPage({
 
       {/* The phone thumb nav MOVED to `(launcher)/layout.tsx` + `(account)/layout.tsx`
           on 2026-08-23. Rendered from here it existed on exactly one route, so it
-          disappeared the moment anyone used it. The page keeps its `pb-28` — the
-          bar is still fixed over this content. */}
+          disappeared the moment anyone used it. Since 2026-10-21 the bar is the
+          anchored <BottomDock>, and the LAYOUT's <main> reserves its measured
+          height — this page's own bottom padding is only a breath. */}
     </div>
   );
 }

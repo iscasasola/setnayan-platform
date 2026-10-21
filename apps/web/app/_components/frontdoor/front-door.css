@@ -2007,6 +2007,43 @@ button.fd-ask.quiet {
   border-bottom: 1px solid var(--fd-line);
 }
 
+/* ══ THE ACCOUNT-LEVEL SCREENS WEAR THE MARK AND THE WORD (owner 2026-10-21) ══
+   Owner, "yes to all" to the controller's ruling 4: on the account-level
+   screens (the Events board, Memories, People, the other account spokes) the
+   top bar shows the Setnayan mark AND the word beside it, at every width, web
+   and app shell — "make sure there is Setnayan". Everywhere else (an event, the
+   shop, HQ) keeps the shipped grammar below: the mark alone on a phone, the
+   word alone from 701 up.
+
+   🔑 "ACCOUNT-LEVEL" IS READ FROM THE PAGE, NOT PASSED IN: those screens are
+   exactly the ones whose layout mounts the account bar, and the bar's wrapper
+   carries `data-account-bar` (it stays in the DOM on a desktop — the dock is
+   only `display: none` there). Keyed in CSS so the shell's client JavaScript,
+   which the Maker's first load carries at its ceiling, gains no byte.
+   The word is the markup's title-case "Setnayan"; `.fd-wordmark` capitalises
+   it, as it does on the front door. */
+.fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.fd[data-chrome='app']:has([data-account-bar]) .fd-mark {
+  display: block;
+}
+
+/* ══ WHERE DISCOVER DOES NOT OPEN, THE RAIL DOES NOT OFFER IT (2026-10-21) ══
+   In the app shell middleware bounces `/` to the board while Apple reviews
+   1.0 (`APP_EXCLUDED_MARKETING_PATHS`), so the rail's Discover row — the drawer
+   on a phone, the rail on an iPad — was a press that went nowhere. The server
+   renders `[data-discover-bounced]` into the shell on exactly those requests
+   (app-rail-shell.tsx · `discoverOpensHere()`), and the row and the divider
+   under it leave. `display: none` takes the row out of the tab order and the
+   accessibility tree as well as the paint — a real removal, not a look. */
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'],
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv {
+  display: none;
+}
+
 /* The glyph beside (or, on a phone, instead of) the word. Hidden from 701px up,
    where the wordmark itself reads and a mark beside it would be a second
    logo. */
@@ -2123,6 +2160,18 @@ button.fd-ask.quiet {
     min-width: 44px;
     min-height: 44px;
     padding: 0;
+  }
+  /* The account-level screens: mark AND word on the phone too (owner ruling 4,
+     2026-10-21 — see the block above). Same 44px press height; the word sits
+     beside the mark instead of being dropped. Measured at 375 with the board's
+     cluster (☰ · mark + word · search · bell · avatar): one row, nothing past
+     the edge. */
+  .fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-app {
+    display: inline-flex;
+    padding: 0 4px;
+  }
+  .fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-text {
+    display: inline;
   }
   /* The round controls never give up width to a crowded row — a 44px circle
      squeezed by flex is the ellipse this block exists to remove. */

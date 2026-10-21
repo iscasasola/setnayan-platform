@@ -95,6 +95,27 @@ export async function getRequestPlatform(): Promise<RequestPlatform> {
 }
 
 /**
+ * Does Discover (`/`, the public feed) OPEN on this request — or does the native
+ * shell bounce it to the board?
+ *
+ * Middleware sends every native-shell request for a path in
+ * `APP_EXCLUDED_MARKETING_PATHS` to /dashboard (signed in) or /login, and `/` is
+ * in that set while Apple reviews 1.0. "Native shell" there is ANY `SetnayanApp`
+ * user agent or the capacitor cookie — the phone app and the desktop app alike —
+ * which is exactly `getRequestPlatform() !== 'web'` (the same question /login
+ * asks for its ✕). So a door to Discover — the account bar's tab, the rail's
+ * row — is drawn only where this is true, and is never a press that lands back
+ * on the page you were on (owner "yes to all", 2026-10-21).
+ *
+ * ⚠ When `/` leaves the bounce list, this must change with it:
+ * `the-account-bar-is-the-ruling.test.ts` reads the set from middleware.ts and
+ * fails the day the two disagree.
+ */
+export async function discoverOpensHere(): Promise<boolean> {
+  return (await getRequestPlatform()) === 'web';
+}
+
+/**
  * Is this request from the App Store / Play Store shell (Capacitor)?
  *
  * ⚠ NOT the same question as `getRequestPlatform() !== 'web'`: that one also

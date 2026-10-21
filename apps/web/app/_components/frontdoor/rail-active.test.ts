@@ -515,11 +515,12 @@ test('mounting the rail did not strand the doors the surfaces already had', () =
     no `<header>` of its own, so "the wordmark moved" cannot quietly become
     "the wordmark is drawn twice".
   */
+  /* 2026-10-21: the app's mark goes to Events (owner "yes to all", ruling 3 —
+     superseding the 08-13 "way out" lock for the app variant). Where it goes is
+     pinned in seam-invariants.test.ts; here only that the shared bar draws it. */
   assert.ok(
-    /<Link href=\{homeHref\} className="fd-wordmark fd-wordmark-app">/.test(SHELL) &&
-      /const homeHref = '\/';/.test(SHELL),
-    'the wordmark is gone from the shared bar, or no longer goes to the front ' +
-      'door (owner 2026-08-13: "The WORDMARK is the way out of the app, still ' +
-      'signed in."). The one-press way home is pinned in seam-invariants.test.ts.',
+    /<Link href="\/dashboard\?hub=1" className="fd-wordmark fd-wordmark-app">/.test(SHELL),
+    'the mark is gone from the shared bar, or no longer goes to Events ' +
+      '(owner 2026-10-21). Its destination is pinned in seam-invariants.test.ts.',
   );
 });

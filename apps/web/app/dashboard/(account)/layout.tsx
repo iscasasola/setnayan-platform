@@ -10,7 +10,9 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
-import { HomePillNav } from '../(launcher)/_components/home-pill-nav';
+import { AccountBottomNav } from '../(launcher)/_components/account-bottom-nav';
+import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
+import { discoverOpensHere } from '@/lib/request-platform';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -95,7 +97,7 @@ export default async function AccountDashboardLayout({
     eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
-  const [{ unreadCount }, switcherData, dependentsControlOn, requestsWaiting] = await Promise.all([
+  const [{ unreadCount }, switcherData, dependentsControlOn, requestsWaiting, discoverOpen] = await Promise.all([
     getDashboardShell(user.id),
     // getSwitcherData never returns null after the 2026-06-17 always-on fix; the
     // .catch guards against any unexpected outer throw so the chrome still paints.
@@ -112,6 +114,8 @@ export default async function AccountDashboardLayout({
     // The People rail's Requests row (owner 2026-09-28: listed while any wait).
     // Null when unreadable — the row then stays, without a number.
     peopleConnectionsEnabled() ? waitingRequestCount(user.id) : Promise.resolve(0),
+    // Is `/` a door here, or does the app shell bounce it? (lib/request-platform.ts)
+    discoverOpensHere(),
   ]);
 
   return (
@@ -149,16 +153,17 @@ export default async function AccountDashboardLayout({
           </>
         }
       >
-        {/* `pb-28 sm:pb-0` — the thumb bar is `fixed`, so without room reserved
-            below it the last control on a spoke sits UNDER it. The launcher
-            reserves the same space on its own page. */}
-        <main className="pb-28 sm:pb-0">{children}</main>
-        {/* Phone-only thumb nav — rendered by the LAYOUT, not by a page, so it
-            survives the tap that uses it. Its capability-gated fifth slot reads
-            the switcher context this layout already loaded; no new query. */}
-        <HomePillNav
-          hasSpaces={switcherData.context.hasVendor || switcherData.context.isAdmin}
-          spacesHref={switcherData.context.hasVendor ? '/vendor-dashboard' : '/admin'}
+        {/* The bar is anchored and FIXED, so without room reserved below it the
+            last control on a spoke sits UNDER it. It reserves the dock's MEASURED
+            height (+ a breath) — the event tree's rule, `[data-shell-main]` — and
+            stops at 1024, the dock's own `lg:hidden` line. */}
+        <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">{children}</main>
+        {/* The account bar — rendered by the LAYOUT, not by a page, so it
+            survives the tap that uses it. Its tabs are the 2026-10-21 ruling
+            (lib/account-bar.ts): Shop only for an OWNER, from the switcher
+            context this layout already loaded; Discover only where `/` opens. */}
+        <AccountBottomNav
+          tabs={accountBarTabs({ ownsShop: ownsAShop(switcherData.context), discoverOpen })}
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

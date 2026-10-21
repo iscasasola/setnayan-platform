@@ -168,7 +168,7 @@ test('4 · a named +1 with a ticket is ONE TicketRow: the ticket (opens big) and
   assert.equal((bare.match(/<(?:button|a)\b/g) ?? []).length, 1, 'a +1 with no ticket has more than Send');
   // The sheet the ticket opens is the guest page's ONE sheet — the My QR pop-up's frame, Save inside it.
   const show = read('app/[slug]/_components/ticket-show.tsx');
-  assert.match(show, /import \{ GuestSheet \} from '\.\/guest-sheet';/);
+  assert.match(show, /import \{ GuestSheet \} from '\.\/guest-hub-bar';/);
   assert.match(read('app/[slug]/_components/guest-hub-bar.tsx'), /<GuestSheet titleId="guest-qr-title"/, 'My QR no longer opens the same sheet');
   assert.match(show, /<GuestSheet\b[^>]*title=\{PASS_CARD_WORDS\.showAtDoor\}[\s\S]*<SavePassCardButton hrefs=\{\[href\]\} label=\{saveLabel\} \/>/);
 });

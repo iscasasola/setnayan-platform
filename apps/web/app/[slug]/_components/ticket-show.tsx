@@ -3,7 +3,7 @@
 import { useId, useState } from 'react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
-import { GuestSheet } from './guest-sheet';
+import { GuestSheet } from './guest-hub-bar';
 
 /**
  * 🎫 THE TICKET IS THE "SHOW" (owner 2026-10-21, "Yes to all" on

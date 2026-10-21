@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { setGuestScanTracking, withdrawFaceConsent } from '@/app/[slug]/actions';
 import { GuestMe } from '@/app/[slug]/_components/guest-me';
 import { GuestMeSection } from '@/app/[slug]/_components/guest-hub-bar';
 import { ScanTrailForm } from '@/app/[slug]/_components/scan-trail-notice';
@@ -8,19 +8,14 @@ import { PLATE } from '@/app/[slug]/_lib/measures';
  * 👤 ME, AS A STAGE — Invitation › Me drawn the way the guest page draws it (`data-me-stage` → `GuestMeSection` →
  * `GuestMe`, then the record note), over a photo, for the guest_page_fixes_2_4 walk (owner 2026-10-21): the Hub's
  * scene cards (fix 2), names shown cased (fix 3), a plus-one as their ticket with one Send (fix 4). No database: the
- * tickets are `../ticket` drawings, the actions do nothing. `?dark=1` = the couple's Candlelight look with Shade ▾
- * Darker; `?guests=2` adds a second plus-one ("jose de los santos").
+ * tickets are `../ticket` drawings, the actions are the page's own, and refuse here (no guest session holds `g-pam`) — no new
+ * server action for a lab (`lint-server-action-budget`). `?stage=1&dark=1` = the couple's Candlelight look with Shade ▾
+ * Darker; `&guests=2` adds a second plus-one ("jose de los santos").
  */
-export default async function MeStageLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  if (process.env.NODE_ENV === 'production') notFound();
-  const sp = await searchParams;
-  const dark = sp.dark === '1';
-  const typed = sp.guests === '2' ? ['pamela labriaga', 'jose de los santos'] : ['pamela labriaga'];
+export function MeStageLab({ dark, two }: { dark: boolean; two: boolean }) {
+  const typed = two ? ['pamela labriaga', 'jose de los santos'] : ['pamela labriaga'];
   const guests = typed.map((name, i) => ({ guestId: `p${i + 1}`, name, inviteUrl: `https://setnayan.com/me-lab?invite=lab-${i + 1}` }));
   const ticket = (name: string) => `/dev/me-lab/ticket?name=${encodeURIComponent(name)}`;
-  async function nothing() {
-    'use server';
-  }
   return (
     <main data-art={dark ? 'candlelight' : undefined} className="sn-editorial relative min-h-dvh overflow-hidden text-ink" style={{ background: 'rgb(var(--color-paper))' }}>
       {/* The main background (`MainGround`): the couple's photo under the veil — paper at As is, the page's ink at Darker.
@@ -50,14 +45,14 @@ export default async function MeStageLabPage({ searchParams }: { searchParams: P
                 personalLink="https://setnayan.com/me-lab?invite=lab-0"
                 userAgent={null}
                 termsCarried
-                faceTagging={{ on: false, open: false, faceMode: 'mode_a', wish: true, turnOff: nothing }}
+                faceTagging={{ on: false, open: false, faceMode: 'mode_a', wish: true, turnOff: withdrawFaceConsent.bind(null, 'e-lab', 'g-pam') }}
               />
             }
           />
           <ScanTrailForm
             card
             optedOut={false}
-            toggle={nothing}
+            toggle={setGuestScanTracking.bind(null, 'e-lab', 'g-pam', true)}
             sentence="We keep a record of when you open your invitation or scan your code at this wedding — it is how this page knows to welcome you when you first arrive."
           />
         </div>

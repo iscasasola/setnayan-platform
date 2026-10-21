@@ -190,7 +190,7 @@ test('6 · the version and the drawing read the SAME inputs — one reader, no s
   assert.match(version, /resolveEventQrLook\(/, 'the QR look is drawn on every piece — it is in the version');
   // A reader called by the drawing but not through `readPrintSetInputs` would
   // change the picture without changing its address.
-  for (const reader of ['readBlocks', 'readEntourage', 'readGiftLines', 'readCatererMenu', 'readRsvpHosts', 'resolveStdFinalizedVenues', 'resolveEventOwnerSlug', '.from(']) {
+  for (const reader of ['readBlocks', 'readEntourage', 'readGiftLines', 'readCatererMenu', 'readRsvpHosts', 'resolveStdFinalizedVenues', 'loadVenueBookings', 'resolveEventOwnerSlug', '.from(']) {
     assert.ok(!draw.includes(reader), `loadPrintSet reads ${reader} on the side — route it through readPrintSetInputs`);
   }
   // …and the Maker hands the version to the panel, with the access folded in.

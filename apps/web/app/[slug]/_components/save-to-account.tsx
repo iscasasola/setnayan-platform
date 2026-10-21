@@ -11,7 +11,7 @@ import {
   type SaveMethod,
 } from '@/lib/guest-one-path';
 import { INVITE_RETURN } from '@/lib/invite-arrival';
-import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
+import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, hostViewingLine, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 import { ProviderStall } from './provider-stall';
@@ -44,7 +44,9 @@ import {
  *   sign_in        → the seat is kept in an account this browser is not signed
  *                    in to → one "Sign in" link;
  *   linked         → "Saved to your account ✓";
- *   held_elsewhere → said plainly, never re-bound.
+ *   held_elsewhere → said plainly, never re-bound;
+ *   host_viewing   → a host / co-host / coordinator / helper on a guest's seat:
+ *                    "You're viewing <name>'s invitation as the host." — no press.
  *
  * 📱 INSIDE THE PHONE APP (a build carrying `SetnayanSignIn/1`, 2026-10-04) the
  * same press posts the same action, but through `NativeSaveForm`: the action
@@ -118,6 +120,15 @@ export function SaveToAccount({
         <p className="text-sm font-semibold text-ink">{SEAT_HELD_ELSEWHERE.heading}</p>
         <p className="text-sm text-ink/70">{SEAT_HELD_ELSEWHERE.line}</p>
       </div>
+    );
+  }
+  if (state.kind === 'host_viewing') {
+    // 🔒 A HOST LOOKING AT A GUEST'S INVITATION (owner 2026-10-21): one quiet line, nothing to press. The server
+    // refuses the bind as well (`seatBindRefusal` → 'manager' in lib/link-guest-account.ts).
+    return (
+      <p className="text-sm text-ink/70" data-account-state="host_viewing">
+        {hostViewingLine(state.seatName)}
+      </p>
     );
   }
   if (state.kind === 'sign_in') {

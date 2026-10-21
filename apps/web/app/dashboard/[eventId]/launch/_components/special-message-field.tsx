@@ -8,6 +8,7 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
 import { useSceneWordsBox } from '../../website/editor/_components/canvas-words';
 import { useDetailsFactScene } from './details-tap';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { announceMakerSave } from '@/lib/maker-save-status';
 
 /**
  * THE SPECIAL MESSAGE — Details › Words › Special message, and the ONE editor
@@ -93,6 +94,9 @@ export function SpecialMessageField({
       if (res.ok) {
         saved.current = text;
         setState('saved');
+        /* ✓ Said the house way — the Maker's status beside ✓ Apply ("Saved to your draft"), and ⚙ Print settings' toast while the
+           box is drawn there (owner 2026-10-21: one way to save, each change confirmed). No caption under the box. */
+        announceMakerSave({ state: 'saved' });
         /* Every OTHER scene that shows the message loads again, behind the page
            shown — `MAKER_CANVAS_STALE_EVENT` (lib/maker-live-preview.ts), spelled
            here so Details' lazy chunk does not need that module's chunk. */

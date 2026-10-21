@@ -8,11 +8,14 @@ import { pickArrowClass, pickButtonClass } from '../../website/editor/_component
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FORM_PICK_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { onMakerSave } from '@/lib/maker-save-status';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import {
   GUEST_TOKEN,
   GUEST_WORD_TOKEN,
   PRINT_SETTINGS_LABEL,
   PRINT_SETTINGS_LINE,
+  PRINT_SETTINGS_SAVED,
   guestFileWord,
   type PrintGuest,
 } from '@/lib/studio-prints-settings';
@@ -28,9 +31,9 @@ export type { AllInOneF } from './prints-view-store';
  * (owner 2026-10-17, *"ok on prints"*; DECISION_LOG row of that date; prototype `prints_settings_and_downloads_2026-10-17.html`).
  *
  *   · `StudioPrintSettings` — the ⚙ row at the head of Prints and the ONE sheet it opens. The sheet holds every switch and field that
- *     sat inside a piece row, under the prototype's headings, with the one Save at its foot. 🔒 THE FIELDS NEVER UNMOUNT: the sheet is
- *     hidden while shut, never removed — every switch joins the print words form by `form=`, and a field that is not in the page is
- *     a field a Save does not send (`studio-prints-posts-the-same.test.ts`).
+ *     sat inside a piece row, under the prototype's headings — NO Save since 2026-10-21: every press posts (`StudioPrintSettings`).
+ *     🔒 THE FIELDS NEVER UNMOUNT: the sheet is hidden while shut, never removed — every switch joins the print words form by `form=`,
+ *     and a field that is not in the page is a field a post does not send (`studio-prints-posts-the-same.test.ts`).
  *   · `StudioPieceDownload` — a piece's ONE Download (free), the file it always saved.
  *   · `StudioGuestPiece` — a guest print's row: its picture for the guest picked, View as ▾ (ONE pick shared by every guest print —
  *     `usePrintGuest`), Download for that guest (free) and All guests ◆ (the all-in-one file: Event Hub Pro).
@@ -65,8 +68,25 @@ function SettingsHead({ title, line }: { title: string; line?: string }) {
   );
 }
 
-export function StudioPrintSettings({ sections, save }: { sections: readonly PrintSettingsSection[]; save: ReactNode }) {
+/**
+ * ✓ ONE WAY TO SAVE (owner 2026-10-21, on this sheet's ✓ Save: *"why is there a save here? when any press changes it right away?"*).
+ * Measured before: nothing in the sheet posted until Save — a press then Done lost the press, under "Guests see this right away". Now
+ * there is no Save and no such line: every switch, dropdown and typed line posts the print words form as it is pressed (`SoftPost
+ * autosave`, `lib/print-words-autosave.ts`), and the sheet says so the house way — the toast that peeks from the top (`PeekToast`):
+ * "Saved." on the form's answer, its plain refusal with Try again (the form posted again) otherwise. The ticket style keeps its own
+ * honest line ("waits for Apply" — it is drafted, owner 2026-10-02 Q7); the special message and the thank-you keep their drafted saves.
+ */
+export function StudioPrintSettings({ sections, form }: { sections: readonly PrintSettingsSection[]; form: string }) {
   const [open, setOpen] = useState(false);
+  const [said, setSaid] = useState<{ n: number; tone: 'ok' | 'bad'; text: string } | null>(null);
+  /* The form's answer, while the sheet is open — "Saving…" says nothing (the press already shows), an answer peeks. */
+  useEffect(() => {
+    if (!open) return;
+    return onMakerSave((s) => {
+      if (s.state === 'saved') setSaid((p) => ({ n: (p?.n ?? 0) + 1, tone: 'ok', text: PRINT_SETTINGS_SAVED }));
+      else if (s.state === 'error') setSaid((p) => ({ n: (p?.n ?? 0) + 1, tone: 'bad', text: s.text }));
+    });
+  }, [open]);
   const [body, setBody] = useState<HTMLElement | null>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const headId = useId();
@@ -94,7 +114,7 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
             Done
           </button>
         </div>
-        <div data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           {sections.map((s) => (
             <section key={s.key} data-print-settings-section={s.key} aria-label={s.title}>
               <SettingsHead title={s.title} line={s.line} />
@@ -102,10 +122,18 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
             </section>
           ))}
         </div>
-        <div data-print-settings-foot="" className="border-t border-ink/10 bg-cream px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5">
-          {save}
-        </div>
       </div>
+      {said && open ? (
+        <PeekToast
+          key={said.n}
+          tone={said.tone}
+          data="print-settings"
+          onGone={() => setSaid(null)}
+          onRetry={said.tone === 'bad' ? () => (document.getElementById(form) as HTMLFormElement | null)?.requestSubmit() : undefined}
+        >
+          {said.text}
+        </PeekToast>
+      ) : null}
     </div>
   );
   return (
@@ -127,7 +155,7 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
         </span>
         <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
       </button>
-      {/* 🔒 Drawn on <body> (a transformed panel would capture `fixed`) — and ALWAYS drawn, shut or open: its fields post with Save. */}
+      {/* 🔒 Drawn on <body> (a transformed panel would capture `fixed`) — and ALWAYS drawn, shut or open: every post sends its fields. */}
       {body ? createPortal(panel, body) : panel}
     </>
   );

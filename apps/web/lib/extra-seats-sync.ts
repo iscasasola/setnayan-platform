@@ -3,6 +3,7 @@ import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { PLACEHOLDER_FIRST_NAME, planExtraSeats, seatNumbersAfter, seatPlaceholderLabel, type ExtraSeatRow } from '@/lib/extra-seats';
 import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne } from '@/lib/guests';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Make a guest's seat rows match their `plus_one_count`, then seat them beside
@@ -183,7 +184,11 @@ async function aSeatWaitsForItsChair(
   if (seats.length === 0) return false;
   const ids = [guestId, ...seats.map((s) => s.guest_id)];
   const { data, error } = await supabase.from('event_seat_assignments').select('guest_id').eq('event_id', eventId).in('guest_id', ids);
-  if (error || !Array.isArray(data)) return false;
+  if (error) {
+    logQueryError('syncExtraSeats.seatsWaitingForChairs', error, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    return false;
+  }
+  if (!Array.isArray(data)) return false;
   const seated = new Set((data as Array<{ guest_id: string }>).map((r) => r.guest_id));
   return seated.has(guestId) && seats.some((s) => !seated.has(s.guest_id));
 }

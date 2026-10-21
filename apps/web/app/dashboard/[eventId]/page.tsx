@@ -945,7 +945,8 @@ export default async function EventHomePage({
        *  goes first because the whole date-gated public-site lifecycle waits on
        *  it — so a date-less event is asked for the date, and meets Papic once
        *  that is settled. */}
-      {event.event_date && papicNudgeVisible && homeNext.kind !== 'papic' ? (
+      {/* 🍎 Not in the iPhone app: "Open Papic" goes to a refused page (lib/store-shell.ts). */}
+      {event.event_date && papicNudgeVisible && homeNext.kind !== 'papic' && !storeShell ? (
         <PapicReadyNudge eventId={eventId} />
       ) : null}
 
@@ -1078,7 +1079,8 @@ export default async function EventHomePage({
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
           sameDayVendors={dayOfSameDayVendors}
-          liveWallActive={dayOfLiveWallActive}
+          // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
+          liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
         />
       ) : null}
@@ -1094,6 +1096,8 @@ export default async function EventHomePage({
        *  ceremony are the worst possible moment to hide a phone number. */}
       {dayOfActive ? (
         <>
+          {/* 🍎 The live desk (/live) is the paid Live Photo Wall's page — refused in the iPhone app. */}
+          {storeShell ? null : (
           <Link
             href={`/dashboard/${eventId}/live`}
             className="sn-tile sn-press flex items-center justify-between gap-3 text-left"
@@ -1109,6 +1113,7 @@ export default async function EventHomePage({
             </span>
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
           </Link>
+          )}
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70" data-tour="day-planning">

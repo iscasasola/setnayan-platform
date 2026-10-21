@@ -1086,6 +1086,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Camera,
         title: 'More Services',
         body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
+        // 🍎 Five paid web extras and a More tab the iPhone app does not have (#6725) — dropped there.
+        sells: true,
       },
     ],
   },

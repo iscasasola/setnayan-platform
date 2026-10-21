@@ -213,6 +213,35 @@ test('3 · every allowed (drawn) design renders on the guest’s board, under it
   assert.ok(boards >= 10, `the fuzz drew only ${boards} boards`);
 });
 
+test('3 · once a style has several drawings, its designs wear the colours in turn along the row', async () => {
+  /* Draw every suit design for this test only — each borrowing the shipped suit's files — as a landed drawing would be. */
+  const lib = DESIGN_LIBRARY.guest_m! as LibraryDesign[];
+  const extra = lib.filter((d) => d.style === 'suit' && !isDrawn(d));
+  const art = FIGURE_ART as Record<string, unknown>;
+  for (const d of extra) {
+    (d as { w?: number }).w = 76;
+    art[variantArtKey('guest_m', d)] = FIGURE_ART['guest_m-suit'];
+  }
+  try {
+    const row = guestRow(await widget(config(['suit'], ['long_gown'])));
+    const ids = ['suit/classic', ...extra.map((d) => `suit/${d.variant}`)];
+    assert.equal(ids.length, DESIGNS_PER_STYLE_MAX);
+    assert.match(row, /any of five/);
+    ids.forEach((id, j) => {
+      const at = row.indexOf(`data-dress-code-design="${id}"`);
+      assert.ok(at >= 0, `${id} is allowed (the whole style) and not drawn`);
+      assert.equal(/data-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length], `${id} does not wear colour ${(j % COLOURS.length) + 1}`);
+      /* …and on the tie, over black — the guest man's rule, for every suit design. */
+      assert.equal(/data-zone="t" data-zone-colour="([^"]+)"/.exec(row.slice(at))![1], COLOURS[j % COLOURS.length]);
+    });
+  } finally {
+    for (const d of extra) {
+      delete (d as { w?: number }).w;
+      delete art[variantArtKey('guest_m', d)];
+    }
+  }
+});
+
 /* ── 4 · the legacy shape renders as it did ──────────────────────────────── */
 
 test('4 · a legacy single `style` renders exactly as before — and a column ticked back to one whole style stores it so', async () => {

@@ -307,7 +307,8 @@ const VARIANT_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
 );
 /** Every drawn design in its own folder (none until the 24 new drawings land). */
 export const VARIANT_ART_KEYS = Object.keys(VARIANT_ART) as VariantArtKey[];
-export const isRoleArt = (g: string): g is RoleArtKey | VariantArtKey => g in ROLE_WIDTH || g in VARIANT_ART;
+/** A role drawing — one of the 45, or a style's design in its own folder (a `/` key with a drawing). */
+export const isRoleArt = (g: string): g is RoleArtKey | VariantArtKey => g in ROLE_WIDTH || (g.includes('/') && g in FIGURE_ART);
 
 /** Every drawing — the 13 garments, the 45 roles and every drawn design of a style's five. */
 export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART, ...VARIANT_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;

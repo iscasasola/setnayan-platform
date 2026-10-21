@@ -3,7 +3,7 @@
  *
  * Owner-APPROVED 2026-10-01 (DECISION_LOG "THE SIMPLE PHONE APP — APPROVED";
  * `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html`, frame 1 "Home"):
- * ONE "Next" card → an always-there **Edit your Event Hub** button → three
+ * ONE "Next" card → an always-there **Event Hub** door → three
  * numbers (days to go · coming · no reply) + one Paid / Still owing line.
  * Nothing else above the fold on a 390 × 844 phone.
  *

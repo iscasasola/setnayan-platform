@@ -39,22 +39,30 @@ export type HomeDoorKey = HomeDoorwayKey;
 /**
  * The three doors — `href:` literals, so the port-controls scan sees each destination.
  * 🚪 A door whose need this event switched off is ABSENT (owner 2026-10-08, Level 1 —
- * `needsHiddenNavKeys`, the bar's own keys); "cover + photos only" names the Hub door
- * as the prototype draws it (frame 2: "Your Event Hub · cover + photos").
+ * `needsHiddenNavKeys`, the bar's own keys).
+ *
+ * 🏷 A DOOR SAYS WHAT IS BEHIND IT (owner 2026-10-22, "Yes to all" —
+ * `prototypes/journey_fixes_2026-10-22.html` § Host 2): **Guests · Suppliers · Event Hub**,
+ * the thing behind the door, never the verb. "Edit your Guest list · Edit your Suppliers ·
+ * Edit your Event Hub" pushed the row (BUTTON_RULE 3a, below) all the way to icon-only at
+ * 375 px, so a first-timer's first screen was three unlabelled pills. The short words keep
+ * icon + word at 375 and word-only at 320. A "cover + photos only" Hub reads "Event Hub"
+ * too — the Hub page says what is in it. Held by `home-doors-say-their-words.test.ts`.
  */
-function doorsFor(
+export const HOME_DOOR_LABELS: Readonly<Record<HomeDoorKey, string>> = {
+  guests: 'Guests',
+  explore: 'Suppliers',
+  launch: 'Event Hub',
+};
+
+export function doorsFor(
   eventId: string,
   hide: readonly string[] = [],
-  hubOnlyCover = false,
 ): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
   return [
-    { key: 'guests' as const, label: 'Edit your Guest list', href: `/dashboard/${eventId}/guests` },
-    { key: 'explore' as const, label: 'Edit your Suppliers', href: `/dashboard/${eventId}/vendors` },
-    {
-      key: 'launch' as const,
-      label: hubOnlyCover ? 'Your Event Hub · cover + photos' : 'Edit your Event Hub',
-      href: `/dashboard/${eventId}/launch`,
-    },
+    { key: 'guests' as const, label: HOME_DOOR_LABELS.guests, href: `/dashboard/${eventId}/guests` },
+    { key: 'explore' as const, label: HOME_DOOR_LABELS.explore, href: `/dashboard/${eventId}/vendors` },
+    { key: 'launch' as const, label: HOME_DOOR_LABELS.launch, href: `/dashboard/${eventId}/launch` },
   ].filter((d) => !hide.includes(d.key));
 }
 
@@ -72,7 +80,12 @@ export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
       b.classList.remove('text-only', 'icon-only');
       if (c) b.classList.add(c);
     });
-  const tight = () => row.scrollWidth > row.clientWidth + 1 || buttons.some((b) => b.scrollWidth > b.clientWidth + 1);
+  /* A WORD THAT CLIPS IS TIGHT TOO. The pill no longer clips (its 44 px press expander must reach past
+     it), so the word clips itself (`.home-doors > .ab .lbl` — ellipsis) and the BUTTON never overflows;
+     measuring only the buttons would settle on icon + "Supp…" instead of dropping the icons as one. */
+  const labels = Array.from(row.querySelectorAll<HTMLElement>('.ab .lbl'));
+  const over = (el: HTMLElement) => el.scrollWidth > el.clientWidth + 1;
+  const tight = () => over(row) || buttons.some(over) || labels.some((l) => l.offsetParent !== null && over(l));
   set('');
   if (!tight()) return '';
   set('text-only');
@@ -85,15 +98,12 @@ export function HomeDoorways({
   eventId,
   navSlots,
   hide = [],
-  hubOnlyCover = false,
 }: {
   eventId: string;
   /** The bar's registry slots (plain data from the server; null = the code icons). */
   navSlots: Record<string, NavSlotLite> | null;
   /** 🚪 The bar keys this event drops (`needsHiddenNavKeys`) — their doors are absent too. */
   hide?: readonly string[];
-  /** 🚪 The event's Hub is cover + photos only (`hub_details_on = false`). */
-  hubOnlyCover?: boolean;
 }) {
   const row = useRef<HTMLDivElement | null>(null);
   const run = useCallback(() => {
@@ -107,7 +117,7 @@ export function HomeDoorways({
   }, [run]);
   return (
     <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
-      {doorsFor(eventId, hide, hubOnlyCover).map((d) => {
+      {doorsFor(eventId, hide).map((d) => {
         const Icon = homeDoorwayIcon(d.key, navSlots);
         return (
           <ActionButton

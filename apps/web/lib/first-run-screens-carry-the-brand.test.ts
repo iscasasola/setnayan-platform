@@ -72,6 +72,9 @@ test('2 · a brand-new couple’s Done goes to the picker — and only then', ()
   const create = read('app/dashboard/(account)/create-event/page.tsx');
   assert.match(create, /nothingBehind = !error && \(count \?\? 0\) === 0;/, 'an unread count would hide the way back');
   assert.match(create, /<NewEventHead nothingBehind=\{nothingBehind\}/);
+  // The first screen fits a 320 px phone: the "Para kanino ito?" rows shrink to the column (measured 2026-10-21:
+  // a long subtitle held them at 334 px and the whole page zoomed out to 350).
+  assert.match(read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx'), /<ul className="grid max-w-lg grid-cols-\[minmax\(0,1fr\)\] gap-2">/);
   const head = read('app/dashboard/(account)/create-event/_components/new-event-head.tsx');
   assert.match(head, /\{nothingBehind \? \(\s*<FirstRunBrand[^>]*\/>\s*\) : \(\s*<Link/, 'with nothing behind it the picker draws the way back, or no brand line');
 });

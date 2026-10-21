@@ -39,7 +39,7 @@ import type { InvitationWidgetRow, LifecyclePhase, WidgetType } from './invitati
 import { sceneOnStage } from './what-guests-see';
 import { buildGuestsSeeTable } from './guests-see-build';
 import {
-  GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeeApplyLabel, guestsSeeBackToPicks, guestsSeeChanges, guestsSeeOn, guestsSeePatch,
+  GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeeKeepLabel, guestsSeeBackToPicks, guestsSeeChanges, guestsSeeOn, guestsSeePatch,
   guestsSeeHandSet, guestsSeeHasEmptyRow, guestsSeeOpeningLine, guestsSeeToggle, guestsSeeWithRemoved, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
 } from './guests-see-table';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, sanitizeHubDraft } from './hub-draft';
@@ -157,8 +157,8 @@ test('3 · a tick writes exactly its entry; unticking our pick writes false; tic
   const off = guestsSeeToggle(t, add.writes, 'our_love_story', COL.rsvp);
   assert.deepEqual(guestsSeePatch(off.writes), { widgets: { special_message: { stage_show: { event: true } }, our_love_story: { stage_show: { rsvp: false } } } });
   assert.equal(guestsSeeChanges(off.writes), 2);
-  assert.equal(guestsSeeApplyLabel(2), 'Apply · 2 changes');
-  assert.equal(guestsSeeApplyLabel(1), 'Apply · 1 change');
+  assert.equal(guestsSeeKeepLabel(2), 'Keep · 2 changes');
+  assert.equal(guestsSeeKeepLabel(1), 'Keep · 1 change');
   assert.equal(guestsSeeOn(rowOf(t, 'our_love_story'), COL.rsvp, off.writes), false);
   // Ticked back: nothing left to write for it.
   const back = guestsSeeToggle(t, off.writes, 'our_love_story', COL.rsvp);
@@ -174,7 +174,7 @@ test('3 · a tick writes exactly its entry; unticking our pick writes false; tic
   assert.equal(guestsSeeChanges(pending), 1, 'anti-vacuity: a tick is waiting');
   const picks = guestsSeeBackToPicks(stored, pending);
   assert.deepEqual(picks.writes, { 'our_love_story:rsvp': null, 'our_love_story:event': null, 'special_message:event': null, 'schedule:rsvp': null });
-  assert.equal(picks.line, 'Back to our picks. 5 boxes changed — Apply to keep it.');
+  assert.equal(picks.line, 'Back to our picks. 5 boxes changed — Keep to put it in your draft.');
   for (const row of stored.groups.flatMap((g) => g.rows)) row.cells.forEach((c, i) => c.kind === 'box' && assert.equal(guestsSeeOn(row, i, picks.writes), c.ourPick, `${row.key} is not back to our pick`));
   // Nothing to take back.
   assert.deepEqual(guestsSeeBackToPicks(t, NONE), { writes: NONE, line: 'These are our picks already.', changed: false });
@@ -400,7 +400,7 @@ test('11 · the opening line: our picks say so; boxes set by hand are counted �
   const three = table(stageWidgets({ special_message: show({ rsvp: false, save_the_date: true }), schedule: show({ editorial: true }) }));
   assert.equal(guestsSeeOpeningLine(three), '3 boxes changed from our picks.');
   // The count is the one "Back to our picks" announces — one measure, two lines.
-  assert.equal(guestsSeeBackToPicks(three, NONE).line, 'Back to our picks. 3 boxes changed — Apply to keep it.');
+  assert.equal(guestsSeeBackToPicks(three, NONE).line, 'Back to our picks. 3 boxes changed — Keep to put it in your draft.');
   assert.equal(guestsSeeHandSet(three), 3);
   // Every word of the new line is the sheet's own.
   for (const word of ['box', 'boxes', 'changed', 'our picks']) assert.ok(Object.values(GUESTS_SEE_WORDS).some((w) => w.includes(word)) || guestsSeeBackToPicks(three, NONE).line.includes(word), `"${word}" is a new word in this sheet`);

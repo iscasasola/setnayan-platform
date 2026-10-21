@@ -35,7 +35,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { PRO_THEMES_ITEM } from '@/lib/website-pro-items';
+import { PRO_THEMES_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -121,27 +121,34 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
   assert.notEqual(html, '', 'the offer must actually render');
   assert.match(html, /cinematic reveal/i, 'the item they are standing in front of, by name');
   assert.match(html, /Event Hub Pro/, 'the catalog’s own title for the one unlock');
-  assert.match(html, /Unlock all nine/, 'one CTA, for all nine');
+  assert.match(html, new RegExp(`Unlock all ${WEBSITE_PRO_ITEMS.length}\\b`), 'one CTA, for every item — the count is the list’s');
   assert.match(html, /\/studio\/website-pro/, 'pointing at the shipped buy surface');
-  // All nine are named, including the free one — the unlock genuinely covers it.
-  // ("Your logo on every QR code" joined with the Pro QR build, 2026-09-28; the
-  // two colour items left the same day — colours are free — and "Photo and
-  // video backgrounds" took their place.)
+  // Every item is named. ("Your logo on every QR code" joined with the Pro QR
+  // build, 2026-09-28; the two colour items left the same day — colours are free —
+  // and "Photo and video backgrounds" took their place. 2026-10-22: "Editorial
+  // editing" left — it is free — and the six gates the code already enforced joined.)
   for (const item of [
     'Cinematic Reveal',
     'Save-the-Date video',
     'Photo gallery',
     'Background music',
-    'Editorial editing',
     'Photo and video backgrounds',
     // The theme count is the registry's (owner 2026-09-29: Modern and Cyber
     // Neon went free), never a typed digit.
     PRO_THEMES_ITEM,
     'Animated logo',
     'Your logo on every QR code',
+    'Style and animation for every part',
+    'Decorations',
+    'A 6th Love Story moment, with photos',
+    'Uploads over 10 MB',
+    'Print files in Pro themes',
   ]) {
-    assert.ok(html.includes(item), `"${item}" is one of the nine and must be shown`);
+    assert.ok(html.includes(item), `"${item}" is on the Pro list and must be shown`);
   }
+  // The apostrophe renders as an entity, so the last line is matched on its words.
+  assert.match(html, /One download of every guest(&#x27;|')s ticket/, 'the all-guests download must be shown');
+  assert.doesNotMatch(html, /Editorial editing/, 'the offer names editorial editing, which every couple has for free');
   // 💎 And the colours are NOT sold (owner 2026-09-28: they are free).
   assert.doesNotMatch(html, /Background colou?r|Button colou?r/i, 'the offer still sells a colour, which is free');
 });
@@ -169,5 +176,5 @@ test('⛔ AN UNREADABLE CATALOG OMITS THE FIGURE — it never remembers one', as
   assert.notEqual(unpriced, '', 'a failed price read must not blank the offer');
   assert.doesNotMatch(unpriced, /₱/, 'and must not fall back to a number from anywhere');
   assert.match(unpriced, /Event Hub Pro/, 'the offer still names itself');
-  assert.match(unpriced, /Unlock all nine/, 'and still has its one CTA');
+  assert.match(unpriced, new RegExp(`Unlock all ${WEBSITE_PRO_ITEMS.length}\\b`), 'and still has its one CTA');
 });

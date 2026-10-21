@@ -8,7 +8,11 @@ Owner, on Studio › Prints (a plain cream Entourage card beside a Hub with a pi
   (`guestLookFrom(…).vars`), the four fonts (`site_font_key` + `site_roles`, page roles), and the Main background picture
   with the page's own scrim, made print-safe (picture to the bleed, words on a feathered paper panel ≥ 0.85 and ≥ the
   Hub's scrim, every ink ≥ 4.5 : 1).
-- 🔒 `printLookForEvent` — the ONE door: a non-Pro event gets the classic look (the very object) and its Hub is never
+- 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner, verbatim: *"Free version is the plain white. Themes that follows the event hub
+  is pro"*) — `plainPrintLook` / `printLooksFor`: white paper, near-black ink, one neutral grey, Classic's type, no theme
+  colours, no Mood Board palette, no picture, whatever theme it saved (Modern and Cyber Neon included — the set is drawn as
+  Classic). Before: the theme dressed in the Mood Board, with a free theme's loop still.
+- 🔒 `printLookForEvent` — the ONE door: a non-Pro event gets plain white (the very object) and its Hub is never
   read; a Pro event wears the Hub. `loadPrintSet` hands it `printOwnsPro` (the event's entitlement, as viewed) — so all
   nine set pieces (invitation · entourage · details · menu · pass · poster · story poster · card · every guest's ticket)
   follow at once. The sample gallery (`samplePalette`) keeps drawing each theme as the theme.
@@ -24,4 +28,4 @@ Owner, on Studio › Prints (a plain cream Entourage card beside a Hub with a pi
 - Guard `lib/every-print-wears-the-hub.test.ts` §5–7 (Pro door, no way around it, the measured entitlement, the row).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-21 "EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — AND THAT IS EVENT HUB PRO"
-(corpus commits 7eff1451, a2398a08).
+(corpus commits 7eff1451, a2398a08, 6d0f30bf).

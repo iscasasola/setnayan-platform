@@ -19,7 +19,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { HUB_FONT_KEYS } from './hub-fonts';
 import { printFont } from './print-layout';
 import { hexRgb, legibleInk, MIN_CONTRAST, over, worstContrast } from './print-ground';
-import { FRAME_INSET_PT, PANEL_FLOOR, printHubFonts, printLookForEvent, printLookFromHub, type WornHub } from './print-hub-look';
+import { FRAME_INSET_PT, PANEL_FLOOR, printHubFonts, printLookForEvent, printLookFromHub, printLooksFor, type PrintLooks, type WornHub } from './print-hub-look';
+import { INVITE_THEME_IDS } from './invite-themes';
+import { PLAIN_PRINT_COLOURS } from './print-pieces';
 import { stripComments } from './strip-comments';
 import { hubPrintFont, printLookFor } from './print-pieces';
 import { boardColours, dressedTheme, themeColours } from './theme-colours';
@@ -110,15 +112,17 @@ const WORN: WornHub = {
   picture: new Uint8Array([0xff, 0xd8, 0xff]),
 };
 
-test('5 · a NON-Pro event prints the classic look — the very object — and its Hub is never read', async () => {
+const LOOKS: PrintLooks = printLooksFor('house', BOARD);
+
+test('5 · a NON-Pro event prints plain white — the very object — and its Hub is never read', async () => {
   let reads = 0;
   const wear = async () => {
     reads += 1;
     return WORN;
   };
   for (const ownsPro of [false, undefined as unknown as boolean, 0 as unknown as boolean, 'yes' as unknown as boolean]) {
-    const r = await printLookForEvent(base, ownsPro, wear);
-    assert.equal(r.look, base, `ownsPro=${String(ownsPro)} reached a look other than the classic one`);
+    const r = await printLookForEvent(LOOKS, ownsPro, wear);
+    assert.equal(r.look, LOOKS.free, `ownsPro=${String(ownsPro)} reached a look other than the free one`);
     assert.equal(r.picture, null, `ownsPro=${String(ownsPro)} carried the Hub's picture`);
     assert.equal(r.wearsHub, false);
   }
@@ -126,22 +130,22 @@ test('5 · a NON-Pro event prints the classic look — the very object — and i
 });
 
 test('5b · a Pro event wears its Hub: the Hub’s paper, fonts and picture', async () => {
-  const r = await printLookForEvent(base, true, async () => WORN);
+  const r = await printLookForEvent(LOOKS, true, async () => WORN);
   assert.equal(r.wearsHub, true);
-  assert.notEqual(r.look, base);
+  assert.notEqual(r.look, LOOKS.free);
   assert.equal(r.look.paper, '#2e3b4e');
   assert.equal(r.look.headFont, 'hub-cinzel');
   assert.equal(r.look.still, 'full');
   assert.equal(r.picture, WORN.picture);
 });
 
-test('5c · a Pro event whose Hub cannot be read prints classic; a picture that did not arrive draws no panel over nothing', async () => {
-  const failed = await printLookForEvent(base, true, async () => {
+test('5c · a Pro event whose Hub cannot be read prints its theme look; a picture that did not arrive draws no panel over nothing', async () => {
+  const failed = await printLookForEvent(LOOKS, true, async () => {
     throw new Error('refused');
   });
-  assert.equal(failed.look, base);
+  assert.equal(failed.look, LOOKS.pro);
   assert.equal(failed.wearsHub, false);
-  const noBytes = await printLookForEvent(base, true, async () => ({ ...WORN, picture: null }));
+  const noBytes = await printLookForEvent(LOOKS, true, async () => ({ ...WORN, picture: null }));
   assert.equal(noBytes.wearsHub, true);
   assert.equal(noBytes.look.frame, null);
   assert.notEqual(noBytes.look.still, 'full');
@@ -209,4 +213,51 @@ test('7 · Studio › Prints: owned says the Hub look; a free event on the web m
   const shellOwned = draw(true, true);
   assert.match(shellOwned, /data-print-hub-look="worn"/);
   assert.doesNotMatch(shellOwned, /Event Hub Pro/, 'the app-store shell names the paid extra');
+});
+
+/* ── 8 · 🤍 free is plain white ───────────────────────────────────────────────────────────────────────────────────────── */
+
+/** How far a colour is from grey — 0 for a neutral (max channel − min channel, 0…255). */
+const chroma = (hex: string) => {
+  const [r, g, b] = hexRgb(hex);
+  return Math.max(r, g, b) - Math.min(r, g, b);
+};
+const PALETTES: unknown[] = [
+  null,
+  BOARD,
+  { reception: ['#2E3B4E', '#D9CDB8', '#C8A96A', '#F4EFE6', '#8A6F5A'] },
+  { reception: ['#B7625A', '#FF00AA', '#00C2FF', '#1B1B1B', '#FFE600'] },
+];
+
+test('8 · a free event prints PLAIN WHITE whatever theme or Mood Board it saved — white paper, neutral inks, no picture, Classic’s type (owner: "Free version is the plain white")', async () => {
+  const classic = printLooksFor('house', null).pro;
+  let n = 0;
+  for (const theme of INVITE_THEME_IDS) {
+    for (const palette of PALETTES) {
+      const { look } = await printLookForEvent(printLooksFor(theme, palette), false, async () => WORN);
+      n += 1;
+      const where = `${theme} × ${JSON.stringify(palette)}`;
+      assert.equal(look.paper.toLowerCase(), '#ffffff', `${where}: the free paper is ${look.paper}, not white`);
+      for (const k of ['ink', 'muted', 'accent', 'heading'] as const) {
+        assert.ok(chroma(look[k]) <= 6, `${where}: the free ${k} ${look[k]} is a colour, not a neutral`);
+        assert.ok(worstContrast(hexRgb(look[k]), 1, [hexRgb(look.paper)]) >= MIN_CONTRAST, `${where}: the free ${k} does not read on white`);
+      }
+      assert.equal(look.still, 'none', `${where}: a free print carries a picture`);
+      assert.equal(look.scrim, null);
+      assert.ok(!look.frame, `${where}: a free print carries the Hub's panel`);
+      assert.equal(look.sepia, false);
+      for (const f of ['headFont', 'bodyFont', 'scriptFont', 'ornament'] as const) assert.equal(look[f], classic[f], `${where}: the free ${f} is not Classic's`);
+      assert.equal(look.headingFont, undefined);
+      assert.equal(look.labelFont, undefined);
+    }
+  }
+  assert.ok(n >= INVITE_THEME_IDS.length * PALETTES.length && n > 20, `only ${n} looks were measured`);
+  assert.equal(PLAIN_PRINT_COLOURS.canvas, '#ffffff');
+});
+
+test('8b · the loader draws a free event as Classic and builds its looks through printLooksFor — never a theme for free', () => {
+  const set = SHIPPED.find((f) => f.rel === 'lib/print-set.server.ts')!.src;
+  assert.match(set, /const theme = !sampleGallery && !ownsPro \? 'house' : printThemeFor\(/, 'a free event’s set is no longer drawn as Classic');
+  assert.match(set, /const looks = printLooksFor\(/, 'the loader stopped building its looks through printLooksFor');
+  assert.match(set, /printLookForEvent\(looks,/, 'the door is not handed the looks printLooksFor built');
 });

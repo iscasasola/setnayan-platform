@@ -332,9 +332,12 @@ test('the guest page and the prints ask the same resolver', () => {
   assert.doesNotMatch(look, /buildSitePaletteVars\(/, 'guestLookFrom builds palette vars around the resolver');
 
   const set = 'lib/print-set.server.ts';
-  /* The classic look (2026-10-21: a Pro print then wears the Hub over it, `printLookForEvent`) is still the resolver's answer. */
-  const call = region(read(set), 'const classicLook = printLookFor(', ');', set);
-  assert.match(call, /themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
+  /* The theme look (2026-10-21: the ground a Pro print's Hub look is laid on — `printLooksFor`, lib/print-hub-look.ts; a free
+     event prints plain white) is still the resolver's answer, and the set asks for it. */
+  assert.match(read(set), /printLooksFor\(theme, sampleGallery \? opts\.samplePalette : event\.role_palette/, 'the print set stopped asking printLooksFor');
+  const looksFile = 'lib/print-hub-look.ts';
+  const call = region(read(looksFile), 'export function printLooksFor(', '\n}\n', looksFile);
+  assert.match(call, /printLookFor\(theme, themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
 
   const pieces = 'lib/print-pieces.ts';
   const body = region(read(pieces), 'export function printLookFor(', '\n}\n', pieces);

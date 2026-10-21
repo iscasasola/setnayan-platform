@@ -34,9 +34,9 @@
 import { sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
 import type { InviteThemeId } from './invite-themes';
 import { hexRgb, legibleInk, lum, MIN_CONTRAST, over, rgbHex, worstContrast, type RGB } from './print-ground';
-import { hubPrintFont, PT_PER_MM, SAFE_MM, type PrintLook } from './print-pieces';
+import { hubPrintFont, plainPrintLook, printLookFor, PT_PER_MM, SAFE_MM, type PrintLook } from './print-pieces';
 import { sanitizeSiteRoles } from './site-roles';
-import { boardColours, dressedTheme } from './theme-colours';
+import { boardColours, dressedTheme, themeColours } from './theme-colours';
 
 /** The couple's four faces, as the page reads them (`siteFontLook`). Null = the role wears what it wore. */
 export type PrintHubFonts = {
@@ -189,32 +189,48 @@ export const sampleHexes = (rgbs: readonly RGB[]): string[] => rgbs.map(rgbHex);
 /** What wearing the Hub needs, read by the caller: the Hub's own answers (`PrintHubInput`) and the picture's bytes. */
 export type WornHub = { hub: PrintHubInput; picture: Uint8Array | null };
 
+/** The two looks a set can print in: `free` — what an event without Event Hub Pro gets; `pro` — the theme a Pro print is built on. */
+export type PrintLooks = { free: PrintLook; pro: PrintLook };
+
+/**
+ * 🤍 WHICH LOOKS A SET PRINTS IN (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is pro"*).
+ *   · `free` — PLAIN WHITE (`plainPrintLook`) for every event without Pro, whatever theme or Mood Board it saved;
+ *   · `pro` — the theme dressed in the Mood Board (`printLookFor` over `themeColours`, the guest page's resolver) — the ground the
+ *     Hub's look is laid on, and what a Pro print falls back to when the Hub cannot be read.
+ * The theme GALLERY (`sampleGallery`, `print-sample-door.server.ts`) shows each theme as the theme, never one event's print — so
+ * its "free" is the theme itself (it is a sample sheet, never a couple's file).
+ */
+export function printLooksFor(theme: InviteThemeId, rolePalette: unknown, opts: { sampleGallery?: boolean } = {}): PrintLooks {
+  const pro = printLookFor(theme, themeColours(theme, rolePalette));
+  return { free: opts.sampleGallery ? pro : plainPrintLook(), pro };
+}
+
 /**
  * 🔒 THE HUB LOOK ON PAPER IS EVENT HUB PRO — THE ONE DOOR TO IT (owner 2026-10-21, on the gate contact sheet: *"yes wire all,
- * and yes it's Pro"*; DECISION_LOG 2026-09-25 "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO").
+ * and yes it's Pro"* · *"Free version is the plain white. Themes that follows the event hub is pro"*; DECISION_LOG 2026-09-25
+ * "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO").
  *
- * A print wearing the event's own Hub look IS the themed print. So:
- *   · `ownsPro` false (a free event, a lapsed one, an internal viewer viewing as free — `printOwnsPro`, as viewed) → the
- *     print's own classic look, `base`, the very object — and the Hub is never even READ (`wear` is not called);
- *   · `ownsPro` true → the Hub's look (`printLookFromHub`), and the Hub's picture when it has one. A Hub that cannot be
- *     read (`wear` answers null or throws) prints the classic look — paper is never held hostage to a background.
+ *   · `ownsPro` false (a free event, a lapsed one, an internal viewer viewing as free — `printOwnsPro`, as viewed) → `looks.free`,
+ *     the very object (plain white) — and the Hub is never even READ (`wear` is not called);
+ *   · `ownsPro` true → the Hub's look (`printLookFromHub` over `looks.pro`), and the Hub's picture when it has one. A Hub that
+ *     cannot be read (`wear` answers null or throws) prints `looks.pro` — paper is never held hostage to a background.
  * An unlock belongs to the EVENT: `ownsPro` is the event's entitlement, the same for every host on it.
  *
  * Every Hub-worn print goes through here (`lib/every-print-wears-the-hub.test.ts` holds that nothing else calls
  * `printLookFromHub`).
  */
 export async function printLookForEvent(
-  base: PrintLook,
+  looks: PrintLooks,
   ownsPro: boolean,
   wear: () => Promise<WornHub | null>,
 ): Promise<{ look: PrintLook; picture: Uint8Array | null; wearsHub: boolean }> {
-  if (ownsPro !== true) return { look: base, picture: null, wearsHub: false };
+  if (ownsPro !== true) return { look: looks.free, picture: null, wearsHub: false };
   const worn = await wear().catch((err: unknown) => {
-    console.error('[print-hub-look] the Hub look could not be read — printing the classic look', String(err));
+    console.error('[print-hub-look] the Hub look could not be read — printing the theme look', String(err));
     return null;
   });
-  if (!worn) return { look: base, picture: null, wearsHub: false };
+  if (!worn) return { look: looks.pro, picture: null, wearsHub: false };
   /* A picture the Hub draws but whose bytes did not arrive: the colours still follow the Hub, never a panel over nothing. */
   const hub = worn.picture ? worn.hub : { ...worn.hub, picture: null };
-  return { look: printLookFromHub(base, hub), picture: worn.picture, wearsHub: true };
+  return { look: printLookFromHub(looks.pro, hub), picture: worn.picture, wearsHub: true };
 }

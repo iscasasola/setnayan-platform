@@ -19,12 +19,11 @@ import { guestLookFrom, loadEntourageSectionOrder, type EventShellRow } from '@/
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { mainGroundPictureFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
-import { printHubFonts, printLookForEvent, type WornHub } from '@/lib/print-hub-look';
+import { printHubFonts, printLookForEvent, printLooksFor, type WornHub } from '@/lib/print-hub-look';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { dressCodeForEveryone, dressCodeLines } from '@/lib/dress-code-for-everyone';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
@@ -48,7 +47,6 @@ import {
   type MenuMoment,
   printedDate,
   printVenueLines,
-  printLookFor,
   type PrintLook,
   type PrintMode,
   type PrintParent,
@@ -702,19 +700,20 @@ export async function loadPrintSet(
   const liveEvent = await readPrintEvent(admin, eventId);
   if (!liveEvent) return null;
   const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
-  const theme = printThemeFor(event, opts.previewTheme);
-  // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the
-  // resolver the guest page wears) — drafted over live when the Maker asks.
-  const classicLook = printLookFor(
-    theme,
-    themeColours(theme, opts.samplePalette !== undefined ? opts.samplePalette : event.role_palette),
-  );
+  const ownsPro = await printOwnsPro(eventId);
+  const sampleGallery = opts.samplePalette !== undefined;
+  /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is
+     pro"*) — Classic's type on white paper, whatever theme it saved: the set is drawn as Classic (its file name, its spot layers).
+     The theme gallery's samples (`samplePalette`) still show each theme as the theme. */
+  const theme = !sampleGallery && !ownsPro ? 'house' : printThemeFor(event, opts.previewTheme);
+  // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the resolver the guest page wears) — the ground a Pro
+  // print's Hub look is laid on (`printLooksFor`).
+  const looks = printLooksFor(theme, sampleGallery ? opts.samplePalette : event.role_palette, { sampleGallery });
   /* 🖨 EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21: *"shouldn't this mimic the event hub
      design? and so does the other prints?"* → *"yes wire all, and yes it's Pro"*). The ONE door (`printLookForEvent`): a free
-     event keeps the classic look and its Hub is never read. The sample gallery (`samplePalette`) draws each theme as the
-     theme, never one couple's Hub. Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
-  const ownsPro = await printOwnsPro(eventId);
-  const worn = await printLookForEvent(classicLook, opts.samplePalette === undefined && ownsPro, () => hubPrintInput(admin, event, opts.mode));
+     event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
+     Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
+  const worn = await printLookForEvent(looks, !sampleGallery && ownsPro, () => hubPrintInput(admin, event, opts.mode));
   const look = worn.look;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 

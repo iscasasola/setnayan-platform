@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 
@@ -88,7 +89,7 @@ function bars(file: string): Bar[] {
         const cls = classText(a);
         if (cls && isBottomBar(cls)) {
           // The element's WHOLE text — its own attributes and every child — with comments dropped.
-          const text = n.getText(sf).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\/[^\n]*/g, '');
+          const text = stripComments(n.getText(sf));
           out.push({ file, line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1, cls: cls.slice(0, 90), clears: NAMES_INSET.test(text) });
         }
       }

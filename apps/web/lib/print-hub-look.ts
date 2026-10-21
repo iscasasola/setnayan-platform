@@ -32,9 +32,9 @@
  * Pure. Held by `lib/every-print-wears-the-hub.test.ts`.
  */
 import { sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
-import type { InviteThemeId } from './invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from './invite-themes';
 import { hexRgb, legibleInk, lum, MIN_CONTRAST, over, rgbHex, worstContrast, type RGB } from './print-ground';
-import { hubPrintFont, plainPrintLook, printLookFor, PT_PER_MM, SAFE_MM, type PrintLook } from './print-pieces';
+import { hubPrintFont, printLookFor, PT_PER_MM, SAFE_MM, type PrintLook } from './print-pieces';
 import { sanitizeSiteRoles } from './site-roles';
 import { boardColours, dressedTheme, themeColours } from './theme-colours';
 
@@ -188,6 +188,18 @@ export const sampleHexes = (rgbs: readonly RGB[]): string[] => rgbs.map(rgbHex);
 
 /** What wearing the Hub needs, read by the caller: the Hub's own answers (`PrintHubInput`) and the picture's bytes. */
 export type WornHub = { hub: PrintHubInput; picture: Uint8Array | null };
+
+/**
+ * 🤍 THE FREE PRINT IS PLAIN WHITE (owner 2026-10-21, verbatim: *"Free version is the plain white. Themes that follows the event
+ * hub is pro"*). White paper, a near-black ink and one neutral grey — no theme colours, no Mood Board palette, no picture, the
+ * classic faces (Classic's own type and ornament). Every piece an event without Event Hub Pro prints wears THIS
+ * (`printLooksFor`, below); the Hub's look on paper is the Pro version. Here, beside the loader's door, so none of it rides the
+ * Maker's first load (print-pieces.ts is a client import).
+ */
+export const PLAIN_PRINT_COLOURS = { canvas: '#ffffff', ink: '#1a1a1a', muted: '#5c5c5c', accent: '#5c5c5c', heading: '#1a1a1a' } as const;
+export function plainPrintLook(): PrintLook {
+  return printLookFor('house', { source: 'theme', colours: { ...INVITE_THEMES.house.palette, ...PLAIN_PRINT_COLOURS } });
+}
 
 /** The two looks a set can print in: `free` — what an event without Event Hub Pro gets; `pro` — the theme a Pro print is built on. */
 export type PrintLooks = { free: PrintLook; pro: PrintLook };

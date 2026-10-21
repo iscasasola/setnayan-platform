@@ -421,17 +421,6 @@ const TYPE: Record<
 };
 
 /**
- * 🤍 THE FREE PRINT IS PLAIN WHITE (owner 2026-10-21, verbatim: *"Free version is the plain white. Themes that follows the event
- * hub is pro"*). White paper, a near-black ink and one neutral grey — no theme colours, no Mood Board palette, no picture, the
- * classic faces (Classic's own type and ornament). Every piece an event without Event Hub Pro prints wears THIS
- * (`printLooksFor`, lib/print-hub-look.ts); the Hub's look on paper is the Pro version.
- */
-export const PLAIN_PRINT_COLOURS = { canvas: '#ffffff', ink: '#1a1a1a', muted: '#5c5c5c', accent: '#5c5c5c', heading: '#1a1a1a' } as const;
-export function plainPrintLook(): PrintLook {
-  return printLookFor('house', { source: 'theme', colours: { ...INVITE_THEMES.house.palette, ...PLAIN_PRINT_COLOURS } });
-}
-
-/**
  * 🎨 A print wears the Mood Board palette over its theme (owner 2026-10-05,
  * DECISION_LOG "THE MOOD BOARD PALETTE IS THE PRIORITY") — its colours come
  * from the ONE resolver the guest page wears (`themeColours`,

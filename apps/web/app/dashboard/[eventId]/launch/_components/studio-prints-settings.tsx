@@ -23,7 +23,7 @@ import { PrintSaveButton } from './print-save-button';
 import { StudioProDoor } from './studio-prints-six';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
-import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-prints-six';
+import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import { PrintPaperHead, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { PrintChoicePicker } from './print-choice-picker';
 import { useDownloads, usePrintGuest, useRegisterDownload, type AllInOneF } from './prints-view-store';

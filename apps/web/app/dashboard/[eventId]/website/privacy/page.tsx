@@ -77,7 +77,7 @@ export default async function PrivacyEditorPage({
     search.showcase === 'blocked'
       ? 'This kind of day can’t be featured in Stories.'
       : search.showcase === 'error'
-        ? 'We couldn’t read this celebration just now. Please try again.'
+        ? 'We couldn’t read this event just now. Please try again.'
         : null;
 
   /**

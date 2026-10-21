@@ -2127,7 +2127,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
          reception scope — so it says the true thing instead of the specific
          one. Inventing "reception" would be wrong for every ceremony-only
          supplier on the platform. */
-      tradeLine={`${categoryLabel} · booked for this celebration`}
+      tradeLine={`${categoryLabel} · booked for this event`}
       lane={colourLane}
       isOn={colourAccessOn}
       changes={colourChanges}

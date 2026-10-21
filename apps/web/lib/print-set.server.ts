@@ -783,7 +783,7 @@ export async function loadPrintSet(
 
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
-    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',
+    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',
     // 📅📍 The date and the places AS THE EVENT HUB HOLDS THEM — one value, two doors (owner 2026-10-21).
     dateLabel: printedDate(event.event_date, event.event_date_precision),
     ceremonyTime: blockTime(ceremony),

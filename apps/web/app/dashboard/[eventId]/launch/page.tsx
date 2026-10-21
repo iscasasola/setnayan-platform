@@ -651,7 +651,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       key: 'panood',
       name: 'Live Watch — livestream',
       blurb: eventHasHappened
-        ? 'This one runs during the celebration.'
+        ? 'This one runs during the event.'
         : 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',
@@ -950,7 +950,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               {standing.phase === 'dayof'
                 ? 'One press each — no confirmations, and nothing here is for sale today.'
                 : eventHasHappened
-                  ? 'These ran during the celebration. What they caught is in your galleries.'
+                  ? 'These ran during the event. What they caught is in your galleries.'
                   : 'They stay quiet until the day, then they are one press each from here.'}
             </p>
           </header>

@@ -34,7 +34,7 @@ export async function saveArrangement(
 ): Promise<SaveArrangementResult> {
   const userId = await hostUserId(eventId);
   if (!userId) {
-    return { ok: false, reason: 'failed', message: 'You don’t have access to this celebration.' };
+    return { ok: false, reason: 'failed', message: 'You don’t have access to this event.' };
   }
   return saveStoryArrangement(createAdminClient(), {
     eventId,

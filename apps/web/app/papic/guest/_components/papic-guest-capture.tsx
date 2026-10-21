@@ -1357,7 +1357,7 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing."
           : json.error === 'limit_reached'
-            ? "You've shared all the photo notes this celebration allows — salamat!"
+            ? "You've shared all the photo notes this event allows — salamat!"
             : json.error === 'too_fast'
               ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",
@@ -1402,7 +1402,7 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing that one."
           : json.error === 'limit_reached'
-            ? "You've shared all the photo notes this celebration allows — salamat!"
+            ? "You've shared all the photo notes this event allows — salamat!"
             : json.error === 'too_fast'
               ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",
@@ -1471,7 +1471,7 @@ export function PapicGuestCapture({
           <ul className="mt-4 space-y-1.5 text-sm text-ink/65">
             <li>· No nudity, sexual, or explicit content.</li>
             <li>· No violence, hate, or harassment of any guest.</li>
-            <li>· Only candid moments from this celebration.</li>
+            <li>· Only candid moments from this event.</li>
           </ul>
           <p className="mt-3 text-xs text-ink/55">
             The host can hide any photo, report it to Setnayan, and block your
@@ -1732,7 +1732,7 @@ export function PapicGuestCapture({
               <>
                 <ImageIcon aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
                 <p className="text-base font-semibold" data-papic-pool-empty="">
-                  This celebration&rsquo;s credits have run out — the hosts can add more.
+                  This event&rsquo;s credits have run out — the hosts can add more.
                 </p>
                 <p className="text-sm text-cream/70">
                   Everybody here shares one set of credits. Your camera starts again
@@ -1888,7 +1888,7 @@ export function PapicGuestCapture({
         {exhausted && poolEmpty ? null : (
           <p className="text-center text-xs text-cream/60">
             {exhausted
-              ? 'Your camera is all used up — enjoy the celebration.'
+              ? 'Your camera is all used up — enjoy the event.'
               : recording
                 ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
                 : 'Tap for a photo · press and hold to record (up to 10s).'}

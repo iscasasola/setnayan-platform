@@ -86,7 +86,7 @@ test('the cluster page reads the roster and renders it', () => {
 
 test('a refused roster read is checked BEFORE the page may say there are no guests', () => {
   const refused = PAGE.indexOf('!roster.measured');
-  const empty = PAGE.indexOf('No guests on these celebrations yet');
+  const empty = PAGE.indexOf('No guests on these events yet');
   assert.ok(refused > 0, 'the page no longer branches on a refused roster read');
   assert.ok(empty > 0, 'the empty-roster copy moved — update this guard');
   assert.ok(

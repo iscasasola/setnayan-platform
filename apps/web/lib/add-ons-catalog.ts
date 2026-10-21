@@ -757,7 +757,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // not people — and "on the list" was the roster framing the pool doesn't use
     // (any phone that scans the event QR shoots from it). No number here: the
     // rungs and the free allowance are derived on the surface this card opens.
-    blurb: 'One shared pool of credits for the whole celebration — start free, add more any time.',
+    blurb: 'One shared pool of credits for the whole event — start free, add more any time.',
     cta: 'Open the pool',
     studioGroup: 'capture',
     // Every event is auto-armed with a free shared pool (`ensureFreePapicPoolGrantAdmin`),
@@ -1053,7 +1053,7 @@ const LIVE_STUDIO_ENTRY: AddOnEntry = {
   status: 'web_v1',
   category: 'photography',
   blurb:
-    'Stream your celebration live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
+    'Stream your event live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
   cta: 'Set up',
   studioGroup: 'capture',
   serviceKey: 'LIVE_STUDIO',

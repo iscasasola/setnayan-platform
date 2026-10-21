@@ -415,7 +415,7 @@ export function EventCardMenu({
                       Add to calendar
                     </span>
                     <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                      Just this celebration, on your phone.
+                      Just this event, on your phone.
                     </span>
                   </span>
                 </a>
@@ -997,7 +997,7 @@ function PermanenceWarning() {
   return (
     <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
       <strong className="font-semibold text-ink">
-        Your photos and everything about this celebration are deleted for good
+        Your photos and everything about this event are deleted for good
       </strong>{' '}
       — you can’t bring any of it back, and neither can we.
     </p>
@@ -1033,7 +1033,7 @@ function SupplierRecordsNote() {
       record of payments they confirmed (the amount and date, never your bank details,
       notes or screenshots), plus the quotes and contracts they sent you. Your
       conversations with them, their payment schedules and their deliveries for this
-      celebration are removed with it.
+      event are removed with it.
     </p>
   );
 }

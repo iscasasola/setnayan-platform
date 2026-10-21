@@ -292,7 +292,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message: `You can add ${input.categoryLabel} photos from celebrations you were booked on, but not from your back catalogue. Those never count against any category.`,
+      message: `You can add ${input.categoryLabel} photos from events you were booked on, but not from your back catalogue. Those never count against any category.`,
     };
   }
   if (used >= cap) {
@@ -300,7 +300,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message: `You’ve used all ${cap} ${input.categoryLabel} photo${cap === 1 ? '' : 's'}. Retire one, or add photos from a celebration you were booked on — those never count.`,
+      message: `You’ve used all ${cap} ${input.categoryLabel} photo${cap === 1 ? '' : 's'}. Retire one, or add photos from an event you were booked on — those never count.`,
     };
   }
   return { allowed: true, cap, used, message: '' };

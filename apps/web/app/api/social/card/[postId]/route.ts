@@ -256,7 +256,7 @@ function milestoneContext(post: PostRow): CardContext {
 
 /** Human metric phrases for the giant-number milestone card. */
 const MILESTONE_PHRASE: Record<string, string> = {
-  events_created: 'celebrations planned on Setnayan',
+  events_created: 'events planned on Setnayan',
   vendors_verified: 'verified vendors in the marketplace',
   guests_invited: 'guests invited through Setnayan',
 };

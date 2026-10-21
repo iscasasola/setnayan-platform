@@ -97,7 +97,7 @@ async function leadTheStoryWith(
   return !error;
 }
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
+const NO_ACCESS = 'You don’t have access to this event.';
 const NOT_ELIGIBLE =
   'That picture can’t be your cover. It’s either still being screened, or ' +
   'someone in it asked not to be shown.';

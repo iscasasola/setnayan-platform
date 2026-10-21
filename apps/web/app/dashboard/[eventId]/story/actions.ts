@@ -725,7 +725,7 @@ export async function setStoryShowcase(
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
   const userId = await hostUserId(eventId);
   if (!userId)
-    return { ok: false, error: 'You don’t have access to this celebration.' };
+    return { ok: false, error: 'You don’t have access to this event.' };
 
   const admin = createAdminClient();
 

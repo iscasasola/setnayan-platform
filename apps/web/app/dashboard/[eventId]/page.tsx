@@ -1041,7 +1041,7 @@ export default async function EventHomePage({
               Make it an annual tradition
             </span>
             <span className="block text-xs text-ink/60">
-              Plan next year&rsquo;s celebration — we&rsquo;ll carry over the
+              Plan next year&rsquo;s event — we&rsquo;ll carry over the
               details and start you a fresh guest list.
             </span>
           </span>

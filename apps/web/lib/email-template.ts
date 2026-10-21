@@ -77,15 +77,16 @@ export type BrandedEmailSection = {
  * every event type, and is more than planning (Papic, Live Studio, Patiktok,
  * Music Maker, the Event Hub Maker, Setnayan AI). It was "Filipino wedding
  * planning + verified vendors". Pinned by `anniversary-emails.test.ts`
- * (SHARED_CHROME_LINE).
+ * (SHARED_CHROME_LINE). 2026-10-22: "celebration" → "event", the house word —
+ * owner 2026-10-22 (relayed by the controller, choosing "Change to 'every event'"; DECISION_LOG "TAGLINE SAYS EVENT").
  */
-export const EMAIL_TAGLINE = 'Setnayan · Plan, share and relive every celebration';
+export const EMAIL_TAGLINE = 'Setnayan · Plan, share and relive every event';
 /**
  * 🔒 THE ADMIN BRAND LINE — the customer line, from HQ. Owner, 2026-09-30: no
  * "wedding" (the desk sees every event type), never "vendor".
  * `admin-payment-alert-says-who.test.ts` holds both words out of it.
  */
-export const ADMIN_EMAIL_TAGLINE = 'Setnayan HQ · Plan, share and relive every celebration';
+export const ADMIN_EMAIL_TAGLINE = 'Setnayan HQ · Plan, share and relive every event';
 /** Why an admin got the mail — the owner's own sentence. */
 export const ADMIN_EMAIL_FOOTER = "You're receiving this because you're a Setnayan admin.";
 

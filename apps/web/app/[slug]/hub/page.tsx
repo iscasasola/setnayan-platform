@@ -649,15 +649,15 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     dayOfPhase === 'live'
       ? words.solemn
         ? 'The gathering is underway. Thank you for being here.'
-        : 'The celebration is underway — enjoy every moment.'
+        : 'The event is underway — enjoy every moment.'
       : dayOfPhase === 'post'
         ? words.solemn
           ? 'The gathering has ended. Thank you for standing with the family.'
-          : 'The celebration has wrapped. Thank you for being part of the day.'
+          : 'The event has wrapped. Thank you for being part of the day.'
         : dayOfPhase === 'pre'
           ? words.solemn
             ? 'The gathering is near. It will mean a great deal to have you close.'
-            : 'The celebration is almost here. We can’t wait to see you.'
+            : 'The event is almost here. We can’t wait to see you.'
           : 'Everything for the day, in one place.';
   const phaseLabel =
     dayOfPhase === 'live'

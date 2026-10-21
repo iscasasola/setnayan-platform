@@ -45,6 +45,15 @@ const LIVE_WINDOW_START_MS = 12 * HOUR_MS; // T - 12h  (noon the day before)
 const LIVE_WINDOW_END_MS = 36 * HOUR_MS; // T + 36h (noon the day after)
 const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
 
+/**
+ * When day-of mode switches on and off, in plain words — `LIVE_WINDOW_START_MS`
+ * before and `LIVE_WINDOW_END_MS` after midnight on the day. The words live in
+ * their own two-line module so copy files (help, /features) can say them without
+ * pulling this file into a client bundle; `the-app-says-event-in-plain-words`
+ * checks them against `getDayOfPhase`.
+ */
+export { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
+
 /*
   ─── WHEN IS IT OVER? 06:00 ON THE DAY AFTER THE LAST DAY ─────────────────
 

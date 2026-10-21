@@ -55,7 +55,7 @@ import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker, type PickerLock } from './_components/event-picker';
-import { collapseToPickerDays, pickConfigureDay } from '@/lib/vendor-day-picker';
+import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
 import { resolveEventFeeGate, resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
@@ -70,8 +70,8 @@ export const metadata = { title: 'Event Hub · Supplier' };
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
  * prototype (editorial `--m-*` palette). A free, CATEGORY-CONDITIONAL day-of
- * hub that surfaces only on an event day (a booking dated today, T-1h → T+8h in
- * production). The full console is now GATED to that window: when no event is in
+ * hub that surfaces only on an event day (a booking dated today in Philippine
+ * time — midnight to midnight; see `HUB_OPEN_WINDOW_PLAIN`). The full console is now GATED to that window: when no event is in
  * window it renders a compact honest state (the "No event today" explainer, the
  * day-of tool pills, and the event-brief door) instead of a full console full of
  * degraded zero-cards — so the visibility banner tells the truth. `?preview=1`
@@ -145,10 +145,9 @@ type Brief = {
 };
 
 /** PH wall-clock today (UTC+8, no DST) as 'YYYY-MM-DD' — booked_date is stored in
- *  the same PH civil-day convention, so string comparison is exact. */
-function phToday(): string {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+ *  the same PH civil-day convention, so string comparison is exact. The one
+ *  definition lives beside `HUB_OPEN_WINDOW_PLAIN`, which says it in words. */
+const phToday = (): string => phTodayIso();
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set';
@@ -273,8 +272,8 @@ export default async function VendorOnTheDayPage({
   }
 
   // The event-day gate that makes the banner TRUE: the full console renders only
-  // when there is a booking dated today (the real in-window state, T-1h → T+8h
-  // on the day) OR the owner explicitly asked to preview it. Otherwise a compact
+  // when there is a booking dated today (the real in-window state: the whole
+  // Philippine calendar day, midnight to midnight) OR the owner explicitly asked to preview it. Otherwise a compact
   // honest state renders instead of a full console full of degraded zero-cards.
   const showFullConsole = todaysBooking != null || isPreview;
 
@@ -467,7 +466,7 @@ export default async function VendorOnTheDayPage({
         >
           <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <p className="text-sm leading-relaxed">
-            Your event is today — this console is live now (T-1h → T+8h on the day).
+            Your event is today — this console is live now, {HUB_OPEN_WINDOW_PLAIN}.
           </p>
         </div>
       ) : isPreview ? (
@@ -482,8 +481,8 @@ export default async function VendorOnTheDayPage({
           <span className="flex items-start gap-3">
             <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span className="text-sm leading-relaxed">
-              Preview — this is how your day-of console looks. It appears here automatically on an
-              event day (T-1h → T+8h); until then it stays hidden.
+              Preview — this is how your day-of console looks. It opens here on its own on the day
+              of each event ({HUB_OPEN_WINDOW_PLAIN}); until then it stays hidden.
             </span>
           </span>
           <Link
@@ -1034,8 +1033,8 @@ function CompactDayOf({
         </p>
         <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
           {next.length > 0
-            ? 'Your day-of console opens here on each event’s day (T-1h → T+8h). Your next events are above.'
-            : 'Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a couple’s booked date is today. Until then, there’s nothing live to run here.'}
+            ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
+            : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <Link

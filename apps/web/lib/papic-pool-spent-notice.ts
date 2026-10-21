@@ -70,7 +70,7 @@ export async function tellTheCouplePapicPoolIsSpent(eventId: string): Promise<vo
       .select('display_name')
       .eq('event_id', eventId)
       .maybeSingle();
-    const displayName = (ev?.display_name as string | undefined) ?? 'your celebration';
+    const displayName = (ev?.display_name as string | undefined) ?? 'your event';
 
     const relatedUrl = `/dashboard/${eventId}/studio/papic`;
     for (const userId of recipients) {

@@ -339,7 +339,7 @@ export function WhatsNextStep({
               It is on the back cover and{' '}
               <strong className="font-semibold text-ink/75">nothing has been created</strong>.{' '}
               <strong className="font-semibold text-ink/75">Start it now</strong> opens a new
-              celebration with the names and the colours already filled &mdash; and links it
+              event with the names and the colours already filled &mdash; and links it
               to this story.
             </>
           ) : (

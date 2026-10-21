@@ -94,11 +94,14 @@ test('(b) the empty search state renders exactly the Find page’s rows — in o
     counts: new Map([['catering', 3], ['photo_video', 1]]),
   });
   const html = await renderList(list);
-  const rows = [...html.matchAll(/<a\b([^>]*\bdata-find-tile="[^"]+"[^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
-    href: (/\bhref="([^"]+)"/.exec(m[1])?.[1] ?? '').replace(/&amp;/g, '&'),
-    tile: /\bdata-find-tile="([^"]+)"/.exec(m[1])?.[1] ?? '',
-    text: m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
-  }));
+  const rows = [...html.matchAll(/<a\b([^>]*\bdata-find-tile="[^"]+"[^>]*)>([\s\S]*?)<\/a>/g)].map((m) => {
+    const attrs = m[1] ?? '';
+    return {
+      href: (/\bhref="([^"]+)"/.exec(attrs)?.[1] ?? '').replace(/&amp;/g, '&'),
+      tile: /\bdata-find-tile="([^"]+)"/.exec(attrs)?.[1] ?? '',
+      text: (m[2] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+    };
+  });
   const expected = [...list.popular, ...list.groups.flatMap((g) => g.categories)].map((c) => c.tile);
   assert.ok(expected.length > 4, 'the fixture list is too small to say anything');
   assert.deepEqual(rows.map((r) => r.tile), expected, 'rows are not the Find list, in its order');

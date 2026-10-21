@@ -24,6 +24,8 @@ Owner, on Studio › Prints (a plain cream Entourage card beside a Hub with a pi
 - Studio › Prints: one row under Print settings — the diamond and "Your Event Hub look" when owned; ◆ PRO and the prints'
   own door to the centred note when not (`StudioProDoor`, `makerProMark` — never a padlock on the Event Hub, owner
   2026-09-29); nothing in the app-store shell without it.
+- The old Details › Prints access line and the print route's 403 no longer sell "Classic, Modern and Cyber Neon prints are
+  free": *"Free prints are plain white"*, and the Hub look on paper is Event Hub Pro (◆; the diamond owned; nothing in the shell).
 - The previews' cache key (`printInputsVersion`) now carries the entitlement and the Main background.
 - Guard `lib/every-print-wears-the-hub.test.ts` §5–7 (Pro door, no way around it, the measured entitlement, the row).
 

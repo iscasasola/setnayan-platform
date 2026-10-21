@@ -10,7 +10,7 @@ import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
 import { plainRefusal } from './plain-refusal';
 import type { GuestGroupTeamSide, GuestSide } from '@/lib/guests';
-import { listedOwnGroups, OFF_SIDE_WORD, teamSideForNewGroup } from '@/lib/groups-for-side';
+import { GROUP_SIDE_WORD, listedOwnGroups, OFF_SIDE_WORD, sidesForNamesakes, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
 import { revealAboveChrome } from '@/lib/reveal-above-chrome';
 
@@ -153,6 +153,9 @@ export function GuestGroupPicker({
   const [stay, setStay] = useState<readonly string[]>([]);
   /* 👥 What "Your groups" draws: the guest's side's and both sides' groups, plus any they are already in. */
   const listed = own === null ? null : listedOwnGroups(own, liveSide, [...picked, ...stay]);
+  /* 👥 Same name, say the side (owner 2026-10-21, "why do i see dupes on group names"): a drawn group whose name another
+     drawn row shares — an own group or a standard one — carries its side's small word; a name drawn once carries none. */
+  const namesakes = listed === null ? new Map<string, GuestGroupTeamSide>() : sidesForNamesakes(listed.map((l) => l.group), standard.map((o) => o.label));
 
   /* A fresh list from the server (a save landed) replaces ours — keeping any group made here the server has not drawn yet. */
   const fromServer = JSON.stringify(groups);
@@ -370,6 +373,7 @@ export function GuestGroupPicker({
 
   const ownRow = (g: OwnGroup, offSide: 'bride' | 'groom' | null) => {
     const on = picked.includes(g.groupId);
+    const sideWord = offSide ?? namesakes.get(g.groupId) ?? null;
     if (mode.kind === 'rename' && mode.id === g.groupId) {
       return (
         <li key={g.groupId} role="none" data-group-rename={g.groupId}>
@@ -422,7 +426,11 @@ export function GuestGroupPicker({
         <button type="button" role="option" aria-selected={on} data-pick-option={g.groupId} onClick={() => onPick(g.groupId)} className={`${pickOptionClass(false, on)} min-w-0 flex-1`}>
           <span className="min-w-0 truncate font-semibold">
             {g.label}
-            {offSide ? <span className="text-[12px] font-medium text-ink/50" data-group-off-side={offSide}> · {OFF_SIDE_WORD[offSide]}</span> : null}
+            {sideWord ? (
+              <span className="text-[12px] font-medium text-ink/50" data-group-off-side={offSide ?? undefined} data-group-namesake-side={offSide ? undefined : sideWord}>
+                {' '}· {GROUP_SIDE_WORD[sideWord]}
+              </span>
+            ) : null}
           </span>
           {tick(on)}
         </button>

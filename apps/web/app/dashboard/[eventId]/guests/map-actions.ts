@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 import {
   GUEST_GROUP_TEAM_SIDES,
   type GuestGroupTeamSide,
@@ -39,32 +40,12 @@ export async function mapAddGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
-  const { data, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id')
-    .single();
-
-  if (error || !data) {
-    // Idempotent on a duplicate name (unique index): return the existing group
-    // so the map just renders it, instead of leaking the raw 23505.
-    if ((error as { code?: string } | null)?.code === '23505') {
-      const { data: existing } = await supabase
-        .from('guest_groups')
-        .select('group_id')
-        .eq('event_id', eventId)
-        .ilike('label', label)
-        .maybeSingle();
-      if (existing) {
-        revalidatePath(`/dashboard/${eventId}/guests`);
-        return { ok: true, id: existing.group_id };
-      }
-      return { ok: false, error: 'A group with that name already exists.' };
-    }
-    return { ok: false, error: 'Couldn’t create that group.' };
-  }
+  // 👥 One name, one group: a name already in this side's list is that group (`makeGuestGroupOnce`) — the map just
+  // renders it, as the old 23505 path did.
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) return { ok: false, error: made.code === '23505' ? made.error : 'Couldn’t create that group.' };
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, id: data.group_id };
+  return { ok: true, id: made.group.group_id };
 }
 
 /*

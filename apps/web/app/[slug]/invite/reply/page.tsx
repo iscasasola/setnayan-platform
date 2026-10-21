@@ -456,7 +456,9 @@ async function inviteReplyPage({ params, searchParams }: Props) {
             ...(guest as unknown as GuestRow),
             // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
             // seat's key — that is for the thank-you's "Send their invite".
-            plus_one_seats: seats.map((s) => ({
+            // 🪑 A REFUSED read (null) is NOT "no seats": `undefined` gives the reply the loader's own fallback (one box,
+            // the stored name) — `[]` drew empty boxes over a guest's named +1s (2026-10-22, `plusOneSeatsFor`).
+            plus_one_seats: seats === null ? undefined : seats.map((s) => ({
               guest_id: s.guest_id,
               name: s.name,
               first: s.first,

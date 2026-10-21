@@ -158,7 +158,8 @@ export type PassCardKit = {
    *  time prints that instead (`passCardPass` → `guestArriveBy`). */
   arrive: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
-  party: Map<string, number>;
+  /** NULL = the seat rows could not be read — the card then prints no party at all, never the one-name mirror's guess. */
+  party: Map<string, number> | null;
   /** 🎟 guest_id → their table and seat — filled ON THE DAY only (`readTicketSeats`). */
   seats: Map<string, TicketSeat>;
 };
@@ -256,7 +257,7 @@ async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<
  * "+ TBA" seat), not removed, and not "can't come" on their own reply. A guest
  * whose companion lives only as `plus_one_name` (no row yet) counts one.
  */
-async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerIds?: string[]): Promise<Map<string, number>> {
+async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerIds?: string[]): Promise<Map<string, number> | null> {
   const out = new Map<string, number>();
   let q = admin
     .from('guests')
@@ -269,7 +270,9 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
   if (error) {
     // Omitted, never guessed — a card without "and 1 guest" is true of nobody wrongly.
     logQueryError('pass-card.party', error, { event_id: eventId }, 'graceful_degrade');
-    return out;
+    // 🪑 NOT `out`: an empty map sent every guest to the mirror's 0-or-1 guess (2026-10-22) — a guest bringing two
+    // printed "and 1 guest". Unread is said as unread.
+    return null;
   }
   for (const r of (data ?? []) as Array<{ guest_id: string; first_name: string | null; plus_one_of_guest_id: string; plus_one_name_confirmed_at: string | null; rsvp_status: string | null }>) {
     // A bringer with seat ROWS is counted from the rows alone (zero included) —
@@ -299,7 +302,7 @@ export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string |
     arrive: guestArriveBy({ role: g.role as GuestRole | null, config: kit.set.event.dress_code_config, general: kit.arrive }),
     // BOTH halves: the couple's permission AND an actual person.
     bringing: g.plus_one_allowed ? g.plus_one_name : null,
-    party: kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0),
+    party: kit.party === null ? 0 : (kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0)),
   };
 }
 

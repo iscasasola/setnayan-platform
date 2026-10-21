@@ -564,8 +564,6 @@ function still(ops: PrintOp[], look: PrintLook, data: PrintSetData, w: number, h
  * darkest parts), its edge feathered into the margin so the panel is a fade, not a box. Opacities STACK the way
  * the backends composite them (`over`), so the panel's own steps are solved for the total they must reach.
  */
-/** How far the panel's edge fades, inward from `inset` — the words start past it (≥ 26 pt from the trim). */
-export const FRAME_FEATHER_PT = 10;
 
 function paperPanel(ops: PrintOp[], look: PrintLook, frame: NonNullable<PrintLook['frame']>, w: number, h: number, b: number) {
   const paper = look.scrim?.color ?? look.paper;
@@ -579,7 +577,7 @@ function paperPanel(ops: PrintOp[], look: PrintLook, frame: NonNullable<PrintLoo
   for (let i = 1; i <= steps; i += 1) {
     const want = frame.outer + ((frame.inner - frame.outer) * i) / steps;
     const add = had >= 1 ? 0 : (want - had) / (1 - had);
-    const pad = frame.inset + (FRAME_FEATHER_PT * (i - 1)) / (steps - 1);
+    const pad = frame.inset + (frame.feather * (i - 1)) / (steps - 1);
     if (add > 0) ops.push({ t: 'rect', x: pad, y: pad, w: w - 2 * pad, h: h - 2 * pad, fill: paper, opacity: Math.min(1, add) });
     had = want;
   }
@@ -2941,7 +2939,19 @@ function fitDoc(doc: PrintDoc, w: number, h: number, ctx: Ctx): PrintDoc {
   const ox = (w - doc.w * s) / 2;
   const oy = 0;
   const ops: PrintOp[] = [{ t: 'rect', x: -doc.bleed, y: -doc.bleed, w: w + 2 * doc.bleed, h: h + 2 * doc.bleed, fill: ctx.look.paper }];
+  /* 🖼 THE HUB'S PICTURE FILLS THE PAPER IT IS FITTED TO (`PrintLook.frame`, lib/print-hub-look.ts): a 3 : 4 card fitted to
+     A5 would otherwise wear the picture on its top part and bare paper below. The picture and its panel are drawn again at
+     the fitted size, and the ones laid at the design size are left out — the words are fitted as before. */
+  const refit = Boolean(ctx.look.frame && ctx.data.hasStill && ctx.look.still === 'full');
+  const drawnAtDesignSize = new Set<string>();
+  if (refit) {
+    const design: PrintOp[] = [];
+    still(design, ctx.look, ctx.data, doc.w, doc.h, doc.bleed);
+    for (const o of design) drawnAtDesignSize.add(JSON.stringify(o));
+    still(ops, ctx.look, ctx.data, w, h, doc.bleed);
+  }
   for (const o of doc.ops.slice(1)) {
+    if (refit && drawnAtDesignSize.has(JSON.stringify(o))) continue;
     if (o.t === 'rect') ops.push({ ...o, x: o.x * s + ox, y: o.y * s + oy, w: o.w * s, h: o.h * s, sw: o.sw ? o.sw * s : o.sw });
     else if (o.t === 'image') ops.push({ ...o, x: o.x * s + ox, y: o.y * s + oy, w: o.w * s, h: o.h * s });
     // An NFC spot stays TRUE TO SIZE (25 mm) — a sticker does not scale with the card.

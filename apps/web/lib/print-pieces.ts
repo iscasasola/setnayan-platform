@@ -354,7 +354,7 @@ export type PrintLook = {
    * `inner` — never less than the Hub's scrim, and as much more as the words need to read on the picture's lightest
    * and darkest parts. Absent = a full still is veiled edge to edge by `scrim`, as before.
    */
-  frame?: { inset: number; outer: number; inner: number } | null;
+  frame?: { inset: number; feather: number; outer: number; inner: number } | null;
   /** Names print in caps (the deco and neon faces). */
   capsNames: boolean;
 };

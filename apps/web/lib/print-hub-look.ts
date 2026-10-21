@@ -34,7 +34,7 @@
 import { sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
 import type { InviteThemeId } from './invite-themes';
 import { hexRgb, legibleInk, lum, MIN_CONTRAST, over, rgbHex, worstContrast, type RGB } from './print-ground';
-import { hubPrintFont, type PrintLook } from './print-pieces';
+import { hubPrintFont, PT_PER_MM, SAFE_MM, type PrintLook } from './print-pieces';
 import { sanitizeSiteRoles } from './site-roles';
 import { boardColours, dressedTheme } from './theme-colours';
 
@@ -83,8 +83,15 @@ export type PrintHubInput = {
  */
 export const PANEL_FLOOR = 0.85;
 
-/** The panel starts this far in from the trim — inside the 5 mm safe area, so the picture shows as a margin. */
-export const FRAME_INSET_PT = 12;
+/**
+ * How far the panel's edge fades, inward from `FRAME_INSET_PT`. The panel is FULL at the 5 mm safe line, less a point: every
+ * layout keeps its words inside that line on every size (the CR80 pass sets them a hair past it), so no word ever sits in the
+ * fade or on the bare picture — measured on every piece and format by `every-print-fits.test.ts` (2026-10-21: a 12 pt inset
+ * left the pass's words on the picture's edge). The picture shows as the margin between the trim and the fade.
+ */
+export const FRAME_FEATHER_PT = 8;
+/** The panel starts this far in from the trim, so that it is full one point inside the safe line (`SAFE_MM`). */
+export const FRAME_INSET_PT = Math.max(0, SAFE_MM * PT_PER_MM - 1 - FRAME_FEATHER_PT);
 
 /** `r g b` (a page variable's triplet) → `#rrggbb`; anything else → null. */
 function channelsHex(v: string | undefined): string | null {
@@ -155,7 +162,7 @@ export function printLookFromHub(base: PrintLook, hub: PrintHubInput): PrintLook
       still: 'full',
       sepia: false,
       scrim: { color: c.canvas, opacity: inner },
-      frame: { inset: FRAME_INSET_PT, outer, inner },
+      frame: { inset: FRAME_INSET_PT, feather: FRAME_FEATHER_PT, outer, inner },
     };
   }
 

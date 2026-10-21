@@ -11,6 +11,7 @@ import {
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { applyGuestBlockChange, type BlockChange } from '@/lib/run-of-show-live';
 import { herdDelay } from '@/lib/live-day-timing';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { useSaveLoader } from '@/components/sd-loader';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
@@ -140,32 +141,34 @@ export function RunOfShowHeader({
   const subscribedOnce = useRef(false);
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`run-of-show-${eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_schedule_blocks',
-          filter: `event_id=eq.${eventId}`,
-        },
-        (change) => {
-          onChange(change as BlockChange);
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setLive(true);
-          if (subscribedOnce.current) reread();
-          subscribedOnce.current = true;
-        } else {
-          setLive(false);
-        }
-      });
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`) — on the day that is most of the
+    // guests' phones. Looking again opens it, and the re-SUBSCRIBED below re-reads (spaced out for guests).
+    return pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`run-of-show-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_schedule_blocks',
+            filter: `event_id=eq.${eventId}`,
+          },
+          (change) => {
+            onChange(change as BlockChange);
+          },
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setLive(true);
+            if (subscribedOnce.current) reread();
+            subscribedOnce.current = true;
+          } else {
+            setLive(false);
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
   }, [eventId, onChange, reread]);
 
   const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(

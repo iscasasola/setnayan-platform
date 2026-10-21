@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { SHOP_SEGMENT_HREF, type ShopSegment } from '../shop/_components/shop-segments';
-import { bottomNavItemMatches } from '@/app/_components/nav/bottom-nav-match';
+import { bottomNavItemMatches } from '@/app/_components/nav/bottom-nav';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import { VENDOR_BOTTOM_NAV_ITEMS } from './vendor-bottom-nav';
 import { resolveVendorDestinations, vendorRailCandidates, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';

@@ -5,7 +5,9 @@
  * MAKES A QR — FOR EVERY PLUS-ONE"; build brief items 4 and 6).
  *
  *   4 · ME — name + "Not you? Switch", their plus-ones ("Send their invite",
- *       "Show <name>'s pass", "Add their name"), "Save to my account" any time.
+ *       their ticket that opens big — 🎫 moved on purpose 2026-10-21 from
+ *       "Show <name>'s pass", guest_page_fixes_2_4 fix 4 — "Add their name"),
+ *       "Save to my account" any time.
  *   6 · THE CHECKLIST — the last 30 days; items only where there is something
  *       true to say; ticks saved to the GUEST through their own reply action
  *       (+0 routes), private to them; "3 of 5 ready" → "You're all set ✓".
@@ -173,7 +175,7 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
         { guestId: 'p1', name: 'Lola Nena', inviteUrl: 'https://x/ana?invite=t1' },
         { guestId: 'p2', name: null, inviteUrl: null },
       ],
-      passes: { p1: '<svg data-pass="lola"></svg>' },
+      passCards: { own: '/api/guest/pass-card', plusOnes: { p1: '/api/guest/pass-card?guest=p1' } },
       account: { kind: 'linked', accountEmail: 'ana@example.com' },
       personalLink: 'https://x/ana?invite=t0',
       userAgent: null,
@@ -185,8 +187,11 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
   // it posted to the SAME sign-out the foot of Me carries (site-body `signOut`).
   assert.doesNotMatch(html, /action="\/ana\/sign-out"/, 'Me has a second sign-out again');
   assert.match(html, /Send their invite/);
-  assert.match(html, /Show Lola’s ticket/);
-  assert.match(html, /data-pass="lola"/);
+  // 🎫 Lola's ticket IS the show (owner 2026-10-21, fix 4): the route's own PNG, pressable, opening big — no
+  // second drawing of her QR ("Show Lola’s ticket" + an inline SVG) beside it.
+  assert.match(html, /aria-label="Lola’s ticket — Show this at the door"[^>]*data-ticket-show=""[^>]*><img src="\/api\/guest\/pass-card\?guest=p1"/, 'Lola’s ticket does not open big');
+  assert.match(html, />Tap the ticket to show it</);
+  assert.doesNotMatch(html, /Show Lola’s ticket|data-plus-one-pass/, 'the second drawing of Lola’s QR is back');
   // A TBA seat is named IN PLACE on Me (owner 2026-09-29, frame E) — no link back to the reply.
   assert.match(html, /data-add-name-in-place/);
   assert.ok(!html.includes('/invite/reply'), 'Me links a TBA seat back to the reply');

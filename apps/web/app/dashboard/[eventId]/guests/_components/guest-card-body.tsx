@@ -62,6 +62,7 @@ import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[gu
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -147,7 +148,7 @@ export function guestCardTitle(
   guest: Parameters<typeof guestDisplayName>[0],
   plusOneOf?: GuestCardData['plusOneOf'],
 ): string {
-  return plusOneOf?.name ?? guestDisplayName(guest);
+  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';

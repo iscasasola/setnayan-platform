@@ -83,6 +83,7 @@ import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 import { formatCount } from '@/lib/format-number';
+import { pauseWhileHidden } from '@/lib/tab-return';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -761,54 +762,60 @@ export function ChatMessageStream({
       }
     };
 
-    const channel = supabase
-      .channel(`chat-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) => {
-            // Guard against the same INSERT echoing twice (e.g. on a
-            // reconnect that replays the buffered event).
-            if (prev.some((m) => m.message_id === row.message_id)) return prev;
-            return [...prev, row].sort((a, b) =>
-              a.created_at.localeCompare(b.created_at),
+    // 🔌 A thread left in a background tab lets its channel go after a while
+    // (`pauseWhileHidden`); coming back opens it again, and SUBSCRIBED re-reads
+    // the whole thread below — nothing is missed.
+    const stop = pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`chat-${threadId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) => {
+              // Guard against the same INSERT echoing twice (e.g. on a
+              // reconnect that replays the buffered event).
+              if (prev.some((m) => m.message_id === row.message_id)) return prev;
+              return [...prev, row].sort((a, b) =>
+                a.created_at.localeCompare(b.created_at),
+              );
+            });
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) =>
+              prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
-          });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) =>
-            prev.map((m) => (m.message_id === row.message_id ? row : m)),
-          );
-        },
-      )
-      .subscribe((status) => {
-        // On (re)SUBSCRIBED — including reconnects after a network drop —
-        // pull a fresh batch so we backfill anything missed while offline.
-        if (status === 'SUBSCRIBED') {
-          void refetchAll();
-        }
-      });
+          },
+        )
+        .subscribe((status) => {
+          // On (re)SUBSCRIBED — including reconnects after a network drop —
+          // pull a fresh batch so we backfill anything missed while offline.
+          if (status === 'SUBSCRIBED') {
+            void refetchAll();
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
 
     return () => {
       cancelled = true;
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [supabase, threadId]);
 

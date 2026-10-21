@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { TicketShow } from './ticket-show';
 
 /**
  * ONE DIGITAL TICKET, AS A ROW — the small card, whose it is, and "Save"
@@ -14,6 +15,11 @@ import { PASS_CARD_WORDS } from '@/lib/pass-card';
  *
  * The route decides who may see it (the guest, or the guest who brought them);
  * a refused picture leaves its alt text, never another person's ticket.
+ *
+ * 🎫 `show` — A PLUS-ONE ON ME (owner 2026-10-21, guest_page_fixes_2_4 fix 4):
+ * the ticket itself is pressable and opens big in the guest page's one sheet,
+ * where their Save lives (`TicketShow`). The row then has ONE button of its own
+ * — `also`, "Send their invite" — and `sub` says the ticket can be tapped.
  */
 export function TicketRow({
   href,
@@ -22,6 +28,7 @@ export function TicketRow({
   saveLabel = 'Save',
   saveNote,
   also,
+  show = null,
 }: {
   href: string;
   name: string;
@@ -33,23 +40,30 @@ export function TicketRow({
   saveNote?: string | null;
   /** A second action beside Save (frame A: "Send" for a plus-one). */
   also?: ReactNode;
+  /** The ticket opens big, Save inside it — no Save in the row ("Pamela’s ticket" · "Save Pamela’s ticket"). */
+  show?: { eyebrow: string; saveLabel: string } | null;
 }) {
+  const alt = `${name}’s ${PASS_CARD_WORDS.digitalTicket}`;
   return (
     <div className="flex items-center gap-3" data-ticket-row="">
-      {/* eslint-disable-next-line @next/next/no-img-element -- the route's own PNG, cookie-authenticated; next/image would proxy it without the cookie */}
-      <img
-        src={href}
-        alt={`${name}’s ${PASS_CARD_WORDS.digitalTicket}`}
-        width={96}
-        height={128}
-        loading="lazy"
-        className="h-32 w-24 shrink-0 rounded-md bg-ink/[0.04] object-cover shadow-sm"
-      />
+      {show ? (
+        <TicketShow href={href} alt={alt} eyebrow={show.eyebrow} saveLabel={show.saveLabel} />
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element -- the route's own PNG, cookie-authenticated; next/image would proxy it without the cookie */
+        <img
+          src={href}
+          alt={alt}
+          width={96}
+          height={128}
+          loading="lazy"
+          className="h-32 w-24 shrink-0 rounded-md bg-ink/[0.04] object-cover shadow-sm"
+        />
+      )}
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate font-serif text-lg leading-tight text-ink">{name}</p>
+        <p className="break-words font-serif text-lg leading-tight text-ink">{name}</p>
         {sub ? <p className="text-xs text-ink/70">{sub}</p> : null}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <SavePassCardButton hrefs={[href]} label={saveLabel} />
+          {show ? null : <SavePassCardButton hrefs={[href]} label={saveLabel} />}
           {also}
         </div>
         {saveNote ? <p className="text-xs text-ink/70">{saveNote}</p> : null}

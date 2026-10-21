@@ -18,8 +18,8 @@ Today · Customers · Shop · Hub).
   and the six reads that fed only the tiles (reviews · saves · views · pool bookings · stories + recaps ·
   partnerships). `shop-rail.tsx` → `shop-door-section.tsx` (only the door shell was left).
 - Guards: `how-it-is-going-is-a-shop-segment.test.ts` (every Shop segment lights Shop on the bar AND the rail,
-  asked through each one's own matcher — `bottom-nav-match.ts` and `vendorRailCandidates` were lifted out
-  pure for it; every segment page draws its switcher); `my-shop-reads-at-once` holds the tile reads off
+  asked through each one's own matcher — `bottomNavItemMatches` (exported from `bottom-nav.tsx`, not a new module:
+  the Maker's first load is at its ceiling) and `vendorRailCandidates` were lifted out pure for it; every segment page draws its switcher); `my-shop-reads-at-once` holds the tile reads off
   Shop; `my-shop-doors-keep-every-control` holds the rail and tiles retired and every anchor they
   pointed at. Six sabotage runs, each red.
 - Baselines regenerated: port-control, ugat screens.

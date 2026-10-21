@@ -17,6 +17,7 @@ import { guestsArriveTime } from '@/lib/guests-arrive';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
+import { displayPersonName } from '@/lib/person-name-case';
 import {
   filterPassCardRows,
   passCardDesignFrom,
@@ -81,7 +82,9 @@ export function passCardGuestName(
   g: Pick<PassCardGuest, 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix' | 'display_name'>,
   style?: NameStyle,
 ): string {
-  return ticketName(g, style);
+  // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3): the saved PNG reads as Me's row does —
+  // "Pamela Labriaga", "Jose de los Santos". Display only; the filename follows the shown name.
+  return displayPersonName(ticketName(g, style));
 }
 
 /** One guest row (and, for a plus-one, the row of whoever brought them). */

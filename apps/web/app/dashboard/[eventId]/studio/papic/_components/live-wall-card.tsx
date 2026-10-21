@@ -29,7 +29,10 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
  * verify_and_activate_manual_payment, has zero callers), so paying never lit
  * this card.
  */
-export async function LiveWallCard({ eventId }: { eventId: string }) {
+export async function LiveWallCard({ eventId, appleIap = false }: { eventId: string; appleIap?: boolean }) {
+  /* 🍎 The iPhone app where Apple sells: the Live Photo Wall is a web extra Apple does not sell, and its own page
+     (`/dashboard/<id>/live`) stays refused in the app — so nothing of it is drawn there (guideline 3.1.3(b)). */
+  if (appleIap) return null;
   const supabase = await createClient();
   // The EVENT holds the wall, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);

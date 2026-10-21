@@ -107,6 +107,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicTopBand } from './_components/papic-top-band';
+import { getIapGate } from '@/lib/request-platform';
 import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
@@ -273,6 +274,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (version 1.1 — `IAP_OPENED_ROUTE` in lib/store-shell.ts; middleware opens
+     this page there ONLY then). `appleIap` true ⇒ the page draws no web price, no GCash / BDO, no web link: Buy more
+     is Apple's sheet, and every offer sold only on the web (the guest-camera tiers, extra crew cameras, Unlock all,
+     Keep Full-Res, DSLR pairing, the keep-at-full-size ₱ line) is not drawn. False everywhere else — the web, the
+     desktop app, and every app build without the StoreKit plugin or the owner's switch — and then nothing here
+     changes. Held by `lib/the-app-opens-what-apple-sells.test.ts`. */
+  const appleIap = (await getIapGate()).iap;
 
   const { data: event, error: eventError } = await supabase
     .from('events')
@@ -809,12 +818,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
        product is a reading column). A wrapper, so the flex column below keeps its own shape. */
     <div className="mx-auto w-full max-w-3xl">
     <section className="flex flex-col gap-7 pb-12">
+      {/* 🍎 In the app the More menu is not built (#6725): back is Home, where Papic's row lives. */}
       <Link
-        href={studioHubHref(eventId)}
+        href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
+        {appleIap ? 'Back to Home' : 'Back to add-ons'}
       </Link>
 
       {/*
@@ -865,6 +875,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         allotmentSet={allotmentSet}
         allotmentError={allotmentError}
         preserveError={preserveError}
+        appleIap={appleIap}
       />
 
       {/* 📍 ONE BAND, FIRST (owner "Yes", 2026-10-13): track · buy · see. */}
@@ -874,6 +885,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         canBuy
         buyOpen={Boolean(papicPoolError) || search.buy === '1'}
         error={papicPoolError ?? null}
+        apple={appleIap}
       />
 
       {/* ══ CREDITS ══════════════════════════════════════════════════
@@ -1017,7 +1029,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           SETUP job — pick a style, get the screen code — and it was sitting below
           the results it helps produce. */}
       <div className={`flex flex-col gap-7 ${ord('wall')}`}>
-      <LiveWallCard eventId={eventId} />
+      <LiveWallCard eventId={eventId} appleIap={appleIap} />
       </div>
       {/* ══ CAMERAS ══════════════════════════════════════════════════
           📍 YOUR CAMERAS, RIGHT UNDER THE BAND (owner "Yes", 2026-10-13 — band ·
@@ -1123,7 +1135,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             </div>
 
             {/* The ONLY off-list path — a videographer friend, a hired second
-                shooter. Unchanged; it simply lives behind this row now. */}
+                shooter. Unchanged; it simply lives behind this row now.
+                🍎 Sold on the web only (apply-then-pay) — not drawn in the app. */}
+            {appleIap ? null : (
             <div className="border-t border-ink/10 pt-4">
               <p className="text-sm font-semibold text-ink">
                 Add a camera that isn&rsquo;t on the guest list
@@ -1172,6 +1186,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 />
               </div>
             </div>
+            )}
           </SourceRow>
 
           <SourceRow
@@ -1201,6 +1216,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
               unlimitedPointsPerDay={papicTierConfig.unlimited.pointsPerDay}
               days={papicDays}
               windowSummary={papicWindowSummary}
+              appleIap={appleIap}
             />
           </SourceRow>
 
@@ -1289,6 +1305,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <GalleryPreviewCard
           eventId={eventId}
           openOnArrival={search.gallery === 'open'}
+          appleIap={appleIap}
           venue={{
             lat: ((ev as { venue_latitude?: number | null }).venue_latitude ?? null),
             lng: ((ev as { venue_longitude?: number | null }).venue_longitude ?? null),
@@ -1360,7 +1377,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
-            Setup &amp; help — DSLR pairing, the shutter, capture defaults
+            {appleIap ? 'Setup & help — the shutter, capture defaults' : 'Setup & help — DSLR pairing, the shutter, capture defaults'}
           </span>
           <ChevronRight
             aria-hidden
@@ -1369,7 +1386,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           />
         </summary>
         <div className="space-y-6 border-t border-ink/10 p-5">
-          <DslrBridgeSection pricePhp={cameraBridgePricePhp} />
+          {/* 🍎 DSLR pairing is a web extra ("not on sale yet", or its ₱) — not in the app. */}
+          {appleIap ? null : <DslrBridgeSection pricePhp={cameraBridgePricePhp} />}
           <ShutterSection />
           <CaptureDefaultsSection />
         </div>
@@ -1415,7 +1433,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           to open a room — the unlock bundle was the first thing in Cameras &
           shots. They are true and they are for sale; they are not what a person
           came here to do. */}
-      {papicUnlockPricePhp && !ownsPapicUnlock ? (
+      {/* 🍎 Both offers are sold on the web only (apply-then-pay) — neither is drawn in the app. */}
+      {!appleIap && papicUnlockPricePhp && !ownsPapicUnlock ? (
         <section className="flex flex-col gap-3 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h2 className="text-base font-semibold tracking-tight">
@@ -1444,7 +1463,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      {ownsKeepFullRes ? (
+      {appleIap ? null : ownsKeepFullRes ? (
         <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
           ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
           keep every full-resolution original for this event, undegraded.
@@ -1508,6 +1527,7 @@ function LimitedCard({
   unlimitedPointsPerDay,
   days,
   windowSummary,
+  appleIap = false,
 }: {
   eventId: string;
   guestCount: number;
@@ -1521,6 +1541,8 @@ function LimitedCard({
   unlimitedPointsPerDay: number | null;
   days: number;
   windowSummary: string;
+  /** 🍎 The iPhone app where Apple sells: the tiers are sold on the web only — counts, never a picker or a ₱. */
+  appleIap?: boolean;
 }) {
   const dayLabel = windowSummary || `${days} day${days === 1 ? '' : 's'}`;
   const active = status === 'active';
@@ -1538,8 +1560,7 @@ function LimitedCard({
           </p>
           <p className="max-w-prose text-xs text-ink/60">
             Everyone who hasn&rsquo;t declined gets their own camera + gallery —
-            their invite QR is the camera. Pick Limited or Unlimited for the whole
-            list.
+            their invite QR is the camera.{appleIap ? null : ' Pick Limited or Unlimited for the whole list.'}
           </p>
         </div>
         {live ? (
@@ -1592,12 +1613,16 @@ function LimitedCard({
         </p>
       ) : null}
 
-      {!live && guestCount < PAPIC_MIN_PAID_CAMERAS ? (
+      {appleIap && live ? null : appleIap || (!live && guestCount < PAPIC_MIN_PAID_CAMERAS) ? (
         <div className="mt-4 sn-row p-4 text-center">
           <p className="text-sm text-ink/65">
             {guestCount < 1
-              ? 'Add your guests first — Limited cameras come from your guest list.'
-              : `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
+              ? appleIap
+                ? 'Add your guests first — guest cameras come from your guest list.'
+                : 'Add your guests first — Limited cameras come from your guest list.'
+              : appleIap
+                ? `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free.`
+                : `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
           </p>
           <Link
             href={`/dashboard/${eventId}/guests`}
@@ -1663,6 +1688,7 @@ function StatusBanners({
   guestCameras,
   preserveSet,
   preserveError,
+  appleIap = false,
 }: {
   eventId: string;
   driveConnected: boolean;
@@ -1690,6 +1716,8 @@ function StatusBanners({
   guestCameras: string | undefined;
   preserveSet: string | undefined;
   preserveError: string | undefined;
+  /** 🍎 The iPhone app where Apple sells — no line that speaks of a web price. */
+  appleIap?: boolean;
 }) {
   const ok =
     'inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900';
@@ -1743,7 +1771,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {papicUnlockProvisioned} Unlimited camera
-          {papicUnlockProvisioned === '1' ? '' : 's'} added — free with Unlock all.
+          {papicUnlockProvisioned === '1' ? '' : 's'} added{appleIap ? '.' : ' — free with Unlock all.'}
         </p>
       ) : null}
 
@@ -1760,7 +1788,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Capture window saved — {papicWindowSaved} day
-          {papicWindowSaved === '1' ? '' : 's'}. Your camera prices reflect it.
+          {papicWindowSaved === '1' ? '' : 's'}.{appleIap ? null : ' Your camera prices reflect it.'}
         </p>
       ) : null}
 
@@ -2297,11 +2325,14 @@ async function GalleryPreviewCard({
   eventId,
   openOnArrival = false,
   venue,
+  appleIap = false,
 }: {
   eventId: string;
   openOnArrival?: boolean;
   /** The venue's coordinates, from the page's event read — for the gallery's clock. */
   venue: { lat: number | null; lng: number | null };
+  /** 🍎 The iPhone app where Apple sells — the keep-at-full-size ₱ line is not drawn. */
+  appleIap?: boolean;
 }) {
   const supabase = await createClient();
 
@@ -2413,7 +2444,7 @@ async function GalleryPreviewCard({
           eventId={eventId}
           timeZone={galleryTimeZone}
           kwentoDensity={kwentoDensity}
-          preservationTotals={preservationTotals}
+          preservationTotals={appleIap ? null : preservationTotals}
           chapters={galleryChapters}
           openOnArrival={openOnArrival}
         />

@@ -121,7 +121,8 @@ test('the iOS build announces the plugin it carries — and Android never claims
   const cfg = raw(join(MOBILE, 'capacitor.config.ts'));
   const ios = /ios:\s*\{[\s\S]*?appendUserAgent:\s*'([^']+)'/.exec(cfg);
   assert.ok(ios, 'the iOS block must declare its own appendUserAgent');
-  assert.match(ios[1]!, /\bSetnayanIAP\/1\b/);
+  /* RE-AIMED 2026-10-21 (owner): the build that sells is 1.1, `SetnayanIAP/2` — `/1` is build 5's and never sells. */
+  assert.match(ios[1]!, /\bSetnayanIAP\/2\b/);
   assert.match(ios[1]!, /\bSetnayanApp\b/, 'the iOS UA still reads as the store shell');
   assert.match(ios[1]!, /\bSetnayanSignIn\/1\b/, 'the iOS UA still announces native sign-in');
   const global = /\n {2}appendUserAgent:\s*'([^']+)'/.exec(cfg);

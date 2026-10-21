@@ -16,7 +16,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
  *
  * It is ONE of three conditions (`lib/iap/iap-gate.ts`): this switch, the
  * store shell, and a phone build that carries the StoreKit plugin
- * (`SetnayanIAP/1` in its user-agent). An app already in people's hands has no
+ * (`SetnayanIAP/2`+ in its user-agent — 1.1; build 5's `/1` never sells). An app already in people's hands has no
  * plugin and never sees a buy button, whatever this says.
  *
  * NEXT_PUBLIC_ so the server (what to render) and the client (whether to ask

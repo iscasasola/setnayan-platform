@@ -8,6 +8,7 @@ import { FaceTaggingRow } from './face-tagging-row';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * ME — the guest's own tab (owner 2026-09-26/27: Invitation bar Home · Details ·
@@ -31,6 +32,17 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
  *
  * Their own QR pass and "Photos of you" stay where they already live in this
  * section (`GuestHubBar`'s Me) — this is mounted INTO it, never a second Me.
+ *
+ * 🃏 EACH TOPIC SITS ON THE HUB'S OWN SCENE CARD (owner 2026-10-21, "Yes to all"
+ * on guest_page_fixes_2_4, fix 2: *"Text sits straight on the cover photo
+ * (unreadable)"*). Me was the one tab whose words sat bare on the couple's
+ * photo; every scene above it already wears `.sn-hub-cards > section`
+ * (globals.css — paper, 14 px corners, the 1 px hairline and soft shadow, kept
+ * identical by the owner's answer). So this column IS `sn-hub-cards`, and each
+ * topic is one of its sections: their name + Your guests · Face tagging · The
+ * celebrants · Save to my account. No new CSS; a topic with nothing to say
+ * draws no section, so there is never an empty card. Dark is the couple's look
+ * (Candlelight): the card is `--color-cream`, which follows the paper.
  */
 export function GuestMe({
   name,
@@ -43,7 +55,6 @@ export function GuestMe({
   askPlusOnes,
   eventName,
   guests,
-  passes,
   passCards = null,
   account,
   personalLink,
@@ -76,7 +87,6 @@ export function GuestMe({
   askPlusOnes: boolean;
   eventName: string;
   guests: { guestId: string; name: string | null; inviteUrl: string | null }[];
-  passes: Readonly<Record<string, string>>;
   /** The pass cards this guest may save (lib/pass-card.ts) — their own and each
    *  named plus-one's who is coming. Null: they have no card yet. */
   passCards?: { own: string; plusOnes: Readonly<Record<string, string>> } | null;
@@ -98,22 +108,23 @@ export function GuestMe({
   profileName?: { name: string; adopt: AdoptSeatName } | null;
 }) {
   return (
-    <div className="space-y-6" data-guest-me>
-      <div className="space-y-1">
-        <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
-        {profileName ? (
-          <UseOnProfile eventId={eventId} guestId={guestId} name={profileName.name} adopt={profileName.adopt} />
-        ) : null}
-      </div>
-      <YourGuests
-        guests={guests}
-        eventName={eventName}
-        addNamesHref={`/${slug}/invite/reply#plus-ones`}
-        addName={askPlusOnes ? { eventId, guestId, askMeal, askDietary } : undefined}
-        passes={passes}
-        inviteFacts={inviteFacts}
-        passCards={passCards}
-      />
+    <div className="sn-hub-cards space-y-4" data-guest-me>
+      <section className="space-y-5" data-me-card="guests">
+        <div className="space-y-1">
+          <p className="font-serif text-2xl leading-tight text-ink">{displayPersonName(name)}</p>
+          {profileName ? (
+            <UseOnProfile eventId={eventId} guestId={guestId} name={profileName.name} adopt={profileName.adopt} />
+          ) : null}
+        </div>
+        <YourGuests
+          guests={guests}
+          eventName={eventName}
+          addNamesHref={`/${slug}/invite/reply#plus-ones`}
+          addName={askPlusOnes ? { eventId, guestId, askMeal, askDietary } : undefined}
+          inviteFacts={inviteFacts}
+          passCards={passCards}
+        />
+      </section>
       {faceTagging ? <FaceTaggingRow {...faceTagging} /> : null}
       <EventCelebrants
         eventId={eventId}
@@ -122,14 +133,16 @@ export function GuestMe({
         actions={celebrantActions}
       />
       {account ? (
-        <SaveToAccount
-          state={account}
-          eventId={eventId}
-          slug={slug}
-          personalLink={personalLink}
-          userAgent={userAgent}
-          termsCarried={termsCarried}
-        />
+        <section data-me-card="account">
+          <SaveToAccount
+            state={account}
+            eventId={eventId}
+            slug={slug}
+            personalLink={personalLink}
+            userAgent={userAgent}
+            termsCarried={termsCarried}
+          />
+        </section>
       ) : null}
     </div>
   );

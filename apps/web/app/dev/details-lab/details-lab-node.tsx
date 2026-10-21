@@ -201,13 +201,15 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                 : fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
-              /* 🔀 `&order=b` — the event's name stored the other way round ("Indalecio & Claire", the owner's own,
-                 2026-10-21): the Event name row and its Name order ▾ read it as stored (`nameOrderOf`). */
-              storedName: mj
-                ? 'Maria & Jose'
-                : fresh
+              /* 🔀 `&order=b` — the event's name stored the other way round ("Indalecio & Claire" — the owner's own,
+                 2026-10-21 — or "Jose & Maria" in the Maker lab): the Event name row and its Name order ▾ read it as stored (`nameOrderOf`). */
+              storedName: fresh
                 ? null
-                : coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, one('order') === 'b' ? 'b-first' : 'a-first').display_name,
+                : coupleNameColumns(
+                    { first: mj ? 'Maria' : 'Claire', last: '' },
+                    { first: mj ? 'Jose' : 'Indalecio', last: '' },
+                    one('order') === 'b' ? 'b-first' : 'a-first',
+                  ).display_name,
               wholeForm: null,
             }
           : null,

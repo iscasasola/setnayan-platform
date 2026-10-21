@@ -27,6 +27,10 @@ filter, Select → Set reply ▾ Attending / Not coming, and "Marked by you" on 
 - **NOT built: auto-release from the GUEST's reply** (decline / "no +1") — it contradicts the 2026-09-29 rulings
   (#6145: "nothing is ever removed from the guest side"; #6151: the +0…+4 is "a host decision"), and the reply has no
   "no +1" answer (a blank name is "+2 · TBA", ruled). Waiting on the owner. A HOST's Not coming does release.
+- **With #6728's trigger** (a guest's +N IS their +1 rows): Release soft-deletes the CHOSEN seat first, THEN lowers the
+  number — the trigger then finds nothing more to take (no double delete); the Undo restores the row first, then the
+  number — nothing is minted beside it. Held by `tests/db/a-released-seat-is-taken-once.db.test.ts` (the real trigger)
+  and the unit harness's model of it.
 - Guards: `a-seat-with-no-name-can-be-released.test.ts` (8) and `the-counts-filter-what-they-count.test.ts` (7), run over
   the real actions on an in-memory database (`guests-db.harness.ts`); 16 sabotages, all RED.
 

@@ -30,6 +30,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { startRead } from '@/lib/start-read';
 import { formatPhp } from '@/lib/orders';
 import { eventSkuActive } from '@/lib/entitlements';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -270,10 +272,97 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   } = search;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⏱ The SAME ask the dashboard layout makes (`getCurrentUser` is cache()d per render), so the
+  // page no longer pays a second auth round trip of its own before its first read.
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  /*
+    ⏱ THE PAGE'S INDEPENDENT READS START TOGETHER, RIGHT AFTER THE GATE (2026-10-22, "the
+    couple's Studio › Papic page is slow"). Measured in the lab before this change: the loader
+    asked ~17 questions ONE AFTER ANOTHER — the event row, the Drive grant, the Drive config,
+    the camera rates, the tier config, the One tiers, the entitlement client, then the catalogue
+    batch, the guest counts — though none of them needs another's answer.
+
+    Each is STARTED here (`startRead`) and awaited at the SAME place it always was, so every
+    `if (error)`, every graceful-degrade branch and every fallback below reads exactly as before.
+    What did not move:
+      · the event row's `notFound()` still comes before anything is USED — a rejected
+        entitlement ask (a visitor who is not a host) is held by `startRead`, not thrown, until
+        the place that awaits it, which is after `notFound()`;
+      · every self-heal WRITE (free cameras, free pool, uploads camera) still runs only after
+        the event row is confirmed AND the host-only entitlement client has answered (the
+        catalogue batch is where it is first awaited — a non-host is refused there, before any
+        service-role write), and every read that must SEE those writes (the uploads seat,
+        the claim-link seats, the extra cameras, the standings) is still asked after them.
+    🔒 `the-papic-page-opens-fast.test.ts` holds both halves.
+  */
+  const unlockAdmin = createAdminClient();
+  const eventRead = startRead(
+    supabase
+      .from('events')
+      .select(
+        'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_style, papic_uploads_open, papic_on, venue_latitude, venue_longitude',
+      )
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
+  const driveGrantRead = startRead(
+    supabase
+      .from('oauth_grants')
+      .select('grant_id, external_account_display, granted_at, connection_health, metadata')
+      .eq('event_id', eventId)
+      .eq('provider', 'drive')
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => r.data ?? null),
+  );
+  const driveConfigRead = startRead(getDriveOAuthConfig());
+  const cameraRatesRead = startRead(fetchCameraRates(supabase));
+  const papicTierConfigRead = startRead(fetchPapicTierConfig(supabase));
+  const papicOneTiersRead = startRead(fetchPapicOneTiers(supabase));
+  // The entitlement client is asked ONCE (it is cache()d per event); each SKU waits on it alone.
+  const entitlementClientRead = startRead(eventEntitlementClient(eventId));
+  const ownsSkuRead = (sku: string) =>
+    startRead(entitlementClientRead.then((ent) => eventSkuActive(ent, eventId, sku)));
+  const unlockPkgRead = startRead(
+    unlockAdmin
+      .from('platform_package_catalog')
+      .select('retail_price_php, is_active')
+      .eq('package_code', 'PAPIC_UNLOCK')
+      .maybeSingle(),
+  );
+  const ownsPapicUnlockRead = ownsSkuRead('PAPIC_UNLOCK');
+  const ownsPapicUnlockLtdRead = ownsSkuRead('PAPIC_UNLOCK_LTD');
+  const papicPlatformSettingsRead = startRead(fetchPlatformSettings(supabase));
+  const keepFullResRowRead = startRead(
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'HIGH_RES_ARCHIVE')
+      .maybeSingle(),
+  );
+  const ownsKeepFullResRead = ownsSkuRead('HIGH_RES_ARCHIVE');
+  const cameraBridgeRowRead = startRead(
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'CAMERA_BRIDGE')
+      .maybeSingle(),
+  );
+  // The guest list and its snapshot read guests + snapshots, which no self-heal below writes.
+  const limitedGuestCountRead = startRead(countLimitedGuests(supabase, eventId));
+  const limitedSnapshotRead = startRead(fetchActiveLimitedSnapshot(supabase, eventId));
+  // Guest-bound seats only (`guest_id` set). The free and uploads cameras provisioned below are
+  // never guest-bound, so asking before them reads the same number as asking after.
+  const guestCameraCountRead = startRead(
+    supabase
+      .from('paparazzi_seats')
+      .select('seat_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .not('guest_id', 'is', null)
+      .is('revoked_at', null),
+  );
 
   /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (version 1.1 — `IAP_OPENED_ROUTE` in lib/store-shell.ts; middleware opens
      this page there ONLY then). `appleIap` true ⇒ the page draws no web price, no GCash / BDO, no web link: Buy more
@@ -283,13 +372,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
      changes. Held by `lib/the-app-opens-what-apple-sells.test.ts`. */
   const appleIap = (await getIapGate()).iap;
 
-  const { data: event, error: eventError } = await supabase
-    .from('events')
-    .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_style, papic_uploads_open, papic_on, venue_latitude, venue_longitude',
-    )
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const { data: event, error: eventError } = await eventRead;
   // ⚠ the event this page reads against. Refused, it degrades rather than claiming.
   if (eventError) {
     logQueryError('PapicStudioPage.event', eventError, { eventId }, 'graceful_degrade');
@@ -332,26 +415,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // read and its answer was destructured into `ownsPapicSeats` and then
   // referenced NOWHERE in 1,785 lines. Splitting the page into three rooms would
   // only have made it easier to keep paying for an answer nobody asks for.
-  const grantRaw = await supabase
-    .from('oauth_grants')
-    .select('grant_id, external_account_display, granted_at, connection_health, metadata')
-    .eq('event_id', eventId)
-    .eq('provider', 'drive')
-    .is('revoked_at', null)
-    .maybeSingle()
-    .then((r) => r.data ?? null);
+  // (asked above, with the page's other independent reads)
+  const [grantRaw, driveConfig, cameraRates, papicTierConfig, papicOneTiers] = await Promise.all([
+    driveGrantRead,
+    driveConfigRead,
+    // Live admin-managed rates + per-tier caps.
+    cameraRatesRead,
+    papicTierConfigRead,
+    // The LIFETIME bucket each per-camera rung actually grants. Read from
+    // papic_one_tiers because that is the table papic_grant_camera_points()
+    // reads on approval — see the comment on `rungPoints` below.
+    papicOneTiersRead,
+  ]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
-
-  const driveConfig = await getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
-
-  // Live admin-managed rates + per-tier caps.
-  const cameraRates = await fetchCameraRates(supabase);
-  const papicTierConfig = await fetchPapicTierConfig(supabase);
-  // The LIFETIME bucket each per-camera rung actually grants. Read from
-  // papic_one_tiers because that is the table papic_grant_camera_points()
-  // reads on approval — see the comment on `rungPoints` below.
-  const papicOneTiers = await fetchPapicOneTiers(supabase);
   // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
   // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
   // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
@@ -528,7 +605,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // is gone rather than guarded.
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
-  const unlockAdmin = createAdminClient();
+  // (each started above, with the page's other independent reads)
   const [
     { data: unlockPkg, error: unlockPkgError },
     ownsPapicUnlock,
@@ -538,32 +615,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     ownsKeepFullRes,
     { data: cameraBridgeRow, error: cameraBridgeRowError },
   ] = await Promise.all([
-    unlockAdmin
-      .from('platform_package_catalog')
-      .select('retail_price_php, is_active')
-      .eq('package_code', 'PAPIC_UNLOCK')
-      .maybeSingle(),
-    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK'),
+    unlockPkgRead,
+    ownsPapicUnlockRead,
     // The ₱9,000 twin frees the ₱30 rung it was sold against — today's Mini
     // (legacy 'roll'). It does NOT cover the new ₱50 Ltd rung. See
     // lib/papic-cameras.ts CameraQuoteOpts.
-    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK_LTD'),
-    fetchPlatformSettings(supabase),
+    ownsPapicUnlockLtdRead,
+    papicPlatformSettingsRead,
     // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
-    unlockAdmin
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php, is_active')
-      .eq('service_code', 'HIGH_RES_ARCHIVE')
-      .maybeSingle(),
-    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'HIGH_RES_ARCHIVE'),
+    keepFullResRowRead,
+    ownsKeepFullResRead,
     // The DSLR bridge's price comes from the catalogue, never from copy — and
     // only while the row is ACTIVE. CAMERA_BRIDGE was retired (migration
     // 20270828170000), so today this resolves to "no price, nothing to buy".
-    unlockAdmin
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php, is_active')
-      .eq('service_code', 'CAMERA_BRIDGE')
-      .maybeSingle(),
+    cameraBridgeRowRead,
   ]);
   if (unlockPkgError) {
     logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');
@@ -590,7 +655,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // capture-points gate has real seats to meter — the advertised free allowance
   // is ENFORCED at the seams, never display-only. Best-effort (returns 0 on any
   // hiccup; the next render retries). Their claim links live on /crew.
-  await provisionFreeCamerasAdmin(unlockAdmin, eventId, {
+  const freeCamerasHeal = provisionFreeCamerasAdmin(unlockAdmin, eventId, {
     validFrom: papicWindow.startIso,
     validUntil: papicWindow.endIso,
   });
@@ -613,15 +678,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // off event takes no capture at all (`eventAcceptsNewCaptures`), so it has
   // nothing to meter, and arming it here would undo the couple's answer. An
   // unread switch arms, the self-heal's own direction.
-  if (!papicAnsweredNo) {
-    await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
-    // 🔌 THE FREE "ONE" CAMERA IS NO LONGER ARMED ON EVERY VIEW (owner 2026-10-13,
-    // "Add all" — the tester's "drop the retired free-camera call"). Papic One
-    // was retired as a product on 2026-08-11; asking for its camera on every
-    // view of this page was a request per view for a camera nobody is sold.
-    // Event creation still arms it (its promise on /pricing stands until the
-    // owner retires it there); existing ones keep working.
-  }
+  const freePoolHeal = (async () => {
+    if (!papicAnsweredNo) {
+      await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
+      // 🔌 THE FREE "ONE" CAMERA IS NO LONGER ARMED ON EVERY VIEW (owner 2026-10-13,
+      // "Add all" — the tester's "drop the retired free-camera call"). Papic One
+      // was retired as a product on 2026-08-11; asking for its camera on every
+      // view of this page was a request per view for a camera nobody is sold.
+      // Event creation still arms it (its promise on /pricing stands until the
+      // owner retires it there); existing ones keep working.
+    }
+  })();
 
   // …and the couple's own UPLOADS camera — the shutter that is a file picker.
   // Owner 2026-08-26: "papic is the source where they collect media files for
@@ -640,10 +707,26 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Same window as every other camera: `captureWindowState` returns 'open' on
   // null bounds, so a null-window seat would be the only one in the product
   // exempt from the dates the couple picked.
-  await provisionUploadsCameraAdmin(unlockAdmin, eventId, {
+  const uploadsCameraHeal = provisionUploadsCameraAdmin(unlockAdmin, eventId, {
     validFrom: papicWindow.startIso,
     validUntil: papicWindow.endIso,
   });
+
+  // ⏱ THE THREE SELF-HEALS RUN TOGETHER. Three different rows (seats 100..102, the event's pool
+  // grant, seat 150), none reads another's, and each is best-effort and never throws — so one
+  // trip for all three instead of one each. Every read below that must SEE them waits for all.
+  await Promise.all([freeCamerasHeal, freePoolHeal, uploadsCameraHeal]);
+  // The uploads seat is read back now (it must see the heal above) and awaited further down, so
+  // it travels alongside the guest-list sync instead of in front of it.
+  const uploadsSeatRead = startRead(
+    unlockAdmin
+      .from('paparazzi_seats')
+      .select('claim_qr_token, claimer_user_id')
+      .eq('event_id', eventId)
+      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .is('revoked_at', null)
+      .maybeSingle(),
+  );
 
   // …then read it back, so the studio can either offer the picker or offer to
   // turn it on. Admin client on purpose: `paparazzi_seats_claimer_read` only
@@ -663,30 +746,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     (((uploadsRow as { papic_uploads_open?: boolean | null } | null)?.papic_uploads_open) ?? true) !==
     false;
 
-  let uploadsToken: string | null = null;
-  let uploadsClaimed = false;
-  {
-    const { data: up, error: upErr } = await unlockAdmin
-      .from('paparazzi_seats')
-      .select('claim_qr_token, claimer_user_id')
-      .eq('event_id', eventId)
-      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-      .is('revoked_at', null)
-      .maybeSingle();
-    if (upErr) {
-      logQueryError('PapicStudioPage.uploadsCamera', upErr, { eventId }, 'graceful_degrade');
-    } else if (up) {
-      uploadsClaimed = !!up.claimer_user_id && up.claimer_user_id === user.id;
-      uploadsToken = uploadsClaimed ? ((up.claim_qr_token as string) ?? null) : null;
-    }
-  }
-
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
   // the bill; render-time sync keeps cameras in line with late RSVPs (free,
   // within the cap).
-  const limitedGuestCount = await countLimitedGuests(supabase, eventId);
-  const limitedSnapshot = await fetchActiveLimitedSnapshot(supabase, eventId);
+  const limitedGuestCount = await limitedGuestCountRead;
+  const limitedSnapshot = await limitedSnapshotRead;
   let limitedStatus: LimitedSnapshotStatus | null = limitedSnapshot?.status ?? null;
   // ⚠ A COUNT IS THE SAME DEFECT WEARING A DIFFERENT DESTRUCTURE. Supabase
   // ⚠ RESOLVES with { error } rather than throwing, so a refused count arrives
@@ -694,12 +759,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // ⚠ couple whose guests all hold a camera that "0 cameras" are ready.
   let guestCameraCount: number | null = 0;
   {
-    const { count, error: guestCameraCountError } = await supabase
-      .from('paparazzi_seats')
-      .select('seat_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .not('guest_id', 'is', null)
-      .is('revoked_at', null);
+    const { count, error: guestCameraCountError } = await guestCameraCountRead;
     if (guestCameraCountError) {
       logQueryError(
         'PapicPage.guestCameraCount',
@@ -746,15 +806,42 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   );
   const limitedTier = (limitedSnapshot?.tier ?? null) as 'roll' | 'unlimited' | null;
 
-  // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
-  let extraCameraCount: number | null = 0;
-  {
-    const { count, error: extraCameraCountError } = await supabase
+  /* ⏱ THE LAST WAVE — every read that must see the self-heals AND the guest sync above, started
+     together: the uploads seat (started above), the extra cameras, the claim-link seats and the
+     standings. Each is still awaited where it always was. */
+  const extraCameraCountRead = startRead(
+    supabase
       .from('paparazzi_seats')
       .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .eq('tier', 'unlimited')
-      .is('revoked_at', null);
+      .is('revoked_at', null),
+  );
+  const claimSeatRowsRead = startRead(
+    supabase
+      .from('paparazzi_seats')
+      .select('claimer_user_id')
+      .eq('event_id', eventId)
+      .is('revoked_at', null),
+  );
+  const standingsRead = startRead(readPapicStandings(createAdminClient(), eventId));
+
+  let uploadsToken: string | null = null;
+  let uploadsClaimed = false;
+  {
+    const { data: up, error: upErr } = await uploadsSeatRead;
+    if (upErr) {
+      logQueryError('PapicStudioPage.uploadsCamera', upErr, { eventId }, 'graceful_degrade');
+    } else if (up) {
+      uploadsClaimed = !!up.claimer_user_id && up.claimer_user_id === user.id;
+      uploadsToken = uploadsClaimed ? ((up.claim_qr_token as string) ?? null) : null;
+    }
+  }
+
+  // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
+  let extraCameraCount: number | null = 0;
+  {
+    const { count, error: extraCameraCountError } = await extraCameraCountRead;
     if (extraCameraCountError) {
       logQueryError(
         'PapicPage.extraCameraCount',
@@ -773,11 +860,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   let claimLinkTotal = 0;
   let claimLinkUnclaimed = 0;
   {
-    const { data: seatRows, error: seatRowsError } = await supabase
-      .from('paparazzi_seats')
-      .select('claimer_user_id')
-      .eq('event_id', eventId)
-      .is('revoked_at', null);
+    const { data: seatRows, error: seatRowsError } = await claimSeatRowsRead;
     // ⚠ THE CAMERAS THE COUPLE HANDED OUT. Refused, the crew list empties and every
     // ⚠ seat they set up reads as never claimed — their own setup, gone.
     if (seatRowsError) {
@@ -795,7 +878,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // empty (roll or photographs) and the facts strip on its edge reports the same
   // three numbers. Two components counting the same thing is a definition twice,
   // and this page has already paid for that shape once.
-  const standings = await readPapicStandings(createAdminClient(), eventId);
+  const standings = await standingsRead;
 
   /* 📍 THE TOP BAND (owner "Yes", 2026-10-13): credits left · Buy more · See N
      photos, and when the cameras are on — worked out from the standings just
@@ -2158,14 +2241,27 @@ async function DriveConnectedPanel({
   // The 2nd Drive (owner 2026-07-11 · up to 2 Drives per event). Queried here so
   // the connected panel can show its state without threading through 3 parents.
   const overflowSupabase = await createClient();
-  const overflowGrant = (await overflowSupabase
-    .from('oauth_grants')
-    .select('external_account_display, connection_health')
-    .eq('event_id', eventId)
-    .eq('provider', 'drive_overflow')
-    .is('revoked_at', null)
-    .maybeSingle()
-    .then((r) => r.data ?? null)) as {
+  // ⏱ The 2nd Drive and the "storage is full" count need nothing from each other — both start now.
+  const overflowGrantRead = startRead(
+    overflowSupabase
+      .from('oauth_grants')
+      .select('external_account_display, connection_health')
+      .eq('event_id', eventId)
+      .eq('provider', 'drive_overflow')
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => r.data ?? null),
+  );
+  const strandedFullRead = startRead(
+    overflowSupabase
+      .from('drive_copy_artifacts')
+      .select('artifact_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('drive_file_id', null)
+      .gte('attempt_count', 5)
+      .ilike('last_error_text', '%storageQuotaExceeded%'),
+  );
+  const overflowGrant = (await overflowGrantRead) as {
     external_account_display: string | null;
     connection_health: 'ok' | 'needs_reauth' | null;
   } | null;
@@ -2174,16 +2270,7 @@ async function DriveConnectedPanel({
   // Drive-quota error (Drive #1 full and no usable overflow, or BOTH full). The
   // web gallery is always safe on R2 — this only means some full-res didn't reach
   // Drive. Count is capped at 1 (head:true) — we only need "any".
-  const strandedFull =
-    (
-      await overflowSupabase
-        .from('drive_copy_artifacts')
-        .select('artifact_id', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .is('drive_file_id', null)
-        .gte('attempt_count', 5)
-        .ilike('last_error_text', '%storageQuotaExceeded%')
-    ).count ?? 0;
+  const strandedFull = (await strandedFullRead).count ?? 0;
   const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
     year: 'numeric',
     month: 'short',
@@ -2351,6 +2438,11 @@ async function GalleryPreviewCard({
   // 🔌 The venue rides the page's one event read now (2026-10-14, least requests).
   const galleryTimeZone = eventTimezoneFromCoords(venue.lat, venue.lng);
 
+  // ⏱ The run of show is STARTED with the gallery's own reads (it needs none of their answers) and
+  // awaited where it always was, inside the try below — so a refused schedule still fails to the
+  // flat grid, exactly as before, instead of costing one more trip after the photos arrive.
+  const scheduleBlocksRead = startRead(fetchScheduleBlocks(supabase, eventId));
+
   const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
     getKwentoDensity(eventId, 60),
@@ -2385,7 +2477,7 @@ async function GalleryPreviewCard({
     | { key: string; label: string; photoIds: string[] }[]
     | undefined;
   try {
-    const blocks = await fetchScheduleBlocks(supabase, eventId);
+    const blocks = await scheduleBlocksRead;
     if (blocks.length > 0 && photos.length > 0) {
       const { days } = groupIntoChapters({
         frames: photos.map((ph) => ({ id: ph.id, capturedAt: ph.capturedAt })),

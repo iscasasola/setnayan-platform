@@ -93,7 +93,7 @@ function assertTieWearers(html: string, where: string) {
   });
 }
 
-test('2a · the Studio’s Guests row draws the men in black with the palette on the tie — and says "Tie"', async () => {
+test('2a · the Studio’s Guests row draws the men in black with the palette on the tie — and says "Tie & accent"', async () => {
   const { MoodBoardStudio } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio');
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
@@ -199,6 +199,8 @@ test('4 · a guest man in a Barong Tagalog or Smart casual: the top wears the pa
 /* ── 5 · an entourage man: three controls ─────────────────────────────────── */
 
 test('5 · every entourage man in a suit, tuxedo or vest design has three controls — Coat & pants · Tie & accent · Long sleeves', async () => {
+  /* the owner's own words, as he wrote them (DECISION_LOG 2026-10-21) — the one place they are spelled out */
+  assert.deepEqual([COAT_AND_PANTS, TIE_AND_ACCENT, LONG_SLEEVES], ['Coat & pants', 'Tie & accent', 'Long sleeves'], 'the three controls are not in the owner’s words');
   const C = ['#2B3A55', '#7A1F3D', '#F3E5B9'];
   let checked = 0;
   for (const role of FIGURE_ROLES) {

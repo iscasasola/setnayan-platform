@@ -255,7 +255,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, logoNext = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean }) {
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -273,7 +273,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: 
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,
-        profileDone: 4,
+        profileDone: logoNext ? 6 : 4,
         profileTotal: 6,
         hasLogo: false,
         serviceCount: 0,

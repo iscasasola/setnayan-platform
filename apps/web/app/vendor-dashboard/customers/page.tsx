@@ -857,7 +857,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?seg=dates" /> : null}
       {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`). */}
-      <div id="calendar" className="scroll-mt-24" data-tour="dates-calendar">
+      <div id="calendar" className="scroll-mt-24">
         {blocksIncomplete ? (
           <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
             Some of your blocked dates couldn&rsquo;t load, so a date you closed may show as open

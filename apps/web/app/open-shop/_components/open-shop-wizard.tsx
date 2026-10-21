@@ -699,7 +699,7 @@ export function OpenShopWizard({
                   onPick={setSince}
                   buttonText={since ? undefined : 'Pick a year'}
                   dataAttr="data-open-shop-since-pick"
-                  className="min-h-11 w-full"
+                  className="input-field min-h-11 w-full justify-between"
                 />
               </div>
             )}

@@ -35,6 +35,8 @@
  * `isStoreShellRequest()` in lib/request-platform.ts.
  */
 
+import { asksForMoreServices } from './studio-hub';
+
 const CLIENT_TYPE_COOKIE = 'setnayan-client-type';
 
 /**
@@ -294,6 +296,15 @@ export function isStoreShellWebOnlyPath(pathname: string): boolean {
  * the app would answer with /web-only. Pure; `StoreShellLinkGuard`
  * (app/_components/store-shell-link-guard.tsx) is the client that applies it.
  * Fragments, mailto:, tel: and other origins are never hidden.
+ *
+ * 🍎 ALSO THE MORE MENU'S ADDRESS (`studioHubHref` — Home `?more=services`).
+ * In the app the More menu is not built (#6725): every service it lists is a
+ * paid web extra (`STORE_SHELL_HIDDEN_ADDON_KEYS`), so the list is empty and
+ * the address only re-opens Home. "Open Services", "More Services", "Back to
+ * add-ons" and every other link to it were a dead jump to Home in the app
+ * (2026-10-21). Pages that draw one gate it server-side; this is the net
+ * under them, the same way as the refused routes. Held by
+ * `lib/the-app-names-no-paid-service.test.ts`.
  */
 export function storeShellHidesHref(href: string | null | undefined, currentUrl: string): boolean {
   if (!href) return false;
@@ -306,6 +317,7 @@ export function storeShellHidesHref(href: string | null | undefined, currentUrl:
     return false;
   }
   if (url.origin !== here.origin) return false;
+  if (asksForMoreServices(url.search)) return true;
   return isStoreShellWebOnlyPath(url.pathname);
 }
 

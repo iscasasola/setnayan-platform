@@ -3987,7 +3987,9 @@ export function ShortlistCategories({
                                 empty (the offer's "first" gate). */}
                             {isSaiAssistFreeForCategory(t.category) &&
                             t.vendors.length === 0 ? (
-                              <span className="cat-free">{FREE_VENUE_ASSIST_CHIP}</span>
+                              /* 🍎 `data-web-only`: the chip advertises Setnayan AI's free first
+                                 shortlist — a paid web extra the iPhone app does not offer. */
+                              <span className="cat-free" data-web-only="">{FREE_VENUE_ASSIST_CHIP}</span>
                             ) : null}
                             {t.planned && t.vendors.length === 0 ? (
                               <span className="cat-plan">In your plan</span>

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import {
@@ -173,42 +174,43 @@ export function VendorPaymentLive({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`vendor-pay-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_vendor_payments',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_vendor_line_items',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          if (subscribedOnce.current) void refetch();
-          subscribedOnce.current = true;
-        }
-      });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    // 🔌 A console left in a background tab lets the channel go after a while (`pauseWhileHidden`); coming back
+    // re-subscribes, and the re-SUBSCRIBED below re-pulls — a payment logged meanwhile is on screen.
+    return pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`vendor-pay-${threadId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_vendor_payments',
+            filter: `event_id=eq.${eventId}`,
+          },
+          () => {
+            void refetch();
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_vendor_line_items',
+            filter: `event_id=eq.${eventId}`,
+          },
+          () => {
+            void refetch();
+          },
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (subscribedOnce.current) void refetch();
+            subscribedOnce.current = true;
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
   }, [threadId, eventId, refetch]);
 
   return (

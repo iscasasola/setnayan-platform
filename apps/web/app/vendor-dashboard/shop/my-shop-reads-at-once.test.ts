@@ -91,6 +91,15 @@ test('the reads that moved with door 1 stay off My Shop', () => {
     'fetchPendingSignupCoverageSuggestion',
     'fetchVendorServicePickerVocab',
     'readContactStamps',
+    // ✂ 2026-10-21 (owner "Yes to all", item 4): the six number tiles left My
+    // Shop for Shop › How it is going, and these are the reads that fed them.
+    'fetchReviewStats',
+    'count_saves_for_vendor',
+    'vendor_profile_views',
+    'vendor_partnerships',
+    'fetchVendorPoolBookings',
+    'loadVendorFeaturedStories',
+    'loadVendorRecaps',
   ]) {
     assert.ok(!code.includes(reader), `${reader} is back on My Shop — it belongs to the screen that draws it`);
   }

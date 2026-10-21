@@ -59,6 +59,11 @@ export type LoveStoryBookProps = {
   /** 💎 Pro is usable because it is being TRIED (no Event Hub Pro yet) — Apply asks. */
   tryingPro?: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The iPhone app where Apple sells Pro at Apply (`getIapGate().iap`): Pro is TRIED there as on the web, so the
+   * ◆ mark says so — never a price or a link (those keep `storeShell`). Absent = false.
+   */
+  appleIap?: boolean;
   proHref: string;
   proPrice: string | null;
   /** `?pro=` from a refused write — the line is drawn at the top. */
@@ -357,7 +362,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
             <p className="text-[14px] text-[color:var(--ls-muted)]">
-              {p.tryingPro && !p.storeShell ? (
+              {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
                   <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />

@@ -25,6 +25,9 @@
  *                                    services carries Papic · Buy more and Live Watch · Activate
  *                                    (or "On"). Prices come from StoreKit — in a browser there is
  *                                    none, so a walk injects a stand-in `window.Capacitor`.
+ *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
+ *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
+ *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
  *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
@@ -53,6 +56,7 @@ import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import { ApplyProSheetLab } from './apply-pro-sheet-lab';
+import { liveWatchHomeStatus } from '@/lib/iap/where-bought';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatPhp } from '@/lib/php';
 import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
@@ -133,7 +137,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -239,7 +243,7 @@ export default async function HomeLab({
     const band = (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
-          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} />
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} apple={q.apple === '1'} />
         </div>
       </div>
     );
@@ -308,10 +312,19 @@ export default async function HomeLab({
         apple={
           q.store === '1' && q.apple === '1'
             ? {
-                papic: { status: papicNow.status, buy: true },
+                papic: { status: papicNow.status, buy: true, open: q.v11 === '1' ? `/dashboard/${E}/studio/papic` : null },
                 liveWatch:
                   q.live === 'on'
-                    ? { status: 'On', owned: true, askReady: false }
+                    ? {
+                        status: liveWatchHomeStatus({
+                          active: true,
+                          owned: true,
+                          where: q.bought === 'web' ? 'web' : q.bought === 'app' ? 'app' : null,
+                        }),
+                        owned: true,
+                        askReady: false,
+                        goLive: q.v11 === '1' ? `/panood/control/${E}` : null,
+                      }
                     : { status: 'Not on yet · one camera is free', owned: false, askReady: true },
               }
             : null

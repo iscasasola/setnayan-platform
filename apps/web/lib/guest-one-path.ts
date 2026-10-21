@@ -90,6 +90,12 @@ export function resolveGuestViewer(input: {
  *   linked         — "Linked to <email> ✓". Only NOW may the host pitch show.
  *   held_elsewhere — signed in, but the seat is bound to a DIFFERENT account.
  *                    Said plainly, never silently re-bound.
+ *   host_viewing   — signed in as somebody who MANAGES this event (host ·
+ *                    co-host · coordinator · helper) looking at a guest's seat
+ *                    that is not their own (owner 2026-10-21). No press: one
+ *                    quiet line, "You're viewing <name>'s invitation as the
+ *                    host" (`hostViewingLine`). The server refuses the bind too
+ *                    (`seatBindRefusal` → 'manager', lib/link-guest-account.ts).
  *
  * 📵 NO `link_sent` STATE ANY MORE (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
  * GUESTS — THE QR AND THE LINK DO EVERYTHING"): *"No email. Either use the qr
@@ -101,7 +107,8 @@ export type GuestAccountState =
   | { kind: 'sign_in' }
   | { kind: 'link_this_seat'; seatName: string | null; accountEmail: string | null; coupleSeat: boolean }
   | { kind: 'linked'; accountEmail: string | null }
-  | { kind: 'held_elsewhere' };
+  | { kind: 'held_elsewhere' }
+  | { kind: 'host_viewing'; seatName: string | null };
 
 export function guestAccountState(input: {
   /** The signed-in account, or null for a cookie-only guest. */
@@ -113,10 +120,17 @@ export function guestAccountState(input: {
   seatName?: string | null;
   /** The seat is one of the celebration's own people (bride · groom · celebrant). */
   seatIsCouple?: boolean;
+  /**
+   * The signed-in viewer MANAGES this event (the page's host check: a `couple` /
+   * `coordinator` membership or an accepted delegate). Then a seat that is not
+   * their own is never offered to them — `host_viewing`, never `link_this_seat`.
+   */
+  viewerManagesEvent?: boolean;
 }): GuestAccountState {
   const { viewerUserId, viewerEmail, seatHolderUserId } = input;
   if (viewerUserId) {
     if (seatHolderUserId === viewerUserId) return { kind: 'linked', accountEmail: viewerEmail };
+    if (input.viewerManagesEvent === true) return { kind: 'host_viewing', seatName: input.seatName ?? null };
     if (seatHolderUserId) return { kind: 'held_elsewhere' };
     return {
       kind: 'link_this_seat',

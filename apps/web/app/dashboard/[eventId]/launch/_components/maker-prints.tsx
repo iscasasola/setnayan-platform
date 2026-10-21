@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import {
   CLASSIC_PRINT_THEME,
   PRINT_FORMATS,
@@ -780,10 +780,18 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         version={input.previewVersion}
       />
       <p className="text-sm text-ink/75">
+        {/* 🤍 Owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is pro"* — the free list of
+            themes is no longer what prints free. */}
         <span data-prints-free-themes="" className="font-semibold text-ink">
-          {themeNames(FREE_THEMES)} prints are free and print-ready
+          Free prints are plain white and print-ready
         </span>{' '}
         — 3 mm bleed and crop marks, no watermark.{' '}
+        {input.storeShell ? null : (
+          <>
+            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')} className="mr-1 align-middle" />
+            Your Event Hub look on paper is Event Hub Pro.{' '}
+          </>
+        )}
         {!themed || freeTheme ? null : access.printReady ? (
           <>
             <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />

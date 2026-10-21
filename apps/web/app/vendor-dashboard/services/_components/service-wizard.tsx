@@ -338,7 +338,7 @@ export function ServiceWizard({
         </div>
         <p className="text-sm text-ink/55">
           Say yes and every couple who books this card gets{' '}
-          <span className="font-medium text-ink">free Papic photos</span> for their celebration,
+          <span className="font-medium text-ink">free Papic photos</span> for their event,
           given in your name. How many is worked out from your booking fee and shown on the quote —
           there is nothing here for you to set. It is added to your lock bill, capped at 40% of that
           fee. Optional: your card publishes either way.

@@ -116,6 +116,12 @@ test('4a · the route serves Modern and Cyber Neon print-ready to a free couple;
   assert.match(route, /const freeTheme = !isProPrint\(theme\);/, 'the route no longer asks the tier');
   assert.match(route, /\(mode === 'screen' && \(access\.printReady \|\| freeTheme\)\)/, 'the screen view is not unmarked for a free theme');
   assert.doesNotMatch(route, /Classic prints are free/, 'the refusal types the free list by hand');
+  /* 🤍 2026-10-21: a free print is plain white — no refusal sells a list of themes as "free prints" any more. */
+  for (const rel of ['app/api/hub-print/[piece]/route.ts', 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /themeNames\(FREE_THEMES\)\}? prints are free/, `${rel}: the free theme list is still called "prints are free"`);
+    assert.match(src, /Free prints are plain white/, `${rel}: does not say free prints are plain white`);
+  }
 });
 
 /* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`).
@@ -160,7 +166,9 @@ test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files 
     assert.ok(html.includes(`Save · ${name} (PDF)`), `${id}: a piece has no print-ready save`);
     assert.ok(!html.includes(`Sample · ${name} (JPG)`), `${id}: still offered as a watermarked sample`);
     assert.doesNotMatch(html, /data-prints-go-pro/, `${id}: still pitched Pro`);
-    assert.match(html, /Classic, Modern and Cyber Neon prints are free and print-ready/);
+    /* 🤍 Owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is pro"* — the line says so. */
+    assert.match(html, /Free prints are plain white and print-ready/);
+    assert.doesNotMatch(html, /Modern and Cyber Neon prints are free/, `${id}: the free theme list is still sold as what prints free`);
   }
   // Rustic without Pro: still the sample, still the pitch.
   const rustic = await paintPrints('abaca', false);
@@ -219,7 +227,10 @@ test('5b · the page, the door and the print each measure ownership through the 
   assert.match(look, /websiteProActiveFor = cache\([\s\S]{0,400}asViewed\(eventCoupleWebsiteProActive\(/, 'the page reader stopped honouring "view as free"');
   // Print still: `printOwnsPro` = asViewed(eventCoupleWebsiteProActive).
   const print = read('lib/print-set.server.ts');
-  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? await printOwnsPro\(eventId\) : false\)\s*\?\s*heroStill\(/);
+  /* The entitlement is read ONCE per set (`const ownsPro = await printOwnsPro(eventId)`, 2026-10-21 — it also opens the Hub-look
+     door, `printLookForEvent`) and the still asks that same read. */
+  assert.match(print, /const ownsPro = await printOwnsPro\(eventId\);/, 'the print stopped measuring ownership through printOwnsPro');
+  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? ownsPro : false\)\s*\?\s*heroStill\(/);
   assert.match(print, /printOwnsPro[\s\S]{0,200}asViewed\(eventCoupleWebsiteProActive\(/, 'the print reader stopped honouring "view as free"');
 });
 

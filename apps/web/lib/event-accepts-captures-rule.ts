@@ -52,4 +52,4 @@ export function rowAcceptsNewCaptures(row: ArchivedRow, hadError: boolean): bool
  * client surface can render it.
  */
 export const EVENT_PUT_AWAY_CAPTURE_COPY =
-  'This celebration isn’t taking new photos right now. The host can turn photos back on any time.';
+  'This event isn’t taking new photos right now. The host can turn photos back on any time.';

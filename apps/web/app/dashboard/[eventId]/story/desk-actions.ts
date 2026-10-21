@@ -53,7 +53,7 @@ import {
 
 export type DeskActionResult = { ok: true } | { ok: false; error: string };
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
+const NO_ACCESS = 'You don’t have access to this event.';
 const HELD_BACK =
   'This one is already held back — you cannot accept it. Someone in it asked ' +
   'not to be shown, or it is still being screened.';

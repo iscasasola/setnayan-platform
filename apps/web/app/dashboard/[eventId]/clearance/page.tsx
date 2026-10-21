@@ -135,7 +135,7 @@ export default async function ClearancePage({ params }: Props) {
           Close out the day
         </SubmitButton>
         <p className="mt-2 text-xs text-ink/50">
-          You can do this once the celebration is over. It can&rsquo;t be undone from here, so wrap
+          You can do this once the event is over. It can&rsquo;t be undone from here, so wrap
           up the live services first.
         </p>
       </form>

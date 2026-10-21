@@ -499,7 +499,7 @@ export async function submitOrderAction(
         return {
           ok: false,
           reason:
-            'This one only runs during your celebration, and yours has finished. Everything that turns the day into a keepsake is still open.',
+            'This one only runs during your event, and yours has finished. Everything that turns the day into a keepsake is still open.',
         };
       }
     }

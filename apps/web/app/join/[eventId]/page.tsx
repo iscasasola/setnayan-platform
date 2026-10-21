@@ -99,7 +99,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
       <DoorShell
         tone="dead_end"
         eyebrow="Guest list"
-        title={event.display_name ?? 'This celebration'}
+        title={event.display_name ?? 'This event'}
         sub={INVITATION_ONLY_LINE}
       />
     );

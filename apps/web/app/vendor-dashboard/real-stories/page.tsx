@@ -65,7 +65,7 @@ export default async function VendorRealStoriesPage() {
           Featured in Stories
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          When someone you worked with publishes their celebration to{' '}
+          When someone you worked with publishes their event to{' '}
           <Link href="/realstories" className="font-medium text-mulberry underline">
             Stories
           </Link>

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ee5e38edf1",
+  "generatedFromRef": "bcbd14e185",
   "routeCount": 451,
-  "destinations": 995,
+  "destinations": 994,
   "actions": 664,
-  "blocks": 6724,
+  "blocks": 6718,
   "routes": {
     "/": {
       "files": [
@@ -11125,8 +11125,6 @@
         "BusinessDoing",
         "DatesRow",
         "HelpersView",
-        "Icon",
-        "Link",
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
@@ -12661,7 +12659,6 @@
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
@@ -12740,7 +12737,6 @@
         "MeetingBody",
         "MessageBody",
         "MiniTour",
-        "MoreServicesSheet",
         "NextCard",
         "NotConnected",
         "PageMasthead",
@@ -13705,16 +13701,11 @@
     },
     "/vendor-dashboard/more": {
       "files": [
-        "vendor-dashboard/more/loading.tsx",
         "vendor-dashboard/more/page.tsx"
       ],
       "destinations": [],
       "actions": [],
-      "blocks": [
-        "Icon",
-        "Link",
-        "ListPageSkeleton"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/notifications": {
       "files": [

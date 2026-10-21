@@ -118,7 +118,7 @@ test('the Maker panels post the draft field (and the scrapbook, and the Details 
     [`${C}pro-panels.tsx`, /export function ColorsPanel[\s\S]*?<SafeForm action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
     [`${C}text-panel.tsx`, /<SafeForm action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
     [`${C}authoring-panels.tsx`, /export function StoryPanel[\s\S]*?<HubDraftField \/>/],
-    [`${C}authoring-panels.tsx`, /export function DressCodePanel[\s\S]*?<HubDraftField \/>/],
+    [`${C}dress-code-panel.tsx`, /export function DressCodePanel[\s\S]*?<HubDraftField \/>/],
     [`${C}authoring-panels.tsx`, /<PhotoMomentsEditor eventId=\{eventId\} initial=\{initial\} draft \/>/],
     [`${C}media-panels.tsx`, /export function HeroPhotoPanel[\s\S]*?<HubDraftField \/>[\s\S]*?export function GalleryPanel/],
     [`${W}photo-moments/_components/photo-moments-editor.tsx`, /if \(draft\) formData\.set\(HUB_DRAFT_FIELD, '1'\)/],

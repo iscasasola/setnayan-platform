@@ -1231,7 +1231,7 @@ export function GenericOnboarding(props: Props) {
           <Eyebrow>{intro?.eyebrow ?? `Let’s plan your ${label.toLowerCase()}`}</Eyebrow>
           <Title>
             {intro?.headline ??
-              'A few quick questions and we’ll shape a plan made for your celebration.'}
+              'A few quick questions and we’ll shape a plan made for your event.'}
           </Title>
           <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
           {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very

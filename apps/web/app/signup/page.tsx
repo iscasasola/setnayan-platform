@@ -70,7 +70,7 @@ import '@/app/_components/home/home-reskin.css';
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account in seconds. Free to start for anyone planning a celebration. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
 };
 

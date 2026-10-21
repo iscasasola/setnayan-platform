@@ -65,7 +65,7 @@ const ERROR_COPY: Record<string, string> = {
   // same block ON that screen. Naming a field by its old label sent people
   // looking for something that is not there.
   life_event_exists:
-    'That celebration is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
+    'That event is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
 };
 
 type SearchParams = Promise<{
@@ -306,7 +306,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <p className="font-sans text-xl text-ink">Tuloy pa rin ang planning na ito</p>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">
             <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in
-            planning — one celebration of this kind per celebrant at a time.
+            planning — one event of this kind per celebrant at a time.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link

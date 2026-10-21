@@ -16,7 +16,7 @@ import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
-import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderImposedPdf, renderPrintBook, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
@@ -443,7 +443,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return new NextResponse(
         storeShell
           ? 'Not available here.'
-          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. ${themeNames(FREE_THEMES)} prints are free.`,
+          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. Free prints are plain white; your Event Hub look on paper is Event Hub Pro.`,
         { status: 403 },
       );
     }

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { ChevronDown, ChevronRight, Download, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Palette, Settings } from 'lucide-react';
 import { pickArrowClass, pickButtonClass } from '../../website/editor/_components/pick-menu-place';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FORM_PICK_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
@@ -21,6 +21,9 @@ import {
 } from '@/lib/studio-prints-settings';
 import { PrintSaveButton } from './print-save-button';
 import { StudioProDoor } from './studio-prints-six';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
+import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import { PrintPaperHead, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { PrintChoicePicker } from './print-choice-picker';
 import { useDownloads, usePrintGuest, useRegisterDownload, type AllInOneF } from './prints-view-store';
@@ -158,6 +161,49 @@ export function StudioPrintSettings({ sections, form }: { sections: readonly Pri
       {/* 🔒 Drawn on <body> (a transformed panel would capture `fixed`) — and ALWAYS drawn, shut or open: every post sends its fields. */}
       {body ? createPortal(panel, body) : panel}
     </>
+  );
+}
+
+/* ── 🎨 YOUR EVENT HUB LOOK — ◆ owned, ◆ PRO the door ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21, *"yes wire all, and yes it's Pro"*). One row under
+ * Print settings, saying which look the pieces below are drawn in — the route draws them so (`printLookForEvent`), this only says it.
+ * The prints' own Pro pattern (`allInOneFile`, `makerProMark` — the ticket zip's): never a padlock on the Event Hub (owner
+ * 2026-09-29, *"◆ marks Pro and never blocks; there are no padlocks"* — `nothing-locks-before-apply.test.ts`):
+ *   · owned → the diamond and the fact (no frame: nothing to press);
+ *   · a free event on the web → ◆ PRO and the door to the centred note (`StudioProDoor`, the prints' own Pro door);
+ *   · the app-store shell without it → nothing (a Pro hint there is a purchase hint).
+ * `ownsPro` is the EVENT's measured entitlement (an unlock belongs to the event, every host on it).
+ */
+export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: string; ownsPro: boolean; storeShell: boolean }) {
+  const state = makerProMark({ owns: ownsPro, storeShell });
+  if (state === null) return null;
+  const owned = state === 'unlocked';
+  return (
+    <div data-print-hub-look={owned ? 'worn' : 'classic'} className="flex min-h-14 items-center gap-3 border-t border-ink/10 py-3">
+      <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink">
+        <Palette className="h-5 w-5" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <b className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+          {HUB_LOOK_ROW.name}
+          {/* Owned: the diamond. In the app-store shell nothing names a paid web extra — not even an owned one's label. */}
+          {owned ? <PaidMark state="unlocked" size="sm" label={paidMarkLabel('unlocked', storeShell ? HUB_LOOK_ROW.name : 'Event Hub Pro')} /> : null}
+        </b>
+        <span className="block text-[12.5px] leading-snug text-ink/60">{owned ? HUB_LOOK_ROW.owned : HUB_LOOK_ROW.free}</span>
+      </span>
+      {owned || storeShell ? null : (
+        <span className="shrink-0" data-print-hub-look-door="">
+          <StudioProDoor
+            href={`/dashboard/${eventId}/studio/website-pro`}
+            label={HUB_LOOK_ROW.door}
+            icon={<PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} />}
+            note={HUB_LOOK_PRO_NOTE}
+          />
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -396,7 +396,7 @@ export async function answerDateChange({
           answer === 'unlocked'
             ? money
               ? 'They are no longer booked. Money was logged with them, so the payment is settled by the cancellation terms on your booking — Setnayan support has the case.'
-              : 'They are no longer booked for your celebration.'
+              : 'They are no longer booked for your event.'
             : 'They confirmed they can do the new date.',
           env.ready
             ? readyInDraft
@@ -529,7 +529,7 @@ export async function afterDateApplied({
         userId,
         type: 'date_moved',
         title: dateMovedNotice(next.date, next.precision),
-        body: `${who} moved their celebration to ${dateChangeWhen(next.date, next.precision)}. Your calendar moved with it.`,
+        body: `${who} moved their event to ${dateChangeWhen(next.date, next.precision)}. Your calendar moved with it.`,
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
         eventId,
       });

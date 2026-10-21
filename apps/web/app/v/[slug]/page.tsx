@@ -3086,7 +3086,7 @@ export async function renderVendorBySlug({
                 options={shopEventOptions}
                 emptyReason={null}
                 createHref="/dashboard/create-event"
-                createLabel="Start a new celebration"
+                createLabel="Start a new event"
               />
             </div>
           ) : null}

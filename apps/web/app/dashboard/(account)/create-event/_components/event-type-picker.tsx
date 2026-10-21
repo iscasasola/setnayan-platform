@@ -423,7 +423,7 @@ export function EventTypePicker({
               onClick={() => setSelectedKey('anniversary' as EventTypeKey)}
               type="button"
             >
-              <p className="text-sm font-medium text-ink">A vow renewal or anniversary celebration</p>
+              <p className="text-sm font-medium text-ink">A vow renewal or anniversary event</p>
               <p className="mt-1 text-xs text-ink/55">
                 Silver, golden, or any year — this is an Anniversary, on full wedding rails.
               </p>
@@ -476,7 +476,7 @@ export function EventTypePicker({
               className="input-field"
               id="display_name"
               name="display_name"
-              placeholder="Our celebration"
+              placeholder="Our event"
               required
               type="text"
             />
@@ -536,7 +536,7 @@ export function EventTypePicker({
               />
               <p className="text-xs text-ink/50">
                 {isGatedLifeType(selected.key)
-                  ? `The celebrant’s first name keeps their celebrations tidy — one ${selected.label.toLowerCase()} in planning per person at a time.`
+                  ? `The celebrant’s first name keeps their events tidy — one ${selected.label.toLowerCase()} in planning per person at a time.`
                   : 'Naming the business files this on its own page and timeline. It sets no limit — you can plan as many as you like.'}
               </p>
             </div>

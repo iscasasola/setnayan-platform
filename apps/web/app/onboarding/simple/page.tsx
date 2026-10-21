@@ -144,7 +144,7 @@ export default async function SimpleOnboardingPage({
                   className="input-field"
                   id="display_name"
                   name="display_name"
-                  placeholder="Our celebration"
+                  placeholder="Our event"
                   required
                   type="text"
                 />

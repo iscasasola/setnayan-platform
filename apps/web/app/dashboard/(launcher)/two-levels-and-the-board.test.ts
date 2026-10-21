@@ -556,7 +556,7 @@ test('the empty Finished shelf explains the shelf and claims no zero', () => {
   );
   assert.match(
     src,
-    /Celebrations move here on their own/,
+    /Events move here on their own/,
     'The empty finished shelf lost the line that says what it is FOR.',
   );
   // 🔑 fetchUserEvents graceful-degrades to [] on EVERY error including an RLS

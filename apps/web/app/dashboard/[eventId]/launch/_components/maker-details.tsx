@@ -1251,6 +1251,8 @@ export function MakerDetails(props: MakerDetailsProps) {
             },
           ]}
         />
+        {/* 🎨 Which look the pieces are drawn in — ◆ your Event Hub's (Pro), else 🔒 the door (owner 2026-10-21, `StudioHubLookRow`). */}
+        <StudioTool part="hub-look" eventId={eventId} ownsPro={prints.ownsPro} storeShell={prints.storeShell} />
       </div>
     );
     /* 🎫 The Digital ticket's row — View as ▾ · Download · All guests ◆ (owner 2026-10-17). */

@@ -161,7 +161,7 @@ export async function collectEventMediaRefs(
   if (plan.refused > 0) {
     console.error(
       `[event-media-sweep] REFUSED ${plan.refused} ref(s) on event ${eventId} that are not under ` +
-        'the celebration’s own folders — those objects are kept.',
+        'the event’s own folders — those objects are kept.',
     );
   }
   return plan.deletes;

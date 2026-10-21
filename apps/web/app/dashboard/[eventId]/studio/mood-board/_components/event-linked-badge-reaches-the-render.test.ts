@@ -56,7 +56,7 @@ async function paint(show: boolean): Promise<string> {
 
 test('⭐ THE GUARD · an event-linked row paints the real sentence', async () => {
   const html = await paint(true);
-  assert.match(html, /A Setnayan celebration/);
+  assert.match(html, /A Setnayan event/);
 });
 
 test('⭐ THE GUARD · a back-catalogue row paints NOTHING — no badge on every card', async () => {

@@ -354,7 +354,7 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
         ]
       : [
           `A guardian on Setnayan wants to hand ${row.name}'s profile over to you.`,
-          `Accepting moves it into your account — their dates and celebrations become yours to keep.`,
+          `Accepting moves it into your account — their dates and events become yours to keep.`,
         ],
     ctaLabel: isClaim ? 'Claim my profile' : `Take over ${row.name}'s care`,
     ctaHref: claimUrl,

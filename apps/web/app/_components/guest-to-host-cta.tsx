@@ -87,7 +87,7 @@ export function GuestToHostCta({
             destination: '/dashboard',
           });
         }}
-        className="inline-flex min-h-[40px] items-center font-medium text-link underline-offset-2 hover:underline"
+        className="inline-flex min-h-[44px] items-center font-medium text-link underline-offset-2 hover:underline"
       >
         Start planning →
       </a>

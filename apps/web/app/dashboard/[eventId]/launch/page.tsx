@@ -645,7 +645,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     Icon: LucideIcon;
   };
 
-  const services: Service[] = [
+  // 🍎 None of the three in the iPhone app — paid web extras it does not offer, price or unlock.
+  const services: Service[] = storeShell ? [] : [
     {
       key: 'panood',
       name: 'Live Watch — livestream',

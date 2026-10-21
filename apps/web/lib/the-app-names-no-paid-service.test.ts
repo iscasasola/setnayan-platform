@@ -146,7 +146,6 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/website/living-hero/page.tsx', 'same — WebsiteProLock description'],
   ['app/dashboard/[eventId]/website/site-chrome/page.tsx', 'same — WebsiteProLock description'],
   ['app/dashboard/[eventId]/website/widgets/page.tsx', 'the Pro mark comes from `paidMarkState({ owns, storeShell })`, null for a non-Pro couple in the app'],
-  ['app/dashboard/[eventId]/launch/page.tsx', 'the day-of `services` rows (Live Watch · Live Photo Wall · Papic) are drawn only inside `{storeShell ? null : (` "What runs on the day"'],
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
@@ -160,7 +159,6 @@ const NOT_SHOWN = new Map<string, string>([
 /** More-menu links the link guard alone hides (no server gate), each with its reason. */
 const MORE_NET_ONLY = new Map<string, string>([
   ['app/dashboard/[eventId]/documents/page.tsx', 'the empty creations CTA "Browse add-ons" — the link guard hides it'],
-  ['app/dashboard/[eventId]/launch/page.tsx', 'the Live Photo Wall row\'s addHref, drawn only inside the `storeShell ? null :` day-of section'],
 ]);
 
 function walk(dir: string, acc: string[] = []): string[] {
@@ -192,7 +190,7 @@ function routeOf(rel: string): string {
 
 /**
  * Does the expression that draws `at` ask the store shell? Walks out through the
- * innermost four enclosing `(` / `{`, and for each reads only ITS OWN condition —
+ * innermost four enclosing `(` / `{` / `[`, and for each reads only ITS OWN condition —
  * the text back to the previous `{ } ; >` (so `{storeShell ? null : (`,
  * `if (x && !storeShell) {`, `open={storeShell ? null : {`) — plus, for the
  * innermost, the text from it to the hit (`storeShell ? a : studioHubHref(…)`).
@@ -211,18 +209,15 @@ function conditionBefore(src: string, i: number): string {
 function askedAround(src: string, at: number): boolean {
   const tagStart = src.lastIndexOf('<', at);
   if (tagStart >= 0 && /data-web-only/.test(src.slice(tagStart, at)) && !src.slice(tagStart, at).includes('</')) return true;
-  let depthParen = 0;
-  let depthBrace = 0;
+  const depth: Record<string, number> = { '(': 0, '{': 0, '[': 0 };
+  const CLOSES: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
   let openers = 0;
   for (let i = at - 1; i >= 0 && openers < 4; i--) {
-    const c = src[i];
-    if (c === ')') depthParen++;
-    else if (c === '}') depthBrace++;
-    else if (c === '(' || c === '{') {
-      const open = c === '(' ? depthParen : depthBrace;
-      if (open > 0) {
-        if (c === '(') depthParen--;
-        else depthBrace--;
+    const c = src[i]!;
+    if (c in CLOSES) depth[CLOSES[c]!]!++;
+    else if (c in depth) {
+      if (depth[c]! > 0) {
+        depth[c]!--;
         continue;
       }
       openers++;

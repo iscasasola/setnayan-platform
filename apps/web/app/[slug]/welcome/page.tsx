@@ -151,7 +151,11 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
-    seatName: seatDisplayName(guest as { display_name?: string | null; first_name?: string | null; last_name?: string | null }),
+    seatName: seatDisplayName({
+      display_name: guest.display_name as string | null,
+      first_name: guest.first_name as string | null,
+      last_name: guest.last_name as string | null,
+    }),
     // 🔒 A host looking at a plus-one's door is never offered the seat (lib/seat-binding.ts `'manager'`).
     viewerManagesEvent: user ? await loadHostMembership(admin, event.event_id as string, user.id) : false,
   });

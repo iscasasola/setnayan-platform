@@ -275,7 +275,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
     /* 🪑 "party of N" counts EVERY named seat who is coming (2026-10-22: a guest bringing two printed "party of 2" with
        one name, from the one-name mirror). A refused read omits the line — never a guessed party. */
     if (seatRowsErr) logQueryError('find-seat.seats', seatRowsErr, { event_id: event.event_id }, 'graceful_degrade');
-    const companions = seatRowsErr ? [] : companionNames(guest, (seatRows ?? []) as CompanionSeatRow[]);
+    const companions = seatRowsErr ? [] : companionNames(guest, (seatRows ?? []) as unknown as CompanionSeatRow[]);
     const companionWords = companions.map((n) => {
       const parts = n.split(/\s+/);
       return publicDisplayName(parts[0] ?? n, parts.slice(1).join(' ') || null);

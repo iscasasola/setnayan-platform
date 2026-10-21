@@ -219,7 +219,10 @@ test('5b · the page, the door and the print each measure ownership through the 
   assert.match(look, /websiteProActiveFor = cache\([\s\S]{0,400}asViewed\(eventCoupleWebsiteProActive\(/, 'the page reader stopped honouring "view as free"');
   // Print still: `printOwnsPro` = asViewed(eventCoupleWebsiteProActive).
   const print = read('lib/print-set.server.ts');
-  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? await printOwnsPro\(eventId\) : false\)\s*\?\s*heroStill\(/);
+  /* The entitlement is read ONCE per set (`const ownsPro = await printOwnsPro(eventId)`, 2026-10-21 — it also opens the Hub-look
+     door, `printLookForEvent`) and the still asks that same read. */
+  assert.match(print, /const ownsPro = await printOwnsPro\(eventId\);/, 'the print stopped measuring ownership through printOwnsPro');
+  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? ownsPro : false\)\s*\?\s*heroStill\(/);
   assert.match(print, /printOwnsPro[\s\S]{0,200}asViewed\(eventCoupleWebsiteProActive\(/, 'the print reader stopped honouring "view as free"');
 });
 

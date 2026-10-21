@@ -56,13 +56,13 @@ export const EVERYTHING_PRO_NOTE = {
 /**
  * 🖨 EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21: *"shouldn't this mimic the event hub design? and
  * so does the other prints?"* → *"yes wire all, and yes it's Pro"*; `printLookForEvent`, lib/print-hub-look.ts). The row on Studio ›
- * Prints: ◆ owned — a fact; 🔒 not owned — the door to the centred note. Its words, once.
+ * Prints: the diamond owned — a fact; ◆ PRO not owned — the door to the centred note. Its words, once.
  */
 export const HUB_LOOK_ROW = {
   name: 'Your Event Hub look',
   owned: 'Every print wears your Event Hub’s colours, fonts and background.',
   free: 'Your prints are in the classic look. Wear your Event Hub’s colours, fonts and background on paper.',
-  door: 'Unlock',
+  door: 'Wear it',
 } as const;
 export const HUB_LOOK_PRO_NOTE = {
   title: 'Printing in your Event Hub look is Event Hub Pro',

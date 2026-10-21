@@ -193,7 +193,7 @@ test('6b · every door call is handed the MEASURED entitlement — an `ownsPro` 
   };
 }
 
-test('7 · Studio › Prints: ◆ owned says the Hub look; 🔒 a free event on the web meets the door; the app shell shows nothing to buy', async () => {
+test('7 · Studio › Prints: owned says the Hub look; a free event on the web meets the ◆ door, never a padlock; the app shell shows nothing to buy', async () => {
   const { StudioHubLookRow } = await import('@/app/dashboard/[eventId]/launch/_components/studio-prints-settings');
   const E = '00000000-0000-4000-8000-000000000000';
   const draw = (ownsPro: boolean, storeShell: boolean) => renderToStaticMarkup(React.createElement(StudioHubLookRow, { eventId: E, ownsPro, storeShell }));
@@ -204,6 +204,7 @@ test('7 · Studio › Prints: ◆ owned says the Hub look; 🔒 a free event on 
   assert.match(free, /data-print-hub-look="classic"/);
   assert.match(free, /data-print-hub-look-door/);
   assert.match(free, /studio\/website-pro/);
+  assert.doesNotMatch(free, /Locked —/, 'a free event meets a padlock on the Event Hub (owner 2026-09-29: "there are no padlocks")');
   assert.equal(draw(false, true), '', 'the app-store shell shows a free event a door to buy');
   const shellOwned = draw(true, true);
   assert.match(shellOwned, /data-print-hub-look="worn"/);

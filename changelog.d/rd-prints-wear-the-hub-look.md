@@ -17,10 +17,11 @@ Owner, on Studio › Prints (a plain cream Entourage card beside a Hub with a pi
 - The Entourage wears the Hub's style (On the axis · Lines); The march keeps the card's own.
 - Hub faces print from the Logo's TrueType outlines (traced in `next.config.ts`); a face whose outlines break on paper
   falls back to Cardo (measured: Josefin pinned to 400 draws a 27-em "O").
-- Studio › Prints: one row under Print settings — ◆ "Your Event Hub look" when owned, 🔒 the door to the centred note
-  when not (`StudioProDoor`), nothing in the app-store shell without it.
+- Studio › Prints: one row under Print settings — the diamond and "Your Event Hub look" when owned; ◆ PRO and the prints'
+  own door to the centred note when not (`StudioProDoor`, `makerProMark` — never a padlock on the Event Hub, owner
+  2026-09-29); nothing in the app-store shell without it.
 - The previews' cache key (`printInputsVersion`) now carries the entitlement and the Main background.
 - Guard `lib/every-print-wears-the-hub.test.ts` §5–7 (Pro door, no way around it, the measured entitlement, the row).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-21 "EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — AND THAT IS EVENT HUB PRO"
-(corpus commit 7eff1451).
+(corpus commits 7eff1451, a2398a08).

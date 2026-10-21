@@ -23,6 +23,7 @@ import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import type { WebFormAction } from '@/lib/native-account-save';
 import { eventWordsFor } from '../_lib/event-words';
 import { PlusOneDoor } from './_components/plus-one-door';
+import { displayPersonName } from '@/lib/person-name-case';
 
 export const metadata = { title: 'Welcome' };
 export const dynamic = 'force-dynamic';
@@ -116,11 +117,12 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     .eq('guest_id', guest.plus_one_of_guest_id)
     .maybeSingle();
 
+  // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3) — "from Maria", never "from maria". Display only.
   const primaryName =
-    primary?.display_name?.trim() ||
-    [primary?.first_name, primary?.last_name].filter(Boolean).join(' ') ||
-    'the inviting guest';
-  const primaryFirst = (primary?.first_name as string | null)?.trim() || primaryName.split(/\s+/)[0];
+    displayPersonName(
+      primary?.display_name?.trim() || [primary?.first_name, primary?.last_name].filter(Boolean).join(' '),
+    ) || 'the inviting guest';
+  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0];
 
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const row: PlusOneRow = {
@@ -190,7 +192,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual
   // greetings). Once their name is in, the heading is their FORMAL name.
-  const formalName = missing.name ? null : composeFormalName(row);
+  const formalName = missing.name ? null : displayPersonName(composeFormalName(row)) || null;
 
   return (
     /* 🎨 The plus-one's first page is a page of the reply — it wears the

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -10,11 +10,10 @@ import {
   QrCode,
   RefreshCw,
   User,
-  X,
 } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
+import { GuestSheet } from './guest-sheet';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { PAGE_COLUMN } from '../_lib/measures';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
@@ -118,7 +117,6 @@ export function GuestHubBar({
   const [qrOpen, setQrOpen] = useState(false);
   // (Whether "My QR" is offered at all — ONE QR ON THE INVITATION — is the Me
   // section's own question: `GuestMeSection`, at the foot of this file.)
-  const qrDialogRef = useRef<HTMLDivElement>(null);
   // "My QR" on a tabbed page's Me asks for this sheet by event — the section is
   // drawn by the page body there, not by this component (`meInPage`).
   useEffect(() => {
@@ -126,11 +124,6 @@ export function GuestHubBar({
     window.addEventListener(OPEN_MY_QR_EVENT, open);
     return () => window.removeEventListener(OPEN_MY_QR_EVENT, open);
   }, []);
-  useModalA11y({
-    open: qrOpen,
-    onClose: () => setQrOpen(false),
-    containerRef: qrDialogRef,
-  });
 
   // Self-rotation state (build ④ — flag-gated by selfRotateEnabled).
   const [rotateConfirming, setRotateConfirming] = useState(false);
@@ -259,35 +252,9 @@ export function GuestHubBar({
       </nav>
       )}
 
-      {/* Personal-QR modal. */}
+      {/* Personal-QR modal — the one sheet (`GuestSheet`, below), which a plus-one's ticket opens too. */}
       {qrOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
-          onClick={() => setQrOpen(false)}
-        >
-          <div
-            ref={qrDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="guest-qr-title"
-            tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-xs rounded-3xl border border-ink/10 bg-cream p-6 text-center shadow-2xl"
-          >
-            <button
-              type="button"
-              onClick={() => setQrOpen(false)}
-              aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-              Your QR
-            </p>
-            <h2 id="guest-qr-title" className="mt-1 text-lg font-semibold tracking-tight text-ink">
-              Let others scan you
-            </h2>
+        <GuestSheet titleId="guest-qr-title" eyebrow="Your QR" title="Let others scan you" onClose={() => setQrOpen(false)}>
             <p className="mx-auto mt-1 max-w-prose text-xs text-ink/70">
               Show this so photographers and friends can tag you in their photos.
             </p>
@@ -403,8 +370,7 @@ export function GuestHubBar({
                 )}
               </div>
             ) : null}
-          </div>
-        </div>
+        </GuestSheet>
       ) : null}
     </>
   );
@@ -466,7 +432,8 @@ export function GuestMeSection({
   const anything = !passOnPage || Boolean(photosHref);
   const section = (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
-      {meSlot ? <div className="mb-8">{meSlot}</div> : null}
+      {/* The gap under Me's own cards belongs to what follows (My QR · Photos of you, or the stage's next card). */}
+      {meSlot ? <div className={anything ? 'mb-8' : undefined}>{meSlot}</div> : null}
       {anything ? (
         <div className="flex flex-wrap gap-3">
           {passOnPage ? null : (

@@ -141,6 +141,7 @@ import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './gues
 import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
+import { displayPersonName } from '@/lib/person-name-case';
 
 
 export type GuestsScreenProps = {
@@ -530,7 +531,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const removeNames = (toRemove ?? []).map((id) => {
     const g = byId.get(id);
     // A +1's seat is named with their guest here too — "Juanita Sacdalan’s +1 · TBA", never a bare "+1 · TBA".
-    return g ? (plusWords.get(id)?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g)) : '';
+    return g ? (plusWords.get(id)?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g))) : '';
   });
 
   // ── 🪑 Release seat (owner 2026-10-21): +1s with no name yet go at once — no warning, one Undo — and their guests'
@@ -1417,7 +1418,9 @@ function GuestRowLine({
   /** 🪑 A +1 with no name yet: their seat goes at once, with Undo. */
   onRelease: () => void;
 }) {
-  const name = plusWords?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g);
+  // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3 — "yes", one display rule): "pamela labriaga"
+  // reads "Pamela Labriaga". Display only — search still reads every typed part (`nameHas`), and the boxes keep them.
+  const name = plusWords?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g));
   const plus = plusOneSeats(g);
   // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
   const notAdded = Math.max(0, plus - seatsOnList);

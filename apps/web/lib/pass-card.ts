@@ -55,6 +55,11 @@ export const PASS_CARD_WORDS = {
   saveOwn: 'Save my ticket',
   saveAll: 'Save all tickets',
   saveOf: (first: string) => `Save ${first}’s ticket`,
+  /** 🎫 A plus-one's ticket on Me (owner 2026-10-21, guest_page_fixes_2_4 fix 4): the row's one quiet line, and the
+   *  sheet the ticket opens — "Pamela’s ticket · Show this at the door", with their Save inside. */
+  ofName: (first: string) => `${first}’s ticket`,
+  tapToShow: 'Tap the ticket to show it',
+  showAtDoor: 'Show this at the door',
   /** The couple's per-guest download (free). */
   downloadOne: 'Download ticket (PNG)',
   /** The couple's zip of every card (Event Hub Pro). */

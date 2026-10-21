@@ -3094,6 +3094,13 @@ export async function SiteBody({
     const scanTrail = replySheetDrawn ? null : (
       <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
     );
+    /* 🃏 …and on Me it is one of the stage's scene cards (guest_page_fixes_2_4, fix 2), 16 px under the card above —
+       the Hub's own card rhythm (`sn-hub-cards space-y-4`), not the stage's gap between topics. */
+    const scanTrailCard = replySheetDrawn ? null : (
+      <div className="!mt-4">
+        <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} card />
+      </div>
+    );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
     const signOut = sampleViewer !== null ? null : (
       /* 🔎 LEGIBLE, AND NEVER BY ACCIDENT (a guest's walk 2026-10-11): this was 12px
@@ -4243,7 +4250,7 @@ export async function SiteBody({
                 {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
               </a>
             ) : null}
-            {scanTrail}
+            {scanTrailCard}
             {signOut}
           </div>
         )) : null}

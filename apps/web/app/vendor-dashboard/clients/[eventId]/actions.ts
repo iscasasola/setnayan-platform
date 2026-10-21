@@ -1421,7 +1421,7 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
             ? `${name} agreed to the removal`
             : `${name} would rather keep it for now`,
           body: agree
-            ? 'You can remove this celebration now.'
+            ? 'You can remove this event now.'
             : reason ?? 'They did not give a reason.',
           relatedUrl: '/dashboard',
           // Which event: the link is account-level, so the email is told here.

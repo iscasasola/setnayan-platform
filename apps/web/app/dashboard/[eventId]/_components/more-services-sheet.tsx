@@ -25,10 +25,10 @@ import { EVENT_MENU_ICONS, type EventMenuChild } from '@/lib/customer-menu';
 
 /**
  * One row. An event's services name their icon (`EventMenuIconName`, resolved
- * here); the supplier's More rows (`lib/vendor-more-rows.ts`, owner-APPROVED
- * 2026-10-01 "THE SUPPLIER PHONE APP") arrive with their icon and a one-line
- * `sub` — the prototype draws "Calendar · Your dates, blocked days and who holds
- * them." ONE sheet for both; a supplier copy of it would be a second mechanism.
+ * here); a row may also arrive with its own icon and a one-line `sub`. (The
+ * supplier's More sheet used this shape from 2026-10-01 until 2026-10-21, when
+ * the supplier bar became Today · Customers · Shop · Hub and More left it — the
+ * variant stays for any caller that hands a ready icon.)
  */
 export type MoreSheetRow =
   | (EventMenuChild & { sub?: string })

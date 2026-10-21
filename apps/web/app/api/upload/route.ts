@@ -337,7 +337,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (uploadsClosed) {
         return NextResponse.json(
           {
-            error: 'Adding photos by hand is switched off for this celebration.',
+            error: 'Adding photos by hand is switched off for this event.',
             code: 'uploads_closed',
           },
           { status: 403 },

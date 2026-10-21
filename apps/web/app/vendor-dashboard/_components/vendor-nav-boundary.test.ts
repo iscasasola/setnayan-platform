@@ -183,42 +183,33 @@ test('both vendor nav surfaces read the registry slot map', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   THE BAR OF FOUR, AND MORE FROM ONE LIST — owner-APPROVED 2026-10-01
-   (DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED
-   ANSWERS", answer 1: Messages lives in More; the bar is Today · Customers ·
-   Shop · More; Insights + Event Hub + Messages in More).
+   THE BAR OF FOUR — TODAY · CUSTOMERS · SHOP · HUB (owner "Yes to all", 2026-10-21)
+
+   🔁 UPDATED ON PURPOSE, NOT WEAKENED. Until 2026-10-21 this pinned "Today ·
+   Customers · Shop · More" (DECISION_LOG 2026-10-01 answer 1, then 2026-10-08
+   answer 1 = B). The owner superseded both, verbatim "Yes to all", on the
+   supplier-dashboard audit (`shots-2026-10-21/supplier-dash-audit/AUDIT.md`,
+   items 5–6; DECISION_LOG 2026-10-21): every row More held has a home, so the
+   fourth tab is the Event Hub — "Hub", the couple's fourth word. The assertion
+   is exactly as strict as before: four keys, that order.
+   `vendor-bar-is-four.test.ts` adds the property checks (every old More route
+   still reachable; the bar is the same four in the app shell).
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the phone bar is Today · Customers · Shop · More — four keys, that order', () => {
+test('the phone bar is Today · Customers · Shop · Hub — four keys, that order', () => {
   const src = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
-  const list = src.slice(src.indexOf('VENDOR_BOTTOM_NAV_ITEMS'), src.indexOf('export function VendorBottomNav'));
+  const list = src.slice(src.indexOf('VENDOR_BOTTOM_NAV_ITEMS'), src.indexOf('export function vendorBarItems'));
   const keys = [...list.matchAll(/^\s{4}key: '([^']+)'/gm)].map((m) => m[1]);
-  assert.deepEqual(keys, ['profile', 'customers', 'shop', 'more']);
+  assert.deepEqual(keys, ['profile', 'customers', 'shop', 'onday']);
 });
 
-test('More’s rows are written ONCE — the sheet and the /more page both read lib/vendor-more-rows.ts', async () => {
+test('More is gone — the bar opens no sheet, and /more is a redirect stub to Settings', () => {
+  // Was: "More’s rows are written ONCE" + "the More sheet is imported statically".
+  // Both guarded a sheet that no longer exists (2026-10-21); what must hold now
+  // is that it does not come back by the side door, and that a bookmark lands.
   const bar = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
+  assert.doesNotMatch(bar, /more-services-sheet|MoreServicesSheet/, 'the supplier bar opens a More sheet again');
+  assert.doesNotMatch(bar, /key: 'more'/, 'the supplier bar has a More tab again');
   const page = code(read(join(HERE, '..', 'more', 'page.tsx')));
-  assert.match(bar, /vendorMoreRows\(/, 'the bar’s More sheet builds its own rows');
-  assert.match(page, /vendorMoreRows\(/, 'the /more page builds its own rows');
-  const rows = code(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts')));
-  // Re-plot B, finished (owner "Yes to all", 2026-10-21, items 1 + 3; DECISION_LOG
-  // 2026-10-08 answer 1): More = Event Hub · Settings. Messages is the envelope
-  // (same URL), How is my business doing is Shop › How it is going, and More
-  // tools has ONE door, in Settings.
-  const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
-  assert.deepEqual(VENDOR_MORE_ROWS.map((r) => r.href), ['/vendor-dashboard/on-the-day', '/vendor-dashboard/settings']);
-  // A plain module: the /more page is a server component and must read the values.
-  assert.equal(declaresUseClient(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts'))), false);
-  assert.doesNotMatch(rows, /\bnavIconComponent\b/, 'More rows resolve a nav icon — that call is client-only');
-});
-
-test('the supplier bar imports the More sheet statically — a lazy import() costs shared bytes', () => {
-  // Measured 2026-10-01: `import()` here split the host's sheet into a second
-  // async chunk, and its runtime chunk-map entry pushed the SHARED bundle past
-  // its ceiling (scripts/check-bundle-size.mjs). Static, it rides the supplier
-  // layout chunk instead.
-  const bar = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
-  assert.match(bar, /^import MoreServicesSheet from '@\/app\/dashboard\/\[eventId\]\/_components\/more-services-sheet';/m);
-  assert.doesNotMatch(bar, /import\(\s*['"][^'"]*more-services-sheet/, 'the More sheet is lazy-imported again');
+  assert.match(page, /redirect\('\/vendor-dashboard\/settings'\)/, '/vendor-dashboard/more no longer lands on Settings');
 });

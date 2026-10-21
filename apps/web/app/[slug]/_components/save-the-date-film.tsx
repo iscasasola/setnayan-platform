@@ -649,7 +649,7 @@ export function SaveTheDateFilm({
       anim: ANIM.slideR,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className={LABEL}>The celebration</p>
+          <p className={LABEL}>The event</p>
           <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
           <h2 className={`${theme.fontCls} text-5xl font-medium`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
@@ -1710,7 +1710,7 @@ export function SaveTheDateFilm({
             {...(content.icsHref
               ? { download: content.icsFilename }
               : { target: '_blank', rel: 'noopener noreferrer' })}
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
           >
             <CalendarPlus aria-hidden className="h-4 w-4" />
             Add to calendar

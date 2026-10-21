@@ -1316,7 +1316,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           >
             {!uploadsOpen ? (
               <p className="max-w-prose text-sm text-ink/65">
-                Adding photos by hand is switched off for this celebration — only
+                Adding photos by hand is switched off for this event — only
                 what your cameras capture goes into the gallery. You can turn it
                 back on under &ldquo;Set once, change any time&rdquo;.
               </p>
@@ -2106,7 +2106,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {uploadsError === 'taken'
-            ? 'Someone else is already holding this celebration’s uploads camera.'
+            ? 'Someone else is already holding this event’s uploads camera.'
             : uploadsError === 'no_camera'
               ? 'Your uploads camera isn’t ready yet — refresh in a moment.'
               : 'We couldn’t turn uploads on just now. Try again in a moment.'}
@@ -2118,7 +2118,7 @@ function StatusBanners({
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
             {papicAccessError === 'not_a_couple'
-              ? 'Only the couple can change this celebration’s Papic settings.'
+              ? 'Only the couple can change this event’s Papic settings.'
               : 'That didn’t go through — try again, or contact support.'}
           </span>
         </p>

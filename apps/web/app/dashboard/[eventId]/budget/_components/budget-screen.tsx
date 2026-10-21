@@ -147,8 +147,6 @@ export function BudgetScreen({
   const line = filterLine(filter);
   // Once a sheet has been opened its code stays mounted, so the next open is instant.
   const [sheetsWanted, setSheetsWanted] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const open = (next: BudgetSheetState) => {
     setSheetsWanted(true);
@@ -216,18 +214,15 @@ export function BudgetScreen({
       {/* The thumb row: fixed over the list, in the lower third. Portalled to
           <body> — inside the dashboard a transformed ancestor would capture a
           `position: fixed` child and it would scroll away with the page. */}
-      {mounted
-        ? createPortal(
-            <ThumbRow
-              canEdit={canEdit}
-              filter={filter}
-              onFilter={setFilter}
-              onSearch={setQuery}
-              onAdd={() => open({ kind: 'add' })}
-            />,
-            document.body,
-          )
-        : null}
+      <BodyPortal>
+        <ThumbRow
+          canEdit={canEdit}
+          filter={filter}
+          onFilter={setFilter}
+          onSearch={setQuery}
+          onAdd={() => open({ kind: 'add' })}
+        />
+      </BodyPortal>
 
       {sheetsWanted ? (
         <BudgetSheets
@@ -242,6 +237,21 @@ export function BudgetScreen({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Portals its children to `<body>` once the page is in the browser (a server render has no `document`).
+ *
+ * 🔂 RENDERED ONCE ON OPEN (2026-10-22). The "am I mounted yet?" flag lives HERE, in its own small component — when it
+ * lived in `BudgetScreen` (`const [mounted, setMounted] = useState(false)` + `useEffect(() => setMounted(true), [])`),
+ * flipping it re-rendered the WHOLE screen (the summary, every supplier, order and expense row) right after the first
+ * paint, only to draw the thumb row. Now only this host renders a second time; the screen above it renders once.
+ * Guard: `apps/web/lib/budget-and-seating-render-once.test.ts`.
+ */
+function BodyPortal({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHost(document.body), []);
+  return host ? createPortal(children, host) : null;
 }
 
 /** A group's heading — its name, and how many rows it holds. No count when the read was refused. */

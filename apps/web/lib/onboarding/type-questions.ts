@@ -119,7 +119,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       question: 'Who’s the birthday for?',
       options: [
         { key: 'kids', title: 'A kids’ party', desc: 'Games, fun, and a playful program.', adds: ['arcade_games'] },
-        { key: 'milestone', title: 'A milestone (18 / 21)', desc: 'A styled, photo-worthy celebration.', adds: ['photo_video', 'stylist_decorator'] },
+        { key: 'milestone', title: 'A milestone (18 / 21)', desc: 'A styled, photo-worthy event.', adds: ['photo_video', 'stylist_decorator'] },
         { key: 'adult', title: 'An adult birthday', desc: 'Drinks, music, good company.', adds: ['mobile_bar'] },
         { key: 'golden', title: 'A golden one (60+)', desc: 'Elegant, warm, and full of family.', adds: ['live_band', 'florist'] },
       ],
@@ -208,7 +208,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       question: 'How big is the gathering?',
       options: [
         { key: 'family', title: 'Family only', desc: 'An intimate moment, close circle.', adds: [] },
-        { key: 'party', title: 'A full party', desc: 'A hosted celebration with a crowd.', adds: ['host_mc', 'catering'] },
+        { key: 'party', title: 'A full party', desc: 'A hosted event with a crowd.', adds: ['host_mc', 'catering'] },
       ],
     },
     {
@@ -239,7 +239,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'After the rite',
       question: 'What follows the ceremony?',
       options: [
-        { key: 'garden', title: 'Garden reception', desc: 'A styled outdoor celebration.', adds: ['stylist_decorator', 'catering'] },
+        { key: 'garden', title: 'Garden reception', desc: 'A styled outdoor event.', adds: ['stylist_decorator', 'catering'] },
         { key: 'lunch', title: 'Intimate lunch', desc: 'A warm meal with close family.', adds: ['catering'] },
         { key: 'party', title: 'Full party', desc: 'A hosted program with live music.', adds: ['host_mc', 'live_band'] },
         { key: 'none', title: 'Just the blessing', desc: 'Keep it to the ceremony.', adds: [] },
@@ -248,10 +248,10 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
     {
       id: 'scale',
       eyebrow: 'The gathering',
-      question: 'How big is the celebration?',
+      question: 'How big is the event?',
       options: [
         { key: 'intimate', title: 'Close family', desc: 'An intimate, gentle gathering.', adds: [] },
-        { key: 'full', title: 'A full celebration', desc: 'A hosted meal for everyone.', adds: ['catering', 'host_mc'] },
+        { key: 'full', title: 'A full event', desc: 'A hosted meal for everyone.', adds: ['catering', 'host_mc'] },
       ],
     },
     {
@@ -286,7 +286,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
         { key: 'awards', title: 'Awards night', desc: 'Recognition, trophies, a hosted program.', adds: ['trophies_awards', 'host_mc'] },
         { key: 'conference', title: 'Conference', desc: 'Talks, AV, optional livestream.', adds: ['lights_sound', 'livestream'] },
         { key: 'launch', title: 'Product launch', desc: 'A staged reveal with big-screen moments.', adds: ['led_wall', 'livestream'] },
-        { key: 'celebration', title: 'Team celebration', desc: 'Food, fun, and entertainment.', adds: ['catering', 'performers'] },
+        { key: 'celebration', title: 'Team event', desc: 'Food, fun, and entertainment.', adds: ['catering', 'performers'] },
       ],
     },
     {
@@ -417,8 +417,8 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'The gathering',
       question: 'How big is it?',
       options: [
-        { key: 'intimate', title: 'An intimate dinner', desc: 'A close, seated celebration.', adds: [] },
-        { key: 'party', title: 'A big party', desc: 'A hosted celebration for many.', adds: ['host_mc', 'catering'] },
+        { key: 'intimate', title: 'An intimate dinner', desc: 'A close, seated event.', adds: [] },
+        { key: 'party', title: 'A big party', desc: 'A hosted event for many.', adds: ['host_mc', 'catering'] },
       ],
     },
     {
@@ -452,7 +452,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'mass', title: 'Thanksgiving Mass + renewal', desc: 'A blessing and a renewal of vows.', adds: ['ceremony_venue', 'host_mc'] },
         { key: 'renewal', title: 'A renewal of vows', desc: 'Say “I do” again, hosted.', adds: ['host_mc'] },
-        { key: 'reception', title: 'Just a grand reception', desc: 'A celebration with the whole family.', adds: ['catering'] },
+        { key: 'reception', title: 'Just a grand reception', desc: 'An event with the whole family.', adds: ['catering'] },
         { key: 'intimate', title: 'Keep it intimate', desc: 'A quiet dinner with loved ones.', adds: [] },
       ],
     },
@@ -470,7 +470,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
     {
       id: 'look',
       eyebrow: 'The look',
-      question: 'How styled is the celebration?',
+      question: 'How styled is the event?',
       options: [
         { key: 'grand', title: 'Grand & formal', desc: 'Florals and a designed setup.', adds: ['stylist_decorator', 'florist'] },
         { key: 'warm', title: 'Warm & intimate', desc: 'Soft styling, close and cozy.', adds: ['florist', 'coffee_espresso'] },
@@ -507,7 +507,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'The feast',
       question: 'How do you want to feed everyone?',
       options: [
-        { key: 'lechon', title: 'Lechon & full spread', desc: 'The classic celebration feast.', adds: ['catering'] },
+        { key: 'lechon', title: 'Lechon & full spread', desc: 'The classic feast.', adds: ['catering'] },
         { key: 'carts', title: 'Food carts & stations', desc: 'Grazing stations and street eats.', adds: ['food_cart', 'stations'] },
         { key: 'buffet', title: 'Buffet catering', desc: 'A proper catered buffet.', adds: ['catering'] },
         { key: 'sweets', title: 'Dessert & drinks', desc: 'A dessert table and a drinks corner.', adds: ['dessert', 'mobile_bar'] },

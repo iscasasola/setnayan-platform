@@ -311,11 +311,11 @@ export function summariseMinimum(v: MinimumVerdict): string {
     case 'unknown':
       return '';
     case 'payable':
-      return `Promising ${v.promised.toLocaleString('en-PH')} credits in total, and this celebration holds ${v.pot.toLocaleString('en-PH')}.`;
+      return `Promising ${v.promised.toLocaleString('en-PH')} credits in total, and this event holds ${v.pot.toLocaleString('en-PH')}.`;
     case 'short':
       // 🔑 THE SHORTFALL, NAMED. "That will not work" is not something a couple
       // can act on; "add 4,000 credits" is.
-      return `This promises ${v.promised.toLocaleString('en-PH')} credits between your guests and the celebration holds ${v.pot.toLocaleString('en-PH')} — ${v.shortfall.toLocaleString('en-PH')} short. Lower the minimum, or add ${v.shortfall.toLocaleString('en-PH')} credits.`;
+      return `This promises ${v.promised.toLocaleString('en-PH')} credits between your guests and the event holds ${v.pot.toLocaleString('en-PH')} — ${v.shortfall.toLocaleString('en-PH')} short. Lower the minimum, or add ${v.shortfall.toLocaleString('en-PH')} credits.`;
   }
 }
 
@@ -473,7 +473,7 @@ export function summariseAllotments(i: SplitInputs): string {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   if (split.overCommitted) {
-    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${formatCount(split.namedTotal - i.pot)} credits more than this celebration holds, so they cannot all take their full amount`;
+    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${formatCount(split.namedTotal - i.pot)} credits more than this event holds, so they cannot all take their full amount`;
   }
 
   // Sponsors get their own clause, so the couple can see a ninong's bigger

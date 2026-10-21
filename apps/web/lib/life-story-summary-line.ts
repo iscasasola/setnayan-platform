@@ -20,7 +20,7 @@ import { formatCount } from '@/lib/format-number';
  */
 export function lifeFlashSummaryLine(momentCount: number, peopleCount: number): string {
   if (momentCount <= 0) {
-    return 'Moments gather here live, from every celebration you’re part of.';
+    return 'Moments gather here live, from every event you’re part of.';
   }
   const moments = `${formatCount(momentCount)} ${momentCount === 1 ? 'moment' : 'moments'}`;
   const people =

@@ -110,7 +110,7 @@ export function FindModeCard({
       <p className="mx-auto mt-1 max-w-sm text-sm text-ink/70">{body}</p>
       <Link
         href={`/${slug}/invite`}
-        className="mt-5 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
+        className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
       >
         {ctaLabel}
       </Link>

@@ -123,7 +123,7 @@ test('the rule never mutates the saved config it was given', () => {
 test('the Maker panel: pre-filled + note for INC, writes nothing on render', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { DressCodePanel } = await import(
-    '../../../website/editor/_components/authoring-panels'
+    '../../../website/editor/_components/dress-code-panel'
   );
   let calls = 0;
   const spy = async () => {

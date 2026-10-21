@@ -440,7 +440,7 @@ export async function loadStorySpineFacts(args: {
         firstMs,
         `${formatCount(total)} before the day`,
         'The camera opens',
-        'The first photographs of this celebration, taken before the day itself.',
+        'The first photographs of this event, taken before the day itself.',
         'guest',
       );
       if (fact) road.push(fact);

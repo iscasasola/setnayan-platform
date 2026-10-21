@@ -21,10 +21,12 @@
  * depends on was refused (`EventMoney.reads`, B0). They then draw "—", and the
  * meter draws no bar. Never ₱0.
  *
- * ── It stays live ─────────────────────────────────────────────────────────
- * A payment or a line item landing from another device refreshes the page's
- * server render (`router.refresh()`), so the summary and everything under it
- * re-read the ONE resolver together. The old card refetched its own figures
+ * ── It is current when looked at ──────────────────────────────────────────
+ * A payment or a line item recorded from another device is on screen when the
+ * tab is looked at again: coming back refreshes the page's server render
+ * (`router.refresh()`), so the summary and everything under it re-read the ONE
+ * resolver together. (Until 2026-10-21 a Realtime channel did this — a socket
+ * held open all day for a page where nothing is live.) The old card refetched its own figures
  * through a second server action — two writers of one number.
  */
 
@@ -32,7 +34,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Count, Fill } from '@/components/count';
-import { createClient } from '@/lib/supabase/client';
+import { onTabReturn } from '@/lib/tab-return';
 import { formatPhp } from '@/lib/orders';
 import { budgetMeter, shortDate, type NextPayment } from '@/lib/budget-page-view';
 import { setEventBudget } from '../actions';
@@ -40,6 +42,8 @@ import styles from './budget-page.module.css';
 
 const SAVE_DEBOUNCE_MS = 500;
 const SAVED_FLASH_MS = 1400;
+/** Coming back to the budget re-reads it — unless it was read this recently (a quick alt-tab is not a new look). */
+const BUDGET_RETURN_GAP_MS = 30_000;
 
 /** `2250000` → `"2,250,000"` — the Target field's own text, no ₱ (it is drawn beside it). */
 function targetText(php: number | null): string {
@@ -135,41 +139,19 @@ export function BudgetSummary({
     [],
   );
 
-  // Live: a payment or a line item changing anywhere re-reads the page.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let stop = () => {};
-    const refresh = () => {
-      if (timer) clearTimeout(timer);
-      // one-render: keep (realtime) — a payment or line item changed somewhere else; nothing was pressed here.
-      timer = setTimeout(() => router.refresh(), 400);
-    };
-    try {
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`budget-${eventId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'event_vendor_payments', filter: `event_id=eq.${eventId}` },
-          refresh,
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'event_vendor_line_items', filter: `event_id=eq.${eventId}` },
-          refresh,
-        )
-        .subscribe();
-      stop = () => void supabase.removeChannel(channel);
-    } catch {
-      // The live channel is an extra: every figure here was read on load and is
-      // read again on the next visit. A socket that cannot open must not take
-      // the couple's summary down with it.
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-      stop();
-    };
-  }, [eventId, router]);
+  // Current when looked at: a payment or a line item recorded somewhere else (the
+  // couple's phone, the supplier's console) is on screen the moment this tab is
+  // looked at again. 🔌 No socket (2026-10-21): this page used to hold a Realtime
+  // channel on two tables all day — nothing on it is live, and a budget left open
+  // in a background tab is not being read.
+  useEffect(
+    () =>
+      onTabReturn(() => {
+        // one-render: keep (realtime) — the tab came back into view; nothing was pressed here.
+        router.refresh();
+      }, { minGapMs: BUDGET_RETURN_GAP_MS }),
+    [router],
+  );
 
   function showFlash(kind: 'saved' | 'bad') {
     setFlash(kind);

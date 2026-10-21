@@ -1175,7 +1175,7 @@ function YouTubeDelivery({
         {!youtubeWatchUrl ? (
           <p className="mt-2 text-xs text-ink/50">
             Already created your broadcast on YouTube yourself? Paste its link here and
-            your wedding page shows Watch Live during the celebration — no need to wait
+            your wedding page shows Watch Live during the event — no need to wait
             for the broadcaster hand-off.
           </p>
         ) : null}

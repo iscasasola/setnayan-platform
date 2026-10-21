@@ -56,7 +56,7 @@ test('the supplier paying their own booking fee goes back to that fee', () => {
   );
   // The exact regression, named: never the couple's dashboard.
   assert.doesNotMatch(back.href, new RegExp(EVENT));
-  assert.doesNotMatch(back.label, /celebration/i);
+  assert.doesNotMatch(back.label, /your event/i);
 });
 
 test("a shop's eventless bill goes back to the shop", () => {
@@ -86,7 +86,7 @@ test("a shop's event-scoped purchase still goes to the shop, not the couple", ()
   assert.equal(isCoupleOnlyRoute(back.href), false);
 });
 
-test("a couple paying their own order goes back to their celebration, as before", () => {
+test("a couple paying their own order goes back to their event, as before", () => {
   const back = payBackLink({
     orderId: ORDER,
     isBookingFee: false,
@@ -96,7 +96,7 @@ test("a couple paying their own order goes back to their celebration, as before"
     viewerUserId: COUPLE,
   });
   assert.equal(back.href, `/dashboard/${EVENT}`);
-  assert.match(back.label, /celebration/i);
+  assert.match(back.label, /your event/i);
 });
 
 test('a couple who opens the supplier fee through their event is not sent to the shop', () => {
@@ -159,8 +159,8 @@ test('the old event-first rule has not grown back', () => {
   assert.match(src, /payBackLink\(/, 'the payable no longer uses the shared rule');
   assert.doesNotMatch(
     src,
-    /Back to your celebration/,
-    'payable-by-reference spells the celebration label again — the rule belongs in pay-back-link.ts',
+    /Back to your event/,
+    'payable-by-reference spells the event label again — the rule belongs in pay-back-link.ts',
   );
 });
 

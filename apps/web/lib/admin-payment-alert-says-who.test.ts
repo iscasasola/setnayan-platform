@@ -132,7 +132,7 @@ test('the admin footer says why an admin got it — no wedding, no vendor, no Pa
   assert.doesNotMatch(footer, /wedding/i, '17 event types — the admin footer must not say wedding');
   assert.doesNotMatch(footer, /vendor/i, 'we say supplier, not vendor');
   assert.doesNotMatch(footer, /Papic gallery/i, 'an admin did not start a Papic gallery');
-  assert.ok(footer.includes('Plan, share and relive every celebration'), 'the owner\'s tagline (2026-09-30)');
+  assert.ok(footer.includes('Plan, share and relive every event'), 'the owner\'s tagline (2026-09-30; "celebration" → "event" by his ruling of 2026-10-22, DECISION_LOG "TAGLINE SAYS EVENT")');
 });
 
 test('the order-submitted alert carries the same details', () => {

@@ -400,7 +400,7 @@ function HubStageFrame({
                 type="button"
                 onClick={() => setMoreOpen(false)}
                 aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+                className="-m-1.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>

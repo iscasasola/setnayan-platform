@@ -16,7 +16,7 @@ export const metadata = { title: 'Settings · Supplier' };
 
 /**
  * /vendor-dashboard/settings — SETTINGS, one list (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14;
- * prototype SCREENS.settings — reached from More › Settings and the avatar sheet).
+ * prototype SCREENS.settings — reached from the avatar sheet; More, the other door, left the bar 2026-10-21).
  *
  * Every row opens a page that ALREADY exists; this page decides nothing and owns no write:
  *   Account (/dashboard/profile) · Notifications ▾ (the shipped PushToggle · how email reaches you · Recent →
@@ -30,7 +30,8 @@ export const metadata = { title: 'Settings · Supplier' };
  * guard.
  *
  * ⚠ "SETTINGS IS NOT A ROW" (lib/vendor-more-rows.ts, 2026-10-01) WAS TRUE UNTIL THIS PAGE: there was no settings
- * page to open, so a Settings row would have pretended. Now there is one, and More lists it.
+ * page to open, so a Settings row would have pretended. Now there is one, under the profile picture — and since
+ * 2026-10-21 (owner "Yes to all": the bar is Today · Customers · Shop · Hub) it is the ONE door to More tools.
  *
  * Reads (each once): role · profile · tier · team roles · payout readiness (2) · unread count — 7 after sign-in. A
  * scoped team member (agent / viewer) sees only the rows that are theirs: Account · Notifications · Help · Switch

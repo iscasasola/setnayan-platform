@@ -66,8 +66,8 @@ export async function GET(
     const displayName = resolved.user.display_name?.trim() || 'A Setnayan profile';
     const subtitle =
       publicEvents.length >= 2
-        ? 'A collection of celebrations'
-        : 'A Setnayan celebration';
+        ? 'A collection of events'
+        : 'A Setnayan event';
 
     // Hero from the most-recent public chapter. The stored value may be an
     // r2:// ref → presign it into a fetchable URL; a legacy http(s) value passes

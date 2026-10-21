@@ -531,7 +531,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   part_reopen_requested: 'A couple wants to change an agreed part',
   part_reopen_answered: 'Your re-open request was answered',
   colour_changed_in_lane: 'A colour on your board was changed',
-  deletion_request_received: 'A celebration you were paid for is being removed',
+  deletion_request_received: 'An event you were paid for is being removed',
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
   deletion_request_declined: 'A supplier would rather keep it for now',
@@ -892,6 +892,69 @@ export const countUnread = cache(async (
   }
   return count ?? 0;
 });
+
+/**
+ * The unread count for the BELL's own re-reads in the browser — `null` when it could not be read.
+ *
+ * 🔒 `countUnread` above answers 0 on a refused read, which is right for the server chrome it was written for (a
+ * thrown error there takes a whole dashboard subtree down) but wrong for a re-read: the badge would replace a real
+ * "3" with nothing — a false 0 — on every venue Wi-Fi blip. The badge's poll (`startCountPoll`, lib/tab-return.ts)
+ * leaves the drawn count alone when this answers `null`.
+ */
+export async function readUnreadNotificationCount(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<number | null> {
+  try {
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .is('read_at', null);
+    if (error) {
+      // Recorded, then answered "unknown" — the bell keeps what it drew.
+      logQueryError('readUnreadNotificationCount', error, { user_id: userId }, 'graceful_degrade');
+      return null;
+    }
+    return typeof count === 'number' ? count : null;
+  } catch (caught) {
+    logQueryError('readUnreadNotificationCount (threw)', caught instanceof Error ? caught : new Error(String(caught)), { user_id: userId }, 'graceful_degrade');
+    return null;
+  }
+}
+
+/**
+ * Unread notifications of these types written in the last `withinMs` — the ones that change what an OPEN page should
+ * show (made a host · invited to an event). The bell asks this only when its count goes UP, and refreshes the page
+ * when it sees one it has not seen. `null` = could not read (refresh nothing).
+ */
+export async function readRecentUnreadOfTypes(
+  supabase: SupabaseClient,
+  userId: string,
+  types: readonly NotificationType[],
+  withinMs: number,
+): Promise<string[] | null> {
+  try {
+    const since = new Date(Date.now() - withinMs).toISOString();
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('notification_id')
+      .eq('user_id', userId)
+      .is('read_at', null)
+      .in('type', types as NotificationType[])
+      .gte('created_at', since)
+      .limit(20);
+    if (error) {
+      logQueryError('readRecentUnreadOfTypes', error, { user_id: userId }, 'graceful_degrade');
+      return null;
+    }
+    if (!Array.isArray(data)) return null;
+    return data.map((r) => (r as { notification_id: string }).notification_id);
+  } catch (caught) {
+    logQueryError('readRecentUnreadOfTypes (threw)', caught instanceof Error ? caught : new Error(String(caught)), { user_id: userId }, 'graceful_degrade');
+    return null;
+  }
+}
 
 export function relativeTime(iso: string, now = new Date()): string {
   const ms = now.getTime() - new Date(iso).getTime();

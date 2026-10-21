@@ -43,7 +43,7 @@ const ERROR_COPY: Record<string, string> = {
   // Owner 2026-08-21: "no. it needs to be in a new event." Shots belong to one
   // celebration, and this one has finished — say the rule, not just "no".
   event_over:
-    'This celebration has finished, so there is nothing left to shoot. Credits are bought for one event at a time — the next one starts fresh.',
+    'This event has finished, so there is nothing left to shoot. Credits are bought for one event at a time — the next one starts fresh.',
   not_here: "We couldn't tell which camera you're holding. Reopen your QR link and try again.",
   too_fast: 'One moment — try that again in a few seconds.',
   unknown_rung: 'That option is no longer available. Pick another one.',
@@ -332,7 +332,7 @@ function ReleaseSection({
       <p className="sn-eye">Change your mind?</p>
       <p className="text-xs text-ink/60">
         This camera holds {n(standing.dedicated)} credits — {n(standing.spent)} already shot.
-        You can give {n(standing.releasable)} of what you bought to the celebration.
+        You can give {n(standing.releasable)} of what you bought to the event.
       </p>
 
       {confirming ? (
@@ -350,7 +350,7 @@ function ReleaseSection({
                 type="submit"
                 className="rounded-lg bg-mulberry px-3 py-2 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
               >
-                Give {n(standing.releasable)} to the celebration
+                Give {n(standing.releasable)} to the event
               </button>
             </form>
             <button
@@ -368,7 +368,7 @@ function ReleaseSection({
           onClick={() => setConfirming(true)}
           className="w-full rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5"
         >
-          Give the unused {n(standing.releasable)} to the celebration
+          Give the unused {n(standing.releasable)} to the event
         </button>
       )}
     </section>

@@ -1,11 +1,10 @@
 import type { CSSProperties } from 'react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
-import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
+import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 import type { ScheduleBlockRow } from '@/lib/print-pieces';
-import { ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
+import { DirectionsMenu, ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -118,8 +117,9 @@ function legacyVenues(event: EventRow): EventVenue[] {
 }
 
 /**
- * 🔆 THE DIRECTIONS CHIPS STAND ON THE PLATE (owner 2026-09-30, "I cannot see the
- * venues properly"). `NavLinksRow` paints its chips `bg-cream` — the PAGE ground —
+ * 🔆 THE DIRECTIONS STAND ON THE PLATE (owner 2026-09-30, "I cannot see the
+ * venues properly"). The directions (`NavLinksRow`'s chips then, `DirectionsMenu`'s ▾ since 2026-10-21) paint
+ * `bg-cream` — the PAGE ground —
  * with the PLATE's ink. Wherever the page and the plate differ in lightness (a
  * dark background under a light mood-board plate, a light background under a
  * dark theme's plate) that pair measured 1.0–1.1 : 1. Re-grounding `--color-cream`
@@ -195,19 +195,14 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
         {venue.address ? (
           <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p>
         ) : null}
-        {/* ⚠ THE DIRECTIONS ROW GOES WITH THE ADDRESS. `NavLinksRow` falls back
+        {/* ⚠ THE DIRECTIONS GO WITH THE ADDRESS. `DirectionsMenu` falls back
             to a maps search when there is no pin, so leaving it mounted for a
             withheld venue would hand out a search for the venue by name — the
-            withheld fact, one tap later. */}
-        {event.venue_withheld ? null : (
-          <NavLinksRow
-            latitude={venue.latitude ?? null}
-            longitude={venue.longitude ?? null}
-            addressFallback={venueSearchQuery(venue)}
-            label="Get directions"
-            compact
-          />
-        )}
+            withheld fact, one tap later.
+            ▾ ONE DROPDOWN, NOT THREE CHIPS (controller ruling 2026-10-21 from the owner's "any set of choices is a
+            dropdown"): Google Maps · Waze · Apple Maps are the styled cards' own `DirectionsMenu`, reused — it was
+            three side-by-side chips here, 26 px tall (the Hub button walk). */}
+        {event.venue_withheld ? null : <DirectionsMenu venue={venue} />}
       </div>
     </div>
   );

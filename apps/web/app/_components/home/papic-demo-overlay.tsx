@@ -132,7 +132,15 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
     }
   }, []);
 
-  const { presence, send } = useDemoChannel(pair?.sessionId ?? '', undefined, onMessage);
+  // 🔌 Only while the overlay is OPEN (2026-10-21). The overlay stays mounted
+  // when it closes (only the portal toggles) and `pair` is kept until the next
+  // open — so keyed on `pair` alone, the demo channel held the page's socket
+  // open long after the visitor closed the demo.
+  const { presence, send } = useDemoChannel(
+    current === 'papic-demo' && pair ? pair.sessionId : '',
+    undefined,
+    onMessage,
+  );
   sendRef.current = send;
 
   const pickStyle = useCallback(

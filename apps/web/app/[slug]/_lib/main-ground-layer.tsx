@@ -2,24 +2,23 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainEffect, hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { hubMainEffect, hubMainGround, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
 import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO } from '@/lib/ambient-effects';
 import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
-import { guestMainGround } from '@/lib/guest-main-ground';
-import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { websiteProActiveFor } from './hub-look';
-import type { HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { compositeOver } from '@/lib/hub-legibility';
 import { pageWordBase, shadeWordInks } from './pro-site-vars';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { displayUrlForStoredAsset, stableDisplayUrlForStoredAsset } from '@/lib/uploads';
-import { displayUrlForStdBackground } from '@/lib/std-bg-image';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
+/* The plain half — what the picture IS, and the film's and the prints' readers (`main-ground-picture.ts`, 2026-10-22). */
+import { pictureOf, screenSizedStill, type MainGroundInput } from './main-ground-picture';
+export { mainGroundPictureFor, mainGroundStillFor } from './main-ground-picture';
 import { AmbientEffectLayer } from '../_components/ambient-effect';
 
 /**
@@ -61,33 +60,6 @@ import { AmbientEffectLayer } from '../_components/ambient-effect';
  * their own gates: the Event Hub body, and the RSVP page, which a guest reaches
  * only holding this event's key (or the host, on the Maker's canvas).
  */
-type MainGroundInput = {
-  /** The theme `resolveHubTheme` answered — Pro ownership already decided. */
-  theme: InviteThemeId;
-  /** The hero row's `config_json` (draft-overlaid for the host's canvas). */
-  heroConfig: unknown;
-  event: HeroEventInput & {
-    event_id: string;
-    site_button_color?: unknown;
-    role_palette?: unknown;
-    /** ✨ The look columns an effect's ground and colours are measured from (`lookEffectOn`) — the row the caller already read. */
-    site_bg_color?: unknown;
-    site_button_style?: unknown;
-    site_font_key?: unknown;
-    site_art_direction?: unknown;
-    site_roles?: unknown;
-  };
-  viewerIsHost: boolean;
-  /** Refs the caller already signed, so a ref is never signed twice. */
-  signed?: Record<string, string>;
-  /**
-   * 🎞 The HOST's own canvas, wearing their draft (`hostDraft` non-null — a
-   * verified host on `?editor=1`, never a guest): a moving background they have
-   * not paid for yet is shown to them as it WOULD look (tried free, asked at
-   * Apply). Guests never pass it.
-   */
-  tryOn?: boolean;
-};
 
 /**
  * ✨ THE EFFECT ON TOP (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4"): the background — whatever it is: a
@@ -164,69 +136,7 @@ async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
   return null;
 }
 
-/**
- * 🖼 THE PICTURE BEHIND THE EVENT — a moving background of ours (as viewed: Pro, or tried on the host's canvas), else
- * the ONE answer shared with Discover's card (`guestMainGround`). Shared by the page's layer and the film's
- * (`mainGroundStillFor`), so the two can never disagree about what the background is.
- */
-async function pictureOf(
-  main: ReturnType<typeof hubMainGround>,
-  input: Pick<MainGroundInput, 'theme' | 'heroConfig' | 'event' | 'signed' | 'tryOn'>,
-  ownsPro: boolean,
-): Promise<{ mainGround: ResolvedMainGround | null; urls: Record<string, string> }> {
-  const { theme, heroConfig, event, signed = {}, tryOn = false } = input;
-  const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
-  // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07) — and Parallax (Look restudy row 8).
-  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
-  if (loop && isHubMainLoop(main) && main.motion === 'parallax') loop.ground.parallax = true;
-  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
-  const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
-  // The ONE answer to "what is behind the event", shared with Discover's card.
-  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
-  return { mainGround, urls };
-}
 
-/**
- * 🎞 THE SAVE THE DATE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08: *"Save the
- * date should adapt to the main background as well. we stay 1 design for all."*). The film is a full-screen layer
- * of its own over the page, which draws a PICTURE behind its words (`StdBackgroundLayer`) — so it is handed the
- * main background's picture as one still URL: the couple's photo or scene, a clip's or a moving background's still,
- * else the theme's own loop's still (what the page wears with nothing stored). `null` = no picture (a colour, a
- * pattern, "just the colour"): the film then wears the page colour — the caller's `stdFilmOnMain`.
- */
-export async function mainGroundStillFor(input: MainGroundInput): Promise<string | null> {
-  const { theme, heroConfig, event, signed = {} } = input;
-  const main = hubMainGround(heroConfig);
-  if (mainGroundIsNone(main) || (main && 'ground' in main && main.ground === 'pattern')) return null;
-  const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
-  const { mainGround, urls } = await pictureOf(main, input, ownsPro);
-  const ref = mainGround?.stillRef ?? null;
-  if (ref) return (await screenSizedStill(ref)) ?? urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
-  /* Nothing of theirs: the theme's own loop, as its still — the page's own ground. */
-  return movingBackground(theme)?.urls[INVITE_THEMES[theme]?.media?.poster ?? ''] ?? null;
-}
-
-/**
- * 🖼 THE BACKGROUND PHOTO AT SCREEN SIZE, NOT CAMERA SIZE (owner 2026-10-20 *"we want all pages to load at its
- * fastest"*). Measured on a live invitation: the Main background was the couple's 4.4 MB camera original, drawn
- * full-bleed as a CSS background and fetched eagerly, while its 1600 px WebP copy (25 KB) already sat beside it in
- * the bucket — made by the Save-the-Date's own pipeline (`displayUrlForStdBackground`, lib/std-bg-image.ts), which
- * derives it once, caches it next to the original and reuses it forever. The couple's own photo only (a clip's still
- * is a photo too); a video, a loop of ours or a legacy URL is left to the normal signer. Null = draw the original as before
- * (any failure inside the pipeline already falls back to the original).
- */
-async function screenSizedStill(ref: string | null): Promise<string | null> {
-  // The couple's own uploads only (`events/…`) — never our theme posters, which need no copy made on a guest's visit.
-  if (!ref || !/^r2:\/\/setnayan-media\/events\/.+\.(jpe?g|png|webp)$/i.test(ref)) return null;
-  return await displayUrlForStdBackground(siteMediaServeRef(ref)).catch(() => null);
-}
-
-/**
- * 🎞 One of our loops as a Main background — the same shape the couple's own
- * clip resolves to (`ResolvedMainGround`), so the ONE mount above draws it. Its
- * refs map to their signed bucket-host URLs (our own art on the public bucket). Null when
- * the theme has no loop or R2 is not configured.
- */
 /**
  * 🌗 SHADE ▾ (owner 2026-10-06/07): Darker · Dark · Light · Lighter lay the
  * shipped veil (`mainGroundShade`) — never less than readability already needs,
@@ -269,41 +179,6 @@ function shadeFollowers(
   );
 }
 
-/** A loop takes Shade and Blur, never Focus (it is not a photo). */
-function loopLook(look: HubMainLook): HubMainLook | undefined {
-  const out: HubMainLook = { ...(look.shade ? { shade: look.shade } : {}), ...(look.blur ? { blur: look.blur } : {}) };
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls: Record<string, string> } | null {
-  const media = INVITE_THEMES[id]?.media ?? null;
-  if (!media) return null;
-  // 📸 Signed on the bucket host, one address per window (`stableDisplayUrlForStoredAsset`) — never `r2.dev`.
-  const at = (ref: string): string | null => {
-    try {
-      return stableDisplayUrlForStoredAsset(ref);
-    } catch {
-      return null;
-    }
-  };
-  const poster = at(media.poster);
-  const clip = at(media.loop);
-  if (!poster && !clip) return null;
-  const urls: Record<string, string> = {};
-  if (poster) urls[media.poster] = poster;
-  if (clip) urls[media.loop] = clip;
-  return {
-    ground: {
-      source: 'own',
-      stillRef: poster ? media.poster : null,
-      clipRef: clip ? media.loop : null,
-      // The SAME guest switch every Main-background clip meets (`mainGroundClipRefForGuests`) — closed, a guest gets the still.
-      guestClipRef: clip ? mainGroundClipRefForGuests(media.loop) : null,
-      tint: { match: false, frame: [media.samples.light, media.samples.dark] },
-    },
-    urls,
-  };
-}
 
 /**
  * ✨ The effect stored on the main background, laid over what was resolved above — by the ONE layer

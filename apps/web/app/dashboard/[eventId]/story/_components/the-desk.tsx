@@ -115,7 +115,7 @@ export function TheDesk({
       ) : null}
       {lettersDark ? (
         <p className="mt-2 text-xs text-ink/50">
-          Letters are switched off for this celebration.
+          Letters are switched off for this event.
         </p>
       ) : null}
 

@@ -160,7 +160,7 @@ const CARD_KIND: Record<
   delete_request: {
     accent: 'var(--sn-danger)',
     eye: 'var(--sn-danger)',
-    eyebrow: 'A couple wants to remove a celebration',
+    eyebrow: 'A couple wants to remove an event',
   },
   dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
   /*
@@ -822,12 +822,12 @@ function DeleteRequestBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">
-        A celebration you were paid for is being removed
+        An event you were paid for is being removed
       </p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
       <p className="mt-2 max-w-prose text-sm text-ink/70">
         Their records show a payment to you. If you agree, the couple&rsquo;s
-        celebration is removed —{' '}
+        event is removed —{' '}
         <strong className="font-semibold text-ink">
           your booking record, your reviews and your figures stay with your shop
         </strong>

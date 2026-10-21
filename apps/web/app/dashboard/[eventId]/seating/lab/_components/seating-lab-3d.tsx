@@ -93,7 +93,7 @@ import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
-import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
+import { lockSaysViewOnly, useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, CameraMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
@@ -596,7 +596,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   const sharedRoom = usePlan3dRoom(eventId, roomSelf);
   // View-only surface follows the editor live (2D or another 3D viewer) — the
   // EDITING surface never auto-refreshes (it can't clobber its own drag).
-  useSeatingLiveRefresh(eventId, !canEdit);
+  // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   const acquireLock = lock.acquire;
   const notifyLost = lock.notifyLost;
   useEffect(() => {

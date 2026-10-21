@@ -62,7 +62,7 @@ export function MutualDays({
       {state.days.length === 0 ? (
         <p className="uprof-md-invite">
           Nothing here yet. The next time you and {them} are at the same
-          celebration and the photos are shared, that day appears here — on both
+          event and the photos are shared, that day appears here — on both
           of your pages, and only while you both want it there.
         </p>
       ) : (
@@ -76,7 +76,7 @@ export function MutualDays({
                 <Link href={`/${d.slug}`} className="uprof-md-card">
                   <span className="uprof-md-body">
                     <span className="m-serif uprof-md-title">
-                      {d.displayName?.trim() || 'A celebration'}
+                      {d.displayName?.trim() || 'An event'}
                     </span>
                     {meta ? <span className="uprof-md-meta">{meta}</span> : null}
                   </span>

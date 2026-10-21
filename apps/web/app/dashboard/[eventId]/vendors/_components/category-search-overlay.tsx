@@ -690,7 +690,7 @@ export function CategorySearchOverlay({
                     : ''}
                   , so we&rsquo;re working from around{' '}
                   {formatPhpRounded(budgetEstimate.eventBudgetPhp)} for the whole
-                  celebration. Put in your own figure and these results follow it.
+                  event. Put in your own figure and these results follow it.
                 </p>
                 <ActionButton tone="neutral" icon={Wallet} label="Set your budget" href={`/dashboard/${eventId}/budget`} />
               </div>

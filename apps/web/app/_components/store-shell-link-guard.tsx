@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { isStoreShellInBrowser, storeShellHidesHref } from '@/lib/store-shell';
-import { iapAvailable } from '@/lib/iap/iap-gate';
+import { hasNativeStore } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 
 /**
@@ -23,7 +23,7 @@ import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
  * (`SetnayanApp/desktop`) and the web are untouched — and the pages stay
  * whole: only the door to /web-only goes. Mounted once, in app/layout.tsx.
  *
- * 🍎 Where Apple sells in this app it asks `iapAvailable` exactly as
+ * 🍎 Where Apple sells in this app it asks the gate's two parts (`iapAvailable`) exactly as
  * middleware does, so a link to a page In-App Purchase opens (Papic, the Live
  * Watch controller — `IAP_OPENED_ROUTE`) stays; with it off, nothing changes.
  */
@@ -60,7 +60,9 @@ export function StoreShellLinkGuard() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (!isStoreShellInBrowser(navigator.userAgent, document.cookie)) return;
-    iap = iapAvailable({ storeShell: true, userAgent: navigator.userAgent, enabled: isAppleIapEnabled() });
+    // `iapAvailable` with the store shell already true (the line above) — its other two parts, spelled out so the
+    // Maker's first load carries only them.
+    iap = hasNativeStore(navigator.userAgent) && isAppleIapEnabled();
 
     sweep(document);
     const observer = new MutationObserver((records) => {

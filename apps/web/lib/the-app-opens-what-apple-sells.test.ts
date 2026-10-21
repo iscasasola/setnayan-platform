@@ -145,7 +145,9 @@ test('1 · middleware and the link guard ask the ONE three-part gate (`iapAvaila
   );
   assert.match(mw, /storeShell &&\s*isStoreShellWebOnlyPath\(pathname, iapAvailable/, 'the refusal no longer requires the store shell');
   const guard = code('app/_components/store-shell-link-guard.tsx');
-  assert.match(guard, /iap = iapAvailable\(\{ storeShell: true, userAgent: navigator\.userAgent, enabled: isAppleIapEnabled\(\) \}\);/);
+  // The guard runs only inside the store shell, so it asks the gate's other two parts — the same functions `iapAvailable` asks.
+  assert.match(guard, /if \(!isStoreShellInBrowser\(navigator\.userAgent, document\.cookie\)\) return;\s*(?:\/\/[^\n]*\n\s*)*iap = hasNativeStore\(navigator\.userAgent\) && isAppleIapEnabled\(\);/);
+  assert.match(code('lib/iap/iap-gate.ts'), /return input\.enabled && input\.storeShell && hasNativeStore\(input\.userAgent\);/, 'the gate is no longer the switch + the shell + the build');
   assert.match(guard, /storeShellHidesHref\(a\.getAttribute\('href'\), window\.location\.href, iap\)/);
   // The gate itself: any one of the three missing → no Apple.
   const ua = 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1 SetnayanIAP/2';

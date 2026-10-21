@@ -24,13 +24,13 @@
 /** The user-agent token the iOS build that sells through Apple (1.1+) appends. */
 export const NATIVE_STORE_UA_MARKER = 'SetnayanIAP/2';
 
-/** The lowest `SetnayanIAP/<n>` that may sell — 1.0 (build 5) announces `/1` and must never (owner 2026-10-21). */
-export const NATIVE_STORE_MIN_VERSION = 2;
-
-/** Does this user-agent belong to a phone build that may sell through Apple (`SetnayanIAP/2` or higher)? */
+/**
+ * Does this user-agent belong to a phone build that may sell through Apple — `SetnayanIAP/2` or higher? 1.0 (build 5)
+ * announces `/1` and must never (owner 2026-10-21). One regex, no parse: the link guard runs it on the Maker's first
+ * load, which sits at its byte budget. `/2`–`/9`, then any two-or-more-digit version (`/10`…); never `/0`, `/1`, `/1.5`.
+ */
 export function hasNativeStore(ua: string | null | undefined): boolean {
-  const m = /\bSetnayanIAP\/(\d+)\b/.exec(ua ?? '');
-  return m !== null && Number(m[1]) >= NATIVE_STORE_MIN_VERSION;
+  return /\bSetnayanIAP\/(?:[2-9]|[1-9]\d)/.test(ua ?? '');
 }
 
 export function iapAvailable(input: {

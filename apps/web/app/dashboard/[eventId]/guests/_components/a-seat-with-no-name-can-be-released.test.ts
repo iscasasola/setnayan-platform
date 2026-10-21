@@ -32,7 +32,7 @@ import type { GuestRow } from '@/lib/guests';
 /** A list row as the page sends it (the search spreads `custom_tags`). */
 const guestRow = (over: Partial<GuestRow> = {}): GuestRow => baseRow({ custom_tags: [], ...over });
 
-import { DB } from './guests-db.harness';
+import { DB, type Row } from './guests-db.harness';
 
 const EV = 'ev-1';
 /** Ana brings +2 (one seat with no name yet, one named Ben); Bert brings +1 (no name yet); Cora brings nobody. */

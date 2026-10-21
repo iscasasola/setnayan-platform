@@ -151,8 +151,8 @@ export function FindThumbRow({
   const words = `Search ${scope} or add your own`;
   return createPortal(
     <div
-      ref={rowRef}
       data-find-thumb=""
+      ref={rowRef}
       data-on={up ? 'true' : 'false'}
       inert={!up}
       className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${

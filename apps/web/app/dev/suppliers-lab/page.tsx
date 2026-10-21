@@ -60,7 +60,7 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
-import { buildFindList, popularTilesFor } from '@/lib/supplier-find';
+import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
 import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
 import { FindCategoryList } from '@/app/dashboard/[eventId]/vendors/_components/find-category-list';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
@@ -192,7 +192,11 @@ export default async function SuppliersLabPage({
           .filter((t): t is NonNullable<typeof t> => t != null),
       );
   const findList = buildFindList({
-    folders: buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+    // No database here, so no Admin › Scope categories: drop a wake's own services the way a wedding's scope does.
+    folders: buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }).map((f) => ({
+      ...f,
+      tiles: f.tiles.filter((t) => (FIND_GROUP_OF_TILE as Record<string, string>)[t.tile] !== 'farewell'),
+    })),
     eventType: 'wedding',
     solemn: false,
     booked: findBooked,

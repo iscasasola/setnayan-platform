@@ -101,11 +101,9 @@ test('(a) every shipped section has ONE home — Find, Build or Booked', () => {
   const find = bodyOf('find');
   const build = bodyOf('build');
   const booked = bodyOf('booked');
-  // Find: the door to the category marketplace, then the bench.
-  // The door is the ONE action button (2026-10-12 look sweep): `label`, not inner text; `data-testid`, not a data-attr.
-  assert.match(find, /href=\{`\/dashboard\/\$\{eventId\}\/vendors\/categories`\}\s*data-testid="find-supplier"/);
-  assert.equal((takeoverBody().match(/label="Find a supplier"/g) ?? []).length, 1, 'exactly ONE Find a supplier');
-  assert.ok(find.indexOf('data-testid="find-supplier"') < find.indexOf('tab="shortlist"'), 'the door comes before the bench it searches beyond');
+  // Find: the bench. The door to the category marketplace is the bottom search, tapped empty (owner
+  // 2026-10-21 — the big "Find a supplier" button is gone; held by `one-door-to-find.test.ts`).
+  assert.equal((takeoverBody().match(/label="Find a supplier"/g) ?? []).length, 0, 'a "Find a supplier" button is back on the Find body');
   assert.match(find, /\{shortlistSlot \?\?/);
   // Build: the picks, then the saved builds.
   assert.ok(build.indexOf('tab="build"') > -1 && build.indexOf('tab="build"') < build.indexOf('tab="compare"'));

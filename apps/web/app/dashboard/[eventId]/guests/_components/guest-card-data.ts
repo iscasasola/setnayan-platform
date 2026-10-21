@@ -31,6 +31,7 @@ import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
+import { plusOneSeatLines } from '@/lib/extra-seats';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -84,8 +85,13 @@ export type GuestCardData = {
   isIncWedding: boolean;
   /** Chinese primary rite OR a tea ceremony over another rite. */
   showTeaCeremony: boolean;
-  /** The +1 row's current state, or null when no +1 exists yet. */
-  plusOneStateLabel: string | null;
+  /**
+   * 🪑 One line per live +1 seat row, oldest first (`plusOneSeatLines`) — EVERY seat, so a guest who brings two shows
+   * two. `[]` = no seat row yet. NULL = THE READ WAS REFUSED: the card says it could not read them, never "no +1 added
+   * yet" (a failure is not an emptiness — 2026-10-22, two-seat guests were told they had none).
+   */
+  plusOneLines: readonly string[] | null;
+  /** The oldest seat's row, or null when there is none (or the read was refused). */
   plusOneGuestId: string | null;
   /** The guest's saved invited-to blocks, filtered to values we still know. */
   initialInvited: InvitedToBlock[];
@@ -174,7 +180,7 @@ export async function loadGuestCard(
     singletonHolders,
     roleSet,
     { data: ceremonyRow, error: ceremonyRowError },
-    { data: plusOneRow, error: plusOneRowError },
+    { data: plusOneRows, error: plusOneRowError },
     { data: seatRow, error: seatRowError },
     { data: groupRows, error: groupRowsError },
     { data: tableRows, error: tableRowsError },
@@ -203,11 +209,12 @@ export async function loadGuestCard(
     ),
     supabase
       .from('guests')
-      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
+      // 🪑 EVERY seat row — never `.maybeSingle()`: two seats were an error that drew "no +1 added yet" (2026-10-22).
+      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at, created_at')
       .eq('event_id', eventId)
       .eq('plus_one_of_guest_id', guestId)
       .is('deleted_at', null)
-      .maybeSingle(),
+      .order('created_at', { ascending: true }),
     supabase
       .from('event_seat_assignments')
       // 🔴 `table_label`, NOT `label`. There is no `label` column on
@@ -250,20 +257,21 @@ export async function loadGuestCard(
   // Both rite columns — a mixed wedding with an INC side reads as INC here too.
   const isIncWedding = ceremonyMatches(ceremonyRow, 'inc');
 
-  // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this renders "Allowed but no +1
-  // ⚠ has been added to the list yet" — telling the couple their guest has not named
-  // ⚠ a plus-one when they may well have. Not an empty list: a claim about a person.
+  // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this once rendered "Allowed, but no +1
+  // ⚠ added yet" — telling the couple their guest has no plus-one when they may well have.
+  // ⚠ Not an empty list: a claim about a person. So a refusal is `plusOneLines: null`, which
+  // ⚠ the card draws as "couldn't read", never as the empty state.
   if (plusOneRowError) {
     logQueryError('loadGuestCard.plusOneRow', plusOneRowError, { eventId, guestId }, 'graceful_degrade');
   }
-  const plusOneStateLabel = plusOneRow
-    ? plusOneRow.plus_one_name_confirmed_at
-      ? `Bringing ${[plusOneRow.first_name, plusOneRow.last_name]
-          .filter(Boolean)
-          .join(' ')
-          .trim()}`
-      : 'Awaiting +1 to confirm their name'
-    : null;
+  const plusOneRowList = (plusOneRows ?? []) as Array<{
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at: string | null;
+  }>;
+  const plusOneLines = plusOneRowError ? null : plusOneSeatLines(guestId, plusOneRowList);
 
   // Filter to known valid InvitedToBlock values — schema column is
   // string[] so legacy data could contain stale block names.
@@ -461,8 +469,8 @@ export async function loadGuestCard(
     ],
     isIncWedding,
     showTeaCeremony,
-    plusOneStateLabel,
-    plusOneGuestId: plusOneRow?.guest_id ?? null,
+    plusOneLines,
+    plusOneGuestId: plusOneRowError ? null : (plusOneRowList[0]?.guest_id ?? null),
     initialInvited,
     seatedAt,
     customGroups,

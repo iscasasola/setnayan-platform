@@ -365,7 +365,14 @@ function carryTab(row: HTMLElement): void {
     if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented || row.querySelector('[aria-expanded="true"]')) return;
     const dir = e.shiftKey ? -1 : 1;
     const keys = rowKeys(row);
-    if (document.activeElement !== keys[dir === 1 ? keys.length - 1 : 0]) return;
+    const at = keys.indexOf(document.activeElement as HTMLElement);
+    /* Between the row's own keys (chips) too — Safari's own Tab skips buttons. */
+    if (at >= 0 && keys[at + dir]) {
+      e.preventDefault();
+      keys[at + dir]!.focus();
+      return;
+    }
+    if (at < 0) return;
     const next = tabRowFrom(row, dir);
     stop();
     if (!next) return;
@@ -797,7 +804,21 @@ export function FormRowField({
       if (!wrap.current?.contains(e.target as Node)) endRef.current('tap-out');
     };
     document.addEventListener('pointerdown', onDown, true);
-    return () => document.removeEventListener('pointerdown', onDown, true);
+    /* A save of the row before landing resets the form (React 19 resets it after its action): Safari then drops the selection
+       of this open field, so the words a Tab selected would be typed after instead of replaced. The field keeps both. */
+    const onReset = () => {
+      if (document.activeElement !== el) return;
+      const [a, b] = [el.selectionStart ?? 0, el.selectionEnd ?? 0];
+      window.setTimeout(() => {
+        el.value = typed.current;
+        el.setSelectionRange(a, b);
+      });
+    };
+    el.form?.addEventListener('reset', onReset);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      el.form?.removeEventListener('reset', onReset);
+    };
     // Once, when the field opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -1034,7 +1034,7 @@ function CompactDayOf({
         <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
           {next.length > 0
             ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
-            : `Opens here on its own on the day of an event — ${HUB_OPEN_WINDOW_PLAIN}, from the moment a couple’s booked date is today. Until then, there’s nothing live to run here.`}
+            : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <Link

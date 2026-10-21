@@ -200,7 +200,7 @@ test('6 · no guest-facing file draws media at the public r2.dev host, except th
 /* ── 7 · the hero asks for the screen-sized copy ──────────────────────────── */
 
 test('7 · the Main background still is the screen-sized copy when one can be had', () => {
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   // Per function, not per file: a file-wide count also counts the helper's own definition.
   const body = (start: string) => {
     const from = layer.indexOf(start);

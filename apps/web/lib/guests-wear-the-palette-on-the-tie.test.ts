@@ -212,7 +212,7 @@ test('5 · every entourage man in a suit, tuxedo or vest design has three contro
       assert.deepEqual(zones.slice(1).map((z) => z.label), [TIE_AND_ACCENT, LONG_SLEEVES], `${role} · ${style}: the controls are not in the owner's words`);
       assert.ok(zones[0]!.label === COAT_AND_PANTS || /^Vest & pants$/.test(zones[0]!.label ?? ''), `${role} · ${style}: the first control is "${zones[0]!.label}"`);
       assert.deepEqual(pickDots(style, C, role).map((d) => d.word), zones.map((z) => z.label), `${role} · ${style}: the dots do not say the three controls`);
-      const g = roleArtKey(role, style)!;
+      const g: Exclude<Parameters<typeof zoneTints>[0], 'unset'> = roleArtKey(role, style)!;
       /* each control paints its own part; every mask the drawing has wears one of the three (a 3-piece's vest, the coat) */
       const t = tintsOf(g, C);
       assert.equal(t.a, C[0], `${g}: Coat & pants does not paint the coat`);

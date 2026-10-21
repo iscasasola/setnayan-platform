@@ -188,7 +188,7 @@ export default async function SuppliersLabPage({
     : new Set(
         rows
           .filter((r) => LOCKED_VENDOR_STATUSES.includes(r.status ?? ''))
-          .map((r) => homeTileForRow({ category: r.category, category_key: r.category_key ?? null }))
+          .map((r) => homeTileForRow({ category: r.category }))
           .filter((t): t is NonNullable<typeof t> => t != null),
       );
   const findList = buildFindList({

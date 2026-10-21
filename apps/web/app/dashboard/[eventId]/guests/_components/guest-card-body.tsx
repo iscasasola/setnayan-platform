@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { composeFormalName } from '@/lib/formal-name';
-import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS } from '@/lib/extra-seats';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -309,6 +309,13 @@ export function GuestCardBody({
   const partnerLinkAction = actions?.partnerLink ?? inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
 
   const name = guestDisplayName(guest);
+  /* 🪪 AN UNNAMED +1 HAS NO NAME YET (owner 2026-10-21: "Why is the +1 listed as the +1's last name? when there is no last
+     name yet until we type on it or it is filled up by the guest via RSVP"). Their name boxes draw EMPTY — "Add" — never
+     the stored stand-ins "TBA" · "+1" · "+1 · TBA"; the card's title keeps "dally BIR’s +1 · TBA" (the seat's label,
+     ruled 2026-09-29). Their sentences speak of them as their guest's +1. 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
+  const typedName = seatNameAsTyped(guest);
+  const isSeat = Boolean(guest.plus_one_of_guest_id);
+  const callName = typedName.first_name || (data.plusOneOf ? `${data.plusOneOf.hostName}’s +1` : isSeat ? 'Their +1' : guest.first_name);
   const inviteUrl = invitationBase && guest.qr_token ? invitationLinkOn(invitationBase, guest.qr_token) : null;
   // Linked is known only to the couple (it reads another account); anyone else is told nothing either way.
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
@@ -489,7 +496,7 @@ export function GuestCardBody({
               guest={{
                 guestId: guest.guest_id,
                 formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
-                firstName: guest.first_name,
+                firstName: typedName.first_name,
                 fullName: name,
                 inviteUrl,
                 sentAt: guest.invitation_sent_at,
@@ -528,6 +535,8 @@ export function GuestCardBody({
       <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-4">
         {/* ── NAME · open, and saves itself (no caption — owner 2026-10-03) ── */}
         <section className="space-y-2.5" data-guest-card-name="">
+          {/* 🪪 A +1 seat's name boxes may post empty — `updateGuest` then asks the row (`plusOneNameSave`). */}
+          {isSeat ? <input type="hidden" name="plus_one_seat" value="1" /> : null}
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="sn-eye">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">
@@ -577,17 +586,17 @@ export function GuestCardBody({
                     Wider than the old Prefix box so "Atty. (Woman)" reads whole at 375; Middle moves down a row. */}
                 <K.Cols className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] gap-2">
                   <K.Title label="Title" value={titleNow} current={guest.name_prefix} options={titleChoices({ current: guest.name_prefix })} unlisted={{ key: titleNow, text: titleText }} />
-                  <K.Field id="first_name" label="First" required defaultValue={guest.first_name} />
+                  <K.Field id="first_name" label="First" required={!isSeat} defaultValue={typedName.first_name} />
                 </K.Cols>
                 <K.Cols className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4.5rem)] gap-2">
                   <K.Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
-                  <K.Field id="last_name" label="Last" required defaultValue={guest.last_name} />
+                  <K.Field id="last_name" label="Last" required={!isSeat} defaultValue={typedName.last_name} />
                   <K.Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
                 </K.Cols>
                 <K.Field
                   id="display_name"
                   label="Shown as (optional)"
-                  defaultValue={guest.display_name ?? ''}
+                  defaultValue={typedName.display_name}
                   placeholder="e.g. Tito Boy & Tita Cora"
                 />
               </>
@@ -800,13 +809,19 @@ export function GuestCardBody({
               note="Their consent (RA 10173)"
             />
             {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
-                server-baked blur on EVERY projected photo, fail-closed. */}
-            <K.Toggle
-              name="faceblock_enabled"
-              defaultChecked={guest.faceblock_enabled}
-              label="Blur their face on the Live Wall"
-              note="FaceBlock — blurs every face in the shot"
-            />
+                server-baked blur on EVERY projected photo, fail-closed.
+                🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
+                iPhone app does not offer (its page is refused there), so the app
+                does not name it. The switch stays in the form, so its saved
+                answer still posts. Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+            <div data-web-only="">
+              <K.Toggle
+                name="faceblock_enabled"
+                defaultChecked={guest.faceblock_enabled}
+                label="Blur their face on the Live Wall"
+                note="FaceBlock — blurs every face in the shot"
+              />
+            </div>
             {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
             <K.Toggle
               name="face_recognition_excluded"
@@ -827,11 +842,11 @@ export function GuestCardBody({
               label="Note for them"
               defaultValue={guest.host_note_for_guest ?? ''}
               placeholder="e.g. We saved you a seat beside Lola — she can’t wait to see you."
-              about={`${guest.first_name} sees this on their invitation, under their role. No other guest does.`}
+              about={`${callName} sees this on their invitation, under their role. No other guest does.`}
             />
             {templated ? null : (
               <p className="text-xs text-ink/50">
-                {guest.first_name} sees this on their invitation, under their role. No other guest does.
+                {callName} sees this on their invitation, under their role. No other guest does.
               </p>
             )}
           </K.Fold>
@@ -844,12 +859,12 @@ export function GuestCardBody({
               label="Private note"
               defaultValue={guest.notes ?? ''}
               placeholder="e.g. Tito’s driver drops him at the side gate"
-              about={`Only you and your co-hosts see this. ${guest.first_name} never sees it.`}
+              about={`Only you and your co-hosts see this. ${callName} never sees it.`}
             />
             {/* Said out loud, because until 2026-08-06 it was the opposite of true. */}
             {templated ? null : (
               <p className="text-xs text-ink/50">
-                Only you and your co-hosts see this. {guest.first_name} never sees it.
+                Only you and your co-hosts see this. {callName} never sees it.
               </p>
             )}
           </K.Fold>
@@ -861,7 +876,7 @@ export function GuestCardBody({
         {guest.guest_note?.trim() ? (
           <div className="space-y-1.5 border-l-2 border-ink/15 pl-3">
             <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
-              A note from {guest.first_name}
+              A note from {callName}
             </span>
             <p className="whitespace-pre-wrap font-display text-[15px] italic text-ink/80">“{guest.guest_note}”</p>
             <p className="text-xs text-ink/50">They wrote this when they replied. Only they can change it.</p>
@@ -878,7 +893,7 @@ export function GuestCardBody({
             <GuestAccessControl
               eventId={eventId}
               guestId={guest.guest_id}
-              firstName={guest.first_name}
+              firstName={callName}
               initial={access}
               canManage={canManageAccess}
             />

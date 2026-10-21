@@ -39,6 +39,7 @@
  */
 
 import type { NameStyle } from '@/lib/name-style';
+import { isPlaceholderNameWord, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
 
 /** Who is sending: the couple/hosts ("our Event Hub"), or a guest passing a
  *  plus-one their own key ("the Event Hub"). */
@@ -248,11 +249,14 @@ function fill(template: string, values: { name: string; event: string; date: str
 
 function greetingName(ctx: Pick<GuestInviteContext, 'formalName' | 'firstName' | 'guestName'>): string {
   // The name as given — whole, never shortened (owner 2026-09-30).
-  const given = (ctx.formalName ?? '').replace(/\s+/g, ' ').trim();
+  // 🪪 An unnamed +1's stand-ins ("+1 · TBA", "TBA", "+1") are not a name: the greeting is "Hi!", never "Hi TBA!"
+  // (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const given = withoutPlaceholderWord('display', (ctx.formalName ?? '').replace(/\s+/g, ' ').trim());
   if (given) return given;
-  const first = (ctx.firstName ?? '').trim();
+  const first = withoutPlaceholderWord('first', ctx.firstName);
   if (first) return first;
-  return (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  const word = (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  return isPlaceholderNameWord('first', word) || isPlaceholderNameWord('last', word) ? '' : word;
 }
 
 /**

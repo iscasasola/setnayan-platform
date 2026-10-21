@@ -87,6 +87,8 @@ type Props = {
   // The signed-in couple's email, to surface (never block) a login≠Drive
   // account mismatch on the connected panel.
   loginEmail: string | null;
+  /** 🍎 The iPhone app (lib/store-shell.ts) — "Not now" goes to the galleries there, not the More menu it does not have. */
+  storeShell?: boolean;
 };
 
 export function PhotoDeliveryPanel({
@@ -109,6 +111,7 @@ export function PhotoDeliveryPanel({
   oauthReady,
   needsReauth,
   loginEmail,
+  storeShell = false,
 }: Props) {
   const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
 
@@ -118,6 +121,7 @@ export function PhotoDeliveryPanel({
         eventId={eventId}
         disconnectedFlash={disconnectedFlash}
         oauthReady={oauthReady}
+        storeShell={storeShell}
       />
     );
   }
@@ -162,10 +166,12 @@ function IdleState({
   eventId,
   disconnectedFlash,
   oauthReady,
+  storeShell,
 }: {
   eventId: string;
   disconnectedFlash: boolean;
   oauthReady: boolean;
+  storeShell: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -191,7 +197,9 @@ function IdleState({
             folder you own, yours to keep forever, long after the wedding.
           </>
         }
-        deferHref={studioHubHref(eventId)}
+        // 🍎 In the app the More menu is not there (#6725) — "I'll download them myself"
+        // lands where the photos are, the galleries.
+        deferHref={storeShell ? `/dashboard/${eventId}/galleries` : studioHubHref(eventId)}
         /* ⚠ This said "Not now — keep my photos in Setnayan", which named the
            OPPOSITE of what the branch does: declining Drive is exactly the path
            where the full-resolution originals are dropped at six months. The

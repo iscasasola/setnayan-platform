@@ -85,7 +85,7 @@ test('the shell draws the way back INSTEAD of Discover and My Home when focused'
   }
   assert.match(s, /const tools = focused && !insideEvent \? \[\] : toolsIn;/,
     'Studio must stay inside an event and nowhere else in focus.');
-  assert.match(s, /\{tools\.length > 0 \? \(\s*<div className="fd-rgroup">\s*<div className="fd-rdiv" \/>\s*<div className="fd-rlabel">\s*Studio/,
+  assert.match(s, /\{tools\.length > 0 \? \(\s*<div className="fd-rgroup"(?: data-web-only="")?>\s*<div className="fd-rdiv" \/>\s*<div className="fd-rlabel">\s*Studio/,
     'the Studio group no longer renders from its (focus-emptied) list.');
   // Hidden rows must not compete for the highlight.
   assert.match(s, /\.\.\.\(focused\s*\?\s*\[\]\s*:\s*railMatchRows\(/,

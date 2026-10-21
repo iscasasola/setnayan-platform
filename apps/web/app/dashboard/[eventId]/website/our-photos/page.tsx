@@ -14,6 +14,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatCount } from '@/lib/format-number';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
@@ -103,6 +104,9 @@ export default async function OurPhotosEditorPage({
   const saved = search.saved === '1';
   const drafted = search.drafted === '1';
   const error = search.error;
+  // 🍎 The gallery is part of Event Hub Pro, a paid web extra the iPhone app does not
+  // name, price or unlock — the app draws no Pro mark and no "Apply with Event Hub Pro".
+  const storeShell = await isStoreShellRequest();
 
   return (
     <section className="space-y-6">
@@ -119,7 +123,12 @@ export default async function OurPhotosEditorPage({
             Saved — your guests will see this gallery on your Event Hub.
           </div>
         ) : null}
-        {!proActive ? (
+        {!proActive && storeShell && (heldForPro || drafted) ? (
+          <p role={drafted ? 'status' : undefined} className="text-sm text-ink/70">
+            Saved in your Event Hub draft.
+          </p>
+        ) : null}
+        {!proActive && !storeShell ? (
           <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
             <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
             <span>

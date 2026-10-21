@@ -384,7 +384,16 @@ function MomentRow({
         </label>
       </div>
 
-      <p className="text-xs italic text-ink/55">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</p>
+      {moment.mode === 'papic_only' ? (
+        /* 🍎 One page, two readers (lib/store-shell.ts `data-web-only` / `data-app-only`): the iPhone app
+           names no paid extra, so it reads "your photo team" where the web names Papic. */
+        <p className="text-xs italic text-ink/55">
+          <span data-web-only="">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</span>
+          <span data-app-only="">Reserved for your photo team — guests stay present.</span>
+        </p>
+      ) : (
+        <p className="text-xs italic text-ink/55">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</p>
+      )}
     </article>
   );
 }

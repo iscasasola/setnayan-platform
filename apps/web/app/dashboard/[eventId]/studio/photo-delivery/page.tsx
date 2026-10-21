@@ -1,3 +1,4 @@
+import { isStoreShellRequest } from '@/lib/request-platform';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Radio, ShieldCheck } from 'lucide-react';
@@ -214,6 +215,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
 
       <PhotoDeliveryPanel
         eventId={eventId}
+        storeShell={await isStoreShellRequest()}
         eventName={event?.display_name ?? null}
         eventDate={event?.event_date ?? null}
         syncMode={syncMode}

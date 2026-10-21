@@ -910,27 +910,41 @@ export default async function EventDetailsPage({
             )}
           </Section>
 
-          {/* ── Services ── */}
-          <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
-            <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
-            <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+          {/* ── Services ──
+              🍎 THE APP NAMES NO PAID SERVICE (App Review 3.1.1 / 3.1.3(b); the
+              review notes say the digital extras are "not offered, priced, or
+              advertised in the app", and a web extra unlocks nothing there).
+              In the store shell this section keeps only Plan it myself — no
+              Event Hub Pro / Setnayan AI / Papic row, owned or not (an "Active"
+              row would claim an unlock the app does not honour), and no "Open
+              Services" link (the More menu it opens is not in the app). Held by
+              `app/the-app-names-no-paid-service.test.ts`. */}
+          <Section k="services" open={storeShell ? null : { href: studioHubHref(eventId), label: 'Open Services' }}>
+            {storeShell ? null : (
+              <>
+                <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+                <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+              </>
+            )}
             {/* 🙋 PLAN IT MYSELF lives here, in the event's settings (owner 2026-10-06,
                 DECISION_LOG "EVENT DETAILS IS REBUILT": it left the Maker). The SAME
                 switch and the same one store (`events.planning_mode`, `setPlanningMode`). */}
             <div className="py-2" data-details-plan-myself="">
               <PlanMyselfSwitch eventId={eventId} on={planMyselfOn(typeof e.planning_mode === 'string' ? e.planning_mode : null)} />
             </div>
-            <Row
-              money
-              label="Papic"
-              value={
-                !poolRead.ok
-                  ? COULD_NOT_LOAD
-                  : pool.applies
-                    ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
-                    : 'Not added'
-              }
-            />
+            {storeShell ? null : (
+              <Row
+                money
+                label="Papic"
+                value={
+                  !poolRead.ok
+                    ? COULD_NOT_LOAD
+                    : pool.applies
+                      ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
+                      : 'Not added'
+                }
+              />
+            )}
           </Section>
 
           {/* ── Purchases — the shipped orders, with their status ── */}

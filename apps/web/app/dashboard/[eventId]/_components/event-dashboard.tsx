@@ -1213,7 +1213,10 @@ export async function EventDashboard({
         href: d.href,
       }));
 
-  const payItems: DecisionItemView[] = pendingOrders.map((o) => {
+  // 🍎 Every couple order is a Setnayan digital SKU (lib/store-shell.ts) — the
+  // iPhone app asks nobody to settle one and lists none of them (App Review
+  // 3.1.1; `lib/the-app-names-no-paid-service.test.ts`).
+  const payItems: DecisionItemView[] = (storeShell ? [] : pendingOrders).map((o) => {
     const amount = o.requested_total_php !== null ? Number(o.requested_total_php) : 0;
     return {
       id: `pay:${o.order_id}`,
@@ -1443,8 +1446,10 @@ export async function EventDashboard({
   // `ai: null` on marketplaceEnabled=false); this surface did not, so a Simple
   // Event was quoted a venue shortlist AND a subscription price the type can
   // never buy.
+  // 🍎 The offer names Setnayan AI ("Setnayan AI · Free", "Let Sai find…") — a paid web
+  // extra the iPhone app does not offer, so the app draws no offer at all.
   const venueOfferAvailable =
-    marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled && !storeShell && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));
@@ -2063,7 +2068,8 @@ export async function EventDashboard({
     retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal), and
     the top-up rung comes from the Papic ONE tier table, not a hand-typed 150.
   */
-  const papicMini = papicHome ? (
+  /* 🍎 Not in the iPhone app — Papic is a paid web extra whose pages the app refuses. */
+  const papicMini = papicHome && !storeShell ? (
     <Link
       key="papic"
       href={`${base}/studio/papic`}
@@ -3104,7 +3110,9 @@ export async function EventDashboard({
               )}
             </article>
 
-            {/* Your services */}
+            {/* Your services — 🍎 not in the iPhone app: every row is a Setnayan digital SKU, and its
+                empty copy advertises the paid services (lib/the-app-names-no-paid-service.test.ts). */}
+            {storeShell ? null : (
             <ExpandCard
               cardClassName="sn-tile"
               title="Your services"
@@ -3146,6 +3154,7 @@ export async function EventDashboard({
                   ))
                 : null}
             </ExpandCard>
+            )}
 
             {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
              *  NOT the deadline/reminder stream. So the "Schedule" title now

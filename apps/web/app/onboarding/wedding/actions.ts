@@ -47,6 +47,7 @@ import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
 import { creatorCoupleRowId } from '@/lib/creator-couple-row';
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import {
   RECEPTION_PICK_TO_VENUE_SETTING,
   venueSettingForReceptionPicks,
@@ -422,6 +423,16 @@ export async function commitOnboardingWedding(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // The one creation gate (lib/vendor-event-creation.ts). ⚠ THIS DOOR NEVER
+  // ASKED IT: the 2026-08-15 roster listed four doors and missed the wedding
+  // wizard, so "a shop account may not create" was never true here. Owner
+  // 2026-10-22: one account is both, so nobody is refused today — and now every
+  // door, this one included, asks the same function (vendor-event-creation.test.ts
+  // fails on an events insert that does not).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'not_allowed' };
   }
 
   // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked

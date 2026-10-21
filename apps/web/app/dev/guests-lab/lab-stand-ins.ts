@@ -13,6 +13,14 @@ const labId = () => `lab-${++seq}`;
 
 export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   bulkApplyRoleAndGroup: async () => undefined as never,
+  /* ✋ Select → Set reply — local: says every id changed (the screen draws the new reply itself, and its Undo clears it). */
+  setGuestRsvp: async (_eventId, ids) => ({
+    ok: true,
+    changed: (typeof ids === 'string' ? [ids] : [...ids]).map((guest_id) => ({ guest_id, rsvp_status: 'pending' as const, rsvp_responded_at: null, rsvp_set_by: null, freedSeat: null })),
+    skipped: 0,
+    seats: { removedIds: [], releasedSeats: [] },
+  }),
+  restoreGuestRsvpAndSeat: async () => ({ ok: true }),
   createGuestGroup: async () => undefined as never,
   addSingleGuest: async (_eventId, draft) => ({
     ok: true,

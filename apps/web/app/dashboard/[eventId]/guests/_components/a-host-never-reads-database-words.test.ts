@@ -65,7 +65,9 @@ test('the delete’s sentence names who', () => {
 
 test('the delete, the capture bar, Regenerate QR, quick add and Add-from-people print their own sentence, not the action’s', () => {
   const del = read('guest-delete.tsx');
-  assert.match(del, /const said = plainRefusal\(result\.error, couldntDelete\(whom\)\);\s*guestToast\.error\(said\);\s*return said;/);
+  // The fallback is the page's own sentence — "Couldn't delete …", or for Release seat "Couldn't release …" (`couldnt`).
+  assert.match(del, /const said = plainRefusal\(result\.error, (couldntDelete\(whom\)|couldnt)\);\s*guestToast\.error\(said\);\s*return said;/);
+  assert.match(del, /const couldnt = o\.release \? `Couldn’t release [^`]*` : couldntDelete\(whom\);/, 'Release seat’s fallback is not its own sentence');
   assert.doesNotMatch(del, /guestToast\.error\(result\.error\)|return result\.error/);
   assert.match(del, /plainRefusal\(r\.warning, /, 'an undo warning prints raw');
   // The name box's refusal is said on the name's own row since 2026-10-19 (the add queue — guest-add-queue.ts).

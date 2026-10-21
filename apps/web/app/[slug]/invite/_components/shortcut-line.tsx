@@ -4,7 +4,9 @@ import { HOME_SCREEN_LINE, homeScreenStepsFor } from '@/lib/home-screen-shortcut
  * 📌 THE ONE QUIET "SHORTCUT TO THIS EVENT" LINE (owner 2026-10-03, DECISION_LOG
  * "GUESTS GET ONE QUIET 'SHORTCUT TO THIS EVENT' LINE, ONLY AFTER THEY REPLY").
  *
- * Mounted ONCE, by the thank-you (`invite/enter/page.tsx`, after a Yes) and by
+ * Mounted ONCE, by the thank-you (`invite/enter/page.tsx`, after a Yes, where
+ * "Add to Home Screen" exists — `shortcutLineShows`, never in the store app or a
+ * chat app's browser) and by
  * nothing else — `the-shortcut-line-is-on-the-thank-you-only.test.ts` holds
  * both. The steps for THIS phone (`homeScreenStepsFor`) open in place on a tap:
  * a `<details>`, a server component, no script — never a popup, nothing added

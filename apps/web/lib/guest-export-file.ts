@@ -25,6 +25,7 @@ import {
   GROUP_CATEGORY_LABELS,
   RSVP_LABELS,
   guestRoleLabel,
+  replyMarkedByHost,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
@@ -50,6 +51,8 @@ export type ExportGuest = {
   /** Set on a +1's seat row — whose seat it is. */
   plus_one_of_guest_id?: string | null;
   display_name?: string | null;
+  /** 🖐 Who set the reply (owner 2026-10-21) — the read-only "Reply set by" column. */
+  rsvp_set_by?: 'guest' | 'host' | null;
 };
 
 /**
@@ -93,6 +96,13 @@ export function exportHeadcount(rows: readonly { g: Pick<ExportGuest, 'plus_one_
   return rows.reduce((n, r) => n + (r.guestOf ? 0 : 1 + (r.g.plus_one_count ?? 0)), 0);
 }
 
+/** "You" for a reply a host set, "Guest" for their own, blank when the row does not say (never guessed). */
+export function replySetByWord(g: Pick<ExportGuest, 'rsvp_status' | 'rsvp_set_by' | 'passed_away'>): string {
+  if (g.passed_away) return '';
+  if (replyMarkedByHost(g)) return 'You';
+  return g.rsvp_set_by === 'guest' && g.rsvp_status !== 'pending' ? 'Guest' : '';
+}
+
 /** The byte-order mark Excel needs to read UTF-8. */
 export const UTF8_BOM = '﻿';
 
@@ -114,6 +124,8 @@ export function guestExportHeaders(hasSides: boolean, withTable: boolean): strin
     // Read-only, like RSVP and Table: whose +1 a row is (the importer does not read it).
     'Guest of',
     'RSVP',
+    // Read-only, like RSVP and Table: who set the reply (the importer does not read it).
+    'Reply set by',
     ...(withTable ? ['Table'] : []),
   ];
 }
@@ -159,6 +171,7 @@ export function guestListCsv(
       exportMobile(g.mobile),
       guestOf,
       g.passed_away ? 'In loving memory' : RSVP_LABELS[g.rsvp_status],
+      replySetByWord(g),
       ...(withTable ? [opts.tableByGuest?.[g.guest_id] ?? ''] : []),
     ];
     lines.push(cells.map(csvCell).join(','));

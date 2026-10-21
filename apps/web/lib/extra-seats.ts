@@ -44,6 +44,52 @@ export function isPlaceholderSeat(row: ExtraSeatRow): boolean {
 }
 
 /**
+ * 🪑 A +1 WITH NO NAME YET — a guest row that is one of somebody's seats (`plus_one_of_guest_id`) and is still the
+ * seat engine's own placeholder (`isPlaceholderSeat`: "TBA", no name ever given). The ONE answer the Guest List's
+ * "+1s: N named · M no name yet", its "+1 ▾" filter, "Release seat" and the server's release gate all read — so the
+ * number said is the rows shown is the seats a host may release (owner 2026-10-21: *"how do I know which +1 has
+ * names and has no names? so we can alot the seat to another person"*). It is exactly the kind of row lowering a
+ * guest's "+N" already removes (`planExtraSeats`), so a release never takes more than the number would.
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export function plusOneHasNoName(g: {
+  guest_id?: string;
+  plus_one_of_guest_id?: string | null;
+  first_name: string | null;
+  last_name?: string | null;
+  plus_one_name_confirmed_at?: string | null;
+}): boolean {
+  if (!g.plus_one_of_guest_id || g.plus_one_of_guest_id === g.guest_id) return false;
+  // Both rules at once: the seat engine's (never named — no stamp) AND the name boxes' (`seatNameAsTyped`, #6727 —
+  // every name part a stand-in). A row either says has a name is a person, never released.
+  return (
+    isPlaceholderSeat({ guest_id: g.guest_id ?? '', first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at ?? null }) &&
+    seatNameAsTyped({ plus_one_of_guest_id: g.plus_one_of_guest_id, first_name: g.first_name, last_name: g.last_name ?? null }).unnamed
+  );
+}
+
+/**
+ * 🪑 RELEASE SEAT'S GATE (the server's, `bulkSoftDeleteGuestsForUndo(…, { release: true })`): null when every row asked
+ * about is a +1 with no name yet; otherwise the words the host is told, and NOTHING is released. A named +1 is a person
+ * — they leave only by the shipped Remove and its warning (owner 2026-10-21).
+ */
+export function seatReleaseRefusal(
+  rows: readonly { guest_id: string; plus_one_of_guest_id: string | null; first_name: string | null; last_name?: string | null; plus_one_name_confirmed_at: string | null }[],
+): string | null {
+  if (rows.length === 0) return 'Nothing selected.';
+  const named = rows.filter((r) => !plusOneHasNoName(r)).length;
+  if (named === 0) return null;
+  return rows.length === 1
+    ? 'This +1 has a name — only a seat with no name yet can be released. Remove them instead.'
+    : 'Only seats with no name yet can be released — a +1 with a name is removed instead.';
+}
+
+/** A +1 who HAS a name — every seat row that is not `plusOneHasNoName`. */
+export function plusOneIsNamed(g: Parameters<typeof plusOneHasNoName>[0]): boolean {
+  return Boolean(g.plus_one_of_guest_id) && g.plus_one_of_guest_id !== g.guest_id && !plusOneHasNoName(g);
+}
+
+/**
  * What a new "+N" does to the seat rows. Always applicable — the number is the
  * host's (see the docblock). `over` = named people beyond the number, 0 when
  * everyone fits: the Guest List's "3 named · 1 allowed".

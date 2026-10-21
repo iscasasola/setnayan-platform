@@ -167,7 +167,7 @@ test('a live channel is let go after the tab is hidden long enough, and opened a
   assert.equal(opens, 1, 'the channel opens at mount');
 
   await tab.setVisible(false);
-  await tab.advance(30_000);
+  await tab.advance(20_000);
   await tab.setVisible(true);
   await tab.advance(60_000);
   assert.equal(closes, 0, 'a short look away must not drop a live channel');

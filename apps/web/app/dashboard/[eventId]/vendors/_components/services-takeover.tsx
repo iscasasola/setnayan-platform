@@ -20,8 +20,8 @@
  * ── EACH BODY IS A STUB, FOR NOW ───────────────────────────────────────────
  * PR1 builds the shell only. Each body mounts the SHIPPED section it will
  * replace, unchanged, so nothing is unreachable while PR2–PR4 land:
- *   Find    `shortlistSlot`  — the bench ("Cover your event"), and the door to
- *                              the category marketplace
+ *   Find    `shortlistSlot`  — the bench ("Cover your event"); the door to the
+ *                              category marketplace is the bottom search, empty
  *   Build   `buildSlot`      — the picks, then `compareSlot`, the saved builds
  *   Booked  `teamSlot`       — the team's rows, then `budgetSlot`, the payments
  * A body is drawn when it is first shown and then KEPT (hidden, not unmounted),
@@ -42,8 +42,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { Search, Sparkles } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { Sparkles } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { Count } from '@/components/count';
@@ -407,18 +406,10 @@ export function ServicesTakeover({
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
             {/* Room for Find's thumb row, so the last row is never under it. */}
             <div className="max-tab:pb-16">
-              {/* ONE Find a supplier opens the Find page — only this event
-                  type's categories, grouped the way hosts think (P3,
-                  2026-10-01). PR2 unfolds that marketplace in place. */}
-              <ActionButton
-                href={`/dashboard/${eventId}/vendors/categories`}
-                data-testid="find-supplier"
-                tone="brand"
-                main
-                icon={Search}
-                label="Find a supplier"
-                className="mb-5 w-full lg:w-auto"
-              />
+              {/* NO SECOND DOOR TO FIND (owner 2026-10-21 — "Why do i have this
+                  find supplier button? When we have the search bar at the
+                  bottom?"). The bottom search is the one door: tapped empty it
+                  opens the Find page's own category list (`find-thumb-row.tsx`). */}
 
               {/* ── THE HONESTY STRING (B2, 2026-08-14) ──────────────────────
                   `premium` is `aiActive`, and while the AI paywall is off that

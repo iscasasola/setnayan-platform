@@ -664,9 +664,11 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
     gates: [/\{!unlistedMeasured \? \(/, /\) : !candidatesMeasured \? \(/],
   },
   {
-    file: '[eventId]/vendors/categories/page.tsx',
+    // The Find list's read + rows moved out of the Find page (2026-10-21) so the Suppliers page's bottom
+    // search draws the same list: the read gates `booked`, the shared list says the refusal.
+    file: '[eventId]/vendors/_components/find-category-list.tsx',
     why: '"Booked ✓" on nothing, or a refused read reading as "nothing booked"',
-    gates: [/const booked: Set<string> \| null = bookedMeasured \?/, /\{!bookedMeasured \? \(/],
+    gates: [/\{!bookedMeasured \? \(/],
   },
   {
     file: '[eventId]/website/widgets/page.tsx',
@@ -811,7 +813,7 @@ test('a refused read never renders as a count of zero or an emptied money docume
   );
 
   const cats = stripComments(
-    readFileSync(join(HERE, '[eventId]/vendors/categories/page.tsx'), 'utf8'),
+    readFileSync(join(HERE, '..', '..', 'lib', 'supplier-find-read.ts'), 'utf8'),
   );
   assert.match(
     cats,

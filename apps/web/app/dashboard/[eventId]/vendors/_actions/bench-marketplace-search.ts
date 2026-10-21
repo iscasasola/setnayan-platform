@@ -13,14 +13,15 @@
  *   • Published scope: the market read goes through the couple's RLS client, so
  *     `vendor_market_stats`'s public-read policy (is_published = TRUE) filters to
  *     published vendors automatically — no hand-rolled published filter.
- *   • Demo exclusion: `fetchDemoVendorIds` (real couples never see is_demo rows).
+ *   • Demo exclusion: `demoVendorIdsHiddenFrom` — real couples never see is_demo rows; an admin in
+ *     demo mode does, exactly as in the category search (one rule, `lib/demo-vendor-exclusion.ts`).
  *   • Hybrid anonymity: `resolveVendorDisplayName` / `isVendorNameRevealed` — a
  *     Free/Verified vendor's real name + logo stay hidden until first reply.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
@@ -80,7 +81,7 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
   if (error) return [];
 
   const admin = createAdminClient();
-  const demoIds = new Set(await fetchDemoVendorIds(admin));
+  const demoIds = new Set(await demoVendorIdsHiddenFrom(supabase, admin, user.id));
   const stats = ((rows as StatsRow[] | null) ?? [])
     .filter((r) => !demoIds.has(r.vendor_profile_id))
     .slice(0, MAX_RESULTS);

@@ -282,3 +282,15 @@ export function suppliersPlaceFact(venueName: string | null | undefined, area: s
   if (where) return { text: where, open: true };
   return { text: 'Pick the place', open: true };
 }
+
+/**
+ * The address that opens the bottom search's EMPTY STATE — Find, with the
+ * categories up (owner 2026-10-21: the big "Find a supplier" button is gone;
+ * the bottom search is the one door to Find). For a door that used to open the
+ * Find page's browse (`/vendors/categories`); that page keeps working for
+ * every other link. Read by `find-thumb-row.tsx`, which then drops the param.
+ */
+export const FIND_DOOR_PARAM = 'find';
+export function findDoorHref(eventId: string): string {
+  return `/dashboard/${eventId}/vendors?tab=shortlist&${FIND_DOOR_PARAM}=1`;
+}

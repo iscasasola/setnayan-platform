@@ -345,7 +345,9 @@ export function DressCodeWidget({
   const mineDots: Array<{ label: string | null; dots: EveryoneDot[] }> = mine
     ? (mineDress?.picks.length ? mineDress.picks : ([{ who: 'f', style: null, colours: null, role: null }] satisfies ReaderPick[])).map((p: ReaderPick, _i: number, all: readonly ReaderPick[]) => ({
         label: all.length > 1 ? PICK_LABEL[p.who] : null,
-        dots: pickDots(p.style, p.colours && p.colours.length > 0 ? p.colours : mine.hexes, p.role),
+        /* 👗 A guest's colours are OPTIONS — each its own outfit, worn as their figures are (a man's on his tie,
+           owner 2026-10-21) — so each says what it colours on its own, as the Guests card's do. */
+        dots: pickDots(p.style, p.colours && p.colours.length > 0 ? p.colours : mine.hexes, p.role, guestRole ? meaningOf(paletteKeyForRole(guestRole) as PaletteKey) === 'options' : false),
       }))
     : [];
   // Said only when the answer came from the group, so a reader knows the couple

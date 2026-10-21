@@ -10,7 +10,9 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
-import { HomePillNav } from './_components/home-pill-nav';
+import { AccountBarSlot } from './_components/account-bar-slot';
+import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
+import { discoverOpensHere } from '@/lib/request-platform';
 
 /**
  * Full-screen LAUNCHER chrome — route group `(launcher)`, covering only the
@@ -99,13 +101,15 @@ export default async function LauncherLayout({
     eventsMeasured: false,
     context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
   };
-  const [shellRes, switcherData] = await Promise.all([
+  const [shellRes, switcherData, discoverOpen] = await Promise.all([
     getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),
     getSwitcherData(user.id).catch((err: unknown) => {
       // eslint-disable-next-line no-console
       console.error('[Launcher] switcher data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
+    // Is `/` a door here, or does the app shell bounce it? (lib/request-platform.ts)
+    discoverOpensHere(),
   ]);
 
   return (
@@ -129,13 +133,16 @@ export default async function LauncherLayout({
           </>
         }
       >
-        <main>{children}</main>
-        {/* Phone-only thumb nav — rendered by the LAYOUT, not by a page, so it
-            survives the tap that uses it. Its capability-gated fifth slot reads
-            the switcher context this layout already loaded; no new query. */}
-        <HomePillNav
-          hasSpaces={switcherData.context.hasVendor || switcherData.context.isAdmin}
-          spacesHref={switcherData.context.hasVendor ? '/vendor-dashboard' : '/admin'}
+        {/* The bar is anchored and FIXED, so the page reserves its measured
+            height (+ a breath) wherever it is drawn — below 1024, the dock's own
+            `lg:hidden` line. */}
+        <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">{children}</main>
+        {/* The account bar — rendered by the LAYOUT, not by a page, so it
+            survives the tap that uses it. Its tabs are the 2026-10-21 ruling
+            (lib/account-bar.ts): Shop only for an OWNER, from the switcher
+            context this layout already loaded; Discover only where `/` opens. */}
+        <AccountBarSlot
+          tabs={accountBarTabs({ ownsShop: ownsAShop(switcherData.context), discoverOpen })}
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

@@ -162,7 +162,7 @@ export function GuestHubBar({
           <Link
             href={hubHref}
             aria-label="Open the live hub"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
           >
             <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
             <span>Live hub</span>
@@ -180,7 +180,7 @@ export function GuestHubBar({
           <Link
             href="/dashboard/profile"
             aria-label="Your account"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             <span>Account</span>
@@ -278,7 +278,7 @@ export function GuestHubBar({
               type="button"
               onClick={() => setQrOpen(false)}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+              className="absolute right-1.5 top-1.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>

@@ -33,6 +33,7 @@ import { boughtWhere, liveWatchHomeStatus } from './iap/where-bought';
 import { APP_STORE_CHANNEL_KEY } from './iap/products';
 import { POOL_ONLY_APP_NOTICE, POOL_ONLY_DEFAULT_NOTICE, poolOnlyConnectNotice } from './live-studio-pool-only';
 import { stripComments } from './strip-comments';
+import { glanceCount, glanceDays, glanceMoney, pickHomeNext, type HomeNextInput } from './home-first-screen';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -160,18 +161,18 @@ test.before(async () => {
   Screen = (await import('@/app/dashboard/[eventId]/_components/home-first-screen')).HomeFirstScreen;
 });
 
+const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
 function home(apple: unknown): string {
   return renderToStaticMarkup(
     React.createElement(Screen!, {
       eventId: E,
-      cover: { title: 'Ana & Miguel', date: null, place: null },
-      next: null,
-      days: 120,
-      coming: 10,
-      noReply: 4,
-      noReplyWaiting: false,
+      cover: { eyebrow: 'Wedding · December 18, 2026', name: 'Ana & Miguel' },
+      next: pickHomeNext(NOTHING),
+      days: glanceDays(120),
+      coming: glanceCount(96, true),
+      noReply: glanceCount(35, true),
+      noReplyWaiting: true,
       money: null,
-      figures: null,
       services: [],
       papicLeft: 320,
       apple,
@@ -199,8 +200,10 @@ test('2 · GATE ON — Papic opens its page; an owned Live Watch says where it w
     papic: { status: '320 credits left', buy: true, open: `/dashboard/${E}/studio/papic` },
     liveWatch: { status: 'On · bought in the app', owned: true, askReady: false, goLive: `/panood/control/${E}` },
   });
-  assert.match(html, new RegExp(`<a[^>]*href="/dashboard/${E}/studio/papic"[^>]*data-home-apple-open`), 'the Papic row does not open its page');
-  assert.match(html, new RegExp(`<a[^>]*href="/panood/control/${E}"[^>]*>[\\s\\S]*?Go live`), 'no Go live door to the controller');
+  const tag = (attr: string) => (html.match(/<a\b[^>]*>/g) ?? []).filter((t) => t.includes(attr));
+  assert.ok(tag('data-home-apple-open').some((t) => t.includes(`href="/dashboard/${E}/studio/papic"`)), 'the Papic row does not open its page');
+  const goLive = html.match(new RegExp(`<a\\b[^>]*href="/panood/control/${E}"[^>]*>[\\s\\S]*?</a>`))?.[0] ?? '';
+  assert.match(goLive, /Go live/, 'no Go live door to the controller');
   assert.match(html, /On · bought in the app/);
   assert.match(html, /data-testid="iap-papic-buy-more"/, 'Papic keeps its Apple Buy more');
   assert.doesNotMatch(html, /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
@@ -347,7 +350,8 @@ test('5 · the made-once panels and Our Story try Pro by `proShell` — which IS
   assert.match(made, /<MiniTour tourKey="customer_hero_designs_v1" storeShell=\{storeShell\} \/>/);
   const editor = code('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.match(editor, /const proShell = storeShell && !iapGate\.iap;/, 'premise: the editor\'s own rule (#6637)');
-  assert.equal((editor.match(/<Maker(?:Hero|Reveal|Logo)Panel[^>]*?proShell=\{proShell\}/g) ?? []).length, 3, 'a made-once panel is not handed the editor\'s proShell');
+  // Hero · Reveal (settings) · Reveal (options) · Logo.
+  assert.equal((editor.match(/<Maker(?:Hero|Reveal|Logo)Panel[^>]*?proShell=\{proShell\}/g) ?? []).length, 4, 'a made-once panel is not handed the editor\'s proShell');
   const story = code('app/dashboard/[eventId]/website/our-story/page.tsx');
   assert.match(story, /const proShell = storeShell && !iapGate\.iap;/);
   assert.match(story, /makerProUsable\(\{ owns: proActive, storeShell: proShell \}\)/);

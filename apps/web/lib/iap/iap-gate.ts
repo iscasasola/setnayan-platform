@@ -5,23 +5,32 @@
  * All three must hold:
  *   1 · the STORE SHELL — the Capacitor app Apple reviews (lib/store-shell.ts).
  *       The web and the desktop app keep GCash / BDO and never see Apple.
- *   2 · a build that CARRIES THE STOREKIT PLUGIN — it appends `SetnayanIAP/1`
- *       to its user-agent (apps/mobile/capacitor.config.ts, iOS only). The
- *       binary already in people's hands has no plugin: showing it a buy
- *       button would be a door with nothing behind it, the same reasoning as
- *       `SetnayanSignIn/1` (lib/oauth-shell-gate.ts).
+ *   2 · a build that CARRIES THE STOREKIT PLUGIN AND IS VERSION 1.1 OR LATER —
+ *       it appends `SetnayanIAP/2` (or higher) to its user-agent
+ *       (apps/mobile/capacitor.config.ts, iOS only). An older binary has no
+ *       plugin: showing it a buy button would be a door with nothing behind it,
+ *       the same reasoning as `SetnayanSignIn/1` (lib/oauth-shell-gate.ts).
+ *       ⚠ 1.0 (build 5) DOES carry the plugin and announces `SetnayanIAP/1` —
+ *       but it was reviewed and submitted as an app that sells nothing, so the
+ *       owner ruled (2026-10-21) that `/1` NEVER opens Apple, whatever the
+ *       switch says. Only `/2`+ (1.1, the build In-App Purchase is submitted
+ *       with) does. Build 5 is already built; its token cannot change.
  *   3 · the owner's switch `NEXT_PUBLIC_APPLE_IAP_ENABLED` (lib/apple-iap-flag.ts).
  *
  * Any one missing → false, and the store shell hides every paid item exactly as
  * it did before this build.
  */
 
-/** The user-agent token an iOS build with the StoreKit plugin appends. */
-export const NATIVE_STORE_UA_MARKER = 'SetnayanIAP/1';
+/** The user-agent token the iOS build that sells through Apple (1.1+) appends. */
+export const NATIVE_STORE_UA_MARKER = 'SetnayanIAP/2';
 
-/** Does this user-agent belong to a phone build that carries the StoreKit plugin? */
+/** The lowest `SetnayanIAP/<n>` that may sell — 1.0 (build 5) announces `/1` and must never (owner 2026-10-21). */
+export const NATIVE_STORE_MIN_VERSION = 2;
+
+/** Does this user-agent belong to a phone build that may sell through Apple (`SetnayanIAP/2` or higher)? */
 export function hasNativeStore(ua: string | null | undefined): boolean {
-  return /\bSetnayanIAP\/\d+/.test(ua ?? '');
+  const m = /\bSetnayanIAP\/(\d+)\b/.exec(ua ?? '');
+  return m !== null && Number(m[1]) >= NATIVE_STORE_MIN_VERSION;
 }
 
 export function iapAvailable(input: {

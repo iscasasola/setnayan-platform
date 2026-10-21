@@ -536,7 +536,7 @@ async function middlewareCore(request: NextRequest) {
   // 307, same reasoning as the marketing bounce above. Held by
   // lib/store-shell.test.ts.
   // 🍎 Version 1.1: where Apple sells in this app (`iapAvailable` — the store
-  // shell, a StoreKit build announcing `SetnayanIAP/1`, the owner's switch),
+  // shell, a StoreKit build announcing `SetnayanIAP/2`+ (1.1 — never build 5's `/1`), the owner's switch),
   // the Papic and Live Watch control pages open (`IAP_OPENED_ROUTE` in
   // lib/store-shell.ts). Any one of the three missing → refused exactly as before.
   if (isStoreShellWebOnlyPath(pathname)) {

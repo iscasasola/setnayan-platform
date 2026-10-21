@@ -6,8 +6,8 @@
  * Watch on Apple's sheet; its "Not built here" list is this file's subject:
  *
  *   1 · the Papic and Live Watch CONTROL pages open in the app — only where Apple
- *       sells (`iapAvailable`: the store shell, a StoreKit build announcing
- *       `SetnayanIAP/1`, the owner's switch) — and draw no web price, no
+ *       sells (`iapAvailable`: the store shell, a 1.1+ build announcing
+ *       `SetnayanIAP/2`, the owner's switch) — and draw no web price, no
  *       GCash / BDO, no web link there; a Live Watch bought in the app has a
  *       Go live door (App Review: a purchase must be usable in the app);
  *   2 · Live Watch's Home line says where it was bought;
@@ -15,9 +15,10 @@
  *       Maker editor's own Pro rows do (`proShell`).
  *
  * 🔒 THE OTHER HALF IS THE POINT: App 1.0 (build 5) is in App Review and the
- * reviewer sees the LIVE web inside it. That build has no `SetnayanIAP/1`, and
- * the switch is off — so with the gate off every door below must be ABSENT and
- * every refused route still refused. Each part asserts both directions.
+ * reviewer sees the LIVE web inside it. Build 5 announces `SetnayanIAP/1`, and
+ * the owner ruled (2026-10-21) that `/1` never sells, whatever the switch says
+ * — so with the gate off every door below must be ABSENT and every refused
+ * route still refused. Each part asserts both directions.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +28,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { isStoreShellWebOnlyPath, storeShellHidesHref } from './store-shell';
+import { isStoreShellSignals, isStoreShellWebOnlyPath, storeShellHidesHref } from './store-shell';
 import { iapAvailable } from './iap/iap-gate';
 import { boughtWhere, liveWatchHomeStatus } from './iap/where-bought';
 import { APP_STORE_CHANNEL_KEY } from './iap/products';
@@ -147,11 +148,42 @@ test('1 · middleware and the link guard ask the ONE three-part gate (`iapAvaila
   assert.match(guard, /iap = iapAvailable\(\{ storeShell: true, userAgent: navigator\.userAgent, enabled: isAppleIapEnabled\(\) \}\);/);
   assert.match(guard, /storeShellHidesHref\(a\.getAttribute\('href'\), window\.location\.href, iap\)/);
   // The gate itself: any one of the three missing → no Apple.
-  const ua = 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1 SetnayanIAP/1';
+  const ua = 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1 SetnayanIAP/2';
   assert.equal(iapAvailable({ storeShell: true, userAgent: ua, enabled: true }), true);
   assert.equal(iapAvailable({ storeShell: true, userAgent: ua, enabled: false }), false, 'the switch off');
-  assert.equal(iapAvailable({ storeShell: true, userAgent: 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1', enabled: true }), false, 'build 5 — no StoreKit plugin');
+  assert.equal(iapAvailable({ storeShell: true, userAgent: 'Mozilla/5.0 (iPhone) SetnayanApp/ios SetnayanSignIn/1', enabled: true }), false, 'a build with no StoreKit plugin');
   assert.equal(iapAvailable({ storeShell: false, userAgent: ua, enabled: true }), false, 'not the store shell');
+});
+
+/* 🔒 BUILD 5 NEVER SELLS (owner 2026-10-21): 1.0 (5) carries the StoreKit plugin and announces `SetnayanIAP/1`, but it was
+   submitted as an app that sells nothing — so only `/2`+ (1.1, the build In-App Purchase is submitted with) opens a door,
+   and the switch alone can no longer light 1.0 up. Each case runs the WHOLE chain a request runs: the store-shell signal,
+   the one gate, the middleware's route rule and the link guard's rule. */
+test('1 · /1 (build 5) + switch ON → no door · /2 + switch ON → the doors · /2 + switch OFF → no door', () => {
+  const app = (iap: string) => `Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SetnayanApp SetnayanSignIn/1${iap}`;
+  const doorsFor = (ua: string, enabled: boolean) => {
+    const storeShell = isStoreShellSignals(ua, 'capacitor');
+    const iap = iapAvailable({ storeShell, userAgent: ua, enabled });
+    const here = `https://www.setnayan.com/dashboard/${E}`;
+    return {
+      iap,
+      routes: OPENS.filter((p) => !(storeShell && isStoreShellWebOnlyPath(p, iap))).length,
+      links: OPENS.filter((p) => !storeShellHidesHref(p, here, iap)).length,
+    };
+  };
+  const NONE = { iap: false, routes: 0, links: 0 };
+  const ALL = { iap: true, routes: OPENS.length, links: OPENS.length };
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/1'), true), NONE, 'build 5 (/1) with the switch ON shows a door');
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/1'), false), NONE);
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/2'), true), ALL, '1.1 (/2) with the switch ON is still refused');
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/2'), false), NONE, '1.1 (/2) with the switch OFF shows a door');
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/3'), true), ALL, 'a later build (/3) is refused');
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/10'), true), ALL, '/10 read as /1');
+  assert.deepEqual(doorsFor(app(''), true), NONE, 'no token');
+  assert.deepEqual(doorsFor(app(' SetnayanIAP/0'), true), NONE);
+  // The 1.1 build announces exactly the token that sells; Android never claims one.
+  const cfg = readFileSync(join(WEB, '..', 'mobile', 'capacitor.config.ts'), 'utf8');
+  assert.match(cfg, /ios:\s*\{[\s\S]*?appendUserAgent:\s*'SetnayanApp SetnayanSignIn\/1 SetnayanIAP\/2'/);
 });
 
 /* ═══ 2 · HOME — the doors exist only where Apple sells ═══════════════════ */

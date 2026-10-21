@@ -361,10 +361,14 @@ export function buildCardOf(args: {
   savedBudgetPhp?: number | null;
   picks: ReadonlyArray<BuildSnapshotPick>;
   /** The categories on the event, in order: label + the plan group each is.
-   *  `covered` — the line shows a supplier through "Also covers": the row
-   *  names only THAT supplier, "· with <their row>", never whoever another
-   *  build put in their row. */
-  categories: ReadonlyArray<{ label: string; groupId: string | null; covered?: { vendorId: string; from: string } | null }>;
+   *  `covered` — the line shows a supplier through "Also covers": when the
+   *  build has no pick of its own here, the row names THAT supplier, "· with
+   *  <their row>" — never whoever another build put in their row. */
+  categories: ReadonlyArray<{
+    label: string;
+    groupId: string | null;
+    covered?: { vendorId: string; groupId: string; from: string } | null;
+  }>;
   budgetPhp: number | null;
   free: BuildCardFree;
   lockedGroupIds: ReadonlySet<string>;
@@ -391,13 +395,13 @@ export function buildCardOf(args: {
     totalPhp,
     unpriced,
     rows: args.categories.map((c) => {
-      const found = c.groupId ? byGroup.get(c.groupId) : undefined;
-      const p = c.covered && found?.vendorId !== c.covered.vendorId ? undefined : found;
-      return {
-        label: c.label,
-        supplier: p ? coveredRowName(shortSupplierName(p.vendorName), c.covered?.from) : null,
-        inclusions: c.covered ? [] : [...(p?.inclusions ?? [])],
-      };
+      const p = c.groupId ? byGroup.get(c.groupId) : undefined;
+      if (p) return { label: c.label, supplier: shortSupplierName(p.vendorName), inclusions: [...(p.inclusions ?? [])] };
+      const via = c.covered ? byGroup.get(c.covered.groupId) : undefined;
+      if (c.covered && via && via.vendorId === c.covered.vendorId) {
+        return { label: c.label, supplier: coveredRowName(shortSupplierName(via.vendorName), c.covered.from), inclusions: [] };
+      }
+      return { label: c.label, supplier: null, inclusions: [] };
     }),
     free: args.free,
     bufferPhp: unpriced > 0 || args.budgetPhp == null ? null : args.budgetPhp - totalPhp,
@@ -447,11 +451,17 @@ export function buildViewOf(args: {
   const lockedGroupIds = [...new Set(lines.filter((l) => l.booked?.groupId).map((l) => l.booked!.groupId!))];
   const locked = new Set(lockedGroupIds);
   // A line's own plan group: its supplier's, else its first candidate's.
-  const categories = lines.map((l) => ({
-    label: l.label,
-    groupId: lineSupplier(l)?.groupId ?? l.candidates[0]?.groupId ?? null,
-    covered: lineSupplier(l)?.includedWith ? { vendorId: lineSupplier(l)!.vendorId, from: lineSupplier(l)!.includedWith! } : null,
-  }));
+  // A line held through "Also covers" keeps its OWN plan group for a build's
+  // own pick there; the covering supplier is the fallback, named "· with …".
+  const categories = lines.map((l) => {
+    const s = lineSupplier(l);
+    const covered = s?.includedWith && s.groupId ? { vendorId: s.vendorId, groupId: s.groupId, from: s.includedWith } : null;
+    return {
+      label: l.label,
+      groupId: covered ? (l.candidates[0]?.groupId ?? null) : (s?.groupId ?? l.candidates[0]?.groupId ?? null),
+      covered,
+    };
+  });
   const card = (b: { id: string; name: string; title: string | null; budgetPhp: number | null; picks: ReadonlyArray<BuildSnapshotPick> }) =>
     buildCardOf({
       id: b.id,

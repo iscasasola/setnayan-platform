@@ -125,6 +125,12 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   const healsStart = at(body, 'const freeCamerasHeal = provisionFreeCamerasAdmin(unlockAdmin, eventId');
   const healsAwait = at(body, 'await Promise.all([freeCamerasHeal, freePoolHeal, uploadsCameraHeal]);');
   assert.ok(notFound < healsStart, 'a self-heal WRITE starts before the event row is confirmed');
+  // The heals also wait for the catalogue batch, because that batch is where the ENTITLEMENT
+  // CLIENT is first awaited — and that client refuses anyone who is not a host of this event.
+  // Starting the service-role writes before it would let a non-host member's view write seats.
+  const hostGate = body.search(/\] = await Promise\.all\(\[\s*unlockPkgRead,\s*ownsPapicUnlockRead,/);
+  assert.ok(hostGate > notFound, 'the catalogue batch (the first await on the host-only entitlement client) is gone');
+  assert.ok(hostGate < healsStart, 'a self-heal WRITE starts before the host-only entitlement client has answered');
   // …and NO write of any kind is reached before the event row is confirmed — the started block
   // above it is reads only.
   for (const write of [

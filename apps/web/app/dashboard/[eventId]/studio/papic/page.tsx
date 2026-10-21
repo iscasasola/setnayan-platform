@@ -291,7 +291,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         entitlement ask (a visitor who is not a host) is held by `startRead`, not thrown, until
         the place that awaits it, which is after `notFound()`;
       · every self-heal WRITE (free cameras, free pool, uploads camera) still runs only after
-        the event row is confirmed, and every read that must SEE those writes (the uploads seat,
+        the event row is confirmed AND the host-only entitlement client has answered (the
+        catalogue batch is where it is first awaited — a non-host is refused there, before any
+        service-role write), and every read that must SEE those writes (the uploads seat,
         the claim-link seats, the extra cameras, the standings) is still asked after them.
     🔒 `the-papic-page-opens-fast.test.ts` holds both halves.
   */

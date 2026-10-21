@@ -21,10 +21,16 @@ own presses. What it found instead was a family of presses smaller than a thumb,
 - the guest checklist's **tick box**, which the global `button { min-height: 44px }` had stretched into a 28 × 44
   bar — the button is now a 44 × 44 press around the 28 px box, drawn as before.
 
+**Directions are one dropdown on every venue card** (controller ruling 2026-10-21, from the owner's "any set of
+choices is a dropdown"): the plain card and the full-photo card drew Google Maps · Waze · Apple Maps as three
+side-by-side chips; they now reuse the journey card's own `DirectionsMenu` ("Directions ▾", exported from
+`venue-styles.tsx`) — a native `<details>` whose summary and rows are each 44 px. Still drawn as chips elsewhere:
+The Day's directions card (`day-directions.tsx`) and the Live hub's (`hub/page.tsx`) — not in this ruling.
+
 Guard: `app/[slug]/every-hub-press-is-44px.test.ts` — every `<a>` / `<Link>` / `<button>` / `<summary>` under
 `app/[slug]` (and the shared presses the Hub mounts) whose classes size it reaches 44 px in each axis they size.
-Sabotaged three ways (chip floor removed · QR ✕ back to `h-8 w-8` · the global button floor removed), each RED,
-restored GREEN.
+Sabotaged five ways (chip floor removed · QR ✕ back to `h-8 w-8` · the global button floor removed · the chips put
+back on the plain card · the menu's rows at `min-h-9`), each RED, restored GREEN.
 
-SPEC IMPACT: None — the 44 px floor is the existing house rule (`globals.css` "Touch targets ≥ 44pt"); no copy,
-layout or ruling changes.
+SPEC IMPACT: None — the 44 px floor is the existing house rule (`globals.css` "Touch targets ≥ 44pt") and the
+dropdown is the standing "any set of choices is a dropdown" rule applied with the shipped component; no new ruling.

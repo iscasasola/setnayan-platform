@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue, type VenueRole } from '@/lib/event-venues';
 import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } from '@/lib/geo';
@@ -170,7 +169,7 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
  * `<details>`: no JavaScript on the guest page. With no pin, the one honest
  * link is a maps search for the place.
  */
-function DirectionsMenu({ venue }: { venue: EventVenue }) {
+export function DirectionsMenu({ venue }: { venue: EventVenue }) {
   const query = venueSearchQuery(venue)?.trim();
   const apps = hasPin(venue)
     ? [
@@ -315,15 +314,7 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
                 {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
                 {photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
                 {venue.address ? <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p> : null}
-                {withheld ? null : (
-                  <NavLinksRow
-                    latitude={venue.latitude ?? null}
-                    longitude={venue.longitude ?? null}
-                    addressFallback={venueSearchQuery(venue)}
-                    label="Get directions"
-                    compact
-                  />
-                )}
+                {withheld ? null : <DirectionsMenu venue={venue} />}
               </div>
             )}
           </div>

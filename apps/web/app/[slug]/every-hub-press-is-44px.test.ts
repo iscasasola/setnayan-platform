@@ -152,3 +152,28 @@ test('every press the guest Event Hub draws is at least 44 px in every axis its 
     .map(({ p, why }) => `${relative(WEB, p.file)}:${p.line} <${p.tag}> ${why.join(' · ')} — ${p.cls.trim().slice(0, 90)}`);
   assert.deepEqual([...new Set(bad)], [], 'a guest presses these with a thumb; give each a 44 px floor (min-h-[44px] / h-11 w-11)');
 });
+
+/* ▾ THE MAP APPS ARE ONE DROPDOWN ON EVERY VENUE CARD (controller ruling 2026-10-21, from the owner's "any set of
+   choices is a dropdown"): the plain card and the full-photo card drew Google Maps · Waze · Apple Maps as three
+   side-by-side chips (`NavLinksRow`, 26 px tall when the walk measured them); the journey card already drew ONE
+   "Directions ▾" (`DirectionsMenu`). Every venue card now reuses that one component, whose summary and rows are each
+   a 44 px press. SABOTAGE: `<NavLinksRow …>` put back on the plain card → RED; the menu's rows at `min-h-9` → RED. */
+test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 44 px rows — never a row of chips', () => {
+  const cards = ['venue-widget.tsx', 'venue-styles.tsx'].map((f) => [f, stripComments(readFileSync(join(HUB, '_components', f), 'utf8'))] as const);
+  for (const [f, src] of cards) {
+    assert.doesNotMatch(src, /<NavLinksRow(?![\w.])/, `${f}: a venue card draws the map apps as a row of chips again`);
+  }
+  const mounts = cards.reduce((n, [, src]) => n + (src.match(/<DirectionsMenu(?![\w.])/g) ?? []).length, 0);
+  assert.ok(mounts >= 3, `the plain, full-photo and journey cards each mount DirectionsMenu (found ${mounts})`);
+  const styles = cards[1]![1];
+  const at = styles.indexOf('export function DirectionsMenu(');
+  assert.ok(at >= 0, 'DirectionsMenu is the exported, shared component');
+  const menu = styles.slice(at, styles.indexOf('\n}\n', at));
+  assert.match(menu, /<details\b/, 'a native <details> — one dropdown, no script on the guest page');
+  const summary = /<summary className="([^"]*)"/.exec(menu)?.[1] ?? '';
+  const row = /<a href=\{a\.href\}[^>]*className="([^"]*)"/.exec(menu)?.[1] ?? '';
+  assert.ok(summary && row, 'the summary and the rows are found');
+  assert.deepEqual(undersized('summary', summary), [], 'the "Directions" summary is a 44 px press');
+  assert.deepEqual(undersized('a', row), [], 'each map app row is a 44 px press');
+  assert.match(row, /min-h-(11|\[44px\])/, 'each row carries its own 44 px floor');
+});

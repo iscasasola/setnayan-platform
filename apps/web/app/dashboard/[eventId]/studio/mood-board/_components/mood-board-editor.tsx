@@ -1212,7 +1212,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
       </div>
 
       {/* Persistent action bar — both PDF exports stay reachable at any scroll. */}
-      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 sm:pl-[max(1.5rem,var(--sn-safe-l))] sm:pr-[max(1.5rem,var(--sn-safe-r))]">
+      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pl-[max(1.5rem,var(--sn-safe-l))] sm:pr-[max(1.5rem,var(--sn-safe-r))]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
       </div>
     </div>

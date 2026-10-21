@@ -1242,6 +1242,13 @@ h2.fd-sechead,
 .fd-sechead-go {
   color: inherit;
   text-decoration: none;
+  /* a 44px press on a 29px heading line (fits-every-phone 2026-10-21) */
+  position: relative;
+}
+.fd-sechead-go::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
 }
 .fd-sechead-go:hover,
 .fd-sechead-go:focus-visible {
@@ -1356,15 +1363,14 @@ h2.fd-sechead,
 .fd-more .fd-go:hover {
   text-decoration: underline;
 }
-/* fits-every-phone 2026-10-21: "Open your shop →" and "See all N articles"
-   pressed 16px tall. An expander gives them 44px without moving a line. */
-.fd-invite .fd-go,
-.fd-more .fd-go {
+/* fits-every-phone 2026-10-21: every `.fd-go` door ("Open your shop →",
+   "See how sharing works →", "Browse all stories →", "See all N articles →")
+   pressed 16px tall. An expander gives each 44px without moving a line. */
+.fd-go {
   position: relative;
   display: inline-block;
 }
-.fd-invite .fd-go::after,
-.fd-more .fd-go::after {
+.fd-go::after {
   content: '';
   position: absolute;
   inset: -14px -6px;

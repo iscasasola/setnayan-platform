@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8d64093cb3",
+  "generatedFromRef": "3a3eacec66",
   "routeCount": 451,
   "destinations": 995,
   "actions": 664,
-  "blocks": 6728,
+  "blocks": 6734,
   "routes": {
     "/": {
       "files": [
@@ -1057,6 +1057,7 @@
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/loading-stage.ts",
         "[slug]/_lib/main-ground-layer.tsx",
+        "[slug]/_lib/main-ground-picture.ts",
         "[slug]/_lib/measures.ts",
         "[slug]/_lib/names-verb.ts",
         "[slug]/_lib/part-door.server.ts",
@@ -1273,6 +1274,7 @@
         "GuestTicket",
         "GuestToHostCta",
         "GuestWelcome",
+        "GuestsBoard",
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
@@ -5360,6 +5362,7 @@
     },
     "/dashboard/(launcher)": {
       "files": [
+        "dashboard/(launcher)/_components/account-bar-slot.tsx",
         "dashboard/(launcher)/_components/account-bottom-nav.tsx",
         "dashboard/(launcher)/_components/create-event-panel.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
@@ -5394,6 +5397,7 @@
         "muteInviter"
       ],
       "blocks": [
+        "AccountBarSlot",
         "AccountBottomNav",
         "AccountSwitcher",
         "AppPreload",
@@ -5938,6 +5942,7 @@
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
+        "BodyPortal",
         "BudgetScreen",
         "BudgetSheetState",
         "BudgetSheets",
@@ -5956,6 +5961,7 @@
         "GroupUnread",
         "GroupWhy",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "InfoTip",
@@ -7439,6 +7445,7 @@
         "StudioHalf",
         "StudioHeading",
         "StudioHome",
+        "StudioHubLookRow",
         "StudioHubSettings",
         "StudioIncludeSwitch",
         "StudioKindlyReply",
@@ -8053,6 +8060,7 @@
         "dashboard/[eventId]/seating/_components/seating-editor.tsx",
         "dashboard/[eventId]/seating/_components/seating-frame.tsx",
         "dashboard/[eventId]/seating/_components/seating-lazy.tsx",
+        "dashboard/[eventId]/seating/_components/seating-presence-peers.ts",
         "dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts",
         "dashboard/[eventId]/seating/_components/use-seating-lock.ts",
         "dashboard/[eventId]/seating/_components/use-seating-presence.ts",
@@ -8127,6 +8135,7 @@
         "PillButton",
         "PillTrack",
         "Pop",
+        "PresenceMeta",
         "PriorityOrder",
         "RoleSeating",
         "SaveStatusChip",
@@ -8504,6 +8513,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/colour-dot.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/dress-code-config.ts",
         "dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/event-linked-badge.tsx",
@@ -9983,6 +9993,7 @@
         "dashboard/[eventId]/website/editor/_components/colour-well.tsx",
         "dashboard/[eventId]/website/editor/_components/details-bound-field.tsx",
         "dashboard/[eventId]/website/editor/_components/drafts-as-you-go.tsx",
+        "dashboard/[eventId]/website/editor/_components/dress-code-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
         "dashboard/[eventId]/website/editor/_components/element-preview.ts",
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",

@@ -71,7 +71,7 @@ export function EventPicker({
                   <span
                     aria-hidden
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--m-line-soft)', color: 'var(--m-slate-3)' }}
+                    style={{ background: 'var(--m-line-soft)', color: 'var(--m-slate)' }}
                   >
                     <Lock className="h-4 w-4" strokeWidth={1.75} />
                   </span>

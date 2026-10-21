@@ -173,6 +173,21 @@ export async function checkExtraSeats(
   return { ok: true };
 }
 
+/** Is this guest seated while one of their live seats has no chair? A refused read answers no (nothing is moved on a guess). */
+async function aSeatWaitsForItsChair(
+  supabase: SupabaseClient,
+  eventId: string,
+  guestId: string,
+  seats: readonly ExtraSeatRow[],
+): Promise<boolean> {
+  if (seats.length === 0) return false;
+  const ids = [guestId, ...seats.map((s) => s.guest_id)];
+  const { data, error } = await supabase.from('event_seat_assignments').select('guest_id').eq('event_id', eventId).in('guest_id', ids);
+  if (error || !Array.isArray(data)) return false;
+  const seated = new Set((data as Array<{ guest_id: string }>).map((r) => r.guest_id));
+  return seated.has(guestId) && seats.some((s) => !seated.has(s.guest_id));
+}
+
 export async function syncExtraSeats(
   supabase: SupabaseClient,
   eventId: string,
@@ -231,8 +246,10 @@ export async function syncExtraSeats(
     if (error) return { ok: false, error: error.message };
   }
 
-  // Beside the person invited: re-seating the guest pulls their seats in.
-  if (plan.create > 0 || plan.remove.length > 0) {
+  // Beside the person invited: re-seating the guest pulls their seats in. 🪑 Since 2026-10-21 the DATABASE mints the
+  // seats with the number (`a_plus_ones_count_is_their_rows`), so by the time this runs they usually exist already and
+  // the plan is empty — the re-seat is then asked for when a seated guest has a seat with no chair yet.
+  if (plan.create > 0 || plan.remove.length > 0 || (await aSeatWaitsForItsChair(supabase, eventId, primary.guest_id, seats))) {
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [primary.guest_id] });
   }
   return { ok: true, created: plan.create, removed: plan.remove.length };

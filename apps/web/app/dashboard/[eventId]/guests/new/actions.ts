@@ -240,10 +240,40 @@ export async function createGuest(eventId: string, formData: FormData) {
     }
   }
 
-  // A NAMED plus-one (an older form that still posts the name fields) gets its
-  // own row first; `syncExtraSeats` below then tops up to the full +N with TBA
-  // seats, beside this guest (owner 2026-09-21).
-  if (plus_one_allowed && (plus_one_first_name || plus_one_last_name)) {
+  // A NAMED plus-one (an older form that still posts the name fields) takes the
+  // first of their seats. 🪑 The database minted those seats with the guest
+  // (`a_plus_ones_count_is_their_rows`, owner 2026-10-21 "fix it"), so the name
+  // NAMES the oldest "TBA" seat — a second row would be one +1 more than the
+  // number. Only when no seat is waiting is a row inserted, as before.
+  const namedPlusOne = plus_one_allowed && (plus_one_first_name || plus_one_last_name);
+  const { data: waitingSeat } = namedPlusOne
+    ? await supabase
+        .from('guests')
+        .select('guest_id')
+        .eq('event_id', eventId)
+        .eq('plus_one_of_guest_id', inserted.guest_id)
+        .is('deleted_at', null)
+        .is('plus_one_name_confirmed_at', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  if (namedPlusOne && waitingSeat) {
+    const { error: nameErr } = await supabase
+      .from('guests')
+      .update({
+        first_name: plus_one_first_name || 'TBA',
+        last_name: plus_one_last_name || '+1',
+        display_name: null,
+        plus_one_mode,
+        plus_one_name_confirmed_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('guest_id', (waitingSeat as { guest_id: string }).guest_id);
+    if (nameErr) {
+      return redirect(`/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + nameErr.message)}`);
+    }
+  } else if (namedPlusOne) {
     const { error: plusOneErr } = await supabase.from('guests').insert({
       event_id: eventId,
       first_name: plus_one_first_name || 'TBA',

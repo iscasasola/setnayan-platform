@@ -279,7 +279,7 @@ function planningRoster(): GuestRow[] {
  * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
  * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
  */
-function withPlusOnes(roster: GuestRow[]): GuestRow[] {
+function withPlusOnes(roster: GuestRow[], backfilled = false): GuestRow[] {
   const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
     guest({
       guest_id: id,
@@ -309,6 +309,11 @@ function withPlusOnes(roster: GuestRow[]): GuestRow[] {
        over a seat with no row. Stand-in names, the same roles, sides and numbers; no seat row for either. */
     guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
     guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    /* 🪑 2026-10-21, live cale-ice, read-only: a guest allowed +1 since 2026-09-14 whose seat was NEVER made (Antonio
+       Loo, Ronald Llarena — owner: "why does Ronald Dane Llarena have a +1 but no row under him"). `&backfilled=1`
+       draws the row the backfill (20271282098748) mints for him; without it, the List as it stood. */
+    guest({ guest_id: 'g-p1-h003', public_id: 'S89G-LABP1H0003', first_name: 'Antonio', last_name: 'Loo', role: 'guest', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    ...(backfilled ? [seat('g-p1-0003', 'g-p1-h003', { side: 'groom', group_category: 'family' })] : []),
   ];
 }
 
@@ -577,7 +582,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster()) : planningRoster();
+    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],

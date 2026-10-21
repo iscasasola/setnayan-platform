@@ -28,6 +28,7 @@ import { BASE, GUEST, renderReplyCard } from './reply-card.fixture';
 import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats, type GuestRow } from './guests';
 import { planGuestImport, readGuestFile, type ExistingGuest } from './guest-import-file';
 import { WEDDING_ROLE_SET } from './role-sets';
+import { stripComments } from './strip-comments';
 
 const WEB = path.join(__dirname, '..');
 const BRINGER = 'g-pam';
@@ -243,7 +244,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 /** A file's code with its comments gone, so a docblock that names the column is not a write. */
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+const code = (src: string) => stripComments(src);
 
 test('every server writer of a guest’s seats asks the +1 gate — or is named here with its reason', () => {
   const writers: string[] = [];

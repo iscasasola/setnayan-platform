@@ -87,7 +87,11 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
 test('1b · every More row lands on its section — none is a bare stub', async () => {
   const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
   const by = Object.fromEntries(VENDOR_MORE_ROWS.map((r) => [r.key, r.href]));
-  assert.equal(by.messages, customerLandingHref('messages'));
+  // Messages left More (owner "Yes to all", 2026-10-21, item 1): the top bar's envelope is its door, on the same
+  // section the row linked — so the row bought nothing. Held here, not assumed.
+  assert.equal(by.messages, undefined);
+  const layout = readFileSync(join(import.meta.dirname, 'layout.tsx'), 'utf8');
+  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{customerLandingHref\('messages'\)\}/, 'the envelope no longer lands on Messages');
   // "Money in" left More with the simpler supplier dashboard (2026-10-14, prototype SCREENS.more): Customers › Money
   // is the tab it was a second door to. Every row that IS here still lands on its section (the loop below).
   assert.equal(by.payday, undefined);

@@ -263,7 +263,6 @@ test('every reader left on the pool read carries a stated reason', () => {
   // A leave-behind with no reason is indistinguishable from one that was missed.
   const LEFT = [
     'app/vendor-dashboard/customers/page.tsx',
-    'app/vendor-dashboard/shop/page.tsx',
     'app/vendor-dashboard/recaps/page.tsx',
     'app/vendor-dashboard/real-stories/page.tsx',
     'app/vendor-dashboard/proposals/surface.tsx',
@@ -275,7 +274,9 @@ test('every reader left on the pool read carries a stated reason', () => {
   // 11 → 10: clients/surface.tsx moved to the room read (S43).
   // 10 → 8: calendar/surface.tsx retired and calendar/[date] became a redirect (S-PR3) — their month and their one
   //         day are Customers › Dates now, whose every pool read states the same CAPACITY reason.
-  assert.equal(LEFT.length, 8, 'eight readers stay on the pool read — measured, not remembered');
+  // 8 → 7: shop/page.tsx no longer reads the pool — its only use fed the Stories and Recap number tiles, which left
+  //        Shop › Services for Shop › How it is going (owner "Yes to all", 2026-10-21, item 4).
+  assert.equal(LEFT.length, 7, 'seven readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
     const idx = raw.indexOf('fetchVendorPoolBookings(');

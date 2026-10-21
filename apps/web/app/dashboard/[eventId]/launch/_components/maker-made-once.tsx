@@ -135,6 +135,7 @@ export async function MakerHeroPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   heroCanvas = {},
   liveHeroCanvas = {},
   coverScene = null,
@@ -142,6 +143,12 @@ export async function MakerHeroPanel({
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The store shell FOR PRO TRYING only (the editor's `proShell`): false where Apple sells Pro at Apply, so a Pro
+   * control is tried in the draft as on the web. Defaults to `storeShell` — the store shell's rule before In-App
+   * Purchase. Prices, pitches and tours keep `storeShell`.
+   */
+  proShell?: boolean;
   /**
    * 🖼 THE SECOND DOOR TO THE COVER SCENE'S BACKGROUND (owner-approved 2026-10-15, "Hero folded in"): the SAME rows
    * the toolbar draws for the Cover Scene (`stage-panel/cover-words-background.tsx`, through the lazy
@@ -182,8 +189,8 @@ export async function MakerHeroPanel({
   // ▶ The poster's logo plays as it will for guests (owner 2026-09-29).
   const markPlays = await logoPlaysFor(eventId, markSvg);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
-  const canUpload = ownsPro || !storeShell;
-  const photoMark = makerProMark({ owns: ownsPro, storeShell });
+  const canUpload = ownsPro || !proShell;
+  const photoMark = makerProMark({ owns: ownsPro, storeShell: proShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -279,11 +286,14 @@ export async function MakerRevealPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   part = 'all',
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
   /** Which part of the picker (Details: the openings in the navigator, the rest on the right). */
   part?: 'all' | 'options' | 'settings';
 }) {
@@ -328,11 +338,12 @@ export async function MakerRevealPanel({
       dressing={materials?.name ?? null}
       openings={
         /* 🔒 Store shell, not owning Pro: every opening is a Pro control, so it
-           is HIDDEN — the panel offers "No reveal" alone. */
-        storeShell && !ownsPro ? [] : openings
+           is HIDDEN — the panel offers "No reveal" alone. 🍎 Unless Apple sells Pro at Apply (`proShell` false):
+           then every opening is TRIED, ◆-marked, as on the web. */
+        proShell && !ownsPro ? [] : openings
       }
       ownsPro={ownsPro}
-      storeShell={storeShell}
+      storeShell={proShell}
       stdWindowDays={STD_THRESHOLD_DAYS}
       stages={resolveRevealStages(m.drafted.reveal_stages)}
       stagesDrafted={
@@ -382,7 +393,16 @@ export async function readMakerLogoFonts(eventId: string): Promise<string[]> {
   return makerLogoOpening(m.drafted).layers.flatMap((l) => (l.kind === 'text' && l.font ? [l.font] : []));
 }
 
-export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId: string; storeShell?: boolean }) {
+export async function MakerLogoPanel({
+  eventId,
+  storeShell = false,
+  proShell = storeShell,
+}: {
+  eventId: string;
+  storeShell?: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
+}) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;
   /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27):
@@ -402,7 +422,7 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
-      motionMark={makerProMark({ owns: ownsMotion, storeShell })}
+      motionMark={makerProMark({ owns: ownsMotion, storeShell: proShell })}
       mainColours={mainColours}
     />
   );

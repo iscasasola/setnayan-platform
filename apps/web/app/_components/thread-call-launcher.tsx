@@ -77,7 +77,11 @@ export function ThreadCallLauncher({
   const storeShell = useIsStoreShell();
 
   // Initial incoming-call fetch (RLS-scoped) + live subscription.
+  // 🔌 Only where a call can happen (2026-10-21): with calling locked the
+  // launcher draws no incoming banner at all (the early return below), so a
+  // channel listening for one was a socket held open for nothing.
   useEffect(() => {
+    if (!callsEnabled) return;
     let cancelled = false;
 
     (async () => {
@@ -143,7 +147,7 @@ export function ThreadCallLauncher({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [supabase, threadId, currentUserId]);
+  }, [supabase, threadId, currentUserId, callsEnabled]);
 
   const start = useCallback(
     async (kind: CallKind) => {

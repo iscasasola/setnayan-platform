@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { nextPeers, type PresenceMeta, type PresencePeer } from './seating-presence-peers';
 
 /**
  * Live presence for the seat-plan editor — who's here, which table each person
@@ -16,25 +17,7 @@ import { createClient } from '@/lib/supabase/client';
  * hardening pass, alongside the wall channel.)
  */
 
-export type PresencePeer = {
-  id: string;
-  name: string;
-  color: string;
-  /** table_id this peer currently has selected (their popup is open on it) */
-  table: string | null;
-  /** last cursor position in canvas percent, with a freshness timestamp */
-  cursor: { x: number; y: number; ts: number } | null;
-  /**
-   * Seating-editor lock (PR 2) — who this peer believes holds the exclusive
-   * editor lock, and when that holder last heartbeated. Carried on presence so
-   * every editor can render the "X is editing — view only" banner and compute
-   * stale-takeover eligibility from the SERVER heartbeat without polling an RPC.
-   * Null on all three when nobody is editing yet.
-   */
-  lockHolderId: string | null;
-  lockHolderLabel: string | null;
-  lockHeartbeatAt: string | null;
-};
+export type { PresencePeer } from './seating-presence-peers';
 
 /** What this client publishes about its own lock state onto presence. */
 export type LockBroadcast = {
@@ -42,14 +25,6 @@ export type LockBroadcast = {
   lockHolderLabel: string | null;
   lockHeartbeatAt: string | null;
 };
-
-// Same earthy accents as guest groups — deterministic per user id.
-const PEER_COLORS = ['#C97B4B', '#5B8FA0', '#7BA05B', '#A05B8F', '#C2913B', '#6B7FB0', '#B0655B', '#4FA08C'];
-function peerColor(id: string): string {
-  let h = 0;
-  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
-  return PEER_COLORS[Math.abs(h) % PEER_COLORS.length]!;
-}
 
 export function useSeatingPresence(
   eventId: string,
@@ -75,33 +50,9 @@ export function useSeatingPresence(
     });
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{
-          name: string;
-          table: string | null;
-          lockHolderId?: string | null;
-          lockHolderLabel?: string | null;
-          lockHeartbeatAt?: string | null;
-        }>();
-        setPeers((prev) => {
-          const next = new Map<string, PresencePeer>();
-          for (const [key, metas] of Object.entries(state)) {
-            if (key === me.id) continue;
-            const meta = metas[0];
-            if (!meta) continue;
-            const old = prev.get(key);
-            next.set(key, {
-              id: key,
-              name: meta.name || 'Someone',
-              color: peerColor(key),
-              table: meta.table ?? null,
-              cursor: old?.cursor ?? null,
-              lockHolderId: meta.lockHolderId ?? null,
-              lockHolderLabel: meta.lockHolderLabel ?? null,
-              lockHeartbeatAt: meta.lockHeartbeatAt ?? null,
-            });
-          }
-          return next;
-        });
+        // 🔂 The same Map back when the others are unchanged (my own join / re-track) — no editor render for nothing.
+        const state = channel.presenceState<PresenceMeta>();
+        setPeers((prev) => nextPeers(prev, state, me.id));
       })
       .on('broadcast', { event: 'cursor' }, ({ payload }) => {
         const p = payload as { id?: string; x?: number; y?: number } | null;

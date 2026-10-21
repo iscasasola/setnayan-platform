@@ -39,8 +39,28 @@ export function groupNameClash(
   if (!key) return null;
   const std = standard.find((o) => groupNameKey(o.label) === key || groupNameKey(o.key) === key);
   if (std) return { kind: 'standard', key: std.key, label: std.label };
-  const mine = own.find((g) => g.groupId !== except && sidesShareAList(g.teamSide, side) && groupNameKey(g.label) === key);
+  const mine = ownTwin(name, side, own, except);
   return mine ? { kind: 'own', groupId: mine.groupId, label: mine.label } : null;
+}
+
+/**
+ * 👥 THE OWN GROUP A NEW `(name, side)` WOULD TWIN (2026-10-21, the owner's Group list showing Bob · Bob · Loo · Loo ·
+ * Mama · Mama · Relatives · Relatives: *"why do i see dupes on group names"*). The own group of the same name that would
+ * show in the same list — or null when the name is free there. When several do, the one to reuse is the same side's,
+ * then both sides', then the first in the given order. Every server path that makes a group asks this before it inserts
+ * (`makeGuestGroupOnce`, lib/guest-group-made-once.ts), so a twin is never written — the existing group is used instead.
+ */
+export function ownTwin<T extends { groupId: string; label: string; teamSide: GuestGroupTeamSide }>(
+  name: string,
+  side: GuestGroupTeamSide,
+  own: readonly T[],
+  /** A rename: the group being renamed, which never twins itself. */
+  except?: string,
+): T | null {
+  const key = groupNameKey(name);
+  if (!key) return null;
+  const twins = own.filter((g) => g.groupId !== except && sidesShareAList(g.teamSide, side) && groupNameKey(g.label) === key);
+  return twins.find((g) => g.teamSide === side) ?? twins.find((g) => g.teamSide === 'both') ?? twins[0] ?? null;
 }
 
 /** The sentence under the box. */

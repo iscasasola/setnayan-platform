@@ -21,7 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { findSeatToConnect, seatHeldElsewhere } from '@/lib/event-account-link';
 import { HeldElsewhereDoor } from './held-elsewhere-door';
 import { CONNECT_THEN_REPLY, connectQuery } from '@/lib/invite-arrival';
-import { COUPLE_SEAT_REFUSED, seatConfirmLine } from '@/lib/seat-binding';
+import { COUPLE_SEAT_REFUSED, hostViewingLine, seatConfirmLine } from '@/lib/seat-binding';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
@@ -100,7 +100,10 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   if (seat.refusal) {
     return (
       <DoorShell eyebrow="Your invitation" title="This invitation is not yours to keep" tone="dead_end">
-        <DoorNotice kind="alert">{COUPLE_SEAT_REFUSED}</DoorNotice>
+        <DoorNotice kind="alert">
+          {/* 🔒 A host / co-host / coordinator / helper on a guest's seat (owner 2026-10-21) — said as the host. */}
+          {seat.refusal === 'manager' ? hostViewingLine(seat.name) : COUPLE_SEAT_REFUSED}
+        </DoorNotice>
         <DoorActions>{notMe}</DoorActions>
       </DoorShell>
     );

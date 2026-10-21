@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1b0143cff8",
+  "generatedFromRef": "ee5e38edf1",
   "routeCount": 451,
   "destinations": 995,
   "actions": 664,
-  "blocks": 6721,
+  "blocks": 6724,
   "routes": {
     "/": {
       "files": [
@@ -7444,7 +7444,6 @@
         "StudioPieceDownload",
         "StudioPosterPhoto",
         "StudioPrintHead",
-        "StudioPrintSave",
         "StudioPrintSettings",
         "StudioPrintsBar",
         "StudioPrintsDownloadSheet",
@@ -10930,6 +10929,7 @@
       "files": [
         "dev/me-lab/connect-hosts-lab-requests.tsx",
         "dev/me-lab/connect-hosts-lab.tsx",
+        "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
         "dev/me-lab/page.tsx"
       ],
@@ -10942,10 +10942,14 @@
         "ConnectHostsTick",
         "DoorActions",
         "DoorShell",
+        "GuestMe",
         "GuestMeParts",
         "GuestTicket",
+        "HeldPassLine",
+        "HostViewsGuestLab",
         "LabHostRequests",
         "Link",
+        "MeFor",
         "PeopleRosterView",
         "SubmitButton"
       ]

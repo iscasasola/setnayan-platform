@@ -1356,6 +1356,19 @@ h2.fd-sechead,
 .fd-more .fd-go:hover {
   text-decoration: underline;
 }
+/* fits-every-phone 2026-10-21: "Open your shop →" and "See all N articles"
+   pressed 16px tall. An expander gives them 44px without moving a line. */
+.fd-invite .fd-go,
+.fd-more .fd-go {
+  position: relative;
+  display: inline-block;
+}
+.fd-invite .fd-go::after,
+.fd-more .fd-go::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
 .fd-invite-wide {
   grid-column: span 2;
 }

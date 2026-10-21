@@ -6,8 +6,9 @@ import { guestAccountState, type GuestAccountState } from '@/lib/guest-one-path'
  * 👀 `/dev/me-lab?host=1` — Me on a guest's invitation (owner 2026-10-21, Pam's link on his own wedding), with no
  * database, through the guest page's OWN `GuestMe` and the account state the page builds (`guestAccountState`):
  *
- *   before     the host who pressed "Open as Pam", as `origin/main` computed it — the call WITHOUT
- *              `viewerManagesEvent`, so the host met "This invitation is for Pam. Save it to <his email>?";
+ *   before     the host who pressed "Open as Pam", as `origin/main` computed it — main never asked whether the
+ *              viewer is a host (here: `viewerManagesEvent: false`), so the host met "This invitation is for Pam.
+ *              Save it to <his email>?";
  *   after      the same host, as the page computes it now — "You're viewing Pam's invitation as the host";
  *   guest      an ordinary signed-in guest on her own link — still asked, unchanged.
  *
@@ -50,7 +51,8 @@ export function HostViewsGuestLab({ only }: { only: string | null }) {
     {
       key: 'before',
       label: 'Before · the host, as origin/main computed it',
-      account: guestAccountState({ viewerUserId: 'host', viewerEmail: HOST_EMAIL, ...seat }),
+      // origin/main never asked, which is the same answer as "not a host" — said explicitly, so every call site asks.
+      account: guestAccountState({ viewerUserId: 'host', viewerEmail: HOST_EMAIL, ...seat, viewerManagesEvent: false }),
       hostOpened: true,
     },
     {

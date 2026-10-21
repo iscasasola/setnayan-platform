@@ -857,11 +857,13 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // `lib/cover-catalog.server.ts` (2026-10-20) keeps only the folders' row NAMES for the card's
     // "Also covers" dropdown — it selects no price column and returns no vendor; `/dev/add-your-own-lab`
     // builds the same list from no rows at all (no event, no database, 404 in production).
+    // `lib/supplier-find-read.ts` (2026-10-21) is the Find page's list read, moved so the Suppliers page's
+    // bottom search draws the same list: categories, booked-or-not and a supplier COUNT — never a price.
     readsNoPrice: [
-      'app/dashboard/[eventId]/vendors/categories/page.tsx',
       'app/dev/add-your-own-lab/page.tsx',
       'app/dev/suppliers-lab/page.tsx',
       'lib/cover-catalog.server.ts',
+      'lib/supplier-find-read.ts',
     ],
   },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },

@@ -20,13 +20,22 @@
  *   7   it is glass: no background of its own — the field and the neutral
  *       control are frosted (`.sn-glass-row`), and Add keeps its full colour.
  *
+ * THE EMPTY BOX IS THE DOOR TO FIND (owner 2026-10-21 — *"Why do i have this
+ * find supplier button? When we have the search bar at the bottom?"* ⇒ the big
+ * button is gone): tapped with nothing typed, the box opens the Find page's own
+ * category list (`emptyPanel` — `FindCategoryList`, drawn by the page from
+ * `readFindList`) right above it. Typing closes it and narrows the page as
+ * before; a row goes where the Find page's row goes; a tap outside or Escape
+ * closes it. `?find=1` on the address opens it (the doors that used to open the
+ * Find page's browse — see `findDoorHref`).
+ *
  * Drawn into <body>: the dashboard's page wrapper captures `position: fixed`.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronsDownUp, ChevronsUpDown, Plus, Search } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
-import { SUP_REACH_X } from '@/lib/suppliers-shell';
+import { FIND_DOOR_PARAM, SUP_REACH_X } from '@/lib/suppliers-shell';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
 /** Rule 4 — the shipped Guests search waits the same 250 ms. */
@@ -39,6 +48,7 @@ export function FindThumbRow({
   scope,
   onSearch,
   onAdd,
+  emptyPanel = null,
 }: {
   /** Every category is open → the control offers "Collapse all". */
   allOpen: boolean;
@@ -50,6 +60,9 @@ export function FindThumbRow({
   /** Opens "add your own" — for the open category, or asking which first —
    *  with the name already typed in the box, if any. */
   onAdd: (typed: string) => void;
+  /** What the box shows while it is open with nothing typed — the Find page's
+   *  category list. Null → nothing (the box is only a search box). */
+  emptyPanel?: ReactNode;
 }) {
   const { mode, leaving, thumbUp } = useSuppliersMode();
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -95,11 +108,51 @@ export function FindThumbRow({
     return () => window.clearTimeout(t);
   }, [text, onSearch]);
 
+  // ── The empty state: open while the box is in use with nothing typed.
+  const [open, setOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+  const showPanel = open && up && emptyPanel != null && text.trim() === '';
+  // `?find=1` — a door that used to open the Find page's browse lands here.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get(FIND_DOOR_PARAM) !== '1') return;
+      url.searchParams.delete(FIND_DOOR_PARAM);
+      window.history.replaceState(null, '', url);
+      setOpen(true);
+    } catch {
+      // No URL/history — the box simply opens closed.
+    }
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    // Closed by a press OUTSIDE the row (never on blur: a press on a category
+    // row blurs the box first, and must still land on the row).
+    const onDown = (e: PointerEvent) => {
+      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  // Leaving Find closes it.
+  useEffect(() => {
+    if (!wanted) setOpen(false);
+  }, [wanted]);
+
   if (!host) return null;
   const words = `Search ${scope} or add your own`;
   return createPortal(
     <div
       data-find-thumb=""
+      ref={rowRef}
       data-on={up ? 'true' : 'false'}
       inert={!up}
       className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
@@ -107,16 +160,35 @@ export function FindThumbRow({
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}
     >
+      {showPanel ? (
+        // A menu of choices floating over the page — the one surface here that
+        // needs an edge to read against what is under it. Its rows are divided,
+        // never framed (they are the Find page's own rows).
+        <div
+          id={panelId}
+          role="region"
+          aria-label="Categories"
+          data-find-empty=""
+          className="pointer-events-auto mb-2 max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain rounded-2xl bg-paper px-4 pb-4 shadow-[0_-6px_28px_rgba(0,0,0,0.14)] ring-1 ring-ink/10"
+        >
+          {emptyPanel}
+        </div>
+      ) : null}
       <ThumbControls
         allOpen={allOpen}
-        onToggleAll={onToggleAll}
+        onToggleAll={() => {
+          setOpen(false);
+          onToggleAll();
+        }}
         words={words}
         text={text}
         onText={setText}
+        panel={emptyPanel != null ? { id: panelId, open: showPanel, onOpen: () => setOpen(true) } : null}
         onAdd={() => {
           // The typed name goes INTO the walk; the box is then the search box
           // again, empty (the prototype's `add()`), and the list hears it now.
           const typed = text;
+          setOpen(false);
           said.current = '';
           setText('');
           onSearch('');
@@ -149,6 +221,7 @@ function ThumbControls({
   text,
   onText,
   onAdd,
+  panel,
 }: {
   allOpen: boolean;
   onToggleAll: () => void;
@@ -156,6 +229,8 @@ function ThumbControls({
   text: string;
   onText: (text: string) => void;
   onAdd: () => void;
+  /** The empty state's door — null when the row has none. */
+  panel: { id: string; open: boolean; onOpen: () => void } | null;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   useFitRow(rowRef);
@@ -192,6 +267,10 @@ function ThumbControls({
           type="search"
           value={text}
           onChange={(e) => onText(e.target.value)}
+          onFocus={panel?.onOpen}
+          onClick={panel?.onOpen}
+          aria-expanded={panel ? panel.open : undefined}
+          aria-controls={panel?.open ? panel.id : undefined}
           placeholder={words}
           aria-label={words}
           autoComplete="off"

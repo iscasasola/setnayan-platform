@@ -60,7 +60,9 @@ import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
-import { popularTilesFor } from '@/lib/supplier-find';
+import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
+import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import { FindCategoryList } from '@/app/dashboard/[eventId]/vendors/_components/find-category-list';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
 import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
@@ -73,6 +75,7 @@ import {
   LAB_CLAIM_URL,
   LAB_ENRICHMENT,
   LAB_EVENT,
+  LAB_FIND_COUNTS,
   LAB_ROWS,
   LAB_STANDINGS,
   labDunkinRow,
@@ -177,6 +180,31 @@ export default async function SuppliersLabPage({
     ring: { tiles: folders.flatMap((f) => f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => v.status === 'locked').length, vendorIds: t.vendors.map((v) => v.vendorId) }))), inPlan: [...ring.inPlan] },
     drawnIn: [],
   };
+  // The bottom search's empty state — the Find page's own list (`FindCategoryList`) on the lab's scope:
+  // the bench folders with no rows (as `readFindList` builds them), booked = the fixtures' locked rows.
+  // `&findfail=1` — the booked read was refused (no row may say "Booked ✓").
+  const findBooked = one('findfail') === '1'
+    ? null
+    : new Set(
+        rows
+          .filter((r) => LOCKED_VENDOR_STATUSES.includes(r.status ?? ''))
+          .map((r) => homeTileForRow({ category: r.category }))
+          .filter((t): t is NonNullable<typeof t> => t != null),
+      );
+  const findList = buildFindList({
+    // No database here, so no Admin › Scope categories: drop a wake's own services the way a wedding's scope does.
+    folders: buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }).map((f) => ({
+      ...f,
+      tiles: f.tiles.filter((t) => (FIND_GROUP_OF_TILE as Record<string, string>)[t.tile] !== 'farewell'),
+    })),
+    eventType: 'wedding',
+    solemn: false,
+    booked: findBooked,
+    counts: LAB_FIND_COUNTS,
+  });
+  const findPanel = (
+    <FindCategoryList eventId={LAB_EVENT} list={findList} bookedMeasured={findBooked !== null} eventType="wedding" solemn={false} />
+  );
   const bench = (
     <LabBench
       key={`sl-${one('open') ?? ''}`}
@@ -194,6 +222,7 @@ export default async function SuppliersLabPage({
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
       claimQrSvg={claimQrSvg}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
+      findPanel={findPanel}
     />
   );
 

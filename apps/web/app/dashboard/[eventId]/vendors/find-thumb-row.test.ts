@@ -58,7 +58,7 @@ test('T1 · the row owns nothing and writes nothing', () => {
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
   assert.match(
     BENCH,
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+\/>/,
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+\/>/,
   );
   // Every control is the shipped button; nothing hand-made, no › in a control.
   assert.equal((ROW.match(/<ActionButton\b/g) ?? []).length, 2);

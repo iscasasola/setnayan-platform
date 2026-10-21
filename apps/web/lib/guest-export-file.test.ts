@@ -55,15 +55,15 @@ test('1 · a byte-order mark, CRLF, and the accents as themselves', () => {
   assert.match(csv, /"Santos, Sr"/, 'a comma inside a name is quoted');
 });
 
-test('2 · the template’s own headers, in its order — and the three read-only columns after', () => {
+test('2 · the template’s own headers, in its order — and the four read-only columns after', () => {
   for (const [file, hasSides] of [
     ['setnayan-guest-list-wedding.csv', true],
     ['setnayan-guest-list.csv', false],
   ] as const) {
     const tmpl = readFileSync(join(WEB, 'public', 'templates', file), 'utf8').replace(/^﻿/, '').split(/\r?\n/)[0];
     const ours = guestExportHeaders(hasSides, true);
-    assert.equal(ours.slice(0, -3).join(','), tmpl, `${file}: same columns, same order`);
-    assert.deepEqual(ours.slice(-3), ['RSVP', 'Reply set by', 'Table']);
+    assert.equal(ours.slice(0, -4).join(','), tmpl, `${file}: same columns, same order`);
+    assert.deepEqual(ours.slice(-4), ['Guest of', 'RSVP', 'Reply set by', 'Table']);
   }
 });
 

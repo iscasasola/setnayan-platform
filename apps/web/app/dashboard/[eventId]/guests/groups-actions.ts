@@ -560,6 +560,7 @@ export async function bulkSoftDeleteGuestsForUndo(
         guest_id: r.guest_id as string,
         plus_one_of_guest_id: (r.plus_one_of_guest_id as string | null) ?? null,
         first_name: (r.first_name as string | null) ?? null,
+        last_name: (r.last_name as string | null) ?? null,
         plus_one_name_confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
       })),
     );

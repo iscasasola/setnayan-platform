@@ -189,7 +189,7 @@ export async function setGuestRsvp(
   if (rsvp === 'declined') {
     const { data: seatRows, error: seatErr } = await supabase
       .from('guests')
-      .select('guest_id, plus_one_of_guest_id, first_name, plus_one_name_confirmed_at')
+      .select('guest_id, plus_one_of_guest_id, first_name, last_name, plus_one_name_confirmed_at')
       .eq('event_id', eventId)
       .in('plus_one_of_guest_id', moving)
       .is('deleted_at', null);
@@ -197,7 +197,7 @@ export async function setGuestRsvp(
       logQueryError('setGuestRsvp (their +1 seats)', seatErr, { event_id: eventId }, 'graceful_degrade');
     } else {
       const open = (seatRows ?? [])
-        .filter((x) => plusOneHasNoName({ guest_id: x.guest_id as string, plus_one_of_guest_id: x.plus_one_of_guest_id as string | null, first_name: x.first_name as string | null, plus_one_name_confirmed_at: x.plus_one_name_confirmed_at as string | null }))
+        .filter((x) => plusOneHasNoName({ guest_id: x.guest_id as string, plus_one_of_guest_id: x.plus_one_of_guest_id as string | null, first_name: x.first_name as string | null, last_name: x.last_name as string | null, plus_one_name_confirmed_at: x.plus_one_name_confirmed_at as string | null }))
         .map((x) => x.guest_id as string);
       if (open.length > 0) {
         const res = await bulkSoftDeleteGuestsForUndo(eventId, open, { release: true });

@@ -280,7 +280,7 @@ export const PLUS_ONE_FILTERS: readonly { key: PlusOneFilter; label: string }[] 
   { key: 'unnamed', label: 'No name yet' },
 ];
 
-type PlusFilterFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name' | 'plus_one_name_confirmed_at'>;
+type PlusFilterFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name' | 'last_name' | 'plus_one_name_confirmed_at'>;
 
 /** Is this row one of the +1s the filter shows? `null` → every row (no +1 filter). */
 export function plusOneFilterMatches(g: PlusFilterFields, f: PlusOneFilter | null): boolean {

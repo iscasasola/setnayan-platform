@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
+import { plusOneNameSave, seatNameAsTyped } from '@/lib/extra-seats';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
@@ -403,7 +404,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      leaves the card, and what was typed, where it is, and the autosave says "Couldn’t save" once. Same codes, same sentences. */
   const refuse = (error: string) => (quiet ? { refused: error } : redirect(`${backTo}?error=${encodeURIComponent(error)}`));
 
-  if (!first_name || !last_name) {
+  /* 🪪 A +1 SEAT MAY BE SAVED WITH ITS NAME BOXES EMPTY (owner 2026-10-21: "there is no last name yet until we type on
+     it"). The card shows an unnamed seat's First and Last empty, so a save of its Mobile posts them empty — whether that is
+     "keep the seat open" or a name cleared by accident is the ROW's to say, read below (`plusOneNameSave`) — the refusal
+     decides it. The card says it drew a +1 seat (`plus_one_seat`); that only DEFERS the refusal to the row read below — a
+     post that says so for a row that is not a seat is refused there, the same words. Anyone else is refused right here,
+     first, before any read, exactly as before. */
+  const namesMissing = !first_name || !last_name;
+  if (namesMissing && clean(formData.get('plus_one_seat')) !== '1') {
     return refuse('missing_name');
   }
   // 🔑 THE FORM AND THE ACTION MUST ANSWER THIS THE SAME WAY. The Side control
@@ -475,7 +483,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       [
         ...new Set([
           'role', 'group_category', 'rsvp_status', 'rsvp_responded_at', 'faceblock_enabled', 'photo_consent',
-          'face_recognition_excluded', 'passed_away', 'name_prefix', ...GUEST_CARD_COMPARED_COLUMNS,
+          'face_recognition_excluded', 'passed_away', 'name_prefix', 'plus_one_of_guest_id', 'plus_one_name_confirmed_at',
+          ...GUEST_CARD_COMPARED_COLUMNS,
         ]),
       ].join(', '),
     )
@@ -493,8 +502,24 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
    * standalone route, an older page) is written whole, as before. Everything below that reads a value this save does
    * NOT write — consent, the blur, the role, the answer — reads the ROW's, never the stale card's.
    */
-  const merge = guestCardMerge(formData.get(MERGE_BASE_FIELD), formData, prevGuest ?? null);
-  const writes = (column: string) => guestColumnWritten(column, merge);
+  /* 🪪 What this save does to a +1 seat's name (null for everyone else — written as before). The card drew the seat's
+     stand-ins ("TBA" · "+1" · "+1 · TBA") as EMPTY boxes, so the row is compared in that same spelling: an empty box over a
+     stand-in is "nobody changed it", never "another screen moved it". 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
+  const seatName = plusOneNameSave(
+    (prevGuest as unknown as Parameters<typeof plusOneNameSave>[0]) ?? null,
+    { first_name, last_name, display_name },
+    new Date().toISOString(),
+  );
+  if ((namesMissing && !seatName) || seatName?.kind === 'missing') return refuse('missing_name');
+  const comparedRow = prevGuest && seatName
+    ? (() => {
+        const typed = seatNameAsTyped(prevGuest as unknown as Parameters<typeof seatNameAsTyped>[0]);
+        return { ...prevGuest, first_name: typed.first_name, last_name: typed.last_name, display_name: typed.display_name };
+      })()
+    : (prevGuest ?? null);
+  const merge = guestCardMerge(formData.get(MERGE_BASE_FIELD), formData, comparedRow);
+  const writes = (column: string) =>
+    guestColumnWritten(column, merge) || (seatName?.kind === 'named' && seatName.force.includes(column));
   if (merge.based && prevGuest) {
     if (!writes('role')) role = prevGuest.role;
     if (!writes('group_category')) group_category = prevGuest.group_category;
@@ -571,6 +596,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
   };
+  // 🪪 A +1 seat: its name columns are what `plusOneNameSave` decided — only what was typed, never a stand-in as a typed
+  // name; an unnamed seat's stored stand-ins are left exactly as they are.
+  if (!nameLocked && seatName) {
+    delete wholeCard.first_name;
+    delete wholeCard.last_name;
+    delete wholeCard.display_name;
+    Object.assign(wholeCard, seatName.columns);
+  }
   const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({

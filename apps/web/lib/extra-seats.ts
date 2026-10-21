@@ -1,4 +1,7 @@
 import { normalizeNamePart } from '@/lib/formal-name';
+import { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME, isPlaceholderNameWord, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
+
+export { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME } from '@/lib/seat-placeholder-words';
 
 /**
  * extra-seats.ts — how many seat rows a guest's "+N" should have.
@@ -35,8 +38,6 @@ export type ExtraSeatRow = {
   created_at?: string | null;
 };
 
-export const PLACEHOLDER_FIRST_NAME = 'TBA';
-
 /** An unnamed seat nobody has claimed — the only kind that may be removed. */
 export function isPlaceholderSeat(row: ExtraSeatRow): boolean {
   return !row.confirmed_at && (row.first_name ?? '').trim().toUpperCase() === PLACEHOLDER_FIRST_NAME;
@@ -55,10 +56,16 @@ export function plusOneHasNoName(g: {
   guest_id?: string;
   plus_one_of_guest_id?: string | null;
   first_name: string | null;
+  last_name?: string | null;
   plus_one_name_confirmed_at?: string | null;
 }): boolean {
   if (!g.plus_one_of_guest_id || g.plus_one_of_guest_id === g.guest_id) return false;
-  return isPlaceholderSeat({ guest_id: g.guest_id ?? '', first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at ?? null });
+  // Both rules at once: the seat engine's (never named — no stamp) AND the name boxes' (`seatNameAsTyped`, #6727 —
+  // every name part a stand-in). A row either says has a name is a person, never released.
+  return (
+    isPlaceholderSeat({ guest_id: g.guest_id ?? '', first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at ?? null }) &&
+    seatNameAsTyped({ plus_one_of_guest_id: g.plus_one_of_guest_id, first_name: g.first_name, last_name: g.last_name ?? null }).unnamed
+  );
 }
 
 /**
@@ -67,7 +74,7 @@ export function plusOneHasNoName(g: {
  * — they leave only by the shipped Remove and its warning (owner 2026-10-21).
  */
 export function seatReleaseRefusal(
-  rows: readonly { guest_id: string; plus_one_of_guest_id: string | null; first_name: string | null; plus_one_name_confirmed_at: string | null }[],
+  rows: readonly { guest_id: string; plus_one_of_guest_id: string | null; first_name: string | null; last_name?: string | null; plus_one_name_confirmed_at: string | null }[],
 ): string | null {
   if (rows.length === 0) return 'Nothing selected.';
   const named = rows.filter((r) => !plusOneHasNoName(r)).length;
@@ -110,6 +117,90 @@ export function planExtraSeats(want: number, rows: readonly ExtraSeatRow[]): Ext
  */
 export function seatPlaceholderLabel(index: number): string {
   return `+${index + 1} · TBA`;
+}
+
+/**
+ * 🪪 AN UNNAMED +1 HAS NO NAME YET (owner 2026-10-21: *"Why is the +1 listed as the +1's last name? when there is no
+ * last name yet until we type on it or it is filled up by the guest via RSVP"*). The name parts a NAME BOX shows for a
+ * row: on a +1 seat (`plus_one_of_guest_id`) every stand-in word — first "TBA", last "+1", a "+1 · TBA" Shown as — reads
+ * EMPTY, so the card draws "Add" and nothing the host did not type. Anyone else's parts are exactly as stored.
+ * 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts
+ */
+export function seatNameAsTyped(g: {
+  plus_one_of_guest_id?: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  display_name?: string | null;
+}): { first_name: string; last_name: string; display_name: string; unnamed: boolean } {
+  const first = g.first_name ?? '';
+  const last = g.last_name ?? '';
+  const display = g.display_name ?? '';
+  if (!g.plus_one_of_guest_id) return { first_name: first, last_name: last, display_name: display, unnamed: false };
+  const f = withoutPlaceholderWord('first', first);
+  const l = withoutPlaceholderWord('last', last);
+  return { first_name: f, last_name: l, display_name: withoutPlaceholderWord('display', display), unnamed: !f && !l };
+}
+
+/**
+ * 🔒 A SAVE NEVER WRITES A STAND-IN AS A TYPED NAME. What the guest card's save (`updateGuest`) writes to a +1 seat's
+ * name columns, from the boxes it posted (`posted`, already trimmed) and the row as it is (`row`). Null = not a +1
+ * seat: the caller behaves exactly as before.
+ *
+ *   · a posted stand-in word ("TBA", "+1", "+1 · TBA" — an older page, or a host who typed one) is read as empty;
+ *   · both boxes empty on a seat nobody named → `unnamed`: the name columns are NOT written (the stored stand-ins stay,
+ *     so the seat engine still knows it is open) — a host changing the Mobile saves the Mobile and nothing else;
+ *   · both boxes empty on a seat that HAS a name → `missing` (the card's own "Please enter both" — a name is never
+ *     cleared by accident);
+ *   · a name typed → `named`: what was typed is written; a box left empty keeps the NOT-NULL stand-in (the RSVP's own
+ *     `op.first || 'TBA'`, `op.last || '+1'`), which every name box and print reads as empty; a stand-in Shown as is
+ *     cleared (`force`, so the typed name shows, as the RSVP clears it); and the seat is stamped named
+ *     (`plus_one_name_confirmed_at`) the first time, so it can never be taken for an open placeholder again.
+ */
+export type PlusOneNameSave =
+  | { kind: 'unnamed'; columns: { display_name?: string } }
+  | { kind: 'missing' }
+  | {
+      kind: 'named';
+      columns: { first_name: string; last_name: string; display_name: string | null; plus_one_name_confirmed_at?: string };
+      /** Columns written even when this screen did not change their box (the merge would otherwise keep the stand-in). */
+      force: string[];
+    };
+
+export function plusOneNameSave(
+  row: {
+    plus_one_of_guest_id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    display_name?: string | null;
+    plus_one_name_confirmed_at?: string | null;
+  } | null,
+  posted: { first_name: string; last_name: string; display_name: string | null },
+  stamp: string,
+): PlusOneNameSave | null {
+  if (!row?.plus_one_of_guest_id) return null;
+  const first = withoutPlaceholderWord('first', posted.first_name);
+  const last = withoutPlaceholderWord('last', posted.last_name);
+  const display = withoutPlaceholderWord('display', posted.display_name);
+  if (!first && !last) {
+    const stored = seatNameAsTyped({
+      plus_one_of_guest_id: row.plus_one_of_guest_id,
+      first_name: row.first_name ?? '',
+      last_name: row.last_name ?? '',
+    });
+    if (!stored.unnamed) return { kind: 'missing' };
+    return { kind: 'unnamed', columns: display ? { display_name: display } : {} };
+  }
+  const storedDisplayIsStandIn = isPlaceholderNameWord('display', row.display_name);
+  return {
+    kind: 'named',
+    columns: {
+      first_name: first || PLACEHOLDER_FIRST_NAME,
+      last_name: last || PLACEHOLDER_LAST_NAME,
+      display_name: display || null,
+      ...(row.plus_one_name_confirmed_at ? {} : { plus_one_name_confirmed_at: stamp }),
+    },
+    force: storedDisplayIsStandIn ? ['display_name'] : [],
+  };
 }
 
 /** One of a guest's extra seats, as the host's Guest List draws it. */

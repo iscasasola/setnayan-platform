@@ -32,6 +32,7 @@ import {
   type RsvpStatus,
 } from './guests';
 import type { RoleNames } from './role-names';
+import { seatNameAsTyped } from './extra-seats';
 
 export type ExportGuest = {
   guest_id: string;
@@ -47,9 +48,53 @@ export type ExportGuest = {
   mobile: string | null;
   rsvp_status: RsvpStatus;
   passed_away?: boolean | null;
+  /** Set on a +1's seat row — whose seat it is. */
+  plus_one_of_guest_id?: string | null;
+  display_name?: string | null;
   /** 🖐 Who set the reply (owner 2026-10-21) — the read-only "Reply set by" column. */
   rsvp_set_by?: 'guest' | 'host' | null;
 };
+
+/**
+ * 🤝 THE FILE'S ROWS, IN ORDER (owner 2026-10-21, on the downloaded sheet: *"looking at excel there are so many +1
+ * without names which shouldn't be listed as such"* — 25 rows of "TBA" · "'+1" sorted to the top, tied to nobody, each
+ * also counted in its guest's "Their guests (+)").
+ *   · an UNNAMED +1 is not a row: it is a seat, and their guest's "Their guests (+)" already counts it;
+ *   · a NAMED +1 is a row DIRECTLY UNDER their guest, its "Guest of" their guest's name — and it is one of the seats
+ *     that guest's "Their guests (+)" counts, so the sheet's people = the rows with no "Guest of" + every "Their
+ *     guests (+)" (`exportHeadcount`), never the +1 twice;
+ *   · "Their guests (+)" stays the guest's own number — the column an upload writes back, so the same file uploaded
+ *     again changes no seat;
+ *   · a +1 whose guest is not in the file keeps their own place, with no "Guest of" (counted as their own row).
+ * `guests` arrive in the caller's order (the route's sort); a guest's +1s follow in that same order.
+ * 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts
+ */
+export function exportRows<G extends ExportGuest>(guests: readonly G[]): { g: G; guestOf: string }[] {
+  const byId = new Map(guests.map((x) => [x.guest_id, x] as const));
+  const seatsOf = new Map<string, G[]>();
+  const placedUnder = (x: G) => Boolean(x.plus_one_of_guest_id && x.plus_one_of_guest_id !== x.guest_id && byId.has(x.plus_one_of_guest_id));
+  for (const x of guests) {
+    if (!placedUnder(x) || seatNameAsTyped(x).unnamed) continue;
+    const host = x.plus_one_of_guest_id as string;
+    seatsOf.set(host, [...(seatsOf.get(host) ?? []), x]);
+  }
+  const out: { g: G; guestOf: string }[] = [];
+  for (const x of guests) {
+    if (placedUnder(x)) continue; // drawn under their guest, or (unnamed) not a row at all
+    if (seatNameAsTyped(x).unnamed) continue; // an unnamed seat whose guest is gone — still not a person
+    out.push({ g: x, guestOf: '' });
+    // Their guest's name as THIS file writes it — the same five cells their own row holds, so "Guest of" always matches a row.
+    const bringer = [x.name_prefix, x.first_name, x.middle_name, x.last_name, x.name_suffix].map((v) => (v ?? '').trim()).filter(Boolean).join(' ');
+    for (const seat of seatsOf.get(x.guest_id) ?? []) out.push({ g: seat, guestOf: bringer });
+  }
+  return out;
+}
+
+/** The people a file says: its rows with no "Guest of", plus every "Their guests (+)". Equals the list's rows when each
+ *  guest's seats are rows (the app keeps them so — `syncExtraSeats`, and Remove takes the seat with it). */
+export function exportHeadcount(rows: readonly { g: Pick<ExportGuest, 'plus_one_count'>; guestOf: string }[]): number {
+  return rows.reduce((n, r) => n + (r.guestOf ? 0 : 1 + (r.g.plus_one_count ?? 0)), 0);
+}
 
 /** "You" for a reply a host set, "Guest" for their own, blank when the row does not say (never guessed). */
 export function replySetByWord(g: Pick<ExportGuest, 'rsvp_status' | 'rsvp_set_by' | 'passed_away'>): string {
@@ -76,6 +121,8 @@ export function guestExportHeaders(hasSides: boolean, withTable: boolean): strin
     'Role',
     'Their guests (+)',
     'Mobile (optional)',
+    // Read-only, like RSVP and Table: whose +1 a row is (the importer does not read it).
+    'Guest of',
     'RSVP',
     // Read-only, like RSVP and Table: who set the reply (the importer does not read it).
     'Reply set by',
@@ -107,18 +154,22 @@ export function guestListCsv(
 ): string {
   const withTable = Boolean(opts.tableByGuest);
   const lines = [guestExportHeaders(opts.hasSides, withTable).map(csvCell).join(',')];
-  for (const g of guests) {
+  for (const { g, guestOf } of exportRows(guests)) {
+    /* 🪪 No cell ever holds a stand-in as a name (owner 2026-10-21: "there is no last name yet"): a +1 named "Ben"
+       keeps "+1" stored as its last name — it is written blank. */
+    const typed = seatNameAsTyped(g);
     const cells: (string | number)[] = [
       g.name_prefix ?? '',
-      g.first_name,
+      typed.first_name,
       g.middle_name ?? '',
-      g.last_name,
+      typed.last_name,
       g.name_suffix ?? '',
       ...(opts.hasSides ? [SIDE_WORD[g.side] ?? ''] : []),
       g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? '') : '',
       guestRoleLabel(g.role, opts.roleNames),
       g.plus_one_count ?? 0,
       exportMobile(g.mobile),
+      guestOf,
       g.passed_away ? 'In loving memory' : RSVP_LABELS[g.rsvp_status],
       replySetByWord(g),
       ...(withTable ? [opts.tableByGuest?.[g.guest_id] ?? ''] : []),

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { SpotlightStep, SpotlightFinale, TourKey } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
+import { Wordmark } from './brand-marks';
 
 /**
  * 🔦 THE SPOTLIGHT TOUR — the approved look, copied from the corpus sample
@@ -163,6 +164,7 @@ const CSS_TEXT = `
 .sn-spot-tip{position:fixed;z-index:2147483003;left:16px;right:16px;margin:0 auto;max-width:420px;background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
+.sn-spot-brand{margin-bottom:8px}
 .sn-spot-step{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-orange,#A9834B);margin-bottom:2px}
 .sn-spot-tip h4{margin:0 0 4px;font-size:17px;font-weight:600;line-height:1.3}
 .sn-spot-tip p{margin:0 0 12px;font-size:14px;line-height:1.4;color:var(--m-slate,#3a3e45)}
@@ -191,11 +193,14 @@ export function SpotlightTour({
   finale,
   record,
   restart,
+  name = null,
   completeAction,
   onClose,
 }: {
   tourKey: TourKey;
   steps: ReadonlyArray<SpotlightStep>;
+  /** The person's display name — a welcome step's "Welcome, {name}". */
+  name?: string | null;
   finale: SpotlightFinale;
   /** First visit: finishing or skipping writes `users.tour_seen_keys` (the shipped `completeTour`). The ⓘ replays with false. */
   record: boolean;
@@ -443,6 +448,14 @@ export function SpotlightTour({
 
   const step = steps[i];
   const style = <style>{CSS_TEXT}</style>;
+  /* 👋 A welcome step is not one of the steps: "Step N of M" counts the others only. */
+  const counted = steps.filter((s) => !s.welcome).length;
+  const shownN = steps.slice(0, i + 1).filter((s) => !s.welcome).length;
+  const title = step?.welcome
+    ? name?.trim()
+      ? step.title.replace('{name}', name.trim())
+      : step.title.replace(/,?\s*\{name\}/, '')
+    : step?.title;
 
   if (done) {
     return (
@@ -499,12 +512,18 @@ export function SpotlightTour({
         aria-labelledby="sn-spot-title"
         style={{ top: tipTop, opacity: busy || litFor !== i ? 0 : 1 }}
       >
+        {step.welcome ? (
+          /* The mark, larger — this once (prototype P4). */
+          <div className="sn-spot-brand" data-spot-welcome="">
+            <Wordmark size={18} color="var(--m-ink,#1e2229)" />
+          </div>
+        ) : null}
         <div className="sn-spot-step">
-          Step {formatCount(i + 1)} of {formatCount(steps.length)}
+          {step.welcome ? 'Welcome' : `Step ${formatCount(shownN)} of ${formatCount(counted)}`}
         </div>
-        <h4 id="sn-spot-title">{step.title}</h4>
+        <h4 id="sn-spot-title">{title}</h4>
         <p>{step.body}</p>
-        <div className="sn-spot-hint">Tap it yourself — or press Next</div>
+        {step.welcome ? null : <div className="sn-spot-hint">Tap it yourself — or press Next</div>}
         <div className="sn-spot-row">
           <button type="button" className="sn-spot-skip" onClick={finish}>
             Skip

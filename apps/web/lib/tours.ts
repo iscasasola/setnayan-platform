@@ -100,7 +100,20 @@ export type SpotlightStep = {
   body: string;
   /** A doorway (a tab, a link to the next page): Next walks through it too, as the sample's Next did. */
   go?: boolean;
+  /**
+   * 👋 THE ONCE-ONLY WELCOME (owner 2026-10-21, prototype `first_run_you_and_next_steps_2026-10-21.html` P4 —
+   * controller decision, owner may veto). Drawn with the SETNAYAN wordmark, larger, and "Welcome" in place of
+   * "Step N of M"; not counted in the steps; `{name}` in the title is the person's display name ("Welcome,
+   * Isabel"; no name → "Welcome"). Shown on the FIRST run only — a replay ("Show me around") skips it
+   * (`spotlightSteps`).
+   */
+  welcome?: boolean;
 };
+
+/** The steps a run walks: the first run every one; a replay without the once-only welcome. */
+export function spotlightSteps(steps: ReadonlyArray<SpotlightStep>, firstRun: boolean): ReadonlyArray<SpotlightStep> {
+  return firstRun ? steps : steps.filter((s) => !s.welcome);
+}
 
 /** The "You're set" card at the end, with the sample's confetti. */
 export type SpotlightFinale = { title: string; body: string; button: string };
@@ -1282,6 +1295,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           title: 'Start with your event',
           body: 'Tap here and pick what kind of event it is. It takes a minute.',
           go: true,
+        },
+        {
+          // 👋 The once-only welcome — rings the same Next card the step after it explains (P4 → P5).
+          anchor: 'home-next',
+          title: 'Welcome, {name}',
+          body: 'Your first event is made. The Next card always shows the one thing to do next.',
+          welcome: true,
         },
         {
           anchor: 'home-next',

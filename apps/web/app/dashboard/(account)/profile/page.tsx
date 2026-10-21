@@ -489,6 +489,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="square"
             roundPreview
+            slotSays="Add a photo"
             help="Your avatar across the app · PNG / JPG / WebP, up to 2 MB"
           />
           <div className="min-w-0 text-center sm:text-left">

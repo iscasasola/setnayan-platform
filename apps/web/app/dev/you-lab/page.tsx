@@ -10,7 +10,10 @@
  *   ?state=new        a brand-new account: no photo, no @name, consent unanswered (default)
  *   ?state=returning  a returning account: photo on file, @name set, formal name filled (folded open)
  *   ?state=long       a brand-new account with a long display name
- *   ?door=open-shop   the supplier first run, step 1 (Shop logo)
+ *   ?door=open-shop   the supplier first run, step 1 (Shop logo) — the REAL wizard, with the brand line
+ *   ?door=picker      the couple's next screen after Done: the REAL event-type picker in the REAL app bar, for an
+ *                     account with no event yet (no "Back to events" — `&behind=1` draws the way back)
+ *   &dark=1           (a walk adds `html.dark`) — the card's dark rules are inert until the route is DARK_READY
  *
  * The photo's live moments (chosen and not saved yet · uploading · refused) are the REAL upload widget
  * driven by a walk that answers `/api/upload` locally — the lab itself sends nothing anywhere. Done posts to
@@ -19,6 +22,14 @@
 import { notFound } from 'next/navigation';
 import { YouCard, type YouCardMe } from '@/app/signup/you/_components/you-card';
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
+import '@/app/_components/frontdoor/front-door.css';
+import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
+import { NewEventHead } from '@/app/dashboard/(account)/create-event/_components/new-event-head';
+import { EventTypePicker } from '@/app/dashboard/(account)/create-event/_components/event-type-picker';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getBudgetBands } from '@/lib/budget-bands';
+import { buildSelfSubject, buildUnspecifiedSubject } from '@/lib/create-subjects';
+import { manilaToday } from '@/lib/std-views';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,13 +65,39 @@ async function labDone(): Promise<void> {
   'use server';
 }
 
-export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string }> }) {
+export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string; behind?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
 
+  if (sp.door === 'picker') {
+    // The page's own reads, which fall back to their shipped constants with no database.
+    const [types, budgetBands] = await Promise.all([getCreatableEventTypes(), getBudgetBands()]);
+    return (
+      <FrontDoorShell
+        variant="app"
+        account={{ signedIn: true, initials: 'IS', shopName: null, isAdmin: false }}
+        tools={[]}
+        navLabels={{}}
+        topBarSlot={
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">IS</span>
+        }
+      >
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8" data-you-lab="picker">
+          <NewEventHead nothingBehind={sp.behind !== '1'} samahan={null} />
+          <EventTypePicker
+            types={types}
+            budgetBands={budgetBands}
+            subjects={[buildSelfSubject('Isabel', { birth_date: null }), buildUnspecifiedSubject()]}
+            todayISO={manilaToday()}
+          />
+        </div>
+      </FrontDoorShell>
+    );
+  }
+
   if (sp.door === 'open-shop') {
     return (
-      <main className="min-h-dvh bg-cream text-ink" data-you-lab="open-shop">
+      <div className="min-h-dvh bg-cream text-ink" data-you-lab="open-shop">
         <OpenShopWizard
           mode="create"
           eventTypeOptions={[
@@ -70,7 +107,7 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
           ]}
           vendorProfileId={null}
           logoDisplayMap={{}}
-          accountName="Isabel Santos"
+          guest
           defaults={{
             shopName: '',
             logoUrl: '',
@@ -84,7 +121,7 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
             contactEmail: '',
           }}
         />
-      </main>
+      </div>
     );
   }
 

@@ -21,6 +21,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
+import { youCardOnward } from '@/lib/signup-landing';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { saveYou } from './actions';
 import { YouCard, type YouCardMe } from './_components/you-card';
@@ -56,6 +57,14 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
     .maybeSingle();
   const me = (profile ?? {}) as YouCardMe;
 
+  // 🚪 Done → the event-type picker when the account holds no event yet (`youCardOnward`). A count, not the
+  // rows; an error is "unknown" (null), and unknown keeps the board — never read as "no events".
+  const { count: eventCount, error: eventsError } = await supabase
+    .from('event_members')
+    .select('event_id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+  const onward = youCardOnward(next, eventsError ? null : (eventCount ?? 0) > 0);
+
   const storedPhoto = me.profile_photo_url ?? null;
   // A brand-new account has no photo; a returning one may. The try/catch is
   // load-bearing (the presign throws when R2 is unset) — a thumbnail is
@@ -73,7 +82,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   return (
     <YouCard
       action={saveYou}
-      next={next}
+      next={onward}
       errorMessage={errorMessage}
       userId={user.id}
       email={user.email ?? null}

@@ -58,6 +58,7 @@ export default async function DashboardLayout({
     account_type?: string | null;
     deleted_at?: string | null;
     tour_seen_keys?: string[] | null;
+    display_name?: string | null;
     terms_accepted_at?: string | null;
     created_at?: string | null;
   };
@@ -65,7 +66,7 @@ export default async function DashboardLayout({
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, terms_accepted_at, created_at')
+      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_accepted_at, created_at')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -227,7 +228,7 @@ export default async function DashboardLayout({
       {/* 🔦 The host's spotlight journey — create the event → Event Hub → guests → suppliers (owner
           2026-10-02). Here in the layout so it survives a page change and the ring glides on to the
           next page. The old welcome above stays off (`lib/tip-popups.ts`). */}
-      {!termsAsk ? <Spotlight tourKey="host_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay /> : null}
+      {!termsAsk ? <Spotlight tourKey="host_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} name={profile?.display_name ?? null} replay /> : null}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   type FormalNameField,
 } from '@/lib/formal-name';
 import { PrefixSelect } from '@/app/_components/formal-name-inputs';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { AccountNameField } from './account-name-field';
 import '@/app/_components/home/home-reskin.css';
 
@@ -75,6 +76,7 @@ export function YouCard({
     <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
       <div className="home-reskin-ov">
         <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
+          <FirstRunBrand className="hr-si-brand" />
           <div className="hr-ov-eyebrow">You</div>
           <h1 className="hr-ov-title">How should we call you?</h1>
 
@@ -90,37 +92,45 @@ export function YouCard({
                 cleared photo from a form without the control. */}
             <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 96, flexShrink: 0 }}>
-                <FileUpload
-                  bucket="media"
-                  pathPrefix={`profile-photo/${userId}`}
-                  name="profile_photo_url"
-                  unsavedHint="press Done below"
-                  currentValue={storedPhoto}
-                  initialDisplayUrls={photoDisplayMap}
-                  maxSizeMB={2}
-                  acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                  variant="square"
-                  roundPreview
-                  help="Optional"
-                />
-              </div>
-              <div className="hr-si-field" style={{ flex: 1 }}>
-                <label htmlFor="hr-you-name" className="hr-si-label">
-                  Display name
-                </label>
-                <input
-                  id="hr-you-name"
-                  name="display_name"
-                  defaultValue={displayName}
-                  maxLength={128}
-                  autoComplete="nickname"
-                  placeholder="How you want to appear in the app"
-                  required
-                  className="hr-si-input"
-                />
-              </div>
+            {/* 📐 THE PHOTO ROW (owner 2026-10-21: "misalignment where they upload their first profile
+                photo"; prototype first_run_you_and_next_steps_2026-10-21 §1). One 72 px circle — the one
+                thing you press — beside plain words, drawn whole by the upload widget (`row`); the Display
+                name takes the full width underneath. Replaces a 96 px column the widget's 160 px circle
+                spilled out of, into the name box beside it. */}
+            <FileUpload
+              bucket="media"
+              pathPrefix={`profile-photo/${userId}`}
+              name="profile_photo_url"
+              unsavedHint="press Done below"
+              currentValue={storedPhoto}
+              initialDisplayUrls={photoDisplayMap}
+              maxSizeMB={2}
+              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+              variant="square"
+              roundPreview
+              help="Optional"
+              row={{
+                title: 'Your photo',
+                titleClassName: 'hr-si-label',
+                hintClassName: 'hr-si-hint',
+                actionClassName: 'hr-si-link',
+              }}
+            />
+
+            <div className="hr-si-field">
+              <label htmlFor="hr-you-name" className="hr-si-label">
+                Display name
+              </label>
+              <input
+                id="hr-you-name"
+                name="display_name"
+                defaultValue={displayName}
+                maxLength={128}
+                autoComplete="nickname"
+                placeholder="How you want to appear in the app"
+                required
+                className="hr-si-input"
+              />
             </div>
 
             {currentSlug === null ? (
@@ -207,7 +217,7 @@ export function YouCard({
                   style={{ marginTop: 3 }}
                 />
                 <span>
-                  Include my celebrations in Setnayan&rsquo;s Stories showcase. 30 days after each
+                  Include my events in Setnayan&rsquo;s Stories showcase. 30 days after each
                   event, its editorial page becomes publicly searchable on setnayan.com/realstories.
                   I can keep any of them private at any time.
                 </span>

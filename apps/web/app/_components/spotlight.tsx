@@ -18,8 +18,11 @@ export async function Spotlight({
   seenKeys,
   after,
   replay = false,
+  name = null,
 }: {
   tourKey: TourKey;
+  /** The person's display name — a welcome step says "Welcome, {name}". */
+  name?: string | null;
   /**
    * Already read by the caller (the role layouts). Left out → read here, once, as `MiniTour` does.
    * NULL = the read did not come back: draw nothing rather than replay a tour the person finished.
@@ -43,6 +46,7 @@ export async function Spotlight({
       script={script}
       seen={seen.includes(tourKey)}
       replay={replay}
+      name={name}
       completeAction={completeTour}
     />
   );

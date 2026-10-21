@@ -27,7 +27,7 @@
  * suit below stay what the reception scene draws its crowd with.
  */
 
-import { FIGURE_ART, designOfArt, garmentFor, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
+import { FIGURE_ART, designOfArt, garmentFor, roleOfArt, tieZoneColours, wearsColourOnTie, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel, roleArtKey, type FigureRole } from './attire-designs';
 import type { AttireStyle } from './role-dress-code';
 
@@ -219,8 +219,13 @@ export function pickDots(
   if (!style) return own.map((hex, i) => ({ hex, word: options || i === 0 ? DOT_WORD_OUTFIT : DOT_WORD_ACCENT }));
   const zones = zonesOf(style);
   const zoneWord = (i: number) => zones[i]?.label ?? designLabel(role ?? null, style);
-  if (options) return own.map((hex) => ({ hex, word: zoneWord(0) }));
-  const worn = zoneColours(style, own);
+  /* 👔 A guest man in a tie wears each colour on the tie (`wearsColourOnTie`, owner 2026-10-21) — so it says "Tie". */
+  const onTie = wearsColourOnTie(role, style);
+  if (options) {
+    const optionWord = onTie ? zoneWord(zones.findIndex((z) => z.key === 't')) : zoneWord(0);
+    return own.map((hex) => ({ hex, word: optionWord }));
+  }
+  const worn = onTie && own.length === 1 ? tieZoneColours(style, own[0]!) : zoneColours(style, own);
   return [...zones.map((_, i) => ({ hex: worn[i]!, word: zoneWord(i) })), ...own.slice(zones.length).map((hex) => ({ hex, word: DOT_WORD_ACCENT }))];
 }
 
@@ -233,7 +238,10 @@ export function zoneTints(garment: FigureGarment, colours: readonly string[]): A
   const art = FIGURE_ART[garment];
   const own = colours.filter((h) => HEX.test(h));
   if (!art.zones) return [{ key: 'a', mask: art.mask, colour: own[0] ?? '#9B9B9B' }];
-  const worn = zoneColours(designOfArt(garment), own);
+  const design = designOfArt(garment);
+  /* 👔 A GUEST MAN'S ONE OPTION COLOUR IS HIS TIE (owner 2026-10-21, `wearsColourOnTie`): coat & pants black, shirt
+     white. Colours given zone by zone (more than one) are the host's own and are worn as given. */
+  const worn = design && own.length === 1 && wearsColourOnTie(roleOfArt(garment), design) ? tieZoneColours(design, own[0]!) : zoneColours(design, own);
   return art.zones.map((z, i) => ({ key: z.key, mask: z.mask, colour: worn[i]! }));
 }
 

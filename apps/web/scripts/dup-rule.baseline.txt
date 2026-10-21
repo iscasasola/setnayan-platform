@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 324
+# facts: 329
 #   shadow  18
-#   omit    306
+#   omit    311
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -216,6 +216,12 @@ omit	app/dashboard/[eventId]/guests/groups-actions.ts	guests	ENTOURAGE_COLUMNS	n
 omit	app/dashboard/[eventId]/guests/groups-actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/guests/import/actions.ts	guests	ENTOURAGE_COLUMNS	display_name
 omit	app/dashboard/[eventId]/guests/import/actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	display_name
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/dashboard/[eventId]/guests/inline-actions.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/dashboard/[eventId]/guests/quick-add-actions.ts	guests	ENTOURAGE_COLUMNS	display_name
 omit	app/dashboard/[eventId]/guests/quick-add-actions.ts	guests	ENTOURAGE_COLUMNS	first_name
 omit	app/dashboard/[eventId]/guests/quick-add-actions.ts	guests	ENTOURAGE_COLUMNS	last_name
@@ -343,7 +349,6 @@ omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_m
 omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	middle_name
-omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	lib/life-story-moment-graph.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/life-story-moment-graph.ts	guests	ENTOURAGE_COLUMNS	middle_name

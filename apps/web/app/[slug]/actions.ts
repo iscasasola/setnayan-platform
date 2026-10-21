@@ -557,6 +557,8 @@ export async function submitRsvp(
           ? {}
           : {
               rsvp_status: status,
+              // 🖐 The guest's own answer — it always replaces a host's "Marked by you" (owner 2026-10-21).
+              rsvp_set_by: 'guest',
               // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
               // is `defaultValue=`, so a guest correcting their phone number
               // reposts the answer they already gave — and this used to restamp

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { composeFormalName } from '@/lib/formal-name';
-import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, seatNameAsTyped } from '@/lib/extra-seats';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -20,6 +20,7 @@ import {
   type MealPreference,
   type RsvpStatus,
   RSVP_ROW_WORDS,
+  replyMarkedByHost,
   PLUS_ONE_CHOICES,
   A_PLUS_ONE_BRINGS_NO_ONE,
   isAPlusOne,
@@ -337,6 +338,7 @@ export function GuestCardBody({
       linked={Boolean(linkedAccount)}
       returnTo={returnTo}
       deletable={!isCouple}
+      seatWithNoName={plusOneHasNoName(guest)}
     />
   ) : null;
 
@@ -359,6 +361,8 @@ export function GuestCardBody({
     ? 'Attending · always'
     : [
         CARD_RSVP_WORDS[guest.rsvp_status],
+        // 🖐 A reply the host set says so — "Attending · Marked by you" (owner 2026-10-21).
+        replyMarkedByHost(guest) ? 'Marked by you' : null,
         guest.meal_preference && guest.meal_preference !== 'no_preference' ? MEAL_LABELS[guest.meal_preference] : null,
         seats > 0 ? `+${seats}` : null,
         guest.guest_note?.trim() ? 'a note from them' : null,
@@ -734,7 +738,10 @@ export function GuestCardBody({
             {/* "Recorded", not "replied" — three of the column's four writers are
                 host-side. Only when there IS one, and 🔴 never for the couple. */}
             {!isCouple && recordedAt ? (
-              <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+              <p className="text-xs text-ink/50" data-reply-set-by={guest.rsvp_set_by ?? ''}>
+                Answer recorded {recordedAt}
+                {replyMarkedByHost(guest) ? ' · Marked by you' : ''}
+              </p>
             ) : null}
 
             {/* Smart defaults by role · locked 2026-05-23 PM — changing the

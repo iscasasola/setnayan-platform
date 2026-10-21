@@ -26,6 +26,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { connectHostsTicked } from '@/lib/guest-connects-hosts';
+import { askEventHostsToConnect } from '@/lib/guest-connects-hosts.server';
 import {
   RSVP_TERMS_COOKIE,
   RSVP_TERMS_COOKIE_MAX_AGE,
@@ -197,7 +199,7 @@ export async function startAccountSaveAction(
  * nothing. A couple seat this account may not hold comes back `couple_seat`
  * and the page says so in plain words (`?keep=couple_seat`).
  */
-export async function linkThisSeatAction(eventId: string) {
+export async function linkThisSeatAction(eventId: string, formData?: FormData) {
   const home = await eventHome(eventId);
   const supabase = await createClient();
   const {
@@ -206,6 +208,11 @@ export async function linkThisSeatAction(eventId: string) {
   const session = await readGuestSession();
   if (!user || !session || session.event_id !== eventId) return redirect(home);
   const result = await linkGuestSessionToUser(user.id, { eventId });
+  // 🤝 "Also connect with <the hosts>" — only after the seat is truly theirs, only when the tick was drawn and left
+  // on (lib/guest-connects-hosts.ts). Never throws, so it cannot cost them the link above.
+  if (result.linked && connectHostsTicked(formData)) {
+    await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
+  }
   revalidatePath(home);
   if (result.reason === 'couple_seat') return redirect(`${home}?keep=couple_seat`);
   return redirect(home);

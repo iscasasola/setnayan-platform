@@ -164,11 +164,12 @@ test('3 · a shop owner, a team member and a customer may all create their own e
 test('4 · nothing tells a shop account to sign up again with a different email', () => {
   const hits: string[] = [];
   for (const file of [...APP_FILES, ...walk(HERE)]) {
-    const raw = readFileSync(file, 'utf8');
-    if (/personal account using a different email|SHOP_ACCOUNT_CANNOT_CREATE/.test(raw)) {
+    // Code only: the gate's own docblock quotes the retired sentence to say why it went.
+    const src = code(file);
+    if (/personal account using a different email|SHOP_ACCOUNT_CANNOT_CREATE/.test(src)) {
       hits.push(relative(WEB, file));
     }
-    if (/['"`]shop_account['"`]/.test(stripComments(raw))) hits.push(`${relative(WEB, file)} (error code)`);
+    if (/['"`]shop_account['"`]/.test(src)) hits.push(`${relative(WEB, file)} (error code)`);
   }
   assert.deepEqual(hits, [], `The superseded refusal is back: ${hits.join(', ')}`);
   assert.ok(!existsSync(join(HERE, 'vendor-event-creation-copy.ts')), 'the refusal sentence module is back');

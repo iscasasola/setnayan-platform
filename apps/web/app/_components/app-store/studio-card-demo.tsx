@@ -826,7 +826,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex items-center justify-center px-4" style={{ background: '#e7e2d6' }}>
         <div className="w-full rounded-md border-t-2 border-ink bg-cream p-4 text-center text-ink">
-          <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">A celebration</span>
+          <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">An event</span>
           <p className="mt-1 text-base leading-tight" style={{ fontFamily: SERIF }}>Maria & Juan Are Married</p>
           <span className="mx-auto mt-1.5 block h-px w-12" style={{ background: GOLD }} />
           <div className="mt-2 h-12 w-full rounded" style={{ background: '#F0997B' }} />

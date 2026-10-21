@@ -26,7 +26,7 @@ import { Gift } from 'lucide-react';
  * part that must not differ.
  */
 export const SETNAYAN_GIFT_CARD_COPY =
-  'Includes a Setnayan gift — free Papic photos for your celebration, sized to the booking';
+  'Includes a Setnayan gift — free Papic photos for your event, sized to the booking';
 
 export function SetnayanGiftLine({
   className,

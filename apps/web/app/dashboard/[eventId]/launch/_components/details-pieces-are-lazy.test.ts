@@ -95,6 +95,7 @@ export function dynamicImports(src: string): string[] {
 function serverGraph(entry: string) {
   const server = new Set<string>();
   const boundaries = new Map<string, string>(); // client module → the server file that imported it
+  const parent = new Map<string, string>(); // server file → the server file that first imported it (for the chain)
   const stack: Array<[string, string]> = [[entry, '(entry)']];
   while (stack.length) {
     const [f, via] = stack.pop()!;
@@ -105,12 +106,20 @@ function serverGraph(entry: string) {
       continue;
     }
     server.add(f);
+    parent.set(f, via);
     for (const spec of staticImports(src)) {
       const r = resolveSpec(f, spec);
       if (r) stack.push([r, f]);
     }
   }
-  return { server, boundaries };
+  return { server, boundaries, parent };
+}
+
+/** The import chain from the Maker's page down to `file` — so a failure names every link to cut, not just the last. */
+function chainTo(file: string): string {
+  const links: string[] = [];
+  for (let f: string | undefined = file; f && f !== '(entry)' && links.length < 40; f = graph.parent.get(f)) links.push(rel(f));
+  return links.join(' ← ');
 }
 
 /** Everything the first load pulls in: the boundaries and what they import statically, transitively. */
@@ -204,4 +213,56 @@ test('3 · nothing in the Maker first load imports three.js, react-three, openty
   const { seen, heavy } = firstLoadClosure(graph.boundaries.keys());
   assert.ok(seen.size >= graph.boundaries.size, 'the first-load closure is smaller than its own boundaries');
   assert.deepEqual(heavy, [], `A heavy library is in the Maker's first load:\n  ${heavy.join('\n  ')}`);
+});
+
+/* 👗 4 · THE DRESS CODE FORM RIDES WITH ITS PANEL (2026-10-21, Maker headroom). `dress-code-fields.tsx` is a plain
+   module whose body draws the form's client fields (`GroupAttireField`, `RoleAttireField`). A plain module a server
+   file imports is walked like a server file, so ANY Maker server file importing it — even for a reader such as
+   `normalizeDressCodeConfig` — puts those fields in the first load (~8.6KB gz, measured). The readers live in
+   `dress-code-config.ts`, which imports no client module; the form reaches the Maker only through its lazy panel. */
+test('4 · the dress-code form body is never on the server side of the Maker; its readers are, and stay plain', () => {
+  const D = 'app/dashboard/[eventId]/studio/mood-board/_components/';
+  const server = new Set([...graph.server].map(rel));
+  assert.ok(server.has(`${D}dress-code-config.ts`), 'the Maker no longer reads the dress code through dress-code-config.ts — the walk is not seeing it');
+  assert.ok(!server.has(`${D}dress-code-fields.tsx`), `a Maker server file imports ${D}dress-code-fields.tsx — its client fields are back in the first load; import the readers from dress-code-config.ts and the panel from details-lazy.tsx`);
+  const cfg = join(WEB, `${D}dress-code-config.ts`);
+  const clientImports = staticImports(read(cfg))
+    .map((spec) => resolveSpec(cfg, spec))
+    .filter((r): r is string => r !== null && isClient(read(r)));
+  assert.deepEqual(clientImports.map(rel), [], 'dress-code-config.ts imports a client module — every Maker server file reading the dress code would carry it');
+  assert.ok([...lazyPieces.keys()].map(rel).includes('app/dashboard/[eventId]/website/editor/_components/dress-code-panel.tsx'), 'the Dress code panel is no longer a lazy piece');
+});
+
+/* 🪟 5 · NO GUEST-PAGE CLIENT COMPONENT RIDES THE MAKER'S FIRST LOAD (2026-10-22, Maker headroom). The guest page
+   (`app/[slug]/`) draws inside the Maker's canvas — its OWN route, in an iframe — so none of its client components
+   belongs in the Maker's first load. Measured: `lib/event-poster.ts` imported `splitCoupleNames` through
+   `pahina-masthead.tsx`'s re-export (it lives in `lib/split-names.ts`), which made the masthead a server file of the
+   Maker and put `FirstScreenDoor` · `CoverRsvpGoes` · `SceneClip` (+ `hub-veil`) in its first load, ~6KB gz.
+   A plain reader from the guest page's `_lib/` is fine (it is walked as a server file); a client component is not. */
+test('5 · no client component of the guest page (app/[slug]/) is a first-load boundary of the Maker', () => {
+  const server = [...graph.server].map(rel);
+  assert.ok(server.some((f) => f.startsWith('app/[slug]/_lib/')), 'the walk no longer reaches the guest page’s plain readers — the check would pass on nothing');
+  const guest = [...graph.boundaries]
+    .filter(([b]) => rel(b).startsWith('app/[slug]/'))
+    .map(([b, via]) => `${rel(b)} ← ${chainTo(via)}`);
+  assert.deepEqual(guest, [], `A guest-page client component is in the Maker's first load (import the plain helper from lib/, not through the component):\n  ${guest.join('\n  ')}`);
+});
+
+/* 🎞 6 · THE MAIN BACKGROUND'S DRAWING FILES STAY OFF THE MAKER'S SERVER SIDE (2026-10-22). Test 5 caught it: #6744
+   (the prints wear the Hub look) read `mainGroundPictureFor` from `app/[slug]/_lib/main-ground-layer.tsx` in
+   `lib/print-set.server.ts`; that file also DRAWS the background (`_components/main-ground.tsx` → the client
+   `SceneClip`), so the guest page's cover-video player joined the Maker's first load. The answer lives in the plain
+   `main-ground-picture.ts`, which draws nothing; the drawing files are for the guest page's own route. */
+test('6 · the main background is read through main-ground-picture.ts — its drawing files are never Maker server files', () => {
+  const S = 'app/[slug]/';
+  const server = new Set([...graph.server].map(rel));
+  assert.ok(server.has(`${S}_lib/main-ground-picture.ts`), 'the Maker no longer reads the main background through main-ground-picture.ts — the walk is not seeing the prints');
+  for (const drawing of [`${S}_lib/main-ground-layer.tsx`, `${S}_components/main-ground.tsx`]) {
+    assert.ok(!server.has(drawing), `${drawing} is a Maker server file again (${chainTo(join(WEB, drawing))}) — read the picture from ${S}_lib/main-ground-picture.ts`);
+  }
+  const pic = join(WEB, `${S}_lib/main-ground-picture.ts`);
+  const draws = staticImports(read(pic))
+    .map((spec) => resolveSpec(pic, spec))
+    .filter((r): r is string => r !== null && (r.endsWith('.tsx') || isClient(read(r))));
+  assert.deepEqual(draws.map(rel), [], 'main-ground-picture.ts imports a component file — everything reading the main background would carry it');
 });

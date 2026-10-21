@@ -52,7 +52,7 @@ import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_ARRIVAL_DATE, labArrivalBlocks } from './arrival-fixture';
 import { LAB_LOVE_STORY } from './love-story-fixture';
 import { studioAttireRows } from '@/lib/studio-attire-rows';
-import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, LAB_MAN_OF_HONOR_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette } from '../maker-lab/guest/lab-sample';
+import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, LAB_MAN_OF_HONOR_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette, labDesignsDressConfig, labDesignsRolePalette } from '../maker-lab/guest/lab-sample';
 import { LabStudioRsvp } from './lab-studio-rsvp';
 import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
 import { LabMoodBoardActions } from './lab-mood-board-actions';
@@ -159,6 +159,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const sharedAttire = one('attire') === 'shared';
   /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`; `&groom=tuxedo` etc. pick a design). */
   const rolesAttire = one('attire') === 'roles';
+  /* 👔 `?attire=designs&gmd=…&gwd=…` — the guests' styles and designs (owner 2026-10-21, `labDesignsDressConfig`). */
+  const designsAttire = one('attire') === 'designs';
   /* 🤝🖼 `&suggest=1` — two photos a lab florist suggested, waiting on Bridal bouquet (2 photos of the couple's) and on
      Centrepieces (already full, 3) — prototype `supplier_inspiration_suggestions_2026-10-19.html` frames 3 · 3b · 4 · 5. */
   const suggestLab = one('suggest') === '1';
@@ -428,7 +430,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   <LabMoodBoardActions refuse={one('refuse') === '1'} library={one('library') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
-                    palette={(caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
+                    palette={(designsAttire ? labDesignsRolePalette() : caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
@@ -444,7 +446,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                       { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
                     dressConfig={
-                      caleIce
+                      designsAttire
+                        ? (labDesignsDressConfig(one('gmd'), one('gwd')) as never)
+                        : caleIce
                         ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never)
                         : rolesAttire
                         ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)

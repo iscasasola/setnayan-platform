@@ -368,7 +368,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Schedule your prenup shoot',
     whyItMatters:
-      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which you can share as your save-the-date, and the full prenup video (2-4 min) at T-3mo which lands on your Event Hub hero + reception roll-in. Confirm the shoot date here; mark teaser + full video as received when your photographer delivers.",
+      "Three milestones — the shoot itself 6 months before, the teaser (15-30s) 5 months before, which you can share as your save-the-date, and the full prenup video (2-4 min) 3 months before, which lands on your Event Hub hero + reception roll-in. Confirm the shoot date here; mark teaser + full video as received when your photographer delivers.",
     pillLabel: 'Foundation',
     prerequisites: ['photography'],
   },
@@ -415,7 +415,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Schedule your food tasting',
     whyItMatters:
-      "T-3 months you visit your caterer's kitchen for the tasting. The caterer prepares their initial menu pitch and you taste each dish before settling the final shape on the next card. Filipino couples skip this at their peril.",
+      "3 months before, you visit your caterer's kitchen for the tasting. The caterer prepares their initial menu pitch and you taste each dish before settling the final shape on the next card. Filipino couples skip this at their peril.",
     pillLabel: 'Foundation',
     prerequisites: ['catering'],
   },
@@ -670,7 +670,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Papic',
     whyItMatters:
-      "Your guests with phones become paparazzi — Papic tags photos by personal + table QR so every guest gets theirs, and the curated gallery lands T+24hr. Get the pack at T-3 months so guest enrollment can start with the invitation rollout.",
+      "Your guests with phones become paparazzi — Papic tags photos by personal + table QR so every guest gets theirs, and the curated gallery lands a day after the wedding. Get the pack 3 months before so guest enrollment can start with the invitation rollout.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },
@@ -689,7 +689,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Live Watch',
     whyItMatters:
-      "Live-stream the ceremony + reception to your overseas family on YOUR own YouTube channel — no Setnayan brand on the broadcast. Setnayan handles multi-cam switching; you keep the recordings forever. T-2 months gives the broadcaster setup time + your YouTube OAuth gate.",
+      "Live-stream the ceremony + reception to your overseas family on YOUR own YouTube channel — no Setnayan brand on the broadcast. Setnayan handles multi-cam switching; you keep the recordings forever. Booking 2 months before gives the broadcaster setup time + your YouTube OAuth gate.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },
@@ -708,7 +708,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Patiktok',
     whyItMatters:
-      "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). T-3 months gives time for sound curation + booth slot reservation.",
+      "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). Booking 3 months before gives time for sound curation + booth slot reservation.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },
@@ -943,7 +943,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'vendor_pick',
     title: 'Book your dance instructor',
     whyItMatters:
-      "First dance · parents-and-couple dance · entourage choreography. Lessons typically run 2-3 months pre-wedding, so booking the instructor at T-4 months means you have time to learn (and to stop sweating it). Most PH choreographers come to your venue or studio.",
+      "First dance · parents-and-couple dance · entourage choreography. Lessons typically run 2-3 months pre-wedding, so booking the instructor 4 months before means you have time to learn (and to stop sweating it). Most PH choreographers come to your venue or studio.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
@@ -1145,7 +1145,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Wedding rehearsal',
     whyItMatters:
-      "T-1 or T-2 days · sponsors, bearers, and the entourage walk through entrance order with your officiant. Catholic + Christian + INC ceremonies all benefit; civil weddings can skip. Most parishes assume a rehearsal even if it isn't officially scheduled — confirm with yours.",
+      "1 or 2 days before · sponsors, bearers, and the entourage walk through entrance order with your officiant. Catholic + Christian + INC ceremonies all benefit; civil weddings can skip. Most parishes assume a rehearsal even if it isn't officially scheduled — confirm with yours.",
     pillLabel: 'Final month',
     prerequisites: ['all_set_readiness'],
   },
@@ -1207,7 +1207,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Order your AI highlight reel',
     whyItMatters:
-      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (T+24hr) for socials · or the 3-minute story-arc reel (T+1 week) for the full ride. Both share the same source material; many couples get both.",
+      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (ready a day after) for socials · or the 3-minute story-arc reel (ready a week after) for the full ride. Both share the same source material; many couples get both.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },

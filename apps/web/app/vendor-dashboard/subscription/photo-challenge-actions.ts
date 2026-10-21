@@ -299,7 +299,7 @@ export async function sponsorPhotoChallenge(
     return {
       status: 'activated',
       message:
-        `Papic Challenges is on for every celebration you're booked for — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings` +
+        `Papic Challenges is on for every event you're booked for — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings` +
         (remaining > 0 ? ` (${remaining} to go)` : '') +
         `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
     };

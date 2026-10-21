@@ -27,6 +27,8 @@ import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { hasDayToday, phTodayIso } from '@/lib/vendor-day-picker';
 import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -236,6 +238,25 @@ export default async function VendorDashboardLayout({
       bookingsPendingPromise,
     ]));
   const profile = profileRes.data;
+
+  /*
+    🧑‍🔧 A HELPER'S HUB TAB (owner "Yes to all", 2026-10-21, item 6). A scoped
+    teammate (agent / viewer) gets the Hub — the scanner — on a day this shop
+    has an event, beside Today and Customers. Asked ONLY for a teammate (an
+    owner always has the Hub, so they pay nothing), with the Hub's own reader
+    and its own rule, so the tab appears exactly when the Hub shows the live
+    console. It reads one boolean for the bar: no row reaches the client.
+
+    FAILS CLOSED: an unreadable day hides the tab, and Today's "Run the day"
+    card — the door a helper had before — is still there. Failing open would put
+    the Hub's set-up list (owner rooms) one tap from a helper on a normal day.
+  */
+  const eventToday =
+    vendorProfile?.vendor_profile_id && !canManageVendor(vendorRole)
+      ? await fetchVendorRoomEvents(supabase, vendorProfile.vendor_profile_id)
+          .then((days) => hasDayToday(days, phTodayIso()))
+          .catch(() => false)
+      : false;
   /*
     ⚠ `showRepertoire` (isMusicVendor) WAS COMPUTED HERE AND IS GONE
     (One Shell slice 2, 2026-08-14). It gated a NESTED 'repertoire' child row,
@@ -506,6 +527,7 @@ export default async function VendorDashboardLayout({
             threadsBadge={threadsUnread}
             planHref={storeShell ? null : '/vendor-dashboard/subscription'}
             tier={vendorTier}
+            eventToday={eventToday}
           />
         }
         topBarSlot={topBar}
@@ -594,7 +616,7 @@ export default async function VendorDashboardLayout({
         navSlots={navSlots}
         bookingsBadge={bookingsPending}
         threadsBadge={threadsUnread}
-        storeShell={storeShell}
+        eventToday={eventToday}
       />
       {/* 📲 What the account has, preloaded once the page is idle — the supplier
           app, plus the host app when they also host an event (owner 2026-10-02,

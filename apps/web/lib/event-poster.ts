@@ -54,7 +54,7 @@
  */
 import { invitationCard } from '@/app/[slug]/_lib/invitation-card';
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
-import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
+import { splitCoupleNames } from '@/lib/split-names';
 import { relativeLuminance } from '@/lib/booth-studio';
 import { hubLegibility, hubLegibilityVars } from '@/lib/hub-legibility';
 import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';

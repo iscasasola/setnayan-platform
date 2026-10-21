@@ -45,6 +45,8 @@ const MAKER_FILES = [
   `${C}media-panels.tsx`,
   `${C}pro-panels.tsx`,
   `${C}authoring-panels.tsx`,
+  // The Dress code row's panel — its own client file since 2026-10-21 (lazy, Maker headroom).
+  `${C}dress-code-panel.tsx`,
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
@@ -154,7 +156,7 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: PAGE,
     binds: /<StoryPanel\s+action=\{(\w+)\.bind/g,
   },
-  [`${C}authoring-panels.tsx#DressCodePanel#action`]: {
+  [`${C}dress-code-panel.tsx#DressCodePanel#action`]: {
     writers: ['updateDressCode'],
     caller: PAGE,
     binds: /<DressCodePanel\s+action=\{(\w+)\.bind/g,

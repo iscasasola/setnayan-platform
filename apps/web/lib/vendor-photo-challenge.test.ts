@@ -253,10 +253,10 @@ test('every deny reason has copy, and none of it quotes a price', () => {
   assert.equal(Object.keys(PHOTO_CHALLENGE_DENY_MESSAGE).length, reasons.length);
 });
 
-test('the not-subscribed sentence promises EVERY celebration, not this one', () => {
+test('the not-subscribed sentence promises EVERY event, not this one', () => {
   assert.match(
     PHOTO_CHALLENGE_DENY_MESSAGE.not_subscribed,
-    /every other celebration/,
+    /every other event/,
     'the whole product change is "unlimited"; the sentence has to say so',
   );
 });

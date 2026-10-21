@@ -289,7 +289,7 @@ function ClosedRoundNote({
 function refusalText(status: string): string {
   switch (status) {
     case 'not_booked':
-      return 'That supplier is not booked on this celebration, so they cannot agree to a part of it.';
+      return 'That supplier is not booked on this event, so they cannot agree to a part of it.';
     case 'not_in_category':
       return 'That supplier does not work in this part’s trade.';
     case 'not_finalizable_part':

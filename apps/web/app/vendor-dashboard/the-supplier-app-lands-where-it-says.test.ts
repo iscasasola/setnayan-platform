@@ -84,17 +84,12 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
   assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
 });
 
-test('1b · every More row lands on its section — none is a bare stub', async () => {
-  const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
-  const by = Object.fromEntries(VENDOR_MORE_ROWS.map((r) => [r.key, r.href]));
-  assert.equal(by.messages, customerLandingHref('messages'));
-  // "Money in" left More with the simpler supplier dashboard (2026-10-14, prototype SCREENS.more): Customers › Money
-  // is the tab it was a second door to. Every row that IS here still lands on its section (the loop below).
-  assert.equal(by.payday, undefined);
-  assert.equal(by.settings, '/vendor-dashboard/settings');
-  for (const r of VENDOR_MORE_ROWS) {
-    assert.doesNotMatch(r.href, BARE_STUB, `More row "${r.label}" links a bare stub (${r.href}) and lands on the roster`);
-  }
+test('1b · Messages lands on its section from the envelope — More, which had a row for it, is gone', () => {
+  // More left the bar (owner "Yes to all", 2026-10-21 — Today · Customers · Shop · Hub). Its Messages row was a second
+  // door to what the top bar's envelope already opened; the envelope must still land on the section, not a bare stub.
+  const layout = readFileSync(join(import.meta.dirname, 'layout.tsx'), 'utf8');
+  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{customerLandingHref\('messages'\)\}/, 'the envelope no longer lands on Messages');
+  assert.doesNotMatch(customerLandingHref('messages'), BARE_STUB);
 });
 
 async function renderToday(target: unknown, action = 'Go'): Promise<string> {
@@ -208,10 +203,9 @@ function visibleProse(src: string): string[] {
 }
 const VISIBLE_FILES = [
   'app/vendor-dashboard/page.tsx',
-  'app/vendor-dashboard/more/page.tsx',
   'app/vendor-dashboard/customers/page.tsx',
   'app/vendor-dashboard/shop/page.tsx',
-  'lib/vendor-more-rows.ts',
+  'app/vendor-dashboard/on-the-day/page.tsx',
   'lib/supplier-today.ts',
   'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'app/vendor-dashboard/customers/_components/customers-roster.tsx',
@@ -231,7 +225,6 @@ test('4b · the tab titles are the bar’s words (the root template adds · Setn
     'app/vendor-dashboard/page.tsx': 'Today',
     'app/vendor-dashboard/customers/page.tsx': 'Customers',
     'app/vendor-dashboard/shop/page.tsx': 'Shop',
-    'app/vendor-dashboard/more/page.tsx': 'More',
   };
   for (const [f, title] of Object.entries(want)) {
     assert.match(read(f), new RegExp(`metadata = \\{ title: '${title}' \\}`), `${f} title is not "${title}"`);

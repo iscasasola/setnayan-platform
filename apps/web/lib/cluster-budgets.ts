@@ -156,7 +156,7 @@ export function budgetStateNote(state: BudgetReadState): string | null {
     case 'none':
       return 'No budget set yet';
     case 'withheld':
-      return 'Not shown — you are not a host of this celebration';
+      return 'Not shown — you are not a host of this event';
     case 'unknown':
       return 'We could not read this budget';
   }

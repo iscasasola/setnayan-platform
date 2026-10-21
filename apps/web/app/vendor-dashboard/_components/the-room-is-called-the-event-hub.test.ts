@@ -28,15 +28,17 @@ import path from 'node:path';
 
 const WEB = path.resolve(__dirname, '../../..');
 const NAME = 'Event Hub';
+/**
+ * The TAB's word since 2026-10-21 (owner "Yes to all": the bar is Today ·
+ * Customers · Shop · Hub — the couple's fourth word in the couple's slot). The
+ * ROOM is still the Event Hub: its title, its headings, its back links.
+ */
+const TAB_WORD = 'Hub';
 const OLD = /On the Day/;
 
 /** Every file that renders the room's NAME to a supplier. */
 const LABEL_SITES = [
   'lib/nav-registry-defaults.ts',
-  // 2026-10-01: the Event Hub left the bar and the rail for More (DECISION_LOG
-  // "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
-  // More's rows are written once, here.
-  'lib/vendor-more-rows.ts',
   'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
   'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
   'app/vendor-dashboard/_components/vendor-rail-context.tsx',
@@ -103,31 +105,35 @@ test('NO RENDERED SITE STILL SAYS "On the Day"', () => {
   }
 });
 
-test('all six label sites say Event Hub (or its one-word strip caption)', () => {
+test('the room says Event Hub; its tab — on the bar and the rail — says Hub', () => {
   const registry = read('lib/nav-registry-defaults.ts');
-  // Both registry slots — the sidebar row AND the more-slot bottom-nav row.
+  // Both registry slots — the rail row AND the bar tab. The registry label wins
+  // over the word in the code, so a slot still saying "Event Hub" would put the
+  // old word back on a renamed tab with no error to notice.
   const slots = [...registry.matchAll(/route: "\/vendor-dashboard\/on-the-day",\s*\n\s*label: "([^"]+)"/g)];
   assert.equal(slots.length, 2, 'both registry slots must be found — a missed one is a stale label');
-  for (const m of slots) assert.equal(m[1], NAME);
-
-  // The More row — the one place the bar and the rail now reach the room from
-  // (owner-APPROVED 2026-10-01: Insights + Event Hub + Messages live in More).
+  for (const m of slots) assert.equal(m[1], TAB_WORD);
+  // …and the code's own words agree with the registry's, on both menus.
   assert.match(
-    read('lib/vendor-more-rows.ts'),
-    /key: 'on-the-day',\s*\n\s*label: 'Event Hub',/,
+    stripComments(read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx')),
+    /key: 'onday',\s*\n\s*label: 'Hub',\s*\n\s*href: '\/vendor-dashboard\/on-the-day'/,
   );
-  // …and the More row follows the bottom-nav slot's rename, so an admin who
-  // renamed the old tab still renames the row.
-  assert.match(read('lib/vendor-more-rows.ts'), /slot: 'vendor\.bottom-nav\.onday'/);
-  assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), /title: 'Event Hub · Supplier'/);
+  assert.match(
+    stripComments(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts')),
+    /key: 'on-the-day',\s*\n\s*label: 'Hub',\s*\n\s*href: '\/vendor-dashboard\/on-the-day'/,
+  );
+  // The room itself keeps its name.
+  assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), new RegExp(`title: '${NAME} · Supplier'`));
 });
 
 test('🔒 THE KEY AND THE ROUTE ARE UNCHANGED — four systems read them, three silently', () => {
-  assert.match(read('lib/vendor-more-rows.ts'), /key: 'on-the-day',/);
+  assert.match(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts'), /key: 'on-the-day',/);
+  assert.match(read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx'), /key: 'onday',/);
   assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.sidebar\.on-the-day",/);
   assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.bottom-nav\.onday",/);
   for (const rel of [
-    'lib/vendor-more-rows.ts',
+    'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
+    'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
     'lib/nav-registry-defaults.ts',
   ]) {
     assert.ok(

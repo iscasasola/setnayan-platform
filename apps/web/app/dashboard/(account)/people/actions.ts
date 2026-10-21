@@ -97,7 +97,7 @@ async function sendPeopleInvitation(
   const who = fromFirstName ?? 'Someone you know';
   const heading = `${who} added you to their people`;
   const lines = [
-    `${who} keeps their celebrations on Setnayan — birthdays, weddings, the photos afterwards — and added you to the people in their life.`,
+    `${who} keeps their events on Setnayan — birthdays, weddings, the photos afterwards — and added you to the people in their life.`,
     'Open your people to see who it is and decide. Nothing connects until you confirm it yourself.',
   ];
   const sent = await sendEmail({
@@ -1071,7 +1071,7 @@ export async function invitePersonToSamahan(input: {
   const url = `${origin}/samahan/join/${live!.token}`;
   const who = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'Someone you know';
   const lines = [
-    `${who} would like you in ${samahanName} on Setnayan — the group they keep their celebrations with.`,
+    `${who} would like you in ${samahanName} on Setnayan — the group they keep their events with.`,
     'Opening the link puts you in; nothing happens until you do.',
   ];
   const delivered = await sendEmail({

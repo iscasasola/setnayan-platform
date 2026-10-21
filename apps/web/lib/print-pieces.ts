@@ -29,6 +29,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
@@ -336,10 +337,24 @@ export type PrintLook = {
   sepia: boolean;
   /** The rule's centre glyph. */
   ornament: string;
-  /** Font keys (see `PRINT_FONT_FILES`). */
+  /** Font keys (see `PRINT_FONT_FILES`, or a Hub face — `hubPrintFont`). */
   headFont: PrintFontKey;
   scriptFont: PrintFontKey | null;
   bodyFont: PrintFontKey;
+  /**
+   * 🔤 THE HUB'S HEADINGS AND LABELS FONTS (`lib/print-hub-look.ts`): a card's title ("The Entourage", "Menu") and
+   * its small caps (the eyebrow, a group's head). Absent = what a print drew before — the title in `headFont`, the
+   * small caps in `bodyFont` — so a look built by `printLookFor` alone prints byte for byte as it did.
+   */
+  headingFont?: PrintFontKey;
+  labelFont?: PrintFontKey;
+  /**
+   * 🖼 A PICTURE BACKGROUND ON PAPER (the Hub's own, `lib/print-hub-look.ts`): the picture runs to the bleed under
+   * the Hub's own scrim (`outer`), and the words sit on a paper panel `inset` points in from the trim, veiled at
+   * `inner` — never less than the Hub's scrim, and as much more as the words need to read on the picture's lightest
+   * and darkest parts. Absent = a full still is veiled edge to edge by `scrim`, as before.
+   */
+  frame?: { inset: number; feather: number; outer: number; inner: number } | null;
   /** Names print in caps (the deco and neon faces). */
   capsNames: boolean;
 };
@@ -367,7 +382,14 @@ export const PRINT_FONT_FILES = {
   poppinsMedium: 'lib/social/fonts/Poppins-Medium.ttf',
   poppinsBold: 'lib/social/fonts/Poppins-Bold.ttf',
 } as const;
-export type PrintFontKey = keyof typeof PRINT_FONT_FILES;
+/**
+ * 🔤 A FACE THE COUPLE PICKED ON THEIR EVENT HUB (`lib/hub-fonts.ts`) — every one of them has a TrueType outline file
+ * already in the repo (`LOGO_FONT_OUTLINE`, lib/logo-fonts.ts — the Logo's own), which the print engine reads
+ * (`printFontFile`, lib/print-layout.ts). So the paper is set in the face the page is.
+ */
+export type HubPrintFontKey = `hub-${HubFontKey}`;
+export type PrintFontKey = keyof typeof PRINT_FONT_FILES | HubPrintFontKey;
+export const hubPrintFont = (key: HubFontKey): HubPrintFontKey => `hub-${key}`;
 
 const STILLS: Record<InviteThemeId, StillPlacement> = {
   house: 'none',
@@ -924,7 +946,7 @@ export function coupleNames(displayName: string | null | undefined): { first: st
   const raw = (displayName ?? '').trim();
   const parts = raw.split(/\s+(?:&|and|\+)\s+/i).map((s) => s.trim()).filter(Boolean);
   if (parts.length >= 2) return { first: parts[0]!, second: parts.slice(1).join(' & ') };
-  return { first: raw || 'Our celebration', second: null };
+  return { first: raw || 'Our event', second: null };
 }
 
 /** `2026-12-18` → "Friday, the eighteenth of December, 2026" is the formal

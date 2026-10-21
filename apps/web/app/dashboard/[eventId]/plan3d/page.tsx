@@ -320,7 +320,7 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
             <Link href={`${base}/details`} className="flex items-center gap-3 px-4 py-3 hover:bg-ink/[0.03]">
               <span className="flex-1">
                 <span className="block text-sm font-semibold text-ink">Who can open the address</span>
-                <span className="block text-xs text-ink/55">Your celebration’s own visibility setting decides — the room follows it</span>
+                <span className="block text-xs text-ink/55">Your event’s own visibility setting decides — the room follows it</span>
               </span>
               <ArrowRight aria-hidden className="h-4 w-4 text-ink/30" strokeWidth={2} />
             </Link>

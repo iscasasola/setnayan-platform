@@ -103,6 +103,7 @@ import {
 } from '@/lib/panood-broadcast';
 import { resolveLiveAir, shouldOfferManualAir } from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { getIapGate } from '@/lib/request-platform';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
@@ -410,12 +411,20 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // actions use (isLiveStudioSetupHost) so the two cannot drift.
   if (!(await isLiveStudioSetupHost(eventId, user.id))) redirect(`/dashboard/${eventId}`);
 
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (version 1.1 — `IAP_OPENED_ROUTE` in lib/store-shell.ts; middleware opens
+     this controller there ONLY then). There it is the "Go live" door of a Live Watch the event owns — bought in the app
+     or on the web (guideline 3.1.3(b)). It never reads the web price, its Exit goes Home, and an event that does not
+     own Live Watch is sent Home, where Activate is Apple's sheet (below, after the entitlement is read). False
+     everywhere else — and then nothing here changes. Held by `lib/the-app-opens-what-apple-sells.test.ts`. */
+  const appleIap = (await getIapGate()).iap;
+
   // ── Price + links. The ENTITLEMENT itself is resolved further down, once the
   // active broadcast is known — WAVE 7 makes it depend on whether a broadcast is on
   // air (the never-interrupt rule), so it cannot be answered this early.
-  const sku = await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
+  const sku = appleIap ? null : await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
   const detailHref = liveStudioDetailPath(eventId);
+  const exitHref = appleIap ? `/dashboard/${eventId}` : detailHref;
 
   // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
   // 2026-09-02)? Decides which pool-only connect notice renders in the "Connect"
@@ -731,6 +740,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // the other's meaning.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
+  // 🍎 In the app the controller is the door of an OWNED Live Watch only — every unlock surface below links to the
+  // web's buy page with its price, and the app's one buy is Apple's sheet on Home (`IapLiveWatchSheet`).
+  if (appleIap && !owned) redirect(`/dashboard/${eventId}`);
   const lock = liveStudioControlLock(entitled, priceLabel);
 
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
@@ -921,9 +933,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           bare icon. */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-ink/[0.03] px-2">
         <Link
-          href={detailHref}
-          aria-label="Leave the controller — back to Live Watch"
-          title="Leave the controller — back to Live Watch"
+          href={exitHref}
+          aria-label={appleIap ? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'}
+          title={appleIap ? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'}
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -931,7 +943,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         </Link>
 
         <span className="min-w-0 truncate text-xs font-medium text-ink/70">
-          {event.display_name ?? 'Your celebration'}
+          {event.display_name ?? 'Your event'}
         </span>
 
         {!owned ? (
@@ -1715,7 +1727,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
              add-on has "nothing to connect" as the whole truth — everyone else
              still has their own route to air (the "Watch link" section below). */
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/70">
-            {poolOnlyConnectNotice(ownsHostedChannel)}
+            {poolOnlyConnectNotice(ownsHostedChannel, appleIap)}
           </p>
         ) : (
           <a
@@ -2246,7 +2258,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </h2>
           <p className="max-w-prose text-sm text-ink/65">
             Start your broadcast on YouTube, then paste the watch link — your event page shows a
-            “Watch Live” player during the celebration.
+            “Watch Live” player during the event.
           </p>
         </div>
         {youtubeWatchUrl ? (
@@ -2643,7 +2655,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
             <CopyButton value={camera.claimUrl} label="Copy the link" copiedLabel="Copied" />
           ) : null}
           <p className="text-[11px] text-ink/45">
-            This code only works for this celebration and only for this channel.
+            This code only works for this event and only for this channel.
           </p>
         </div>
       </div>

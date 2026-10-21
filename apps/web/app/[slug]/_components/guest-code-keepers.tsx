@@ -70,7 +70,7 @@ export function GuestCodeKeepers({
         <a
           href="/api/guest/qr"
           download
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
         >
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
@@ -79,7 +79,7 @@ export function GuestCodeKeepers({
         <button
           type="button"
           onClick={copy}
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
         >
           {copied === 'done' ? (
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

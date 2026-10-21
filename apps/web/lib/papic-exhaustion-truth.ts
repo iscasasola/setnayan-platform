@@ -139,7 +139,7 @@ export function exhaustionCauseFromOwnCamera(
 export function exhaustionHeadline(cause: PapicExhaustionCause): string {
   return cause === 'own_camera'
     ? 'This camera’s credits are all spent.'
-    : 'This celebration’s credits have run out — the hosts can add more.';
+    : 'This event’s credits have run out — the hosts can add more.';
 }
 
 /**

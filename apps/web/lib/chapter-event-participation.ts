@@ -155,7 +155,7 @@ function entry(row: unknown, tie: EventTie): [string, Candidate] {
   // is how a 12 Dec wedding once read as 11 Dec west of Greenwich.
   const day = ev?.event_date ? ev.event_date.slice(0, 10) : null;
   const dayLabel = day ? ` · ${day}` : '';
-  const kind = ev?.event_type ? ev.event_type.replace(/_/g, ' ') : 'celebration';
+  const kind = ev?.event_type ? ev.event_type.replace(/_/g, ' ') : 'event';
   const suffix = tie === 'vendor' ? ' — you worked this day' : '';
   return [
     r.event_id,

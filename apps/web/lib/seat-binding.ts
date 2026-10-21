@@ -99,7 +99,7 @@ export function seatBindRefusal(input: {
 
 /** Said to the person who tried — plain words, no role jargon. */
 export const COUPLE_SEAT_REFUSED =
-  'This invitation belongs to one of the people this celebration is for, so it can only be kept in their own account. If you were sent it by mistake, ask the couple for your own invitation.';
+  'This invitation belongs to one of the people this event is for, so it can only be kept in their own account. If you were sent it by mistake, ask the couple for your own invitation.';
 
 /**
  * 👀 SAID TO A HOST VIEWING A GUEST'S INVITATION, in the place the "Save to my

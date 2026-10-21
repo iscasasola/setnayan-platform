@@ -29,7 +29,10 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
  * verify_and_activate_manual_payment, has zero callers), so paying never lit
  * this card.
  */
-export async function LiveWallCard({ eventId }: { eventId: string }) {
+export async function LiveWallCard({ eventId, appleIap = false }: { eventId: string; appleIap?: boolean }) {
+  /* 🍎 The iPhone app where Apple sells: the Live Photo Wall is a web extra Apple does not sell, and its own page
+     (`/dashboard/<id>/live`) stays refused in the app — so nothing of it is drawn there (guideline 3.1.3(b)). */
+  if (appleIap) return null;
   const supabase = await createClient();
   // The EVENT holds the wall, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
@@ -167,7 +170,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
             screen&rsquo;s browser and enter a screen code. The same wall also appears
-            on your guests&rsquo; phones on your event page while the celebration is
+            on your guests&rsquo; phones on your event page while the event is
             running — so everyone sees the photos, screen or no screen. If you
             would rather keep it to the venue, you can switch the phones off below.
           </p>

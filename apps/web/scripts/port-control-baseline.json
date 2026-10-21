@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "14b0707fc9",
+  "generatedFromRef": "bcbd14e185",
   "routeCount": 451,
-  "destinations": 995,
+  "destinations": 994,
   "actions": 664,
-  "blocks": 6723,
+  "blocks": 6718,
   "routes": {
     "/": {
       "files": [
@@ -10929,6 +10929,7 @@
       "files": [
         "dev/me-lab/connect-hosts-lab-requests.tsx",
         "dev/me-lab/connect-hosts-lab.tsx",
+        "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
         "dev/me-lab/page.tsx"
       ],
@@ -10941,10 +10942,14 @@
         "ConnectHostsTick",
         "DoorActions",
         "DoorShell",
+        "GuestMe",
         "GuestMeParts",
         "GuestTicket",
+        "HeldPassLine",
+        "HostViewsGuestLab",
         "LabHostRequests",
         "Link",
+        "MeFor",
         "PeopleRosterView",
         "SubmitButton"
       ]
@@ -11120,8 +11125,6 @@
         "BusinessDoing",
         "DatesRow",
         "HelpersView",
-        "Icon",
-        "Link",
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
@@ -12656,7 +12659,6 @@
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
@@ -12735,7 +12737,6 @@
         "MeetingBody",
         "MessageBody",
         "MiniTour",
-        "MoreServicesSheet",
         "NextCard",
         "NotConnected",
         "PageMasthead",
@@ -13700,16 +13701,11 @@
     },
     "/vendor-dashboard/more": {
       "files": [
-        "vendor-dashboard/more/loading.tsx",
         "vendor-dashboard/more/page.tsx"
       ],
       "destinations": [],
       "actions": [],
-      "blocks": [
-        "Icon",
-        "Link",
-        "ListPageSkeleton"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/notifications": {
       "files": [
@@ -14090,6 +14086,7 @@
         "ServiceScopeSelectClient",
         "ServiceScopeSelector",
         "ShopCard",
+        "ShopSegments",
         "SourceBreakdown",
         "T",
         "Tile",
@@ -14493,7 +14490,7 @@
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
-        "vendor-dashboard/shop/_components/shop-rail.tsx",
+        "vendor-dashboard/shop/_components/shop-door-section.tsx",
         "vendor-dashboard/shop/_components/shop-segments.tsx",
         "vendor-dashboard/shop/_components/suggested-coverage-card.tsx",
         "vendor-dashboard/shop/_components/venue-match-card.tsx",
@@ -14600,7 +14597,6 @@
         "ReceiptLine",
         "RegNumberSaveResult",
         "RegistrationNumberLine",
-        "ReviewStatsRow",
         "Row",
         "RowPreview",
         "ServiceCoverageRow",
@@ -14610,12 +14606,9 @@
         "ShopData",
         "ShopDoorSection",
         "ShopHome",
-        "ShopRail",
         "ShopSectionBody",
         "ShopSegments",
-        "ShopTools",
         "SocialLinksInput",
-        "StatTile",
         "StatusChip",
         "StatusLine",
         "StepPill",

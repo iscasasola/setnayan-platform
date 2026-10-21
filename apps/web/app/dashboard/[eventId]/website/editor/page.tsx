@@ -81,14 +81,14 @@ import { fetchHubMusicChoices } from '@/lib/hub-music-server';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
-  DressCodePanel,
   PhotoMomentsPanel,
   StoryPanel,
   SchedulePeekPanel,
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import {LaunchPhasePanel,
+import {DressCodePanel,
+  LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
   } from '../../launch/_components/details-lazy';
@@ -102,7 +102,7 @@ import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { mainColoursOf } from '@/lib/main-colours';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
-import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-config';
 import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
@@ -1564,6 +1564,8 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               ownsPro={ownsPro}
               storeShell={storeShell}
+              /* 🍎 Pro is TRIED here wherever the editor's own Pro rows are (`proShell`, owner 2026-10-18). */
+              proShell={proShell}
               /* 🎴 The hero's design lives on the hero row's canvas, read
                  drafted over live like `mainNow` above, and live for "in
                  your draft". */
@@ -1609,9 +1611,11 @@ export default async function WebsiteEditorPage({
         ),
         /* 🧩 The Reveal in Details' three parts: its settings on the right, its
            openings in the navigator (the same picker, the same saves). */
-        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="settings" />,
-        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="options" />,
-        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
+        /* 🍎 The three made-once panels try Pro exactly where the editor's own rows do — `proShell`, the store shell
+           FOR PRO TRYING (false where Apple sells Pro at Apply); `storeShell` keeps every price, pitch and tour. */
+        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="settings" />,
+        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="options" />,
+        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} proShell={proShell} />,
         /* 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF WHAT IS
            BEING EDITED"): the header text and the two buttons, on the real background, drawn in the browser — Look
            mounts no guest-page frame. Handed the drafted values this page ALREADY read (no read is added): the look

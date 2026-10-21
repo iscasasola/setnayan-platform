@@ -240,7 +240,7 @@ export function PhotosOfYouGallery({
                 href={opened.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+                className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
               >
                 Open full size to save
               </a>

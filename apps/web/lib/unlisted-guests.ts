@@ -89,7 +89,7 @@ export function readKeepLine(
     !!r && offeredRoles.includes(r as GuestRole) && !NOT_OFFERED.includes(r);
   const picked = roleOverride.trim();
   if (picked && !offered(picked)) {
-    return { ok: false, error: 'That role isn’t available for this celebration — pick one from the list.' };
+    return { ok: false, error: 'That role isn’t available for this event — pick one from the list.' };
   }
   const role: GuestRole = picked ? (picked as GuestRole) : offered(d.roleHint) ? d.roleHint : 'guest';
   return {

@@ -34,7 +34,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import { SHOP_DOORS } from '@/app/vendor-dashboard/shop/_components/shop-rail';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOP = resolve(HERE, '../app/vendor-dashboard/shop');
@@ -179,77 +178,28 @@ test('door 1 holds BOTH the shop information and the papers', () => {
   assert.match(inside, /id="d1"/, 'door 1 does not carry the anchor the rail points at');
 });
 
-test('the rail is mounted, and above the door it points at', () => {
+/*
+ * ✂ THE "ON THIS PAGE" RAIL AND THE SIX NUMBER TILES ARE RETIRED — owner "Yes to
+ * all", 2026-10-21, item 4 of `shots-2026-10-21/supplier-dash-audit/AUDIT.md`
+ * (the approved S-PR6 shape: "ShopRail/ManageTiles removed"). The five tests that
+ * held the rail (mounted · six doors in order · no door points nowhere · only
+ * door 1 built · no JavaScript) were deleted in the SAME commit as the mount,
+ * with this ruling cited, as this file's own rule above requires. The rooms the
+ * rail pointed at are NOT retired: their anchors are held below, because links
+ * already sent still land on them.
+ */
+test('✂ the rail and the number tiles stay retired (owner 2026-10-21, item 4)', () => {
   const src = PAGE();
-  assert.equal(count(src, '<ShopRail />'), 1, 'the rail is missing or duplicated');
-  assert.ok(
-    src.indexOf('<ShopRail />') < src.indexOf('<ShopDoorSection'),
-    'the rail renders below door 1 — a map under the room it maps',
-  );
+  assert.equal(mountCount(src, 'ShopRail'), 0, 'the "On this page" rail is back on My Shop');
+  assert.equal(mountCount(src, 'StatTile'), 0, 'a number tile is back on My Shop — the numbers are Shop › How it is going');
+  assert.doesNotMatch(src, /aria-label="On this page"/, 'an "On this page" map is back on My Shop');
 });
 
-test('the rail offers all six doors, in the drawing’s order', () => {
-  assert.equal(SHOP_DOORS.length, 6, 'the drawing has six doors');
-  assert.deepEqual(
-    SHOP_DOORS.map((d) => d.key),
-    ['d1', 'd2', 'd3', 'd4', 'd5', 'd6'],
-    'the doors are out of order or renamed — the rail is the drawing',
-  );
-  assert.deepEqual(
-    SHOP_DOORS.map((d) => d.title),
-    ['Your shop', 'Your website', 'What you sell', 'Auto-reply', 'Getting paid', 'Other tools'],
-    'a door title drifted from the approved drawing',
-  );
-});
-
-test('🪤 NO DOOR POINTS AT A ROOM THAT IS NOT THERE', () => {
-  /*
-    G1 builds door 1 only. The other five must point at where their content
-    ALREADY lives, or the rail becomes a set of links that scroll nowhere — the
-    most quietly broken thing a map can be, because a fragment link to a missing
-    id fails silently and just does nothing.
-  */
-  /*
-    🪤 AN ANCHOR IS RARELY ON page.tsx. `#manage-shop` sits on ManageTiles's own
-    <section> and `#get-verified` on VerifySection's — the first cut of this test
-    searched only page.tsx and reported a perfectly good door as dead. So the
-    whole rendered surface is searched: the page plus every component it mounts.
-  */
+test('the rooms the retired rail pointed at still carry their anchors', () => {
   const surface = [PAGE(), ...readdirSync(resolve(SHOP, '_components'))
     .filter((f) => f.endsWith('.tsx'))
     .map((f) => read(`_components/${f}`))].join('\n');
-  for (const door of SHOP_DOORS) {
-    assert.ok(door.href.startsWith('#'), `${door.key} routes off the page: ${door.href}`);
-    const id = door.href.slice(1);
-    const carried =
-      count(surface, `id="${id}"`) > 0 ||
-      (door.built && count(surface, `id={id}`) > 0);
-    assert.ok(
-      carried,
-      `door ${door.key} ("${door.title}") points at #${id}, which nothing on the page carries`,
-    );
+  for (const id of ['d1', 'manage-shop', 'packages', 'auto-reply', 'getting-paid', 'shop-folds']) {
+    assert.ok(count(surface, `id="${id}"`) > 0, `#${id} no longer resolves on My Shop — a sent link lands nowhere`);
   }
-});
-
-test('only door 1 claims to be built', () => {
-  /*
-    Doors 4–6 are NOT ruled by the owner. A later session marking one `built`
-    without a ruling is how an unapproved design ships behind an approved one.
-  */
-  assert.deepEqual(
-    SHOP_DOORS.filter((d) => d.built).map((d) => d.key),
-    ['d1'],
-    'a door claims to be built that the owner has not ruled on',
-  );
-});
-
-test('the rail needs no JavaScript', () => {
-  /*
-    A shop owner finding one setting quickly must not wait for hydration. Plain
-    fragment anchors do that; a scroll handler would replace it with something
-    that only works once React has loaded.
-  */
-  const railSrc = read('_components/shop-rail.tsx');
-  assert.ok(!railSrc.includes("'use client'"), 'the rail became a client component');
-  assert.ok(!/onClick|useEffect|scrollIntoView/.test(railSrc), 'the rail grew a scroll handler');
 });

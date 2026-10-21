@@ -94,7 +94,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
-import { normalizeDressCodeConfig } from './dress-code-fields';
+import { normalizeDressCodeConfig } from './dress-code-config';
 import type { DressCodeConfig } from '../dress-code-actions';
 import type { GuestRole } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';

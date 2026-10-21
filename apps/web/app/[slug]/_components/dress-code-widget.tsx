@@ -12,7 +12,7 @@ import {
   resolveGuestAttireWithGroups,
   sanitizeGroupAttire,
 } from '@/lib/role-group-dress-code';
-import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot } from '@/lib/dress-code-for-everyone';
+import { dressCodeForEveryone, speaksToThisReader, type EveryoneDot, type EveryoneDressRow } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { PICK_LABEL, isDressableRole, isTwoPick, readerAttire, studioRowOf, type GuestNameParts, type ReadPick as ReaderPick } from '@/lib/attire-rows';
 import { pickDots, singleWearerOf } from '@/lib/role-figure';
@@ -681,6 +681,18 @@ export function DressCodeWidget({
                Held by `lib/a-lone-look-in-the-dress-code-is-centred.test.ts`. */
             const lone = row.picks.length === 1;
             const pair = row.picks.length > 1 && !options;
+            /* 👔 THE GUESTS' BOARD (owner 2026-10-21, "up to 5 different attires"; prototype
+               `attire_five_designs_per_style_2026-10-21.html` § 4): once the hosts allow more than one design in a
+               column, the row is a board — the hero pair, one row per allowed style, the colours once at the foot. One
+               design per column keeps the row exactly as it shipped. */
+            /* (Also a column whose one design is not its style's shipped drawing — the row draws only that one.) */
+            if (options && showFigure && row.picks.some((p) => p.allowed.length > 0 && p.colours.length > 0) && row.picks.some((p) => p.allowed.flatMap((a) => a.designs).length > 1 || (p.role && p.allowed[0]?.designs[0] && p.allowed[0].designs[0].art !== `${p.role}-${p.allowed[0].style}`))) {
+              return (
+                <li key={row.key} className="border-t border-ink/10 py-5 text-center sm:col-span-2 lg:col-span-3" data-role-row={row.key}>
+                  <GuestsBoard row={row} look={look} />
+                </li>
+              );
+            }
             return (
               <li key={row.key} className={`space-y-3 border-t border-ink/10 py-5 ${lone ? 'text-center' : ''} ${options ? 'sm:col-span-2 lg:col-span-3' : ''}`} data-role-row={row.key}>
                 <p className="text-base font-medium leading-snug text-ink">{row.label}</p>
@@ -756,6 +768,75 @@ export function DressCodeWidget({
       ) : null}
     </section>
     </>
+  );
+}
+
+/**
+ * 👔 THE GUESTS' BOARD (owner 2026-10-21; prototype `attire_five_designs_per_style_2026-10-21.html` § 4). "Any of
+ * these": the hero pair (each column's first allowed design, in its first colour), then FOR MEN / FOR WOMEN with one
+ * line per allowed style — its designs side by side, each in the next colour in turn (the controller's call on open
+ * question 2: "colours in turn"), so a row shows the palette without one figure per colour per design — then the
+ * colours once at the foot. Only DRAWN designs reach here (`allowedStyles`). No frames: nothing on it is pressed.
+ * Each figure takes the palette by its own zones (`zoneTints`): a guest man's suit wears the colour on the tie over
+ * black, a barong its body (pants stay charcoal), smart casual its top (chinos stay khaki), a woman's dress all of it.
+ */
+function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId }) {
+  const people = row.picks.filter((p) => p.allowed.length > 0 && p.colours.length > 0);
+  const sameColours = people.every((p) => p.colours.join() === people[0]!.colours.join());
+  const any = (n: number) => (n === 5 ? 'any of five' : n > 1 ? `any of ${n}` : '');
+  return (
+    <div className="flex flex-col items-center" data-dress-code-board={people.length}>
+      <p className="font-serif text-[28px] font-light leading-tight text-ink">{row.label}</p>
+      <p className="mt-1.5 font-mono text-[0.68rem] uppercase tracking-[0.2em] text-ink/75">Any of these</p>
+      <div className="mt-4 flex items-end justify-center gap-[22px]" data-dress-code-hero="">
+        {people.map((p) => {
+          const hero = p.allowed[0]!.designs[0]!;
+          return (
+            <div key={p.who} className="flex flex-col items-center" data-dress-code-hero-person={p.who}>
+              <RoleFigure roleKey={row.key} people={[{ who: p.who, garment: hero.art, main: p.colours[0]!, colours: [p.colours[0]!] }]} className="h-[200px]" />
+              <p className="mt-1.5 text-[12px] leading-snug text-ink/70">{p.label ? `${p.label} · ` : ''}{hero.label}</p>
+            </div>
+          );
+        })}
+      </div>
+      {people.map((p) => (
+        <div key={p.who} className="mt-[18px] w-full" data-dress-code-gender={p.who}>
+          {p.label ? (
+            <p className="flex items-center justify-center gap-3 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-ink/75 before:h-px before:w-8 before:bg-gild after:h-px after:w-8 after:bg-gild">{p.label}</p>
+          ) : null}
+          {p.allowed.map((a) => (
+            <div key={a.style} className="mt-3" data-dress-code-style={a.style}>
+              <p className="mb-1.5 text-[12.5px] font-semibold text-ink">
+                {a.label}
+                {any(a.designs.length) ? <small className="font-normal text-ink/70"> · {any(a.designs.length)}</small> : null}
+              </p>
+              <div className="flex items-end justify-center gap-1.5">
+                {a.designs.map((d, i) => {
+                  const c = p.colours[i % p.colours.length]!;
+                  return (
+                    <div key={d.id} className="w-16 flex-none text-center" data-dress-code-design={d.id}>
+                      <span className="flex justify-center">
+                        <RoleFigure roleKey={row.key} people={[{ who: p.who, garment: d.art, main: c, colours: [c] }]} className="h-[104px]" />
+                      </span>
+                      <p className="mt-1 text-xs leading-tight text-ink/70">{d.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="mt-[18px] flex flex-col items-center gap-2" data-dress-code-board-colours="">
+        {(sameColours ? [people[0]!] : people).map((p) => (
+          <div key={p.who} className="flex flex-col items-center gap-1">
+            {!sameColours && p.label ? <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-ink/70">{p.label}</p> : null}
+            <RowDots dots={p.colours.map((hex) => ({ hex, word: '' }))} look={look} centre label={`${row.label}${!sameColours && p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
+          </div>
+        ))}
+        <p className="text-[12.5px] text-ink/70">Wear any one of these colours, in any of the outfits above.</p>
+      </div>
+    </div>
   );
 }
 

@@ -427,3 +427,18 @@ export function labCaleRoleRolePalette() {
     touched_roles: ['parents_immediate_family', 'principal_sponsors', 'secondary_sponsors', 'bridesmaids', 'guest'],
   };
 }
+
+/* ── 👔 STYLE → UP TO FIVE DESIGNS (owner 2026-10-21) — `?attire=designs&gmd=suit,barong_tagalog&gwd=long_gown,…` ── */
+/** The prototype's four guest colours (the owner's screenshot: plum · navy · rose · brown). */
+export const LAB_GUEST_FOUR = ['#5E2A48', '#1C1F7A', '#C9A3A6', '#7B4A26'];
+/** The guests' two columns ticked as given (`gmd` men, `gwd` women — comma-separated ticks, first = the Wear). */
+export function labDesignsDressConfig(men: string | undefined, women: string | undefined) {
+  const ticks = (raw: string | undefined, fallback: string) => (raw ?? fallback).split(',').map((t) => t.trim()).filter(Boolean);
+  const m = ticks(men, 'suit,barong_tagalog');
+  const w = ticks(women, 'long_gown,cocktail_dress,filipiniana');
+  const col = (t: string[]) => ({ style: t[0]!.split('/')[0]!, ...(t.length > 1 ? { designs: t } : {}) });
+  return { roles: { guest: col(m) }, women: { roles: { guest: col(w) } }, dos: [], donts: [], show_figure: true };
+}
+export function labDesignsRolePalette() {
+  return { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], guest: [...LAB_GUEST_FOUR], touched_roles: ['guest'] };
+}

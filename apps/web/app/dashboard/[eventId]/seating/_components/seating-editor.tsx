@@ -186,7 +186,7 @@ import {
   updateTableType,
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
-import { useSeatingLock } from './use-seating-lock';
+import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -894,7 +894,8 @@ export function SeatingEditor({
   const canEdit = lock.status === 'editing';
   // View-only surface follows the editor live (the 3D lab, or another viewer) —
   // the EDITING surface never auto-refreshes (would clobber unsaved drafts).
-  useSeatingLiveRefresh(eventId, !canEdit);
+  // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   useEffect(() => {
     // Try to take the lock as soon as the editor opens (the surface itself is
     // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.

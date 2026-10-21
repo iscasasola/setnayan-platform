@@ -329,14 +329,16 @@ const vidaloka = localFont({
 
 // 🔑 THE SITE'S DEFAULT TITLE + DESCRIPTION (2026-09-30). The owner picked
 // "Plan, share and relive every celebration" as the line under every branded
-// email (`EMAIL_TAGLINE` in lib/email-template.ts, PR #6199); the site's default title now
+// email (`EMAIL_TAGLINE` in lib/email-template.ts, PR #6199) and changed it to
+// "…every event" on 2026-10-22 (the house word; DECISION_LOG "TAGLINE SAYS
+// EVENT"). The site's default title now
 // says the same thing instead of "Filipino wedding planning + verified
 // suppliers" — which sold one event type as the whole product. One constant,
 // used by `title.default`, `openGraph` and `twitter`, so the three cannot drift.
 // ⚠ The description names the services, is event-type neutral, and says
 // "supplier", never "vendor". Guarded by lib/public-copy-is-not-wedding-only.test.ts.
 // ⚠ Pages with their own title (the homepage's HOME_TITLE) are unaffected.
-const SITE_TITLE = 'Setnayan · Plan, share and relive every celebration';
+const SITE_TITLE = 'Setnayan · Plan, share and relive every event';
 const SITE_DESCRIPTION =
   'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.';
 

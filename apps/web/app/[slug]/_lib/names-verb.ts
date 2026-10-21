@@ -17,7 +17,7 @@
  *
  * 🛡 app/[slug]/_lib/names-verb.test.ts
  */
-import { splitCoupleNames } from '../_components/pahina-masthead';
+import { splitCoupleNames } from '@/lib/split-names';
 
 /** Is this name two people, by the masthead's own rule? */
 export function namesAreTwo(displayName: string | null | undefined, twoPeople: boolean): boolean {

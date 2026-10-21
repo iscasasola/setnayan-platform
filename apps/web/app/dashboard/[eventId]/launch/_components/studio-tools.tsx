@@ -68,7 +68,7 @@ import { PrintChoicePicker } from './print-choice-picker';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
 import { PrintPaperHead, StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { StudioPrintsBar } from './studio-prints-bar';
-import { StudioEditInPlace, StudioEverything, StudioFileChoice, StudioGuestPiece, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
+import { StudioEditInPlace, StudioEverything, StudioFileChoice, StudioGuestPiece, StudioHubLookRow, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1138,6 +1138,8 @@ export type StudioToolProps =
   /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
   /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
   | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
+  /* 🎨 Your Event Hub look — ◆ every print wears it, 🔒 the door (owner 2026-10-21, `StudioHubLookRow`). */
+  | ({ part: 'hub-look' } & Parameters<typeof StudioHubLookRow>[0])
   | ({ part: 'piece-download' } & Parameters<typeof StudioPieceDownload>[0])
   | ({ part: 'edit-in-place' } & Parameters<typeof StudioEditInPlace>[0])
   | ({ part: 'guest-piece' } & Parameters<typeof StudioGuestPiece>[0])
@@ -1197,6 +1199,8 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioPrintsBar {...props} />;
     case 'print-settings':
       return <StudioPrintSettings {...props} />;
+    case 'hub-look':
+      return <StudioHubLookRow {...props} />;
     case 'piece-download':
       return <StudioPieceDownload {...props} />;
     case 'edit-in-place':

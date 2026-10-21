@@ -18,6 +18,9 @@ import {
 } from '@/lib/studio-prints-settings';
 import { PrintSaveButton } from './print-save-button';
 import { StudioProDoor } from './studio-prints-six';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { paidMarkLabel, paidMarkState } from '@/lib/paid-mark';
+import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-prints-six';
 import { PrintPaperHead, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { PrintChoicePicker } from './print-choice-picker';
 import { useDownloads, usePrintGuest, useRegisterDownload, type AllInOneF } from './prints-view-store';
@@ -130,6 +133,44 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
       {/* 🔒 Drawn on <body> (a transformed panel would capture `fixed`) — and ALWAYS drawn, shut or open: its fields post with Save. */}
       {body ? createPortal(panel, body) : panel}
     </>
+  );
+}
+
+/* ── 🎨 YOUR EVENT HUB LOOK — ◆ owned, 🔒 the door ─────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21, *"yes wire all, and yes it's Pro"*). One row under
+ * Print settings, saying which look the pieces below are drawn in — the route draws them so (`printLookForEvent`), this only says it.
+ *   · owned → ◆ and the fact (no frame: nothing to press);
+ *   · a free event on the web → 🔒 and the door to the centred note (`StudioProDoor`, the prints' own Pro door);
+ *   · the app-store shell without it → nothing (`paidMarkState`: a locked door is absent there).
+ * `ownsPro` is the EVENT's measured entitlement (an unlock belongs to the event, every host on it).
+ */
+export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: string; ownsPro: boolean; storeShell: boolean }) {
+  const state = paidMarkState({ owns: ownsPro, storeShell });
+  if (state === null) return null;
+  const owned = state === 'unlocked';
+  return (
+    <div data-print-hub-look={owned ? 'worn' : 'classic'} className="flex min-h-14 items-center gap-3 border-t border-ink/10 py-3">
+      <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
+        {/* In the app-store shell nothing names a paid web extra — not even an owned one's label. */}
+        <PaidMark state={state} size="lg" label={paidMarkLabel(state, storeShell ? HUB_LOOK_ROW.name : 'Event Hub Pro')} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <b className="block text-[15px] font-semibold text-ink">{HUB_LOOK_ROW.name}</b>
+        <span className="block text-[12.5px] leading-snug text-ink/60">{owned ? HUB_LOOK_ROW.owned : HUB_LOOK_ROW.free}</span>
+      </span>
+      {owned || storeShell ? null : (
+        <span className="shrink-0" data-print-hub-look-door="">
+          <StudioProDoor
+            href={`/dashboard/${eventId}/studio/website-pro`}
+            label={HUB_LOOK_ROW.door}
+            icon={<PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} />}
+            note={HUB_LOOK_PRO_NOTE}
+          />
+        </span>
+      )}
+    </div>
   );
 }
 

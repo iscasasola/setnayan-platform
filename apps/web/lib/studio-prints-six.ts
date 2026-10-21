@@ -53,6 +53,21 @@ export const EVERYTHING_PRO_NOTE = {
   title: 'Everything in one file is Event Hub Pro',
   body: 'With Event Hub Pro you save every piece at once — the set, every guest’s pass and place card, the day’s sheets. Each piece’s own PDF still saves free.',
 } as const;
+/**
+ * 🖨 EVERY PRINT WEARS THE EVENT HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21: *"shouldn't this mimic the event hub design? and
+ * so does the other prints?"* → *"yes wire all, and yes it's Pro"*; `printLookForEvent`, lib/print-hub-look.ts). The row on Studio ›
+ * Prints: ◆ owned — a fact; 🔒 not owned — the door to the centred note. Its words, once.
+ */
+export const HUB_LOOK_ROW = {
+  name: 'Your Event Hub look',
+  owned: 'Every print wears your Event Hub’s colours, fonts and background.',
+  free: 'Your prints are in the classic look. Wear your Event Hub’s colours, fonts and background on paper.',
+  door: 'Unlock',
+} as const;
+export const HUB_LOOK_PRO_NOTE = {
+  title: 'Printing in your Event Hub look is Event Hub Pro',
+  body: 'With Event Hub Pro every print wears your Event Hub’s colours, fonts and background. Without it, every print stays free in the classic look.',
+} as const;
 /** What a route says when it refuses an all-in-one file to an event without Event Hub Pro. */
 export function allInOneRefusal(piece: string): string {
   const n =

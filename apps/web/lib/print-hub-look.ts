@@ -178,3 +178,36 @@ export function printLookFromHub(base: PrintLook, hub: PrintHubInput): PrintLook
 
 /** For a caller that measured a picture itself (the lab, a test): its colours as hexes. */
 export const sampleHexes = (rgbs: readonly RGB[]): string[] => rgbs.map(rgbHex);
+
+/** What wearing the Hub needs, read by the caller: the Hub's own answers (`PrintHubInput`) and the picture's bytes. */
+export type WornHub = { hub: PrintHubInput; picture: Uint8Array | null };
+
+/**
+ * 🔒 THE HUB LOOK ON PAPER IS EVENT HUB PRO — THE ONE DOOR TO IT (owner 2026-10-21, on the gate contact sheet: *"yes wire all,
+ * and yes it's Pro"*; DECISION_LOG 2026-09-25 "EVERY PRINT IS FREE IN THE CLASSIC LOOK; THE THEMED VERSION IS PRO").
+ *
+ * A print wearing the event's own Hub look IS the themed print. So:
+ *   · `ownsPro` false (a free event, a lapsed one, an internal viewer viewing as free — `printOwnsPro`, as viewed) → the
+ *     print's own classic look, `base`, the very object — and the Hub is never even READ (`wear` is not called);
+ *   · `ownsPro` true → the Hub's look (`printLookFromHub`), and the Hub's picture when it has one. A Hub that cannot be
+ *     read (`wear` answers null or throws) prints the classic look — paper is never held hostage to a background.
+ * An unlock belongs to the EVENT: `ownsPro` is the event's entitlement, the same for every host on it.
+ *
+ * Every Hub-worn print goes through here (`lib/every-print-wears-the-hub.test.ts` holds that nothing else calls
+ * `printLookFromHub`).
+ */
+export async function printLookForEvent(
+  base: PrintLook,
+  ownsPro: boolean,
+  wear: () => Promise<WornHub | null>,
+): Promise<{ look: PrintLook; picture: Uint8Array | null; wearsHub: boolean }> {
+  if (ownsPro !== true) return { look: base, picture: null, wearsHub: false };
+  const worn = await wear().catch((err: unknown) => {
+    console.error('[print-hub-look] the Hub look could not be read — printing the classic look', String(err));
+    return null;
+  });
+  if (!worn) return { look: base, picture: null, wearsHub: false };
+  /* A picture the Hub draws but whose bytes did not arrive: the colours still follow the Hub, never a panel over nothing. */
+  const hub = worn.picture ? worn.hub : { ...worn.hub, picture: null };
+  return { look: printLookFromHub(base, hub), picture: worn.picture, wearsHub: true };
+}

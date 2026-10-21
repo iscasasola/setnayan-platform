@@ -10,11 +10,17 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { join, relative, resolve } from 'node:path';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import { HUB_FONT_KEYS } from './hub-fonts';
 import { printFont } from './print-layout';
 import { hexRgb, legibleInk, MIN_CONTRAST, over, worstContrast } from './print-ground';
-import { FRAME_INSET_PT, PANEL_FLOOR, printHubFonts, printLookFromHub } from './print-hub-look';
+import { FRAME_INSET_PT, PANEL_FLOOR, printHubFonts, printLookForEvent, printLookFromHub, type WornHub } from './print-hub-look';
+import { stripComments } from './strip-comments';
 import { hubPrintFont, printLookFor } from './print-pieces';
 import { boardColours, dressedTheme, themeColours } from './theme-colours';
 import { buildCustomSiteColorVars } from './site-palette';
@@ -88,4 +94,118 @@ test('4 · nothing of the couple’s on the page: today’s paper and still; an 
     if (was >= MIN_CONTRAST + 0.05) assert.equal(look[k], base[k], `${k} read already and was still changed`);
     else assert.equal(look[k], legibleInk(base[k], paper), `${k} (${was.toFixed(2)} : 1) did not take the least change that reads`);
   }
+});
+
+/* ── 5 · 🔒 the Pro door ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+const WORN: WornHub = {
+  hub: {
+    theme: 'house',
+    rolePalette: BOARD,
+    vars: buildCustomSiteColorVars('#2E3B4E', null)!,
+    fonts: printHubFonts('cinzel', { body: { font: 'cormorant' } }),
+    picture: { samples: ['#595607', '#f8d8a1', '#282a0e'], scrim: 0.45 },
+    wearsThemeLoop: true,
+  },
+  picture: new Uint8Array([0xff, 0xd8, 0xff]),
+};
+
+test('5 · a NON-Pro event prints the classic look — the very object — and its Hub is never read', async () => {
+  let reads = 0;
+  const wear = async () => {
+    reads += 1;
+    return WORN;
+  };
+  for (const ownsPro of [false, undefined as unknown as boolean, 0 as unknown as boolean, 'yes' as unknown as boolean]) {
+    const r = await printLookForEvent(base, ownsPro, wear);
+    assert.equal(r.look, base, `ownsPro=${String(ownsPro)} reached a look other than the classic one`);
+    assert.equal(r.picture, null, `ownsPro=${String(ownsPro)} carried the Hub's picture`);
+    assert.equal(r.wearsHub, false);
+  }
+  assert.equal(reads, 0, 'the Hub was read for an event without Pro');
+});
+
+test('5b · a Pro event wears its Hub: the Hub’s paper, fonts and picture', async () => {
+  const r = await printLookForEvent(base, true, async () => WORN);
+  assert.equal(r.wearsHub, true);
+  assert.notEqual(r.look, base);
+  assert.equal(r.look.paper, '#2e3b4e');
+  assert.equal(r.look.headFont, 'hub-cinzel');
+  assert.equal(r.look.still, 'full');
+  assert.equal(r.picture, WORN.picture);
+});
+
+test('5c · a Pro event whose Hub cannot be read prints classic; a picture that did not arrive draws no panel over nothing', async () => {
+  const failed = await printLookForEvent(base, true, async () => {
+    throw new Error('refused');
+  });
+  assert.equal(failed.look, base);
+  assert.equal(failed.wearsHub, false);
+  const noBytes = await printLookForEvent(base, true, async () => ({ ...WORN, picture: null }));
+  assert.equal(noBytes.wearsHub, true);
+  assert.equal(noBytes.look.frame, null);
+  assert.notEqual(noBytes.look.still, 'full');
+});
+
+/* ── 6 · no way around the door ───────────────────────────────────────────────────────────────────────────────────── */
+
+const WEB = resolve(__dirname, '..');
+function sources(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next' || name === 'dev') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) sources(p, out);
+    else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);
+  }
+  return out;
+}
+const SHIPPED = [...sources(join(WEB, 'app')), ...sources(join(WEB, 'lib'))].map((p) => ({ rel: relative(WEB, p), src: stripComments(readFileSync(p, 'utf8')) }));
+
+test('6 · nothing but the door makes a Hub look — every `printLookFromHub(` call is inside lib/print-hub-look.ts', () => {
+  assert.ok(SHIPPED.length > 500, `only ${SHIPPED.length} shipped files were read — the walk is broken`);
+  const callers = SHIPPED.filter((f) => /\bprintLookFromHub\s*\(/.test(f.src)).map((f) => f.rel);
+  assert.deepEqual(callers, ['lib/print-hub-look.ts'], `a Hub look is made around the Pro door in: ${callers.join(', ')}`);
+});
+
+test('6b · every door call is handed the MEASURED entitlement — an `ownsPro` read from `printOwnsPro`, never a constant', () => {
+  const calls = SHIPPED.flatMap((f) => [...f.src.matchAll(/\bprintLookForEvent\s*\(([^,]+),([^,]+),/g)].map((m) => ({ rel: f.rel, src: f.src, arg: m[2]!.trim() })));
+  const sites = calls.filter((c) => c.rel !== 'lib/print-hub-look.ts');
+  assert.ok(sites.length >= 1, 'no print reaches the Hub look at all — the wiring is gone');
+  for (const c of sites) {
+    const ids = [...c.arg.matchAll(/\b[a-zA-Z_]\w*\b/g)].map((m) => m[0]).filter((id) => !['opts', 'samplePalette', 'undefined'].includes(id));
+    const measured = ids.filter((id) => new RegExp(`\\bconst\\s+${id}\\s*=\\s*await\\s+printOwnsPro\\(`).test(c.src));
+    assert.ok(measured.length >= 1, `${c.rel}: the door is handed \`${c.arg}\`, not an entitlement read from printOwnsPro`);
+    assert.ok(!/\btrue\b/.test(c.arg), `${c.rel}: the door is handed a constant true (\`${c.arg}\`)`);
+  }
+});
+
+/* ── 7 · the row on Studio › Prints ──────────────────────────────────────────────────────────────────────────────── */
+
+(globalThis as unknown as { React: unknown }).React = React;
+/* The prints' Pro door sits beside server actions (`studio-prints-six.tsx`) — the repo's `server-only` shim (as in
+   `a-background-pick-shows-at-once.test.ts`), so the row renders here as it does on the page. */
+{
+  const Mod = createRequire(__filename)('node:module') as { _load: (request: string, ...rest: unknown[]) => unknown };
+  const load = Mod._load;
+  Mod._load = function (this: unknown, request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+
+test('7 · Studio › Prints: ◆ owned says the Hub look; 🔒 a free event on the web meets the door; the app shell shows nothing to buy', async () => {
+  const { StudioHubLookRow } = await import('@/app/dashboard/[eventId]/launch/_components/studio-prints-settings');
+  const E = '00000000-0000-4000-8000-000000000000';
+  const draw = (ownsPro: boolean, storeShell: boolean) => renderToStaticMarkup(React.createElement(StudioHubLookRow, { eventId: E, ownsPro, storeShell }));
+  const owned = draw(true, false);
+  assert.match(owned, /data-print-hub-look="worn"/);
+  assert.doesNotMatch(owned, /data-print-hub-look-door/);
+  const free = draw(false, false);
+  assert.match(free, /data-print-hub-look="classic"/);
+  assert.match(free, /data-print-hub-look-door/);
+  assert.match(free, /studio\/website-pro/);
+  assert.equal(draw(false, true), '', 'the app-store shell shows a free event a door to buy');
+  const shellOwned = draw(true, true);
+  assert.match(shellOwned, /data-print-hub-look="worn"/);
+  assert.doesNotMatch(shellOwned, /Event Hub Pro/, 'the app-store shell names the paid extra');
 });

@@ -16,7 +16,7 @@ Owner 2026-10-22, "Yes to all" — `Setnayan/prototypes/journey_fixes_2026-10-22
   clipping rule on the pill) and `lib/the-pro-list-names-only-real-gates.test.ts` (the drawn list · each added line
   held to its gate · no free line), each sabotaged red.
 
-SPEAK OUT (gating that disagrees with a drawn line — not changed, owner's call): "Uploads over 10 MB" — the gate is a
+FLAGS (gating that disagrees with a drawn line — not changed, owner's call): "Uploads over 10 MB" — the gate is a
 per-event total allowance (Free 10 MB · Pro 500 MB), not a per-file size · "A 6th Love Story moment, with photos" —
 any story's photo is Pro, not only the 6th's · "One download of every guest's ticket" — every all-in-one download is
 Pro (whole set, Guest QR sheet, place-card pack, Everything), not only the tickets · the buy page's `BENEFITS`

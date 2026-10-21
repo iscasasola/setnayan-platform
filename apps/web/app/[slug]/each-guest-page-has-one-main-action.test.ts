@@ -107,7 +107,6 @@ test('Me · the name once, no second sign-out, ONE Save to my account, ONE main 
       askPlusOnes: true,
       eventName: 'Indalecio & Claire',
       guests: [{ guestId: 'p1', name: 'Lola Nena', inviteUrl: 'https://x/ana?invite=t1' }],
-      passes: {},
       account: { kind: 'offer' },
       personalLink: 'https://x/ana?invite=t0',
       userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/128 Mobile Safari/537.36',

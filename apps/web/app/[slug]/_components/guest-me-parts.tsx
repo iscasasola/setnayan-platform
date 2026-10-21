@@ -9,6 +9,7 @@ import type { RoleNames } from '@/lib/role-names';
 import type { GuestMeNote, GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
 import { DressCodeWidget } from './dress-code-widget';
 import type { GuestNameParts } from '@/lib/attire-rows';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS, each its own part (owner
@@ -88,7 +89,7 @@ export function GuestMeParts({
             <ul className="space-y-1">
               {comingWith.map((name, i) => (
                 <li key={`${name}-${i}`} className="font-pahina text-xl font-light leading-snug text-ink">
-                  {name}
+                  {displayPersonName(name)}
                 </li>
               ))}
             </ul>

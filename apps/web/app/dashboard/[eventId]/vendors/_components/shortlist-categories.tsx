@@ -182,6 +182,7 @@ import {
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
+import { lockedNamesOf } from '@/lib/covered-row-name';
 import {
   canUndoInlineSave,
   classifyInlineMoreRow,
@@ -3870,7 +3871,9 @@ export function ShortlistCategories({
                   // PR-C — the ⓘ copy (null → no button, never invented copy)
                   // and whether this category may be removed from the plan.
                   const hint = replan ? categoryHintForTile(t.tile) : null;
-                  const lockedNames = t.vendors.filter((v) => v.status === 'locked').map((v) => v.name);
+                  // A covered copy names the row it was booked under —
+                  // "Seda Vertis North · with Reception" (owner 2026-10-21).
+                  const lockedNames = lockedNamesOf(t.vendors);
                   const removable =
                     replan && canRemoveTileFromPlan({ lockedCount: lockedNames.length });
                   const rowError = planError?.tile === t.tile ? planError.message : null;

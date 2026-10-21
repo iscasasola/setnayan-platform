@@ -2419,6 +2419,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               status: v.status,
               planGroupId: v.planGroupId,
               lockState: v.lockRequestState,
+              // "Also covers": the line names them "· with <their row>" and
+              // carries no money of its own (`lib/covered-row-name.ts`).
+              includedWith: v.includedWith,
             })),
           })),
         priceOf: (vendorId) => priceByVendorId.get(vendorId) ?? null,
@@ -2931,7 +2934,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                     <BookThisBuild
                       eventId={eventId}
                       picks={buildLines.flatMap((l) =>
-                        l.pick && !l.booked && !l.pickAsked
+                        l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
                           : [],
                       )}

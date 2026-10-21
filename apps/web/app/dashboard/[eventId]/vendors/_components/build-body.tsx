@@ -528,9 +528,11 @@ function BuildLineRow({
   // The pick is always in its own dropdown, even while it cannot be booked.
   const options = [
     { key: NO_PICK, label: 'Pick one' },
-    ...line.candidates.map((c) => ({ key: c.vendorId, label: `${c.name} · ${formatPhp(c.pricePhp)}` })),
+    // A covered supplier ("· with Reception") is offered by name only — their
+    // one price lives on their own row (`lib/covered-row-name.ts`).
+    ...line.candidates.map((c) => ({ key: c.vendorId, label: c.includedWith ? c.shownName : `${c.name} · ${formatPhp(c.pricePhp)}` })),
     ...(line.pick && !line.candidates.some((c) => c.vendorId === line.pick!.vendorId)
-      ? [{ key: line.pick.vendorId, label: line.pick.name }]
+      ? [{ key: line.pick.vendorId, label: line.pick.shownName }]
       : []),
   ];
   const canChoose = line.candidates.length > 0 || line.pick != null;
@@ -542,13 +544,13 @@ function BuildLineRow({
           {line.booked ? ' · booked' : ''}
         </p>
         {line.booked ? (
-          <p className="mt-0.5 text-sm font-medium text-ink">{line.booked.name}</p>
+          <p className="mt-0.5 text-sm font-medium text-ink">{line.booked.shownName}</p>
         ) : canChoose ? (
           <div className="mt-1 max-w-full" aria-busy={busy || undefined}>
             <PickMenu
               label={`Pick a ${line.label} supplier`}
               value={line.pick?.vendorId ?? NO_PICK}
-              buttonText={line.pick ? line.pick.name : 'Pick one'}
+              buttonText={line.pick ? line.pick.shownName : 'Pick one'}
               options={options}
               onPick={onPick}
               dataAttr="data-build-pick"
@@ -578,7 +580,7 @@ function BuildLineRow({
           <span className="text-base text-ink/45" aria-hidden>
             —
           </span>
-        ) : who.pricePhp != null ? (
+        ) : who.includedWith ? null : who.pricePhp != null ? (
           <span className="whitespace-nowrap text-base font-semibold tabular-nums text-ink">
             <Count value={who.pricePhp} format="peso" id={`sup-build-line-${line.tile}`} />
           </span>

@@ -17,6 +17,8 @@
  *                         …with &build=answers: how Bituin's ask stands — the
  *                         line the supplier's card says in the same words
  *                         (`/dev/booking-ask-lab`)
+ *   &covers=1             …Seda's "Also covers" Cake and Catering: the venue is
+ *                         booked on those lines too, "· with Reception"
  */
 import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
@@ -35,7 +37,9 @@ import {
   LAB_BUILD_INCLUSIONS,
   LAB_BUILD_PRICES,
   LAB_BUILD_TILES,
+  LAB_COVERED_TILES,
   LAB_SAVED_BUILDS,
+  LAB_SEDA_COVERED,
   labBuildFree,
   type LabSavedBuild,
 } from './build-fixtures';
@@ -50,9 +54,10 @@ const ANSWERS = ['requested', 'declined', 'expired', 'cancelled'] as const;
 export function LabSuppliersShell({
   start,
   answer = null,
+  covers = false,
   bookedCount,
   ...shell
-}: ShellProps & { start: string | null; answer?: string | null }) {
+}: ShellProps & { start: string | null; answer?: string | null; covers?: boolean }) {
   const bituin = (ANSWERS as readonly string[]).includes(answer ?? '') ? (answer as (typeof ANSWERS)[number]) : 'declined';
   const [builds, setBuilds] = useState<LabSavedBuild[]>(start === 'none' ? [] : LAB_SAVED_BUILDS);
   // tile → the supplier pinned to the build there.
@@ -68,7 +73,7 @@ export function LabSuppliersShell({
         vendors:
           start === 'none'
             ? []
-            : t.vendors.map((x) => ({
+            : [...t.vendors, ...(covers && LAB_COVERED_TILES.has(t.tile) ? [LAB_SEDA_COVERED] : [])].map((x) => ({
                 ...x,
                 // `&build=answers`: Bituin said no, Hiraya let the window run out.
                 lockState: asked.has(x.vendorId)
@@ -80,7 +85,7 @@ export function LabSuppliersShell({
                       : ('none' as const),
               })),
       })),
-    [asked, start, bituin],
+    [asked, start, bituin, covers],
   );
 
   const view = useMemo(() => {
@@ -91,11 +96,13 @@ export function LabSuppliersShell({
       inBuild: new Set(Object.values(picks)),
       blocked: LAB_BUILD_BLOCKED,
     });
-    const booked = lines.flatMap((l) => (l.booked ? [l.booked] : []));
+    // One booking is one price: a covered line ("· with Reception") is the
+    // venue's own booking shown again, never a second bill.
+    const booked = lines.flatMap((l) => (l.booked && !l.booked.includedWith ? [l.booked] : []));
     const money = teamMoney({
       lockedCentavos: booked.reduce((sum, s) => sum + (s.pricePhp ?? 0), 0) * 100,
       lockedUnpricedCount: booked.filter((s) => s.pricePhp == null).length,
-      candidateCostsPhp: lines.flatMap((l) => (l.pick && !l.booked ? [l.pick.pricePhp] : [])),
+      candidateCostsPhp: lines.flatMap((l) => (l.pick && !l.booked && !l.pick.includedWith ? [l.pick.pricePhp] : [])),
       budgetPhp: LAB_BUILD_BUDGET_PHP,
     });
     const ordered = sortSavedBuilds(builds.map(row));
@@ -190,7 +197,7 @@ export function LabSuppliersShell({
                 eventId={shell.eventId}
                 basePath="/dev/suppliers-lab"
                 picks={view.lines.flatMap((l) =>
-                  l.pick && !l.booked && !l.pickAsked
+                  l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                     ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
                     : [],
                 )}

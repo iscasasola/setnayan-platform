@@ -70,3 +70,33 @@ export function oneAtATime<R>(send: () => Promise<R>, done: (r: R) => void): () 
     go();
   };
 }
+
+/**
+ * ⚡ ARM THE AUTOSAVE on `form` — loaded LAZILY by `SoftPost autosave` (the Maker's first-load JavaScript stays inside its owner-set
+ * budget, `scripts/check-maker-js-budget.mjs`; the shipped Maker never downloads this). Returns the gated submit (one post at a time,
+ * `oneAtATime`) and the stop.
+ *
+ * A person's change to one of this form's fields posts it — the listeners sit on the document, because a field joined by `form=` is
+ * drawn elsewhere (⚙ Print settings is on `<body>`) and its events bubble there, not to the form. The post is the form's own submit
+ * (`requestSubmit`), so it runs SoftPost's one handler — the same post to the same route.
+ */
+export function armPrintWordsAutosave<R>(form: HTMLFormElement, post: () => Promise<R>, done: (r: R) => void): { submit: () => void; stop: () => void } {
+  const send = oneAtATime<R>(post, done);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const onEdit = (e: Event) => {
+    const wait = printWordsAutosaveWait(e.type, e.target, form);
+    if (wait === null) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => form.requestSubmit(), wait);
+  };
+  document.addEventListener('input', onEdit);
+  document.addEventListener('change', onEdit);
+  return {
+    submit: send,
+    stop: () => {
+      document.removeEventListener('input', onEdit);
+      document.removeEventListener('change', onEdit);
+      clearTimeout(timer);
+    },
+  };
+}

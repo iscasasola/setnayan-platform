@@ -77,10 +77,15 @@ test('1 · NO SAVE: the sheet draws no submit and no "right away" line; it is ha
 test('2a · EVERY PRESS POSTS: the Studio’s print words form autosaves, through the form’s own submit (the same route)', () => {
   assert.match(DETAILS, /<form id=\{WORDS_FORM\} action=\{PRINT_WORDS_ENDPOINT\}[\s\S]{0,1600}<SoftPost autosave=\{Boolean\(props\.studio\)\} \/>/, 'the Studio’s print words form does not autosave');
   const soft = read(`${L}/soft-post.tsx`);
-  assert.match(soft, /if \(autosave\) \{\s*document\.addEventListener\('input', onEdit\);\s*document\.addEventListener\('change', onEdit\);/, 'SoftPost does not listen for changes on the document (a field joined by form= is drawn on <body>)');
-  assert.match(soft, /printWordsAutosaveWait\(e\.type, e\.target, form\)/, 'SoftPost does not ask whether the change is to ITS form');
-  assert.match(soft, /setTimeout\(\(\) => form\.requestSubmit\(\), wait\)/, 'an autosave is not the form’s own submit — it would skip the one handler (and the lab’s seam)');
-  assert.match(soft, /const send = oneAtATime</, 'posts are not one at a time — an earlier post could land last and undo a later press');
+  /* The machinery is loaded only when the form autosaves — the Maker's first-load budget never carries it. */
+  assert.match(soft, /if \(autosave\) \{\s*void import\('@\/lib\/print-words-autosave'\)\.then\(\(m\) => \{[\s\S]{0,120}m\.armPrintWordsAutosave\(form, onSubmit, done\)/, 'SoftPost autosave does not arm the autosave on its form');
+  assert.doesNotMatch(soft, /^import[^\n]*print-words-autosave/m, 'SoftPost imports the autosave eagerly — it lands in the Maker’s first load');
+  assert.match(soft, /if \(gated\) gated\(\);/, 'an autosaving form’s submit is not gated one post at a time');
+  const auto = read('lib/print-words-autosave.ts');
+  assert.match(auto, /document\.addEventListener\('input', onEdit\);\s*document\.addEventListener\('change', onEdit\);/, 'the autosave does not listen for changes on the document (a field joined by form= is drawn on <body>)');
+  assert.match(auto, /printWordsAutosaveWait\(e\.type, e\.target, form\)/, 'the autosave does not ask whether the change is to ITS form');
+  assert.match(auto, /setTimeout\(\(\) => form\.requestSubmit\(\), wait\)/, 'an autosave is not the form’s own submit — it would skip the one handler (and the lab’s seam)');
+  assert.match(auto, /const send = oneAtATime<R>\(post, done\);/, 'posts are not one at a time — an earlier post could land last and undo a later press');
 });
 
 test('2b · the wait: a press at once · typing after a pause · leaving the box at once · another form’s field never', () => {

@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { makerSave } from '@/lib/maker-refresh';
-import { oneAtATime, printWordsAutosaveWait } from '@/lib/print-words-autosave';
 
 /**
  * 🧷 A PLAIN FORM THAT SAVES WITHOUT LEAVING THE PAGE.
@@ -23,8 +22,9 @@ import { oneAtATime, printWordsAutosaveWait } from '@/lib/print-words-autosave';
  *
  * ⚡ `autosave` (Studio › Prints, owner 2026-10-21 *"why is there a save here? when any press changes it right away?"*): the form has
  * NO Save button — a person's change to any of ITS fields (wherever the field is drawn, joined by `form=`) submits it: a press at once,
- * typing after a pause (`lib/print-words-autosave.ts`). The submit is the form's own (`requestSubmit`), so it is this same handler —
- * the same post to the same route — and one post at a time: a change made while one is in flight is sent once more after it lands.
+ * typing after a pause (`armPrintWordsAutosave`, `lib/print-words-autosave.ts` — loaded only when `autosave`, so the shipped Maker's
+ * first load never carries it). The submit is the form's own (`requestSubmit`), so it is this same handler — the same post to the same
+ * route — and one post at a time: a change made while one is in flight is sent once more after it lands.
  * Off (the shipped Maker), the form posts only when its Save is pressed, as it always did.
  */
 export function SoftPost({ autosave = false }: { autosave?: boolean } = {}) {
@@ -55,33 +55,33 @@ export function SoftPost({ autosave = false }: { autosave?: boolean } = {}) {
         () => router.refresh(),
       ).catch(() => ({ ok: false }));
     };
-    const send = oneAtATime<{ ok: boolean }>(onSubmit, (r) => {
+    const done = (r: { ok: boolean }) => {
       setState(r.ok ? 'saved' : 'error');
       announceMakerSave(r.ok ? { state: 'saved' } : { state: 'error', text: 'That did not save. Nothing changed — please try again.' });
-    });
+    };
+    /* ⚡ Autosave: the gated submit (one post at a time) and its document listeners, from the lazy module. Until it lands, a submit
+       posts directly. */
+    let gated: (() => void) | null = null;
+    let stop = () => {};
+    let gone = false;
+    if (autosave) {
+      void import('@/lib/print-words-autosave').then((m) => {
+        if (gone) return;
+        const armed = m.armPrintWordsAutosave(form, onSubmit, done);
+        gated = armed.submit;
+        stop = armed.stop;
+      });
+    }
     const onSubmitEvent = (e: SubmitEvent) => {
       e.preventDefault();
-      send();
+      if (gated) gated();
+      else void onSubmit().then(done);
     };
     form.addEventListener('submit', onSubmitEvent);
-    /* ⚡ A person's change to one of this form's fields posts it — on the document, because a field joined by `form=` is drawn
-       elsewhere (⚙ Print settings is on `<body>`) and its events bubble there, not to the form. */
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onEdit = (e: Event) => {
-      const wait = printWordsAutosaveWait(e.type, e.target, form);
-      if (wait === null) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => form.requestSubmit(), wait);
-    };
-    if (autosave) {
-      document.addEventListener('input', onEdit);
-      document.addEventListener('change', onEdit);
-    }
     return () => {
+      gone = true;
       form.removeEventListener('submit', onSubmitEvent);
-      document.removeEventListener('input', onEdit);
-      document.removeEventListener('change', onEdit);
-      clearTimeout(timer);
+      stop();
     };
   }, [router, autosave]);
 

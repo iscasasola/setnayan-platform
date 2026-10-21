@@ -66,7 +66,7 @@ function px(tok: string): number | null {
   return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : null;
 }
 /** One line of text, by Tailwind size (the line-height Tailwind pairs with it). */
-const LINE: Record<string, number> = { 'text-[0.6rem]': 12, 'text-[0.65rem]': 12, 'text-[11px]': 16, 'text-xs': 16, 'text-[13px]': 18, 'text-sm': 20, 'text-base': 24, 'text-lg': 28 };
+const LINE: Record<string, number> = { 'text-[0.6rem]': 12, 'text-[0.65rem]': 12, 'text-[11px]': 16, 'text-xs': 16, 'text-[13px]': 18, 'text-sm': 20, 'text-base': 24, 'text-lg': 28 }; // legibility-ok: class NAMES the rule measures, not text on a page
 
 type Press = { file: string; line: number; tag: string; cls: string };
 

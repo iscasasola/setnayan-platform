@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { Check, ChevronDown, Pencil, X } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -9,9 +10,11 @@ import {
   amountDigits,
   amountWords,
   enterKeeps,
+  exitMoves,
   keepOutcome,
   longAnswerMoves,
   longAnswerPlan,
+  rowToTabTo,
   saveFailedWords,
   showsRequired,
   type FieldExit,
@@ -47,6 +50,10 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
  *   · the open field carries ONLY ✕. Tapping anywhere outside it — another row included, which then opens — or
  *     Enter KEEPS; ✕ or Esc leaves it as it was (`lib/form-row.ts` `keepOutcome`);
  *   · ONE row is open at a time;
+ *   · ⇥ Tab / Shift+Tab keeps the field exactly as Enter does and — on a screen that walks its rows as one order
+ *     (`FORM_TAB_SCOPE`, the guest card's form) — opens the next row (the one before) with its words selected; a
+ *     dropdown, a switch or chips take the focus shut and Tab goes on from them. A keep that did not land, a wrong or
+ *     an unfinished answer stays on its row and says so. A phone's "next" key (its Enter) goes on the same way;
  *   · closing is animated too: the field folds back to the right, the name slides back in from the left — the keep does NOT wait
  *     for it: it happens at the moment the field is left (`end`), the fold only shows it;
  *   · after a save lands the pencil shows a tick for a moment (no "Saved" word in the row);
@@ -307,6 +314,84 @@ function PillWords({ text, quiet }: { text: string; quiet: boolean }) {
   );
 }
 
+/* ── ⇥ Tab goes to the next row ────────────────────────────────────────── */
+
+/**
+ * The attribute a screen puts on the box whose rows Tab walks as ONE order — the guest card's form (owner 2026-10-21:
+ * *"pressing tab on keyboard should allow next row on the guest card?"*). Without it Tab only keeps, and the focus stays
+ * on its row's pill.
+ */
+export const FORM_TAB_SCOPE = 'data-form-tab-scope';
+const ROW = '[data-form-row]';
+const PRESSABLE = 'button:not([disabled]),input:not([type="hidden"]):not([disabled]):not([tabindex="-1"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/** A row's own keys — its answer's controls; not its name's ⓘ, not a row inside it, never a hidden input. */
+function rowKeys(row: Element): HTMLElement[] {
+  return [...row.querySelectorAll<HTMLElement>(PRESSABLE)].filter((el) => el.closest(ROW) === row && !el.closest('[data-form-row-name]'));
+}
+
+/** The row Tab goes to from `row` (`rowToTabTo`): a shut fold's rows (`inert`) and rows not drawn are skipped. */
+export function tabRowFrom(row: Element | null, dir: 1 | -1): HTMLElement | null {
+  const scope = row?.closest(`[${FORM_TAB_SCOPE}]`);
+  if (!row || !scope) return null;
+  const all = [...scope.querySelectorAll<HTMLElement>(ROW)];
+  const at = all.indexOf(row as HTMLElement);
+  const i = at < 0 ? null : rowToTabTo(all.map((r) => ({ reachable: !r.closest('[inert]') && r.getClientRects().length > 0, control: rowKeys(r).length > 0 })), at, dir);
+  return i === null ? null : all[i]!;
+}
+
+/**
+ * Go into `row`: a typed row opens straight into its field (the field selects its words) — inside the key's own press
+ * (`flushSync`), so a phone's keyboard stays up; anything else (a dropdown, a switch, chips) takes the focus, shut, and
+ * Tab goes on from it.
+ */
+function tabInto(row: HTMLElement, dir: 1 | -1): void {
+  const keys = rowKeys(row);
+  const typed = keys.find((el) => el.dataset.formRowPill === 'typed');
+  if (typed) {
+    flushSync(() => typed.click());
+    return;
+  }
+  keys[dir === 1 ? 0 : keys.length - 1]?.focus();
+  carryTab(row);
+}
+
+const carrying = new WeakSet<Element>();
+/** Tab off a row's last key (Shift+Tab off its first) goes on into the next row — until the focus goes anywhere else (its own open list is still the row). */
+function carryTab(row: HTMLElement): void {
+  if (carrying.has(row)) return;
+  carrying.add(row);
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented || row.querySelector('[aria-expanded="true"]')) return;
+    const dir = e.shiftKey ? -1 : 1;
+    const keys = rowKeys(row);
+    if (document.activeElement !== keys[dir === 1 ? keys.length - 1 : 0]) return;
+    const next = tabRowFrom(row, dir);
+    stop();
+    if (!next) return;
+    e.preventDefault();
+    tabInto(next, dir);
+  };
+  const onFocus = (e: FocusEvent) => {
+    const t = e.target as Element;
+    if (!row.contains(t) && !t.closest?.('[data-pick-side]')) stop();
+  };
+  /* A pick closes its list, and the focus that was in it falls to the page: it comes back to the row, so Tab goes on from here. */
+  const onPick = () =>
+    window.setTimeout(() => {
+      if (carrying.has(row) && (!document.activeElement || document.activeElement === document.body)) rowKeys(row)[0]?.focus();
+    });
+  const stop = () => {
+    carrying.delete(row);
+    row.removeEventListener('keydown', onKey);
+    row.removeEventListener('change', onPick);
+    document.removeEventListener('focusin', onFocus);
+  };
+  row.addEventListener('keydown', onKey);
+  row.addEventListener('change', onPick);
+  document.addEventListener('focusin', onFocus);
+}
+
 /* ── a typed answer ────────────────────────────────────────────────────── */
 
 type Saving = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'failed'; text: string; reason: string | null } | { kind: 'wrong'; words: string };
@@ -416,8 +501,11 @@ export function TypedRow({
     if (e.target !== carrier.current) e.stopPropagation();
   };
 
+  /* 📱 Is there a row to go on to? Its field's keyboard then says "next" (decided as it opens). */
+  const [onwards, setOnwards] = useState(false);
   const open = () => {
     if (mode !== 'shut') return;
+    setOnwards(tabRowFrom(root.current, 1) !== null);
     rows?.setOpen(id);
     setMode('open');
   };
@@ -426,6 +514,7 @@ export function TypedRow({
   useEffect(() => {
     if (openAsk === asked.current) return;
     asked.current = openAsk;
+    setOnwards(tabRowFrom(root.current, 1) !== null);
     rows?.setOpen(id);
     setMode((m) => (m === 'shut' ? 'open' : m));
     // Only the ask itself opens it.
@@ -439,25 +528,30 @@ export function TypedRow({
     if (openElsewhere && mode === 'open') field.current?.end('tap-out');
   }, [openElsewhere, mode]);
 
+  /** Keep `text` — once. Answers whether it LANDED: at once when the keep answers at once, else when its promise settles. */
   const send = useCallback(
-    (text: string) => {
+    (text: string): boolean | Promise<boolean> => {
       setState({ kind: 'saving' });
       let answer: KeepAnswer | Promise<KeepAnswer>;
       try {
         answer = onKeep(text);
       } catch {
         setState({ kind: 'failed', text, reason: null });
-        return;
+        return false;
       }
       /* 📮 Kept words reach the form ONCE, here (the carrier already holds them: it follows `shown`, set before this runs). */
       tellTheForm(carrier.current);
-      void Promise.resolve(answer).then(
-        (r) => {
-          if (r && r.ok === false) setState({ kind: 'failed', text, reason: r.error ?? null });
-          else setState({ kind: 'saved' });
-        },
-        () => setState({ kind: 'failed', text, reason: null }),
-      );
+      const heard = (r: KeepAnswer): boolean => {
+        if (r && r.ok === false) setState({ kind: 'failed', text, reason: r.error ?? null });
+        else setState({ kind: 'saved' });
+        return !(r && r.ok === false);
+      };
+      return typeof (answer as Promise<KeepAnswer> | null)?.then === 'function'
+        ? (answer as Promise<KeepAnswer>).then(heard, () => {
+            setState({ kind: 'failed', text, reason: null });
+            return false;
+          })
+        : heard(answer as KeepAnswer);
     },
     [onKeep],
   );
@@ -473,6 +567,10 @@ export function TypedRow({
     const out = keepOutcome({ exit, typed: amount ? amountDigits(typed) : clean ? clean(typed) : typed, before: shown, long, required, check });
     /* What the row is left holding is said once (a preview drawn while typing ends on it). */
     onType?.(out.kind === 'send' || out.kind === 'wrong' ? out.text : shown);
+    /* ⇥ Tab goes on only from a row that is FINE: nothing changed, or its keep landed. A wrong or unfinished answer, or a keep
+       that was refused, keeps the focus here (`refocus`) and says so — it never moves on silently. */
+    const step = exitMoves(exit);
+    let fine: boolean | Promise<boolean> = out.kind === 'as-it-was';
     if (out.kind === 'send') {
       setShown(out.text);
       /* ⚡ KEPT AT THE MOMENT THE FIELD IS LEFT — not after the fold. The fold is a ~0.3 s animation; a write that waited for it left
@@ -480,7 +578,7 @@ export function TypedRow({
          `fieldName` path's hidden input) is set by hand first: React has not re-rendered it yet, and the form reads it when told. */
       if (carrier.current) carrier.current.value = out.text;
       after.current = null;
-      send(out.text);
+      fine = send(out.text);
     } else if (out.kind === 'wrong') {
       setShown(out.text);
       after.current = () => {
@@ -492,12 +590,21 @@ export function TypedRow({
     } else {
       after.current = null;
     }
-    /* Enter and Esc came from the keyboard: the focus goes back to the pill. A tap went where the finger did. */
-    refocus.current = exit === 'enter' || exit === 'escape';
+    /* Enter, Esc and Tab came from the keyboard: the focus goes back to the pill (Tab then moves it on). A tap went where the finger did. */
+    refocus.current = exit === 'enter' || exit === 'escape' || step !== 0;
     if (rows?.open === id) rows.setOpen(null);
     const still = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (still) closed();
     else setMode('leaving');
+    if (step === 0) return;
+    const go = (landed: boolean) => {
+      const next = landed ? tabRowFrom(root.current, step) : null;
+      if (!next) return;
+      refocus.current = false;
+      tabInto(next, step);
+    };
+    if (typeof fine === 'boolean') go(fine);
+    else void fine.then(go);
   };
   /** The field has folded away: the row is itself again, and what keeping meant happens now. */
   const closed = () => {
@@ -563,6 +670,7 @@ export function TypedRow({
           inputMode={amount ? 'numeric' : inputMode}
           autoCapitalize={autoCapitalize}
           leaving={mode === 'leaving'}
+          onwards={onwards}
           onType={onType}
           onEnd={end}
           onGone={closed}
@@ -628,10 +736,13 @@ export function FormRowField({
   inputMode,
   autoCapitalize,
   leaving,
+  onwards = false,
   onType,
   onEnd,
   onGone,
 }: {
+  /** ⇥ There is a row to go on to: the keyboard's Enter says "next", and on a phone it goes on the way Tab does. */
+  onwards?: boolean;
   /** Told the words as they are typed (the row's `onType`). */
   onType?: (text: string) => void;
   /** How the row asks this field to end (another row of the list opened). */
@@ -718,9 +829,14 @@ export function FormRowField({
     </button>
   );
   const onKeys = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && enterKeeps(long)) {
+    if (e.key === 'Tab' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      /* ⇥ Keeps as Enter does, then the row moves on (the browser's own Tab would land on the ✕ that is folding away). */
       e.preventDefault();
-      end('enter');
+      end(e.shiftKey ? 'tab-back' : 'tab');
+    } else if (e.key === 'Enter' && enterKeeps(long)) {
+      e.preventDefault();
+      /* 📱 A phone's "next" key IS its Enter: it goes on, as Tab does. A computer's Enter keeps and stays. */
+      end(onwards && window.matchMedia('(pointer: coarse)').matches ? 'tab' : 'enter');
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -765,7 +881,7 @@ export function FormRowField({
             {mark}
           </span>
         ) : null}
-        <input {...shared} inputMode={inputMode} enterKeyHint="done" onChange={(e) => setText(e.target.value)} onKeyDown={onKeys} />
+        <input {...shared} inputMode={inputMode} enterKeyHint={onwards ? 'next' : 'done'} onChange={(e) => setText(e.target.value)} onKeyDown={onKeys} />
       </span>
       {x}
     </div>

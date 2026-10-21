@@ -279,6 +279,9 @@ export function AutosaveForm({
       ref={formRef}
       action={run}
       className={className}
+      /* ⇥ The card's rows are ONE Tab order (owner 2026-10-21: "pressing tab on keyboard should allow next row on the guest
+         card?") — `FORM_TAB_SCOPE` in `form-row.tsx`, spelled here so the Maker's first load does not import the templates. */
+      data-form-tab-scope=""
       // `change` covers selects, checkboxes and radios; `input` covers typing.
       onChange={schedule}
       onInput={schedule}

@@ -12,7 +12,13 @@ import { notFound } from 'next/navigation';
 import { WishLab, labGiftContent } from './wish-lab';
 import { WelcomeGiftsContent } from '@/app/[slug]/_components/welcome-gifts-content';
 import { wishListShape } from '@/lib/wish-list-guest';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { TicketPicture } from '@/app/[slug]/_components/ticket-picture';
+import { TicketPopup } from '@/app/[slug]/_components/ticket-popup';
+import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { ShortcutLine } from '@/app/[slug]/invite/_components/shortcut-line';
+import { shortcutLineShows } from '@/lib/home-screen-shortcut';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { LAB_SIGNED } from '../lab-own-media';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
@@ -61,7 +67,7 @@ import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
-import { landingHeadline } from '@/lib/guest-landing';
+import { LANDING_WORDS, landingHeadline } from '@/lib/guest-landing';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
@@ -1048,6 +1054,49 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     if (rsvp === 'form' && sp.door === '1') {
       /* 🚪 The reply page as a guest walks it — `./lab-reply-door.tsx`. */
       return <LabReplyDoor sp={sp} words={await eventWordsFor('wedding')} look={labLook} config={labConfig} board={celebrationColours(LAB_BOARD)} guest={LAB_GUEST} reply={labReply} />;
+    }
+    if (rsvp === 'thanks' && sp.guest === '1') {
+      /* 🎟 `?rsvp=thanks&guest=1` — THE THANK-YOU AS A GUEST WHO JUST SAID YES SEES IT (owner 2026-10-21, "save their QR
+         code after they reply … add a shortcut icon"): `invite/enter`'s own pieces, live — the note (`RsvpNoteLines`),
+         the pass (`TicketPicture`) and its pop-up (`TicketPopup`), "Save my ticket" (`SavePassCardButton`: the phone's
+         share sheet, else a download) on the me-lab's real pass drawing, and the shortcut line under its one decision
+         (`shortcutLineShows`, for THIS request's phone). No canvas bridge and no part marks: a tap presses, as a guest's does. */
+      const labPass = '/dev/me-lab/ticket?who=guest&couple=mj';
+      const userAgent = (await headers()).get('user-agent');
+      const shortcut = shortcutLineShows({ reply: 'yes', userAgent, storeShell: await isStoreShellRequest() });
+      return (
+        <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }} data-lab-guest-thanks="">
+          <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+          <RsvpLookStyle config={labConfig} board={celebrationColours(LAB_BOARD)} parts={['yesnote', 'pass']} />
+          <div className="space-y-6 rounded-3xl bg-white px-5 py-6 shadow-sm">
+            <header data-door-header="">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
+              <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
+              <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/60">Saturday, December 12, 2026</p>
+            </header>
+            <div data-landing="message" className="space-y-3">
+              <RsvpNoteLines
+                reply="yes"
+                canvas={false}
+                wordKeys={{ heading: 'thanksHeading', message: 'thanksMessage' }}
+                headline={landingHeadline('attending')}
+                ownHeadline={landingHeadline('attending')}
+                ownMessage={null}
+                firstName="Ana"
+                lines={rsvpScreenLayout(labLook, 'yesnote')}
+              />
+            </div>
+            <section className="space-y-4 text-center" data-lab-guest-pass="">
+              <TicketPopup guestId="lab-ana" fingerprint="lab-1" src={labPass} name="Ana Reyes" />
+              <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
+                <TicketPicture src={labPass} alt="Ana Reyes’s Digital ticket" fallback={null} />
+              </div>
+              <SavePassCardButton hrefs={[labPass]} label={LANDING_WORDS.saveTicket} variant="primary" />
+            </section>
+            {shortcut ? <ShortcutLine userAgent={userAgent} /> : null}
+          </div>
+        </main>
+      );
     }
     if (rsvp === 'form' && sp.sheet === '1') {
       /* 🧾 `?rsvp=form&sheet=1#your-details` — THE EVENT HUB'S OWN REPLY SHEET (`rsvp-sheet.tsx`), the second place a

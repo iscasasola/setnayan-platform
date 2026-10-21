@@ -19,6 +19,7 @@ import { NativeSaveForm } from './native-save-form';
 import { AppleOnTouch } from './apple-on-touch';
 import { mightBeIpadSafari } from '@/lib/apple-device';
 import { TermsTick } from './terms-tick';
+import { ConnectHostsTickFor } from './connect-hosts-tick';
 import {
   NATIVE_SAVE_FIELD,
   saveSignsInNatively,
@@ -141,6 +142,7 @@ export function SaveToAccount({
         <p className="text-sm text-ink/80">
           {line.whose} {line.where}
         </p>
+        <ConnectHostsTickFor eventId={eventId} />
         <SubmitButton className="button-primary min-h-[56px] w-full" pendingLabel="Saving…">
           Yes, save to my account
         </SubmitButton>

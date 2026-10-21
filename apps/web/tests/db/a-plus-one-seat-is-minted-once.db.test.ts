@@ -78,10 +78,14 @@ test('the same name sent twice is ONE seat — the second call returns the first
   assert.equal(b.status, 'ok');
   assert.equal(b.existing, true, 'a second submit of the same name made another seat');
   assert.equal(b.guest_id, a.guest_id);
+  // Nene's +2 is two rows from the start (the database mints them with the number — 20271281805227); the
+  // name fills one of them, ONCE, and the other is still waiting.
   const rows = await seats(nene);
-  assert.equal(rows.length, 1, `expected one seat, found ${rows.length}`);
-  assert.equal(rows[0]!.side, 'both', 'the seat did not take the bringer’s side');
-  assert.equal(rows[0]!.meal_preference, 'fish', 'the seat’s own answer was dropped');
+  assert.equal(rows.length, 2, `expected Nene's two seats, found ${rows.length}`);
+  const carla = rows.filter((r) => r.first_name === 'Carla');
+  assert.equal(carla.length, 1, `expected one Carla, found ${carla.length}`);
+  assert.equal(carla[0]!.side, 'both', 'the seat did not take the bringer’s side');
+  assert.equal(carla[0]!.meal_preference, 'fish', 'the seat’s own answer was dropped');
 });
 
 test('never past the couple’s count — a +1 asked for a second name is `full`', async () => {

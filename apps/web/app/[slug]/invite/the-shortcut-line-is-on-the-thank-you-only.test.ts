@@ -52,7 +52,10 @@ test('2 · the thank-you mounts it once, after a Yes only — and no other guest
   const ENTER = read('[slug]/invite/enter/page.tsx');
   const mounts = ENTER.match(/<ShortcutLine\b/g) ?? [];
   assert.equal(mounts.length, 1, `the line is mounted ${mounts.length} times on the thank-you`);
-  assert.match(ENTER, /\{reply === 'yes' \? <ShortcutLine userAgent=\{userAgent\} \/> : null\}/, 'the line shows before a Yes');
+  // After a Yes, and only where "Add to Home Screen" exists (owner 2026-10-21) — the ONE decision, executed by
+  // `after-a-yes-the-pass-and-the-shortcut-are-reachable.test.ts`.
+  assert.match(ENTER, /\{shortcutShows \? <ShortcutLine userAgent=\{userAgent\} \/> : null\}/, 'the line is mounted on some other condition');
+  assert.match(ENTER, /const shortcutShows = shortcutLineShows\(\{ reply, userAgent, storeShell: await isStoreShellRequest\(\) \}\);/, 'the line shows before a Yes');
   // Never in the before-the-reply render (it returns early, above the thank-you).
   const preReply = ENTER.slice(ENTER.indexOf('if (unreplied && ticket !== \'full\') {'), ENTER.indexOf('<TicketPopup'));
   assert.ok(preReply.length > 100, 'the before-the-reply render moved — this check is blind');

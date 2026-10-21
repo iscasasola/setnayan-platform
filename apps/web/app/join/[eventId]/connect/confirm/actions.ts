@@ -7,6 +7,8 @@ import { connectQuery } from '@/lib/invite-arrival';
 import { captureEvent } from '@/lib/analytics';
 import { setAccountFaceReuse } from '@/lib/account-face-profile';
 import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
+import { connectHostsTicked } from '@/lib/guest-connects-hosts';
+import { askEventHostsToConnect } from '@/lib/guest-connects-hosts.server';
 
 /**
  * THE YES on "This invitation is for <name>. Save it to <email>?" — the ONLY
@@ -48,6 +50,12 @@ export async function confirmSeatLinkAction(
   // blocks the save.
   if (formData?.has(`${REUSE_FACE_FIELD}_shown`)) {
     await setAccountFaceReuse(supabase, user.id, eventId, formData.get(REUSE_FACE_FIELD) === '1').catch(() => false);
+  }
+  // 🤝 "ALSO CONNECT WITH <THE HOSTS>" (owner 2026-10-21) — drawn ON beside the Yes; asked only when it was drawn and
+  // left on (`connectHostsTicked`), only now that the seat is theirs, and only through the one writer. Never throws
+  // and never blocks the save: the seat is already bound above.
+  if (connectHostsTicked(formData)) {
+    await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
   }
   // The growth-loop metric login/signup used to fire when they auto-bound a
   // seat — now fired where the person actually said yes.

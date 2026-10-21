@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
-import { plusOneSeats } from '@/lib/guests';
+import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
@@ -26,6 +26,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { connectHostsTicked } from '@/lib/guest-connects-hosts';
+import { askEventHostsToConnect } from '@/lib/guest-connects-hosts.server';
 import {
   RSVP_TERMS_COOKIE,
   RSVP_TERMS_COOKIE_MAX_AGE,
@@ -197,7 +199,7 @@ export async function startAccountSaveAction(
  * nothing. A couple seat this account may not hold comes back `couple_seat`
  * and the page says so in plain words (`?keep=couple_seat`).
  */
-export async function linkThisSeatAction(eventId: string) {
+export async function linkThisSeatAction(eventId: string, formData?: FormData) {
   const home = await eventHome(eventId);
   const supabase = await createClient();
   const {
@@ -206,6 +208,11 @@ export async function linkThisSeatAction(eventId: string) {
   const session = await readGuestSession();
   if (!user || !session || session.event_id !== eventId) return redirect(home);
   const result = await linkGuestSessionToUser(user.id, { eventId });
+  // 🤝 "Also connect with <the hosts>" — only after the seat is truly theirs, only when the tick was drawn and left
+  // on (lib/guest-connects-hosts.ts). Never throws, so it cannot cost them the link above.
+  if (result.linked && connectHostsTicked(formData)) {
+    await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
+  }
   revalidatePath(home);
   if (result.reason === 'couple_seat') return redirect(`${home}?keep=couple_seat`);
   return redirect(home);
@@ -926,12 +933,15 @@ async function nameTheSeats(
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin
       .from('guests')
-      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category, plus_one_of_guest_id')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
     // Unread is not "not allowed": said, never shown as a saved name.
     if (primaryErr) return { ok: false, error: 'Their name did not save — try again.' };
+    // 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — their door never offers it, and a crafted post is refused
+    // here, before any seat is read or minted (`isAPlusOne`; the mint itself answers `bringer_is_plus_one`).
+    if (primary && isAPlusOne(primary)) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
 
     // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
     // regardless of what a crafted POST carries — a MASTER switch beside the
@@ -1049,6 +1059,8 @@ async function nameTheSeats(
             },
           });
           const mintStatus = (minted as { status?: string } | null)?.status;
+          // 🚫 The bringer turned out to be a +1 (asked inside the lock): refused, said — never logged as a fault.
+          if (!error && mintStatus === 'bringer_is_plus_one') return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
           if (error || (mintStatus !== 'ok' && mintStatus !== 'full')) {
             logQueryError(
               'submitRsvp.mintSeat',

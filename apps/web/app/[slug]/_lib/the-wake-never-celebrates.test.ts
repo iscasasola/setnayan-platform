@@ -209,17 +209,17 @@ const TONE_SITES: Array<[string, string, string]> = [
   ],
   [
     'hub/page.tsx',
-    "'The celebration is underway — enjoy every moment.'",
+    "'The event is underway — enjoy every moment.'",
     "'The gathering is underway. Thank you for being here.'",
   ],
   [
     'hub/page.tsx',
-    "'The celebration has wrapped. Thank you for being part of the day.'",
+    "'The event has wrapped. Thank you for being part of the day.'",
     "'The gathering has ended. Thank you for standing with the family.'",
   ],
   [
     'hub/page.tsx',
-    "'The celebration is almost here. We can’t wait to see you.'",
+    "'The event is almost here. We can’t wait to see you.'",
     "'The gathering is near. It will mean a great deal to have you close.'",
   ],
   [
@@ -449,7 +449,7 @@ test('🎉 the arrival greeting is quiet at a wake — and unchanged everywhere 
 test('🖨 the printed card reads "In loving memory of" at a wake — the cover’s own words', () => {
   const print = libSrc('print-set.server.ts');
   assert.ok(
-    print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',"),
+    print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',"),
     'print-set.server.ts lost one of the three eyebrow arms',
   );
   assert.match(print, /const solemn = isWedding \? false : \(await eventWordsFor\(event\.event_type\)\)\.solemn;/,

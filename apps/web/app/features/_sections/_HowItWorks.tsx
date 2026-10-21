@@ -1,6 +1,6 @@
 import { Heart, Briefcase, Mailbox, Shield, Globe, QrCode, type LucideIcon } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
-import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-mode';
+import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 
 // How it works — the six kinds of people on Setnayan and how the flow connects.
 // Folded in from the standalone /how-it-works page (retired 2026-09-01; that URL

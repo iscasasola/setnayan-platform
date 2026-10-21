@@ -3,7 +3,7 @@ import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
-import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-mode';
+import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates

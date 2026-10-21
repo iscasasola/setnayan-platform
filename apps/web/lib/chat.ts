@@ -284,10 +284,16 @@ export async function countUnreadMessages(
 export async function readUnreadMessageThreads(supabase: SupabaseClient): Promise<number | null> {
   try {
     const { data, error } = await supabase.rpc('count_unread_message_threads');
-    if (error || data === null || data === undefined) return null;
+    if (error) {
+      // Recorded, then answered "unknown" — the badge keeps what it drew.
+      logQueryError('readUnreadMessageThreads', error, { missing_relation: isMissingRelationError(error) }, 'graceful_degrade');
+      return null;
+    }
+    if (data === null || data === undefined) return null;
     const n = typeof data === 'number' ? data : Number(data);
     return Number.isFinite(n) ? n : null;
-  } catch {
+  } catch (caught) {
+    logQueryError('readUnreadMessageThreads (threw)', caught instanceof Error ? caught : new Error(String(caught)), {}, 'graceful_degrade');
     return null;
   }
 }

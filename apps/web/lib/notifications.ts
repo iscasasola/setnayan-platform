@@ -911,9 +911,14 @@ export async function readUnreadNotificationCount(
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .is('read_at', null);
-    if (error || typeof count !== 'number') return null;
-    return count;
-  } catch {
+    if (error) {
+      // Recorded, then answered "unknown" — the bell keeps what it drew.
+      logQueryError('readUnreadNotificationCount', error, { user_id: userId }, 'graceful_degrade');
+      return null;
+    }
+    return typeof count === 'number' ? count : null;
+  } catch (caught) {
+    logQueryError('readUnreadNotificationCount (threw)', caught instanceof Error ? caught : new Error(String(caught)), { user_id: userId }, 'graceful_degrade');
     return null;
   }
 }
@@ -939,9 +944,14 @@ export async function readRecentUnreadOfTypes(
       .in('type', types as NotificationType[])
       .gte('created_at', since)
       .limit(20);
-    if (error || !Array.isArray(data)) return null;
+    if (error) {
+      logQueryError('readRecentUnreadOfTypes', error, { user_id: userId }, 'graceful_degrade');
+      return null;
+    }
+    if (!Array.isArray(data)) return null;
     return data.map((r) => (r as { notification_id: string }).notification_id);
-  } catch {
+  } catch (caught) {
+    logQueryError('readRecentUnreadOfTypes (threw)', caught instanceof Error ? caught : new Error(String(caught)), { user_id: userId }, 'graceful_degrade');
     return null;
   }
 }

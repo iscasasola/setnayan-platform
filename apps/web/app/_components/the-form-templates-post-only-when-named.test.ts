@@ -119,7 +119,9 @@ test('the form is told ONLY by a person: the tap sets a flag, the next commit ra
   const row = src('form-row.tsx');
   const chip = src('chips.tsx');
   /* TypedRow: once, from the keep (`send`) — after `shown` was set, so the carrier holds the new words. */
-  assert.match(row, /\}\s*tellTheForm\(carrier\.current\);\s*void Promise\.resolve\(answer\)/, 'the kept words do not reach the form (once, from the keep)');
+  /* (2026-10-21: the keep now answers whether it landed — at once, or when its promise settles — for Tab's move; the form is
+     still told once, right after `onKeep` and before its answer is heard.) */
+  assert.match(row, /\}\s*tellTheForm\(carrier\.current\);\s*const heard = \(r: KeepAnswer\): boolean =>/, 'the kept words do not reach the form (once, from the keep)');
   assert.equal((row.match(/tellTheForm\(/g) ?? []).length, 2, 'TypedRow and SwitchRow are the only callers in the Form row');
   assert.match(row, /el\.addEventListener\('sn-restore', reread\);/, 'an Undo cannot put the words back on screen');
   assert.match(row, /const reread = \(\) => setShown\(el\.value\);/);

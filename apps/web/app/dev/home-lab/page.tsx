@@ -170,6 +170,18 @@ export default async function HomeLab({
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
   const E = '00000000-0000-4000-8000-000000000000';
+  // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Hub Pro's.
+  if (q.view === 'pro') {
+    const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
+        {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
+        <div className="mt-4">
+          <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
+        </div>
+      </div>
+    );
+  }
   /* 🎨 Papic's row and band — the REAL glance over the approved prototype's own sample
      (papic_easy_home_and_band_2026-10-14_fable.html: Maria & Jose, 2,000 credits bought),
      the REAL default window. `lowday` = running low ON the event day (owner call 1). */
@@ -210,17 +222,6 @@ export default async function HomeLab({
   ];
   if (q.view === 'apply') {
     return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
-  }
-  if (q.view === 'pro') {
-    const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
-    return (
-      <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
-        {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
-        <div className="mt-4">
-          <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
-        </div>
-      </div>
-    );
   }
   if (q.view === 'early') {
     const early = q.early !== '0';

@@ -5,7 +5,7 @@
 // The badge starts from a server-rendered count (so the first paint is
 // accurate without a client roundtrip) and then RE-ASKS the count on a slow
 // timer while the tab is in view, and at once when the person comes back to
-// the tab (`startCountPoll`, lib/tab-return.ts).
+// the tab (`pollBell` → `startCountPoll`, lib/unread-polls.ts · lib/tab-return.ts).
 //
 // 🔌 NO SOCKET (2026-10-21, live connections only where live). It used to
 // subscribe to `notifications` over Supabase Realtime — and because the bell is
@@ -22,9 +22,7 @@ import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { readRecentUnreadOfTypes, readUnreadNotificationCount, type NotificationType } from '@/lib/notifications';
-import { startCountPoll } from '@/lib/tab-return';
-import { trackFailure } from '@/lib/telemetry/track-error';
+import type { NotificationType } from '@/lib/notifications';
 
 /**
  * 🔑 BEING MADE A HOST CHANGES WHAT AN OPEN PAGE SHOULD SHOW (owner 2026-09-28:
@@ -34,8 +32,6 @@ import { trackFailure } from '@/lib/telemetry/track-error';
  * and refreshes the server render if so — no reload, nothing typed is lost.
  */
 const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation'];
-/** How far back "arrived" looks — comfortably longer than one poll plus a hidden stretch's catch-up ask. */
-const ARRIVAL_WINDOW_MS = 15 * 60_000;
 
 type Props = {
   userId: string;
@@ -70,45 +66,28 @@ export function UnreadBellBadge({
   }, [initialUnread]);
 
   useEffect(() => {
-    const supabase = createClient();
-    const seen = new Set<string>();
-    let reported = false;
-
-    const checkArrivals = async () => {
-      const ids = await readRecentUnreadOfTypes(supabase, userId, PAGE_CHANGING_TYPES, ARRIVAL_WINDOW_MS);
-      if (!ids) return;
-      const fresh = ids.filter((id) => !seen.has(id));
-      ids.forEach((id) => seen.add(id));
-      if (fresh.length > 0) {
-        // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited); nothing was pressed here.
-        router.refresh();
-      }
-    };
-
-    return startCountPoll({
-      read: async () => {
-        const n = await readUnreadNotificationCount(supabase, userId);
-        if (n === null && !reported) {
-          // Report the first refusal per mount (no user-facing toast) so a
-          // sustained failure — e.g. an RLS regression on notifications — is
-          // visible in Connection Logs without a report every minute.
-          reported = true;
-          void trackFailure({
-            eventType: 'OTHER',
-            elementName: 'Unread notifications badge',
-            filePath: 'app/_components/unread-bell-badge.tsx',
-            error: new Error('unread notification count could not be read'),
-            payload: { query: 'readUnreadNotificationCount' },
-          });
-        }
-        return n;
-      },
-      onValue: (n) => {
-        const rose = n > shown.current;
-        setUnread(n);
-        if (rose) void checkArrivals();
-      },
+    // The poll is loaded once the bell is on screen (`lib/unread-polls.ts`) — nothing in it is needed for the first
+    // paint, and the bell is in the first load of every signed-in page.
+    let stop: (() => void) | null = null;
+    let gone = false;
+    void import('@/lib/unread-polls').then(({ pollBell }) => {
+      if (gone) return;
+      stop = pollBell({
+        supabase: createClient(),
+        userId,
+        shown: () => shown.current,
+        onValue: setUnread,
+        refreshOn: PAGE_CHANGING_TYPES,
+        onArrival: () => {
+          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited); nothing was pressed here.
+          router.refresh();
+        },
+      });
     });
+    return () => {
+      gone = true;
+      stop?.();
+    };
   }, [userId, router]);
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;

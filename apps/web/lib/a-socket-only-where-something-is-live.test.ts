@@ -19,7 +19,8 @@
  *   3 · ONE BROWSER CLIENT PER TAB. `createBrowserClient` is called in exactly one file (`lib/supabase/client.ts`,
  *       which @supabase/ssr keeps a singleton in the browser), and no `'use client'` file builds a second client from
  *       `@supabase/supabase-js` — a second client would be a second socket.
- *   4 · THE CHROME READS THROUGH THE POLL. The bell and the envelope re-ask through `startCountPoll`, and the budget
+ *   4 · THE CHROME READS THROUGH THE POLL. The bell and the envelope re-ask through `startCountPoll` (via
+ *       `lib/unread-polls.ts`, which they `import()` so it stays off every page's first load), and the budget
  *       re-reads through `onTabReturn` (lib/tab-return.ts, whose own test holds "a failed read changes nothing").
  *
  * Sabotage (2026-10-21, each on the real file, restored by `git checkout`): see the PR body's table.
@@ -87,6 +88,7 @@ const NEVER_LIVE = [
   'app/_components/unread-bell-badge.tsx',
   'app/_components/unread-messages-badge.tsx',
   'app/dashboard/[eventId]/budget/_components/budget-summary.tsx',
+  'lib/unread-polls.ts',
 ];
 
 const CHANNEL = /\.channel\(|postgres_changes/;
@@ -143,9 +145,14 @@ test('the chrome on every page, and the budget, hold no socket', () => {
   const bell = code(path.join(WEB_ROOT, 'app/_components/unread-bell-badge.tsx'));
   const envelope = code(path.join(WEB_ROOT, 'app/_components/unread-messages-badge.tsx'));
   const budget = code(path.join(WEB_ROOT, 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'));
-  assert.match(bell, /startCountPoll\(\{[\s\S]*?readUnreadNotificationCount\(/, 'the bell re-asks through the poll, with the read that can say "unknown"');
-  assert.match(envelope, /startCountPoll\(\{[\s\S]*?readUnreadMessageThreads\(/, 'the envelope re-asks through the poll, with the read that can say "unknown"');
-  for (const [name, src] of [['bell', bell], ['envelope', envelope]] as const) {
+  const polls = code(path.join(WEB_ROOT, 'lib/unread-polls.ts'));
+  assert.match(bell, /import\('@\/lib\/unread-polls'\)\.then\(\(\{ pollBell \}\)/, 'the bell re-asks through pollBell (loaded off the first load)');
+  assert.match(envelope, /import\('@\/lib\/unread-polls'\)\.then\(\(\{ pollEnvelope \}\)/, 'the envelope re-asks through pollEnvelope (loaded off the first load)');
+  const bellPoll = polls.slice(polls.indexOf('export function pollBell('), polls.indexOf('export function pollEnvelope('));
+  const envPoll = polls.slice(polls.indexOf('export function pollEnvelope('));
+  assert.match(bellPoll, /startCountPoll\(\{[\s\S]*?readUnreadNotificationCount\(/, 'pollBell re-asks through the poll, with the read that can say "unknown"');
+  assert.match(envPoll, /startCountPoll\(\{[\s\S]*?readUnreadMessageThreads\(/, 'pollEnvelope re-asks through the poll, with the read that can say "unknown"');
+  for (const [name, src] of [['bell', bell], ['envelope', envelope], ['unread-polls', polls]] as const) {
     assert.doesNotMatch(src, /\bcountUnread(Messages)?\(/, `the ${name} re-asks with a read that answers 0 on failure — a false 0`);
   }
   assert.match(budget, /onTabReturn\(/, 'the budget re-reads when the tab is looked at again');

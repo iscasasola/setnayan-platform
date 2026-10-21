@@ -17,6 +17,8 @@ day, in every tab, and the database evaluated every notification and every chat 
   re-reads) on return (`pauseWhileHidden`); the socket itself closes ~50 s later (realtime-js's empty-socket grace). Calls, Panood, the wall, presence and the demos are unchanged.
 - The thread call launcher opens no channel when calling is locked (it draws no incoming banner then); the home page's
   Papic demo closes its channel when the overlay closes.
+- The poll code (`lib/unread-polls.ts`) is `import()`ed by the badges' effect, so it rides off every page's first load
+  (the Maker first-load budget: main 507.1 KB already over by 0.1; the first push of this branch measured 507.4).
 - `lib/settle-burst.ts` retired (its only caller is gone; a timer asks once a minute whatever lands).
 - Guards: `lib/a-socket-only-where-something-is-live.test.ts` (census of every file that opens a channel; nothing a
   layout draws reaches one except three gated cases; one browser client per tab), `lib/tab-return.test.ts`.

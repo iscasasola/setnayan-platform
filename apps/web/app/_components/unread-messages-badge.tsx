@@ -7,7 +7,7 @@
 // Mirrors UnreadBellBadge: starts from a server-rendered count (accurate first
 // paint, no client roundtrip), then RE-ASKS the count on a slow timer while the
 // tab is in view, and at once when the person comes back to the tab
-// (`startCountPoll`, lib/tab-return.ts).
+// (`pollEnvelope` → `startCountPoll`, lib/unread-polls.ts · lib/tab-return.ts).
 //
 // 🔌 NO SOCKET (2026-10-21, live connections only where live). It used to
 // subscribe to EVERY `chat_messages` INSERT the user could see, over Supabase
@@ -26,9 +26,6 @@ import { useEffect, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { readUnreadMessageThreads } from '@/lib/chat';
-import { startCountPoll } from '@/lib/tab-return';
-import { trackFailure } from '@/lib/telemetry/track-error';
 
 type Props = {
   userId: string;
@@ -45,26 +42,16 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
   }, [initialUnread]);
 
   useEffect(() => {
-    const supabase = createClient();
-    let reported = false;
-    return startCountPoll({
-      read: async () => {
-        const n = await readUnreadMessageThreads(supabase);
-        if (n === null && !reported) {
-          // First refusal per mount only — visible in Connection Logs, not once a minute.
-          reported = true;
-          void trackFailure({
-            eventType: 'OTHER',
-            elementName: 'Unread messages badge',
-            filePath: 'app/_components/unread-messages-badge.tsx',
-            error: new Error('unread message count could not be read'),
-            payload: { query: 'readUnreadMessageThreads' },
-          });
-        }
-        return n;
-      },
-      onValue: setUnread,
+    // The poll is loaded once the envelope is on screen (`lib/unread-polls.ts`) — off the first load of every page.
+    let stop: (() => void) | null = null;
+    let gone = false;
+    void import('@/lib/unread-polls').then(({ pollEnvelope }) => {
+      if (!gone) stop = pollEnvelope({ supabase: createClient(), onValue: setUnread });
     });
+    return () => {
+      gone = true;
+      stop?.();
+    };
   }, [userId]);
 
   const label = unread > 0 ? `Messages · ${unread} unread messages` : 'Messages';

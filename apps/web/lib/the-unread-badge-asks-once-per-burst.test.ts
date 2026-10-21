@@ -8,7 +8,8 @@
  *
  * Two halves, because either alone is a green that proves nothing:
  *   · the helper: a burst of wake events → exactly ONE read; a later return (past the gap) → a second;
- *   · the wiring: the badge reads through `startCountPoll` and nowhere else, and holds no channel.
+ *   · the wiring: the badge reads through `pollEnvelope` → `startCountPoll` (lib/unread-polls.ts) and nowhere else, and
+ *     holds no channel.
  *
  * Sabotage-checked (2026-10-21): dropping the gap check in `startCountPoll`'s wake handler fails the helper half;
  * putting a `postgres_changes` INSERT handler back in the badge fails the wiring half.
@@ -53,10 +54,15 @@ test('a burst of return events asks once; a later return asks again', async () =
 });
 
 test('the badge reads through the poll and holds no channel', () => {
-  const src = stripComments(
+  const badge = stripComments(
     fs.readFileSync(path.join(__dirname, '..', 'app', '_components', 'unread-messages-badge.tsx'), 'utf8'),
   );
-  assert.match(src, /return startCountPoll\(\{/, 'the badge no longer reads through startCountPoll');
-  assert.equal((src.match(/readUnreadMessageThreads\(/g) ?? []).length, 1, 'the badge reads the count from exactly one place');
-  assert.doesNotMatch(src, /postgres_changes|\.channel\(/, 'the badge subscribes to chat_messages again — a socket and a read per message');
+  const polls = stripComments(fs.readFileSync(path.join(__dirname, 'unread-polls.ts'), 'utf8'));
+  const envelope = polls.slice(polls.indexOf('export function pollEnvelope('));
+  assert.match(badge, /pollEnvelope\(\{/, 'the badge no longer reads through pollEnvelope');
+  assert.match(envelope, /return startCountPoll\(\{/, 'pollEnvelope no longer reads through startCountPoll');
+  assert.equal((polls.match(/readUnreadMessageThreads\(/g) ?? []).length, 1, 'the count is read from exactly one place');
+  for (const src of [badge, polls]) {
+    assert.doesNotMatch(src, /postgres_changes|\.channel\(/, 'the badge subscribes to chat_messages again — a socket and a read per message');
+  }
 });

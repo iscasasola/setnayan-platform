@@ -37,11 +37,6 @@ export function useSeatingPresence(
   // 🔂 The list as last drawn, read OUTSIDE a state updater: an unchanged sync must not even call setState — React
   // renders a component once more before bailing out of a same-value update that lands right after another update.
   const peersRef = useRef(peers);
-  const setPeers = (next: Map<string, PresencePeer>) => {
-    if (next === peersRef.current) return;
-    peersRef.current = next;
-    setPeersState(next);
-  };
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const lastSentRef = useRef(0);
   // Latest selection readable from the subscribe callback without re-joining.
@@ -52,6 +47,11 @@ export function useSeatingPresence(
   lockRef.current = lock;
 
   useEffect(() => {
+    const setPeers = (next: Map<string, PresencePeer>) => {
+      if (next === peersRef.current) return;
+      peersRef.current = next;
+      setPeersState(next);
+    };
     const supabase = createClient();
     const channel = supabase.channel(`seating-presence:${eventId}`, {
       config: { presence: { key: me.id } },

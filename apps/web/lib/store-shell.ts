@@ -259,7 +259,11 @@ const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;
  * shipping a store shell at all.
  */
 const WEB_ONLY_FEATURE_ROUTE =
-  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/live|panood\/(?:control|program))(?:\/|$)/;
+  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/(?:live|alaala)|panood\/(?:control|program))(?:\/|$)/;
+// ↑ `/dashboard/<eventId>/alaala` (2026-10-21) — the "Memories" story page: every stage on it is a
+//   chip for a paid add-on (Live Watch · Papic · Music Maker…), "free with Papic", and an "Add to
+//   your Memories" link to the More menu. Nothing links to it; a deep link in the app lands on
+//   /web-only like its public twin `/alaala` (a doorway above).
 // ↑ `/panood/control/<eventId>` and `/panood/program/<eventId>` are the Live
 //   Studio control room and its program output — the paid unlock's working
 //   surface (added 2026-09-24). `/panood/cam/<token>` is a helper's camera join

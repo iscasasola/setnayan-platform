@@ -145,8 +145,9 @@ const isNone = (v: string | undefined) => v === undefined || /^(none|0|0px|trans
 /** A shadow that is only a hairline: every layer has blur 0 and offsets ≤ 1px. */
 function hairlineOnly(v: string): boolean {
   if (isNone(v)) return true;
-  if (/var\(/.test(v)) return false; // cannot prove it is flat
-  return v.split(/,(?![^(]*\))/).every((layer) => {
+  if (/^var\(/.test(v.trim())) return false; // a whole shadow behind a variable cannot be proved flat
+  return v.split(/,(?![^(]*\))/).every((raw) => {
+    const layer = raw.replace(/(?:rgba?|var|color-mix)\([^)]*\)/g, ' '); // the colour, not a length
     const lens = [...layer.matchAll(/(-?[\d.]+)(px)?(?![\d.]*%)/g)].map((m) => Number(m[1]));
     const [x = 0, y = 0, blur = 0] = lens;
     return Math.abs(x) <= 1 && Math.abs(y) <= 1 && blur === 0;

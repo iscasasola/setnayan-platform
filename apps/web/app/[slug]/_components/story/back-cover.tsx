@@ -71,7 +71,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
       {cover.door ? (
         <Link
           href={cover.door.href}
-          className="mt-5 inline-block rounded-full border border-ink/20 px-5 py-2 text-sm text-ink transition-colors hover:border-ink/40"
+          className="mt-5 inline-flex min-h-[44px] items-center rounded-full border border-ink/20 px-5 py-2 text-sm text-ink transition-colors hover:border-ink/40"
         >
           {cover.door.label}
         </Link>

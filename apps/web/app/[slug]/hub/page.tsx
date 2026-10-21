@@ -681,7 +681,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       <Link
         href={`/${event.slug}`}
         aria-label="Back to the event page"
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-cream text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-cream text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </Link>

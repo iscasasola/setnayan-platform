@@ -430,9 +430,10 @@ export function GuestMeSection({
   // Nothing to offer (the ticket is on the page, and the photos are too or there
   // are none yet) → no empty row under the guest's own things.
   const anything = !passOnPage || Boolean(photosHref);
+  // The gap under Me's own cards belongs to what follows: My QR · Photos of you (`mb-8`), or, on the Me tab, the
+  // stage's next card at the Hub's card rhythm (guest_page_fixes_2_4 fix 2).
   const section = (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
-      {/* The gap under Me's own cards belongs to what follows (My QR · Photos of you, or the stage's next card). */}
       {meSlot ? <div className={anything ? 'mb-8' : undefined}>{meSlot}</div> : null}
       {anything ? (
         <div className="flex flex-wrap gap-3">

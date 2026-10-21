@@ -28,6 +28,7 @@ export function TicketRow({
   saveLabel = 'Save',
   saveNote,
   also,
+  show = null,
 }: {
   href: string;
   name: string;

@@ -94,7 +94,7 @@ export async function ScanTrailNotice({
     ? `We keep no record of when you open your invitation or scan your code at this ${w.eventWord}. This page will greet you the same way every time.`
     : `We keep a record of when you open your invitation or scan your code at this ${w.eventWord} — it is how this page knows to welcome you when you first arrive.`;
 
-  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} action={toggle} card={card} />;
+  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} toggle={toggle} card={card} />;
 }
 
 /**
@@ -106,12 +106,12 @@ export async function ScanTrailNotice({
 export function ScanTrailForm({
   sentence,
   optedOut,
-  action,
+  toggle,
   card = false,
 }: {
   sentence: string;
   optedOut: boolean;
-  action: (formData: FormData) => void | Promise<void>;
+  toggle: (formData: FormData) => void | Promise<void>;
   card?: boolean;
 }) {
   const form = (
@@ -120,7 +120,7 @@ export function ScanTrailForm({
        (`setGuestScanTracking` — nothing is deleted), and the same button, now reading "Keep a record again",
        puts it back at once. The gutter is the page's, given by whoever draws this (`site-body.tsx`). */
     <form
-      action={action}
+      action={toggle}
       data-scan-trail=""
       className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
     >
@@ -133,8 +133,10 @@ export function ScanTrailForm({
       </SubmitButton>
     </form>
   );
+  /* `!mt-4`: 16 px under the card above it on Me's stage — the Hub's own card rhythm (`sn-hub-cards space-y-4`),
+     not the stage's wider gap between topics. Drawn only when there is a note, so there is never an empty card. */
   return card ? (
-    <div className="sn-hub-cards" data-me-card="record">
+    <div className="sn-hub-cards !mt-4" data-me-card="record">
       <section>{form}</section>
     </div>
   ) : (

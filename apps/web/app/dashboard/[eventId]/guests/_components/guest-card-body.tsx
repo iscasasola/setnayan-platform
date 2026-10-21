@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { composeFormalName } from '@/lib/formal-name';
-import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS } from '@/lib/extra-seats';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
@@ -326,6 +326,7 @@ export function GuestCardBody({
       linked={Boolean(linkedAccount)}
       returnTo={returnTo}
       deletable={!isCouple}
+      seatWithNoName={plusOneHasNoName(guest)}
     />
   ) : null;
 

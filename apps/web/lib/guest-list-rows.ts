@@ -42,6 +42,8 @@ export const GUEST_LIST_ROW_FIELDS = [
   'invitation_sent_at',
   'plus_one_count',
   'plus_one_of_guest_id',
+  // 🪑 A +1 seat's name was given — the row's "TBA" label, "+1s: … no name yet", the +1 filter, Release seat.
+  'plus_one_name_confirmed_at',
   'plus_one_name',
   'guest_note',
   // The search's words (lib/guest-search.ts) — never drawn on a row.
@@ -85,6 +87,7 @@ export const GUEST_COPY_ROW_FIELDS = [
   'invitation_sent_at',
   'plus_one_count',
   'plus_one_of_guest_id',
+  'plus_one_name_confirmed_at',
   'guest_note',
 ] as const satisfies readonly (typeof GUEST_LIST_ROW_FIELDS)[number][];
 

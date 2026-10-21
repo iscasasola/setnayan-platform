@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 import { clashWords, groupNameClash } from '@/lib/group-name-clash';
 import { carrySideToTheirPlusOnes, seatNumbersFollowTheRows } from '@/lib/extra-seats-sync';
+import { seatReleaseRefusal } from '@/lib/extra-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -516,10 +517,23 @@ export type SoftDeleteForUndoResult =
   | { ok: true; removedIds: string[]; releasedSeats: ReleasedSeat[] }
   | { ok: false; error: string };
 
+/**
+ * 🪑 `release` — RELEASE SEAT (owner 2026-10-21: *"so we can alot the seat to another person in case they said no or they
+ * will not add a +1 anymore"*). The same soft delete, the same Undo (`restoreDeletedGuests` brings back the SAME row —
+ * guest_id, ticket, chair — and gives the seat back to their guest's "+N"), in this ONE action (+0 server actions), with
+ * one gate first: every guest asked about must be a +1 with NO NAME YET (`seatReleaseRefusal`, lib/extra-seats.ts). A named
+ * +1 is a person — refused here, whatever a crafted post says; they leave only by the shipped Remove and its warning.
+ * The bringer's "+N" drops by exactly the seats released (`seatNumbersFollowTheRows`, below).
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export type SoftDeleteOptions = { release?: boolean };
+
 export async function bulkSoftDeleteGuestsForUndo(
   eventId: string,
   guestIds: string[],
+  opts: SoftDeleteOptions = {},
 ): Promise<SoftDeleteForUndoResult> {
+  const release = opts.release === true;
   const ids = Array.from(
     new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
   );
@@ -531,13 +545,26 @@ export async function bulkSoftDeleteGuestsForUndo(
   // to the couple's own event.
   const { data: rows, error: readErr } = await supabase
     .from('guests')
-    .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
+    .select('guest_id, role, rsvp_status, first_name, last_name, display_name, plus_one_of_guest_id, plus_one_name_confirmed_at')
     .eq('event_id', eventId)
     .in('guest_id', ids)
     .is('deleted_at', null);
 
   if (readErr) return { ok: false, error: readErr.message };
   if (!rows || rows.length === 0) return { ok: false, error: 'Nothing selected.' };
+
+  // 🪑 Release seat: every one asked about is a +1 with no name yet — or nothing at all is touched.
+  if (release) {
+    const refused = seatReleaseRefusal(
+      rows.map((r) => ({
+        guest_id: r.guest_id as string,
+        plus_one_of_guest_id: (r.plus_one_of_guest_id as string | null) ?? null,
+        first_name: (r.first_name as string | null) ?? null,
+        plus_one_name_confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
+      })),
+    );
+    if (refused) return { ok: false, error: refused };
+  }
 
   // Couple gate — bride & groom are never removable.
   if (rows.some((r) => r.role === 'bride' || r.role === 'groom')) {
@@ -587,24 +614,30 @@ export async function bulkSoftDeleteGuestsForUndo(
     locked: (s.locked as boolean | null) ?? false,
   }));
 
-  // Release seats (matches the ON DELETE CASCADE intent for a soft-delete).
-  await supabase
-    .from('event_seat_assignments')
-    .delete()
-    .eq('event_id', eventId)
-    .in('guest_id', removedIds);
-
   // Soft-delete. The RETURNING list is the guests that were REALLY deleted —
   // RLS decides that, so it is what everything below acts on.
-  const { data: deletedRows, error: updateErr } = await supabase
+  const softDelete = supabase
     .from('guests')
     .update({ deleted_at: new Date().toISOString() })
     .eq('event_id', eventId)
-    .in('guest_id', removedIds)
+    .in('guest_id', removedIds);
+  // 🪑 A release takes only a seat STILL unnamed at the write: a name given in between (the reply stamps it) keeps the row.
+  const { data: deletedRows, error: updateErr } = await (release ? softDelete.is('plus_one_name_confirmed_at', null) : softDelete)
     .select('guest_id');
 
   if (updateErr) return { ok: false, error: updateErr.message };
   const deletedIds = (deletedRows ?? []).map((r) => r.guest_id as string);
+  if (release && deletedIds.length === 0) return { ok: false, error: 'That seat was just given a name — nothing was released.' };
+
+  // Release their chairs (matches the ON DELETE CASCADE intent for a soft-delete) — only the guests really deleted,
+  // so a row that stayed keeps its chair.
+  if (deletedIds.length > 0) {
+    await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .in('guest_id', deletedIds);
+  }
 
   // 🪑 A +1 removed without their guest takes the seat with them: the guest's "+N" drops by it
   // (lib/extra-seats.ts `seatNumbersAfter`) — never a "+1" over a seat that is gone. Logged, not fatal: the rows are gone.
@@ -641,6 +674,11 @@ export async function bulkSoftDeleteGuestsForUndo(
   // is built from guests who opted out AND are not deleted, so a delete can
   // lift a veto — the cached public surfaces must hear about it now.
   await everyCopyIsNowStale(eventId);
+  // A release says only what it really took (a seat named in between stayed, with its chair).
+  if (release) {
+    const took = new Set(deletedIds);
+    return { ok: true, removedIds: deletedIds, releasedSeats: releasedSeats.filter((x) => took.has(x.guest_id)) };
+  }
   return { ok: true, removedIds, releasedSeats };
 }
 

@@ -245,6 +245,9 @@ export type GuestRow = {
   plus_one_count: number;
   plus_one_name: string | null;
   plus_one_of_guest_id: string | null;
+  /** A +1 seat's name was given (the reply, the card, their own door) — unset while it is a "TBA" placeholder
+   *  (`plusOneHasNoName`, lib/extra-seats.ts). Optional: a read that did not select it reads as never stamped. */
+  plus_one_name_confirmed_at?: string | null;
   plus_one_mode: 'full' | 'limited' | null;
   email: string | null;
   mobile: string | null;
@@ -596,7 +599,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -817,7 +820,7 @@ export async function countGuestsByEvent(
  * reads as `guests.*`. That it is exactly GUEST_FIELDS + the note is held by `a-note-reaches-only-its-guest.test.ts`.
  */
 const GUEST_CARD_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,host_note_for_guest';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,host_note_for_guest';
 
 export async function fetchGuestById(
   supabase: SupabaseClient,

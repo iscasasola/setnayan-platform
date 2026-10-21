@@ -42,6 +42,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  Armchair,
   Check,
   ChevronDown,
   ChevronsDownUp,
@@ -91,7 +92,10 @@ import {
   isToInvite,
   MAP_ARRANGE,
   mapTree,
+  plusOneFilterMatches,
+  plusOneTally,
   plusOneWordsFrom,
+  PLUS_ONE_FILTERS,
   seatRowsByGuest,
   ROSTER_VIEWS,
   rosterSearchMatches,
@@ -102,6 +106,7 @@ import {
   typedLineIsAFilter,
   withTheirPlusOnes,
   type MapArrange,
+  type PlusOneFilter,
   type PlusOneWords,
   type RosterFacts,
   type RosterView,
@@ -123,6 +128,8 @@ import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } fr
 import { useRowState } from './use-row-state';
 import { followColumn } from './dock-follows-column';
 import { GuestMapCanvas } from './guest-map-canvas';
+import { plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
+import type { GuestMutation } from '@/lib/guest-optimistic';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
@@ -357,11 +364,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
+  // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
+  const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
-  const visible = useMemo(
-    () => (q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster),
-    [roster, q, facts],
-  );
+  const visible = useMemo(() => {
+    const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
+    return plusFilter ? found.filter((g) => plusOneFilterMatches(g, plusFilter)) : found;
+  }, [roster, q, facts, plusFilter]);
 
   // ── The one Sort (list) and the one Arrange (map).
   const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
@@ -386,7 +395,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, [unread]);
   // A search opens every section that has a hit (G19 — a hit inside a folded
   // section was invisible, a failure that looked like "not found").
-  const isOpen = (key: string) => (q ? true : open.has(key));
+  const isOpen = (key: string) => (q || plusFilter ? true : open.has(key));
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
@@ -502,7 +511,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
 
   // ── Remove: the one warning, then the shipped soft delete with Undo.
-  const { removing, remove } = useGuestRemoval(eventId);
+  const { removing, remove, release } = useGuestRemoval(eventId);
   const [toRemove, setToRemove] = useState<string[] | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const byId = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
@@ -512,6 +521,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
     // A +1's seat is named with their guest here too — "Juanita Sacdalan’s +1 · TBA", never a bare "+1 · TBA".
     return g ? (plusWords.get(id)?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g)) : '';
   });
+
+  // ── 🪑 Release seat (owner 2026-10-21): +1s with no name yet go at once — no warning, one Undo — and their guests'
+  // "+N" is drawn one lower with them (`seatNumbersAfter`, the server's own rule), never "+1 not added yet" meanwhile.
+  const releaseSeats = (ids: readonly string[], onReleased?: () => void) => {
+    const seatsGoing = ids.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g) && plusOneHasNoName(g!));
+    if (seatsGoing.length === 0) return;
+    const hosts = new Set(seatsGoing.map((g) => g.plus_one_of_guest_id));
+    const also: GuestMutation[] = seatNumbersAfter(seatsGoing, roster.filter((g) => hosts.has(g.guest_id)), 'removed').map((u) => ({
+      kind: 'setField',
+      guestIds: [u.guest_id],
+      // Only the number the row draws (the List carries no `plus_one_allowed` — an override of it would never settle).
+      override: { plus_one_count: u.plus_one_count },
+    }));
+    void release(
+      seatsGoing.map((g) => g.guest_id),
+      { onReleased, also },
+    );
+  };
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
@@ -549,9 +576,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // The counts are read off the SAME list the rows are drawn from (`roster`),
   // never a second read — so "List N" and "N attending" equal the rows below.
   const stats = rosterStats(roster);
+  // 🪑 "+1s: N named · M no name yet" — the filter's own rows, counted (`plusOneTally`); none drawn with no +1s.
+  const plusTally = plusOneTally(roster);
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;
   const shown = visible.filter((g) => countsTowardEvent(g)).length;
   const noMatch = Boolean(q) && visible.length === 0;
+  const pickPlus = (f: PlusOneFilter) => {
+    setPlusFilter((now) => (now === f ? null : f));
+    window.scrollTo({ top: 0 });
+  };
 
   const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
     <Link
@@ -584,10 +617,23 @@ export function GuestsScreen(props: GuestsScreenProps) {
     <span data-pick="" data-thumb-sort="">
       <PickMenu
         label="Sort — groups the list by"
-        value={view}
-        options={views.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+        value={plusFilter ? `plus:${plusFilter}` : view}
+        buttonText={plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined}
+        options={[
+          ...views.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+          // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
+          ...(plusTally.named + plusTally.unnamed > 0
+            ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+            : []),
+        ]}
         onPick={(k) => {
+          if (k.startsWith('plus:')) {
+            setPlusFilter(k.slice(5) as PlusOneFilter);
+            window.scrollTo({ top: 0 });
+            return;
+          }
           const next = k as RosterView;
+          setPlusFilter(null);
           setView(next);
           setOpen(firstOpen(next));
           window.scrollTo({ top: 0 });
@@ -761,6 +807,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const g = byId.get(id);
     return g && g.role !== 'bride' && g.role !== 'groom';
   });
+  // 🪑 Every one selected is a +1 with no name yet → the red button is "Release N seats" (no warning, one Undo).
+  const releasable = selectedIds.filter((id) => {
+    const g = byId.get(id);
+    return Boolean(g) && plusOneHasNoName(g!);
+  });
+  const releaseAll = releasable.length > 0 && releasable.length === selectedIds.length;
 
   let thumb: ReactNode = null;
   if (gview === 'list' && selectMode) {
@@ -802,17 +854,28 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }}
             />
           </span>
-          <ActionButton
-            tone="danger"
-            icon={X}
-            label={`Remove ${removable.length}`}
-            waiting={removable.length === 0}
-            onClick={() => {
-              setRemoveError(null);
-              setToRemove(removable);
-            }}
-            data-testid="bulk-remove"
-          />
+          {releaseAll ? (
+            <ActionButton
+              tone="danger"
+              icon={Armchair}
+              label={`Release ${formatCount(releasable.length)} seat${releasable.length === 1 ? '' : 's'}`}
+              waiting={removing}
+              onClick={() => releaseSeats(releasable, leaveSelect)}
+              data-testid="bulk-release"
+            />
+          ) : (
+            <ActionButton
+              tone="danger"
+              icon={X}
+              label={`Remove ${removable.length}`}
+              waiting={removable.length === 0}
+              onClick={() => {
+                setRemoveError(null);
+                setToRemove(removable);
+              }}
+              data-testid="bulk-remove"
+            />
+          )}
           <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
         </span>
       </div>
@@ -951,6 +1014,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                         setRemoveError(null);
                         setToRemove([g.guest_id]);
                       }}
+                      onRelease={() => releaseSeats([g.guest_id])}
                     />
                   ))
                 )}
@@ -1068,7 +1132,33 @@ export function GuestsScreen(props: GuestsScreenProps) {
                     · <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
                   </span>
                 )}
-                {q ? (
+                {/* 🪑 "+1s: N named · M no name yet" (owner 2026-10-21) — each half a door to the +1 filter, tapped again
+                    to clear it; the same `plusOneFilterMatches` the rows below are filtered by. No +1s → not drawn. */}
+                {plusTally.named + plusTally.unnamed > 0 ? (
+                  <span data-roster-plus-ones="">
+                    · +1s:{' '}
+                    <button
+                      type="button"
+                      className={styles.countsDoor}
+                      aria-pressed={plusFilter === 'named'}
+                      onClick={() => pickPlus('named')}
+                      data-plus-filter="named"
+                    >
+                      <b><Count value={plusTally.named} id="gs-plus-named" /></b> named
+                    </button>{' '}
+                    ·{' '}
+                    <button
+                      type="button"
+                      className={styles.countsDoor}
+                      aria-pressed={plusFilter === 'unnamed'}
+                      onClick={() => pickPlus('unnamed')}
+                      data-plus-filter="unnamed"
+                    >
+                      <b><Count value={plusTally.unnamed} id="gs-plus-unnamed" /></b> no name yet
+                    </button>
+                  </span>
+                ) : null}
+                {q || plusFilter ? (
                   <span className={styles.mute}>
                     · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
                   </span>
@@ -1213,6 +1303,7 @@ function GuestRowLine({
   onOpen,
   onToggle,
   onRemove,
+  onRelease,
 }: {
   g: GuestRow;
   /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
@@ -1224,11 +1315,13 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  verbs: readonly ('message' | 'edit' | 'remove')[];
+  verbs: readonly ('message' | 'edit' | 'remove' | 'release')[];
   chatHref: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onToggle: () => void;
   onRemove: () => void;
+  /** 🪑 A +1 with no name yet: their seat goes at once, with Undo. */
+  onRelease: () => void;
 }) {
   const name = plusWords?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
@@ -1299,6 +1392,9 @@ function GuestRowLine({
             <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Edit ${name}`} onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
           ) : null}
           {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
+          {verbs.includes('release') ? (
+            <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release ${name}`} onClick={onRelease} />
+          ) : null}
         </span>
       )}
     </div>

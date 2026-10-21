@@ -109,6 +109,27 @@ async function fit(page: Page): Promise<Fit> {
   });
 }
 
+/**
+ * 💸 A PESO AMOUNT IS NEVER CUT. A one-line ellipsis (or a line clamp) that hides part of a line carrying ₱ shows a
+ * wrong number, not a shorter one: the Budget's "Reception venue · ₱105,600 paid" lost its amount on every phone from
+ * 320 to 414 (fits-every-phone 2026-10-21). A name may truncate; money wraps.
+ */
+async function cutMoney(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    for (const e of document.querySelectorAll<HTMLElement>('body *')) {
+      const t = e.textContent ?? '';
+      if (!t.includes('₱') || e.children.length > 6) continue;
+      const s = getComputedStyle(e);
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      const ell = s.textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1;
+      const clamp = s.webkitLineClamp !== 'none' && s.webkitLineClamp !== '' && e.scrollHeight > e.clientHeight + 2;
+      if (ell || clamp) out.push(`“${t.trim().slice(0, 40)}” ${e.clientWidth}/${e.scrollWidth}px`);
+    }
+    return out.slice(0, 6);
+  });
+}
+
 function expectFits(where: string, f: Fit) {
   expect(f.docW, `${where}: the page scrolls sideways (${f.docW}px wide in a ${f.vw}px screen) — ${f.past.join(' · ')}`).toBeLessThanOrEqual(f.vw);
   expect(f.past, `${where}: content sticks out past the screen edge`).toEqual([]);
@@ -125,6 +146,7 @@ for (const path of PUBLIC) {
       // The precondition: the page's stylesheet loaded (an unstyled page wraps everything and passes).
       expect(await page.evaluate(() => document.styleSheets.length), `${path}: no stylesheet`).toBeGreaterThan(0);
       expectFits(`${path} @${size.width}`, await fit(page));
+      expect(await cutMoney(page), `${path} @${size.width}: a peso amount is cut by an ellipsis`).toEqual([]);
       await ctx.close();
     });
   }
@@ -203,6 +225,7 @@ for (const path of LABS) {
       expect(res?.status(), `${path} did not render`).toBe(200);
       await page.waitForTimeout(path.includes('maker') ? 6000 : 1200);
       expectFits(`${path} @${size.width}`, await fit(page));
+      expect(await cutMoney(page), `${path} @${size.width}: a peso amount is cut by an ellipsis`).toEqual([]);
       await ctx.close();
     });
   }

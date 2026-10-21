@@ -27,8 +27,8 @@ import {
   type CoupleSuggestion,
 } from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
-import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withColumnDesigns, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
-import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, libraryStyles, styleAllowedSaid, styleKey, toggleDesignTick } from '@/lib/attire-design-picks';
+import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
+import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns } from '@/lib/attire-design-picks';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
 import { garmentOfPick, pickDots, zoneColours } from '@/lib/role-figure';
@@ -1090,7 +1090,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {props.attire.length === 0 ? <p className="py-4 text-[13px] text-ink/60">Add people with a role to your guest list and they appear here.</p> : null}
           {props.attire.map((row) => {
             const def = attireRow(row.tier as AttireTier, row.key);
-            const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
+            const picks = def ? picksWithDesigns(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
             /* 🤵‍♂️ The columns this row draws (`shownColumns`, 2026-10-19) — the maid's FOR MEN column only with a man of
                honor on the list; every index stays the column's own (0 = the first pick, 1 = the second). */
             const drawn = picks.map((pick, pi) => ({ pick, pi })).filter(({ pi }) => !row.columns || row.columns.includes(pi as 0 | 1));
@@ -1131,7 +1131,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     const zoned = Boolean(role) && !isGuests && Boolean(row.paletteKey);
                     const zones = zonesOf(pick.style);
                     const dots = pickDots(pick.style, colours.length > 0 ? colours : [five[3]!], role, isGuests);
-                    const garment = role ? garmentOfPick(pick) : garmentFor(pick.who, pick.style);
+                    const garment = (role ? (heroArt(pick) ?? garmentOfPick(pick)) : null) ?? garmentFor(pick.who, pick.style);
                     const zoneDot = (i: number, c: string, zoneLabel: string) => (
                       <span key={i} className="flex flex-col items-center" data-mood-board-zone={zones[i]?.key ?? i}>
                         <RoleColourDot

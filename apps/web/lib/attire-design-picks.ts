@@ -21,9 +21,24 @@
  * Pure, client-safe.
  */
 import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey, type LibraryDesign } from './attire-library';
-import { designLabel, roleDesigns, type FigureRole } from './attire-designs';
-import type { FigureGarment } from './attire-figures';
+import { columnRole, designLabel, roleDesigns, type FigureRole } from './attire-designs';
+import { FIGURE_ART, artZoneKeys, type FigureArt, type FigureGarment } from './attire-figures';
 import { isAttireStyle, type AttireStyle } from './role-dress-code';
+import { picksOf, sanitizeSecondPicks, withFirstStyle, withSecondStyle, type AttireRowDef, type AttireTier, type ReadPick } from './attire-rows';
+
+/* 👔 Every DRAWN design of a style's five joins the drawings (`FIGURE_ART`) — here, the one door to a design key. The
+   shipped first design already is one of the 45.
+   Each is drawn from its own folder, `public/attire/roles/<role>-<style>/<variant>`, in its STYLE's zones; an undrawn row
+   is never added, so nothing can render it. (Added here, not in `attire-figures.ts`, so the Maker's first load — which
+   reaches that file — never carries the library: `check-maker-js-budget.mjs`, 2026-10-21.) */
+for (const [role, designs] of Object.entries(DESIGN_LIBRARY)) {
+  for (const d of designs ?? []) {
+    if (d.art || typeof d.w !== 'number') continue;
+    const key = variantArtKey(role as FigureRole, d);
+    const zones = artZoneKeys(d.style).map((z) => ({ key: z, mask: `/attire/roles/${key}-${z}.webp` }));
+    (FIGURE_ART as Record<string, FigureArt>)[key] = { src: `/attire/roles/${key}.webp`, mask: zones[0]!.mask, w: d.w, h: 280, zones };
+  }
+}
 
 /** Does this person's column choose STYLES AND DESIGNS (a role in the library — the guests)? */
 export const hasDesignLibrary = (role: FigureRole | null | undefined): role is FigureRole => Boolean(role && DESIGN_LIBRARY[role]?.length);
@@ -43,7 +58,8 @@ export function drawnDesigns(role: FigureRole, style: AttireStyle): LibraryDesig
 
 /** The drawing of a drawn design: the shipped role drawing, or its own folder's. */
 export function designArt(role: FigureRole, d: LibraryDesign): FigureGarment {
-  return d.art ?? variantArtKey(role, d);
+  /* A design's own drawing is a key of `FIGURE_ART` once added above — typed as a role drawing. */
+  return d.art ?? (variantArtKey(role, d) as unknown as FigureGarment);
 }
 
 const styleOfTick = (t: string): string => (t.includes('/') ? t.slice(0, t.indexOf('/')) : t);
@@ -162,4 +178,62 @@ export function styleAllowedSaid(a: AllowedStyle | undefined, drawn: number): st
   if (a.designs.length < drawn) return `${a.designs.length} of ${drawn}`;
   if (drawn === 1) return a.designs[0]!.label;
   return drawn === 2 ? 'both' : `all ${WORD[drawn] ?? drawn}`;
+}
+
+/* ── the reader and the writer of a row's ticks ─────────────────────────── */
+
+type Config = Record<string, unknown> | null | undefined;
+
+/**
+ * A row's picks (`picksOf`, the ONE reader) with each column's ticks — only for a column whose person has a library
+ * (the guests), only when they start with that column's own Wear. Every other pick keeps exactly the shape `picksOf`
+ * gives. Kept here, not in `picksOf`, so the readers that never draw a design (the Maker's first load among them) never
+ * carry the library.
+ */
+export function picksWithDesigns(config: Config, row: AttireRowDef): ReadPick[] {
+  const picks = picksOf(config, row);
+  const raw = (i: number): unknown =>
+    i === 0
+      ? (((config?.[row.tier] ?? {}) as Record<string, { designs?: unknown }>)[row.key] ?? {}).designs
+      : sanitizeSecondPicks(config?.women)[row.tier]?.[row.key]?.designs;
+  return picks.map((p, i) => {
+    const t = sanitizeDesignTicks(columnRole(row.key, i as 0 | 1), p.style, raw(i));
+    return t ? { ...p, designs: t } : p;
+  });
+}
+
+/** The drawing a column's people wear: its first allowed design's — or null where its person has no library. */
+export function heroArt(p: { style: AttireStyle | null; role?: FigureRole | null; designs?: readonly string[] | null }): FigureGarment | null {
+  return hasDesignLibrary(p.role) ? (allowedDesigns(p.role, p.style, p.designs ?? null)[0]?.art ?? null) : null;
+}
+
+/**
+ * 👔 A COLUMN'S STYLES AND DESIGNS, WRITTEN (`toggleDesignTick`): its Wear is the first tick's style, written where each
+ * Wear has always been written (the first column through `withFirstStyle`, the second through `withSecondStyle`), and
+ * `designs` beside it. A column back to ONE whole style stores no `designs` at all — the shape every dress code had
+ * before, byte for byte.
+ */
+export function withColumnDesigns<C extends Record<string, unknown>>(
+  config: C,
+  tier: AttireTier,
+  key: string,
+  index: 0 | 1,
+  style: AttireStyle | null,
+  designs: readonly string[],
+  write: (config: C, tier: AttireTier, key: string, style: string | null) => C,
+): C {
+  const keep = style && !(designs.length === 1 && designs[0] === style) ? [...designs] : null;
+  const setOn = (map: Record<string, Record<string, unknown>>) => {
+    const rule = map[key];
+    if (!rule) return map;
+    const { designs: _was, ...rest } = rule;
+    return { ...map, [key]: keep ? { ...rest, designs: keep } : rest };
+  };
+  if (index === 1) {
+    const next = withSecondStyle(config, tier, key, style) as C & { women?: Record<string, Record<string, Record<string, unknown>>> };
+    const women = next.women ?? {};
+    return { ...next, women: { ...women, [tier]: setOn({ ...(women[tier] ?? {}) }) } };
+  }
+  const next = withFirstStyle(config, tier, key, style, write);
+  return { ...next, [tier]: setOn({ ...((next[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) }) };
 }

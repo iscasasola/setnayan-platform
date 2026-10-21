@@ -15,7 +15,7 @@
  *   6 · each design takes the palette by its OWN zones: a guest man's suit the colour on the tie over black and a
  *       white shirt; a barong its body with the pants charcoal; smart casual its top with the chinos khaki; a woman's
  *       dress all of it — never a colour by position (no khaki or plum pants on a barong);
- *   7 · the stored ticks survive every reader (the sanitizers) and paper says what the page draws.
+ *   7 · the stored ticks survive every other write to the column, and paper says what the page draws.
  *
  * Run from `apps/web`: `npx tsx --test lib/guests-pick-styles-and-designs.test.ts`.
  */
@@ -26,13 +26,13 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DESIGN_LIBRARY, DESIGNS_PER_STYLE_MAX, isDrawn, variantArtKey, type LibraryDesign } from './attire-library';
-import { allowedDesigns, allowedStyles, designArt, drawnDesigns, libraryStyles, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey } from './attire-design-picks';
+import { allowedDesigns, allowedStyles, designArt, drawnDesigns, libraryStyles, picksWithDesigns, sanitizeDesignTicks, toggleDesignTick, styleKey, designKey, withColumnDesigns } from './attire-design-picks';
 import { FIGURE_ART, GUEST_SUIT_BLACK, TIE_DESIGNS, DESIGN_ZONES, type FigureGarment } from './attire-figures';
 import { roleArtKey, roleDesigns, type FigureRole } from './attire-designs';
-import { attireRow, picksOf, sanitizeSecondPicks, withColumnDesigns } from './attire-rows';
-import { sanitizeRoleAttire, type AttireStyle } from './role-dress-code';
+import { attireRow, sanitizeSecondPicks, withSecondColours } from './attire-rows';
+import type { AttireStyle } from './role-dress-code';
 import { zoneTints } from './role-figure';
-import { withAttireStyle } from './mood-board-studio';
+import { withAttireStyle, withCallTime } from './mood-board-studio';
 import { dressCodeForEveryone, dressCodeLines } from './dress-code-for-everyone';
 import { resolveDisplayPalette } from './room-palette';
 import { sanitizeRolePalette } from './mood-board';
@@ -255,7 +255,7 @@ test('4 · a legacy single `style` renders exactly as before — and a column ti
     assert.ok(guestRow(a).includes(`data-garment="guest_m-${m}"`) && guestRow(a).includes(`data-garment="guest_w-${w}"`));
     /* A stale `designs` (an older writer changed `style`) is ignored — `style` wins. */
     const stale = { roles: { guest: { style: m, designs: ['smart_casual' === m ? 'suit' : 'smart_casual', m] } } };
-    assert.equal(picksOf(stale, GUEST_ROW)[0]!.designs ?? null, null, 'designs written for another Wear were read');
+    assert.equal(picksWithDesigns(stale, GUEST_ROW)[0]!.designs ?? null, null, 'designs written for another Wear were read');
     /* Ticked back to one whole style: no `designs` stored — the legacy shape exactly. */
     const back = withColumnDesigns({ roles: { guest: { style: m, designs: [m, 'suit/classic'] } } }, 'roles', 'guest', 0, m, [m], withAttireStyle);
     /* (The women's Wear is pinned to what they read, as every first-column write does — `withFirstStyle`.) */
@@ -263,7 +263,7 @@ test('4 · a legacy single `style` renders exactly as before — and a column ti
   }
   /* Every other role's row is untouched by a library it does not have. */
   const sponsors = { groups: { principal_sponsors: { style: 'suit', designs: ['suit', 'barong_tagalog'] } } };
-  assert.equal(picksOf(sponsors, attireRow('groups', 'principal_sponsors')!)[0]!.designs ?? null, null, 'a role with no library read designs');
+  assert.equal(picksWithDesigns(sponsors, attireRow('groups', 'principal_sponsors')!)[0]!.designs ?? null, null, 'a role with no library read designs');
 });
 
 /* ── 5 · the writer ──────────────────────────────────────────────────────── */
@@ -298,7 +298,7 @@ test('5 · one tap on a style allows all its designs; unticking narrows; `style`
   /* The write round-trips through the one reader, for both columns. */
   const c0 = withColumnDesigns({}, 'roles', 'guest', 0, 'barong_tagalog', ['barong_tagalog', 'suit'], withAttireStyle);
   const c1 = withColumnDesigns(c0, 'roles', 'guest', 1, 'cocktail_dress', ['cocktail_dress', 'filipiniana'], withAttireStyle);
-  const [men, women] = picksOf(c1, GUEST_ROW);
+  const [men, women] = picksWithDesigns(c1, GUEST_ROW);
   assert.equal(men!.style, 'barong_tagalog');
   assert.deepEqual(men!.designs, ['barong_tagalog', 'suit']);
   assert.equal(women!.style, 'cocktail_dress');
@@ -346,11 +346,15 @@ test('6 · every drawn guest design takes the palette by its own zones — never
 
 /* ── 7 · the stored ticks survive every reader ───────────────────────────── */
 
-test('7 · the stored ticks survive the sanitizers, and paper says every allowed style', () => {
+test('7 · the stored ticks survive every other write, and paper says every allowed style', () => {
   const stored = config(['suit', 'barong_tagalog/pina'], ['long_gown', 'filipiniana']);
-  const roles = sanitizeRoleAttire(stored.roles, () => true);
-  assert.deepEqual(roles.guest?.designs, ['suit', 'barong_tagalog/pina']);
   assert.deepEqual(sanitizeSecondPicks(stored.women).roles?.guest?.designs, ['long_gown', 'filipiniana']);
+  /* Every other write to a column keeps its ticks — a colour change rebuilds the women's picks through the sanitizer,
+     the men's Wear line is spread as stored (`withAttireStyle`). */
+  const recoloured = withSecondColours(stored, 'roles', 'guest', ['#123456']);
+  assert.deepEqual(picksWithDesigns(recoloured, GUEST_ROW)[1]!.designs, ['long_gown', 'filipiniana'], 'a colour change dropped the women’s designs');
+  const renoted = withCallTime(stored, 'roles', 'guest', '14:00');
+  assert.deepEqual(picksWithDesigns(renoted, GUEST_ROW)[0]!.designs, ['suit', 'barong_tagalog/pina'], 'a call time dropped the men’s designs');
   const palette = sanitizeRolePalette({ guest: COLOURS, touched_roles: ['guest'] });
   const everyone = dressCodeForEveryone({ config: stored, stored: palette, board: resolveDisplayPalette(palette) });
   const line = dressCodeLines(everyone).find((l) => l.label === 'Guest');

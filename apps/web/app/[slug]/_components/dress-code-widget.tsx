@@ -685,7 +685,8 @@ export function DressCodeWidget({
                `attire_five_designs_per_style_2026-10-21.html` § 4): once the hosts allow more than one design in a
                column, the row is a board — the hero pair, one row per allowed style, the colours once at the foot. One
                design per column keeps the row exactly as it shipped. */
-            if (options && showFigure && row.picks.some((p) => p.allowed.length > 0 && p.colours.length > 0) && row.picks.some((p) => p.allowed.flatMap((a) => a.designs).length > 1)) {
+            /* (Also a column whose one design is not its style's shipped drawing — the row draws only that one.) */
+            if (options && showFigure && row.picks.some((p) => p.allowed.length > 0 && p.colours.length > 0) && row.picks.some((p) => p.allowed.flatMap((a) => a.designs).length > 1 || (p.role && p.allowed[0]?.designs[0] && p.allowed[0].designs[0].art !== `${p.role}-${p.allowed[0].style}`))) {
               return (
                 <li key={row.key} className="border-t border-ink/10 py-5 text-center sm:col-span-2 lg:col-span-3" data-role-row={row.key}>
                   <GuestsBoard row={row} look={look} />

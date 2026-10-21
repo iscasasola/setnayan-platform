@@ -13,7 +13,7 @@ import { designLabel, type FigureRole } from './attire-designs';
 import { ATTIRE_ROWS, PICK_LABEL, honourRowLabel, isHonourRowKey, picksOf, type AttireTier } from './attire-rows';
 import type { FigureWho } from './attire-figures';
 import { pickDots } from './role-figure';
-import { allowedStyles, hasDesignLibrary, type AllowedStyle } from './attire-design-picks';
+import { allowedStyles, hasDesignLibrary, picksWithDesigns, type AllowedStyle } from './attire-design-picks';
 import { roleLabel } from './entourage';
 import { guestRoleLabel, ROLE_LABELS, type GuestRole } from './guests';
 import { roleNameMany, type RoleNames } from './role-names';
@@ -157,7 +157,7 @@ export function dressCodeForEveryone(input: {
     const rowPicked = key ? picked(key) : false;
     /* 🤵‍♂️ An `optionalSecond` column (the man of honor's, 2026-10-19) is listed only when it holds a Wear or its own
        colours — the page cannot see the guest list, and the row's colours alone are the maid's. */
-    const all = picksOf(config, def);
+    const all = picksWithDesigns(config, def);
     const listed = all.filter((p, i) => !(def.optionalSecond && i === 1 && !p.style && !(p.colours && p.colours.length > 0)));
     const two = def.who.length === 2 && listed.length === 2;
     const picks: EveryonePick[] = [];

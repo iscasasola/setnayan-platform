@@ -61,7 +61,7 @@ export default async function OpenShopPage({
     // already exists.
     .from('vendor_profiles_self')
     .select(
-      'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address',
+      'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address, in_business_since_year',
     )
     .eq('user_id', user.id)
     .maybeSingle() : { data: null };
@@ -76,6 +76,7 @@ export default async function OpenShopPage({
     hq_address?: string | null;
     business_owner_name?: string | null;
     business_owner_position?: string | null;
+    in_business_since_year?: number | null;
     contact_phone?: string | null;
     contact_email?: string | null;
   } | null;
@@ -165,6 +166,7 @@ export default async function OpenShopPage({
       accountName={accountName}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
+      savedSinceYear={row?.in_business_since_year ?? null}
       eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}

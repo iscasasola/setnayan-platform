@@ -188,6 +188,7 @@ function detailsFixture(who: Who): DetailsData {
     status: f.status,
     vendorComplete: f.docsIn,
     vendorTotal: 8,
+    requiredIn: Math.min(f.docsIn, 4),
     requiredDocsIn: f.docsIn === 4,
     emailConfirmedAt: f.verified ? '2026-09-01T00:00:00Z' : '2026-10-01T00:00:00Z',
     phoneConfirmedAt: f.verified ? '2026-09-01T00:00:00Z' : null,
@@ -205,6 +206,7 @@ function detailsFixture(who: Who): DetailsData {
     tier: f.tier,
     checklist,
     profileComplete: true,
+    fieldsLeft: 0,
     profileFields: {
       business_name: f.name,
       business_owner_name: f.owner,

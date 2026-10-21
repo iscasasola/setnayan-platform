@@ -57,6 +57,7 @@ export function MoneyLog({ customers, startOpen = false }: { customers: readonly
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         data-testid="money-log"
+        tour="money-log"
         className="flex-1"
       />
       {mounted ? createPortal(sheet, document.body) : null}

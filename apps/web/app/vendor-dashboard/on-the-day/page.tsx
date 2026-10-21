@@ -1017,45 +1017,51 @@ function CompactDayOf({
     <div className="space-y-6">
       {/* Step 1 — the next booked events: set one up ahead of time, or pay to unlock it. */}
       {next.length > 0 ? (
-        <EventPicker bookings={next} activeEventId={null} heading="Your next events" locks={locks} />
+        <div data-tour="hub-next-days">
+          <EventPicker bookings={next} activeEventId={null} heading="Your next events" locks={locks} />
+        </div>
       ) : null}
 
-      {/* Promoted "No event today" explainer. */}
-      <ShopEmpty>
-        <CalendarClock
-          aria-hidden
-          className="mx-auto h-8 w-8"
-          style={{ color: 'var(--m-slate-3)' }}
-          strokeWidth={1.5}
-        />
-        <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
-          No event today
-        </p>
-        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          {next.length > 0
-            ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
-            : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Link
-            href="/vendor-dashboard/customers"
-            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
-            style={{ background: 'var(--m-ink)' }}
-          >
-            See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
-          <Link
-            href="/vendor-dashboard/on-the-day?preview=1"
-            className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
-            style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
-          >
-            Preview the console
-          </Link>
-        </div>
-      </ShopEmpty>
+      {/* Promoted "No event today" explainer. 🔦 The Hub tour's first stop (lib/tours.ts vendor_hub_v1). */}
+      <div data-tour="hub-empty">
+        <ShopEmpty>
+          <CalendarClock
+            aria-hidden
+            className="mx-auto h-8 w-8"
+            style={{ color: 'var(--m-slate-3)' }}
+            strokeWidth={1.5}
+          />
+          <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
+            No event today
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            {next.length > 0
+              ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
+              : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href="/vendor-dashboard/customers"
+              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
+              style={{ background: 'var(--m-ink)' }}
+            >
+              See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+            <Link
+              href="/vendor-dashboard/on-the-day?preview=1"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
+              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
+            >
+              Preview the console
+            </Link>
+          </div>
+        </ShopEmpty>
+      </div>
 
       {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
-      <ModuleReadout family={family} modules={modules} />
+      <div data-tour="hub-setup">
+        <ModuleReadout family={family} modules={modules} />
+      </div>
 
       {/* Event-brief door — where day-of prep actually happens before the day. */}
       <Link

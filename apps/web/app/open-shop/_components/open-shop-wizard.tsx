@@ -36,6 +36,8 @@ import {
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { inBusinessSinceChoices } from '@/lib/in-business-since';
 
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
@@ -95,6 +97,7 @@ export function OpenShopWizard({
   serviceLabels,
   serviceTree = [],
   savedServiceLabel = null,
+  savedSinceYear = null,
   existingSlug = null,
   eventTypeOptions,
   vendorProfileId,
@@ -123,6 +126,8 @@ export function OpenShopWizard({
   serviceTree?: PickerParentView[];
   /** Display name for an already-saved pick, so a re-run shows a NAME. */
   savedServiceLabel?: string | null;
+  /** The shop's "in business since" year when it already has one — then step 2 never asks it again. */
+  savedSinceYear?: number | null;
   /** The address this shop ALREADY holds. Present = it is settled and cannot
    *  be changed (owner 2026-08-10), so the picker renders read-only. */
   existingSlug?: string | null;
@@ -176,6 +181,9 @@ export function OpenShopWizard({
   const [events, setEvents] = useState<string[]>(
     defaults.eventTypes?.length ? defaults.eventTypes : ['wedding'],
   );
+  // "In business since" (owner 2026-10-22, journey_fixes Supplier 2 · A): '' = not answered (optional).
+  const [since, setSince] = useState('');
+  const sinceChoices = inBusinessSinceChoices(new Date().getFullYear());
   const toggleEvent = (k: string) =>
     setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
   /**
@@ -678,6 +686,27 @@ export function OpenShopWizard({
                 Pick all that apply.
               </span>
             </div>
+            {/* ── IN BUSINESS SINCE · optional (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A).
+                Your details counts this year (EST) toward "business profile", and nothing used to ask it, so
+                every new shop opened "unfinished". Asked here, once, as ONE dropdown ("Just starting" first);
+                a shop that already has a year is never asked again. */}
+            {savedSinceYear ? null : (
+              <div className="block space-y-1.5" data-open-shop-since="">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  In business since <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>optional</span>
+                </span>
+                <input type="hidden" name="in_business_since_year" value={since} />
+                <PickMenu
+                  label="In business since"
+                  value={since}
+                  options={sinceChoices}
+                  onPick={setSince}
+                  buttonText={since ? undefined : 'Pick a year'}
+                  dataAttr="data-open-shop-since-pick"
+                  className="input-field min-h-11 w-full justify-between"
+                />
+              </div>
+            )}
           </div>
           {/* 3 · Who you are, and how to reach you. */}
           <div className={step === 3 ? 'space-y-4' : 'hidden'}>

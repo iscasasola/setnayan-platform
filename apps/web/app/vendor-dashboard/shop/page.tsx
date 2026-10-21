@@ -11,7 +11,7 @@ import {
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchOwnVendorProfile, businessProfileChecklist } from '@/lib/vendor-profile';
+import { fetchOwnVendorProfile, businessProfileChecklist, profileGaps } from '@/lib/vendor-profile';
 import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -214,7 +214,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
     completionPct,
-    fieldsLeft: completion.items.filter((i) => !i.ok).length,
+    // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
+    fieldsLeft: profileGaps(completion).fieldsLeft,
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),

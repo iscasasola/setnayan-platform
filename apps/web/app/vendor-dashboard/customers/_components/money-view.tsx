@@ -83,7 +83,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
   return (
     <div data-customers-money="">
       {/* ── RECEIVED · TO COME IN · the meter (frame 05's top block) ── */}
-      <section className="border-b border-ink/10 pb-3 pt-4" data-money-totals={totals ? 'read' : 'unread'} aria-label="Your money">
+      <section className="border-b border-ink/10 pb-3 pt-4" data-money-totals={totals ? 'read' : 'unread'} data-tour="money-summary" aria-label="Your money">
         {totals ? (
           <>
             <div className="grid grid-cols-2 gap-x-5 gap-y-1">
@@ -133,7 +133,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
             <span className="home-k2">Next in</span>
             <CustomersPick label="Next in" value={data.window} options={windowOptions} dataAttr="data-money-window" compact className="!min-h-11" />
           </div>
-          <div id="money-rows" className="scroll-mt-24" data-money-rows="">
+          <div id="money-rows" className="scroll-mt-24" data-money-rows="" data-tour="money-next">
             {rows.items.length === 0 ? (
               data.window !== 'all' && data.openCount > 0 ? (
                 <DatesRow
@@ -167,7 +167,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
       <div className="mt-5 flex min-h-11 items-center" data-money-eyebrow="setnayan">
         <span className="home-k2">Setnayan</span>
       </div>
-      <div data-money-setnayan="">
+      <div data-money-setnayan="" data-tour="money-fees">
         {fees.billsRead ? (
           <BookingFeeBills compact bills={fees.bills} copyFor={fees.copyFor} />
         ) : (

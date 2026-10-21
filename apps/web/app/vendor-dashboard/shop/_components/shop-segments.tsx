@@ -35,6 +35,8 @@ export function ShopSegments({ on }: { on: ShopSegment }) {
           scroll={false}
           aria-current={s === on ? 'page' : undefined}
           data-shop-seg={s}
+          // 🔦 The Shop tour's first stop is a doorway: Next walks into Page (lib/tours.ts vendor_shop_v1).
+          data-tour={s === 'page' ? 'shop-segments' : undefined}
           className="h-11 min-h-11 text-[13.5px]"
         >
           {SHOP_SEGMENT_LABEL[s]}

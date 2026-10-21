@@ -947,6 +947,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           today={todayIso}
           setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
           returnTo="dates"
+          tour="dates-add"
           halls={pools.length > 0 && pools.every((p) => p.isHall)}
           seats={seatsByPool(pools, bookings, blocks, todayIso)}
         />

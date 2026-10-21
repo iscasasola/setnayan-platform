@@ -408,6 +408,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
           today={TODAY}
           setupHref={base}
           returnTo="dates"
+          tour="dates-add"
           seats={venue ? seatsByPool(HALLS, HALL_BOOKINGS, HALL_BLOCKS, TODAY) : seatsByPool(pools, BOOKINGS, BLOCKS, TODAY)}
           halls={venue}
         />

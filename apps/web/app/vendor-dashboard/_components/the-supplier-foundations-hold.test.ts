@@ -13,6 +13,7 @@
  *     `lib/floating-rows-are-glass.test.ts`, which lists this row too)
  *   · the envelope seeded from the notification count        → test 4
  *   · `vendor_shop_v1` mounted on Today                      → test 5
+ *     (since 2026-10-22: Today mapped to a page tour           → test 5)
  *   · `useFitRow` called in the shell that renders null      → test 2
  */
 import test from 'node:test';
@@ -24,6 +25,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { TOURS, TOUR_KEYS } from '@/lib/tours';
 import { customerLandingHref } from '../customers/anchors';
 import { leavesThePage } from './supplier-thumb-leave';
+import { supplierPageTourOn } from '@/lib/supplier-page-tours';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
@@ -137,18 +139,20 @@ test('5 · the two new tour keys are registered — and each mounts only with it
   assert.equal(TOURS.vendor_hub_v1.slides[0]!.title, 'Run the day');
   assert.equal(TOURS.vendor_hub_v1.slides[0]!.body, 'Scan, schedule, shot list, headcount — for this event only.');
 
-  // A tour is a claim about a page. It mounts on that page and nowhere else.
-  const HOME: Record<string, string> = {
-    vendor_shop_v1: 'app/vendor-dashboard/shop/',
-    vendor_hub_v1: 'app/vendor-dashboard/on-the-day/',
-  };
+  // A tour is a claim about a page. It plays on that page and nowhere else. ⚠ CHANGED ON PURPOSE
+  // 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3): both are switched on as spotlights and are
+  // mounted ONCE in the supplier layout (a page mount dies when Shop's first stop walks into Page), so
+  // "its own page" is now the address rule `supplierPageTourOn` — asked here, and in full by
+  // `each-supplier-page-has-its-tour.test.ts`.
+  assert.equal(supplierPageTourOn('/vendor-dashboard/shop', {}), 'vendor_shop_v1');
+  assert.equal(supplierPageTourOn('/vendor-dashboard/on-the-day', {}), 'vendor_hub_v1');
+  assert.equal(supplierPageTourOn('/vendor-dashboard', {}), null, 'a page tour plays on Today');
   const files = walk(join(WEB, 'app'));
-  for (const [key, home] of Object.entries(HOME)) {
+  for (const key of ['vendor_shop_v1', 'vendor_hub_v1']) {
     const mounts = files
       .filter((f) => new RegExp(`tourKey="${key}"`).test(stripComments(readFileSync(f, 'utf8'))))
       .map((f) => relative(WEB, f));
-    assert.ok(mounts.length <= 1, `${key} is mounted ${mounts.length} times: ${mounts.join(', ')}`);
-    for (const m of mounts) assert.ok(m.startsWith(home), `${key} is mounted on ${m}, not on the page it describes (${home})`);
+    assert.deepEqual(mounts, [], `${key} is mounted page by page: ${mounts.join(', ')}`);
   }
 });
 

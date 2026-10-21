@@ -126,15 +126,18 @@ test('4 · "Then" is the rail’s next two steps, then the approval', () => {
   // S4: details done → the Next card is "Add what you offer".
   const s4 = rail({});
   assert.equal(s4.current?.key, 'service_card');
+  // ⚠ Numbers moved by one ON PURPOSE (owner "Yes to all" 2026-10-22, journey_fixes Supplier 2 · A): "Add your
+  // logo" is first step 2, so the documents are 4 and the approval 8. A complete profile has its logo, so it is
+  // done here and not in "Then".
   assert.deepEqual(firstStepsThen(s4).map((s) => `${s.n} · ${s.title}`), [
-    '3 · Send your documents',
-    '4 · Mark the days you are not available',
-    '7 · Setnayan approves you — you go live',
+    '4 · Send your documents',
+    '5 · Mark the days you are not available',
+    '8 · Setnayan approves you — you go live',
   ]);
   // S5: a service too → the Next card is "Send your documents".
   const s5 = rail({ serviceCount: 1 });
   assert.equal(s5.current?.key, 'documents');
-  assert.deepEqual(firstStepsThen(s5).map((s) => s.n), [4, 5, 7]);
+  assert.deepEqual(firstStepsThen(s5).map((s) => s.n), [5, 6, 8]);
   assert.deepEqual(firstStepsThen(null), []);
   const view = read('lib/supplier-today-view.ts');
   assert.match(view, /then: next\.kind === 'setup' \? firstStepsThen\(input\.firstSteps\) : \[\],/);

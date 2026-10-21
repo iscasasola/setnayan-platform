@@ -186,7 +186,8 @@ export function CustomersCalendar({
           {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
         </p>
       ) : null}
-      <div style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity">
+      {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
+      <div style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
         <CalendarGrid
           value={picked}
           today={todayIso}

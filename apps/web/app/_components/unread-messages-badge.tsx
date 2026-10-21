@@ -1,35 +1,34 @@
 'use client';
 
-// Live unread-message badge for the Messages icon (MessageSquare) in the
-// couple top bar. Shipped icon-only in PR #837; this adds the count.
+// Unread-message badge for the Messages icon (MessageSquare) in the couple's
+// event bar and the supplier's bar. Shipped icon-only in PR #837; this adds the
+// count.
 //
-// Mirrors UnreadBellBadge: starts from a server-rendered count (accurate
-// first paint, no client roundtrip), then subscribes to the `chat_messages`
-// table via Supabase Realtime so a newly-arrived message bumps the count
-// without a reload. On every (re)SUBSCRIBED — including after a network drop —
-// we refetch the authoritative count so we backfill anything missed offline.
+// Mirrors UnreadBellBadge: starts from a server-rendered count (accurate first
+// paint, no client roundtrip), then RE-ASKS the count on a slow timer while the
+// tab is in view, and at once when the person comes back to the tab
+// (`startCountPoll`, lib/tab-return.ts).
 //
-// The count source is the SQL function count_unread_message_threads() via
-// countUnreadMessages(), which graceful-degrades to 0 when the read-marker
-// migration (20260728000000_chat_thread_reads.sql) isn't pushed yet — so the
-// badge is safe to ship before the owner applies the migration (reads 0).
+// 🔌 NO SOCKET (2026-10-21, live connections only where live). It used to
+// subscribe to EVERY `chat_messages` INSERT the user could see, over Supabase
+// Realtime, from every plain page of two whole trees — a websocket held open
+// all day in every tab, to move a badge. The conversation itself stays live:
+// an open thread streams its messages (`ChatMessageStream`).
+//
+// 🧯 A burst of messages used to fire one count RPC per message (then one per
+// burst — `settleBurst`). A timer asks at most once per minute, whatever lands.
+//
+// 🔒 A FAILED READ CHANGES NOTHING. `readUnreadMessageThreads` answers `null`
+// when it could not read (and when the read-marker function is missing), and
+// the poll never hands `null` on — the drawn count stands; never a false 0.
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { countUnreadMessages } from '@/lib/chat';
+import { readUnreadMessageThreads } from '@/lib/chat';
+import { startCountPoll } from '@/lib/tab-return';
 import { trackFailure } from '@/lib/telemetry/track-error';
-import { settleBurst } from '@/lib/settle-burst';
-
-/**
- * A burst of messages (a supplier pasting three replies, a bot answering) used
- * to fire one count RPC PER message. The count is re-asked once the burst has
- * been quiet this long instead — the badge ends on the same exact number, it
- * just stops asking the database the same question five times in a second.
- * Held by lib/the-unread-badge-asks-once-per-burst.test.ts.
- */
-const BURST_SETTLE_MS = 1500;
 
 type Props = {
   userId: string;
@@ -39,68 +38,34 @@ type Props = {
 
 export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
   const [unread, setUnread] = useState(initialUnread);
-  // Unique per-instance channel suffix — same rationale as UnreadBellBadge:
-  // if this component ever mounts twice for the same user, Supabase Realtime
-  // hands back the same channel singleton and calling .on() after subscribe()
-  // throws. useId() gives each mount a distinct stable channel name.
-  const instanceId = useId();
+
+  // A fresh server render (a revalidated layout, a router.refresh) wins.
+  useEffect(() => {
+    setUnread(initialUnread);
+  }, [initialUnread]);
 
   useEffect(() => {
     const supabase = createClient();
-    let cancelled = false;
-
-    const refresh = async () => {
-      try {
-        const fresh = await countUnreadMessages(supabase, userId);
-        if (cancelled) return;
-        setUnread(fresh);
-      } catch (err) {
-        // Transient — Realtime will resync on the next event / resubscribe.
-        // Still report so a sustained count-query failure is visible.
-        void trackFailure({
-          eventType: 'OTHER',
-          elementName: 'Unread messages badge',
-          filePath: 'app/_components/unread-messages-badge.tsx',
-          error: err,
-          payload: { query: 'countUnreadMessages' },
-        });
-      }
-    };
-
-    const settle = settleBurst(() => {
-      void refresh();
-    }, BURST_SETTLE_MS);
-
-    const channel = supabase
-      .channel(`msg-unread-${userId}-${instanceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        () => {
-          // A message landed somewhere. We can't cheaply tell from the raw
-          // INSERT whether it's in one of *this* user's threads or whether
-          // it's their own message, so just refetch the accurate count (the
-          // RPC scopes to the user + excludes their own messages server-side).
-          // A burst of inserts asks once, after the last one.
-          settle.poke();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          void refresh();
+    let reported = false;
+    return startCountPoll({
+      read: async () => {
+        const n = await readUnreadMessageThreads(supabase);
+        if (n === null && !reported) {
+          // First refusal per mount only — visible in Connection Logs, not once a minute.
+          reported = true;
+          void trackFailure({
+            eventType: 'OTHER',
+            elementName: 'Unread messages badge',
+            filePath: 'app/_components/unread-messages-badge.tsx',
+            error: new Error('unread message count could not be read'),
+            payload: { query: 'readUnreadMessageThreads' },
+          });
         }
-      });
-
-    return () => {
-      cancelled = true;
-      settle.cancel();
-      void supabase.removeChannel(channel);
-    };
-  }, [userId, instanceId]);
+        return n;
+      },
+      onValue: setUnread,
+    });
+  }, [userId]);
 
   const label = unread > 0 ? `Messages · ${unread} unread messages` : 'Messages';
 

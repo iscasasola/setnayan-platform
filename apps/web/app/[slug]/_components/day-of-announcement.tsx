@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { latestAnnouncementForGuest } from '../announcement-actions';
 import { herdDelay } from '@/lib/live-day-timing';
 import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
@@ -107,14 +108,19 @@ export function DayOfAnnouncement({
 
     const pingTimers: number[] = [];
     const supabase = createClient();
-    const channel = supabase
-      .channel(`announce:${eventId}`)
-      .on('broadcast', { event: 'announcement' }, () => {
-        // The ping reaches EVERY guest's phone in the same instant. Each waits a random moment (< 3 s) before asking,
-        // so the venue's phones reach the server spread out instead of all at once (lib/live-day-timing.ts).
-        pingTimers.push(window.setTimeout(() => void pull(), herdDelay(PING_SPREAD_MS)));
-      })
-      .subscribe();
+    // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`); the visibility handler below pulls
+    // the moment it is looked at, so a ping missed in the pocket is a message read on the way out of it.
+    const stopChannel = pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`announce:${eventId}`)
+        .on('broadcast', { event: 'announcement' }, () => {
+          // The ping reaches EVERY guest's phone in the same instant. Each waits a random moment (< 3 s) before asking,
+          // so the venue's phones reach the server spread out instead of all at once (lib/live-day-timing.ts).
+          pingTimers.push(window.setTimeout(() => void pull(), herdDelay(PING_SPREAD_MS)));
+        })
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    });
 
     // 45s: slow enough to be invisible on a phone battery through a reception,
     // fast enough that a dropped channel is a delay and not a silence.
@@ -129,7 +135,7 @@ export function DayOfAnnouncement({
       window.clearInterval(timer);
       pingTimers.forEach((t) => window.clearTimeout(t));
       document.removeEventListener('visibilitychange', onVisible);
-      void supabase.removeChannel(channel);
+      stopChannel();
     };
   }, [eventId]);
 

@@ -275,6 +275,24 @@ export async function countUnreadMessages(
 }
 
 /**
+ * The unread-thread count for the Messages envelope's own re-reads in the browser — `null` when it could not be read.
+ *
+ * 🔒 `countUnreadMessages` above graceful-degrades to 0, which is right for the server chrome but makes a refused
+ * re-read draw a false 0 over a real count. The envelope's poll (`startCountPoll`, lib/tab-return.ts) leaves the drawn
+ * count alone on `null`.
+ */
+export async function readUnreadMessageThreads(supabase: SupabaseClient): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('count_unread_message_threads');
+    if (error || data === null || data === undefined) return null;
+    const n = typeof data === 'number' ? data : Number(data);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * How many COUPLE-authored messages exist on a thread. Feeds chat-send's
  * pre-accept allowance (the inquiry + exactly ONE follow-up while the thread is
  * `pending`) and its "first message = new inquiry" notification swap.

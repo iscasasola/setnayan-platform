@@ -111,7 +111,7 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   const cluster = layout.slice(at, layout.indexOf('timer.flush();', at));
   const env = cluster.match(/<UnreadMessagesBadge\b[\s\S]*?\/>/);
   assert.ok(env, 'the envelope is not in the cluster handed to the shared bar');
-  assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two Realtime channels');
+  assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two count polls');
   assert.match(env[0], /initialUnread=\{threadsUnread\}/, 'the envelope is seeded from something other than the unread MESSAGES count');
   assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
   assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');

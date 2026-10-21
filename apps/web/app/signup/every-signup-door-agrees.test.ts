@@ -82,10 +82,20 @@ test('the sweep finds the doors — /signup and the wedding onboarding account s
 // SABOTAGE: delete the Terms <label> from onboarding-shell.tsx → RED.
 // SABOTAGE: add `defaultChecked` to it → RED.
 // SABOTAGE: turn it into `type="hidden"` → RED.
+// SABOTAGE: point /signup's box at another form (`form={OTHER}`) → RED (0 Terms inputs for that door).
 test('every sign-up door carries the Terms box — a checkbox, required, UNTICKED, above the button', () => {
   const offenders: string[] = [];
   for (const d of ALL) {
-    const tags = [...d.form.matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)].map((m) => m[0]);
+    // A box may sit OUTSIDE its form and still be the form's own field: HTML's `form=` attribute posts it with the
+    // form whose `id` it names (/signup since 2026-10-22 — one box ABOVE Google, Apple and the email form). It counts
+    // for THIS door only when the `form=` names THIS form's id; any other id, or none, is somebody else's box.
+    const formId = d.form.match(/^<form action=\{signUp\}[^>]*\bid=\{(\w+)\}/)?.[1] ?? null;
+    const outside = formId
+      ? [...d.code.slice(0, d.formAt).matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)]
+          .map((m) => m[0])
+          .filter((tag) => new RegExp(`\\bform=\\{${formId}\\}`).test(tag))
+      : [];
+    const tags = [...[...d.form.matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)].map((m) => m[0]), ...outside];
     const literal = [...d.form.matchAll(/<input\b[^>]*\bname="terms_agreed"[^>]*>/g)].map((m) => m[0]);
     if (literal.length) offenders.push(`${d.where}: posts "terms_agreed" by hand — use TERMS_FIELD`);
     if (tags.length !== 1) {
@@ -96,9 +106,10 @@ test('every sign-up door carries the Terms box — a checkbox, required, UNTICKE
     if (!/\btype="checkbox"/.test(tag)) offenders.push(`${d.where}: the Terms field is not a checkbox — ${tag}`);
     if (!/\brequired\b/.test(tag)) offenders.push(`${d.where}: the Terms box is not \`required\``);
     if (/\b(defaultChecked|checked)\b/.test(tag)) offenders.push(`${d.where}: the Terms box is pre-ticked`);
-    const box = d.form.indexOf('name={TERMS_FIELD}');
+    // Measured in the whole file: a box associated by `form=` sits before the form, so above its submit as well.
+    const box = outside.length ? d.code.indexOf(outside[0]!) : d.formAt + d.form.indexOf('name={TERMS_FIELD}');
     const submit = d.form.indexOf('<SubmitButton');
-    if (submit < 0 || box > submit) offenders.push(`${d.where}: the Terms box is not ABOVE the submit`);
+    if (submit < 0 || box > d.formAt + submit) offenders.push(`${d.where}: the Terms box is not ABOVE the submit`);
   }
   assert.deepEqual(offenders, [], offenders.join('\n'));
 });

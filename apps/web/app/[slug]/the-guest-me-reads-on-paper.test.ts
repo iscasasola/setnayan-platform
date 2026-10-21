@@ -170,5 +170,5 @@ test('4 · a named +1 with a ticket is ONE TicketRow: the ticket (opens big) and
   const show = read('app/[slug]/_components/ticket-show.tsx');
   assert.match(show, /import \{ GuestSheet \} from '\.\/guest-hub-bar';/);
   assert.match(read('app/[slug]/_components/guest-hub-bar.tsx'), /<GuestSheet titleId="guest-qr-title"/, 'My QR no longer opens the same sheet');
-  assert.match(show, /<GuestSheet\b[^>]*title=\{PASS_CARD_WORDS\.showAtDoor\}[\s\S]*<SavePassCardButton hrefs=\{\[href\]\} label=\{saveLabel\} \/>/);
+  assert.match(show, /<GuestSheet\b[^>]*title=\{PLUS_ONE_TICKET_WORDS\.showAtDoor\}[\s\S]*<SavePassCardButton hrefs=\{\[href\]\} label=\{saveLabel\} \/>/);
 });

@@ -3,7 +3,7 @@ import { AddNameInPlace } from './add-name-in-place';
 import { SendTheirInvite } from './send-their-invite';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
-import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, PLUS_ONE_TICKET_WORDS } from '@/lib/pass-card';
 import { displayPersonName } from '@/lib/person-name-case';
 import { TicketRow } from './ticket-row';
 
@@ -94,8 +94,8 @@ export function YourGuests({
                 <TicketRow
                   href={ticket}
                   name={shown}
-                  sub={PASS_CARD_WORDS.tapToShow}
-                  show={{ eyebrow: PASS_CARD_WORDS.ofName(first), saveLabel: PASS_CARD_WORDS.saveOf(first) }}
+                  sub={PLUS_ONE_TICKET_WORDS.tapToShow}
+                  show={{ eyebrow: PLUS_ONE_TICKET_WORDS.ofName(first), saveLabel: PASS_CARD_WORDS.saveOf(first) }}
                   also={send}
                 />
               </li>

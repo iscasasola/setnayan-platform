@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
-import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, PLUS_ONE_TICKET_WORDS } from '@/lib/pass-card';
 import { GuestSheet } from './guest-hub-bar';
 
 /**
@@ -37,7 +37,7 @@ export function TicketShow({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`${eyebrow} — ${PASS_CARD_WORDS.showAtDoor}`}
+        aria-label={`${eyebrow} — ${PLUS_ONE_TICKET_WORDS.showAtDoor}`}
         aria-haspopup="dialog"
         data-ticket-show=""
         className="shrink-0 rounded-md"
@@ -53,7 +53,7 @@ export function TicketShow({
         />
       </button>
       {open ? (
-        <GuestSheet titleId={titleId} eyebrow={eyebrow} title={PASS_CARD_WORDS.showAtDoor} onClose={() => setOpen(false)}>
+        <GuestSheet titleId={titleId} eyebrow={eyebrow} title={PLUS_ONE_TICKET_WORDS.showAtDoor} onClose={() => setOpen(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- the same PNG, drawn big */}
           <img
             src={href}

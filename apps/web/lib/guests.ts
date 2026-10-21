@@ -6,6 +6,7 @@ import {
 } from '@/lib/supabase/error-detect';
 import { roleNameOne, type RoleNames } from '@/lib/role-names';
 import { styledName, type NameStyle } from '@/lib/name-style';
+import { realNameParts } from '@/lib/seat-placeholder-words';
 
 export type GuestRole =
   | 'guest'
@@ -982,7 +983,10 @@ export function computePaxProgress(
 export function guestDisplayName(
   guest: Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
 ): string {
-  return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
+  // 🪪 A +1 named "Ben" keeps the stored stand-in "+1" as their last name (NOT NULL) — it reads "Ben", never "Ben +1"
+  // (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const { first, last } = realNameParts(guest.first_name, guest.last_name);
+  return guest.display_name?.trim() || `${first} ${last}`.trim();
 }
 
 /**
@@ -1044,7 +1048,9 @@ export function guestFullName(guest: {
   /* Order is the printed order, and every part is optional EXCEPT that at least
      one must survive — `styledName` skips a blank part, so `${a} ${b}` with
      both empty (a lone stray space) can never print. */
-  const formal = styledName(guest, style);
+  // 🪪 A stand-in part ("TBA" / "+1") beside a real one is not printed (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const { first, last } = realNameParts(guest.first_name, guest.last_name);
+  const formal = styledName({ ...guest, first_name: first, last_name: last }, style);
   if (formal) return formal;
   /* Only a row with NO name parts at all falls back to "Shown as" — there is
      no full name for it to replace, and dropping the person is worse. */

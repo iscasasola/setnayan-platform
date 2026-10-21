@@ -63,7 +63,6 @@ import { partsHiddenOn } from '@/lib/what-guests-see';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
-import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
 import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
@@ -2169,6 +2168,10 @@ async function invitationBody({
     seatHolderUserId,
     seatName: seatDisplayName(guest),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
+    // 🔒 THE HOST HOLDS A GUEST'S LINK TO LOOK, NEVER TO KEEP (owner 2026-10-21, Pam's link on his own wedding):
+    // `ownerCapability` is the page's one host check (couple · coordinator · accepted delegate), so a host who
+    // pressed "Open as <name>" meets "You're viewing <name>'s invitation as the host", never "Save it to <you>?".
+    viewerManagesEvent: ownerCapability !== null,
   });
 
   const rsvpFlash =
@@ -2257,9 +2260,9 @@ async function invitationBody({
   const myGuests =
     event.slug && !isEditorCanvas
       ? await yourGuestsFor(admin, { event_id: event.event_id, slug: event.slug }, guest.guest_id, {
-          withPasses: true,
-          // Their passes wear the event's QR look (lib/qr-look.ts), like their own.
-          look: await resolveEventQrLook(admin, event.event_id, event),
+          // 🎫 No inline pass: each named plus-one's ticket IS their QR (`TicketRow`, guest_page_fixes_2_4 fix 4) —
+          // the route's own PNG, opened big in the sheet. The second drawing ("Show …'s ticket") was retired.
+          withPasses: false,
         })
       : { guests: [], passes: {} };
   // 🎫 THE PASS CARD (owner 2026-09-29: "only accepted accounts get their
@@ -2341,7 +2344,6 @@ async function invitationBody({
       askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
       eventName={event.display_name ?? 'the event'}
       guests={myGuests.guests}
-      passes={myGuests.passes}
       passCards={passCardHrefs}
       account={account}
       personalLink={invitationUrl}

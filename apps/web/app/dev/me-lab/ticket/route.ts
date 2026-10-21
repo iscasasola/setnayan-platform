@@ -5,6 +5,7 @@ import { renderInvitationQrPng } from '@/lib/qr';
 import { FREE_QR_LOOK } from '@/lib/qr-look';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { LAB_DOORS, LAB_PEOPLE, labMeDressConfig } from '../lab-people';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * 🎟 THE ME LAB'S TICKET — the real card drawing (`layoutPassCard` → `renderPassCardPng`, Classic), with Arrive read as
@@ -16,6 +17,8 @@ export async function GET(req: Request): Promise<Response> {
   /* `&couple=mj` — the maker-lab guest's couple (Maria & Jose, 12 Dec 2026), for its after-a-Yes thank-you. */
   const mj = new URL(req.url).searchParams.get('couple') === 'mj';
   const p = LAB_PEOPLE.find((x) => x.key === who) ?? LAB_PEOPLE[0]!;
+  /* `?name=pamela labriaga` — a typed name, printed the way the real card prints it (`passCardGuestName`, shown cased). */
+  const typed = new URL(req.url).searchParams.get('name');
   const data: PrintSetData = {
     names: mj ? { first: 'Maria', second: 'Jose' } : { first: 'Indalecio', second: 'Claire' },
     eyebrow: 'The wedding of',
@@ -35,9 +38,9 @@ export async function GET(req: Request): Promise<Response> {
     hasStill: false,
     hasEventQr: false,
   };
-  const qr = await renderInvitationQrPng({ appUrl: 'https://setnayan.com', slug: 'me-lab', qrToken: `lab-${p.key}`, look: { ...FREE_QR_LOOK, dark: '#111111', light: '#FFFFFF' }, ownerSlug: null, width: 720 });
+  const qr = await renderInvitationQrPng({ appUrl: 'https://setnayan.com', slug: 'me-lab', qrToken: `lab-${typed ?? p.key}`, look: { ...FREE_QR_LOOK, dark: '#111111', light: '#FFFFFF' }, ownerSlug: null, width: 720 });
   const pass = {
-    name: [p.name_prefix, p.display_name].filter(Boolean).join(' '),
+    name: typed ? displayPersonName(typed) : [p.name_prefix, p.display_name].filter(Boolean).join(' '),
     seat: null,
     seatNumber: null,
     qrRef: 'qr-lab',

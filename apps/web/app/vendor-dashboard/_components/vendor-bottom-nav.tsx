@@ -73,6 +73,7 @@ import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-rol
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
 import { VENDOR_MORE_MATCH, vendorMoreRows } from '@/lib/vendor-more-rows';
+import { VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 
 /* The More sheet is the HOST's shipped one (#6205, `more-services-sheet.tsx`).
    ⚠ IMPORTED STATICALLY, ON PURPOSE — measured 2026-10-01. A lazy `import()`
@@ -84,7 +85,7 @@ import { VENDOR_MORE_MATCH, vendorMoreRows } from '@/lib/vendor-more-rows';
    Maker's first-load ceiling; these do not.) */
 import MoreServicesSheet from '@/app/dashboard/[eventId]/_components/more-services-sheet';
 
-const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
+export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
     // Today — the at-a-glance landing. Labelled "Today" since the 2026-08-26
     // re-cut (owner: "yes i agree"): it is the room a shop owner opens in the
@@ -136,11 +137,7 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: ShoppingBag,
     activeMatch: [
       '/vendor-dashboard/shop',
-      '/vendor-dashboard/profile',
       '/vendor-dashboard/verify',
-      '/vendor-dashboard/website',
-      // Your collections — Shop › Page's third screen (step 5, 2026-10-14).
-      '/vendor-dashboard/collections',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/theft-watch',
       '/vendor-dashboard/real-stories',
@@ -162,6 +159,9 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/activities',
       '/vendor-dashboard/manpower',
       '/vendor-dashboard/moodboard-library',
+      // Shop's segments outside /shop — Page (Your page · details · collections)
+      // and How it is going (2026-10-21). The one list the rail reads too.
+      ...VENDOR_SHOP_EXTRA_MATCH,
     ],
   },
   {

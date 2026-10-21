@@ -12,6 +12,9 @@ import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
+import { boughtWhere, liveWatchHomeStatus } from '@/lib/iap/where-bought';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -583,8 +586,8 @@ export default async function EventHomePage({
     if (!iap) return null;
     // The one host-surface entitlement client — a co-host reads what the EVENT owns.
     const ent = await eventEntitlementClient(eventId).catch(() => null);
-    if (!ent) return { liveActive: null, liveOwned: null, acked: null };
-    const [liveActive, liveOwned, ack] = await Promise.all([
+    if (!ent) return { liveActive: null, liveOwned: null, acked: null, liveWhere: null };
+    const [liveActive, liveOwned, ack, liveWhere] = await Promise.all([
       eventSkuActive(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
       eventOwnsSku(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
       supabase
@@ -593,8 +596,17 @@ export default async function EventHomePage({
         .eq('user_id', user.id)
         .maybeSingle()
         .then(({ data, error }) => (error ? null : Boolean((data as { youtube_live_ready_ack_at?: string | null } | null)?.youtube_live_ready_ack_at))),
+      /* 🍎 Where the event's Live Watch was bought — the App Store or the web (`lib/iap/where-bought.ts`). Its
+         orders, through the same host-surface client; a failed read claims nothing ("On" alone). */
+      ent
+        .from('orders')
+        .select('status, payment_method_key')
+        .eq('event_id', eventId)
+        .eq('service_key', 'LIVE_STUDIO')
+        .then(({ data, error }) => (error ? null : boughtWhere(data as { status: string | null; payment_method_key: string | null }[] | null)))
+        .then(undefined, (): null => null),
     ]);
-    return { liveActive, liveOwned, acked: ack };
+    return { liveActive, liveOwned, acked: ack, liveWhere };
   }).catch(() => null); // never the reason Home fails to draw
 
   // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
@@ -875,19 +887,26 @@ export default async function EventHomePage({
         appleFacts
           ? {
               // Papic credits are the couple's to buy, as on the web; its status is the row's own.
-              papic: canViewPapicCounts ? { status: papicNow.status, buy: viewerMemberType === 'couple' } : null,
+              papic: canViewPapicCounts
+                ? {
+                    status: papicNow.status,
+                    buy: viewerMemberType === 'couple',
+                    /* 🍎 Version 1.1: the Papic page opens in this app (`IAP_OPENED_ROUTE`) — the row is its door. */
+                    open: `/dashboard/${eventId}/studio/papic`,
+                  }
+                : null,
               // A read that failed is "—" and offers nothing — never "Not on yet" over a refusal.
               liveWatch:
                 appleFacts.liveActive === null || appleFacts.liveOwned === null
-                  ? { status: '—', owned: true, askReady: false }
+                  ? { status: '—', owned: true, askReady: false, goLive: null }
                   : {
-                      status: appleFacts.liveActive
-                        ? 'On'
-                        : appleFacts.liveOwned
-                          ? 'Being switched on'
-                          : 'Not on yet · one camera is free',
+                      /* 🍎 "On · bought on the web" / "On · bought in the app" — whichever side paid (frame 11). */
+                      status: liveWatchHomeStatus({ active: appleFacts.liveActive, owned: appleFacts.liveOwned, where: appleFacts.liveWhere }),
                       owned: appleFacts.liveActive || appleFacts.liveOwned,
                       askReady: appleFacts.acked !== true,
+                      /* 🍎 GO LIVE — the controller, which the app opens for an owned Live Watch (`IAP_OPENED_ROUTE`).
+                         Only once it is ON, and only where the controller exists (the Live Watch switch). */
+                      goLive: appleFacts.liveActive && liveStudioRoamEnabled() ? liveStudioControlPath(eventId) : null,
                     },
             }
           : null

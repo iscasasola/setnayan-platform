@@ -36,6 +36,7 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createReplayedDb, MIGRATIONS_DIR, versionOf, type ReplayResult } from './replay-migrations';
@@ -227,6 +228,20 @@ async function seedWorld(): Promise<void> {
     [W.e1, W.shop, W.e2, W.otherShop],
   );
 
+  // Two parents the schema-driven filler cannot invent (a service kind is
+  // checked against the taxonomy; a code against its shape). Eleven supplier
+  // service tables and the code-redemption tables hang off these.
+  await db.query(
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, 'photography', 40000, 'Free extra hour', FALSE, 'vendor-media/once/cover.jpg')`,
+    [W.shop],
+  );
+  await db.query(
+    `INSERT INTO public.discount_codes (code, discount_type, expires_at, created_by_admin_id)
+     VALUES ('ONCECODE', 'free', now() + interval '30 days', $1)`,
+    [W.admin],
+  );
+
   // Seating.
   const t1 = (
     await db.query<{ table_id: string }>(
@@ -282,28 +297,57 @@ async function seedWorld(): Promise<void> {
 
 /**
  * Fill every listed table that is still empty with up to four rows — one per
- * event × "who wrote it" (the couple / the guest) — from the schema alone.
- * Each attempt runs in its own savepoint; a table whose triggers or CHECKs
- * refuse every attempt simply stays empty (and is counted by the META floor).
+ * event × "who wrote it" (the couple / the guest / the other couple / the
+ * supplier) — from the schema alone. Each attempt runs in its own savepoint; a
+ * table whose triggers or CHECKs refuse every attempt simply stays empty (and
+ * is counted, with the reason, by the META floor).
+ *
+ * 🔑 DETERMINISTIC, OR THE FLOOR IS A COIN TOSS. Every key in this world is a
+ * `gen_random_uuid()`, so anything that picks "the first row" by key picks a
+ * different row every run. That is exactly how this file went flaky
+ * (2026-10-21): the FK lookup was `SELECT … FROM vendor_profiles LIMIT 1`, the
+ * planner answered it with an Index Only Scan on the uuid primary key, and on
+ * the runs where the linked supplier's shop sorted first every review attempt
+ * was refused by the self-review gate (`device_match`) — `vendor_reviews` and
+ * `vendor_review_flags` went empty and 277/325 became 275/325, under the floor.
+ * A parent row is now chosen by WRITE ORDER (`xmin`, then `ctid`), never by a
+ * key, and every other choice below is ordered by a catalog name or number.
+ *
+ * Two attempts per writer: mode 0 is the plain row; when that is refused,
+ * mode 1 retries with a second, different person in every later "who"
+ * column (a CHECK that a user may not block / mute / refer themselves), a
+ * per-writer text value (a UNIQUE or a "same device" match across writers),
+ * time columns an hour apart (a window that must open before it closes) and
+ * the writer's own parent row first (a package must name the supplier's own
+ * service). Mode 1 only runs where mode 0 was refused, so it can only add.
  */
-async function fillTables(list: string[]): Promise<{ filled: string[]; empty: string[] }> {
+async function fillTables(list: string[]): Promise<FillReport> {
   await asOwner();
   await db.exec(`
     CREATE SCHEMA IF NOT EXISTS rls_once;
-    CREATE OR REPLACE FUNCTION rls_once.fill(p_tbl regclass, p_event uuid, p_user uuid)
+    CREATE OR REPLACE FUNCTION rls_once.fill(p_tbl regclass, p_event uuid, p_user uuid, p_other uuid, p_n int, p_mode int)
     RETURNS text LANGUAGE plpgsql AS $f$
     DECLARE
-      c record; cols text[] := '{}'; vals text[] := '{}'; v text; lit text;
+      c record; cols text[] := '{}'; vals text[] := '{}'; v text; lit text; who int := 0; tick int := 0;
     BEGIN
       FOR c IN
         SELECT a.attname, a.atttypid, a.attnotnull, format_type(a.atttypid, a.atttypmod) AS typ,
                pg_get_expr(d.adbin, d.adrelid) AS def, a.attgenerated, a.attidentity,
-               (SELECT confrelid::regclass::text || '.' || (SELECT attname FROM pg_attribute
-                         WHERE attrelid = k.confrelid AND attnum = k.confkey[1])
-                  FROM pg_constraint k
-                 WHERE k.conrelid = p_tbl AND k.contype = 'f' AND k.conkey = ARRAY[a.attnum] LIMIT 1) AS fk
+               fk.ptbl, fk.pcol, fk.ptbl || '.' || fk.pcol AS fk
           FROM pg_attribute a
           LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+          -- the column's foreign key, single-column or composite (the referenced
+          -- column at the same position); a key to a users table wins, then the
+          -- narrowest key, then the name — never catalog scan order
+          LEFT JOIN LATERAL (
+            SELECT k.confrelid::regclass::text AS ptbl,
+                   (SELECT attname FROM pg_attribute WHERE attrelid = k.confrelid
+                       AND attnum = k.confkey[array_position(k.conkey, a.attnum)]) AS pcol
+              FROM pg_constraint k
+             WHERE k.conrelid = p_tbl AND k.contype = 'f' AND a.attnum = ANY (k.conkey)
+             ORDER BY (k.confrelid = 'public.users'::regclass OR k.confrelid = 'auth.users'::regclass) DESC,
+                      cardinality(k.conkey), k.conname
+             LIMIT 1) fk ON true
          WHERE a.attrelid = p_tbl AND a.attnum > 0 AND NOT a.attisdropped
          ORDER BY a.attnum
       LOOP
@@ -311,18 +355,22 @@ async function fillTables(list: string[]): Promise<{ filled: string[]; empty: st
         v := NULL;
         IF c.attname = 'event_id' THEN v := quote_literal(p_event);
         ELSIF c.fk IS NOT NULL AND (c.fk LIKE '%users.user_id' OR c.fk LIKE 'auth.users.id') THEN
-          v := quote_literal(p_user);
+          who := who + 1;
+          v := quote_literal(CASE WHEN p_mode = 1 AND who > 1 THEN p_other ELSE p_user END);
         ELSIF c.fk IS NOT NULL THEN
-          -- point at a row of the referenced table, on this event when it has one
+          -- point at a row of the referenced table, on this event when it has
+          -- one, else the EARLIEST-WRITTEN row — never the lowest random key
           BEGIN
             EXECUTE format(
-              'SELECT %I::text FROM %s t %s LIMIT 1',
-              split_part(c.fk, '.', array_length(string_to_array(c.fk, '.'), 1)),
-              substr(c.fk, 1, length(c.fk) - length(split_part(c.fk, '.', array_length(string_to_array(c.fk, '.'), 1))) - 1),
-              CASE WHEN EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid =
-                     substr(c.fk, 1, length(c.fk) - length(split_part(c.fk, '.', array_length(string_to_array(c.fk, '.'), 1))) - 1)::regclass
+              'SELECT %I::text FROM %s t ORDER BY %s %s t.xmin::text::bigint, t.ctid LIMIT 1',
+              c.pcol, c.ptbl,
+              CASE WHEN EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = c.ptbl::regclass
                      AND attname = 'event_id' AND NOT attisdropped)
-                   THEN format('ORDER BY (t.event_id = %L) DESC', p_event) ELSE '' END)
+                   THEN format('(t.event_id = %L) DESC,', p_event) ELSE '' END,
+              -- mode 1: the writer's own row first (their shop, not the first shop)
+              CASE WHEN p_mode = 1 AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = c.ptbl::regclass
+                     AND attname = 'user_id' AND NOT attisdropped)
+                   THEN format('(t.user_id = %L) DESC,', p_user) ELSE '' END)
               INTO lit;
           EXCEPTION WHEN others THEN lit := NULL; END;
           IF lit IS NOT NULL THEN v := quote_literal(lit) || '::' || c.typ;
@@ -332,18 +380,21 @@ async function fillTables(list: string[]): Promise<{ filled: string[]; empty: st
           SELECT (regexp_match(pg_get_constraintdef(k.oid), '''([^'']*)''::'))[1] INTO lit
             FROM pg_constraint k
            WHERE k.conrelid = p_tbl AND k.contype = 'c' AND k.conkey = ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = p_tbl AND attname = c.attname)]
+           ORDER BY k.conname
            LIMIT 1;
           IF lit IS NOT NULL THEN v := quote_literal(lit) || '::' || c.typ;
           ELSIF EXISTS (SELECT 1 FROM pg_type WHERE oid = c.atttypid AND typtype = 'e') THEN
             v := quote_literal((SELECT enumlabel FROM pg_enum WHERE enumtypid = c.atttypid ORDER BY enumsortorder LIMIT 1)) || '::' || c.typ;
           ELSE
             v := CASE
-              WHEN c.typ IN ('text', 'character varying') OR c.typ LIKE 'character varying%' OR c.typ LIKE 'citext%' THEN quote_literal('once')
+              WHEN c.typ IN ('text', 'character varying') OR c.typ LIKE 'character varying%' OR c.typ LIKE 'citext%'
+                THEN quote_literal(CASE WHEN p_mode = 1 THEN 'once' || chr(96 + p_n) ELSE 'once' END)
               WHEN c.typ IN ('integer', 'bigint', 'smallint', 'numeric', 'real', 'double precision') OR c.typ LIKE 'numeric%' THEN '1'
               WHEN c.typ = 'boolean' THEN 'false'
               WHEN c.typ = 'date' THEN quote_literal('2027-06-12') || '::date'
-              WHEN c.typ LIKE 'timestamp%' THEN 'now()'
-              WHEN c.typ LIKE 'time%' THEN quote_literal('10:00') || '::' || c.typ
+              -- mode 1: each later time column an hour after the one before (a window must open before it closes)
+              WHEN c.typ LIKE 'timestamp%' THEN CASE WHEN p_mode = 1 THEN format('now() + interval ''%s hours''', tick) ELSE 'now()' END
+              WHEN c.typ LIKE 'time%' THEN quote_literal(CASE WHEN p_mode = 1 THEN (10 + tick) || ':00' ELSE '10:00' END) || '::' || c.typ
               WHEN c.typ IN ('jsonb', 'json') THEN quote_literal('{}') || '::' || c.typ
               WHEN c.typ = 'uuid' THEN 'gen_random_uuid()'
               WHEN c.typ LIKE '%[]' THEN quote_literal('{}') || '::' || c.typ
@@ -352,43 +403,89 @@ async function fillTables(list: string[]): Promise<{ filled: string[]; empty: st
             IF v IS NULL THEN RETURN 'no value for ' || c.attname || ' ' || c.typ; END IF;
           END IF;
         END IF;
+        IF c.typ LIKE 'time%' THEN tick := tick + 1; END IF;
         IF v IS NOT NULL THEN cols := cols || quote_ident(c.attname); vals := vals || v; END IF;
       END LOOP;
       BEGIN
-        EXECUTE format('INSERT INTO %s (%s) VALUES (%s)', p_tbl, array_to_string(cols, ','), array_to_string(vals, ','));
+        IF cardinality(cols) = 0 THEN
+          EXECUTE format('INSERT INTO %s DEFAULT VALUES', p_tbl); -- every column has a default
+        ELSE
+          EXECUTE format('INSERT INTO %s (%s) VALUES (%s)', p_tbl, array_to_string(cols, ','), array_to_string(vals, ','));
+        END IF;
       EXCEPTION WHEN others THEN RETURN SQLERRM;
       END;
       RETURN 'ok';
     END $f$;
   `);
-  const filled: string[] = [];
-  const pending = new Set(list);
+  // The public tables the listed ones point at, transitively: filled first,
+  // as parents, so a child is not left empty for want of one (nine supplier
+  // service tables were, for want of a single vendor_services row). They are
+  // NOT counted — the floor is about the listed tables.
+  const parents: string[] = [];
+  {
+    const seen = new Set(list);
+    let frontier = [...list];
+    while (frontier.length) {
+      const r = await db.query<{ p: string }>(
+        `SELECT DISTINCT c.relname::text AS p
+           FROM pg_constraint k
+           JOIN pg_class c ON c.oid = k.confrelid
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE k.contype = 'f' AND n.nspname = 'public'
+            AND k.conrelid = ANY ($1::text[]::regclass[])
+          ORDER BY 1`,
+        [frontier.map((t) => `public.${t}`)],
+      );
+      frontier = r.rows.map((x) => x.p).filter((t) => !seen.has(t));
+      for (const t of frontier) {
+        seen.add(t);
+        parents.push(t);
+      }
+    }
+    parents.sort();
+  }
+  const writers: [string, string, string][] = [
+    [W.e1!, W.couple!, W.otherCouple!],
+    [W.e1!, W.guest!, W.couple!],
+    [W.e2!, W.otherCouple!, W.couple!],
+    [W.e1!, W.supplier!, W.couple!],
+  ];
+  const why: Record<string, string> = {};
+  const count = async (t: string) =>
+    (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`)).rows[0]!.n;
+  const pending = new Set([...parents, ...list]);
   for (let pass = 0; pass < 3 && pending.size; pass++) {
     for (const t of [...pending]) {
-      const n = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`)).rows[0]!.n;
-      if (n > 0) {
+      if ((await count(t)) > 0) {
         pending.delete(t);
-        filled.push(t);
         continue;
       }
-      for (const [e, u] of [
-        [W.e1, W.couple],
-        [W.e1, W.guest],
-        [W.e2, W.otherCouple],
-        [W.e1, W.supplier],
-      ]) {
-        await claims(u!, 'authenticated'); // triggers that ask "who is writing"
-        await db.query(`SELECT rls_once.fill($1::regclass, $2, $3)`, [`public.${t}`, e, u]);
+      for (const [n, [e, u, other]] of writers.entries()) {
+        await claims(u, 'authenticated'); // triggers that ask "who is writing"
+        for (const mode of [0, 1]) {
+          const r = (
+            await db.query<{ r: string }>(`SELECT rls_once.fill($1::regclass, $2, $3, $4, $5, $6) AS r`, [
+              `public.${t}`,
+              e,
+              u,
+              other,
+              n + 1,
+              mode,
+            ])
+          ).rows[0]!.r;
+          if (r === 'ok') break;
+          why[t] = r.replace(UUID, '<uuid>');
+        }
       }
       await claims(null, 'anon');
     }
   }
+  const filled: string[] = [];
   const empty: string[] = [];
-  for (const t of pending) {
-    const n = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${t}`)).rows[0]!.n;
-    (n > 0 ? filled : empty).push(t);
-  }
-  return { filled, empty };
+  for (const t of list) ((await count(t)) > 0 ? filled : empty).push(t);
+  const rows: Record<string, number> = {};
+  for (const t of list) rows[t] = await count(t);
+  return { filled, empty, why, rows };
 }
 
 /* ── the matrix ─────────────────────────────────────────────────────────── */
@@ -503,7 +600,8 @@ async function couplePlan(): Promise<string> {
   return r.rows.map((x) => x['QUERY PLAN']).join('\n');
 }
 
-let fillReport: { filled: string[]; empty: string[] } = { filled: [], empty: [] };
+type FillReport = { filled: string[]; empty: string[]; why: Record<string, string>; rows: Record<string, number> };
+let fillReport: FillReport = { filled: [], empty: [], why: {}, rows: {} };
 
 before(async () => {
   const mine = versionOf(MIGRATION);
@@ -556,10 +654,20 @@ test('META: the replay stopped just before the migration, and the migration has 
 test('META: every hot table and most touched tables hold rows to test against', () => {
   for (const t of HOT) assert.ok(fillReport.filled.includes(t), `${t} is seeded`);
   const share = fillReport.filled.length / tables.length;
-  // Measured 2026-10-20 — raise it, never lower it.
+  // The fill is deterministic (see fillTables), so this prints the same line
+  // on every run of the same tree — a different fingerprint on a re-run of one
+  // commit means a random choice crept back in.
+  const fingerprint = createHash('md5')
+    .update(tables.map((t) => `${t}=${fillReport.rows[t]}`).join('\n'))
+    .digest('hex')
+    .slice(0, 12);
+  console.log(`fill: ${fillReport.filled.length}/${tables.length} tables hold rows · fingerprint ${fingerprint}`);
+  if (process.env.RLS_ONCE_FILL_DUMP) fs.writeFileSync(process.env.RLS_ONCE_FILL_DUMP, JSON.stringify(fillReport, null, 1));
+  // Measured 2026-10-21 — raise it, never lower it.
   assert.ok(
-    share >= 0.85, // 277/325 on 2026-10-20
-    `only ${fillReport.filled.length}/${tables.length} tables hold rows; empty: ${fillReport.empty.join(', ')}`,
+    share >= 0.9, // 300/325 on 2026-10-21, every run (was 0.85 at 277/325 — and 275 on unlucky runs)
+    `only ${fillReport.filled.length}/${tables.length} tables hold rows; empty:\n` +
+      fillReport.empty.map((t) => `  ${t}: ${fillReport.why[t] ?? '?'}`).join('\n'),
   );
 });
 

@@ -352,16 +352,26 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      NAMES (the names only — no address, no pin, no photo of theirs), as a guest who has not replied sees them.
      `&parish=0` swaps the ceremony for a church with no drawing; `&photo=1` gives both cards a stand-in photo (a file
      this repo ships); `&drawing=1` is the couple having PICKED "Our drawing ◆" on the ceremony card (owner 2026-10-16 —
-     without it the drawing never shows); `&art=candlelight` draws it on the dark Look. */
+     without it the drawing never shows); `&art=candlelight` draws it on the dark Look.
+     📍 `&map=1` — a guest who HAS replied, with the Map on: the lab's two far-apart stand-in pins (`LAB_VENUE_EVENT` —
+     Makati and Vertis North, not anybody's stored pins); `&unpinned=ceremony|reception` takes that venue's pin away
+     (owner 2026-10-21, cale-ice's ceremony had none — `every-venue-is-on-the-map-or-says-so.test.ts`). */
   if (typeof sp.venues === 'string') {
     const style = sp.venues === 'default' ? null : sp.venues;
     const photo = sp.photo === '1' ? LAB_COVER_PHOTO : null;
+    const mapped = sp.map === '1';
+    const pinOf = (i: 0 | 1, role: string) => {
+      const v = LAB_VENUE_EVENT.venues[i]!;
+      return mapped && sp.unpinned !== role
+        ? { address: v.address, latitude: v.latitude, longitude: v.longitude }
+        : { address: mapped ? v.address : null, latitude: null, longitude: null };
+    };
     const event = {
       event_date: '2026-12-18',
-      venue_withheld: true,
+      venue_withheld: !mapped,
       venues: [
-        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo, ...(sp.drawing === '1' ? { drawingChosen: true } : {}) },
-        { role: 'reception', name: 'Seda Hotel Vertis North', address: null, latitude: null, longitude: null, photoUrl: photo },
+        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', ...pinOf(0, 'ceremony'), photoUrl: photo, ...(sp.drawing === '1' ? { drawingChosen: true } : {}) },
+        { role: 'reception', name: 'Seda Hotel Vertis North', ...pinOf(1, 'reception'), photoUrl: photo },
       ],
     };
     return (
@@ -371,7 +381,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         data-lab-venues={sp.venues}
       >
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
-        <VenueWidget event={event as never} sceneStyle={style} map="none" />
+        <VenueWidget event={event as never} sceneStyle={style} map={mapped ? 'one' : 'none'} />
       </main>
     );
   }

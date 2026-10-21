@@ -50,6 +50,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { OAUTH_FLAGS, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
@@ -164,6 +165,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           {/* No ✕: this is a page of its own with nothing behind it (the same
               mistake as aria-modal, one layer up — overlay chrome on a page).
               The way out is the browser and the Sign-in link below. */}
+          {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small —
+              not the brand PANEL retired above. */}
+          <FirstRunBrand className="hr-si-brand" />
           <div className="hr-ov-eyebrow">User account</div>
           <h1 className="hr-ov-title">Create your user account.</h1>
           {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and

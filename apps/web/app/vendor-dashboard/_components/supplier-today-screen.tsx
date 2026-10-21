@@ -75,6 +75,7 @@ export function SupplierTodayScreen({
         who={view.who}
         eyebrow={view.eyebrow}
         nextNote={view.nextNote}
+        then={view.then}
         dateChange={view.dateChangeOnCard ? { card: view.dateChangeOnCard, answer: actions.answerDateChange } : null}
         answerOnCard={
           view.askOnCard ? (

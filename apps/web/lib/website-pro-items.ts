@@ -1,8 +1,24 @@
 /**
  * apps/web/lib/website-pro-items.ts
  *
- * THE PRO ITEMS — one list, named the way the couple sees them. Nine since
- * 2026-09-28 (below); count the array, never this sentence.
+ * THE PRO ITEMS — one list, named the way the couple sees them. Count the
+ * array, never a sentence (the sentences that speak for it compute the number).
+ *
+ * 🔄 2026-10-22 — SAY EVERYTHING PRO COVERS BEFORE "APPLY". Owner, "Yes to all"
+ * (`Setnayan/prototypes/journey_fixes_2026-10-22.html` § Host 5, DECISION_LOG
+ * "THE PRO LIST NAMES EVERY GATE"). Pro already gated six more things elsewhere
+ * in the code, and a host first met each of them at the Apply sheet: each part's
+ * style and animation (`HUB_ELEMENT_PRO_FIELDS`, lib/hub-look-pro.ts) ·
+ * decorations (`ART_KIT_IS_PRO`, lib/art-kit-pro.ts) · the story past
+ * `FREE_MOMENT_CAP` and its photos (lib/love-story-moments.ts) · uploads past the
+ * free allowance (`MAKER_EVENT_MEDIA_BYTES_CAP`, lib/maker-media-limits.ts) ·
+ * print files in a Pro theme (`isProPrint`, lib/print-pieces.ts) · the all-guests
+ * download (`isAllInOnePrint`). They join the list in the prototype's words, and
+ * "Editorial editing" LEAVES it — it has been free for every couple since
+ * 2026-08-23 (`EDITORIAL_PRO` in `FREE_FOR_ALL_SKUS`), so naming it told a couple
+ * they were buying something they already had. NO GATE MOVED: this is the list
+ * the couple reads, and `the-pro-list-names-only-real-gates.test.ts` holds every
+ * line to the gate that refuses a free couple — flip a gate and it fails.
  *
  * 🔄 TEN → NINE, 2026-09-28 — THE FREE-VS-PRO REDRAW. Owner, verbatim: *"free
  * to change design, change text, size, color, background color, only when you
@@ -38,7 +54,7 @@
  * `pro-panels.tsx` under its old name so nothing that already imports it moves.
  *
  * ⛔ NO PRICE LIVES HERE. `COUPLE_WEBSITE_PRO` (titled "Event Hub Pro") is the
- * ONE unlock that opens all nine, and its figure is read live from
+ * ONE unlock that opens every item, and its figure is read live from
  * `platform_retail_catalog_v2` via `formatV2Sku` — never typed into source. The
  * `couple-website-pro.ts` docblock records why: three different figures for one
  * product once lived in a single file.
@@ -56,13 +72,14 @@ import { formatCount } from '@/lib/format-number';
  */
 export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub themes, invite link included` as const;
 
-/** The nine Pro items, named the way the couple sees them. */
+/** The Pro items, named the way the couple sees them — in the prototype's order (2026-10-22). */
 export const WEBSITE_PRO_ITEMS = [
   'Cinematic Reveal',
   'Save-the-Date video',
   'Photo gallery',
   'Background music',
-  'Editorial editing',
+  // "Editorial editing" stood here until 2026-10-22 — free for every couple
+  // (`EDITORIAL_PRO` ∈ `FREE_FOR_ALL_SKUS`), so it is not something Pro buys.
   // Media behind a scene or behind the whole page (owner 2026-09-28: "adding
   // media for background"). The COLOURS that stood here are free now.
   'Photo and video backgrounds',
@@ -82,21 +99,34 @@ export const WEBSITE_PRO_ITEMS = [
   // (square · circle) · Pattern · Colour on the Maker's Details page. The old
   // "Custom QR per guest" product folded into this item (lib/qr-look.ts).
   'Your logo on every QR code',
+  // ── The six gates the code already enforced, named 2026-10-22 (owner, "Yes to all").
+  // Each is held to its gate by `the-pro-list-names-only-real-gates.test.ts`.
+  // A part's Style and Animate (`HUB_ELEMENT_PRO_FIELDS`, owner 2026-10-16 "all animate, effects, styles, accents are pro").
+  'Style and animation for every part',
+  // The art kit (`ART_KIT_IS_PRO`, owner 2026-10-16 "the accents we added should be part of pro").
+  'Decorations',
+  // Past `FREE_MOMENT_CAP` word-only stories, and any story's photos (lib/love-story-moments.ts).
+  'A 6th Love Story moment, with photos',
+  // The free media allowance (`MAKER_EVENT_MEDIA_BYTES_CAP.free`, owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB").
+  'Uploads over 10 MB',
+  // A print-ready file in a Pro theme (`isProPrint`; Classic, Modern and Cyber Neon print free).
+  'Print files in Pro themes',
+  // The all-in-one download (`isAllInOnePrint`, owner 2026-10-16 "Every guest's pass (PDF) become Pro").
+  "One download of every guest's ticket",
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];
 
 /**
- * ⛔ THE ONE ITEM THE UMBRELLA MAY NOT BE SOLD ON.
+ * ⛔ THE ITEMS THE UMBRELLA MAY NOT BE SOLD ON — none, since 2026-10-22.
  *
- * `EDITORIAL_PRO` joined `FREE_FOR_ALL_SKUS` on 2026-08-23 — `eventSkuActive`
- * short-circuits before any order lookup, so EVERY couple already has editorial
- * editing. `lib/couple-website-pro.ts` states the constraint in its own words:
- * *"Event Hub PRO may NOT be SOLD on this inclusion while it is free."*
- *
- * It stays in the list — the controller SHOWS it, because it is genuinely one of
- * the nine the unlock covers — but it may never be the reason a couple is asked
- * for money. The free ruling is reversible and the owner's to reverse; until he
- * does, this constant is what keeps the offer honest.
+ * Its one member was "Editorial editing": `EDITORIAL_PRO` joined
+ * `FREE_FOR_ALL_SKUS` on 2026-08-23 and `lib/couple-website-pro.ts` says *"Event
+ * Hub PRO may NOT be SOLD on this inclusion while it is free."* On 2026-10-22 the
+ * item left the list itself (owner, "Yes to all" — a free thing is not on the list
+ * of what Pro buys), which is the stronger form of the same rule. The mechanism
+ * stays: if a listed item ever turns free before its line comes off, it goes here
+ * and `resolveHubProOffer` refuses to lead on it. The free ruling is the owner's
+ * to reverse; `the-pro-list-names-only-real-gates.test.ts` fails both ways.
  */
-export const NOT_SOLD_ON: readonly WebsiteProItem[] = ['Editorial editing'];
+export const NOT_SOLD_ON: readonly WebsiteProItem[] = [];

@@ -328,3 +328,21 @@ function toStep(
   const { done: _done, waiting: _waiting, ...rest } = s;
   return { ...rest, state };
 }
+
+/**
+ * "THEN" — the short road under Today's Next card (owner 2026-10-21, prototype
+ * `first_run_you_and_next_steps_2026-10-21.html` S4/S5: "the supplier sees the whole short road, not one card at
+ * a time"). The next two steps still to do after the current one, then the approval — "3 · Send your documents ·
+ * 4 · Mark the days you are not available · 7 · Setnayan approves you — you go live". The ORDER is the rail's
+ * own (details → what you offer → documents); nothing here reorders it. Empty when there is no current step.
+ */
+export type FirstStepThen = { n: number; key: FirstStepKey; title: string; href: string | null };
+
+export function firstStepsThen(rail: FirstStepsRail | null): FirstStepThen[] {
+  const current = rail?.current;
+  if (!rail || !current) return [];
+  const after = rail.steps.filter((s) => s.n > current.n && s.state !== 'done');
+  const todo = after.filter((s) => s.key !== 'go_live').slice(0, 2);
+  const live = after.find((s) => s.key === 'go_live');
+  return [...todo, ...(live ? [live] : [])].map((s) => ({ n: s.n, key: s.key, title: s.title, href: s.href }));
+}

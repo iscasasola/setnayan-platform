@@ -497,7 +497,8 @@ async function inviteEnterPage({ params, searchParams }: Props) {
 
   // ── THE PLUS-ONES THIS GUEST BRINGS — counted for the ticket's "and N guests".
   // (Their invites and tickets are handed on from Me — owner 2026-10-03.)
-  const seats = seatsAhead ? await seatsAhead : [];
+  // A refused read (null) omits the count — "and N guests" is left off, never guessed (`plusOneSeatsFor`).
+  const seats = (seatsAhead ? await seatsAhead : null) ?? [];
 
   // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
   // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own

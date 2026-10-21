@@ -7,6 +7,7 @@ import {
   AlertCircle,
   CheckCircle2,
   FileText,
+  Camera,
   Loader2,
   UploadCloud,
   X,
@@ -201,6 +202,33 @@ type FileUploadBaseProps = {
    * the corners of a document — the part that carries the seal.
    */
   roundPreview?: boolean;
+  /**
+   * The words inside an EMPTY round slot (`roundPreview`). Defaults to "Add your logo" — the shop logo's own
+   * words, unchanged. A PERSON's photo never passes through here: it draws as `row` (below), which says "Your
+   * photo". Before 2026-10-21 every round slot said "logo", including the first-run "How should we call you?"
+   * card, about the person's own face.
+   */
+  slotSays?: string;
+  /**
+   * 📐 THE PHOTO ROW (owner 2026-10-21: "i noticed some misalignment where they upload their first profile
+   * photo"; approved prototype `first_run_you_and_next_steps_2026-10-21.html` §1).
+   *
+   * MEASURED before: the You card put this widget in a 96 px column, but the round slot is a 160 px circle and
+   * the picture 132 — both spilled 64 / 36 px into the Display name beside it, the name box shrank to 167 px and
+   * cut its own placeholder, and the circle told a person "Add your logo".
+   *
+   * With `row`, a round single-file field draws as ONE row: a 72 px circle — the one thing you press, the only
+   * frame on the row — beside plain words: `title`, then what is true now —
+   *   empty     "<help> · PNG, JPG or WEBP · up to N MB"
+   *   chosen    "Not saved yet — <unsavedHint>" · Remove
+   *   uploading the circle is the progress ring over the dimmed picture · "Uploading · N% · size" · Cancel
+   *   refused   the circle turns terracotta-dashed · "Tap the circle to try another file", the reason under the row
+   *   saved     "Saved" · Remove
+   * Nothing else is drawn (no formats line under, no filename rows, no help line): the row is the whole widget,
+   * and it is never wider than its column — the circle is 72 and the words wrap (`min-w-0`).
+   * The class names let the host card speak in its own type (the You card's label / hint / link).
+   */
+  row?: { title: string; titleClassName?: string; hintClassName?: string; actionClassName?: string };
   /**
    * Apply the SETNAYAN watermark to each uploaded image before sending it
    * to R2. Per owner directive 2026-05-21: all photos posted on the app
@@ -465,6 +493,8 @@ export function FileUpload({
   variant = 'square',
   bigPreview = false,
   roundPreview = false,
+  slotSays = 'Add your logo',
+  row,
   watermark = false,
   compressVideo = false,
   compressImage = false,
@@ -489,6 +519,11 @@ export function FileUpload({
   const [items, setItems] = useState<UploadedItem[]>([]);
   const [inFlight, setInFlight] = useState<InFlightItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** The photo row's dimmed picture while its upload is on the way (`row`) — this device's own copy, never sent. */
+  const [rowLocal, setRowLocal] = useState<string | null>(null);
+  useEffect(() => () => {
+    if (rowLocal) URL.revokeObjectURL(rowLocal);
+  }, [rowLocal]);
   /** Files that did not upload, kept as tiles (`failedSays`). */
   const [failed, setFailed] = useState<FailedItem[]>([]);
   // In-browser video optimisation (ffmpeg.wasm) runs BEFORE the upload; this
@@ -910,6 +945,7 @@ export function FileUpload({
       return;
     }
 
+    if (row && isImage(contentType) && typeof URL.createObjectURL === 'function') setRowLocal(URL.createObjectURL(file));
     setInFlight((prev) => [
       ...prev,
       {
@@ -1083,6 +1119,8 @@ export function FileUpload({
    * into disagreeing about the same picture.
    */
   const roundDropzone = roundPreview && variant === 'square' && !multiple;
+  /** The photo row (`row`): the circle and its words are the whole widget. */
+  const rowMode = roundDropzone && row != null;
   const atCapacity = items.length + inFlight.length >= effectiveMaxFiles;
 
   /**
@@ -1107,6 +1145,141 @@ export function FileUpload({
     !!first &&
     isImage(first.contentType) &&
     !!first.displayUrl;
+
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      id={inputId}
+      type="file"
+      accept={acceptAttr}
+      multiple={multiple}
+      disabled={disabled}
+      /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
+         file — so the first upload never waits on it. Not with the page: most pages that show an uploader
+         never upload. A failed fetch is not a problem yet; the upload itself asks again and says so. */
+      onClick={() => void import('@/lib/upload-send').catch(() => {})}
+      onChange={onInputChange}
+      className="sr-only"
+    />
+  );
+
+  /** "PNG, JPG or WEBP" — the accepted types as a person says them. */
+  const typeWords = (() => {
+    const names = acceptedTypes.map((t) =>
+      t === 'image/jpeg' ? 'JPG' : t.replace('image/', '').replace('application/', '').toUpperCase(),
+    );
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : (names[0] ?? '');
+  })();
+  const flying = inFlight[0] ?? null;
+  const rowPhase: 'empty' | 'refused' | 'uploading' | 'has' = flying
+    ? 'uploading'
+    : atCapacity && first
+      ? 'has'
+      : error
+        ? 'refused'
+        : 'empty';
+  const rowHint = row?.hintClassName ?? 'text-[13px] leading-snug text-ink/60';
+  const rowAction = `sn-hit justify-self-start text-left text-[13px] font-medium ${row?.actionClassName ?? 'text-terracotta-700'}`;
+  const rowMono = 'inline-flex items-start gap-1 font-mono text-[10px] uppercase leading-snug tracking-[0.15em]';
+  const photoRow = rowMode ? (
+    <div data-upload-row={rowPhase} className="flex min-h-[72px] items-center gap-3.5">
+      {rowPhase === 'empty' || rowPhase === 'refused' ? (
+        <label
+          htmlFor={inputId}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          aria-label={row!.title}
+          className={`relative flex h-[72px] w-[72px] flex-none cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed transition-colors ${
+            disabled
+              ? 'cursor-not-allowed opacity-60'
+              : rowPhase === 'refused'
+                ? // The locked action colour (#C24E25), not the theme's accent — it stays terracotta in dark.
+                  'border-[#C24E25] bg-[#FBEFE9] text-[#C24E25] dark:bg-[#3A2A24]'
+                : isDragging
+                  ? 'border-terracotta bg-terracotta/5 text-terracotta'
+                  : 'border-ink/30 bg-cream text-ink/50 hover:border-terracotta/60'
+          }`}
+        >
+          {rowPhase === 'refused' ? (
+            <AlertCircle aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          ) : (
+            <Camera aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          )}
+          {fileInput}
+        </label>
+      ) : (
+        <span
+          className="relative flex h-[72px] w-[72px] flex-none items-center justify-center overflow-hidden rounded-full border bg-cream text-ink/45"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          {rowPhase === 'uploading' ? (
+            <>
+              {rowLocal ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={rowLocal} alt="" className="h-full w-full object-cover opacity-35" />
+              ) : null}
+              {/* The circle IS the progress: a ring that fills with the upload. */}
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `conic-gradient(#C24E25 ${flying!.progress}%, transparent 0)`,
+                  WebkitMask: 'radial-gradient(circle, transparent 31px, #000 32px)',
+                  mask: 'radial-gradient(circle, transparent 31px, #000 32px)',
+                }}
+              />
+              <Loader2 aria-hidden className="absolute h-[22px] w-[22px] animate-spin text-[#C24E25]" strokeWidth={1.75} />
+            </>
+          ) : first && first.displayUrl && isImage(first.contentType) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={first.displayUrl} alt={first.filename} className="h-full w-full object-cover" />
+          ) : (
+            <Camera aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          )}
+        </span>
+      )}
+      <div className="grid min-w-0 gap-[3px]">
+        {/* Plain words: the circle is the one press on the row (it carries the title as its name). */}
+        <span className={row!.titleClassName ?? 'font-mono text-xs uppercase tracking-[0.12em] text-ink/60'}>{row!.title}</span>
+        {rowPhase === 'empty' ? (
+          <span className={rowHint}>
+            {[help, `${typeWords} · up to ${formatCount(maxSizeMB)} MB`].filter(Boolean).join(' · ')}
+          </span>
+        ) : rowPhase === 'refused' ? (
+          <span className={rowHint}>Tap the circle to try another file</span>
+        ) : rowPhase === 'uploading' ? (
+          <>
+            <span className={`${rowMono} text-ink/55`} aria-live="polite">
+              Uploading · {flying!.progress}% · {bytesToHuman(flying!.size)}
+            </span>
+            <button type="button" onClick={() => cancelInFlight(flying!.id)} className={rowAction}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            {name && !first!.id.startsWith('seed-') ? (
+              unsavedHint === null ? null : (
+                <span className={`${rowMono} text-mulberry-600`}>
+                  <AlertCircle aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                  <span className="min-w-0">Not saved yet — {unsavedTail(unsavedHint)}</span>
+                </span>
+              )
+            ) : (
+              <span className={`${rowMono} text-success-700`}>
+                <CheckCircle2 aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                <span className="min-w-0">Saved</span>
+              </span>
+            )}
+            <button type="button" onClick={() => removeItem(first!.id)} className={rowAction}>
+              Remove
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-2" ref={rootRef}>
@@ -1134,7 +1307,9 @@ export function FileUpload({
         </p>
       ) : null}
 
-      {!atCapacity ? (
+      {rowMode ? photoRow : null}
+
+      {!atCapacity && !rowMode ? (
         <label
           htmlFor={inputId}
           onDrop={onDrop}
@@ -1145,7 +1320,9 @@ export function FileUpload({
               ? // A real circle: fixed square footprint so `rounded-full` cannot
                 // become a lozenge on a wide container, and centred because a
                 // left-aligned circle reads as a stray bullet rather than a slot.
-                'mx-auto aspect-square h-[160px] w-[160px] rounded-full px-3 py-3'
+                // Never wider than its column: 160 at most, square by `aspect-square`, so a narrow column
+                // gets a smaller circle — never one that spills over its neighbour (2026-10-21).
+                'mx-auto aspect-square w-[160px] max-w-full rounded-full px-3 py-3'
               : `${dropzoneHeight} w-full rounded-xl px-4 py-6`
           } ${
             disabled
@@ -1168,7 +1345,7 @@ export function FileUpload({
                   // fits a 160px-wide box does not fit a 160px-wide CIRCLE, and
                   // the usable width at the top and bottom of one is far less
                   // than its diameter.
-                  'Add your logo'
+                  slotSays
                 : multiple
                   ? 'Drop files or click to choose'
                   : 'Drop a file or click to choose'}
@@ -1188,24 +1365,11 @@ export function FileUpload({
               {multiple ? ` · max ${effectiveMaxFiles}` : ''}
             </span>
           )}
-          <input
-            ref={fileInputRef}
-            id={inputId}
-            type="file"
-            accept={acceptAttr}
-            multiple={multiple}
-            disabled={disabled}
-            /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
-               file — so the first upload never waits on it. Not with the page: most pages that show an uploader
-               never upload. A failed fetch is not a problem yet; the upload itself asks again and says so. */
-            onClick={() => void import('@/lib/upload-send').catch(() => {})}
-            onChange={onInputChange}
-            className="sr-only"
-          />
+          {fileInput}
         </label>
       ) : null}
 
-      {roundDropzone && !atCapacity ? (
+      {roundDropzone && !atCapacity && !rowMode ? (
         <span className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           {acceptedTypes
             .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
@@ -1264,7 +1428,7 @@ export function FileUpload({
           evidence lists and multi-file galleries keep the compact rows, where a
           filename is what you scan and a big preview per item would bury the
           list. */}
-      {items.length > 0 && isSingleImagePreview ? (
+      {items.length > 0 && isSingleImagePreview && !rowMode ? (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="space-y-2">
@@ -1275,7 +1439,7 @@ export function FileUpload({
                 // so it has to crop.
                 <span className="flex w-full justify-center py-1">
                   <span
-                    className="flex h-[132px] w-[132px] items-center justify-center overflow-hidden rounded-full border bg-cream"
+                    className="flex aspect-square w-[132px] max-w-full items-center justify-center overflow-hidden rounded-full border bg-cream"
                     style={{ borderColor: 'var(--m-line)' }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1471,7 +1635,8 @@ export function FileUpload({
         </ul>
       ) : null}
 
-      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
+      {/* (Not in the photo row — `row` draws its own progress, in the circle.) */}
+      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && !rowMode && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {/* Skipped when the big preview owns the completed item — otherwise a
               replacement upload would show the picture AND its own filename row
@@ -1540,7 +1705,7 @@ export function FileUpload({
         </ul>
       )}
 
-      {help ? <p className="block text-xs text-ink/55">{help}</p> : null}
+      {help && !rowMode ? <p className="block text-xs text-ink/55">{help}</p> : null}
     </div>
   );
 }

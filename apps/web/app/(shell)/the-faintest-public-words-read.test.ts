@@ -48,7 +48,12 @@ test('the explore folder counts are 12px at the tile colour', () => {
 });
 
 test('the sign-in card labels, divider and hints are 12px and 4.5:1 on the card', () => {
-  const css = stripComments(readFileSync(join(WEB, 'app/_components/home/home-reskin.css'), 'utf8'));
+  // The LIGHT card: the card's dark rules (`html.dark …`, 2026-10-21) are measured against the dark card by
+  // app/_components/auth/seam-invariants.test.ts.
+  const css = stripComments(readFileSync(join(WEB, 'app/_components/home/home-reskin.css'), 'utf8'))
+    .split('\n')
+    .filter((l) => !l.startsWith('html.dark '))
+    .join('\n');
   const rule = css.match(/\.sn-signin-terra \.hr-si-label,\s*\.home-reskin-ov \.sn-signin-terra \.hr-si-or span \{([^}]*)\}/)?.[1] ?? '';
   const px = Number(rule.match(/font-size:\s*([\d.]+)px/)?.[1]);
   assert.ok(px >= 12, `sign-in labels are ${px}px`);

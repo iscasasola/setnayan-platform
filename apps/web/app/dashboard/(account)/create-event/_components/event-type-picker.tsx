@@ -323,7 +323,7 @@ export function EventTypePicker({
           Nothing is locked in — “someone else” shows every type, and you can change
           this on the next screen.
         </p>
-        <ul className="grid max-w-lg gap-2">
+        <ul className="grid max-w-lg grid-cols-[minmax(0,1fr)] gap-2">
           {(subjects ?? []).map((s) => (
             <li key={s.id}>
               <button

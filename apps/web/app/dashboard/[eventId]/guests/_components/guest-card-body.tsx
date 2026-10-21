@@ -275,7 +275,7 @@ export function GuestCardBody({
     groupOptions,
     isIncWedding,
     showTeaCeremony,
-    plusOneStateLabel,
+    plusOneLines,
     initialInvited,
     seatedAt,
     customGroups,
@@ -777,8 +777,18 @@ export function GuestCardBody({
                 options={MEAL_OPTIONS.map((v) => ({ key: v, label: MEAL_LABELS[v] }))}
               />
             </K.Cols>
-            {isCouple || plusOne ? null : plusOneStateLabel ? (
-              <p className="rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">+1: {plusOneStateLabel}</p>
+            {/* 🪑 EVERY SEAT IS A LINE (2026-10-22: a guest with two +1s read "no +1 added yet"), numbered by seat; a
+                refused read says so — a failure is never drawn as the empty state (`plusOneLines`, guest-card-data.ts). */}
+            {isCouple || plusOne ? null : plusOneLines === null ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Couldn’t read this guest’s +1s — refresh to see them.</p>
+            ) : plusOneLines.length > 0 ? (
+              <div className="space-y-0.5 rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">
+                {plusOneLines.map((line, i) => (
+                  <p key={i}>
+                    +{i + 1}: {line}
+                  </p>
+                ))}
+              </div>
             ) : guest.plus_one_allowed ? (
               <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>
             ) : null}

@@ -14,7 +14,7 @@
 import type { DueFeeBill, FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { feeDueCopy, feeDueStage } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
-import type { FirstStepsRail } from '@/lib/vendor-first-steps';
+import { firstStepsThen, type FirstStepThen, type FirstStepsRail } from '@/lib/vendor-first-steps';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import type { EventDayFacts, TodaySchedules } from '@/lib/supplier-today.server';
 import { daySheetHref, daysFrom } from '@/lib/vendor-dates';
@@ -115,6 +115,8 @@ export type SupplierTodayView = {
   who: string | null;
   eyebrow: string | null;
   nextNote: string | null;
+  /** "Then" under a setup Next card — the next steps of the first-steps rail (`firstStepsThen`); [] otherwise. */
+  then: FirstStepThen[];
   /** The Next card IS this booking ask — the page draws its answer ON the card. */
   askOnCard: Extract<WhatsNewCard, { kind: 'lock_request' }> | null;
   /**
@@ -287,6 +289,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     who: nextWho(next, nextIsAnswer),
     eyebrow: next.kind === 'run_day' ? `Today${dayOpen && input.dayFacts?.startedAt ? ` · live since ${input.dayFacts.startedAt}` : ''}` : null,
     // 🔒 The fee card names the lock BEFORE Pay (an overdue bill's own words already say it).
+    then: next.kind === 'setup' ? firstStepsThen(input.firstSteps) : [],
     nextNote: feeRule && next.kind === 'fee' && feeDueStage(feeRule.bill.dueOn, todayIso) !== 'overdue' ? lockLine : null,
     askOnCard,
     askNotes,

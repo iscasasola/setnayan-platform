@@ -2182,10 +2182,12 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
      position stay put — `top`/`right` shift with it so the circle still sits
      the same visual distance from the card's corner. */
   position: absolute;
-  top: 13px;
-  right: 13px;
-  width: 40px;
-  height: 40px;
+  /* 44px (fits-every-phone 2026-10-21: 40px was under the floor) — top/right
+     move in by 2px so the circle's centre stays where it was. */
+  top: 11px;
+  right: 11px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--hr-line);
   background: #fff;
@@ -2725,6 +2727,21 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
   color: var(--hr-pop1);
   text-decoration: none;
   font-weight: 500;
+}
+/* "Forgot password?" and the foot's "Create one, free" / "Sign in" stand on
+   their own line, so they press 44px tall (they measured 17–19px). An
+   expander, not padding, so the card's lines do not move. The Terms and
+   Privacy links inside the agreement sentence are left inline on purpose:
+   an expander there would steal the checkbox label's own press. */
+.home-reskin-ov .hr-si-row .hr-si-link,
+.home-reskin-ov .hr-si-foot .hr-si-link {
+  position: relative;
+}
+.home-reskin-ov .hr-si-row .hr-si-link::after,
+.home-reskin-ov .hr-si-foot .hr-si-link::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
 }
 .home-reskin-ov .hr-si-link:hover {
   text-decoration: underline;
@@ -3343,4 +3360,52 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
 }
 .home-reskin-ov .sn-signin-terra .hr-si-banner {
   font-size: 14px;
+}
+
+/* ── 🌗 THE SIGN-IN · CREATE-ACCOUNT · YOU CARDS IN DARK (first-run prototype 2026-10-21 §1b) ─────────────
+   The greige card shipped with no dark rule, so on a dark page it would have stayed a light panel. It now
+   follows the app's approved dark set — card #2B2821, inputs #232019, ink #FBFAF7, lines at 16 % — and keeps
+   the locked terracotta Done and top edge. Words that act (eyebrow, links) take the dark CTA #E5794E; quiet
+   words #B3AEA3. INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
+   set on a ready route, and none is. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
+html.dark .home-reskin-ov:has(.sn-signin-terra) {
+  background: rgba(0, 0, 0, 0.5);
+  --hr-bg: #2b2821;
+  --hr-ink: #fbfaf7;
+  --hr-grey: #b3aea3;
+  --hr-grey-2: #b3aea3;
+  --hr-line: rgba(251, 250, 247, 0.16);
+  color: #fbfaf7;
+}
+html.dark .home-reskin-ov .hr-ov-card.sn-signin-terra {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-top-color: #c24e25;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-input {
+  background: #232019;
+  color: #fbfaf7;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-input::placeholder {
+  color: #9a958c;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-label,
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-or span,
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-hint,
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-remember,
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-foot {
+  color: #b3aea3;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-ov-eyebrow,
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-link {
+  color: #e5794e;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
+  color: #f3b59a;
+}
+
+/* The first-run brand line (`FirstRunBrand`, owner 2026-10-21 "make sure there is Setnayan"): the shipped
+   wordmark, small, above the eyebrow — the card's own ink, one quiet line. */
+.home-reskin-ov .sn-signin-terra .hr-si-brand {
+  margin: -6px 0 14px;
+  color: var(--hr-ink);
 }

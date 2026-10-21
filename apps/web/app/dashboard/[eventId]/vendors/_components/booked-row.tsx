@@ -414,7 +414,8 @@ export function WaitingRowItem({ eventId, row }: { eventId: string; row: Waiting
         <Logo url={row.logoUrl} initials={row.initials} />
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-medium text-ink">{row.name}</span>
-          <span className="block truncate text-[13px] tabular-nums text-ink/55">
+          {/* 💸 carries a price, so it wraps — never cut (the-page-never-scrolls-sideways.spec.ts) */}
+          <span className="block break-words text-[13px] tabular-nums text-ink/55">
             {[row.service, row.pricePhp != null ? formatPhp(row.pricePhp) : null].filter(Boolean).join(' · ')}
           </span>
         </span>

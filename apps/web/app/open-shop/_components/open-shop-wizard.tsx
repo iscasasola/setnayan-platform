@@ -26,6 +26,7 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
@@ -413,6 +414,9 @@ export function OpenShopWizard({
             "Step 1 of 2" is replaced by four segments that fill. The SHAPE
             carries the count, so no words have to; `aria-valuenow` + the label
             keep that fact available to a screen reader, which cannot see it. */}
+        {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small, on every
+            step — it sits above the four segments, so it is the same line on all four. */}
+        <FirstRunBrand className="mb-4" color="var(--m-ink)" size={13} />
         <div
           className="mb-6 flex gap-1.5"
           role="progressbar"

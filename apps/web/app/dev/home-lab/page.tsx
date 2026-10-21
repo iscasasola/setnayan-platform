@@ -28,6 +28,10 @@
  *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
  *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
+ *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
+ *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
+ *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
  *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
@@ -40,6 +44,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { LabSpotlight } from './lab-spotlight';
+import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
@@ -55,6 +61,9 @@ import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import { ApplyProSheetLab } from './apply-pro-sheet-lab';
+import { resolveHubProOffer } from '@/lib/event-hub-pro';
+import { HubProOffer } from '@/app/dashboard/[eventId]/launch/_components/hub-pro-offer';
+import { ProLockPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { liveWatchHomeStatus } from '@/lib/iap/where-bought';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatPhp } from '@/lib/php';
@@ -136,7 +145,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -163,6 +172,18 @@ export default async function HomeLab({
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
   const E = '00000000-0000-4000-8000-000000000000';
+  // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Hub Pro's.
+  if (q.view === 'pro') {
+    const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
+        {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
+        <div className="mt-4">
+          <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
+        </div>
+      </div>
+    );
+  }
   /* 🎨 Papic's row and band — the REAL glance over the approved prototype's own sample
      (papic_easy_home_and_band_2026-10-14_fable.html: Maria & Jose, 2,000 credits bought),
      the REAL default window. `lowday` = running low ON the event day (owner call 1). */
@@ -345,6 +366,15 @@ export default async function HomeLab({
       />
     </div>
   );
+  /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */
+  const lit = q.spot === '1' ? (
+    <>
+      {home}
+      {TOURS.host_spotlight_v1.spotlight ? <LabSpotlight name="Isabel" script={TOURS.host_spotlight_v1.spotlight} /> : null}
+    </>
+  ) : (
+    home
+  );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
-  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{home}</LabShell> : home;
+  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{lit}</LabShell> : lit;
 }

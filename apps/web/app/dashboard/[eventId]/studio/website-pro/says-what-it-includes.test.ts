@@ -233,9 +233,9 @@ test('the Pro list sells the invite theme if and only if the registry has one', 
     and the list keeps selling "Invite link theme" — a product describing
     itself wrongly, with both files passing their own suites.
 
-    That is the exact failure `NOT_SOLD_ON` already exists for one row below
-    (Editorial editing is in the list and is free, so the umbrella may not be
-    SOLD on it). This asserts the same property for the themes, in BOTH
+    That is the exact failure `NOT_SOLD_ON` exists for (Editorial editing was
+    in the list and free, so the umbrella could not be SOLD on it; it left the
+    list 2026-10-22). This asserts the same property for the themes, in BOTH
     directions, so the copy can neither outrun nor outlive the registry.
   */
   const sellablePro = INVITE_THEME_IDS.filter(

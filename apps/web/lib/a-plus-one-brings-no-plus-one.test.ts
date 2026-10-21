@@ -72,7 +72,7 @@ async function paintCard(guest: GuestRow, withKit: boolean, plusOneOf: unknown =
   const kit = withKit ? (await import('../app/dashboard/[eventId]/guests/_components/guest-card-template-kit')).TEMPLATE_KIT : undefined;
   const data = {
     isCouple: false, hasSides: true, availableRoles: ['guest'], groupOptions: ['work', 'other'], isIncWedding: false,
-    showTeaCeremony: false, plusOneStateLabel: null, plusOneGuestId: null, initialInvited: ['ceremony', 'reception', 'cocktails'],
+    showTeaCeremony: false, plusOneLines: [], plusOneGuestId: null, initialInvited: ['ceremony', 'reception', 'cocktails'],
     seatedAt: null, customGroups: [], recordedAt: null, access: null, canManageAccess: true, offersThisIsMe: false,
     nameLinked: false, linkedAccount: null, profileName: null, roleNames: {}, tables: null, seatTableId: null, groupChoices: null,
     plusOneOf, guest,

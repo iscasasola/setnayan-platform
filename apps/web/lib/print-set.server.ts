@@ -17,7 +17,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { guestLookFrom, loadEntourageSectionOrder, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
-import { mainGroundPictureFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { mainGroundPictureFor } from '@/app/[slug]/_lib/main-ground-picture';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { printHubFonts, printLookForEvent, printLooksFor, type WornHub } from '@/lib/print-hub-look';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';

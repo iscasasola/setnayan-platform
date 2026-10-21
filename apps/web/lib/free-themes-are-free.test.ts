@@ -216,7 +216,7 @@ test('5a · on Modern / Cyber Neon: Pro owner → own photo; free couple → the
 
 test('5b · the page, the door and the print each measure ownership through the entitlement resolver, as viewed', () => {
   // Page ground (Event Hub body + RSVP page): `websiteProActiveFor` = asViewed(eventCoupleWebsiteProActive).
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
   assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
   assert.match(read('lib/guest-main-ground.ts'), /heroMayBePageGround\(theme, ownsPro\)/);

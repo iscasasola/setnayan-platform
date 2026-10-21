@@ -95,6 +95,7 @@ export function dynamicImports(src: string): string[] {
 function serverGraph(entry: string) {
   const server = new Set<string>();
   const boundaries = new Map<string, string>(); // client module → the server file that imported it
+  const parent = new Map<string, string>(); // server file → the server file that first imported it (for the chain)
   const stack: Array<[string, string]> = [[entry, '(entry)']];
   while (stack.length) {
     const [f, via] = stack.pop()!;
@@ -105,12 +106,20 @@ function serverGraph(entry: string) {
       continue;
     }
     server.add(f);
+    parent.set(f, via);
     for (const spec of staticImports(src)) {
       const r = resolveSpec(f, spec);
       if (r) stack.push([r, f]);
     }
   }
-  return { server, boundaries };
+  return { server, boundaries, parent };
+}
+
+/** The import chain from the Maker's page down to `file` — so a failure names every link to cut, not just the last. */
+function chainTo(file: string): string {
+  const links: string[] = [];
+  for (let f: string | undefined = file; f && f !== '(entry)' && links.length < 40; f = graph.parent.get(f)) links.push(rel(f));
+  return links.join(' ← ');
 }
 
 /** Everything the first load pulls in: the boundaries and what they import statically, transitively. */
@@ -235,6 +244,25 @@ test('5 · no client component of the guest page (app/[slug]/) is a first-load b
   assert.ok(server.some((f) => f.startsWith('app/[slug]/_lib/')), 'the walk no longer reaches the guest page’s plain readers — the check would pass on nothing');
   const guest = [...graph.boundaries]
     .filter(([b]) => rel(b).startsWith('app/[slug]/'))
-    .map(([b, via]) => `${rel(b)} — imported by ${rel(via)}`);
+    .map(([b, via]) => `${rel(b)} ← ${chainTo(via)}`);
   assert.deepEqual(guest, [], `A guest-page client component is in the Maker's first load (import the plain helper from lib/, not through the component):\n  ${guest.join('\n  ')}`);
+});
+
+/* 🎞 6 · THE MAIN BACKGROUND'S DRAWING FILES STAY OFF THE MAKER'S SERVER SIDE (2026-10-22). Test 5 caught it: #6744
+   (the prints wear the Hub look) read `mainGroundPictureFor` from `app/[slug]/_lib/main-ground-layer.tsx` in
+   `lib/print-set.server.ts`; that file also DRAWS the background (`_components/main-ground.tsx` → the client
+   `SceneClip`), so the guest page's cover-video player joined the Maker's first load. The answer lives in the plain
+   `main-ground-picture.ts`, which draws nothing; the drawing files are for the guest page's own route. */
+test('6 · the main background is read through main-ground-picture.ts — its drawing files are never Maker server files', () => {
+  const S = 'app/[slug]/';
+  const server = new Set([...graph.server].map(rel));
+  assert.ok(server.has(`${S}_lib/main-ground-picture.ts`), 'the Maker no longer reads the main background through main-ground-picture.ts — the walk is not seeing the prints');
+  for (const drawing of [`${S}_lib/main-ground-layer.tsx`, `${S}_components/main-ground.tsx`]) {
+    assert.ok(!server.has(drawing), `${drawing} is a Maker server file again (${chainTo(join(WEB, drawing))}) — read the picture from ${S}_lib/main-ground-picture.ts`);
+  }
+  const pic = join(WEB, `${S}_lib/main-ground-picture.ts`);
+  const draws = staticImports(read(pic))
+    .map((spec) => resolveSpec(pic, spec))
+    .filter((r): r is string => r !== null && (r.endsWith('.tsx') || isClient(read(r))));
+  assert.deepEqual(draws.map(rel), [], 'main-ground-picture.ts imports a component file — everything reading the main background would carry it');
 });

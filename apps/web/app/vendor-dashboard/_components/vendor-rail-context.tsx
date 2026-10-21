@@ -59,7 +59,8 @@ const CAPTION: Record<string, string> = {
   overview: 'Today',
   shop: 'Shop',
   customers: 'Customers',
-  more: 'More',
+  // The Hub (2026-10-21) — the couple's fourth word; the room is the Event Hub.
+  'on-the-day': 'Hub',
 };
 
 export function VendorRailContext({
@@ -70,6 +71,7 @@ export function VendorRailContext({
   threadsBadge = 0,
   planHref,
   tier,
+  eventToday = false,
 }: {
   /** The business name, or a neutral word — never blank, never an id. */
   shopName: string;
@@ -105,6 +107,8 @@ export function VendorRailContext({
   planHref: string | null;
   /** `tier_state`, or null when the probe failed. Normalised below. */
   tier: string | null;
+  /** One of this shop's days is today — a helper's rail gets the Hub then (2026-10-21). */
+  eventToday?: boolean;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
 
@@ -119,6 +123,7 @@ export function VendorRailContext({
     navSlots,
     bookingsBadge,
     threadsBadge,
+    eventToday,
   });
 
   /*

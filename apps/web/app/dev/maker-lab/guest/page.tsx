@@ -720,12 +720,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const caleIceHonour = sp.attire === 'cale-honour' || manHonour;
   const caleIceAfter = sp.attire === 'cale-now' || caleIceHonour;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const caleGuestMan = one('gm') === 'barong_tagalog' || one('gm') === 'smart_casual' ? one('gm')! : null;
   const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   /* 🎭 See as · Role ▾ (owner 2026-10-17): the canvas drawn as a sample guest in one role — `?as=` + `?asrole=`, read
      strictly by the page's own reader (`previewRoleOf`). The scene stays the general dress code (as the real page draws
      it for an identified guest); under it, that role's Me › What to wear. */
   const labRole = typeof sp.as === 'string' ? previewRoleOf(one('asrole'), WEDDING_ROLE_SET.offeredRoles) : null;
-  const roleDress = caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never) : labCaleRoleDressConfig();
+  const roleDress = caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour, caleGuestMan) as never) : labCaleRoleDressConfig();
   const rolePal = caleIce ? labCaleIceRolePalette(caleIceAfter) : labCaleRoleRolePalette();
   const roleNames = caleIce ? LAB_CALE_ICE_ROLE_NAMES : null;
   const roleWear = words && labRole ? (
@@ -750,7 +751,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   ) : words ? (
     <DressCodeWidget
       words={words}
-      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={caleIce ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour, caleGuestMan) as never) : cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
       rolePalette={caleIce ? labCaleIceRolePalette(caleIceAfter) : cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}

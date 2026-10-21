@@ -28,6 +28,10 @@
  *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
  *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
+ *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
+ *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
+ *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
  *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
@@ -55,6 +59,9 @@ import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import { ApplyProSheetLab } from './apply-pro-sheet-lab';
+import { resolveHubProOffer } from '@/lib/event-hub-pro';
+import { HubProOffer } from '@/app/dashboard/[eventId]/launch/_components/hub-pro-offer';
+import { ProLockPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { liveWatchHomeStatus } from '@/lib/iap/where-bought';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { formatPhp } from '@/lib/php';
@@ -203,6 +210,17 @@ export default async function HomeLab({
   ];
   if (q.view === 'apply') {
     return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
+  }
+  if (q.view === 'pro') {
+    const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
+        {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
+        <div className="mt-4 overflow-hidden rounded-xl border border-ink/10">
+          <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
+        </div>
+      </div>
+    );
   }
   if (q.view === 'early') {
     const early = q.early !== '0';

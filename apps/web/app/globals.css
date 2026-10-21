@@ -7589,7 +7589,10 @@ html:has([data-sticky-top]) [data-home-after-cover] {
 .home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
 /* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
 .home-doors { display: flex; gap: 8px; min-width: 0; }
-.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
+/* The prototype's door has no side padding of its own — the pill is a third of the row and the word sits centred
+ * in it (journey_fixes_2026-10-22 § Host 2: icon + word at 375, word only at 320). The house 14px side padding is
+ * what pushed "Suppliers" + its icon past a 109px third, so the door keeps only a 6px breathing edge. */
+.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 6px; gap: 6px; }
 .home-doors .ab.text-only svg { display: none; }
 .home-doors .ab.icon-only .lbl { display: none; }
 /* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's

@@ -161,6 +161,18 @@ function copyIn(path: string, source = readFileSync(path, 'utf8')): { text: stri
   return out;
 }
 
+/** How many times `name` is used as a value in code — never the import, never a comment. */
+function usesOf(path: string, source: string, name: string): number {
+  const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  let n = 0;
+  const walk = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === name && !ts.isImportSpecifier(node.parent)) n++;
+    ts.forEachChild(node, walk);
+  };
+  walk(sf);
+  return n;
+}
+
 const FILES = sourceFiles();
 const COPY = new Map(FILES.map((f) => [relative(WEB, f), copyIn(f)]));
 
@@ -227,9 +239,13 @@ test('the Hub says when it opens — and the words match the gate (midnight to m
   assert.equal(at('2026-12-12T15:59:59Z'), true, '23:59:59 on the day (PH) — still open');
   assert.equal(at('2026-12-12T16:00:00Z'), false, '00:00 the day after (PH) — closed');
   // …and the page shows those words, through the constant, from the same clock.
-  const page = readFileSync(join(WEB, 'app/vendor-dashboard/on-the-day/page.tsx'), 'utf8');
-  const uses = (page.match(/HUB_OPEN_WINDOW_PLAIN/g) ?? []).length;
-  assert.ok(uses >= 5, `the Hub page should say when it opens in all four places (import + 4) — found ${uses}`);
+  const PAGE = 'app/vendor-dashboard/on-the-day/page.tsx';
+  const page = readFileSync(join(WEB, PAGE), 'utf8');
+  // Counted as CODE (identifiers, not the import, not a comment) — a docblock naming the
+  // constant must not stand in for a sentence that stopped using it.
+  assert.equal(usesOf(PAGE, page, 'HUB_OPEN_WINDOW_PLAIN'), 4, 'the Hub page says when it opens in four places, all through the constant');
+  const typed = (COPY.get(PAGE) ?? []).filter((c) => /midnight/i.test(c.text));
+  assert.deepEqual(typed, [], 'the Hub page types the window out instead of reading HUB_OPEN_WINDOW_PLAIN');
   assert.match(page, /const phToday = \(\): string => phTodayIso\(\);/, 'the Hub page keeps its own clock again');
 });
 
@@ -243,8 +259,8 @@ test('day-of mode says when it starts and ends — and the words match getDayOfP
   assert.equal(phase('2026-12-13T04:00:00Z'), 'live', 'noon the day after (Manila) — still on');
   assert.notEqual(phase('2026-12-13T04:00:01Z'), 'live', 'just past noon the day after — off');
   // the pages that say it read the constant
-  const features = readFileSync(join(WEB, 'app/features/_sections/_HowItWorks.tsx'), 'utf8');
-  assert.equal((features.match(/\$\{DAY_OF_STARTS_PLAIN\}/g) ?? []).length, 2, '/features says when day-of starts in two places');
+  const FEATURES = 'app/features/_sections/_HowItWorks.tsx';
+  assert.equal(usesOf(FEATURES, readFileSync(join(WEB, FEATURES), 'utf8'), 'DAY_OF_STARTS_PLAIN'), 2, '/features says when day-of starts in two places');
   const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8');
   assert.match(help, /Available from \$\{DAY_OF_STARTS_PLAIN\} until \$\{DAY_OF_ENDS_PLAIN\}/);
 });

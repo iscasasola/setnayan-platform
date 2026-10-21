@@ -1,6 +1,6 @@
 {
- "_about": "RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "19dbe655237901447b22d3a5e1d376630a79c8b08e78127877555defa3fac5ec",
+ "_about": "RECORDED AGAIN 2026-10-21 (rd/every-hub-button-works: the guest-to-host line under the card is a 44 px press, `min-h-[40px]` → `min-h-[44px]` in guest-to-host-cta.tsx — the Hub button walk; only the three “a host pitch” cases move, same byte length; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
+ "widgetSha256": "ef4697a8f85e4bb218e25392cbc83842d7f27f66b1c5c2034817042c95555cdb",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
    "sha256": "cdda9f1e46b17a041f401907aa92479b6609d06bbc0238bc58fa9309bd9ab947",
@@ -235,7 +235,7 @@
    "bytes": 11890
   },
   "reply-card · a flash, a host pitch, no terms": {
-   "sha256": "3b495f7d8d74ed6c3241e702ddc072fff36bcca87e8e7bac44e62285c3833689",
+   "sha256": "fbbdea97a85d0d472afaf9434fe95738ebe05d559d9207a7c42dfdc7e9a78338",
    "bytes": 10324
   },
   "question · already attending": {
@@ -279,7 +279,7 @@
    "bytes": 11356
   },
   "question · a flash, a host pitch, no terms": {
-   "sha256": "da707e08e180cb1cc532d90422ba4cb0f3b73f2cec4a9aa62292c9fe63852d0a",
+   "sha256": "f65b3c1b2b46caec80698f359cb849789729b088595b52b731aa2c14096935d3",
    "bytes": 9771
   },
   "ticket · already attending": {
@@ -323,7 +323,7 @@
    "bytes": 11977
   },
   "ticket · a flash, a host pitch, no terms": {
-   "sha256": "1aa41b0f1ce02aff24357a7833925edea84ad6cfcc13a3a9bf4ec86c233e1ed8",
+   "sha256": "6c6210bf79f158e33fb3b673aa75a4ad1ce1bda0290ca15bf14e4b0f9a974b46",
    "bytes": 10477
   },
   "the key gate · only the meal is missing": {

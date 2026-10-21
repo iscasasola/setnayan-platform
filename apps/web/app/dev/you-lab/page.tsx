@@ -4,13 +4,13 @@
  *
  * Owner 2026-10-21: "i noticed some misalignment where they upload their first profile photo. on that
  * page. can you show me that step". This draws the REAL card (`YouCard`, the component the page renders)
- * and, for the supplier's first run, the REAL `/open-shop` wizard on its logo step — so the photo slot can
- * be walked at every phone width without an account.
+ * and the couple's next screen — so the photo row can be walked at every phone width without an account. The
+ * supplier's first run is walked on the real `/open-shop` itself (signed out, it is a guest's page): a shop's own
+ * form, which no couple-reachable tree may import (`lib/no-door-out-of-the-app.test.ts`).
  *
  *   ?state=new        a brand-new account: no photo, no @name, consent unanswered (default)
  *   ?state=returning  a returning account: photo on file, @name set, formal name filled (folded open)
  *   ?state=long       a brand-new account with a long display name
- *   ?door=open-shop   the supplier first run, step 1 (Shop logo) — the REAL wizard, with the brand line
  *   ?door=picker      the couple's next screen after Done: the REAL event-type picker in the REAL app bar, for an
  *                     account with no event yet (no "Back to events" — `&behind=1` draws the way back)
  *   &dark=1           (a walk adds `html.dark`) — the card's dark rules are inert until the route is DARK_READY
@@ -21,7 +21,6 @@
  */
 import { notFound } from 'next/navigation';
 import { YouCard, type YouCardMe } from '@/app/signup/you/_components/you-card';
-import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { NewEventHead } from '@/app/dashboard/(account)/create-event/_components/new-event-head';
@@ -87,36 +86,6 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
           />
         </div>
       </FrontDoorShell>
-    );
-  }
-
-  if (sp.door === 'open-shop') {
-    return (
-      <div className="min-h-dvh bg-cream text-ink" data-you-lab="open-shop">
-        <OpenShopWizard
-          mode="create"
-          eventTypeOptions={[
-            { key: 'wedding', label: 'Wedding', emoji: '💍' },
-            { key: 'debut', label: 'Debut', emoji: '👑' },
-            { key: 'birthday', label: 'Birthday', emoji: '🎂' },
-          ]}
-          vendorProfileId={null}
-          logoDisplayMap={{}}
-          guest
-          defaults={{
-            shopName: '',
-            logoUrl: '',
-            primaryService: '',
-            eventTypes: [],
-            locationCity: '',
-            hqAddress: '',
-            contactName: '',
-            contactPosition: '',
-            contactPhone: '',
-            contactEmail: '',
-          }}
-        />
-      </div>
     );
   }
 

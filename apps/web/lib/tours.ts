@@ -110,10 +110,8 @@ export type SpotlightStep = {
   welcome?: boolean;
 };
 
-/** The steps a run walks: the first run every one; a replay without the once-only welcome. */
-export function spotlightSteps(steps: ReadonlyArray<SpotlightStep>, firstRun: boolean): ReadonlyArray<SpotlightStep> {
-  return firstRun ? steps : steps.filter((s) => !s.welcome);
-}
+/* The steps a run walks (the welcome on the first run only) — `lib/spotlight-steps.ts`, a file of its own so the
+   client mount can take it without carrying every tour's words (`lib/tours-stay-on-the-server.test.ts`). */
 
 /** The "You're set" card at the end, with the sample's confetti. */
 export type SpotlightFinale = { title: string; body: string; button: string };

@@ -23,7 +23,8 @@ import { readFileSync } from 'node:fs';
 import { stripComments } from './strip-comments';
 import { FIRST_EVENT_PATH, youCardOnward } from './signup-landing';
 import { SIGNED_IN_LANDING } from './sign-in-landing';
-import { TOURS, spotlightSteps } from './tours';
+import { TOURS } from './tours';
+import { spotlightSteps } from './spotlight-steps';
 import { buildFirstStepsRail, firstStepsThen } from './vendor-first-steps';
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));

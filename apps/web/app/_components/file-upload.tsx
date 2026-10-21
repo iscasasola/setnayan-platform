@@ -1635,7 +1635,8 @@ export function FileUpload({
         </ul>
       ) : null}
 
-      {!isGallery && !rowMode && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
+      {/* (Not in the photo row — `row` draws its own progress, in the circle.) */}
+      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && !rowMode && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {/* Skipped when the big preview owns the completed item — otherwise a
               replacement upload would show the picture AND its own filename row

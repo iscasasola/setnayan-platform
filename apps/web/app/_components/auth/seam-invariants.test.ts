@@ -643,7 +643,8 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   const start = css.indexOf('.home-reskin-ov .hr-ov-card.sn-signin-terra');
   assert.ok(start > -1, 'the terracotta block must exist');
   // Stop before the next top-level block that is not part of this card.
-  const block = css.slice(start).split('\n.home-reskin-ov .hr-si-')[0] ?? '';
+  // …and before the card's DARK rules (2026-10-21): they are measured against the dark card, below.
+  const block = css.slice(start).split('\n.home-reskin-ov .hr-si-')[0]?.split('\nhtml.dark ')[0] ?? '';
   assert.ok(block.length > 0, 'the terracotta block must not be empty');
 
   const lin = (c: number) => {
@@ -703,6 +704,19 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
     `the 3px top edge ${edge} is ${onEdge.toFixed(2)}:1 on ${bg}, below the ` +
       '3:1 bar for non-text',
   );
+  /* 🌗 The same card in dark (first-run prototype 2026-10-21 §1b): every text colour the dark rules set clears AA
+     on the DARK card's own --hr-bg, and the inputs' words on the dark input. */
+  const darkStart = css.indexOf('html.dark .home-reskin-ov:has(.sn-signin-terra)');
+  assert.ok(darkStart > -1, 'the sign-in card has no dark rules');
+  const dark = css.slice(darkStart).split('\n/*')[0] ?? '';
+  const darkBg = dark.match(/--hr-bg:\s*(#[0-9a-f]{6})/i)?.[1];
+  if (!darkBg) throw new Error('the dark card colour must be readable');
+  const darkText = [...dark.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]!).filter(Boolean);
+  assert.ok(darkText.length >= 4, `expected the dark ink, quiet words, links and error colours, found ${darkText.length}`);
+  for (const c of darkText) {
+    const r = ratio(c, darkBg);
+    assert.ok(r >= 4.5, `dark: ${c} on the card's ${darkBg} is ${r.toFixed(2)}:1 — below the 4.5:1 AA floor`);
+  }
 });
 
 test('/login wears the same card as the rest of the public site', () => {

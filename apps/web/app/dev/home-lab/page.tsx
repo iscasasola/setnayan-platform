@@ -41,6 +41,7 @@
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabSpotlight } from './lab-spotlight';
+import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
@@ -350,7 +351,7 @@ export default async function HomeLab({
   const lit = q.spot === '1' ? (
     <>
       {home}
-      <LabSpotlight name="Isabel" />
+      {TOURS.host_spotlight_v1.spotlight ? <LabSpotlight name="Isabel" script={TOURS.host_spotlight_v1.spotlight} /> : null}
     </>
   ) : (
     home

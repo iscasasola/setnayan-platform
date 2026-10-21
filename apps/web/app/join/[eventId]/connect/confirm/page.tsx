@@ -29,6 +29,8 @@ import { confirmSeatLinkAction } from './actions';
 import { accountFaceReuse } from '@/lib/account-face-profile';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
+import { hostsToAsk } from '@/lib/guest-connects-hosts.server';
+import { ConnectHostsTick } from '@/app/[slug]/_components/connect-hosts-tick';
 
 export const metadata = { title: 'Save this invitation?' };
 
@@ -64,11 +66,13 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   }
 
   const admin = createAdminClient();
-  const [{ data: event }, faceTagging, reuse] = await Promise.all([
+  const [{ data: event }, faceTagging, reuse, hosts] = await Promise.all([
     admin.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
     resolveFaceTagging(admin, eventId),
     // The caller's own client: RLS scopes the face profile to its owner.
     accountFaceReuse(supabase, user.id, eventId),
+    // 🤝 "Also connect with <the hosts>" — null hides the tick (lib/guest-connects-hosts.server.ts).
+    hostsToAsk(admin, eventId, user.id),
   ]);
   // 🙂 THE ONE SWITCH (owner 2026-09-30, design screens 3a/4): only for an
   // account that HAS a face to reuse, at an event where face tagging is on
@@ -129,6 +133,11 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
               <p className="reuse-on mt-2 text-xs text-ink/70">
                 The face on your account is used for this event only. Photo helpers see your tags, not your face data.
               </p>
+            </div>
+          ) : null}
+          {hosts ? (
+            <div className="mb-4">
+              <ConnectHostsTick line={hosts.line} />
             </div>
           ) : null}
           <SubmitButton className="button-primary w-full" pendingLabel="Saving…">

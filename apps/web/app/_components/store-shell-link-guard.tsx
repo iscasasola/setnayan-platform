@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { isStoreShellInBrowser, storeShellHidesHref } from '@/lib/store-shell';
-import { hasNativeStore } from '@/lib/iap/iap-gate';
-import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
+import { isStoreShellInBrowser } from '@/lib/store-shell';
 
 /**
  * STORE-SHELL LINK GUARD — in the App Store / Play Store shell, no link to a
@@ -26,63 +24,24 @@ import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
  * 🍎 Where Apple sells in this app it asks the gate's two parts (`iapAvailable`) exactly as
  * middleware does, so a link to a page In-App Purchase opens (Papic, the Live
  * Watch controller — `IAP_OPENED_ROUTE`) stays; with it off, nothing changes.
+ *
+ * ⚡ The work itself (`store-shell-link-guard-run.ts`: the sweep, the observer, the In-App Purchase gate) is its own
+ * chunk, fetched only after the store-shell check below passes — this component is in every page's first load (the
+ * Maker's sits at its 507 KB ceiling), and the web never needs the rest (2026-10-21).
  */
-const MARK = 'storeShellHidden';
-let iap = false;
-
-function apply(a: HTMLAnchorElement): void {
-  const hide = storeShellHidesHref(a.getAttribute('href'), window.location.href, iap);
-  if (hide) {
-    if (a.dataset[MARK] === '1') return;
-    a.hidden = true;
-    // `hidden` alone loses to a utility class (`inline-flex` sets display at
-    // the same specificity, later in the cascade) — so say it with !important.
-    a.style.setProperty('display', 'none', 'important');
-    a.setAttribute('aria-hidden', 'true');
-    a.tabIndex = -1;
-    a.dataset[MARK] = '1';
-  } else if (a.dataset[MARK] === '1') {
-    // The href moved off a refused route — give the link back.
-    a.hidden = false;
-    a.style.removeProperty('display');
-    a.removeAttribute('aria-hidden');
-    a.removeAttribute('tabindex');
-    delete a.dataset[MARK];
-  }
-}
-
-function sweep(root: Element | Document): void {
-  if (root instanceof HTMLAnchorElement) apply(root);
-  root.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(apply);
-}
-
 export function StoreShellLinkGuard() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     if (!isStoreShellInBrowser(navigator.userAgent, document.cookie)) return;
-    // `iapAvailable` with the store shell already true (the line above) — its other two parts, spelled out so the
-    // Maker's first load carries only them.
-    iap = hasNativeStore(navigator.userAgent) && isAppleIapEnabled();
-
-    sweep(document);
-    const observer = new MutationObserver((records) => {
-      for (const r of records) {
-        if (r.type === 'attributes') {
-          if (r.target instanceof HTMLAnchorElement) apply(r.target);
-          continue;
-        }
-        r.addedNodes.forEach((n) => {
-          if (n instanceof Element) sweep(n);
-        });
-      }
+    let stop: (() => void) | null = null;
+    let gone = false;
+    void import('./store-shell-link-guard-run').then((m) => {
+      if (!gone) stop = m.guardStoreShellLinks();
     });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['href'],
-    });
-    return () => observer.disconnect();
+    return () => {
+      gone = true;
+      stop?.();
+    };
   }, []);
   return null;
 }

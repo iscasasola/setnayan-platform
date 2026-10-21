@@ -126,8 +126,9 @@ test('the editor offers only the roles this wedding actually has', () => {
     'utf8',
   );
   assert.match(page, /from\('guests'\)[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'it reads the real guest list');
+  /* `foldEventRoles` lives in `dress-code-config.ts` since 2026-10-21 (the plain readers, out of the form's module). */
   const fields = readFileSync(
-    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-fields.tsx'),
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-config.ts'),
     'utf8',
   );
   assert.match(fields, /roleLabel\(role as GuestRole\) === null/, 'unpublished roles are not offered');

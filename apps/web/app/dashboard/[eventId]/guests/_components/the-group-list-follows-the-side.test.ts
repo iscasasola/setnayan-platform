@@ -25,8 +25,8 @@
  * ── Caveats ───────────────────────────────────────────────────────────────────────────────────────────────────────
  *   · No browser runs here: that the filtered list is PAINTED, and re-filters when Side changes, is the lab walk's claim
  *     (the PR body's 375 shots, Chromium + WebKit). § 4–6 read source; a rewrite keeping the shape could pass.
- *   · The capture bar's `#Group`, claims and Quick add sheet still create through `quickCreateGroup` (find-or-create on
- *     the exact label + side) — the name rule is not theirs; the PR body says so.
+ *   · (2026-10-21) The capture bar's `#Group`, claims, the Quick add sheet, the sidebar form and the map now make groups
+ *     through the same one-name rule too — `makeGuestGroupOnce`, proven in lib/one-group-per-name.test.ts.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -170,11 +170,12 @@ test('6 · the server refuses the same names, and a rename keeps the side', () =
   const rename = body('renameGuestGroupInPlace');
   for (const [name, b] of [['create', create], ['rename', rename]] as const) {
     const check = b.indexOf('groupNameClash(');
-    const write = b.search(/\.(insert|update)\(/);
+    const write = b.search(/\.(insert|update)\(|makeGuestGroupOnce\(/);
     assert.ok(check > -1 && write > check, `the server's ${name} writes without the name rule`);
     assert.match(b, /if \(clash\) return \{ ok: false, error: clashWords\(clash\), clash \};/, `the server's ${name} does not refuse a clash`);
   }
-  assert.match(create, /\.insert\(\{ event_id: eventId, label, team_side: side \}\)/, 'the server’s create does not write the side');
+  // The insert itself is `makeGuestGroupOnce`'s (lib/one-group-per-name.test.ts runs it): the create hands it the side.
+  assert.match(create, /makeGuestGroupOnce\(supabase, eventId, label, side\)/, 'the server’s create does not write the side');
   assert.match(rename, /groupNameClash\(label, self\.teamSide, STANDARD, own, groupId\)/, 'the server’s rename is not checked on its own side');
   assert.match(rename, /\.update\(\{ label \}\)/, 'the rename writes more than the name — it can move the group’s side');
   assert.match(src, /if \(!own\) return \{ ok: false/, 'a refused read of the groups is taken as “no clash”');

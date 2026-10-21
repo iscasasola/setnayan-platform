@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GROUP_CATEGORY_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 
 /**
  * group-edit-actions.ts — ✎ RENAME AND 🗑 DELETE A COUPLE'S OWN GROUP IN PLACE (owner 2026-10-20: *"before we can always
@@ -82,12 +83,16 @@ async function createGuestGroupInPlace(eventId: string, rawLabel: string, rawSid
   if (!own) return { ok: false, error: 'Couldn’t make that group.' };
   const clash = groupNameClash(label, side, STANDARD, own);
   if (clash) return { ok: false, error: clashWords(clash), clash };
-  const { data, error } = await supabase.from('guest_groups').insert({ event_id: eventId, label, team_side: side }).select('group_id, label');
-  if (error) return { ok: false, error: (error as { code?: string }).code === '23505' ? 'A group with that name already exists.' : error.message };
-  const row = (data ?? [])[0] as { group_id: string; label: string } | undefined;
-  if (!row) return { ok: false, error: 'Couldn’t make that group.' };
+  // The one place an own group is written (`makeGuestGroupOnce`). A twin that appeared since the read above (another
+  // tab) comes back as `created: false` — said as the same clash, so the picker offers "Use" for it.
+  const made = await makeGuestGroupOnce(supabase, eventId, label, side);
+  if (!made.ok) return { ok: false, error: made.error };
+  if (!made.created) {
+    const twin: GroupNameClash = { kind: 'own', groupId: made.group.group_id, label: made.group.label };
+    return { ok: false, error: clashWords(twin), clash: twin };
+  }
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, group: { group_id: row.group_id, label: row.label } };
+  return { ok: true, group: { group_id: made.group.group_id, label: made.group.label } };
 }
 
 async function renameGuestGroupInPlace(eventId: string, groupId: string, rawLabel: string): Promise<GroupEditResult> {

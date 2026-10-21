@@ -113,6 +113,7 @@ import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
 import { NewGroupInlineForm } from './new-group-inline-form';
+import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
@@ -741,8 +742,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
     />
   );
 
+  const setNamesakes = sidesForNamesakes(groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side })));
   const setOptions: PickOption[] = [
-    ...groups.map((g) => ({ key: `group:${g.group_id}`, label: g.label, group: 'Group' })),
+    // 👥 Same name, say the side (owner 2026-10-21): two groups of one name each carry their side's word.
+    ...groups.map((g) => ({ key: `group:${g.group_id}`, label: groupLabelWithSide(g.label, setNamesakes.get(g.group_id)), group: 'Group' })),
     { key: 'group:new', label: 'New group…', group: 'Group' },
     ...tables.map((t) => ({ key: `table:${t.tableId}`, label: t.label, group: 'Table' })),
     { key: 'table:none', label: 'Not seated', group: 'Table' },

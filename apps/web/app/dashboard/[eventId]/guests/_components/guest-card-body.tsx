@@ -30,6 +30,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
 import { FormPick, FormSplitPick } from './card-fields';
 import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
+import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 /* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
    by the pages that draw them (the Guest list, the standalone card). The Maker's
    parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
@@ -1050,9 +1051,11 @@ function OldTitle({ label, value, options, unlisted }: CardTitleProps) {
 }
 /** 👥 The Maker's one Group dropdown: the same list as the shipped checkmark PickMenu, ticks only (no editors — no room). */
 function OldGroup({ label, std, standard, own, ownPicked }: CardGroupProps) {
+  /* 👥 Same name, say the side (owner 2026-10-21): an own group whose name another row shares carries its side's word. */
+  const namesakes = sidesForNamesakes(own ?? [], standard.map((o) => o.label));
   const options = [
     ...standard.map((o) => ({ ...o, group: GROUP_STANDARD_HEADING })),
-    ...(own ?? []).map((g) => ({ key: g.groupId, label: g.label, group: GROUP_OWN_HEADING })),
+    ...(own ?? []).map((g) => ({ key: g.groupId, label: groupLabelWithSide(g.label, namesakes.get(g.groupId)), group: GROUP_OWN_HEADING })),
   ];
   return (
     <FormSplitPick

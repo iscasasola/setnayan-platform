@@ -20,7 +20,7 @@ import {
 import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
-import { pickReuseGroup } from '@/lib/guest-group-reuse';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
 // resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
@@ -291,55 +291,20 @@ export async function quickCreateGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
-  // This fast path always creates on the 'both' team side (the host refines it
-  // later in the Groups sidebar). Held in one const so the insert and the 23505
-  // reuse-lookup below resolve the SAME (event_id, lower(label), team_side)
-  // unique-index key.
+  // The guest's side when one is passed, else 'both' (the host refines it later in the Groups sidebar).
   const teamSide = rawSide === 'bride' || rawSide === 'groom' ? rawSide : 'both';
 
-  const { data: inserted, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id, label')
-    .single();
-
-  if (error || !inserted) {
-    // 23505 from the case-insensitive unique index → reuse the existing
-    // group of that name rather than erroring.
-    if (error && (error as { code?: string }).code === '23505') {
-      // The conflict is on (event_id, lower(label), team_side), so the row to
-      // reuse shares our exact (label, teamSide) key. Fetch the same-label rows
-      // and pick the team_side match in JS — a label-only `.maybeSingle()` also
-      // caught cross-side namesakes (a bride-side + groom-side "Friends"), and
-      // >1 row made maybeSingle throw, failing a legitimate reuse. The JS exact
-      // compare also sidesteps `ilike` treating %/_ in a label as wildcards.
-      const { data: candidates } = await supabase
-        .from('guest_groups')
-        .select('group_id, label, team_side')
-        .eq('event_id', eventId)
-        .ilike('label', label);
-      const existing = pickReuseGroup(candidates ?? [], label, teamSide);
-      if (existing) {
-        // Reuse of a pre-existing group → created:false, so the caller never
-        // deletes it during on-failed-add compensation.
-        return {
-          ok: true,
-          group: { group_id: existing.group_id, label: existing.label },
-          created: false,
-        };
-      }
-      return { ok: false, error: 'A group with that name already exists.' };
-    }
-    return { ok: false, error: error?.message ?? 'Couldn’t create that group.' };
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  // Fresh insert → created:true. Only these ids are eligible for the caller's
-  // on-failed-add cleanup.
+  // 👥 One name, one group (2026-10-21): a name that already shows in this side's list IS that group — reused, never
+  // twinned (`makeGuestGroupOnce`, the one place an own group is written).
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) return { ok: false, error: made.error };
+  // Fresh insert → created:true; only these ids are eligible for the caller's on-failed-add cleanup. A reuse is
+  // created:false, so the caller never deletes a group the couple already had.
+  if (made.created) revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
-    group: { group_id: inserted.group_id, label: inserted.label },
-    created: true,
+    group: { group_id: made.group.group_id, label: made.group.label },
+    created: made.created,
   };
 }
 

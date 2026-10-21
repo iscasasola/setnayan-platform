@@ -808,7 +808,7 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
             <div key={a.style} className="mt-3" data-dress-code-style={a.style}>
               <p className="mb-1.5 text-[12.5px] font-semibold text-ink">
                 {a.label}
-                {any(a.designs.length) ? <small className="font-normal text-ink/55"> · {any(a.designs.length)}</small> : null}
+                {any(a.designs.length) ? <small className="font-normal text-ink/70"> · {any(a.designs.length)}</small> : null}
               </p>
               <div className="flex items-end justify-center gap-1.5">
                 {a.designs.map((d, i) => {
@@ -830,7 +830,7 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
       <div className="mt-[18px] flex flex-col items-center gap-2" data-dress-code-board-colours="">
         {(sameColours ? [people[0]!] : people).map((p) => (
           <div key={p.who} className="flex flex-col items-center gap-1">
-            {!sameColours && p.label ? <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-ink/60">{p.label}</p> : null}
+            {!sameColours && p.label ? <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-ink/70">{p.label}</p> : null}
             <RowDots dots={p.colours.map((hex) => ({ hex, word: '' }))} look={look} centre label={`${row.label}${!sameColours && p.label ? ` — ${p.label.toLowerCase()}` : ''} colours`} />
           </div>
         ))}

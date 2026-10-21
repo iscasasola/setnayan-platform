@@ -64,11 +64,14 @@ export async function ScanTrailNotice({
   eventId,
   guestId,
   preview = false,
+  card = false,
 }: {
   eventId: string;
   guestId: string;
   /** The Maker's canvas (`isEditorCanvas`). */
   preview?: boolean;
+  /** 🃏 On Me: drawn on the Hub's own scene card (`ScanTrailForm`). */
+  card?: boolean;
 }) {
   // 🖼 NOT IN THE MAKER'S CANVAS, AND NEVER FOR THE SAMPLE GUEST (owner
   // 2026-09-27). The sample of the "After they reply" preview has no row, so
@@ -91,7 +94,27 @@ export async function ScanTrailNotice({
     ? `We keep no record of when you open your invitation or scan your code at this ${w.eventWord}. This page will greet you the same way every time.`
     : `We keep a record of when you open your invitation or scan your code at this ${w.eventWord} — it is how this page knows to welcome you when you first arrive.`;
 
-  return (
+  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} toggle={toggle} card={card} />;
+}
+
+/**
+ * The note and its one button, as drawn. 🃏 `card` — ON ME IT SITS ON THE HUB'S OWN SCENE CARD (owner 2026-10-21,
+ * "Yes to all" on guest_page_fixes_2_4, fix 2): the stage's other topics are `.sn-hub-cards > section` cards
+ * (`guest-me.tsx`), and this note was the last words left bare on the couple's photo. The same wrapper, no new CSS.
+ * Under a page that is one scroll (the foot, `data-guest-foot`) it stays a plain line, as before.
+ */
+export function ScanTrailForm({
+  sentence,
+  optedOut,
+  toggle,
+  card = false,
+}: {
+  sentence: string;
+  optedOut: boolean;
+  toggle: (formData: FormData) => void | Promise<void>;
+  card?: boolean;
+}) {
+  const form = (
     /* 🔎 READABLE AND PRESSABLE (a guest's walk 2026-10-11): the note was 3.98:1 (`text-ink/60`); it is 5.4:1 now,
        and the button says its own 44px. NO "are you sure?": the press only flips this guest's one setting
        (`setGuestScanTracking` — nothing is deleted), and the same button, now reading "Keep a record again",
@@ -109,5 +132,14 @@ export async function ScanTrailNotice({
         {optedOut ? 'Keep a record again' : 'Stop keeping a record'}
       </SubmitButton>
     </form>
+  );
+  /* `!mt-4`: 16 px under the card above it on Me's stage — the Hub's own card rhythm (`sn-hub-cards space-y-4`),
+     not the stage's wider gap between topics. Drawn only when there is a note, so there is never an empty card. */
+  return card ? (
+    <div className="sn-hub-cards !mt-4" data-me-card="record">
+      <section>{form}</section>
+    </div>
+  ) : (
+    form
   );
 }

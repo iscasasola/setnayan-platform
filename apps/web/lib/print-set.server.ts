@@ -58,6 +58,7 @@ import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type V
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
+import { displayPersonName } from '@/lib/person-name-case';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 
 /**
@@ -887,7 +888,7 @@ export async function loadPassGuestNames(
   const byId = new Map(read.rows.map((g) => [g.guest_id, g]));
   return read.rows.map((g) => ({
     id: g.guest_id,
-    name: ticketName(g, style),
+    name: displayPersonName(ticketName(g, style)),
     reply: passGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
   }));
 }
@@ -962,7 +963,8 @@ export async function loadGuestPasses(
   const drawn = (i: number) => !opts.drawOnly || (i >= opts.drawOnly.from && i < opts.drawOnly.from + opts.drawOnly.count);
   for (const g of guests) {
     n = place.get(g.guest_id) ?? n + 1;
-    const name = ticketName(g, style);
+    // 🪪 Shown cased, as the Digital ticket is (`passCardGuestName`; guest_page_fixes_2_4 fix 3, owner yes to batches).
+    const name = displayPersonName(ticketName(g, style));
     const ref = `qr-${g.guest_id}`;
     /* 📄 Outside the page being shown: listed (its name, its place on the sheet), its QR not drawn. */
     if (!drawn(n - 1)) {

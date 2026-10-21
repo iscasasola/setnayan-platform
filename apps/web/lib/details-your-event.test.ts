@@ -119,7 +119,7 @@ test('every editor saves through a door that already exists — +0 server action
   // ✍ The names and the date are DRAFTED (owner 2026-10-01, "wait for apply") —
   // through the one draft door; nothing else (region, feel, birth data) is posted.
   assert.match(EDITORS, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'names and date: the Event Hub draft');
-  assert.match(EDITORS, /const events = coupleNameColumns\(a, b\);/, 'names: the Personalization writer’s own composition');
+  assert.match(EDITORS, /const events = coupleNameColumns\(a, b, order\);/, 'names: the Personalization writer’s own composition, in the event’s order');
   assert.doesNotMatch(EDITORS, /fd\.set\('region'|fd\.set\('mood_feel_key'/, 'the draft carries the names only');
   assert.match(EDITORS, /<GovernedFields[\s\S]*?only=\{\['date'\]\}[\s\S]*?proposal=\{proposal\}/, 'date: the governed row, conflict preview and all');
   assert.match(EDITORS, /event_date_precision: 'month'/, 'a month is drafted with its precision');

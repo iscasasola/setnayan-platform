@@ -125,47 +125,74 @@ export type ZoneKey = 'a' | 't' | 's' | 'v' | 'p';
 export type DesignZone = { readonly key: ZoneKey; readonly label: string | null; readonly fallback: 'first' | 'deeper' | `#${string}` };
 
 /**
+ * 🎛 THE ENTOURAGE MAN'S THREE CONTROLS, IN THE OWNER'S WORDS (2026-10-21: *"groomsmen, sponsors entourage men has 3
+ * palette controls. so the coat and pants can be a specific color / tie and accent a specific color / long sleeves a
+ * specific color"*) — the words under the three dots of every suit, tuxedo and vest design.
+ */
+export const COAT_AND_PANTS = 'Coat & pants';
+export const TIE_AND_ACCENT = 'Tie & accent';
+export const LONG_SLEEVES = 'Long sleeves';
+
+/**
  * 🎨 THE APPROVED ZONES (DECISION_LOG 2026-10-16 "ATTIRE COLOUR ZONES"; the brief's per-design list): dot 1 the garment,
- * dot 2 the accent (the tie on suits; the pants on a barong and smart casual), dot 3 the shirt — white unless said; a
- * 3-piece adds its vest as dot 4, in the suit's cloth unless said. Gowns, ternos and dresses — and the kids' dresses —
+ * dot 2 the accent (the tie on suits; the pants on a barong and smart casual), dot 3 the shirt — white unless said.
+ * (2026-10-21: a 3-piece's vest is no fourth dot — it follows Coat & pants, `FOLLOWER_ZONES`.) Gowns, ternos and dresses — and the kids' dresses —
  * are one colour. Charcoal barong pants and khaki chinos are the approved prototype's own defaults.
  */
 export const DESIGN_ZONES: Readonly<Partial<Record<AttireStyle, readonly DesignZone[]>>> = {
   suit: [
-    { key: 'a', label: 'Coat & pants', fallback: 'first' },
-    { key: 't', label: 'Tie', fallback: 'deeper' },
-    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+    { key: 'a', label: COAT_AND_PANTS, fallback: 'first' },
+    { key: 't', label: TIE_AND_ACCENT, fallback: 'deeper' },
+    { key: 's', label: LONG_SLEEVES, fallback: '#FFFFFF' },
   ],
+  /* 🧥 The vest has no control of its own (owner 2026-10-21, "3 palette controls"): it is drawn in Coat & pants
+     (`FOLLOWER_ZONES`). */
   three_piece_suit: [
-    { key: 'a', label: 'Coat & pants', fallback: 'first' },
-    { key: 't', label: 'Tie', fallback: 'deeper' },
-    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
-    { key: 'v', label: 'Vest', fallback: 'first' },
+    { key: 'a', label: COAT_AND_PANTS, fallback: 'first' },
+    { key: 't', label: TIE_AND_ACCENT, fallback: 'deeper' },
+    { key: 's', label: LONG_SLEEVES, fallback: '#FFFFFF' },
   ],
   tuxedo: [
-    { key: 'a', label: 'Jacket', fallback: 'first' },
-    { key: 't', label: 'Bow tie', fallback: 'deeper' },
-    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+    { key: 'a', label: COAT_AND_PANTS, fallback: 'first' },
+    { key: 't', label: TIE_AND_ACCENT, fallback: 'deeper' },
+    { key: 's', label: LONG_SLEEVES, fallback: '#FFFFFF' },
   ],
+  /* A vest design draws no coat — its first control names what it colours (a build call, named in the PR). */
   vest_and_tie: [
     { key: 'a', label: 'Vest & pants', fallback: 'first' },
-    { key: 't', label: 'Tie', fallback: 'deeper' },
-    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+    { key: 't', label: TIE_AND_ACCENT, fallback: 'deeper' },
+    { key: 's', label: LONG_SLEEVES, fallback: '#FFFFFF' },
   ],
   vest_and_bow_tie: [
     { key: 'a', label: 'Vest & pants', fallback: 'first' },
-    { key: 't', label: 'Bow tie', fallback: 'deeper' },
-    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+    { key: 't', label: TIE_AND_ACCENT, fallback: 'deeper' },
+    { key: 's', label: LONG_SLEEVES, fallback: '#FFFFFF' },
   ],
   barong_tagalog: [
     { key: 'a', label: 'Barong', fallback: 'first' },
     { key: 'p', label: 'Pants', fallback: '#33302C' },
   ],
   smart_casual: [
-    { key: 'a', label: 'Shirt', fallback: 'first' },
+    { key: 'a', label: LONG_SLEEVES, fallback: 'first' },
     { key: 'p', label: 'Pants', fallback: '#C9AD7E' },
   ],
 };
+/**
+ * A drawing's zones that have NO control of their own — each drawn in the colour of the control it follows. The
+ * 3-piece's vest follows Coat & pants (owner 2026-10-21: *"the coat and pants can be a specific color / tie and accent a
+ * specific color / long sleeves a specific color"* — three controls, not four).
+ */
+export const FOLLOWER_ZONES: Readonly<Partial<Record<AttireStyle, ReadonlyArray<{ key: ZoneKey; follows: ZoneKey }>>>> = {
+  three_piece_suit: [{ key: 'v', follows: 'a' }],
+};
+/** Every zone a design's DRAWING has a mask for — its controls, then the zones that follow one. */
+export function artZoneKeys(style: AttireStyle | null | undefined): ZoneKey[] {
+  return [...zonesOf(style).map((z) => z.key), ...((style && FOLLOWER_ZONES[style]) || []).map((f) => f.key)];
+}
+/** The control a zone is drawn in — itself, or the one it follows. */
+export function controlOfZone(style: AttireStyle | null | undefined, key: ZoneKey): ZoneKey {
+  return ((style && FOLLOWER_ZONES[style]) || []).find((f) => f.key === key)?.follows ?? key;
+}
 /**
  * 👔 A GUEST MAN WEARS THE PALETTE ON HIS TIE (owner 2026-10-21, on the guest's Dress with us: *"for the guests. the coat
  * and pants is not the color theme. we set the tie as their palette and keep the coat and pants black"*). For the guests'
@@ -173,8 +200,12 @@ export const DESIGN_ZONES: Readonly<Partial<Record<AttireStyle, readonly DesignZ
  * the coat, the pants and a vest are black; the shirt stays white. Only the DEFAULT: a figure given its colours zone by
  * zone (more than the one option colour) wears them as given. Read by `zoneTints` and `pickDots` (lib/role-figure.ts),
  * so the Studio's Guests row and the guest's Dress with us (the Guests card) draw it the same.
- * ⚠ The guests' Barong Tagalog and Smart casual keep the 2026-10-16 zones (dot 1 the garment) — not ruled, an owner
- * question. Entourage roles are unchanged. Women are unchanged.
+ * 👕 THE GUESTS' BARONG AND SMART CASUAL WEAR IT ON THE TOP (owner 2026-10-21: *"barong and smart casual will be their
+ * long sleeves or the barong can be tinted as well"*): the barong, or the long-sleeve shirt, is the option colour (zone
+ * `a`); the pants keep the approved neutral defaults (`DESIGN_ZONES` — charcoal barong pants, khaki chinos) unless the
+ * host gave a zone colour. That is the 2026-10-16 zones exactly as shipped, so no override here — held by
+ * `guests-wear-the-palette-on-the-tie.test.ts` so it stays so.
+ * Entourage roles are unchanged (their men's rule is an open owner question). Women are unchanged.
  */
 export const GUEST_SUIT_BLACK = '#1A1A1A';
 /** The designs with a tie or a bow tie — the ones a guest man wears his colour on the tie in. */
@@ -250,7 +281,7 @@ const ROLE_WIDTH: Readonly<Record<string, number>> = {
 const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
   Object.entries(ROLE_WIDTH).map(([k, w]) => {
     const style = k.slice(k.indexOf('-') + 1) as AttireStyle;
-    const zones = zonesOf(style).map((z) => ({ key: z.key, mask: `/attire/roles/${k}-${z.key}.webp` }));
+    const zones = artZoneKeys(style).map((key) => ({ key, mask: `/attire/roles/${k}-${key}.webp` }));
     return [k, { src: `/attire/roles/${k}.webp`, mask: zones[0]!.mask, w, h: 280, zones }];
   }),
 );

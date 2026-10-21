@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { HUB_DRAFT_BAR_FIELD, makerSave, requestCanvasRedraw, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -8,12 +8,14 @@ import { stageEyeValue } from '@/lib/stage-eye';
 import {
   GUESTS_SEE_COLUMNS,
   GUESTS_SEE_WORDS as W,
-  guestsSeeApplyLabel,
   guestsSeeBackToPicks,
   guestsSeeChanges,
+  guestsSeeCloseWhenKept,
   guestsSeeHasEmptyRow,
+  guestsSeeKeepOutcome,
   guestsSeeKept,
   guestsSeeLeaveLine,
+  guestsSeeMainButton,
   guestsSeeOn,
   guestsSeeOpeningLine,
   guestsSeePatch,
@@ -36,9 +38,14 @@ import { MakerSheet } from './stages-studio-parts';
  * It draws the table the server built (`lib/guests-see-build.ts` — every box read from the page's own answer) and
  * runs the handlers of `lib/guests-see-table.ts`. It decides nothing itself.
  *
- * SAVING IS THE MAKER'S: ticks wait here; "Apply · N changes" puts exactly those N `stage_show` entries into the Event
+ * SAVING IS THE MAKER'S: ticks wait here; "Keep · N changes" puts exactly those N `stage_show` entries into the Event
  * Hub DRAFT in one save, through the work area's draft door (the door the eye and the block tools use) — and the
  * Maker's own ✓ publishes, as always. ↺ takes back the last tap. Closing with ticks waiting asks first.
+ *
+ * ✅ A KEEP IS SEEN (owner 2026-10-21: *"after I pressed apply. it just greyed out?"* — it had worked; the only sign
+ * was a small line and a button gone grey). Kept: the button reads "✓ Kept" in the confirm green, the sheet closes
+ * itself `GUESTS_SEE_KEPT_MS` later, and the Maker's ✓ already wears the count (the save answered with it). Not kept:
+ * the sheet stays open with the reason (`guestsSeeKeepOutcome`).
  *
  * In the Studio parts' own chunk: nothing of it is in the Maker's first load.
  */
@@ -116,6 +123,12 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
   const shownCol = (col: number) => rsvpShown || GUESTS_SEE_COLUMNS[col]!.stage !== null;
   const [pending, start] = useTransition();
   const n = guestsSeeChanges(writes);
+  /* ✅ The draft holds the ticks: the button says "✓ Kept", and the sheet closes itself (`guestsSeeCloseWhenKept`). */
+  const [kept, setKept] = useState(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => guestsSeeCloseWhenKept(kept, () => closeRef.current()), [kept]);
+  const main = guestsSeeMainButton(n, kept, pending);
 
   const close = () => (n > 0 ? setAsking(true) : onClose());
   /* Escape (and the scrim) ask first while ticks are waiting — the sheet's own close does the same. */
@@ -135,6 +148,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
     const r = guestsSeeToggle(table, writes, row.key, col);
     setLine(r.line);
     if (!r.changed) return;
+    setKept(false); // new work after a Keep: the sheet stays.
     setUndo((u) => [...u, writes]);
     setWrites(r.writes);
   };
@@ -142,6 +156,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
     const r = guestsSeeBackToPicks(table, writes);
     setLine(r.line);
     if (!r.changed) return;
+    setKept(false);
     setUndo((u) => [...u, writes]);
     setWrites(r.writes);
   };
@@ -151,9 +166,10 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
     setUndo((u) => u.slice(0, -1));
     setLine(W.undone);
   };
-  const apply = () => {
+  const keep = () => {
+    if (kept) return onClose(); // "✓ Kept" pressed: close now.
     const patch = guestsSeePatch(writes);
-    if (!patch) return setLine(W.nothingToApply);
+    if (!patch) return setLine(W.nothingToKeep);
     const sent = writes;
     start(async () => {
       try {
@@ -166,7 +182,9 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         /* The Maker's ONE refresh (the eye's own, `editor-shell.tsx`) still follows: the navigator's lists and this
            table's own rows come from that render. */
         const r = await makerSave(() => area.door(area.eventId, fd), requestMakerRefresh);
-        if (!r.ok) return setLine(r.error || W.notKept);
+        const out = guestsSeeKeepOutcome(r);
+        setLine(out.line);
+        if (!out.kept) return; // not kept: the sheet stays open, the ticks still waiting.
         /* ⚡ …AND THE PAGE DOES NOT WAIT FOR IT. This save is unheld, so the canvas used to change only after the
            whole-Maker render (3–6 s on production — `lib/maker-refresh.ts`'s own measurement) and then its own. The
            draft is written now: every page the Maker shows re-renders itself in place, at once
@@ -176,9 +194,9 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         setTable(guestsSeeKept(table, sent));
         setWrites({});
         setUndo([]);
-        setLine(W.kept);
+        setKept(true);
       } catch {
-        setLine(W.notKept);
+        setLine(guestsSeeKeepOutcome('threw').line);
       }
     });
   };
@@ -305,14 +323,19 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                   </li>
                 ))}
               </ul>
-              {/* TWO LINES, as the prototype draws them: ↺ and "Back to our picks", then Apply as one full-width pill —
-                  so "Apply · 12 changes" has the whole width and never runs past the sheet at 360 or 375. */}
+              {/* TWO LINES, as the prototype draws them: ↺ and "Back to our picks", then Keep as one full-width pill —
+                  so "Keep · 12 changes" has the whole width and never runs past the sheet at 360 or 375. */}
               <div data-gs-buttons="" className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <ActionButton tone="neutral" icon={Undo} label={W.undo} iconOnly onClick={takeBack} disabled={pending} data-testid="guests-see-undo" />
                   <ActionButton tone="neutral" icon={RotateCcw} label={W.back} quiet onClick={backToPicks} disabled={pending} className="min-w-0 flex-1 justify-center" data-testid="guests-see-back" />
                 </div>
-                <ActionButton tone="brand" icon={Check} label={guestsSeeApplyLabel(n)} main waiting={n === 0 || pending} onClick={apply} className="w-full justify-center" data-testid="guests-see-apply" />
+                <ActionButton tone={main.tone} icon={Check} label={main.label} main waiting={main.waiting} onClick={keep} className="w-full justify-center" data-testid="guests-see-apply" />
+                {n > 0 && !kept ? (
+                  <p data-gs-publish-line="" className="px-0.5 text-center text-[11.5px] leading-snug text-ink/55">
+                    {W.publishLine}
+                  </p>
+                ) : null}
               </div>
             </>
           )}

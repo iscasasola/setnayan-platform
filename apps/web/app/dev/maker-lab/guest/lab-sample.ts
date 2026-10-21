@@ -237,7 +237,9 @@ export function labCaleRolePalette() {
  * the groomsmen or the guests. `?attire=cale-now` is the same event after that Apply (every Studio row picked).
  * Fixture only; nothing here reaches a guest.
  */
-export function labCaleIceDressConfig(after = false, honour = false, man = false) {
+/* 👔 `&gm=<design>` with `?attire=cale-now` (2026-10-21): the Guests' man in another design (barong · smart casual), so
+   the guests' "top in the palette" rule can be walked in cale-ice's colours too. */
+export function labCaleIceDressConfig(after = false, honour = false, man = false, guestMan: string | null = null) {
   const before = {
     dos: ['Lean into the palette'],
     donts: ['No white or ivory'],
@@ -257,7 +259,7 @@ export function labCaleIceDressConfig(after = false, honour = false, man = false
     : {};
   return {
     ...before,
-    roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: 'suit' }, ...honourRoles },
+    roles: { ...before.roles, bride: { style: 'ball_gown' }, groom: { style: 'three_piece_suit' }, guest: { style: guestMan ?? 'suit' }, ...honourRoles },
     women: {
       /* 🤵‍♂️ `?attire=man-honour` (2026-10-19): the maid's row's FOR MEN column — the man of honor in a Barong Tagalog. */
       roles: { guest: { style: 'long_gown' }, ...(honour ? { best_man: { style: 'filipiniana' } } : {}), ...(man ? { maid_of_honor: { style: 'barong_tagalog' } } : {}) },

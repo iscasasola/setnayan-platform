@@ -42,6 +42,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  Armchair,
   Check,
   ChevronDown,
   ChevronsDownUp,
@@ -80,6 +81,7 @@ import {
   guestNameAsGiven,
   guestInitials,
   plusOneSeats,
+  replyMarkedByHost,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
   type GuestRow,
@@ -91,7 +93,12 @@ import {
   isToInvite,
   MAP_ARRANGE,
   mapTree,
+  hostMaySetReply,
+  plusOneFilterMatches,
+  plusOneTally,
+  replyFilterMatches,
   plusOneWordsFrom,
+  PLUS_ONE_FILTERS,
   seatRowsByGuest,
   ROSTER_VIEWS,
   rosterSearchMatches,
@@ -102,6 +109,8 @@ import {
   typedLineIsAFilter,
   withTheirPlusOnes,
   type MapArrange,
+  type PlusOneFilter,
+  type ReplyFilter,
   type PlusOneWords,
   type RosterFacts,
   type RosterView,
@@ -123,6 +132,10 @@ import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } fr
 import { useRowState } from './use-row-state';
 import { followColumn } from './dock-follows-column';
 import { GuestMapCanvas } from './guest-map-canvas';
+import { plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
+import type { GuestMutation } from '@/lib/guest-optimistic';
+import { pushUndo, guestToast } from './undo-store';
+import { plainRefusal } from './plain-refusal';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
@@ -357,11 +370,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
+  // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
+  const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
+  // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
+  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(null);
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
-  const visible = useMemo(
-    () => (q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster),
-    [roster, q, facts],
-  );
+  const visible = useMemo(() => {
+    const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
+    return plusFilter || replyFilter
+      ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+      : found;
+  }, [roster, q, facts, plusFilter, replyFilter]);
 
   // ── The one Sort (list) and the one Arrange (map).
   const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
@@ -386,7 +405,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, [unread]);
   // A search opens every section that has a hit (G19 — a hit inside a folded
   // section was invisible, a failure that looked like "not found").
-  const isOpen = (key: string) => (q ? true : open.has(key));
+  const filtered = Boolean(plusFilter || replyFilter);
+  const isOpen = (key: string) => (q || filtered ? true : open.has(key));
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
@@ -502,7 +522,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
 
   // ── Remove: the one warning, then the shipped soft delete with Undo.
-  const { removing, remove } = useGuestRemoval(eventId);
+  const { removing, remove, release } = useGuestRemoval(eventId);
   const [toRemove, setToRemove] = useState<string[] | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const byId = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
@@ -513,6 +533,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return g ? (plusWords.get(id)?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g)) : '';
   });
 
+  // ── 🪑 Release seat (owner 2026-10-21): +1s with no name yet go at once — no warning, one Undo — and their guests'
+  // "+N" is drawn one lower with them (`seatNumbersAfter`, the server's own rule), never "+1 not added yet" meanwhile.
+  const releaseSeats = (ids: readonly string[], onReleased?: () => void) => {
+    const seatsGoing = ids.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g) && plusOneHasNoName(g!));
+    if (seatsGoing.length === 0) return;
+    const hosts = new Set(seatsGoing.map((g) => g.plus_one_of_guest_id));
+    const also: GuestMutation[] = seatNumbersAfter(seatsGoing, roster.filter((g) => hosts.has(g.guest_id)), 'removed').map((u) => ({
+      kind: 'setField',
+      guestIds: [u.guest_id],
+      // Only the number the row draws (the List carries no `plus_one_allowed` — an override of it would never settle).
+      override: { plus_one_count: u.plus_one_count },
+    }));
+    void release(
+      seatsGoing.map((g) => g.guest_id),
+      { onReleased, also },
+    );
+  };
+
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
   const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
@@ -522,6 +560,65 @@ export function GuestsScreen(props: GuestsScreenProps) {
     fd.set(field, value);
     // ⚡ The action revalidates the guest list, so its answer carries the redrawn page — no second render.
     await bulkApplyRoleAndGroup(eventId, fd);
+  };
+
+  // ── ✋ Set reply ▾ (owner 2026-10-21) — the ONE host reply write (`setGuestRsvp`): drawn at once, one Undo for all.
+  //    The couple and the honoree are skipped (always attending, `hostMaySetReply`). Not coming frees their chairs and
+  //    releases their +1 seats with no name yet (drawn gone here, their "+N" one lower); named +1s stay.
+  const { setGuestRsvp, restoreGuestRsvpAndSeat } = useGuestActions();
+  const [setting, setSetting] = useState(false);
+  const setReplies = async (ids: readonly string[], rsvp: 'attending' | 'declined') => {
+    if (setting) return;
+    const moving = ids.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g) && hostMaySetReply(g!) && g!.rsvp_status !== rsvp);
+    if (moving.length === 0) {
+      toast.info(`Everyone selected is already ${RSVP_ROW_WORDS[rsvp].toLowerCase()}`);
+      return;
+    }
+    const movingIds = new Set(moving.map((g) => g.guest_id));
+    const muts: GuestMutation[] = [
+      { kind: 'setField', guestIds: [...movingIds], override: { rsvp_status: rsvp, rsvp_set_by: 'host' } },
+    ];
+    if (rsvp === 'declined') {
+      const seatsGoing = roster.filter((g) => g.plus_one_of_guest_id && movingIds.has(g.plus_one_of_guest_id) && plusOneHasNoName(g));
+      if (seatsGoing.length > 0) {
+        muts.push({ kind: 'remove', guestIds: seatsGoing.map((g) => g.guest_id) });
+        const hosts = new Set(seatsGoing.map((g) => g.plus_one_of_guest_id));
+        for (const u of seatNumbersAfter(seatsGoing, roster.filter((g) => hosts.has(g.guest_id)), 'removed')) {
+          muts.push({ kind: 'setField', guestIds: [u.guest_id], override: { plus_one_count: u.plus_one_count } });
+        }
+      }
+    }
+    const clearAll = () => muts.forEach((m) => guestOptimistic.clear(m));
+    setSetting(true);
+    muts.forEach((m) => guestOptimistic.apply(m));
+    try {
+      let res;
+      try {
+        res = await setGuestRsvp(eventId, [...movingIds], rsvp);
+      } catch {
+        clearAll();
+        guestToast.error('Could not set the reply — check your connection and try again.');
+        return;
+      }
+      if (!res.ok) {
+        clearAll();
+        guestToast.error(plainRefusal(res.error, 'Couldn’t set the reply. Try again.'));
+        return;
+      }
+      leaveSelect();
+      const done = res;
+      const n = done.changed.length;
+      pushUndo({
+        label: `${formatCount(n)} marked ${RSVP_ROW_WORDS[rsvp].toLowerCase()}`,
+        undo: async () => {
+          const r = await restoreGuestRsvpAndSeat(eventId, done.changed, done.seats);
+          if (r.ok) clearAll();
+          else guestToast.error('Could not undo — refresh and try again.');
+        },
+      });
+    } finally {
+      setSetting(false);
+    }
   };
 
   // ── Section header tap (rule 6): open and scrolled into → back to its first
@@ -549,9 +646,31 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // The counts are read off the SAME list the rows are drawn from (`roster`),
   // never a second read — so "List N" and "N attending" equal the rows below.
   const stats = rosterStats(roster);
+  // 🪑 "+1s: N named · M no name yet" — the filter's own rows, counted (`plusOneTally`); none drawn with no +1s.
+  const plusTally = plusOneTally(roster);
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;
   const shown = visible.filter((g) => countsTowardEvent(g)).length;
   const noMatch = Boolean(q) && visible.length === 0;
+  const pickPlus = (f: PlusOneFilter) => {
+    setPlusFilter((now) => (now === f ? null : f));
+    window.scrollTo({ top: 0 });
+  };
+  const pickReply = (f: ReplyFilter) => {
+    setReplyFilter((now) => (now === f ? null : f));
+    window.scrollTo({ top: 0 });
+  };
+  /** A count, as a door to its filter — pressed again (or × Clear) to take it off. */
+  const countDoor = (f: ReplyFilter, value: number, id: string, word: string) => (
+    <button
+      type="button"
+      className={styles.countsDoor}
+      aria-pressed={replyFilter === f}
+      onClick={() => pickReply(f)}
+      data-reply-filter={f}
+    >
+      <b><Count value={value} id={id} /></b> {word}
+    </button>
+  );
 
   const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
     <Link
@@ -584,10 +703,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
     <span data-pick="" data-thumb-sort="">
       <PickMenu
         label="Sort — groups the list by"
-        value={view}
-        options={views.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+        value={plusFilter ? `plus:${plusFilter}` : view}
+        buttonText={plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined}
+        options={views.map((v): PickOption => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })).concat(
+          // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
+          plusTally.named + plusTally.unnamed > 0
+            ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+            : [],
+        )}
         onPick={(k) => {
+          if (k.startsWith('plus:')) {
+            setPlusFilter(k.slice(5) as PlusOneFilter);
+            window.scrollTo({ top: 0 });
+            return;
+          }
           const next = k as RosterView;
+          setPlusFilter(null);
           setView(next);
           setOpen(firstOpen(next));
           window.scrollTo({ top: 0 });
@@ -744,6 +875,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const setNamesakes = sidesForNamesakes(groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side })));
   const setOptions: PickOption[] = [
+    // ✋ Set reply (owner 2026-10-21: "so we can manually accept them in case they just forgot to say yes").
+    { key: 'reply:attending', label: RSVP_ROW_WORDS.attending, group: 'Reply' },
+    { key: 'reply:declined', label: RSVP_ROW_WORDS.declined, group: 'Reply' },
     // 👥 Same name, say the side (owner 2026-10-21): two groups of one name each carry their side's word.
     ...groups.map((g) => ({ key: `group:${g.group_id}`, label: groupLabelWithSide(g.label, setNamesakes.get(g.group_id)), group: 'Group' })),
     { key: 'group:new', label: 'New group…', group: 'Group' },
@@ -761,6 +895,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const g = byId.get(id);
     return g && g.role !== 'bride' && g.role !== 'groom';
   });
+  // 🪑 Every one selected is a +1 with no name yet → the red button is "Release N seats" (no warning, one Undo).
+  const releasable = selectedIds.filter((id) => {
+    const g = byId.get(id);
+    return Boolean(g) && plusOneHasNoName(g!);
+  });
+  const releaseAll = releasable.length > 0 && releasable.length === selectedIds.length;
 
   let thumb: ReactNode = null;
   if (gview === 'list' && selectMode) {
@@ -796,23 +936,35 @@ export function GuestsScreen(props: GuestsScreenProps) {
               onPick={(k) => {
                 if (selected.size === 0) return;
                 if (k === 'group:new') return setNewGroup(true);
+                if (k === 'reply:attending' || k === 'reply:declined') return void setReplies(selectedIds, k.slice(6) as 'attending' | 'declined');
                 const [field, ...rest] = k.split(':');
                 const value = rest.join(':');
                 void applyBulk(field === 'group' ? 'group_id' : (field as 'table' | 'side'), value);
               }}
             />
           </span>
-          <ActionButton
-            tone="danger"
-            icon={X}
-            label={`Remove ${removable.length}`}
-            waiting={removable.length === 0}
-            onClick={() => {
-              setRemoveError(null);
-              setToRemove(removable);
-            }}
-            data-testid="bulk-remove"
-          />
+          {releaseAll ? (
+            <ActionButton
+              tone="danger"
+              icon={Armchair}
+              label={`Release ${formatCount(releasable.length)} seat${releasable.length === 1 ? '' : 's'}`}
+              waiting={removing}
+              onClick={() => releaseSeats(releasable, leaveSelect)}
+              data-testid="bulk-release"
+            />
+          ) : (
+            <ActionButton
+              tone="danger"
+              icon={X}
+              label={`Remove ${removable.length}`}
+              waiting={removable.length === 0}
+              onClick={() => {
+                setRemoveError(null);
+                setToRemove(removable);
+              }}
+              data-testid="bulk-remove"
+            />
+          )}
           <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="bulk-done" />
         </span>
       </div>
@@ -951,6 +1103,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                         setRemoveError(null);
                         setToRemove([g.guest_id]);
                       }}
+                      onRelease={() => releaseSeats([g.guest_id])}
                     />
                   ))
                 )}
@@ -1039,18 +1192,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {measured ? (
             <>
               <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="">
-                <span>
-                  <b>
-                    <Count value={stats.yes} id="gs-yes" />
-                  </b>{' '}
-                  {RSVP_ROW_WORDS.attending.toLowerCase()}
-                </span>
-                <span>
-                  · <b><Count value={stats.no} id="gs-no" /></b> {RSVP_ROW_WORDS.declined.toLowerCase()}
-                </span>
-                <span>
-                  · <b><Count value={stats.none} id="gs-none" /></b> {RSVP_ROW_WORDS.pending.toLowerCase()}
-                </span>
+                {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
+                <span>{countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending.toLowerCase())}</span>
+                <span>· {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined.toLowerCase())}</span>
+                <span>· {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending.toLowerCase())}</span>
                 {/* 🚪 "N TO INVITE" IS A DOOR (controller 2026-10-08: from the List — the tab people
                     land on — there was no way to start sending). It opens the ONE send run, the very
                     place Setup's "Send to N" opens (`guest-setup-rows.tsx` → `/guests/send`); the two
@@ -1068,10 +1213,49 @@ export function GuestsScreen(props: GuestsScreenProps) {
                     · <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
                   </span>
                 )}
-                {q ? (
+                {/* 🪑 "+1s: N named · M no name yet" (owner 2026-10-21) — each half a door to the +1 filter, tapped again
+                    to clear it; the same `plusOneFilterMatches` the rows below are filtered by. No +1s → not drawn. */}
+                {plusTally.named + plusTally.unnamed > 0 ? (
+                  <span data-roster-plus-ones="">
+                    · +1s:{' '}
+                    <button
+                      type="button"
+                      className={styles.countsDoor}
+                      aria-pressed={plusFilter === 'named'}
+                      onClick={() => pickPlus('named')}
+                      data-plus-filter="named"
+                    >
+                      <b><Count value={plusTally.named} id="gs-plus-named" /></b> named
+                    </button>{' '}
+                    ·{' '}
+                    <button
+                      type="button"
+                      className={styles.countsDoor}
+                      aria-pressed={plusFilter === 'unnamed'}
+                      onClick={() => pickPlus('unnamed')}
+                      data-plus-filter="unnamed"
+                    >
+                      <b><Count value={plusTally.unnamed} id="gs-plus-unnamed" /></b> no name yet
+                    </button>
+                  </span>
+                ) : null}
+                {q || filtered ? (
                   <span className={styles.mute}>
                     · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
                   </span>
+                ) : null}
+                {filtered ? (
+                  <button
+                    type="button"
+                    className={styles.countsDoor}
+                    onClick={() => {
+                      setReplyFilter(null);
+                      setPlusFilter(null);
+                    }}
+                    data-roster-clear-filter=""
+                  >
+                    × Clear
+                  </button>
                 ) : null}
               </div>
               <div className={styles.meter} data-replied-meter="">
@@ -1213,6 +1397,7 @@ function GuestRowLine({
   onOpen,
   onToggle,
   onRemove,
+  onRelease,
 }: {
   g: GuestRow;
   /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
@@ -1224,11 +1409,13 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  verbs: readonly ('message' | 'edit' | 'remove')[];
+  verbs: readonly ('message' | 'edit' | 'remove' | 'release')[];
   chatHref: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onToggle: () => void;
   onRemove: () => void;
+  /** 🪑 A +1 with no name yet: their seat goes at once, with Undo. */
+  onRelease: () => void;
 }) {
   const name = plusWords?.name ?? guestNameAsGiven(g) ?? guestDisplayName(g);
   const plus = plusOneSeats(g);
@@ -1280,6 +1467,8 @@ function GuestRowLine({
           ) : (
             <>
               <span className={`${styles.pill} ${styles[pill.cls]}`}>{pill.word}</span>
+              {/* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */}
+              {replyMarkedByHost(g) ? <span className={styles.mute} data-reply-marked="">{' · marked'}</span> : null}
               {table ? ` · ${table}` : ''}
               {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}
@@ -1299,6 +1488,9 @@ function GuestRowLine({
             <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Edit ${name}`} onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
           ) : null}
           {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
+          {verbs.includes('release') ? (
+            <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release seat ${name}`} onClick={onRelease} />
+          ) : null}
         </span>
       )}
     </div>

@@ -37,6 +37,7 @@
  *                   and the ticket are a real event's, so they do not draw here.
  *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
  *                   same fixture, so the two doors can be compared side by side
+ *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
  *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
@@ -435,7 +436,7 @@ export default async function GuestsLabPage({
        is refused by the host fence, so the after-state is drawn from these fixture words. */
     const labRole = typeof sp.role === 'string' && sp.role ? (sp.role as GuestRow['role']) : null;
     const seatCard = sp.plusone === '1';
-    const g = host
+    const g0 = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
       : seatCard
         ? sp.named === '1'
@@ -444,6 +445,8 @@ export default async function GuestsLabPage({
             guest({ guest_id: 'g-p1-0015', name_prefix: 'Ms.', first_name: 'pamela', middle_name: 'mitra', last_name: 'labriaga', side: 'groom', group_category: 'work', rsvp_status: 'pending', invited_to_blocks: ['ceremony', 'reception', 'cocktails'] as GuestRow['invited_to_blocks'], plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
           : guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
         : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
+    /* 🖐 `&marked=1` — the guest's reply was set by the host (owner 2026-10-21): the RSVP row reads "Attending · Marked by you". */
+    const g: GuestRow = sp.marked === '1' ? { ...g0, rsvp_status: 'attending', rsvp_set_by: 'host' } : g0;
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
@@ -591,7 +594,11 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
+    const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
+    /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
+    const roster = sp.marked === '1'
+      ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))
+      : roster0;
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],

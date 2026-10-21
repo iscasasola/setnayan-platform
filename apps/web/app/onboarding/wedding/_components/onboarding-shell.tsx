@@ -117,6 +117,7 @@ import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/coupl
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
+import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -1045,9 +1046,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
    apostrophes ("D'Souza"); strips everything else live as the couple types. */
-function sanitizeName(raw: string): string {
-  return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
-}
+/* …the ONE rule, `sanitizeName` in lib/typed-names.ts (imported above; this file's copy was identical). */
 
 /* Everything a couple gets free — the LIST only (owner tracker d12, 2026-10-02:
    *"keep the list, drop the ₱ and hours total … this is not a real measurement."*).
@@ -2054,7 +2053,7 @@ export function OnboardingShell({
   };
 
   /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
-  const coupleDisplay = [state.brideFirstName.trim(), state.groomFirstName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
+  const coupleDisplay = joinCoupleNames(state.brideFirstName, state.groomFirstName) || 'Maria & Juan'; // the one composition
 
   /* BYO vendor send — name required → accumulate into state.byoVendors (persisted
      to the draft + the commit payload), confirm truthfully, relabel the add button. */

@@ -9,6 +9,7 @@ import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { DEFAULT_ALLOCATION_CONFIG } from '@/lib/budget-allocation';
 import { TourVendorItemization } from './_components/tour-vendor-itemization';
 import { TourBudgetPlanner } from './_components/tour-budget-planner';
+import { coupleNamesLine } from '@/lib/typed-names';
 
 /**
  * STOP 4 — "Money, handled."
@@ -47,8 +48,8 @@ export default async function TourBudgetPage() {
   const admin = createAdminClient();
   const snapshot = await fetchBudgetSnapshot(admin, id);
 
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
   const { vendors, totals } = snapshot;
 
   // Derive planner leaves from the couple's ACTUAL booked vendors. We group
@@ -83,7 +84,7 @@ export default async function TourBudgetPage() {
           Money, handled
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          Every peso {bride} & {groom} commit is tracked against what they&rsquo;ve paid — vendor by vendor, line by
+          Every peso {couple} commit is tracked against what they&rsquo;ve paid — vendor by vendor, line by
           line. And before they book anyone, a live planner suggests where each peso should go.
         </p>
       </header>

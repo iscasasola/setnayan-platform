@@ -5,7 +5,7 @@ import { ChosenRow, FormRows, OpensRow, TypedRow } from '@/app/_components/form-
 import { sanitizeName } from '@/lib/match-criteria';
 import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
-import { coupleNameColumns } from '@/lib/typed-names';
+import { coupleNameColumns, joinCoupleNames, nameOrderOf, type NameOrder } from '@/lib/typed-names';
 import type { PersonName } from './details-your-event';
 import { STUDIO_INFO_ROWS, studioDraftKeep } from './studio-info';
 
@@ -20,7 +20,15 @@ import { STUDIO_INFO_ROWS, studioDraftKeep } from './studio-info';
  *     Bride · last name     [ Santos           ✎ ]
  *     Groom · first name    [ Jose             ✎ ]
  *     Groom · last name     [ Reyes            ✎ ]
+ *     Name order            [ Maria & Jose     ▾ ]   ← which name comes first (owner 2026-10-21)
  *     Name style            [ Full             ▾ ]
+ *
+ * 🔀 ONE ORDER, SET HERE (owner 2026-10-21, *"it should be Indalecio & Claire. And the title should be consistent"*).
+ * The row's line IS the event's name as stored (`storedName` — `events.display_name`, as drafted): the line the
+ * cover, the page title, every print and pass and the link picture read. It used to be re-composed here from the two
+ * people, always the first person first, so it read "Claire & Indalecio" over a cover that said "Indalecio & Claire" —
+ * and keeping any name wrote that order back. Now the order is READ from the stored name (`nameOrderOf`), every
+ * keep composes in it, and "Name order ▾" is the one place it is changed — one drafted write of the same columns.
  *
  * ONE row that opens the two people in place (owner 2026-10-07, DECISION_LOG "'EVENT NAME · MARIA & JOSE' IS ONE
  * ROW…") — kept. What the approved gallery (2026-10-08) changes is the LOOK inside it: every answer is a pill, so
@@ -36,30 +44,58 @@ export function StudioEventName({
   eventId,
   people,
   initial,
+  storedName,
   nameStyle,
 }: {
   eventId: string;
   /** The two people's words from the event type (`peopleLabels`) — "Bride", "Groom". */
   people: readonly [string, string];
   initial: readonly [PersonName, PersonName];
+  /** The event's name as stored (as drafted) — what the cover reads. Null/empty: none yet (the line is composed). */
+  storedName?: string | null;
   nameStyle: NameStyle;
 }) {
   const [names, setNames] = useState<readonly [PersonName, PersonName]>(initial);
   const [style, setStyle] = useState<NameStyle>(nameStyle);
   const [styleProblem, setStyleProblem] = useState<string | null>(null);
-  const shown = coupleNameColumns(names[0], names[1]).display_name ?? '';
+  /* 🔀 The order the stored name keeps — read once, from what was read; then held here and changed only by "Name order ▾". */
+  const [order, setOrder] = useState<NameOrder>(() => nameOrderOf(storedName, initial[0].first, initial[1].first));
+  const [orderProblem, setOrderProblem] = useState<string | null>(null);
+  /* The stored line, shown AS STORED until a name or the order is changed here (then the line is the composition). */
+  const [asStored, setAsStored] = useState<string | null>(() => storedName?.trim() || null);
+  const shown = asStored ?? coupleNameColumns(names[0], names[1], order).display_name ?? '';
   const missing = !names[0].first.trim() || !names[1].first.trim();
   const [missingAtFirst] = useState(missing);
   /* The latest names, for a keep that lands after another row has already changed them. */
   const latest = useRef(names);
+  const latestOrder = useRef(order);
   const keepName = (who: 0 | 1, part: keyof PersonName) => (text: string) => {
     const next: [PersonName, PersonName] = [{ ...latest.current[0] }, { ...latest.current[1] }];
     next[who][part] = text;
     latest.current = next;
     setNames(next);
-    // The Personalization writer's own composition; an all-blank pair leaves the page's names alone.
-    return studioDraftKeep(eventId, 'events:names', coupleNameColumns(next[0], next[1]));
+    setAsStored(null);
+    // The Personalization writer's own composition, in the event's order; an all-blank pair leaves the page's names alone.
+    return studioDraftKeep(eventId, 'events:names', coupleNameColumns(next[0], next[1], latestOrder.current));
   };
+  /* 🔀 Name order ▾ — the one place the order is changed: ONE drafted write of the same name columns, composed in it. */
+  const pickOrder = (key: string) => {
+    const pick: NameOrder | null = key === 'a-first' || key === 'b-first' ? key : null;
+    if (!pick || pick === latestOrder.current) return;
+    const before = { order: latestOrder.current, asStored };
+    latestOrder.current = pick;
+    setOrder(pick);
+    setAsStored(null);
+    setOrderProblem(null);
+    void studioDraftKeep(eventId, 'events:names', coupleNameColumns(latest.current[0], latest.current[1], pick)).then((r) => {
+      if (r.ok) return;
+      latestOrder.current = before.order;
+      setOrder(before.order);
+      setAsStored(before.asStored);
+      setOrderProblem(`That order did not save, so it is back as it was. ${r.error}`);
+    });
+  };
+  const bothFirst = names[0].first.trim() !== '' && names[1].first.trim() !== '';
   const pickStyle = (key: string) => {
     const pick = NAME_STYLE_CHOICES.find((c) => c.key === key)?.key;
     if (!pick || pick === style) return;
@@ -130,6 +166,22 @@ export function StudioEventName({
             {row(0, 'last')}
             {row(1, 'first')}
             {row(1, 'last')}
+            {bothFirst ? (
+              <ChosenRow
+                data="name-order"
+                name="Name order"
+                about={{ words: 'Which name comes first. Your Event Hub, every print and pass, and the emails all read your names in this order.' }}
+                value={order}
+                options={(['a-first', 'b-first'] as const).map((k) => ({
+                  key: k,
+                  label: joinCoupleNames(names[0].first.trim(), names[1].first.trim(), k),
+                }))}
+                onPick={pickOrder}
+                dataAttr="data-name-order-pick"
+                problem={orderProblem}
+                attrs={{ 'data-name-order': order }}
+              />
+            ) : null}
             <ChosenRow
               data="name-style"
               name="Name style"

@@ -54,7 +54,7 @@ test('2 · the sheet reaches no server module: the work area lends the table and
   assert.match(src, /const door = raw\?\.elementEditing\?\.draftAction;\s*if \(!raw \|\| !table \|\| !door\) return null;/);
   assert.match(src, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(patch\)\);/);
   assert.match(src, /makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\)/);
-  assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToApply\);/, 'Apply is not exactly the pending ticks');
+  assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToKeep\);/, 'Keep is not exactly the pending ticks');
 });
 
 test('3 · one row in Studio ▾, only where the work area answers — and a sheet, never a twelfth Studio page', () => {

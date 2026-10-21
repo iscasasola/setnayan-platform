@@ -17,6 +17,8 @@ import {
   rowToTabTo,
   saveFailedWords,
   showsRequired,
+  FORM_ROW_RULE,
+  FORM_ROW_SUBLINE,
   type FieldExit,
   type KeepAnswer,
 } from '@/lib/form-row';
@@ -140,7 +142,7 @@ export function usePillWidth(): string {
 export type FormRowAbout = { title?: string; words: ReactNode };
 
 /** The row's band and its line — ONE arrangement for a typed, a chosen, a switched and a shown answer. */
-export const FORM_ROW_BAND = 'border-t border-ink/10 first:border-t-0';
+export const FORM_ROW_BAND = `${FORM_ROW_RULE} first:border-t-0`;
 export const FORM_ROW_LINE = 'flex min-h-[52px] items-center gap-2.5';
 
 /** The name on the left, with "Required" under it while it is still needed, and its ⓘ beside it. */
@@ -176,7 +178,7 @@ function RowName({
           </small>
         ) : null}
         {line ? (
-          <small data-form-row-line="" className="mt-0.5 block text-[12.5px] font-normal leading-snug text-ink/55">
+          <small data-form-row-line="" className={`mt-0.5 block ${FORM_ROW_SUBLINE}`}>
             {line}
           </small>
         ) : null}

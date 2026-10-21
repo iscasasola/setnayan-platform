@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { coupleNamesLine } from '@/lib/typed-names';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
 import type { ReactNode } from 'react';
@@ -339,9 +340,10 @@ export default async function EventDetailsPage({
   const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: shownStr('event_date') });
 
   // ── Names (as drafted) ────────────────────────────────────────────────────
-  const personA = shownStr('bride_name');
-  const personB = shownStr('groom_name');
-  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? shownStr('display_name'));
+  // 🔀 Both people in full, in the ORDER the event's name keeps (`coupleNamesLine`, owner 2026-10-21) — never re-set here.
+  const names =
+    coupleNamesLine({ display_name: shownStr('display_name'), bride_name: shownStr('bride_name'), groom_name: shownStr('groom_name') }) ||
+    shownStr('display_name');
   const kind =
     eventWord === 'wedding'
       ? (() => {

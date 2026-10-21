@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
+import { FORM_ROW_RULE, FORM_ROW_SUBLINE } from '@/lib/form-row';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -322,13 +323,22 @@ const SLCAT_CSS = `
    list: a hairline between rows, the icon in a 36px disc, the name, "· N yours",
    one state word, the chevron. 'overflow:visible' so a row head can pin. ── */
 .slcat .fold.flat{margin:0;background:none;border:0;border-radius:0;overflow:visible;box-shadow:none}
+/* …and an OPEN one too. In the one-screen shape every folder is open, and '.slcat .fold.open' (the boxed shape's open
+   lift, further down at the same weight) won the cascade — so each folder of plain rows drew a soft drop shadow under
+   it (owner 2026-10-21, on the Find list: "why do i see shadows? the rows do not follow our design template"). One
+   more class wins at any position. Guard: 'supplier-rows-are-flat.test.ts'. */
+.slcat .fold.flat.open{box-shadow:none;border-color:transparent}
 .slcat .fold.flat .fold-body{padding:0}
 .slcat .fold.flat .fold-body::before{display:none}
-.slcat .fold.flat .cat,.slcat .fold.flat .fold-body .cat:first-child{margin:0;border-top:1px solid var(--line-soft)}
+.slcat .fold.flat .cat,.slcat .fold.flat .fold-body .cat:first-child{margin:0;border-top:0}
 .slcat .fold.flat .cat-head{min-height:56px;padding:10px 0;gap:12px}
+/* A CLOSED row is its head (and its supplier line) and nothing else. The body's own padding outlived the 0fr track
+   that hides it, so 14 px of empty band hung under every closed row and each one read as a box with a lip — the
+   template's row is its line, centred (owner 2026-10-21). It comes back the moment the row opens. */
+.slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:16px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -788,8 +798,10 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 html.dark .slcat .vact-err{color:#e9a99d}
 html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C99DB0}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
-   "who did we choose here?" without opening the rail. */
-.slcat .cat-locked{display:flex;align-items:center;gap:6px;margin:-2px 4px 8px;padding:0 0 0 2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--gold-deep);min-width:0}
+   "who did we choose here?" without opening the rail. Its LOOK is the app's row
+   template's second line ('FORM_ROW_SUBLINE', on the element), under the name
+   (36 px disc + 12 px gap); only its place is set here (owner 2026-10-21). */
+.slcat .cat-locked{display:flex;align-items:center;gap:6px;margin:-6px 0 10px 48px;padding:0;min-width:0}
 .slcat .cat-locked span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .slcat .cat-locked svg{flex:0 0 auto}
 
@@ -3963,7 +3975,7 @@ export function ShortlistCategories({
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button
                           (not nested in the head button — buttons can't nest). */}
-                      <div className="cat-head-row" style={{ display: 'flex', alignItems: 'center' }}>
+                      <div className={replan ? `cat-head-row ${FORM_ROW_RULE}` : 'cat-head-row'} style={{ display: 'flex', alignItems: 'center' }}>
                         <button
                           type="button"
                           className="cat-head"
@@ -4008,8 +4020,16 @@ export function ShortlistCategories({
                                  shortlist — a paid web extra the iPhone app does not offer. */
                               <span className="cat-free" data-web-only="">{FREE_VENUE_ASSIST_CHIP}</span>
                             ) : null}
+                            {/* "In your plan" says what the row IS, like Booked ✓ — so in the
+                                one-screen shape it is the row's state word ('.cat-st'), never a
+                                pill: a pill is a button (owner 2026-10-19 "pill is button if
+                                with action"; 2026-10-21 "the rows do not follow our design template"). */}
                             {t.planned && t.vendors.length === 0 ? (
-                              <span className="cat-plan">In your plan</span>
+                              replan ? (
+                                <span className="cat-st" data-row-state="planned">In your plan</span>
+                              ) : (
+                                <span className="cat-plan">In your plan</span>
+                              )
                             ) : null}
                             {!replan && coveredGroup ? (
                               <span className="cat-plan" style={{ color: '#41603b' }}>
@@ -4069,7 +4089,7 @@ export function ShortlistCategories({
                           the cards themselves say it better ("★ Chosen"). */}
                       {replan && !tileOpen && lockedNames.length > 0 ? (
                         <p
-                          className="cat-locked"
+                          className={`cat-locked ${FORM_ROW_SUBLINE}`}
                           aria-label={lockedNamesLabel(lockedNames, t.label)}
                         >
                           <Lock size={10} strokeWidth={2.2} aria-hidden />

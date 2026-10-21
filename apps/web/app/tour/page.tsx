@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getSampleEvent } from './_lib/sample-event';
+import { coupleNamesLine } from '@/lib/typed-names';
 
 /**
  * /tour — the public "walk through a real wedding" intro + stop index.
@@ -34,14 +35,14 @@ const STOPS: Array<{ n: number; title: string; blurb: string; href: string; live
 
 export default async function TourIntroPage() {
   const ev = await getSampleEvent();
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
         <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
-          Walk through {bride} &amp; {groom}&rsquo;s wedding
+          Walk through {couple}&rsquo;s wedding
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
           See exactly how a couple plans on Setnayan — the invitation, their vendors, the seating, the budget, and the

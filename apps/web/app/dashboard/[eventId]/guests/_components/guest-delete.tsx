@@ -32,7 +32,7 @@ import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { formatCount } from '@/lib/format-number';
 import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from '../groups-actions';
-import { buildUndo } from '@/lib/guest-optimistic';
+import { buildUndo, type GuestMutation } from '@/lib/guest-optimistic';
 import { guestOptimistic } from './guest-optimistic-store';
 import { guestSelection } from './guest-selection-store';
 import { guestToast, pushUndo } from './undo-store';
@@ -80,44 +80,70 @@ export function useGuestRemoval(eventId: string) {
 
   /** Resolves to the refusal's own words (shown where the host acted), or null. */
   async function remove(guestIds: string[], onRemoved?: () => void, who?: string): Promise<string | null> {
+    return take(guestIds, { onDone: onRemoved, who });
+  }
+
+  /**
+   * 🪑 RELEASE SEAT (owner 2026-10-21) — +1s with no name yet: gone at once, NO warning (a seat is not a person), one
+   * Undo for all of them that brings back the same rows and gives each guest their seat back. The server refuses a
+   * named +1 (`seatReleaseRefusal`). `also` = the bringers' new "+N", drawn at once with the hide (`seatNumbersAfter`).
+   */
+  async function release(
+    guestIds: string[],
+    opts: { onReleased?: () => void; also?: readonly GuestMutation[] } = {},
+  ): Promise<string | null> {
+    return take(guestIds, { release: true, onDone: opts.onReleased, also: opts.also ?? [] });
+  }
+
+  async function take(
+    guestIds: string[],
+    o: { release?: boolean; onDone?: () => void; who?: string; also?: readonly GuestMutation[] },
+  ): Promise<string | null> {
     if (removing) return null;
     const ids = [...guestIds];
     if (ids.length === 0) return null;
     const mutation = { kind: 'remove' as const, guestIds: ids };
+    const also = o.also ?? [];
+    const seats = (n: number) => `${formatCount(n)} seat${n === 1 ? '' : 's'}`;
     /* Who, in the host's words, for the one plain sentence a refusal is told in (never the action's own raw text). */
-    const whom = who ?? (ids.length === 1 ? 'that guest' : `${formatCount(ids.length)} guests`);
+    const whom = o.who ?? (ids.length === 1 ? 'that guest' : `${formatCount(ids.length)} guests`);
+    const couldnt = o.release ? `Couldn’t release ${ids.length === 1 ? 'that seat' : seats(ids.length)}. Try again.` : couldntDelete(whom);
 
     setRemoving(true);
     guestOptimistic.apply(mutation); // hide rows now
+    for (const m of also) guestOptimistic.apply(m);
     /* 🔑 A PRESS ENDS ITS OWN PENDING STATE ON EVERY PATH (owner 2026-10-09, a refused delete read "Deleting…" with no
        word of why): the sheet goes back to "Delete" and the red toast says what was refused, within the press. */
     try {
       let result;
       try {
-        result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
+        result = await bulkSoftDeleteGuestsForUndo(eventId, ids, o.release ? { release: true } : {});
       } catch {
         guestOptimistic.clear(mutation); // rollback the hide
-        const said = 'Could not delete — check your connection and try again.';
+        for (const m of also) guestOptimistic.clear(m);
+        const said = o.release ? 'Could not release — check your connection and try again.' : 'Could not delete — check your connection and try again.';
         guestToast.error(said);
         return said;
       }
 
+      // A refusal: roll back, and SAY it in plain words where they acted.
       if (!result.ok) {
-        guestOptimistic.clear(mutation); // rollback — and SAY it, in plain words, where they acted
-        const said = plainRefusal(result.error, couldntDelete(whom));
+        guestOptimistic.clear(mutation);
+        for (const m of also) guestOptimistic.clear(m);
+        const said = plainRefusal(result.error, couldnt);
         guestToast.error(said);
         return said;
       }
       // Only now retract the selection bar: a refusal keeps it — and its warning,
       // with the reason — on screen, instead of vanishing with the rows' return.
       guestSelection.clear();
-      onRemoved?.();
+      o.onDone?.();
 
       // buildUndo carries the released seats through, so restore re-places them.
       const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
       const n = result.removedIds.length;
       pushUndo({
-        label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
+        label: o.release ? `${seats(n)} released` : `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
         undo: async () => {
           if (plan.kind !== 'restore') return;
           // Their song requests come back with them (the warning said they go) —
@@ -125,6 +151,7 @@ export function useGuestRemoval(eventId: string) {
           const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
           if (r.ok) {
             guestOptimistic.clear(mutation); // un-hide the restored rows
+            for (const m of also) guestOptimistic.clear(m);
             if (r.warning) guestToast.error(plainRefusal(r.warning, 'Brought back — but part of it did not come back with them.'));
           } else {
             guestToast.error('Could not undo — refresh and try again.');
@@ -137,7 +164,7 @@ export function useGuestRemoval(eventId: string) {
     }
   }
 
-  return { removing, remove };
+  return { removing, remove, release };
 }
 
 /**

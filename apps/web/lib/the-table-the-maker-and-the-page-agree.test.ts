@@ -373,7 +373,7 @@ test('3 · the tester’s own steps (M01 · M02 · M04 · M05 · M06 · M07) on 
   // M05 · Back to our picks → Apply → the three boxes go back and ✓ returns to 0.
   const back = guestsSeeBackToPicks(now.nav.guestsSee, {});
   assert.equal(back.changed, true, 'M05: "These are our picks already." with three boxes changed');
-  assert.match(back.line, /^Back to our picks\. 3 boxes changed — Apply to keep it\.$/);
+  assert.match(back.line, /^Back to our picks\. 3 boxes changed — Keep to put it in your draft\.$/);
   draft = save(draft, guestsSeePatch(back.writes));
   now = render(live, draft, facts);
   assert.deepEqual(render(live, null, facts).nav.guestsSee, now.nav.guestsSee, 'M05: the table is not our picks again');

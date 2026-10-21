@@ -40,7 +40,7 @@ import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 import { ticketName } from '@/lib/name-style';
 import { loadNameStyle } from '@/lib/name-style.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { COMPANION_SEAT_COLUMNS, companionNames, type CompanionSeatRow } from '@/lib/extra-seats';
+import { companionNames, type CompanionSeatRow } from '@/lib/extra-seats';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -197,7 +197,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
     // 🪑 Who they bring is their seat ROWS — every one (lib/extra-seats.ts `companionNames`), never the one-name mirror.
     admin
       .from('guests')
-      .select(COMPANION_SEAT_COLUMNS)
+      .select('guest_id, plus_one_of_guest_id, first_name, last_name, plus_one_name_confirmed_at, rsvp_status, created_at')
       .eq('event_id', event.event_id)
       .eq('plus_one_of_guest_id', guestId)
       .is('deleted_at', null),

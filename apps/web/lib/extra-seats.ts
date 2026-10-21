@@ -112,7 +112,7 @@ export function plusOneSeatLines(
     });
 }
 
-/** One +1 seat row as the companion readers select it (`COMPANION_SEAT_COLUMNS`). */
+/** One +1 seat row as the companion readers select it. */
 export type CompanionSeatRow = {
   guest_id: string;
   plus_one_of_guest_id: string | null;
@@ -122,8 +122,6 @@ export type CompanionSeatRow = {
   rsvp_status?: string | null;
   created_at?: string | null;
 };
-/** The columns `companionNames` reads off a seat row — one select for every reader. */
-export const COMPANION_SEAT_COLUMNS = 'guest_id, plus_one_of_guest_id, first_name, last_name, plus_one_name_confirmed_at, rsvp_status, created_at';
 
 /**
  * 🪑 WHO A GUEST BRINGS, BY NAME — FROM THEIR SEAT ROWS, EVERY ONE (2026-10-22). The check-in desk, the souvenir desk

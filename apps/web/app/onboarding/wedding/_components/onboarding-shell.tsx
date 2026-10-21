@@ -117,6 +117,7 @@ import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/coupl
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
+import { joinCoupleNames } from '@/lib/typed-names';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -2054,7 +2055,7 @@ export function OnboardingShell({
   };
 
   /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
-  const coupleDisplay = [state.brideFirstName.trim(), state.groomFirstName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
+  const coupleDisplay = joinCoupleNames(state.brideFirstName, state.groomFirstName) || 'Maria & Juan'; // the one composition
 
   /* BYO vendor send — name required → accumulate into state.byoVendors (persisted
      to the draft + the commit payload), confirm truthfully, relabel the add button. */

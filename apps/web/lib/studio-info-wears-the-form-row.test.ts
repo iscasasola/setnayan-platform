@@ -92,7 +92,9 @@ test('(1) what must be typed is first: each name is a typed row, a first name is
   const parts = html.slice(html.indexOf('data-form-row-parts=""'));
   const pills = [...parts.matchAll(/data-form-row-pill="typed" aria-label="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(pills, ['Bride · first name: Maria. Tap to change', 'Bride · last name: Santos. Tap to change', 'Groom · first name: Jose. Tap to change', 'Groom · last name: Dela Cruz. Tap to change']);
-  assert.equal(count(html, /aria-haspopup="listbox"/g), 1);
+  // TWO dropdowns: Name order ▾ (owner 2026-10-21, which name comes first) and Name style ▾.
+  assert.equal(count(html, /aria-haspopup="listbox"/g), 2);
+  assert.match(parts, /aria-label="Name order: Maria &amp; Jose"/);
   assert.match(parts, /aria-label="Name style: Full"/);
   // No box is open, and there is no Save: the only <input> is the still anchor a jump looks for.
   assert.deepEqual(html.match(/<input[^>]*>/g), ['<input hidden="" readOnly="" tabindex="-1" aria-hidden="true" data-studio-name-anchor="" value=""/>']);
@@ -107,9 +109,9 @@ test('(1) what must be typed is first: each name is a typed row, a first name is
   assert.equal(count(blank, /data-form-row-needs="answer"/g), 2);
   assert.match(blank, /aria-label="Event name: not set yet\. Close"/);
   assert.match(blank, /<span>Not set yet<\/span>/);
-  // One kept name = one drafted write of the name columns, composed as the hero composes them.
+  // One kept name = one drafted write of the name columns, composed as the hero composes them — in the event's order.
   const src = read(NAME);
-  assert.match(src, /return studioDraftKeep\(eventId, 'events:names', coupleNameColumns\(next\[0\], next\[1\]\)\);/);
+  assert.match(src, /return studioDraftKeep\(eventId, 'events:names', coupleNameColumns\(next\[0\], next\[1\], latestOrder\.current\)\);/);
   assert.match(src, /required=\{part === 'first'\}/);
   assert.match(src, /void studioDraftKeep\(eventId, 'events:print_details\.name_style', nameStyleDraftPatch\(pick\)\.events \?\? \{\}\)/);
   // A jump from Stages opens the first name (its field is then the first in the page).

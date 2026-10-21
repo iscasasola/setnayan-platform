@@ -122,7 +122,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     displayPersonName(
       primary?.display_name?.trim() || [primary?.first_name, primary?.last_name].filter(Boolean).join(' '),
     ) || 'the inviting guest';
-  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0];
+  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName;
 
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const row: PlusOneRow = {

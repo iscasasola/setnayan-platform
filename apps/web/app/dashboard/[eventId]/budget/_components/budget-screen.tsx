@@ -308,7 +308,17 @@ function ThumbRow({
         // word with the rest of the row (the Find thumb row's ＋ Add your own).
         <ActionButton tone="brand" filled icon={Plus} label="Add expense" onClick={onAdd} />
       ) : null}
-      <span className="sn-glass-row inline-flex shrink-0 rounded-full" data-glass-row="budget-filter">
+      <span
+        className="sn-glass-row inline-flex shrink-0 rounded-full"
+        data-glass-row="budget-filter"
+        data-press-reach=""
+        // 👆 The glass's 1px edge is part of the 44px pill, but a press on it hit the glass, not the control
+        // (measured 42px, fits-every-phone 2026-10-21) — so a press anywhere on the pill is the control's press,
+        // the Find thumb row's own forwarder (`find-thumb-row.tsx`, `data-press-reach`).
+        onClick={(e) => {
+          if (!(e.target as Element).closest('button')) e.currentTarget.querySelector('button')?.click();
+        }}
+      >
         <PickMenu
           label="Show"
           value={filter}
@@ -358,7 +368,13 @@ function ThumbRow({
       ) : (
         <>
           <span className={styles.grow} aria-hidden="true" />
-          <span className="sn-glass-row inline-flex shrink-0 rounded-full">
+          <span
+            className="sn-glass-row inline-flex shrink-0 rounded-full"
+            data-press-reach=""
+            onClick={(e) => {
+              if (!(e.target as Element).closest('button')) e.currentTarget.querySelector('button')?.click();
+            }}
+          >
             <ActionButton
               tone="neutral"
               iconOnly

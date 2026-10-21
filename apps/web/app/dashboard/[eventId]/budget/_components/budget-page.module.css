@@ -247,6 +247,10 @@
   align-items: center;
   min-height: 44px;
   margin-block: -14px;
+  /* …and 44px WIDE: "Pay ›" is 30px of words. The box grows toward the row's
+     own text (it already sits at the far end), the words stay right-aligned. */
+  min-width: 44px;
+  justify-content: flex-end;
 }
 
 /* ═══ the one list — three groups, hairline rows ═══ */

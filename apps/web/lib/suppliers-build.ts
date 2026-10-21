@@ -27,6 +27,7 @@ import { askEndedOf, askLine, coupleAskEndedLine, type AskEnded } from './bookin
 import { teamMoney, type TeamMoney } from './your-team';
 import type { TallyChild } from './suppliers-shell';
 import type { DateFit } from './calendar-truth';
+import { coveredRowName } from './covered-row-name';
 
 /* ── THE SNAPSHOT A BUILD IS SAVED AS ─────────────────────────────────────
  * The shape `savePlanBuildNamed` has always posted (`PlanBuildSnapshot` in
@@ -55,6 +56,13 @@ export type BuildSupplier = {
   /** What their price comes with (their linked services, the couple's own
    *  inclusions) — saved with the build, as the old "Current" column saved it. */
   inclusions: string[];
+  /** The row they were booked under when this line shows them again through
+   *  "Also covers" (`BuildLineInputVendor.includedWith`); null otherwise. Such a
+   *  line carries no money of its own — the price lives on their own row. */
+  includedWith: string | null;
+  /** What the line calls them: `coveredRowName` — "Seda Vertis North · with
+   *  Reception" on a covered line, the bare name everywhere else. */
+  shownName: string;
 };
 
 export type BuildLine = {
@@ -90,6 +98,12 @@ export type BuildLineInputVendor = {
    * No new status: the shipped vocabulary, read as it is.
    */
   lockState?: 'none' | 'requested' | 'declined' | 'cancelled' | 'expired' | 'locked';
+  /**
+   * Set when this is the supplier shown again under a category their package
+   * "also covers" (`ShortlistVendor.includedWith`): the label of the row they
+   * were booked under. Absent / null on every ordinary supplier.
+   */
+  includedWith?: string | null;
 };
 
 /**
@@ -128,6 +142,8 @@ export function buildLinesOf(args: {
     groupId: v.planGroupId,
     pricePhp: args.priceOf(v.vendorId),
     inclusions: [...(args.inclusionsOf?.(v.vendorId) ?? [])],
+    includedWith: v.includedWith ?? null,
+    shownName: coveredRowName(v.name, v.includedWith),
   });
   return args.tiles.map((t) => {
     const bookedRow = t.vendors.find((v) => v.status === 'locked') ?? null;
@@ -344,8 +360,11 @@ export function buildCardOf(args: {
   title?: string | null;
   savedBudgetPhp?: number | null;
   picks: ReadonlyArray<BuildSnapshotPick>;
-  /** The categories on the event, in order: label + the plan group each is. */
-  categories: ReadonlyArray<{ label: string; groupId: string | null }>;
+  /** The categories on the event, in order: label + the plan group each is.
+   *  `covered` — the line shows a supplier through "Also covers": the row
+   *  names only THAT supplier, "· with <their row>", never whoever another
+   *  build put in their row. */
+  categories: ReadonlyArray<{ label: string; groupId: string | null; covered?: { vendorId: string; from: string } | null }>;
   budgetPhp: number | null;
   free: BuildCardFree;
   lockedGroupIds: ReadonlySet<string>;
@@ -372,8 +391,13 @@ export function buildCardOf(args: {
     totalPhp,
     unpriced,
     rows: args.categories.map((c) => {
-      const p = c.groupId ? byGroup.get(c.groupId) : undefined;
-      return { label: c.label, supplier: p ? shortSupplierName(p.vendorName) : null, inclusions: [...(p?.inclusions ?? [])] };
+      const found = c.groupId ? byGroup.get(c.groupId) : undefined;
+      const p = c.covered && found?.vendorId !== c.covered.vendorId ? undefined : found;
+      return {
+        label: c.label,
+        supplier: p ? coveredRowName(shortSupplierName(p.vendorName), c.covered?.from) : null,
+        inclusions: c.covered ? [] : [...(p?.inclusions ?? [])],
+      };
     }),
     free: args.free,
     bufferPhp: unpriced > 0 || args.budgetPhp == null ? null : args.budgetPhp - totalPhp,
@@ -426,6 +450,7 @@ export function buildViewOf(args: {
   const categories = lines.map((l) => ({
     label: l.label,
     groupId: lineSupplier(l)?.groupId ?? l.candidates[0]?.groupId ?? null,
+    covered: lineSupplier(l)?.includedWith ? { vendorId: lineSupplier(l)!.vendorId, from: lineSupplier(l)!.includedWith! } : null,
   }));
   const card = (b: { id: string; name: string; title: string | null; budgetPhp: number | null; picks: ReadonlyArray<BuildSnapshotPick> }) =>
     buildCardOf({

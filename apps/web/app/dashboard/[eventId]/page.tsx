@@ -1154,6 +1154,7 @@ export default async function EventHomePage({
             }
             slug={(event as { slug?: string | null }).slug ?? null}
             summary={afterSummary}
+            storeShell={storeShell}
           />
 
           <details className="sn-tile">

@@ -159,7 +159,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        appBody: 'Setnayan AI is Setnayan\'s assisted planner. It matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
@@ -193,19 +193,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakanta',
         title: 'What is Music Maker?',
-        appBody: 'A custom Filipino-style song written for the couple. Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        appBody: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive.",
+        appBody: HELP_NOT_IN_THE_APP,
         body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
       },
       {
         slug: 'what-is-panood',
         title: 'What is Live Watch?',
-        appBody: 'Live streaming for your wedding, embedded directly on your Event Hub. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
@@ -265,6 +265,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'share-wedding-photos-with-guests-automatically',
         title: 'How do I share wedding photos with guests automatically?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your galleries as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
       },
       {
@@ -294,6 +295,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-if-the-venue-has-no-signal',
         title: 'What happens if the wedding venue has no signal?',
+        appBody: 'Your guest list, RSVPs and seat plan are all settled before the day, so a weak signal at the venue changes none of them.',
         body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Watch is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
       },
       {
@@ -629,6 +631,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'photo-wall',
         title: 'Share photos with the couple',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "If the couple has Photo Wall enabled, your phone becomes a photo uploader. Upload from your camera roll or take a new shot — it lands in the couple's gallery for everyone to enjoy. Optional and you can delete anything you uploaded.",
       },
     ],
@@ -642,6 +645,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. 50 credits come free ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your credits for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
       },
       {
@@ -653,31 +657,37 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-papic-tagging-works',
         title: 'How do my photos get matched to the right guests?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your gallery — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
       },
       {
         slug: 'find-download-papic-photos',
         title: 'Where do I find and download all my Papic photos?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "Dashboard → Studio → Papic → Gallery. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull the whole gallery as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
       },
       {
         slug: 'papic-guest-camera',
         title: 'Guest: how do I take candid photos for the couple?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's gallery in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
       },
       {
         slug: 'add-your-face',
         title: 'Guest: how do I make sure I get my photos? (add your face)',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Photos of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
       },
       {
         slug: 'photos-of-you',
         title: "Guest: where do I find the photos I'm in?",
+        appBody: HELP_NOT_IN_THE_APP,
         body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Photos of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
       },
       {
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their gallery automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
@@ -709,6 +719,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'is-my-youtube-ready-to-live-stream',
         title: 'Is my YouTube channel ready to live stream? (check this first)',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'Live Watch sends your event to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your event is a year away. It costs nothing and it never expires.\n\n' +
           'HOW TO CHECK, in under a minute:\n' +
@@ -724,6 +735,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'create-your-youtube-live-link',
         title: 'How do I create the YouTube link for my live stream?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'You make the broadcast on YouTube, and Setnayan sends the pictures to it. Do this in the last week before your event — not months ahead, because a broadcast left sitting for a long time can go stale.\n\n' +
           '1. Go to https://studio.youtube.com and click CREATE (the camera icon, top right), then GO LIVE.\n' +
@@ -740,6 +752,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'live-stream-dry-run',
         title: 'How do I make sure it will all work on the day?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'Do a dry run, well before the day. It is the only way to be certain, because it tests everything at once: that your channel is really switched on for live streaming, that your streaming software can reach YouTube, and that Setnayan can show the result.\n\n' +
           '1. Make a test broadcast on YouTube, exactly as you would for the real thing, and set it to Unlisted.\n' +
@@ -751,6 +764,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'who-owns-the-live-stream-recording',
         title: 'What happens to the recording afterwards?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'The broadcast is on your own YouTube channel, so the recording is yours. YouTube keeps it automatically as an unlisted video on your channel after the stream ends, and you download it from YouTube Studio whenever you like — go to your Content list, find the video, and use the download option in its menu.\n\n' +
           'Because it lives on your channel and not ours, nobody else can take it down, and it is not affected by anything that happens to another couple. Keep the watch link saved in Setnayan and your Event Hub can keep showing it afterwards.',

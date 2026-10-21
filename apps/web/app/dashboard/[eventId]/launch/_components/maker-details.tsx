@@ -965,7 +965,10 @@ export function MakerDetails(props: MakerDetailsProps) {
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
-            : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
+            : qr.storeShell
+              ? /* 🍎 The iPhone app names no paid extra — and draws no QR look controls (`QrLookControls`). */
+                'Every guest QR carries the Setnayan mark in the centre.'
+              : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
         </p>
         {qrAlways}
         {nfcToggle}

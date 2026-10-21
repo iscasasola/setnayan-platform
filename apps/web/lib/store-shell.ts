@@ -35,6 +35,8 @@
  * `isStoreShellRequest()` in lib/request-platform.ts.
  */
 
+import { asksForMoreServices } from './studio-hub';
+
 const CLIENT_TYPE_COOKIE = 'setnayan-client-type';
 
 /**
@@ -257,7 +259,11 @@ const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;
  * shipping a store shell at all.
  */
 const WEB_ONLY_FEATURE_ROUTE =
-  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/live|panood\/(?:control|program))(?:\/|$)/;
+  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/(?:live|alaala)|panood\/(?:control|program))(?:\/|$)/;
+// ↑ `/dashboard/<eventId>/alaala` (2026-10-21) — the "Memories" story page: every stage on it is a
+//   chip for a paid add-on (Live Watch · Papic · Music Maker…), "free with Papic", and an "Add to
+//   your Memories" link to the More menu. Nothing links to it; a deep link in the app lands on
+//   /web-only like its public twin `/alaala` (a doorway above).
 // ↑ `/panood/control/<eventId>` and `/panood/program/<eventId>` are the Live
 //   Studio control room and its program output — the paid unlock's working
 //   surface (added 2026-09-24). `/panood/cam/<token>` is a helper's camera join
@@ -294,6 +300,15 @@ export function isStoreShellWebOnlyPath(pathname: string): boolean {
  * the app would answer with /web-only. Pure; `StoreShellLinkGuard`
  * (app/_components/store-shell-link-guard.tsx) is the client that applies it.
  * Fragments, mailto:, tel: and other origins are never hidden.
+ *
+ * 🍎 ALSO THE MORE MENU'S ADDRESS (`studioHubHref` — Home `?more=services`).
+ * In the app the More menu is not built (#6725): every service it lists is a
+ * paid web extra (`STORE_SHELL_HIDDEN_ADDON_KEYS`), so the list is empty and
+ * the address only re-opens Home. "Open Services", "More Services", "Back to
+ * add-ons" and every other link to it were a dead jump to Home in the app
+ * (2026-10-21). Pages that draw one gate it server-side; this is the net
+ * under them, the same way as the refused routes. Held by
+ * `lib/the-app-names-no-paid-service.test.ts`.
  */
 export function storeShellHidesHref(href: string | null | undefined, currentUrl: string): boolean {
   if (!href) return false;
@@ -306,6 +321,7 @@ export function storeShellHidesHref(href: string | null | undefined, currentUrl:
     return false;
   }
   if (url.origin !== here.origin) return false;
+  if (asksForMoreServices(url.search)) return true;
   return isStoreShellWebOnlyPath(url.pathname);
 }
 

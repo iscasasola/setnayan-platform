@@ -218,7 +218,10 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <div role="status" data-love-story-refused={p.refused} className="mx-auto mt-6 max-w-md">
             <p className="text-[14px]">
               {p.refused === 'photos'
-                ? 'Your words are free — photos come with Event Hub Pro.'
+                ? p.storeShell
+                  ? /* 🍎 The iPhone app names no paid extra (lib/store-shell.ts). */
+                    'Your words are free. Photos are not included in the app.'
+                  : 'Your words are free — photos come with Event Hub Pro.'
                 : `Your first ${FREE_MOMENT_CAP} stories are free.`}
             </p>
             <div className="flex justify-center">{proLine}</div>
@@ -354,7 +357,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
             <p className="text-[14px] text-[color:var(--ls-muted)]">
-              {p.tryingPro ? (
+              {p.tryingPro && !p.storeShell ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
                   <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />

@@ -1835,7 +1835,10 @@ export function FrontDoorShell({
               seven named products under one heading is not the same thing. */}
           {/* Empty in focus outside an event — see where `tools` is set. */}
           {tools.length > 0 ? (
-          <div className="fd-rgroup">
+          /* 🍎 `data-web-only`: the group names the paid web extras (Setnayan AI · Papic · Live Watch ·
+             Patiktok · Music Maker) and its rows open pages the iPhone app refuses — hidden there before the
+             first paint (lib/store-shell.ts). Inside an event the group is not drawn at all. */
+          <div className="fd-rgroup" data-web-only="">
               <div className="fd-rdiv" />
               <div className="fd-rlabel">
                 Studio <small>the things you make</small>

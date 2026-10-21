@@ -23,6 +23,7 @@ import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { youCardOnward } from '@/lib/signup-landing';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { saveYou } from './actions';
 import { YouCard, type YouCardMe } from './_components/you-card';
 
@@ -63,6 +64,8 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
     .from('event_members')
     .select('event_id', { count: 'exact', head: true })
     .eq('user_id', user.id);
+  // Unread → unknown (the board), and said where we can read it.
+  if (eventsError) logQueryError('YouPage.eventCount', eventsError, { user_id: user.id }, 'graceful_degrade');
   const onward = youCardOnward(next, eventsError ? null : (eventCount ?? 0) > 0);
 
   const storedPhoto = me.profile_photo_url ?? null;

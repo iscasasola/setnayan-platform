@@ -134,6 +134,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       .from('event_members')
       .select('event_id', { count: 'exact', head: true })
       .eq('user_id', user.id);
+    if (error) logQueryError('CreateEventPage.eventCount', error, { user_id: user.id }, 'graceful_degrade');
     nothingBehind = !error && (count ?? 0) === 0;
   }
 

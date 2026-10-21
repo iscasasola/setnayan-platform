@@ -1,8 +1,8 @@
 /**
  * /dev/supplier-plan-lab — simpler supplier dashboard STEP 6 on fixture data: Plan · Helpers · Settings ·
- * Notifications · Help · How is my business doing · More. No sign-in, no database. DEV-ONLY: production builds 404
+ * Notifications · Help · How is my business doing. No sign-in, no database. DEV-ONLY: production builds 404
  * this route (the same kill-switch as `/dev/supplier-lab`). It mounts the REAL screens — `PlanRows` + `PlanPicker`,
- * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing`, the Help rows and More's rows — so what it shows
+ * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing` and the Help rows — so what it shows
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
@@ -11,11 +11,9 @@
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
- *   ?s=more            More's rows
+ *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
 import { notFound } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
-import Link from 'next/link';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
 import { PlanPicker, type PlanPick } from '@/app/vendor-dashboard/subscription/_components/plan-picker';
 import { startSubscriptionPurchase } from '@/app/vendor-dashboard/subscription/actions';
@@ -36,7 +34,6 @@ import { settingsMoreTools, SUPPLIER_HELP_ROWS } from '@/app/vendor-dashboard/se
 import { NotificationsView } from '@/app/vendor-dashboard/notifications/notifications-view';
 import { BusinessDoing, type DoingWindow } from '@/app/vendor-dashboard/performance/_components/business-doing';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
-import { VENDOR_MORE_ROWS } from '@/lib/vendor-more-rows';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
@@ -234,31 +231,6 @@ export default async function SupplierPlanLabPage({
       <>
         <h1 className="sn-h1">How is my business doing</h1>
         <div className="mt-2">{businessFixture(who, sp.new === '1')}</div>
-      </>
-    );
-  else if (s === 'more')
-    body = (
-      <>
-        <h1 className="sn-h1">More</h1>
-        <ul className="sn-glass-bare mt-4 grid gap-1 rounded-2xl p-2">
-          {VENDOR_MORE_ROWS.map((row) => {
-            const Icon = row.Icon;
-            return (
-              <li key={row.key}>
-                <Link href={row.href} className="flex min-h-[52px] items-center gap-3 rounded-2xl px-3 py-2 text-[15px] text-ink hover:bg-ink/5">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink/70">
-                    <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block">{row.label}</span>
-                    <span className="block text-[12.5px] text-ink/55">{row.sub}</span>
-                  </span>
-                  <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
       </>
     );
 

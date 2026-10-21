@@ -184,7 +184,11 @@ test('the account-level screens wear the mark AND the word — and only they car
 
 test('Admin lives on the avatar sheet, worded Admin', () => {
   const sheet = src('app/_components/account-switcher/account-switcher.tsx');
-  const at = sheet.indexOf('href="/admin"');
-  assert.ok(at > 0, 'the avatar sheet lost its door to Admin');
-  assert.match(sheet.slice(at, at + 600), /<span>Admin<\/span>/, 'the sheet tile is not worded Admin');
+  // `stripComments` keeps offsets (comments become spaces), so match the tile
+  // as one element rather than a fixed window after its href.
+  assert.match(
+    sheet,
+    /href="\/admin"[^<]*>[\s{}]*<ShieldCheck[^>]*\/>[\s{}]*<span>Admin<\/span>[\s{}]*<span[^>]*>Setnayan HQ<\/span>/,
+    'the avatar sheet tile to /admin is not worded Admin · Setnayan HQ',
+  );
 });

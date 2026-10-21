@@ -15,6 +15,13 @@
  * className="sn-vt-page">` · `[data-shell-main]`) and the real anchored
  * `BottomDock` with the same boundary. Only the account and the five tab
  * labels are fixtures. Opt in with `&shell=1` on a lab that supports it.
+ *
+ * The bar's cluster carries the REAL Messages and bell badges the event layout
+ * mounts (`UnreadMessagesBadge` · `UnreadBellBadge`), seeded with fixture counts,
+ * so what a plain page asks of the network — and whether it holds a live socket
+ * (2026-10-21, live connections only where live) — can be measured in a lab.
+ * With no database their reads fail, and a failed read must leave the seeded
+ * count standing, never draw a false 0.
  */
 import type { ReactNode } from 'react';
 import '@/app/_components/frontdoor/front-door.css';
@@ -24,6 +31,11 @@ import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-ra
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
 import { builderRailItems, togetherRailItems } from '@/lib/free-tools-rail';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
+
+/** A fixture account id — the lab has no sign-in, so every read the badges make is refused. */
+const LAB_USER = '00000000-0000-4000-8000-0000000000aa';
 
 const SERVICES: EventMenuChild[] = [
   { key: 'setnayan-ai', label: 'Setnayan AI', href: '#ai', icon: 'ai' },
@@ -60,6 +72,14 @@ export function LabShell({
         navLabels={{}}
         topBarSlot={
           <div className="flex items-center gap-3" data-lab-cluster="">
+            <UnreadMessagesBadge userId={LAB_USER} initialUnread={2} href="#messages" />
+            <UnreadBellBadge
+              userId={LAB_USER}
+              initialUnread={3}
+              href="#notifications"
+              ariaBaseLabel="Notifications"
+              ariaUnreadSuffix="unread"
+            />
             <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">AM</span>
           </div>
         }

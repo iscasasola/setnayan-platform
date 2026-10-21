@@ -151,6 +151,40 @@ export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * THE HUB TAB, FOR A HELPER, ON THE DAY (owner "Yes to all", 2026-10-21, item 6
+ * of `shots-2026-10-21/supplier-dash-audit/AUDIT.md`). A crew or church helper
+ * at the venue needs the scanner, and the scanner is in the Event Hub — so on a
+ * day this shop has an event, a scoped teammate's bar and rail carry the Hub
+ * too, beside Today and Customers. Any other day they do not.
+ *
+ * 🔒 IT ADDS A DOOR, NOT ACCESS. `/vendor-dashboard/on-the-day` and its live
+ * console were already open to a teammate (Today's "Run the day" card links
+ * there; the console admits a team member or a granted account and gates the
+ * day, the fee and each module on its own). The tab only puts that same door in
+ * the bar on the day it is used. The one fact the layout reads to decide it is
+ * "is one of this shop's days today", from the reader the Hub itself uses.
+ *
+ * The two menus spell the key differently, as everywhere else here: `onday` on
+ * the bar (slot `vendor.bottom-nav.onday`), `on-the-day` on the rail (slot
+ * `vendor.sidebar.on-the-day`).
+ */
+export const VENDOR_HUB_KEY = { bar: 'onday', rail: 'on-the-day' } as const;
+
+/** Bar keys a scoped teammate gets — Today · Customers, plus the Hub on an event day. */
+export function vendorScopedBarKeys(opts: { eventToday: boolean }): ReadonlySet<string> {
+  return opts.eventToday
+    ? new Set([...VENDOR_SCOPED_BOTTOM_NAV_KEYS, VENDOR_HUB_KEY.bar])
+    : VENDOR_SCOPED_BOTTOM_NAV_KEYS;
+}
+
+/** Rail keys a scoped teammate gets — the same rule as the bar, in the rail's spelling. */
+export function vendorScopedRailKeys(opts: { eventToday: boolean }): ReadonlySet<string> {
+  return opts.eventToday
+    ? new Set([...VENDOR_SCOPED_NAV_ITEM_KEYS, VENDOR_HUB_KEY.rail])
+    : VENDOR_SCOPED_NAV_ITEM_KEYS;
+}
+
+/**
  * The ONE key the two scoped lists spell differently: the Overview destination
  * is `overview` in the sidebar and `profile` in the bottom nav, deliberately —
  * the tab key is pinned to `profile` for localStorage continuity. Declared here
@@ -159,6 +193,8 @@ export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
  */
 export const VENDOR_NAV_KEY_ALIASES: ReadonlyMap<string, string> = new Map([
   ['profile', 'overview'],
+  // The Hub (2026-10-21): `onday` on the bar, `on-the-day` on the rail.
+  [VENDOR_HUB_KEY.bar, VENDOR_HUB_KEY.rail],
 ]);
 
 /** A bottom-nav key, as the sidebar would spell it. */
@@ -170,12 +206,14 @@ export function canonicalVendorNavKey(key: string): string {
 export function filterVendorNavGroups(
   groups: NavGroup[],
   role: VendorTeamRole | null | undefined,
+  opts: { eventToday?: boolean } = {},
 ): NavGroup[] {
   if (canManageVendor(role)) return groups;
+  const keys = vendorScopedRailKeys({ eventToday: opts.eventToday === true });
   return groups
     .map((g) => ({
       ...g,
-      items: g.items.filter((it) => VENDOR_SCOPED_NAV_ITEM_KEYS.has(it.key)),
+      items: g.items.filter((it) => keys.has(it.key)),
     }))
     .filter((g) => g.items.length > 0);
 }

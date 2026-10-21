@@ -90,3 +90,18 @@ export function pickConfigureDay<T extends VendorDay>(
     null
   );
 }
+
+/** Today in Manila (UTC+8, no DST) as `YYYY-MM-DD` — the calendar the days above are kept in. */
+export function phTodayIso(now: number = Date.now()): string {
+  return new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Is one of this shop's days TODAY — the Event Hub's own "an event is on" rule
+ * (`/vendor-dashboard/on-the-day` shows the live console exactly then). The
+ * layout asks it for a helper's bar: a teammate gets the Hub tab on that day
+ * only (owner "Yes to all", 2026-10-21, item 6).
+ */
+export function hasDayToday(days: readonly Pick<VendorDay, 'bookedDate'>[], today: string): boolean {
+  return days.some((d) => d.bookedDate === today);
+}

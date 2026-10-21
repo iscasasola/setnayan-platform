@@ -54,11 +54,13 @@ import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
-import { EventPicker } from './_components/event-picker';
+import { EventPicker, type PickerLock } from './_components/event-picker';
 import { collapseToPickerDays, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
-import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGate, resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { feeLockCopy } from '@/lib/event-access-stage';
+import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -422,6 +424,30 @@ export default async function VendorOnTheDayPage({
   const modules = resolveModules(profile.services, eventTiles, null);
   const enabledModules = modules.filter((m) => m.enabled);
 
+  // ── THE EMPTY DAY LISTS THE NEXT EVENTS, EACH WITH ITS FEE GATE ──────────
+  // Owner "Yes to all", 2026-10-21, item 5: on a day with no event the Hub is
+  // the list of the next booked events — not just "No event today" — each one
+  // locked until its booking fee is paid. ONE read for the whole list, through
+  // the SHIPPED gate (`resolveEventFeeGates`, "one query for the whole Event
+  // Hub"), and the SHIPPED words (`feeLockCopy`): the amount is the bill's own,
+  // never a price in code. A refused read falls to "unlocked", exactly as the
+  // gate itself does for an unreadable charge (it is logged inside).
+  let dayLocks: Record<string, PickerLock> = {};
+  if (!showFullConsole) {
+    const ahead = [...new Set(pickerBookings.filter((b) => b.when !== 'past').map((b) => b.eventId))];
+    const gates: Map<string, EventFeeGate> = ahead.length
+      ? await resolveEventFeeGates(profile.vendor_profile_id, ahead).catch(() => new Map<string, EventFeeGate>())
+      : new Map<string, EventFeeGate>();
+    dayLocks = Object.fromEntries(
+      [...gates].flatMap(([eventId, gate]) => {
+        if (gate.stage === 'unlocked') return [];
+        const copy = feeLockCopy({ stage: gate.stage, owed: gate.access.owed, withheld: [], reason: gate.access.reason });
+        const payHref = gate.access.owed?.orderId ? vendorBookingFeePayPath(gate.access.owed.orderId) : VENDOR_BOOKING_FEES_PATH;
+        return [[eventId, { headline: copy.headline, cta: copy.cta, payHref }]];
+      }),
+    );
+  }
+
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
@@ -734,7 +760,7 @@ export default async function VendorOnTheDayPage({
       </div>
         </>
       ) : (
-        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} />
+        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} locks={dayLocks} />
       )}
     </section>
   );
@@ -969,6 +995,7 @@ function CompactDayOf({
   family,
   modules,
   bookings,
+  locks,
 }: {
   family: DayOfFamily;
   modules: ResolvedModule[];
@@ -978,11 +1005,21 @@ function CompactDayOf({
     bookedDate: string;
     when: 'today' | 'upcoming' | 'past';
   }[];
+  /** Each locked event's fee-gate answer (owner 2026-10-21, item 5). */
+  locks: Readonly<Record<string, PickerLock>>;
 }) {
+  // 🗓 THE NEXT EVENTS COME FIRST (owner "Yes to all", 2026-10-21, item 5): the
+  // empty day is a list of what is coming, each locked until its fee is paid —
+  // not a box that only says "No event today". Past days keep their row,
+  // below, for reference (they used to share the one list).
+  const next = bookings.filter((b) => b.when !== 'past');
+  const past = bookings.filter((b) => b.when === 'past');
   return (
     <div className="space-y-6">
-      {/* Step 1 — pick a booked event to set up ahead of time. */}
-      {bookings.length > 0 ? <EventPicker bookings={bookings} activeEventId={null} /> : null}
+      {/* Step 1 — the next booked events: set one up ahead of time, or pay to unlock it. */}
+      {next.length > 0 ? (
+        <EventPicker bookings={next} activeEventId={null} heading="Your next events" locks={locks} />
+      ) : null}
 
       {/* Promoted "No event today" explainer. */}
       <ShopEmpty>
@@ -996,8 +1033,9 @@ function CompactDayOf({
           No event today
         </p>
         <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a
-          couple’s booked date is today. Until then, there’s nothing live to run here.
+          {next.length > 0
+            ? 'Your day-of console opens here on each event’s day (T-1h → T+8h). Your next events are above.'
+            : 'Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a couple’s booked date is today. Until then, there’s nothing live to run here.'}
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <Link
@@ -1044,6 +1082,9 @@ function CompactDayOf({
         </span>
         <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
       </Link>
+
+      {/* Past days — for reference, as before (they shared the one list until 2026-10-21). */}
+      {past.length > 0 ? <EventPicker bookings={past} activeEventId={null} heading="Earlier" /> : null}
     </div>
   );
 }

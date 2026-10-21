@@ -87,6 +87,7 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
+import { bottomNavItemMatches } from './bottom-nav-match';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
@@ -109,20 +110,8 @@ type AccordionProps = {
 
 type Props = FlatProps | AccordionProps;
 
-function matchesPath(pathname: string, item: BottomNavItem): boolean {
-  // Exact-only extras first (activeMatchAlsoExact) — lets a merged hub tab
-  // combine an exact landing (`/admin`) with prefix umbrellas without
-  // flipping every match to exact via activeMatchExact.
-  if (item.activeMatchAlsoExact?.some((p) => pathname === p)) return true;
-  const matches = Array.isArray(item.activeMatch)
-    ? item.activeMatch
-    : [item.activeMatch];
-  return item.activeMatchExact
-    ? matches.some((prefix) => pathname === prefix)
-    : matches.some(
-        (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
-      );
-}
+/** The bar's matching rule lives in `bottom-nav-match.ts` (pure, so a test can ask it). */
+const matchesPath = bottomNavItemMatches;
 
 function useIsActive(pathname: string) {
   return useCallback(

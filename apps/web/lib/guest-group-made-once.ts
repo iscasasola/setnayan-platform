@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GuestGroupTeamSide } from '@/lib/guests';
 import { ownTwin } from '@/lib/group-name-clash';
 import { pickReuseGroup } from '@/lib/guest-group-reuse';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type MadeGroup = { group_id: string; label: string; team_side: GuestGroupTeamSide };
 export type MadeGroupResult = { ok: true; group: MadeGroup; created: boolean } | { ok: false; error: string; code?: string };
@@ -35,7 +36,11 @@ const asSide = (v: unknown): GuestGroupTeamSide => (v === 'bride' || v === 'groo
 
 async function ownGroups(supabase: SupabaseClient, eventId: string) {
   const { data, error } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
-  if (error) return null;
+  if (error) {
+    // The write that asked is REFUSED on this (never "no twin"); the reason is recorded here.
+    logQueryError('makeGuestGroupOnce.ownGroups', error, { eventId });
+    return null;
+  }
   return ((data ?? []) as { group_id: string; label: string | null; team_side: string | null }[]).map((g) => ({
     groupId: g.group_id,
     label: g.label ?? '',

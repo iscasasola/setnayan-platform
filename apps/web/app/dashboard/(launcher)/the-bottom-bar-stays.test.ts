@@ -41,13 +41,13 @@ const LAUNCHER_PAGE = 'app/dashboard/(launcher)/page.tsx';
 const BAR = 'app/dashboard/(launcher)/_components/account-bottom-nav.tsx';
 
 test('the bar is chrome — both layouts that cover its targets render it', () => {
-  assert.match(code(LAUNCHER_LAYOUT), /<AccountBottomNav\b/, '/dashboard itself');
-  assert.match(code(ACCOUNT_LAYOUT), /<AccountBottomNav\b/, 'People · Memories · the account spokes all live here');
+  assert.match(code(LAUNCHER_LAYOUT), /<AccountBarSlot\b/, '/dashboard itself');
+  assert.match(code(ACCOUNT_LAYOUT), /<AccountBarSlot\b/, 'People · Memories · the account spokes all live here');
 });
 
 test('and no page renders it — a page-level nav bar exists on one route only', () => {
   assert.ok(
-    !/<AccountBottomNav\b|<HomePillNav\b/.test(code(LAUNCHER_PAGE)),
+    !/<AccountBarSlot\b|<AccountBottomNav\b|<HomePillNav\b/.test(code(LAUNCHER_PAGE)),
     'rendered by the page it disappeared the moment anyone used it',
   );
 });
@@ -70,7 +70,7 @@ test('it is NOT pushed into the shared rail, which the event trees also use', ()
   // Those trees carry their own phone bottom nav; a second bar under the first
   // is a worse bug than the missing one.
   assert.ok(
-    !/HomePillNav|AccountBottomNav/.test(code('app/_components/frontdoor/app-rail-shell.tsx')),
+    !/HomePillNav|AccountBottomNav|AccountBarSlot/.test(code('app/_components/frontdoor/app-rail-shell.tsx')),
     'the shared shell must stay free of it',
   );
 });

@@ -10,7 +10,7 @@ import {
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
-import { AccountBottomNav } from '../(launcher)/_components/account-bottom-nav';
+import { AccountBarSlot } from '../(launcher)/_components/account-bar-slot';
 import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
 import { discoverOpensHere } from '@/lib/request-platform';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -162,7 +162,7 @@ export default async function AccountDashboardLayout({
             survives the tap that uses it. Its tabs are the 2026-10-21 ruling
             (lib/account-bar.ts): Shop only for an OWNER, from the switcher
             context this layout already loaded; Discover only where `/` opens. */}
-        <AccountBottomNav
+        <AccountBarSlot
           tabs={accountBarTabs({ ownsShop: ownsAShop(switcherData.context), discoverOpen })}
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for

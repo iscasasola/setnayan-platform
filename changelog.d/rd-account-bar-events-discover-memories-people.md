@@ -19,8 +19,12 @@ Owner, verbatim, **"yes to all"** to the controller's four recommendations on th
 - **"SETNAYAN" beside the mark** on the account-level screens, every width (CSS keyed on the account bar's
   `data-account-bar`).
 - **Avatar sheet:** the HQ tile reads **Admin** (sub-line "Setnayan HQ").
-- **Maker first load: +0 B of JavaScript** — every shell-side change is server-rendered or CSS; the only shell JS
-  edit is one href string.
+- **Maker first load: +28 B gzipped (measured, local `next build` vs main `aff7c0c5b4`: 517,791 → 517,819 B, same 51
+  chunks).** 11 B are the words the rulings require (the mark's `/dashboard?hub=1`, the sheet's "Admin" / "Setnayan
+  HQ"); 17 B are the webpack runtime's entry for the bar's own chunk. The bar is mounted through `AccountBarSlot`
+  (`next/dynamic`, still server-rendered) because a plain import made webpack split the canonical `<BottomNav>` out of
+  the event layout's chunk: **+234 B and one more chunk** on the Maker. Everything else shell-side is server-rendered
+  or CSS.
 - Guards: `the-account-bar-is-the-ruling.test.ts` (new: renders the real bar for all 16 account/shell combinations),
   `seam-invariants.test.ts` + `rail-active.test.ts` (changed on purpose, citing the ruling),
   `the-bottom-bar-stays.test.ts` (re-pointed at the new bar).

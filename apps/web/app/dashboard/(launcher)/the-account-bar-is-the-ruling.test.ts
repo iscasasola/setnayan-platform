@@ -99,6 +99,12 @@ test('every door is an existing one — and none is Admin or a floating Create, 
   assert.equal(combos, 16);
 });
 
+test('the slot loads the bar in its own chunk, server-rendered', () => {
+  const slot = src('app/dashboard/(launcher)/_components/account-bar-slot.tsx');
+  assert.match(slot, /dynamic\(\(\) => import\('\.\/account-bottom-nav'\)/, 'the slot no longer loads the bar as its own chunk');
+  assert.ok(!/ssr:\s*false/.test(slot), 'the bar must stay in the first paint (server-rendered)');
+});
+
 test('anchored: the bar is the canonical <BottomNav> inside <BottomDock>, with no floating button', () => {
   const { html } = drawn({ ...COUPLE, discoverOpen: true });
   assert.match(html, /data-bottom-dock/, 'not inside the dock — the bar floats again');
@@ -116,10 +122,17 @@ test('wiring: both layouts draw the ruled tabs from the server-side answers', ()
     const layout = src(f);
     assert.match(
       layout,
-      /<AccountBottomNav\s+tabs=\{accountBarTabs\(\{ ownsShop: ownsAShop\(switcherData\.context\), discoverOpen \}\)\}\s*\/>/,
+      /<AccountBarSlot\s+tabs=\{accountBarTabs\(\{ ownsShop: ownsAShop\(switcherData\.context\), discoverOpen \}\)\}\s*\/>/,
       `${f} no longer hands the bar the ruled tabs`,
     );
     assert.match(layout, /discoverOpensHere\(\)/, `${f} no longer asks whether Discover opens here`);
+    // ⚡ The Maker's first load: a static import of the bar (or of the canonical
+    // bar) from an account layout made webpack split <BottomNav> out of the
+    // event layout's chunk — +234 B on the Maker (account-bar-slot.tsx).
+    assert.ok(
+      !/from '[^']*(account-bottom-nav|nav\/bottom-nav)'/.test(layout),
+      `${f} imports the bar directly — mount it through <AccountBarSlot> (its own chunk)`,
+    );
   }
 });
 

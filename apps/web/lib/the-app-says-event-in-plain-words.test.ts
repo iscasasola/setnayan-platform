@@ -107,12 +107,6 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   // words matched or drawn, not said
   'lib/theme-text-intent.ts': ['celebration'],
   'lib/moodboard-gallery-upload.ts': ['CELEBRATION'],
-  // THE OWNER'S TAGLINE (2026-09-30) — pinned by public-copy-is-not-wedding-only,
-  // anniversary-emails and admin-payment-alert-says-who: "a change to it is an
-  // owner decision, not a copy edit". Flagged to him in the 2026-10-21 PR.
-  'app/layout.tsx': ['Setnayan · Plan, share and relive every celebration'],
-  'lib/email-template.ts': ['Setnayan · Plan, share and relive every celebration', 'Setnayan HQ · Plan, share and relive every celebration'],
-  'lib/anon-draft-reminder.ts': ['Setnayan · Plan, share and relive every celebration'],
   // a music mood's name in the App Store demo card
   'app/_components/app-store/studio-card-demo.tsx': ['Joyful celebration'],
 };
@@ -198,6 +192,15 @@ test('no customer-facing string names the thing a "celebration"', () => {
     }
   }
   assert.deepEqual(hits, [], 'House word: say "event", never "celebration" (or allow-list it here, with the reason):\n' + hits.join('\n'));
+});
+
+test('the install manifest (name, description) never names the thing a "celebration"', () => {
+  const m = JSON.parse(readFileSync(join(WEB, 'public/manifest.json'), 'utf8')) as Record<string, unknown>;
+  const said = ['name', 'short_name', 'description'].map((k) => String(m[k] ?? '')).filter(Boolean);
+  assert.ok(said.length >= 2, 'the manifest lost its name/description — re-point this check');
+  assert.deepEqual(said.filter((t) => NOUN.test(t)), [], 'public/manifest.json says "celebration"');
+  // The owner's tagline, as he changed it on 2026-10-22 (DECISION_LOG "TAGLINE SAYS EVENT").
+  assert.ok(String(m.description).startsWith('Plan, share and relive every event'));
 });
 
 test('every allow-list entry still matches something — the list cannot rot into a blanket pass', () => {

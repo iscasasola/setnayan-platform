@@ -183,7 +183,7 @@ export function AddToEvent({
                     <p className="mt-2 flex-none text-xs text-[var(--m-slate-2)]">
                       {q.trim()
                         ? `${formatCount(shown.length)} of ${formatCount(options.length)} match`
-                        : `${options.length} events can take ${serviceName}`}
+                        : `${formatCount(options.length)} events can take ${serviceName}`}
                     </p>
                   </>
                 ) : null}

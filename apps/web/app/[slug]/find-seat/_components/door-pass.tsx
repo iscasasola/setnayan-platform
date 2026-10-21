@@ -82,7 +82,7 @@ export function DoorPass({
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close the door pass"
-              className="grid h-10 w-10 place-items-center rounded-full bg-cream/15 text-cream"
+              className="grid h-11 w-11 place-items-center rounded-full bg-cream/15 text-cream"
             >
               <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
                 <path d="M6 6l12 12M18 6 6 18" />

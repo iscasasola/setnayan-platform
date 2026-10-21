@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue, type VenueRole } from '@/lib/event-venues';
 import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } from '@/lib/geo';
@@ -154,9 +153,11 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-0 right-0 bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80"
+        /* 👆 The credit is drawn as it always was (the span); the LINK around it is a 44 px corner, so a thumb that
+           reaches for it lands on it (it measured 20 px tall — the Hub button walk, 2026-10-21). */
+        className="absolute bottom-0 right-0 flex min-h-[44px] min-w-[44px] items-end justify-end"
       >
-        © OpenStreetMap
+        <span className="bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80">© OpenStreetMap</span>
       </a>
     </figure>
   );
@@ -168,7 +169,7 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
  * `<details>`: no JavaScript on the guest page. With no pin, the one honest
  * link is a maps search for the place.
  */
-function DirectionsMenu({ venue }: { venue: EventVenue }) {
+export function DirectionsMenu({ venue }: { venue: EventVenue }) {
   const query = venueSearchQuery(venue)?.trim();
   const apps = hasPin(venue)
     ? [
@@ -313,15 +314,7 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
                 {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
                 {photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
                 {venue.address ? <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p> : null}
-                {withheld ? null : (
-                  <NavLinksRow
-                    latitude={venue.latitude ?? null}
-                    longitude={venue.longitude ?? null}
-                    addressFallback={venueSearchQuery(venue)}
-                    label="Get directions"
-                    compact
-                  />
-                )}
+                {withheld ? null : <DirectionsMenu venue={venue} />}
               </div>
             )}
           </div>

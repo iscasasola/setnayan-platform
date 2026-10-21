@@ -95,7 +95,7 @@ export function GalleryLightbox({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="sn-gal-btn absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(23_22_15/0.66)]"
+          className="sn-gal-btn absolute right-2.5 top-2.5 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(23_22_15/0.66)]"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>

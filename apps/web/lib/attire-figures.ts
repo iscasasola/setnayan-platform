@@ -287,13 +287,16 @@ const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
 );
 /** Every role drawing's key — 45 (a guard holds that each has its files). */
 export const ROLE_ART_KEYS = Object.keys(ROLE_WIDTH) as RoleArtKey[];
-export const isRoleArt = (g: string): g is RoleArtKey => g in ROLE_WIDTH;
 
-/** Every drawing — the 13 garments and the 45 roles. */
+/** A role drawing — one of the 45, or a style's design in its own folder (a `/` key with a drawing). */
+export const isRoleArt = (g: string): g is RoleArtKey => g in ROLE_WIDTH || (g.includes('/') && g in FIGURE_ART);
+
+/** Every drawing — the 13 garments and the 45 roles (and each drawn design of a style's five, added by
+ *  `lib/attire-design-picks.ts` — the one door to a design key — so the Maker's first load never carries the library). */
 export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
-/** The design a role drawing is in (`groom-tuxedo` → `tuxedo`), or null for a garment drawing. */
+/** The design a role drawing is in (`groom-tuxedo` → `tuxedo`, `guest_m-suit/slim` → `suit`), or null for a garment drawing. */
 export function designOfArt(g: FigureGarment): AttireStyle | null {
-  return isRoleArt(g) ? (g.slice(g.indexOf('-') + 1) as AttireStyle) : null;
+  return isRoleArt(g) ? (g.slice(g.indexOf('-') + 1).split('/')[0] as AttireStyle) : null;
 }
 /** The role a role drawing is of (`guest_m-suit` → `guest_m`), or null for a garment drawing. */
 export function roleOfArt(g: FigureGarment): FigureRole | null {

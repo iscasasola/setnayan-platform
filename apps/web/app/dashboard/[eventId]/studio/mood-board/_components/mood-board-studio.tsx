@@ -28,6 +28,7 @@ import {
 } from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
+import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns, keepWomenDesigns } from '@/lib/attire-design-picks';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
 import { garmentOfPick, pickDots, zoneColours } from '@/lib/role-figure';
@@ -401,15 +402,15 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
      has always been stored, the second (women · girls) in `women` (`lib/attire-rows.ts`), the note on the row's rule. */
   const wear = (row: StudioAttireRow, style: string | null) => {
     if (!dress) return;
-    saveDress(withFirstStyle(dress, row.tier, row.key, style, withAttireStyle));
+    saveDress(keepWomenDesigns(dress, withFirstStyle(dress, row.tier, row.key, style, withAttireStyle)));
   };
   const wearSecond = (row: StudioAttireRow, style: string | null) => {
     if (!dress) return;
-    saveDress(withSecondStyle(dress, row.tier, row.key, isAttireStyle(style) ? style : null));
+    saveDress(keepWomenDesigns(dress, withSecondStyle(dress, row.tier, row.key, isAttireStyle(style) ? style : null)));
   };
   const secondColours = (row: StudioAttireRow, colours: string[] | null) => {
     if (!dress) return;
-    saveDress(withSecondColours(dress, row.tier, row.key, colours));
+    saveDress(keepWomenDesigns(dress, withSecondColours(dress, row.tier, row.key, colours)));
   };
   const noteFor = (row: StudioAttireRow) => (((dress?.[row.tier] ?? {}) as Record<string, { note?: unknown }>)[row.key]?.note as string | undefined) ?? '';
   const writeNote = (row: StudioAttireRow, note: string) => {
@@ -1089,7 +1090,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {props.attire.length === 0 ? <p className="py-4 text-[13px] text-ink/60">Add people with a role to your guest list and they appear here.</p> : null}
           {props.attire.map((row) => {
             const def = attireRow(row.tier as AttireTier, row.key);
-            const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
+            const picks = def ? picksWithDesigns(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
             /* 🤵‍♂️ The columns this row draws (`shownColumns`, 2026-10-19) — the maid's FOR MEN column only with a man of
                honor on the list; every index stays the column's own (0 = the first pick, 1 = the second). */
             const drawn = picks.map((pick, pi) => ({ pick, pi })).filter(({ pi }) => !row.columns || row.columns.includes(pi as 0 | 1));
@@ -1130,7 +1131,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     const zoned = Boolean(role) && !isGuests && Boolean(row.paletteKey);
                     const zones = zonesOf(pick.style);
                     const dots = pickDots(pick.style, colours.length > 0 ? colours : [five[3]!], role, isGuests);
-                    const garment = role ? garmentOfPick(pick) : garmentFor(pick.who, pick.style);
+                    const garment = (role ? (heroArt(pick) ?? garmentOfPick(pick)) : null) ?? garmentFor(pick.who, pick.style);
                     const zoneDot = (i: number, c: string, zoneLabel: string) => (
                       <span key={i} className="flex flex-col items-center" data-mood-board-zone={zones[i]?.key ?? i}>
                         <RoleColourDot
@@ -1209,18 +1210,89 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                        follows its own pick, and nothing else's. */
                     /* The role's OWN name for each design ("Filipiniana (terno)" for the bride, "Long dress" for a guest). */
                     const sayStyle = (k: string) => (role ? designLabel(role, k as AttireStyle) : (props.attireStyles.find((st) => st.key === k)?.label ?? k));
+                    /* 👔 STYLES, THEN DESIGNS (owner 2026-10-21, "up to 5 different attires"; prototype
+                       `attire_five_designs_per_style_2026-10-21.html` § 3) — a person with a library of designs (the
+                       guests) ticks in the SAME Wear ▾: each style a row (one tap allows all its designs), its drawn
+                       designs as tiles under it (a tap narrows). The colour people above wear the first allowed design. */
+                    const library = hasDesignLibrary(role) ? role : null;
+                    const allowed = library ? allowedStyles(library, pick.style, pick.designs ?? null) : [];
+                    const designCount = allowed.reduce((n, a) => n + a.designs.length, 0);
+                    const thumbColours = colours.length > 0 ? colours : [five[3]!];
+                    /* ONE Wear ▾ (the page's one outfit dropdown): a library's ticks, or the one Wear as shipped. */
+                    const wearPick = library
+                      ? {
+                          label: `${pickLabel} · Wear`,
+                          value: null,
+                          picked: allowed.flatMap((a) => a.designs.map((d) => designKey(d.id))),
+                          doneNote: `${formatCount(designCount)} ${designCount === 1 ? 'design' : 'designs'}`,
+                          head: (
+                            <li role="none" className="px-3 pb-2 text-[13px] leading-snug text-ink/70" data-mood-board-wear-how="">
+                              Tick a style and guests may wear any of its designs. Untick a design to narrow it.
+                            </li>
+                          ),
+                          options: libraryStyles(library).flatMap((s) => {
+                            const a = allowed.find((x) => x.style === s);
+                            const drawn = drawnDesigns(library, s);
+                            const state = !a ? 'off' : a.designs.length < drawn.length ? 'half' : 'on';
+                            return [
+                              {
+                                key: styleKey(s),
+                                label: designLabel(library, s),
+                                hint: styleAllowedSaid(a, drawn.length),
+                                preview: (
+                                  <span
+                                    data-mood-board-style-box={state}
+                                    className={`grid h-[22px] w-[22px] place-items-center rounded-md border-[1.5px] text-[13px] text-white ${state === 'on' ? 'border-sn-accent bg-sn-accent' : state === 'half' ? 'border-sn-accent bg-[linear-gradient(90deg,rgb(var(--sn-accent))_50%,transparent_50%)]' : 'border-ink/35'}`}
+                                  >
+                                    {state === 'on' ? '✓' : ''}
+                                  </span>
+                                ),
+                              },
+                              ...drawn.map((d, i) => ({
+                                key: designKey(`${s}/${d.variant}`),
+                                label: d.label,
+                                preview: (
+                                  <RoleFigure
+                                    roleKey={row.key}
+                                    people={[{ who: pick.who, garment: designArt(library, d), main: thumbColours[i % thumbColours.length]!, colours: [thumbColours[i % thumbColours.length]!] }]}
+                                    className="h-[60px]"
+                                  />
+                                ),
+                              })),
+                            ];
+                          }),
+                          onPick: (k: string) => {
+                            if (!dress) return;
+                            const next = toggleDesignTick(library, pick.style, pick.designs ?? null, k);
+                            saveDress(withColumnDesigns(dress, row.tier as AttireTier, row.key, pi === 0 ? 0 : 1, next.style, next.designs, withAttireStyle));
+                          },
+                          buttonText:
+                            allowed.length === 0
+                              ? 'Not said yet'
+                              : `${allowed[0]!.label}${allowed.length > 1 ? ` +${allowed.length - 1}` : ''}${designCount > 1 ? ` · ${formatCount(designCount)} designs` : ''}`,
+                          attrs: { 'data-mood-board-wear-for': pick.who, 'data-mood-board-wear-designs': String(designCount) } as Readonly<Record<`data-${string}`, string>>,
+                        }
+                      : {
+                          label: `${pickLabel} — what to wear`,
+                          value: pick.style ?? '',
+                          options: [{ key: '', label: 'Not said yet' }, ...(def ? pickOptions(def, pi === 0 ? 0 : 1) : STYLE_ORDER[pick.who]).map((k) => ({ key: k, label: sayStyle(k) }))],
+                          onPick: (k: string) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null)),
+                          buttonText: pick.style ? sayStyle(pick.style) : 'Not said yet',
+                          attrs: { 'data-mood-board-wear-for': pick.who } as Readonly<Record<`data-${string}`, string>>,
+                        };
                     const wearRow = dress ? (
-                      <FormRows width="short" data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
-                        <ChosenRow
-                          name="Wear"
-                          label={`${pickLabel} — what to wear`}
-                          value={pick.style ?? ''}
-                          options={[{ key: '', label: 'Not said yet' }, ...(def ? pickOptions(def, pi === 0 ? 0 : 1) : STYLE_ORDER[pick.who]).map((k) => ({ key: k, label: sayStyle(k) }))]}
-                          onPick={(k) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
-                          buttonText={pick.style ? sayStyle(pick.style) : 'Not said yet'}
-                          dataAttr="data-mood-board-wear"
-                          attrs={{ 'data-mood-board-wear-for': pick.who }}
-                        />
+                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
+                        <ChosenRow name="Wear" dataAttr="data-mood-board-wear" {...wearPick} />
+                        {library && designCount > 1 ? (
+                          <p className="mt-1.5 text-[12px] leading-snug text-ink/65" data-mood-board-wear-allowed="">
+                            {allowed.map((a, i) => (
+                              <span key={a.style}>
+                                {i > 0 ? ' — ' : ''}
+                                <b className="font-semibold">{a.label}</b> {a.whole || a.designs.length === a.drawn ? styleAllowedSaid(a, a.drawn) : a.designs.map((d) => d.label).join(' · ')}
+                              </span>
+                            ))}
+                          </p>
+                        ) : null}
                       </FormRows>
                     ) : null;
                     if (isGuests && row.paletteKey) {

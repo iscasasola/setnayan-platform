@@ -81,7 +81,7 @@ import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
 /* ── the list ──────────────────────────────────────────────────────────── */
 
 /** The pill's width in a list — one of a few standard sizes (owner: "should dropdown have a consistent width?"). */
-export const FORM_PILL_WIDTH = { short: 'w-[150px]', wide: 'w-[200px]' } as const;
+export const FORM_PILL_WIDTH = { short: 'w-[150px]', wide: 'w-[200px]', auto: 'w-auto max-w-full' } as const;
 export type FormPillWidth = keyof typeof FORM_PILL_WIDTH;
 
 /** The white pill an answer wears (the dropdown button's own shape: a full pill, 40 px, the mark pinned right). In dark mode it
@@ -930,7 +930,14 @@ export function ChosenRow({
   below,
   data,
   attrs,
+  picked,
+  doneNote,
+  head,
 }: {
+  /** ✓ A dropdown with checkmarks (`PickMenu`'s `picked` / `doneNote` / `head`) — the guests' Wear ▾ (2026-10-21). */
+  picked?: readonly string[];
+  doneNote?: string;
+  head?: ReactNode;
   name: string;
   about?: FormRowAbout | null;
   /** A small mark after the name (the Pro mark ◆). */
@@ -955,7 +962,7 @@ export function ChosenRow({
   const width = usePillWidth();
   return (
     <FormRow name={name} about={about} mark={mark} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
-      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} />
+      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} picked={picked} doneNote={doneNote} head={head} />
     </FormRow>
   );
 }

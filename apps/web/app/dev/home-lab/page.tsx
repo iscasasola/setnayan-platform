@@ -216,7 +216,7 @@ export default async function HomeLab({
     return (
       <div className="mx-auto w-full max-w-md px-4 py-4" data-lab-pro-list="">
         {offer ? <HubProOffer offer={offer} channelName="Save-the-Date" priceLabel={null} base={`/dashboard/${E}`} /> : null}
-        <div className="mt-4 overflow-hidden rounded-xl border border-ink/10">
+        <div className="mt-4">
           <ProLockPanel featureName="Background music" unlockHref={`/dashboard/${E}/studio/website-pro`} priceLabel={null} />
         </div>
       </div>

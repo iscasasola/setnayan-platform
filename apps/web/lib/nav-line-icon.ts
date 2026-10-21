@@ -32,8 +32,8 @@ export function navLineIcon(icon: NavIconDescriptor | null | undefined, fallback
 export type HomeDoorwayKey = keyof typeof HOME_DOORWAY_ICONS;
 
 /**
- * The icon for one Home doorway button ("Edit your Guest list" → `guests`,
- * "Edit your Suppliers" → `explore`, "Edit your Event Hub" → `launch`) — the
+ * The icon for one Home doorway button ("Guests" → `guests`, "Suppliers" →
+ * `explore`, "Event Hub" → `launch`; `HOME_DOOR_LABELS`) — the
  * SAME registry slot the bottom-bar tab it opens reads
  * (`customer.bottom-nav.<key>`), through the same line-only rule, so a doorway
  * and its tab can never wear two icons.

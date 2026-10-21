@@ -2,14 +2,14 @@
  * the-home-leads-with-one-next.test.ts — 2026-10-01.
  *
  * Owner-APPROVED 2026-10-01 (DECISION_LOG "THE SIMPLE PHONE APP — APPROVED",
- * frame 1 "Home"): ONE "Next" card → an always-there **Edit your Event Hub**
- * button → three numbers + one Paid / Still owing line. Nothing else above the
+ * frame 1 "Home"): ONE "Next" card → an always-there **Event Hub** door
+ * (named "Edit your Event Hub" until 2026-10-22) → three numbers + one Paid / Still owing line. Nothing else above the
  * fold on a 390 × 844 phone.
  *
  * Three properties, each RENDERED (not grepped) where it can be — the harness
  * is the neighbouring render tests' (`globalThis.React`, dynamic import):
  *   a · exactly one Next card, and it leads the Home's plan branch;
- *   b · the Edit your Event Hub button is drawn in every state;
+ *   b · the Event Hub door is drawn in every state;
  *   c · a read that did not happen prints "—", never 0;
  *   d · "Your services" (Papic · Setnayan AI, owner 2026-10-01): present, "—"
  *       on a failed read, never the service that is already the Next card,
@@ -169,7 +169,7 @@ test('a · the plan branch IS the first screen — the dashboard appears only as
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
-test('b · the three doors — Guest list · Suppliers · Event Hub — are drawn in every state', () => {
+test('b · the three doors — Guests · Suppliers · Event Hub — are drawn in every state', () => {
   const states: Array<[string, string]> = [
     ...EVERY_STATE.map((s): [string, string] => [pickHomeNext(s).kind, draw({}, s)]),
     ['nothing measured', draw({ coming: glanceCount(0, false), noReply: glanceCount(0, false), money: { paid: glanceMoney(null), owing: glanceMoney(null) }, days: glanceDays(null) })],
@@ -177,9 +177,10 @@ test('b · the three doors — Guest list · Suppliers · Event Hub — are draw
   ];
   for (const [label, html] of states) {
     assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the doorway row is missing`);
-    assert.ok(linkTo(html, '/dashboard/e1/guests', 'Edit your Guest list'), `${label}: Edit your Guest list must open Guests`);
-    assert.ok(linkTo(html, '/dashboard/e1/vendors', 'Edit your Suppliers'), `${label}: Edit your Suppliers must open Suppliers`);
-    assert.ok(linkTo(html, '/dashboard/e1/launch', 'Edit your Event Hub'), `${label}: Edit your Event Hub must open the Maker`);
+    // Words: owner 2026-10-22 (HOME_DOOR_LABELS, `home-doors-say-their-words.test.ts`).
+    assert.ok(linkTo(html, '/dashboard/e1/guests', 'Guests'), `${label}: the Guests door must open Guests`);
+    assert.ok(linkTo(html, '/dashboard/e1/vendors', 'Suppliers'), `${label}: the Suppliers door must open Suppliers`);
+    assert.ok(linkTo(html, '/dashboard/e1/launch', 'Event Hub'), `${label}: the Event Hub door must open the Maker`);
     assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });

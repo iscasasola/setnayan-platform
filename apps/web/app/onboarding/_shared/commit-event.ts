@@ -32,7 +32,7 @@ import {
   resolveHonoreeDependentId,
 } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 export async function commitOnboardingEvent(
   payload: GenericOnboardingPayload,
@@ -74,16 +74,14 @@ export async function commitOnboardingEvent(
   }
 
   /*
-    The shop account does not plan celebrations (owner 2026-08-15). This is one
-    of the TWO creation paths that live outside `/dashboard` — which is why the
-    old `dashboard/layout.tsx` redirect was never the rule it appeared to be:
-    a shop account could reach this wizard and commit an event through it.
-
-    An anonymous draft can never be a shop account, so the check is only ever
-    meaningful for a real signed-in user; it costs one cheap label read.
+    The one creation gate (lib/vendor-event-creation.ts). This is one of the
+    creation paths that live OUTSIDE `/dashboard`, which is why the rule lives
+    on the doors and not in a layout. Owner 2026-10-22: one account is both — a
+    shop account creates its own events here like any host — so today nobody is
+    refused; the call stays so a future rule has one home.
   */
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return { ok: false, error: 'shop_account' };
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'not_allowed' };
   }
 
   // Life-event cardinality (2026-07-17): one IN-PLANNING life event per

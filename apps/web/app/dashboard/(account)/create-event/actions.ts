@@ -28,7 +28,7 @@ import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
@@ -228,10 +228,12 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
-  // The shop account does not plan celebrations (owner 2026-08-15). One shared
-  // gate; see lib/vendor-event-creation.ts for why it is not four checks.
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return redirect('/dashboard/create-event?error=shop_account');
+  // The one creation gate (lib/vendor-event-creation.ts). Owner 2026-10-22:
+  // one account is both — a shop account creates its own events here like any
+  // host, so today nobody is refused. The call stays so a future rule has one
+  // home that every door already asks.
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return redirect('/dashboard/create-event?error=create_failed');
   }
 
   // Wedding cardinality — authoritative gate (owner-locked 2026-07-12; flow-check
@@ -596,10 +598,10 @@ export async function planNextYearEvent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return redirect('/login');
 
-  // The shop account does not plan celebrations (owner 2026-08-15). A clone is
-  // an events insert like any other, so it runs the same one gate.
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return redirect(`/dashboard/${sourceId}?error=shop_account`);
+  // A clone is an events insert like any other, so it runs the same one gate
+  // (lib/vendor-event-creation.ts — owner 2026-10-22, nobody is refused today).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
   // ── Authorization gate (see the doc comment above). Mirrors the house pattern

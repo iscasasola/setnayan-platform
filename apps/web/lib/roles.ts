@@ -23,10 +23,12 @@ import { canOpenAnotherShop } from '@/lib/shop-limits';
 
 export type UserRoleSummary = {
   /**
-   * True when /dashboard is a reachable surface for this user — i.e. the
-   * `/dashboard` layout guard (`account_type === 'vendor' → redirect`)
-   * will let them through. Used by the always-visible Switch view pill
-   * to decide whether to offer "Customer view" as a target.
+   * True when /dashboard — the person's own events — is theirs to use. Since
+   * 2026-10-22 ("ONE ACCOUNT IS BOTH", owner: *"them as a user, they can
+   * create their events"*) that is EVERY account: a shop owner or team member
+   * plans their own events from the Events tab like any host. It used to be
+   * `account_type !== 'vendor'`, the half of the 2026-08-15 split (superseded)
+   * that this summary still carried after the layout redirect was removed.
    */
   hasCustomerAccess: boolean;
   /**
@@ -200,7 +202,9 @@ export const fetchUserRoleSummary = cache(async (
   // `?? []` above cannot tell "owns nothing" from "we could not find out".
   const shopsMeasured = !ownedRes.error;
   return {
-    hasCustomerAccess: profile?.account_type !== 'vendor',
+    // One account is both (owner 2026-10-22) — the label no longer takes the
+    // personal side away.
+    hasCustomerAccess: true,
     hasVendorAccess: vendorProfiles.length > 0,
     hasAdminAccess,
     vendorProfiles,

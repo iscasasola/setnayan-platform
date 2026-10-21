@@ -1,23 +1,37 @@
 'use client';
 
-// Live unread-notification badge for the top-nav bell on the couple side.
+// Unread-notification badge for the top-nav bell (every signed-in layout).
 //
 // The badge starts from a server-rendered count (so the first paint is
-// accurate without a client roundtrip) and then subscribes to the
-// `notifications` table via Supabase Realtime so it stays in sync with
-// inserts (new notification arrived) and updates (recipient flipped
-// read_at) without a page reload.
+// accurate without a client roundtrip) and then RE-ASKS the count on a slow
+// timer while the tab is in view, and at once when the person comes back to
+// the tab (`pollBell` → `startCountPoll`, lib/unread-polls.ts · lib/tab-return.ts).
 //
-// On every (re)SUBSCRIBED — including after a network drop — we refetch
-// the unread count so we backfill any events missed while offline.
+// 🔌 NO SOCKET (2026-10-21, live connections only where live). It used to
+// subscribe to `notifications` over Supabase Realtime — and because the bell is
+// in every signed-in layout, every plain page held a websocket open all day, in
+// every tab. A badge is not a conversation: a minute's delay is invisible, and
+// coming back to the tab asks at once.
+//
+// 🔒 A FAILED READ CHANGES NOTHING. `readUnreadNotificationCount` answers `null`
+// when it could not read, and the poll never hands `null` on — so a refused or
+// dropped read leaves the drawn count standing instead of a false 0.
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { countUnread } from '@/lib/notifications';
-import { trackFailure } from '@/lib/telemetry/track-error';
+import type { NotificationType } from '@/lib/notifications';
+
+/**
+ * 🔑 BEING MADE A HOST CHANGES WHAT AN OPEN PAGE SHOULD SHOW (owner 2026-09-28:
+ * "they do not need to resign in. it should auto refresh"). An INVITATION
+ * changes the Events page too: its Incoming requests section appears without a
+ * reload. When the count goes UP the bell asks whether one of these arrived,
+ * and refreshes the server render if so — no reload, nothing typed is lost.
+ */
+const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation'];
 
 type Props = {
   userId: string;
@@ -42,94 +56,39 @@ export function UnreadBellBadge({
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
   const router = useRouter();
-  // 2026-05-23 — Owner reported error-boundary flash post-login: "cannot
-  // add `postgres_changes` callbacks for realtime:notif-unread-{userId}
-  // after `subscribe()`". Root cause: this component mounts in BOTH
-  // the account layout's top bar (dashboard/(account)/layout.tsx) AND
-  // /dashboard/[eventId]/layout.tsx — same userId in both → Supabase
-  // Realtime returns the SAME channel singleton on the 2nd mount →
-  // calling .on() on an already-subscribed channel throws. useId() gives
-  // each component instance a unique stable suffix, so the two mounts
-  // get separate channel names ("notif-unread-{userId}-:r0:" + "-:r1:")
-  // and Supabase creates two independent channels. Cleanup still calls
-  // removeChannel per instance so no leak.
-  const instanceId = useId();
+  const shown = useRef(initialUnread);
+  shown.current = unread;
+
+  // A fresh server render wins: "Mark all read" revalidates the layout, which
+  // re-renders this with the new count — what the old realtime UPDATE handler did.
+  useEffect(() => {
+    setUnread(initialUnread);
+  }, [initialUnread]);
 
   useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    const refresh = async () => {
-      try {
-        const fresh = await countUnread(supabase, userId);
-        if (cancelled) return;
-        setUnread(fresh);
-      } catch (err) {
-        // Transient — Realtime will resync on the next event. Still report to
-        // Connection Logs (no user-facing toast) so a sustained count-query
-        // failure — e.g. an RLS regression on notifications — is visible.
-        void trackFailure({
-          eventType: 'OTHER',
-          elementName: 'Unread notifications badge',
-          filePath: 'app/_components/unread-bell-badge.tsx',
-          error: err,
-          payload: { query: 'countUnread' },
-        });
-      }
-    };
-
-    const channel = supabase
-      .channel(`notif-unread-${userId}-${instanceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
+    // The poll is loaded once the bell is on screen (`lib/unread-polls.ts`) — nothing in it is needed for the first
+    // paint, and the bell is in the first load of every signed-in page.
+    let stop: (() => void) | null = null;
+    let gone = false;
+    void import('@/lib/unread-polls').then(({ pollBell }) => {
+      if (gone) return;
+      stop = pollBell({
+        supabase: createClient(),
+        userId,
+        shown: () => shown.current,
+        onValue: setUnread,
+        refreshOn: PAGE_CHANGING_TYPES,
+        onArrival: () => {
+          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited); nothing was pressed here.
+          router.refresh();
         },
-        (payload) => {
-          // New notification — bump the count optimistically. The next
-          // refetch (on resubscribe) reconciles any drift.
-          setUnread((n) => n + 1);
-          // 🔑 BEING MADE A HOST CHANGES WHAT THIS PAGE SHOULD SHOW (owner
-          // 2026-09-28: "they do not need to resign in. it should auto
-          // refresh"). The seat is live the instant it is written; this is
-          // what gets it onto a screen that is already open. A server refresh,
-          // not a reload — no flash, nothing typed is lost.
-          // An INVITATION changes the Events page too: its Incoming requests
-          // section appears without a reload (owner 2026-09-28).
-          const t = (payload.new as { type?: string } | null)?.type;
-          if (t === 'cohost_added' || t === 'event_invitation') {
-            // one-render: keep (realtime) — a notification arrived (made a host / invited); nothing was pressed here.
-            router.refresh();
-          }
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          // read_at flipped — easiest to just refetch the accurate count.
-          void refresh();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          void refresh();
-        }
       });
-
+    });
     return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
+      gone = true;
+      stop?.();
     };
-  }, [userId, instanceId, router]);
+  }, [userId, router]);
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
 

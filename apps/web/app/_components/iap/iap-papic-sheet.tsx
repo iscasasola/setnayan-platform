@@ -23,7 +23,16 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
  * payment" becomes "Buy · ₱" and opens Apple's sheet. No web price, no GCash.
  * After Apple's sheet the sheet says the one true outcome (frames 7 · 8 · 9).
  */
-export function IapPapicSheet({ eventId, left }: { eventId: string; left: number | null }) {
+export function IapPapicSheet({
+  eventId,
+  left,
+  main = false,
+}: {
+  eventId: string;
+  left: number | null;
+  /** The Papic page's band: Buy more is that page's one main button (the web sheet's own `main`). */
+  main?: boolean;
+}) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const prices = useAppStorePrices(
@@ -161,6 +170,7 @@ export function IapPapicSheet({ eventId, left }: { eventId: string; left: number
     <>
       <ActionButton
         tone="brand"
+        main={main}
         icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
         label="Buy more"
         onClick={() => setOpen(true)}

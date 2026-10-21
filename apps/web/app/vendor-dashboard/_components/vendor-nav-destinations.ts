@@ -91,6 +91,8 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups } from '@/lib/vendor-role';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
+import { VENDOR_MORE_MATCH } from '@/lib/vendor-more-rows';
+import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 
 /**
  * The five destinations, in the owner's own order.
@@ -138,6 +140,57 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     matchPrefix: '/vendor-dashboard/more',
   },
 ] as const;
+
+/**
+ * Rooms OUTSIDE `/vendor-dashboard/shop` that are Shop SEGMENTS, so they light
+ * Shop — on the phone bar (`vendor-bottom-nav.tsx` spreads this into Shop's
+ * `activeMatch`) and on the rail (`vendorRailCandidates`). ONE list for both.
+ *
+ *   · Page = Your page, and the two screens it opens (Your details · Your
+ *     collections) — `shop-segments.tsx`. ⚠ The phone lit Shop here since
+ *     2026-10-14 and the RAIL LIT NOTHING (its Shop row matched `/shop` only);
+ *     `how-it-is-going-is-a-shop-segment.test.ts` found it on its first run.
+ *   · How it is going = `/performance` (owner "Yes to all", 2026-10-21, item 2
+ *     — DECISION_LOG 2026-10-08 answer 1 "Insights → Shop"); `/demand` is its
+ *     redirect stub. They lit More until today, so a supplier who tapped the
+ *     Shop segment landed on a page whose bar said More.
+ *
+ * ⚠ NOT the Plan hub: the rail has its own Plan row there, and two rows matching
+ * one URL at the same specificity is how a rail lights the wrong one.
+ */
+export const VENDOR_SHOP_EXTRA_MATCH: readonly string[] = [
+  '/vendor-dashboard/website',
+  '/vendor-dashboard/profile',
+  '/vendor-dashboard/collections',
+  '/vendor-dashboard/performance',
+  '/vendor-dashboard/demand',
+];
+
+/**
+ * Every (key, href) the rail's ONE `activeRailKey` resolution weighs: the rows
+ * themselves, the rooms that light a row they do not start with, and the Plan
+ * row. Pure, so a test asks the rail's own list which row a URL lights instead
+ * of rebuilding it (`how-it-is-going-is-a-shop-segment.test.ts`).
+ *
+ * An extra only joins when this person HAS that row (staff have no Shop and no
+ * More), so a scoped teammate is never shown a lit row they lack.
+ */
+export function vendorRailCandidates(
+  destinations: readonly NavItem[],
+  plan: { key: string; href: string } | null,
+): RailMatchRow[] {
+  const has = (key: string) => destinations.some((d) => d.key === key);
+  return [
+    ...destinations,
+    // More's rooms light More (Event Hub · Settings and the account rooms).
+    ...(has('more') ? VENDOR_MORE_MATCH.map((href) => ({ key: 'more', href })) : []),
+    // Shop's segments outside /shop (Page · How it is going) light Shop.
+    ...(has('shop') ? VENDOR_SHOP_EXTRA_MATCH.map((href) => ({ key: 'shop', href })) : []),
+    // The Plan row takes part in the SAME resolution — asking it separately
+    // with a `startsWith` would light Plan on `/…/subscriptions`.
+    ...(plan ? [plan] : []),
+  ];
+}
 
 /** The four wrapped as the single labelled group the old sidebar rendered. */
 export function vendorNavGroups(): NavGroup[] {

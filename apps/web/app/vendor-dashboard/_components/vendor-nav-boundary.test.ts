@@ -196,15 +196,18 @@ test('the phone bar is Today · Customers · Shop · More — four keys, that or
   assert.deepEqual(keys, ['profile', 'customers', 'shop', 'more']);
 });
 
-test('More’s rows are written ONCE — the sheet and the /more page both read lib/vendor-more-rows.ts', () => {
+test('More’s rows are written ONCE — the sheet and the /more page both read lib/vendor-more-rows.ts', async () => {
   const bar = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
   const page = code(read(join(HERE, '..', 'more', 'page.tsx')));
   assert.match(bar, /vendorMoreRows\(/, 'the bar’s More sheet builds its own rows');
   assert.match(page, /vendorMoreRows\(/, 'the /more page builds its own rows');
   const rows = code(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts')));
-  for (const key of ['messages', 'performance', 'on-the-day']) {
-    assert.match(rows, new RegExp(`key: '${key}'`), `${key} is not a More row — owner answer 1 says it lives in More`);
-  }
+  // Re-plot B, finished (owner "Yes to all", 2026-10-21, items 1 + 3; DECISION_LOG
+  // 2026-10-08 answer 1): More = Event Hub · Settings. Messages is the envelope
+  // (same URL), How is my business doing is Shop › How it is going, and More
+  // tools has ONE door, in Settings.
+  const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
+  assert.deepEqual(VENDOR_MORE_ROWS.map((r) => r.href), ['/vendor-dashboard/on-the-day', '/vendor-dashboard/settings']);
   // A plain module: the /more page is a server component and must read the values.
   assert.equal(declaresUseClient(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts'))), false);
   assert.doesNotMatch(rows, /\bnavIconComponent\b/, 'More rows resolve a nav icon — that call is client-only');

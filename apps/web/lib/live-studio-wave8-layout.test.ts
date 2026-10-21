@@ -285,8 +285,11 @@ test('WAVE 8 — removing the chrome did not strand the operator', () => {
   const src = read(CONTROLLER);
   // The sidebar, bottom nav and account plaque were every route back. The status
   // strip's exit link is now the only one, so it must be labelled and reachable.
-  assert.match(src, /aria-label="Leave the controller — back to Live Watch"/);
-  assert.match(src, /href=\{detailHref\}/);
+  /* RE-AIMED 2026-10-21 (iPhone 1.1, `lib/the-app-opens-what-apple-sells.test.ts`): where Apple sells in the app the
+     same exit goes Home (the web's buy page stays refused there) and says so. Same property — one labelled way out. */
+  assert.match(src, /aria-label=\{appleIap \? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'\}/);
+  assert.match(src, /const exitHref = appleIap \? `\/dashboard\/\$\{eventId\}` : detailHref;/);
+  assert.match(src, /href=\{exitHref\}/);
 });
 
 test('WAVE 8 — keyboard focus stays visible on the controls the chrome-less surface owns', () => {

@@ -205,3 +205,21 @@ test('3 · nothing in the Maker first load imports three.js, react-three, openty
   assert.ok(seen.size >= graph.boundaries.size, 'the first-load closure is smaller than its own boundaries');
   assert.deepEqual(heavy, [], `A heavy library is in the Maker's first load:\n  ${heavy.join('\n  ')}`);
 });
+
+/* 👗 4 · THE DRESS CODE FORM RIDES WITH ITS PANEL (2026-10-21, Maker headroom). `dress-code-fields.tsx` is a plain
+   module whose body draws the form's client fields (`GroupAttireField`, `RoleAttireField`). A plain module a server
+   file imports is walked like a server file, so ANY Maker server file importing it — even for a reader such as
+   `normalizeDressCodeConfig` — puts those fields in the first load (~8.6KB gz, measured). The readers live in
+   `dress-code-config.ts`, which imports no client module; the form reaches the Maker only through its lazy panel. */
+test('4 · the dress-code form body is never on the server side of the Maker; its readers are, and stay plain', () => {
+  const D = 'app/dashboard/[eventId]/studio/mood-board/_components/';
+  const server = new Set([...graph.server].map(rel));
+  assert.ok(server.has(`${D}dress-code-config.ts`), 'the Maker no longer reads the dress code through dress-code-config.ts — the walk is not seeing it');
+  assert.ok(!server.has(`${D}dress-code-fields.tsx`), `a Maker server file imports ${D}dress-code-fields.tsx — its client fields are back in the first load; import the readers from dress-code-config.ts and the panel from details-lazy.tsx`);
+  const cfg = join(WEB, `${D}dress-code-config.ts`);
+  const clientImports = staticImports(read(cfg))
+    .map((spec) => resolveSpec(cfg, spec))
+    .filter((r): r is string => r !== null && isClient(read(r)));
+  assert.deepEqual(clientImports.map(rel), [], 'dress-code-config.ts imports a client module — every Maker server file reading the dress code would carry it');
+  assert.ok([...lazyPieces.keys()].map(rel).includes('app/dashboard/[eventId]/website/editor/_components/dress-code-panel.tsx'), 'the Dress code panel is no longer a lazy piece');
+});

@@ -15,7 +15,7 @@ import type { DressCodeConfig } from '../dress-code-actions';
  * readers dragged the whole dress-code form (`GroupAttireField` · `RoleAttireField` and the attire tables,
  * ~8.6KB gz) into the Maker's first load, although the form draws only when the Dress code row opens.
  * Server files import from HERE; `dress-code-fields.tsx` re-exports both for everything else.
- * 🛡 `the-dress-code-readers-stay-plain.test.ts`.
+ * 🛡 `launch/_components/details-pieces-are-lazy.test.ts` test 4.
  */
 
 /**

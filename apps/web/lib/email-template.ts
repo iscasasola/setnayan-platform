@@ -79,13 +79,13 @@ export type BrandedEmailSection = {
  * planning + verified vendors". Pinned by `anniversary-emails.test.ts`
  * (SHARED_CHROME_LINE).
  */
-export const EMAIL_TAGLINE = 'Setnayan · Plan, share and relive every event';
+export const EMAIL_TAGLINE = 'Setnayan · Plan, share and relive every celebration';
 /**
  * 🔒 THE ADMIN BRAND LINE — the customer line, from HQ. Owner, 2026-09-30: no
  * "wedding" (the desk sees every event type), never "vendor".
  * `admin-payment-alert-says-who.test.ts` holds both words out of it.
  */
-export const ADMIN_EMAIL_TAGLINE = 'Setnayan HQ · Plan, share and relive every event';
+export const ADMIN_EMAIL_TAGLINE = 'Setnayan HQ · Plan, share and relive every celebration';
 /** Why an admin got the mail — the owner's own sentence. */
 export const ADMIN_EMAIL_FOOTER = "You're receiving this because you're a Setnayan admin.";
 

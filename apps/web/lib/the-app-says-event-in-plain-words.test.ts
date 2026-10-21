@@ -107,6 +107,12 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   // words matched or drawn, not said
   'lib/theme-text-intent.ts': ['celebration'],
   'lib/moodboard-gallery-upload.ts': ['CELEBRATION'],
+  // THE OWNER'S TAGLINE (2026-09-30) — pinned by public-copy-is-not-wedding-only,
+  // anniversary-emails and admin-payment-alert-says-who: "a change to it is an
+  // owner decision, not a copy edit". Flagged to him in the 2026-10-21 PR.
+  'app/layout.tsx': ['Setnayan · Plan, share and relive every celebration'],
+  'lib/email-template.ts': ['Setnayan · Plan, share and relive every celebration', 'Setnayan HQ · Plan, share and relive every celebration'],
+  'lib/anon-draft-reminder.ts': ['Setnayan · Plan, share and relive every celebration'],
   // a music mood's name in the App Store demo card
   'app/_components/app-store/studio-card-demo.tsx': ['Joyful celebration'],
 };

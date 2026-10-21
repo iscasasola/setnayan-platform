@@ -75,7 +75,7 @@ export function draftReminderEmail(input: { createdAtIso: string; appUrl: string
       `If you'd rather let it go, you don't need to do anything.`,
       ``,
       `—`,
-      `Setnayan · Plan, share and relive every event`,
+      `Setnayan · Plan, share and relive every celebration`,
     ].join('\n'),
   };
 }

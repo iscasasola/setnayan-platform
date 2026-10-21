@@ -248,7 +248,7 @@ test('the confirmation says the photos are gone for good', () => {
   // asking us to restore.
   assert.match(
     read(MENU),
-    /Your photos and everything about this celebration are deleted for good/,
+    /Your photos and everything about this event are deleted for good/,
     'The permanence warning is gone from the confirmation. Until today the ' +
       'files did not actually go; now they do, so the screen has to say so ' +
       'BEFORE the press.',

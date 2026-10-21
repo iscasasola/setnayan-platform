@@ -186,9 +186,10 @@ export function PageParts({
       ) : null}
 
       <p className="sn-eye pt-1">Tap a part to change it</p>
-      <div className="divide-y divide-ink/10" data-page-parts="" data-ready={ready ? '' : undefined}>
+      <div className="divide-y divide-ink/10" data-page-parts="" data-tour="shop-page-list" data-ready={ready ? '' : undefined}>
         <DatesRow
           data="page-details"
+          tour="shop-details-row"
           lead={<RowIcon icon={Pencil} />}
           title="Your details"
           line="Name and logo · what you do · where · contact · documents"

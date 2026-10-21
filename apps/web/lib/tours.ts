@@ -14,6 +14,7 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 import {
   Apple,
@@ -157,6 +158,10 @@ export type TourKey =
   // each MOUNTS with the page it describes (S-PR6 · S-PR11), never before.
   | 'vendor_shop_v1'
   | 'vendor_hub_v1'
+  // 🔦 Customers › Dates and Customers › Money — first-visit spotlights (owner
+  // "Yes to all" 2026-10-22, journey_fixes Supplier 3), beside Shop and Hub.
+  | 'vendor_dates_v1'
+  | 'vendor_money_v1'
   // 🔦 The spotlight journeys (DECISION_LOG 2026-10-02 "NOBODY SHOULD LEAVE
   // BECAUSE THEY DON'T UNDERSTAND THE APP"): the host from creating the event
   // to Post Event, the supplier from shop set-up to payday. NEW keys, so a
@@ -203,6 +208,8 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'vendor_customers_v1',
   'vendor_shop_v1',
   'vendor_hub_v1',
+  'vendor_dates_v1',
+  'vendor_money_v1',
   'host_spotlight_v1',
   'host_day_spotlight_v1',
   'supplier_spotlight_v1',
@@ -1251,6 +1258,36 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'What you sell, how your page looks, how it is doing.',
       },
     ],
+    // 🔦 SWITCHED ON 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3):
+    // the slide above stays as the switched-off carousel's script; this is what
+    // runs — three stops, none the Today tour already makes (it lands on Your
+    // details and + Create service card). Mounted by the supplier layout through
+    // `lib/supplier-page-tours.ts`, after `supplier_spotlight_v1`.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'shop-segments',
+          title: 'Services · Page · How it is going',
+          body: 'What you sell, how your page looks to couples, and how it is doing. Tap Page.',
+          go: true,
+        },
+        {
+          anchor: 'shop-page-list',
+          title: 'Tap a part to change it',
+          body: 'Your cover, your About, which services show first. “View my page” shows it exactly as a couple sees it.',
+        },
+        {
+          anchor: 'shop-details-row',
+          title: 'Your documents live in Your details',
+          body: 'DTI or SEC, BIR 2303, Mayor’s permit, bank proof. Setnayan checks them in 5 working days, then your shop goes live.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Today’s Next card always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
   },
   vendor_hub_v1: {
     key: 'vendor_hub_v1',
@@ -1263,6 +1300,98 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Scan, schedule, shot list, headcount — for this event only.',
       },
     ],
+    // 🔦 SWITCHED ON 2026-10-22 (journey_fixes Supplier 3) — drawn on a day with
+    // no event; on an event day its anchors are not there and it waits.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'hub-empty',
+          title: 'Your day-of console',
+          body: 'On an event day this is where you run it — scan, schedule, shot list, headcount. Today it is a preview.',
+        },
+        {
+          anchor: 'hub-next-days',
+          title: 'Your next days',
+          body: 'Each booked day unlocks here once its booking fee is paid. Tap one to see it.',
+        },
+        {
+          anchor: 'hub-setup',
+          title: 'Set it up before the day',
+          body: 'Pick what you want on the day, and who on your team can open it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'On the day, Today’s Next card says “Run the day” and brings you here.',
+        button: 'Done',
+      },
+    },
+  },
+  vendor_dates_v1: {
+    key: 'vendor_dates_v1',
+    label: 'Supplier — Dates spotlight',
+    blurb: 'The month, checking a date, adding the bookings you already have.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'dates-calendar',
+          title: 'Your month at a glance',
+          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Striped days are off.',
+        },
+        {
+          anchor: 'dates-check',
+          title: 'Check a date',
+          body: 'Tap a day to see what is on it — or block it off so nobody asks for it.',
+        },
+        {
+          anchor: 'dates-add',
+          title: 'Add what you already have',
+          body: 'Bookings from outside Setnayan go here too, so a couple never asks for a day you have given away.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Every day you block or book shows here and on Today.',
+        button: 'Done',
+      },
+    },
+  },
+  vendor_money_v1: {
+    key: 'vendor_money_v1',
+    label: 'Supplier — Money spotlight',
+    blurb: 'What is still to come in, each payment, logging one, Setnayan’s fee.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'money-summary',
+          title: 'What is still to come in',
+          body: 'Received, against everything booked. Anything overdue shows first.',
+        },
+        {
+          anchor: 'money-next',
+          title: 'One row per payment',
+          body: 'Who, how much and when it is due. Tap a row to remind them or to log what they paid.',
+        },
+        {
+          anchor: 'money-log',
+          title: 'Log a payment',
+          body: 'When a couple pays you directly — GCash, bank, cash — log it here so their balance stays right.',
+        },
+        {
+          anchor: 'money-fees',
+          title: 'Setnayan’s fee',
+          // The count is the lock's own constant — the number the fee engine actually waives, never typed here.
+          body: `One booking fee per booking, due after the day. Your first ${FREE_BOOKING_LIMIT} are free; your own clients are always free.`,
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: '“To come in” on Today is this page in one number.',
+        button: 'Done',
+      },
+    },
   },
   // ─────────────────────────────────────────────────────────────────────────
   // 🔦 THE SPOTLIGHT JOURNEYS. Each step's `anchor` is a `data-tour` token on

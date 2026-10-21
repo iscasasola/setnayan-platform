@@ -58,7 +58,10 @@ export function OutsideClientAdd({
   seats = null,
   label = 'Add',
   halls = false,
+  tour,
 }: {
+  /** 🔦 A spotlight anchor on the thumb button (the Dates tour's "Add what you already have"). */
+  tour?: string;
   /**
    * The shop's schedules are a venue's HALLS (owner 2026-10-14 🏛, prototype "Add from outside · which halls"): the
    * sheet asks "Which halls" — one or more, a dropdown with checkmarks — and each hall picked holds the day.
@@ -213,7 +216,7 @@ export function OutsideClientAdd({
 
   return (
     <>
-      <ActionButton tone="brand" main icon={Plus} label={label} name="Add a booking from outside" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="customers-add" />
+      <ActionButton tone="brand" main icon={Plus} label={label} name="Add a booking from outside" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="customers-add" tour={tour} />
       {mounted ? createPortal(sheet, document.body) : null}
     </>
   );

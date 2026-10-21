@@ -1,0 +1,62 @@
+/**
+ * supplier-page-tours.ts — WHICH supplier page's first-visit spotlight a URL is on.
+ *
+ * Owner "Yes to all", 2026-10-22 (journey_fixes_2026-10-22.html § Supplier 3): a
+ * spotlight tour on the first visit to Shop (3 stops), Customers › Dates (3),
+ * Customers › Money (4) and the Hub (3), each AFTER `supplier_spotlight_v1` and
+ * none repeating a stop it makes. The words are in `lib/tours.ts`.
+ *
+ * 🔑 WHY A PATH RULE AND NOT A MOUNT ON EACH PAGE. The Shop tour's first stop is
+ * a doorway (Next walks into Shop › Page), and a tour mounted inside a page dies
+ * with that page. So the four are mounted ONCE, in the supplier layout (which
+ * outlives the navigation), and this decides — from the address alone — which
+ * one belongs on screen. A page that is not one of the four draws none.
+ *
+ * Pure and dependency-light (the Customers segment rule is the page's own,
+ * `customersSegmentOf`), so the layout's client half and the guard ask the same
+ * function.
+ */
+import { customersSegmentOf } from '@/app/vendor-dashboard/customers/segments';
+
+export const SUPPLIER_PAGE_TOURS = ['vendor_shop_v1', 'vendor_dates_v1', 'vendor_money_v1', 'vendor_hub_v1'] as const;
+export type SupplierPageTourKey = (typeof SUPPLIER_PAGE_TOURS)[number];
+
+/** The Today tour goes first; a page tour waits until it is seen, so the two never stack. */
+export const SUPPLIER_PAGE_TOURS_AFTER = 'supplier_spotlight_v1' as const;
+
+/** Shop's three segments and the two screens Page opens (`shop-segments.tsx` lights Page on them too). */
+const SHOP_PATHS = [
+  '/vendor-dashboard/shop',
+  '/vendor-dashboard/website',
+  '/vendor-dashboard/profile',
+  '/vendor-dashboard/collections',
+  '/vendor-dashboard/performance',
+] as const;
+
+const under = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
+
+export function supplierPageTourOn(
+  pathname: string,
+  search: Record<string, string | string[] | undefined>,
+): SupplierPageTourKey | null {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  if (SHOP_PATHS.some((p) => under(path, p))) return 'vendor_shop_v1';
+  if (path === '/vendor-dashboard/customers') {
+    const seg = customersSegmentOf(search);
+    if (seg === 'dates') return 'vendor_dates_v1';
+    if (seg === 'money') return 'vendor_money_v1';
+    return null;
+  }
+  if (path === '/vendor-dashboard/on-the-day') return 'vendor_hub_v1';
+  return null;
+}
+
+/**
+ * The page tours this person has still to meet: none until the Today tour is
+ * seen, then each one not yet seen. NULL seen keys (the read failed) = none —
+ * never replay a tour to someone who finished it.
+ */
+export function supplierPageToursDue(seen: ReadonlyArray<string> | null): SupplierPageTourKey[] {
+  if (!seen || !seen.includes(SUPPLIER_PAGE_TOURS_AFTER)) return [];
+  return SUPPLIER_PAGE_TOURS.filter((k) => !seen.includes(k));
+}

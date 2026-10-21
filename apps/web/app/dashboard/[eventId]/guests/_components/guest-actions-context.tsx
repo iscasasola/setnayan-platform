@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
-import { addSingleGuest } from '../inline-actions';
+import { addSingleGuest, restoreGuestRsvpAndSeat, setGuestRsvp } from '../inline-actions';
 import { addRoleToGuest, quickAddGuest, quickCreateGroup, setGuestPrimaryRole } from '../quick-add-actions';
 import { addGuestsFromPeople, listPeopleYouCanInvite } from '../people-add-actions';
 import { setGuestInvitationSent } from '../../invitation/actions';
@@ -48,6 +48,9 @@ export type GuestActions = {
   setupDoorHref: (eventId: string, door: 'send' | 'pick-who') => string;
   /** 👥 The ONE Group dropdown's ✎ and 🗑 (owner 2026-10-20): rename / delete a couple's own group in place, and the delete's count. */
   editGuestGroupInPlace: typeof editGuestGroupInPlace;
+  /** ✋ Select → Set reply ▾ (owner 2026-10-21) — the one host reply write, and its Undo. */
+  setGuestRsvp: typeof setGuestRsvp;
+  restoreGuestRsvpAndSeat: typeof restoreGuestRsvpAndSeat;
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
@@ -68,6 +71,8 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
   setupDoorHref: (eventId, door) => (door === 'send' ? `/dashboard/${eventId}/guests/send` : `/dashboard/${eventId}/guests?select=to-invite`),
   editGuestGroupInPlace,
+  setGuestRsvp,
+  restoreGuestRsvpAndSeat,
 };
 
 export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);

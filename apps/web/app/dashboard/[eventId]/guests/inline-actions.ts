@@ -30,6 +30,9 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import type { ReleasedSeat } from '@/lib/guest-optimistic';
+import { plusOneHasNoName } from '@/lib/extra-seats';
+import { hostMaySetReply } from '@/lib/guest-roster-view';
+import { bulkSoftDeleteGuestsForUndo, restoreDeletedGuests } from './groups-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { ParsedGuestDraft } from '@/lib/guest-parse';
@@ -73,186 +76,217 @@ export async function setGuestSide(
   return { ok: true };
 }
 
+/** What a guest's reply was before a host set it — everything the Undo puts back. */
+export type ReplyBefore = {
+  guest_id: string;
+  rsvp_status: RsvpStatus;
+  rsvp_responded_at: string | null;
+  rsvp_set_by: 'guest' | 'host' | null;
+  /** The chair the decline freed (`free_seat_on_decline`), read before the write. */
+  freedSeat: ReleasedSeat | null;
+};
+
+export type SetRsvpResult =
+  | {
+      ok: true;
+      /** The guests whose reply this changed, as they were — the Undo's list. */
+      changed: ReplyBefore[];
+      /** Asked for but left alone: the couple and the honoree (always attending), or already that reply. */
+      skipped: number;
+      /** 🪑 Their +1 seats with no name yet, released with a "Not coming" (the Undo brings them back). */
+      seats: { removedIds: string[]; releasedSeats: ReleasedSeat[] };
+    }
+  | { ok: false; error: string };
+
 /**
- * Set one guest's RSVP. Ported from `updateGuest`:
- *  • bride & groom are coerced to `attending` (owner directive 2026-06-03 + the
- *    DB trigger) — the returned `effective` lets the caller reconcile its
- *    optimistic overlay to the coerced value.
- *  • `rsvp_responded_at` is stamped for attending/declined, cleared otherwise.
- *  • declining AUTO-FREES the guest's seat via the live `free_seat_on_decline`
- *    DB trigger (owner-locked 2026-06-22). Living Roster P3: we READ that seat
- *    BEFORE the update (the trigger deletes it as part of the decline write) and
- *    return it as `freedSeat`, so the client can offer an undo that restores BOTH
- *    the RSVP and the exact chair. `freedSeat` is null on every non-decline path
- *    (and when the guest wasn't seated).
+ * ✋ A HOST SETS A REPLY — Select → Set reply ▾ Attending / Not coming (owner 2026-10-21, verbatim: *"How do we double
+ * check those who did not answer yet. so we can manually accept them in case they just forgot to say yes?"* →
+ * *"Select → Set reply ▾ Attending / Not coming, and "Marked by you" on replies I set"*). ONE write for N guests:
+ *  • the couple and the honoree are skipped — they are always attending (the DB trigger, owner 2026-06-03);
+ *  • `rsvp_responded_at` is stamped for attending/declined, cleared for No reply;
+ *  • 🖐 `rsvp_set_by = 'host'` — the card and the list say "Marked by you"; a guest's own reply replaces it (`submitRsvp`);
+ *  • declining AUTO-FREES each guest's chair via the live `free_seat_on_decline` trigger — READ first, so the Undo can
+ *    put the exact chair back — and 🪑 releases their +1 seats with NO NAME YET (the one release, `bulkSoftDeleteGuestsForUndo
+ *    (…, { release: true })`: their "+N" one lower per seat). A NAMED +1 is never touched — the host decides.
+ * The Undo is `restoreGuestRsvpAndSeat` with what this returns.
+ * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
  */
 export async function setGuestRsvp(
   eventId: string,
-  guestId: string,
+  guestIds: string | readonly string[],
   rsvp: RsvpStatus,
-): Promise<
-  | { ok: true; effective: RsvpStatus; freedSeat: ReleasedSeat | null }
-  | { ok: false; error: string }
-> {
+): Promise<SetRsvpResult> {
   if (!RSVP_VALUES.includes(rsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
+  const ids = Array.from(new Set((typeof guestIds === 'string' ? [guestIds] : [...guestIds]).map((x) => String(x).trim()).filter(Boolean)));
+  if (ids.length === 0) return { ok: false, error: 'Nothing selected.' };
 
   const supabase = await createClient();
-  const { data: row, error: readErr } = await supabase
+  const { data: rows, error: readErr } = await supabase
     .from('guests')
-    .select('role')
+    .select('guest_id, role, rsvp_status, rsvp_responded_at, rsvp_set_by')
     .eq('event_id', eventId)
-    .eq('guest_id', guestId)
-    .is('deleted_at', null)
-    .maybeSingle();
+    .in('guest_id', ids)
+    .is('deleted_at', null);
   if (readErr) return { ok: false, error: readErr.message };
-  if (!row) return { ok: false, error: 'Couldn’t find that guest.' };
+  if (!rows || rows.length === 0) return { ok: false, error: 'Couldn’t find those guests.' };
 
-  const effective: RsvpStatus =
-    row.role === 'bride' || row.role === 'groom' ? 'attending' : rsvp;
+  // The couple and the honoree are always attending — never moved by a host's pick.
+  const movable = rows.filter((r) => hostMaySetReply({ role: r.role as GuestRole }) && r.rsvp_status !== rsvp);
+  const skipped = ids.length - movable.length;
+  const empty = { removedIds: [] as string[], releasedSeats: [] as ReleasedSeat[] };
+  if (movable.length === 0) return { ok: true, changed: [], skipped, seats: empty };
+  const moving = movable.map((r) => r.guest_id as string);
 
-  // Capture the seat the impending decline will free (the trigger fires on the
-  // rsvp→declined edge, so the assignment is still present until the update
-  // below). Only when the EFFECTIVE rsvp is declined — the couple never decline,
-  // so they never free a seat here.
-  let freedSeat: ReleasedSeat | null = null;
-  if (effective === 'declined') {
-    const { data: seat } = await supabase
+  // Capture the chairs the impending decline will free (the trigger fires on the rsvp→declined edge, so they are
+  // still there until the update below) — the Undo puts each back.
+  const freed = new Map<string, ReleasedSeat>();
+  if (rsvp === 'declined') {
+    const { data: seats } = await supabase
       .from('event_seat_assignments')
-      .select('table_id, seat_number, locked, event_tables(table_label)')
+      .select('guest_id, table_id, seat_number, locked, event_tables(table_label)')
       .eq('event_id', eventId)
-      .eq('guest_id', guestId)
-      .maybeSingle();
-    if (seat) {
-      // The freed table's CURRENT label (P4) — read here at decline time so the
-      // undo toast names the chair truthfully, not from a stale SSR prop. The
-      // many-to-one embed can type as an object or a 1-element array depending on
-      // inference; normalise both to the label string.
+      .in('guest_id', moving);
+    for (const seat of seats ?? []) {
+      // The many-to-one embed can type as an object or a 1-element array; normalise both to the label string.
       const embedded = (seat as { event_tables?: unknown }).event_tables;
       const tableLabel = Array.isArray(embedded)
         ? ((embedded[0] as { table_label?: string | null })?.table_label ?? null)
         : ((embedded as { table_label?: string | null } | null)?.table_label ?? null);
-      freedSeat = {
-        guest_id: guestId,
+      freed.set(seat.guest_id as string, {
+        guest_id: seat.guest_id as string,
         table_id: seat.table_id as string,
         seat_number: (seat.seat_number as number | null) ?? null,
         locked: (seat.locked as boolean | null) ?? false,
         table_label: tableLabel,
-      };
+      });
     }
   }
 
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from('guests')
     .update({
-      rsvp_status: effective,
-      rsvp_responded_at: ['attending', 'declined'].includes(effective)
-        ? new Date().toISOString()
-        : null,
-      updated_at: new Date().toISOString(),
+      rsvp_status: rsvp,
+      rsvp_responded_at: ['attending', 'declined'].includes(rsvp) ? now : null,
+      // 🖐 Marked by you — "No reply" is no answer at all, so it carries no mark.
+      rsvp_set_by: rsvp === 'pending' ? null : 'host',
+      updated_at: now,
     })
     .eq('event_id', eventId)
-    .eq('guest_id', guestId);
+    .in('guest_id', moving);
   if (error) return { ok: false, error: error.message };
 
+  const changed: ReplyBefore[] = movable.map((r) => ({
+    guest_id: r.guest_id as string,
+    rsvp_status: r.rsvp_status as RsvpStatus,
+    rsvp_responded_at: (r.rsvp_responded_at as string | null) ?? null,
+    rsvp_set_by: (r.rsvp_set_by as 'guest' | 'host' | null) ?? null,
+    freedSeat: freed.get(r.guest_id as string) ?? null,
+  }));
+
+  // 🪑 Not coming → their +1 seats with no name yet are released (named +1s stay — the host decides).
+  let released = empty;
+  if (rsvp === 'declined') {
+    const { data: seatRows, error: seatErr } = await supabase
+      .from('guests')
+      .select('guest_id, plus_one_of_guest_id, first_name, plus_one_name_confirmed_at')
+      .eq('event_id', eventId)
+      .in('plus_one_of_guest_id', moving)
+      .is('deleted_at', null);
+    if (seatErr) {
+      logQueryError('setGuestRsvp (their +1 seats)', seatErr, { event_id: eventId }, 'graceful_degrade');
+    } else {
+      const open = (seatRows ?? [])
+        .filter((x) => plusOneHasNoName({ guest_id: x.guest_id as string, plus_one_of_guest_id: x.plus_one_of_guest_id as string | null, first_name: x.first_name as string | null, plus_one_name_confirmed_at: x.plus_one_name_confirmed_at as string | null }))
+        .map((x) => x.guest_id as string);
+      if (open.length > 0) {
+        const res = await bulkSoftDeleteGuestsForUndo(eventId, open, { release: true });
+        if (res.ok) released = { removedIds: res.removedIds, releasedSeats: res.releasedSeats };
+        else logQueryError('setGuestRsvp (release their +1 seats)', { message: res.error }, { event_id: eventId }, 'graceful_degrade');
+      }
+    }
+  }
+
   revalidatePath(guestsPath(eventId));
-  return { ok: true, effective, freedSeat };
+  return { ok: true, changed, skipped, seats: released };
 }
 
 /**
- * Undo the reactive decline (Living Roster P3): restore the guest's PRIOR RSVP
- * and re-place the seat the decline freed. The inverse of `setGuestRsvp('declined')`.
+ * Undo a host's Set reply: every guest's PRIOR reply exactly as it was (the answer, its date, who set it), the chair a
+ * decline freed, and the +1 seats it released (`restoreDeletedGuests` — the same rows, their "+N" back).
  *
- * The `free_seat_on_decline` trigger only fires on the decline EDGE, so writing
- * the RSVP back to a non-declined value doesn't re-free anything — the seat
- * re-insert is safe. Seat restore is BEST-EFFORT, mirroring P1's
- * `restoreDeletedGuests`: a single upsert on (event_id, guest_id) so a retry is
- * idempotent, and a re-taken chair (23505 on the PARTIAL chair-unique index —
- * which `onConflict:'event_id,guest_id'` can't resolve) is treated as benign, so
- * the guest is restored UNSEATED rather than the whole undo crashing. RLS:
- * `event_seat_assignments_couple_write` is FOR ALL, so the couple may re-insert
- * (verified in P1) — the trigger is SECURITY DEFINER only because *guests* can't.
+ * The `free_seat_on_decline` trigger only fires on the decline EDGE, so writing a reply back to a non-declined value
+ * doesn't re-free anything — the seat re-insert is safe. Seat restore is BEST-EFFORT: a single upsert on (event_id,
+ * guest_id), and a re-taken chair (23505 on the PARTIAL chair-unique index) leaves the guest restored UNSEATED rather
+ * than failing the undo. RLS: `event_seat_assignments_couple_write` is FOR ALL, so the couple may re-insert.
  */
 export async function restoreGuestRsvpAndSeat(
   eventId: string,
-  guestId: string,
-  priorRsvp: RsvpStatus,
-  freedSeat: ReleasedSeat | null,
+  before: readonly ReplyBefore[],
+  seats: { removedIds: string[]; releasedSeats: ReleasedSeat[] } | null = null,
 ): Promise<InlineResult> {
-  if (!RSVP_VALUES.includes(priorRsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
-
+  const prior = [...(before ?? [])];
+  if (prior.some((b) => !RSVP_VALUES.includes(b.rsvp_status))) return { ok: false, error: 'Pick a valid RSVP.' };
+  if (prior.some((b) => b.rsvp_set_by !== null && b.rsvp_set_by !== 'guest' && b.rsvp_set_by !== 'host')) {
+    return { ok: false, error: 'Couldn’t undo that.' };
+  }
   const supabase = await createClient();
 
-  // Gate the guest to THIS event before writing — mirror the sibling
-  // `addGuestToGroup`. RLS scopes `event_seat_assignments` only by `event_id`,
-  // and the `guest_id` FK resolves against the GLOBAL `guests` table, so a bare
-  // `guest_id` from the payload could otherwise upsert a phantom seat referencing
-  // ANOTHER event's guest under this couple's own event. (The RSVP update below
-  // already filters on `event_id` so it's a no-op for a foreign guest, but reject
-  // cleanly rather than silently no-op'ing — and, the real point, refuse to reach
-  // the step-2 seat upsert with a cross-event `guest_id`.)
-  const { data: guestRow } = await supabase
-    .from('guests')
-    .select('event_id')
-    .eq('guest_id', guestId)
-    .maybeSingle();
-  if (!guestRow || guestRow.event_id !== eventId) {
-    return { ok: false, error: 'Couldn’t find that guest.' };
+  // Gate every guest to THIS event before writing. RLS scopes `event_seat_assignments` only by `event_id`, and the
+  // `guest_id` FK resolves against the GLOBAL `guests` table, so a bare `guest_id` from the payload could otherwise
+  // upsert a phantom seat referencing ANOTHER event's guest under this couple's own event.
+  if (prior.length > 0) {
+    const { data: mine, error: mineErr } = await supabase
+      .from('guests')
+      .select('guest_id')
+      .eq('event_id', eventId)
+      .in('guest_id', prior.map((b) => b.guest_id));
+    if (mineErr) return { ok: false, error: mineErr.message };
+    const ours = new Set((mine ?? []).map((r) => r.guest_id as string));
+    if (prior.some((b) => !ours.has(b.guest_id))) return { ok: false, error: 'Couldn’t find that guest.' };
   }
 
-  // 1. Restore the RSVP. A declined guest is never the couple, so no coercion.
-  const { error: rsvpErr } = await supabase
-    .from('guests')
-    .update({
-      rsvp_status: priorRsvp,
-      rsvp_responded_at: ['attending', 'declined'].includes(priorRsvp)
-        ? new Date().toISOString()
-        : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId);
-  if (rsvpErr) return { ok: false, error: rsvpErr.message };
+  // 1. Each reply back exactly as it was — answer, date and who set it.
+  for (const b of prior) {
+    const { error: rsvpErr } = await supabase
+      .from('guests')
+      .update({
+        rsvp_status: b.rsvp_status,
+        rsvp_responded_at: b.rsvp_responded_at,
+        rsvp_set_by: b.rsvp_set_by,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('guest_id', b.guest_id);
+    if (rsvpErr) return { ok: false, error: rsvpErr.message };
+  }
 
-  // 2. Re-place the freed chair — best-effort, and only when the chair belongs to
-  //    THIS event. `event_seat_assignments` RLS doesn't scope `table_id` either,
-  //    so a foreign/stale `table_id` from the payload would otherwise pin a seat to
-  //    another event's table; verify it first. The RSVP is already restored, so a
-  //    bad table just skips the re-place and the guest lands unseated.
-  if (freedSeat && freedSeat.table_id) {
-    const { data: tableRow } = await supabase
+  // 2. Re-place each freed chair — best-effort, and only a chair of THIS event's tables (`table_id` is not scoped by
+  //    RLS either); a bad table skips the re-place and the guest lands unseated.
+  const chairs = prior.map((b) => b.freedSeat).filter((x): x is ReleasedSeat => Boolean(x && x.table_id));
+  if (chairs.length > 0) {
+    const { data: tables } = await supabase
       .from('event_tables')
-      .select('event_id')
-      .eq('table_id', freedSeat.table_id)
-      .maybeSingle();
-    if (!tableRow || tableRow.event_id !== eventId) {
-      revalidatePath(guestsPath(eventId));
-      return { ok: true };
+      .select('table_id')
+      .eq('event_id', eventId)
+      .in('table_id', [...new Set(chairs.map((c) => c.table_id))]);
+    const ourTables = new Set((tables ?? []).map((t) => t.table_id as string));
+    const back = chairs
+      .filter((c) => ourTables.has(c.table_id))
+      .map((c) => ({ event_id: eventId, guest_id: c.guest_id, table_id: c.table_id, seat_number: c.seat_number, locked: c.locked }));
+    if (back.length > 0) {
+      const { error: seatErr } = await supabase.from('event_seat_assignments').upsert(back, { onConflict: 'event_id,guest_id' });
+      // 23505 = a chair was re-taken during the undo window → benign. Anything else is non-fatal but logged.
+      if (seatErr && (seatErr as { code?: string }).code !== '23505') {
+        logQueryError('restoreGuestRsvpAndSeat (seat re-place)', seatErr, { event_id: eventId }, 'graceful_degrade');
+      }
     }
-    const { error: seatErr } = await supabase
-      .from('event_seat_assignments')
-      .upsert(
-        [
-          {
-            event_id: eventId,
-            guest_id: guestId,
-            table_id: freedSeat.table_id,
-            seat_number: freedSeat.seat_number,
-            locked: freedSeat.locked,
-          },
-        ],
-        { onConflict: 'event_id,guest_id' },
-      );
-    // 23505 = the exact chair was re-taken during the undo window → benign, the
-    // guest is restored unseated. Any other error is likewise non-fatal (the
-    // RSVP is already back), but we log it so a real regression is visible.
-    if (seatErr && (seatErr as { code?: string }).code !== '23505') {
-      logQueryError(
-        'restoreGuestRsvpAndSeat (seat re-place)',
-        seatErr,
-        { event_id: eventId, guest_id: guestId },
-        'graceful_degrade',
-      );
-    }
+  }
+
+  // 3. 🪑 The +1 seats the decline released — the same rows, their guest's "+N" back.
+  if (seats && seats.removedIds.length > 0) {
+    const r = await restoreDeletedGuests(eventId, seats.removedIds, seats.releasedSeats);
+    if (!r.ok) return { ok: false, error: r.error ?? 'Couldn’t bring their +1 seats back.' };
   }
 
   revalidatePath(guestsPath(eventId));

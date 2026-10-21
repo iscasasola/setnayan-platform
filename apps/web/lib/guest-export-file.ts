@@ -25,6 +25,7 @@ import {
   GROUP_CATEGORY_LABELS,
   RSVP_LABELS,
   guestRoleLabel,
+  replyMarkedByHost,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
@@ -46,7 +47,16 @@ export type ExportGuest = {
   mobile: string | null;
   rsvp_status: RsvpStatus;
   passed_away?: boolean | null;
+  /** 🖐 Who set the reply (owner 2026-10-21) — the read-only "Reply set by" column. */
+  rsvp_set_by?: 'guest' | 'host' | null;
 };
+
+/** "You" for a reply a host set, "Guest" for their own, blank when the row does not say (never guessed). */
+export function replySetByWord(g: Pick<ExportGuest, 'rsvp_status' | 'rsvp_set_by' | 'passed_away'>): string {
+  if (g.passed_away) return '';
+  if (replyMarkedByHost(g)) return 'You';
+  return g.rsvp_set_by === 'guest' && g.rsvp_status !== 'pending' ? 'Guest' : '';
+}
 
 /** The byte-order mark Excel needs to read UTF-8. */
 export const UTF8_BOM = '﻿';
@@ -67,6 +77,8 @@ export function guestExportHeaders(hasSides: boolean, withTable: boolean): strin
     'Their guests (+)',
     'Mobile (optional)',
     'RSVP',
+    // Read-only, like RSVP and Table: who set the reply (the importer does not read it).
+    'Reply set by',
     ...(withTable ? ['Table'] : []),
   ];
 }
@@ -108,6 +120,7 @@ export function guestListCsv(
       g.plus_one_count ?? 0,
       exportMobile(g.mobile),
       g.passed_away ? 'In loving memory' : RSVP_LABELS[g.rsvp_status],
+      replySetByWord(g),
       ...(withTable ? [opts.tableByGuest?.[g.guest_id] ?? ''] : []),
     ];
     lines.push(cells.map(csvCell).join(','));

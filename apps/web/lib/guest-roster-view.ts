@@ -33,7 +33,7 @@ import {
   type GuestRow,
   type RsvpStatus,
 } from '@/lib/guests';
-import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, type GuestSearchFacts } from '@/lib/guest-search';
+import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, replyStatusOf, type GuestSearchFacts } from '@/lib/guest-search';
 import {
   importanceGroupOf,
   isHonoreeRole,
@@ -227,11 +227,40 @@ export function rosterStats(guests: readonly GuestRow[]): {
   const counted = guests.filter((g) => countsTowardEvent(g));
   return {
     total: counted.length,
-    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
-    no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    none: counted.filter((g) => hasNotAnswered(g)).length,
+    // The three reply counts ARE their filters' rows (`replyFilterMatches`) — a tap shows exactly what was said.
+    yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
+    no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
+    none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
+}
+
+/**
+ * 👆 THE COUNTS ARE DOORS (owner 2026-10-21, verbatim: *"How do we double check those who did not answer yet. so we can
+ * manually accept them in case they just forgot to say yes?"* → *"tappable counts that filter"*). "N attending · N not
+ * coming · N no reply" each filter the list to exactly the guests they count — and the search words for the same
+ * replies ("attending", "not coming", "no reply"…) read this SAME predicate (`rosterSearchMatches`), so the tap, the
+ * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
+ * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
+ */
+export type ReplyFilter = 'attending' | 'declined' | 'none';
+
+export function replyFilterMatches(
+  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>,
+  f: ReplyFilter | null,
+): boolean {
+  if (f === null) return true;
+  if (!countsTowardEvent(g)) return false;
+  return f === 'none' ? hasNotAnswered(g) : g.rsvp_status === f;
+}
+
+/**
+ * ✋ MAY A HOST SET THIS GUEST'S REPLY? Everyone but the couple and the honoree — they are always attending (the DB
+ * trigger, owner 2026-06-03). The ONE answer Select → Set reply ▾ (the screen's optimistic draw) and the server's write
+ * (`setGuestRsvp`, guests/inline-actions.ts) both read, so the list never draws a reply the server will not write.
+ */
+export function hostMaySetReply(g: Pick<GuestRow, 'role'>): boolean {
+  return g.role !== 'bride' && g.role !== 'groom' && !isHonoreeRole(g.role);
 }
 
 /* ─── THE +1s: WHO HAS A NAME, WHO HAS NONE YET ─────────────────────────── */
@@ -657,7 +686,10 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (!q) return true;
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
-  if (NO_REPLY_WORDS.includes(q)) return hasNotAnswered(g);
+  if (NO_REPLY_WORDS.includes(q)) return replyFilterMatches(g, 'none');
+  // "attending" / "not coming" (and every other word for them) — the counts' own filter (`replyFilterMatches`).
+  const reply = replyStatusOf(q);
+  if (reply === 'attending' || reply === 'declined') return replyFilterMatches(g, reply);
   if (facts.hasSides && SIDE_WORDS[q]) {
     const side = SIDE_WORDS[q]!;
     return g.side === side || g.side === 'both' || g.role === side;

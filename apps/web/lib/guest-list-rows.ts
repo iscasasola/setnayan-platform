@@ -37,6 +37,8 @@ export const GUEST_LIST_ROW_FIELDS = [
   'role',
   'extra_roles',
   'rsvp_status',
+  // 🖐 A reply a host set reads "marked" on the row (owner 2026-10-21).
+  'rsvp_set_by',
   'entry_source',
   'passed_away',
   'invitation_sent_at',
@@ -82,6 +84,8 @@ export const GUEST_COPY_ROW_FIELDS = [
   'role',
   'extra_roles',
   'rsvp_status',
+  // 🖐 A reply a host set reads "marked" on the row (owner 2026-10-21).
+  'rsvp_set_by',
   'entry_source',
   'passed_away',
   'invitation_sent_at',

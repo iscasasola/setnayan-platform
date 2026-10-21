@@ -869,3 +869,17 @@ button.node {
 .screen[data-guests-copy='failed'] [data-guest-rows] {
   opacity: 0.6;
 }
+
+/* 👆 A count that is a door (owner 2026-10-21): plain words in the line, underlined — pressed, it holds a filter. */
+button.countsDoor {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button.countsDoor[aria-pressed='true'] {
+  font-weight: 600;
+  text-decoration-thickness: 2px;
+}

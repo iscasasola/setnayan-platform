@@ -81,6 +81,7 @@ import {
   guestNameAsGiven,
   guestInitials,
   plusOneSeats,
+  replyMarkedByHost,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
   type GuestRow,
@@ -92,8 +93,10 @@ import {
   isToInvite,
   MAP_ARRANGE,
   mapTree,
+  hostMaySetReply,
   plusOneFilterMatches,
   plusOneTally,
+  replyFilterMatches,
   plusOneWordsFrom,
   PLUS_ONE_FILTERS,
   seatRowsByGuest,
@@ -107,6 +110,7 @@ import {
   withTheirPlusOnes,
   type MapArrange,
   type PlusOneFilter,
+  type ReplyFilter,
   type PlusOneWords,
   type RosterFacts,
   type RosterView,
@@ -130,6 +134,8 @@ import { followColumn } from './dock-follows-column';
 import { GuestMapCanvas } from './guest-map-canvas';
 import { plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
 import type { GuestMutation } from '@/lib/guest-optimistic';
+import { pushUndo, guestToast } from './undo-store';
+import { plainRefusal } from './plain-refusal';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
@@ -366,11 +372,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
+  // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
+  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(null);
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
-    return plusFilter ? found.filter((g) => plusOneFilterMatches(g, plusFilter)) : found;
-  }, [roster, q, facts, plusFilter]);
+    return plusFilter || replyFilter
+      ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+      : found;
+  }, [roster, q, facts, plusFilter, replyFilter]);
 
   // ── The one Sort (list) and the one Arrange (map).
   const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
@@ -395,7 +405,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, [unread]);
   // A search opens every section that has a hit (G19 — a hit inside a folded
   // section was invisible, a failure that looked like "not found").
-  const isOpen = (key: string) => (q || plusFilter ? true : open.has(key));
+  const filtered = Boolean(plusFilter || replyFilter);
+  const isOpen = (key: string) => (q || filtered ? true : open.has(key));
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
@@ -551,6 +562,65 @@ export function GuestsScreen(props: GuestsScreenProps) {
     await bulkApplyRoleAndGroup(eventId, fd);
   };
 
+  // ── ✋ Set reply ▾ (owner 2026-10-21) — the ONE host reply write (`setGuestRsvp`): drawn at once, one Undo for all.
+  //    The couple and the honoree are skipped (always attending, `hostMaySetReply`). Not coming frees their chairs and
+  //    releases their +1 seats with no name yet (drawn gone here, their "+N" one lower); named +1s stay.
+  const { setGuestRsvp, restoreGuestRsvpAndSeat } = useGuestActions();
+  const [setting, setSetting] = useState(false);
+  const setReplies = async (ids: readonly string[], rsvp: 'attending' | 'declined') => {
+    if (setting) return;
+    const moving = ids.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g) && hostMaySetReply(g!) && g!.rsvp_status !== rsvp);
+    if (moving.length === 0) {
+      toast.info(`Everyone selected is already ${RSVP_ROW_WORDS[rsvp].toLowerCase()}`);
+      return;
+    }
+    const movingIds = new Set(moving.map((g) => g.guest_id));
+    const muts: GuestMutation[] = [
+      { kind: 'setField', guestIds: [...movingIds], override: { rsvp_status: rsvp, rsvp_set_by: 'host' } },
+    ];
+    if (rsvp === 'declined') {
+      const seatsGoing = roster.filter((g) => g.plus_one_of_guest_id && movingIds.has(g.plus_one_of_guest_id) && plusOneHasNoName(g));
+      if (seatsGoing.length > 0) {
+        muts.push({ kind: 'remove', guestIds: seatsGoing.map((g) => g.guest_id) });
+        const hosts = new Set(seatsGoing.map((g) => g.plus_one_of_guest_id));
+        for (const u of seatNumbersAfter(seatsGoing, roster.filter((g) => hosts.has(g.guest_id)), 'removed')) {
+          muts.push({ kind: 'setField', guestIds: [u.guest_id], override: { plus_one_count: u.plus_one_count } });
+        }
+      }
+    }
+    const clearAll = () => muts.forEach((m) => guestOptimistic.clear(m));
+    setSetting(true);
+    muts.forEach((m) => guestOptimistic.apply(m));
+    try {
+      let res;
+      try {
+        res = await setGuestRsvp(eventId, [...movingIds], rsvp);
+      } catch {
+        clearAll();
+        guestToast.error('Could not set the reply — check your connection and try again.');
+        return;
+      }
+      if (!res.ok) {
+        clearAll();
+        guestToast.error(plainRefusal(res.error, 'Couldn’t set the reply. Try again.'));
+        return;
+      }
+      leaveSelect();
+      const done = res;
+      const n = done.changed.length;
+      pushUndo({
+        label: `${formatCount(n)} marked ${RSVP_ROW_WORDS[rsvp].toLowerCase()}`,
+        undo: async () => {
+          const r = await restoreGuestRsvpAndSeat(eventId, done.changed, done.seats);
+          if (r.ok) clearAll();
+          else guestToast.error('Could not undo — refresh and try again.');
+        },
+      });
+    } finally {
+      setSetting(false);
+    }
+  };
+
   // ── Section header tap (rule 6): open and scrolled into → back to its first
   // row; open with its top in view → fold; shut → open and land its first row.
   const tapSection = (key: string, el: HTMLElement | null) => {
@@ -585,6 +655,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setPlusFilter((now) => (now === f ? null : f));
     window.scrollTo({ top: 0 });
   };
+  const pickReply = (f: ReplyFilter) => {
+    setReplyFilter((now) => (now === f ? null : f));
+    window.scrollTo({ top: 0 });
+  };
+  /** A count, as a door to its filter — pressed again (or × Clear) to take it off. */
+  const countDoor = (f: ReplyFilter, value: number, id: string, word: string) => (
+    <button
+      type="button"
+      className={styles.countsDoor}
+      aria-pressed={replyFilter === f}
+      onClick={() => pickReply(f)}
+      data-reply-filter={f}
+    >
+      <b><Count value={value} id={id} /></b> {word}
+    </button>
+  );
 
   const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
     <Link
@@ -790,6 +876,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const setNamesakes = sidesForNamesakes(groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side })));
   const setOptions: PickOption[] = [
+    // ✋ Set reply (owner 2026-10-21: "so we can manually accept them in case they just forgot to say yes").
+    { key: 'reply:attending', label: RSVP_ROW_WORDS.attending, group: 'Reply' },
+    { key: 'reply:declined', label: RSVP_ROW_WORDS.declined, group: 'Reply' },
     // 👥 Same name, say the side (owner 2026-10-21): two groups of one name each carry their side's word.
     ...groups.map((g) => ({ key: `group:${g.group_id}`, label: groupLabelWithSide(g.label, setNamesakes.get(g.group_id)), group: 'Group' })),
     { key: 'group:new', label: 'New group…', group: 'Group' },
@@ -848,6 +937,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               onPick={(k) => {
                 if (selected.size === 0) return;
                 if (k === 'group:new') return setNewGroup(true);
+                if (k === 'reply:attending' || k === 'reply:declined') return void setReplies(selectedIds, k.slice(6) as 'attending' | 'declined');
                 const [field, ...rest] = k.split(':');
                 const value = rest.join(':');
                 void applyBulk(field === 'group' ? 'group_id' : (field as 'table' | 'side'), value);
@@ -1103,18 +1193,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {measured ? (
             <>
               <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="">
-                <span>
-                  <b>
-                    <Count value={stats.yes} id="gs-yes" />
-                  </b>{' '}
-                  {RSVP_ROW_WORDS.attending.toLowerCase()}
-                </span>
-                <span>
-                  · <b><Count value={stats.no} id="gs-no" /></b> {RSVP_ROW_WORDS.declined.toLowerCase()}
-                </span>
-                <span>
-                  · <b><Count value={stats.none} id="gs-none" /></b> {RSVP_ROW_WORDS.pending.toLowerCase()}
-                </span>
+                {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
+                <span>{countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending.toLowerCase())}</span>
+                <span>· {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined.toLowerCase())}</span>
+                <span>· {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending.toLowerCase())}</span>
                 {/* 🚪 "N TO INVITE" IS A DOOR (controller 2026-10-08: from the List — the tab people
                     land on — there was no way to start sending). It opens the ONE send run, the very
                     place Setup's "Send to N" opens (`guest-setup-rows.tsx` → `/guests/send`); the two
@@ -1158,10 +1240,23 @@ export function GuestsScreen(props: GuestsScreenProps) {
                     </button>
                   </span>
                 ) : null}
-                {q || plusFilter ? (
+                {q || filtered ? (
                   <span className={styles.mute}>
                     · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
                   </span>
+                ) : null}
+                {filtered ? (
+                  <button
+                    type="button"
+                    className={styles.countsDoor}
+                    onClick={() => {
+                      setReplyFilter(null);
+                      setPlusFilter(null);
+                    }}
+                    data-roster-clear-filter=""
+                  >
+                    × Clear
+                  </button>
                 ) : null}
               </div>
               <div className={styles.meter} data-replied-meter="">
@@ -1373,6 +1468,8 @@ function GuestRowLine({
           ) : (
             <>
               <span className={`${styles.pill} ${styles[pill.cls]}`}>{pill.word}</span>
+              {/* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */}
+              {replyMarkedByHost(g) ? <span className={styles.mute} data-reply-marked="">{' · marked'}</span> : null}
               {table ? ` · ${table}` : ''}
               {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}

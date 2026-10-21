@@ -933,78 +933,83 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       )}
 
       {/* ══ S4b · THE PARTS — then the three services that run on the day ══ */}
-      <section className="mt-10">
-        <header className="space-y-1">
-          <p className="sn-eye">
-            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
-            {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
-          </h2>
-          <p className="max-w-prose text-sm text-ink/60">
-            {standing.phase === 'dayof'
-              ? 'One press each — no confirmations, and nothing here is for sale today.'
-              : eventHasHappened
-                ? 'These ran during the celebration. What they caught is in your galleries.'
-                : 'They stay quiet until the day, then they are one press each from here.'}
-          </p>
-        </header>
+      {/* 🍎 All three (Live Watch · Live Photo Wall · Papic) are paid web extras the iPhone app does not
+          offer, price or unlock (lib/store-shell.ts) — the app draws none of them, owned or not, and no
+          "Add". Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+      {storeShell ? null : (
+        <section className="mt-10">
+          <header className="space-y-1">
+            <p className="sn-eye">
+              <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+              {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
+            </h2>
+            <p className="max-w-prose text-sm text-ink/60">
+              {standing.phase === 'dayof'
+                ? 'One press each — no confirmations, and nothing here is for sale today.'
+                : eventHasHappened
+                  ? 'These ran during the celebration. What they caught is in your galleries.'
+                  : 'They stay quiet until the day, then they are one press each from here.'}
+            </p>
+          </header>
 
-        <div className="mt-4 space-y-3">
-          {services.map((s) => {
-            const Icon = s.Icon;
-            return (
-              <article
-                key={s.key}
-                className={`sn-row flex items-center justify-between gap-4 p-4 sm:p-5 ${
-                  s.owned ? '' : 'border-dashed'
-                }`}
-              >
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                      s.owned ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/40'
-                    }`}
-                  >
-                    <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className={`text-sm font-semibold ${s.owned ? 'text-ink' : 'text-ink/70'}`}>{s.name}</h3>
-                    <p className="text-xs text-ink/55">{s.blurb}</p>
+          <div className="mt-4 space-y-3">
+            {services.map((s) => {
+              const Icon = s.Icon;
+              return (
+                <article
+                  key={s.key}
+                  className={`sn-row flex items-center justify-between gap-4 p-4 sm:p-5 ${
+                    s.owned ? '' : 'border-dashed'
+                  }`}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                        s.owned ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/40'
+                      }`}
+                    >
+                      <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className={`text-sm font-semibold ${s.owned ? 'text-ink' : 'text-ink/70'}`}>{s.name}</h3>
+                      <p className="text-xs text-ink/55">{s.blurb}</p>
+                    </div>
                   </div>
-                </div>
-                {s.owned ? (
-                  /* ⛔ NO CONFIRMATION DIALOG. One press, at a ceremony. */
-                  <Link
-                    href={s.launchHref}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-                  >
-                    {s.launchLabel}
-                    <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </Link>
-                ) : eventHasHappened ? (
-                  /* ⚠ CLOSED, NOT HIDDEN — the same shape the Suite uses. The row
-                     still says what the service was; it just stops offering to
-                     sell it for a night that has finished. */
-                  <span
-                    aria-disabled="true"
-                    className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/45"
-                  >
-                    Event over
-                  </span>
-                ) : offersAllowed ? (
-                  <Link
-                    href={s.addHref}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
-                  >
-                    <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
-                  </Link>
-                ) : null /* ⛔ THE DAY. The upsell branch collapses to nothing. */}
-              </article>
-            );
-          })}
-        </div>
-      </section>
+                  {s.owned ? (
+                    /* ⛔ NO CONFIRMATION DIALOG. One press, at a ceremony. */
+                    <Link
+                      href={s.launchHref}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+                    >
+                      {s.launchLabel}
+                      <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    </Link>
+                  ) : eventHasHappened ? (
+                    /* ⚠ CLOSED, NOT HIDDEN — the same shape the Suite uses. The row
+                       still says what the service was; it just stops offering to
+                       sell it for a night that has finished. */
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/45"
+                    >
+                      Event over
+                    </span>
+                  ) : offersAllowed ? (
+                    <Link
+                      href={s.addHref}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
+                    >
+                      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
+                    </Link>
+                  ) : null /* ⛔ THE DAY. The upsell branch collapses to nothing. */}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ══ S5 · SET ONCE — doors, never editors ══ */}
       <section className="mt-10">

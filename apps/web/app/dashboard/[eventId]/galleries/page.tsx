@@ -15,6 +15,7 @@ import { RevealList } from '@/app/_components/reveal-list';
 import { formatCount } from '@/lib/format-number';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Galleries' };
 
@@ -162,8 +163,13 @@ export default async function GalleriesHubPage({ params }: Props) {
   };
 
   const sources: Source[] = [];
+  // 🍎 The iPhone app names no paid web extra and opens none of their pages
+  // (lib/store-shell.ts) — a web-bought Papic or Live Watch unlocks nothing
+  // there, so their two cards are not drawn (their buttons went to refused
+  // pages). Held by `lib/the-app-names-no-paid-service.test.ts`.
+  const storeShell = await isStoreShellRequest();
 
-  if (hasPapic) {
+  if (hasPapic && !storeShell) {
     const ready = papicCount !== null && papicCount > 0;
     sources.push({
       key: 'papic',
@@ -182,7 +188,7 @@ export default async function GalleriesHubPage({ params }: Props) {
     });
   }
 
-  if (ownsPanood) {
+  if (ownsPanood && !storeShell) {
     // The livestream recording lands on the broadcast archive after the event.
     sources.push({
       key: 'panood',

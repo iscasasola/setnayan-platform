@@ -31,8 +31,10 @@ import Capacitor
  * WHAT DID NOT MOVE. The window still comes from `Main.storyboard`
  * (`UISceneStoryboardFile` in Info.plist), whose root is
  * `SetnayanBridgeViewController`, so the in-app plugins (SetnayanAuth,
- * SetnayanStore), the offline fallback and the 12 s launch watchdog are
- * created exactly as before.
+ * SetnayanStore), the offline fallback and the launch watchdog are
+ * created exactly as before. Since build 5 that controller is wrapped, at the
+ * top of `willConnectTo`, in `SideSafeAreaHostViewController` — the one change
+ * to the window's root — so the web view clears the left/right safe areas.
  */
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -45,6 +47,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard scene is UIWindowScene else { return }
+
+        // The storyboard's root (the Capacitor bridge) becomes the only child
+        // of a host that keeps the web view out of the LEFT/RIGHT safe areas —
+        // the iPhone Duo's outer-screen status column, a landscape notch — and
+        // leaves top/bottom exactly as before (SideSafeAreaHost.swift). Done
+        // FIRST, before the early return below, so it holds for every launch,
+        // and before `loadViewIfNeeded()`, so that call loads the host, whose
+        // `viewDidLoad` loads the bridge and its plugins.
+        if let bridge = window?.rootViewController as? SetnayanBridgeViewController {
+            window?.rootViewController = SideSafeAreaHostViewController(hosting: bridge)
+        }
 
         // A cold launch from a link does NOT call `openURLContexts` or
         // `continue` — the link arrives here, once, in `connectionOptions`.

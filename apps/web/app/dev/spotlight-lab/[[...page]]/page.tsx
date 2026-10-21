@@ -9,6 +9,7 @@ import SupplierLabPage from '@/app/dev/supplier-lab/page';
 import { NewThingTile } from '@/app/_components/collection-card';
 import { FinishedEventSummary } from '@/app/dashboard/[eventId]/_components/after/finished-event-summary';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,7 @@ export default async function SpotlightLabPage({
             dateLabel="March 13, 2027"
             slug="ana-and-miguel"
             summary={{ guests: 180, guestsAttending: 152, checkedIn: 140, suppliers: 6, services: 2, photos: 1240, editorial: 'none', editorialMeasured: true }}
+            storeShell={await isStoreShellRequest()}
           />
         </main>
       );

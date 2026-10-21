@@ -60,12 +60,32 @@ export function longAnswerMoves(at: { onScreen: boolean; editing: boolean; reduc
 
 /* ── LEAVING AN OPEN FIELD ────────────────────────────────────────────── */
 
-/** How an open field was left. Tapping anywhere outside it, or Enter, KEEPS; ✕ or Esc leaves it as it was. */
-export type FieldExit = 'tap-out' | 'enter' | 'x' | 'escape';
+/**
+ * How an open field was left. Tapping anywhere outside it, Enter, or Tab / Shift+Tab KEEPS; ✕ or Esc leaves it as it was.
+ * ⇥ `tab` / `tab-back` (owner 2026-10-21: *"pressing tab on keyboard should allow next row on the guest card?"*) keep exactly
+ * as Enter does — the same `keepOutcome`, the same one keep — and then move on to the next row (or the one before).
+ */
+export type FieldExit = 'tap-out' | 'enter' | 'x' | 'escape' | 'tab' | 'tab-back';
 
-/** There is no ✓: the only two ways to keep are tapping out and Enter. */
+/** There is no ✓: the only ways to keep are tapping out, Enter and Tab. */
 export function exitKeeps(exit: FieldExit): boolean {
-  return exit === 'tap-out' || exit === 'enter';
+  return exit === 'tap-out' || exit === 'enter' || exit === 'tab' || exit === 'tab-back';
+}
+
+/** Which way a keyboard exit moves on once it has kept: 1 = the next row, -1 = the one before, 0 = it stays on its row. */
+export function exitMoves(exit: FieldExit): 1 | -1 | 0 {
+  return exit === 'tab' ? 1 : exit === 'tab-back' ? -1 : 0;
+}
+
+/**
+ * ⇥ THE ROW TAB GOES TO — the next (`dir` 1) or previous (-1) row after `from`, in the order the rows are drawn, that can be
+ * reached (not inside a shut fold — `inert` — and drawn at all) and has something to press. Null = there is none: the keep
+ * still happens and the focus stays on its own row. Pure, so `lib/the-form-row.test.ts` executes it; `form-row.tsx` hands it
+ * the screen's rows.
+ */
+export function rowToTabTo(rows: readonly { reachable: boolean; control: boolean }[], from: number, dir: 1 | -1): number | null {
+  for (let i = from + dir; i >= 0 && i < rows.length; i += dir) if (rows[i]!.reachable && rows[i]!.control) return i;
+  return null;
 }
 
 /** In a long message Enter is a new line — so it is the tap out that keeps it. */

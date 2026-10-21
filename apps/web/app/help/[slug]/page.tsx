@@ -103,6 +103,7 @@ export default async function HelpArticlePage({ params }: Props) {
   if (!found) notFound();
   const { article, topic } = found;
   const related = relatedHelpArticles(slug);
+  const notInApp = article.appBody === HELP_NOT_IN_THE_APP;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -195,16 +196,23 @@ export default async function HelpArticlePage({ params }: Props) {
           <Link href="/help" className="hover:text-ink hover:underline">
             Help
           </Link>
-          <span className="mx-2">/</span>
-          <Link
-            href={`/help#${topic.key}`}
-            className="hover:text-ink hover:underline"
-          >
-            {topic.label}
-          </Link>
+          {/* 🍎 A question the app does not include names nothing in the app — not its topic
+              ("Papic — candid photos"), not its title — only the not-included sentence below. */}
+          <span data-web-only={notInApp ? '' : undefined}>
+            <span className="mx-2">/</span>
+            <Link
+              href={`/help#${topic.key}`}
+              className="hover:text-ink hover:underline"
+            >
+              {topic.label}
+            </Link>
+          </span>
         </nav>
 
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
+        <h1
+          className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl"
+          data-web-only={notInApp ? '' : undefined}
+        >
           {article.title}
         </h1>
         {/*
@@ -225,7 +233,7 @@ export default async function HelpArticlePage({ params }: Props) {
         )}
 
         {related.length > 0 ? (
-          <section className="mt-12 border-t border-ink/10 pt-8">
+          <section className="mt-12 border-t border-ink/10 pt-8" data-web-only={notInApp ? '' : undefined}>
             <h2 className="text-lg font-semibold text-ink">
               More in {topic.label}
             </h2>

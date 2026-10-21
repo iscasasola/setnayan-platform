@@ -13,6 +13,7 @@
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		9F1C4A012ABCDEF0123456C1 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456C2 /* SceneDelegate.swift */; };
+		9F1C4A012ABCDEF0123456D1 /* SideSafeAreaHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456D2 /* SideSafeAreaHost.swift */; };
 		9F1C4A012ABCDEF012345601 /* SetnayanBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */; };
 		9F1C4A012ABCDEF0123456A1 /* SetnayanAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */; };
 		9F1C4A012ABCDEF0123456B1 /* SetnayanStorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */; };
@@ -29,6 +30,7 @@
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF0123456C2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		9F1C4A012ABCDEF0123456D2 /* SideSafeAreaHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideSafeAreaHost.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanBridgeViewController.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanAuthPlugin.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanStorePlugin.swift; sourceTree = "<group>"; };
@@ -76,6 +78,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				9F1C4A012ABCDEF0123456C2 /* SceneDelegate.swift */,
+				9F1C4A012ABCDEF0123456D2 /* SideSafeAreaHost.swift */,
 				9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */,
 				9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */,
 				9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */,
@@ -175,6 +178,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9F1C4A012ABCDEF0123456C1 /* SceneDelegate.swift in Sources */,
+				9F1C4A012ABCDEF0123456D1 /* SideSafeAreaHost.swift in Sources */,
 				9F1C4A012ABCDEF012345601 /* SetnayanBridgeViewController.swift in Sources */,
 				9F1C4A012ABCDEF0123456A1 /* SetnayanAuthPlugin.swift in Sources */,
 				9F1C4A012ABCDEF0123456B1 /* SetnayanStorePlugin.swift in Sources */,
@@ -320,7 +324,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = P95JPDWWB3;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -344,7 +348,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = P95JPDWWB3;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (

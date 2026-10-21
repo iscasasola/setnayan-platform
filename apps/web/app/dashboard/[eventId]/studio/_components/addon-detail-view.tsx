@@ -1,6 +1,7 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { notFound, redirect } from 'next/navigation';
 import { Rocket, Clock3, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -192,11 +193,15 @@ export async function AddOnDetailView({
       : undefined;
 
   const isInspector = variant === 'inspector';
+  // 🍎 The back link goes to the More menu, which the iPhone app does not have
+  // (#6725) — there it only re-opened Home. The app draws no back link here;
+  // its own bar is the way out (`lib/the-app-names-no-paid-service.test.ts`).
+  const storeShell = await isStoreShellRequest();
 
   const body = (
     <AppStoreLayout
       back={
-        isInspector
+        isInspector || storeShell
           ? undefined
           : { href: studioHubHref(eventId), label: 'Back to Studio' }
       }

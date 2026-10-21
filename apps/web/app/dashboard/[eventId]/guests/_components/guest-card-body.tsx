@@ -816,13 +816,19 @@ export function GuestCardBody({
               note="Their consent (RA 10173)"
             />
             {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
-                server-baked blur on EVERY projected photo, fail-closed. */}
-            <K.Toggle
-              name="faceblock_enabled"
-              defaultChecked={guest.faceblock_enabled}
-              label="Blur their face on the Live Wall"
-              note="FaceBlock — blurs every face in the shot"
-            />
+                server-baked blur on EVERY projected photo, fail-closed.
+                🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
+                iPhone app does not offer (its page is refused there), so the app
+                does not name it. The switch stays in the form, so its saved
+                answer still posts. Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+            <div data-web-only="">
+              <K.Toggle
+                name="faceblock_enabled"
+                defaultChecked={guest.faceblock_enabled}
+                label="Blur their face on the Live Wall"
+                note="FaceBlock — blurs every face in the shot"
+              />
+            </div>
             {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
             <K.Toggle
               name="face_recognition_excluded"

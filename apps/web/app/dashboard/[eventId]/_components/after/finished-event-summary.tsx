@@ -49,6 +49,13 @@ type Props = {
   /** The event's public address, when it has one. */
   slug: string | null;
   summary: AfterSummary;
+  /**
+   * 🍎 The iPhone app (lib/store-shell.ts). Its "More Services" card is not
+   * drawn there: every service it counts is a paid web extra the app does not
+   * offer or unlock, and its door (Home `?more=services`) opens nothing in
+   * the app — it landed on Home. Held by `app/the-app-names-no-paid-service.test.ts`.
+   */
+  storeShell?: boolean;
 };
 
 /** A figure, or nothing at all when it was never measured. */
@@ -98,7 +105,7 @@ function Card({
   );
 }
 
-export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }: Props) {
+export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, storeShell = false }: Props) {
   const base = `/dashboard/${eventId}`;
 
   const editorialLine =
@@ -179,12 +186,14 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={studioHubHref(eventId)} Icon={Sparkles} title="More Services" cta="Open More Services">
-          <Figure value={summary.services} unit="service" />
-          <span className="mt-0.5 block text-[12.5px] text-ink/55">
-            What you had switched on for this one.
-          </span>
-        </Card>
+        {storeShell ? null : (
+          <Card href={studioHubHref(eventId)} Icon={Sparkles} title="More Services" cta="Open More Services">
+            <Figure value={summary.services} unit="service" />
+            <span className="mt-0.5 block text-[12.5px] text-ink/55">
+              What you had switched on for this one.
+            </span>
+          </Card>
+        )}
 
         <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos" tour="post-photos">
           <Figure value={summary.photos} unit="photo" />

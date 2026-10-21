@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, DoorOpen, Map as MapIcon, Route } from 'lucide-react';
@@ -57,16 +58,20 @@ export default async function IndoorBlueprintPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
+  const storeShell = await isStoreShellRequest();
 
   return (
     <section className="space-y-6">
-      <Link
-        href={studioHubHref(eventId)}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
-      </Link>
+      {/* 🍎 "Back to add-ons" opens the More menu — not in the iPhone app (#6725), where it only re-opened Home. */}
+      {storeShell ? null : (
+        <Link
+          href={studioHubHref(eventId)}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to add-ons
+        </Link>
+      )}
 
       <PageMasthead title="Map your venue" />
       <BlueprintStudioView eventId={eventId} slug={event.slug} supabase={supabase} />

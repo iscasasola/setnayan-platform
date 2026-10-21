@@ -166,6 +166,31 @@ export const DESIGN_ZONES: Readonly<Partial<Record<AttireStyle, readonly DesignZ
     { key: 'p', label: 'Pants', fallback: '#C9AD7E' },
   ],
 };
+/**
+ * 👔 A GUEST MAN WEARS THE PALETTE ON HIS TIE (owner 2026-10-21, on the guest's Dress with us: *"for the guests. the coat
+ * and pants is not the color theme. we set the tie as their palette and keep the coat and pants black"*). For the guests'
+ * man in a design with a tie or a bow tie, each colour OPTION is worn on the tie (zone `t`, the pocket square with it);
+ * the coat, the pants and a vest are black; the shirt stays white. Only the DEFAULT: a figure given its colours zone by
+ * zone (more than the one option colour) wears them as given. Read by `zoneTints` and `pickDots` (lib/role-figure.ts),
+ * so the Studio's Guests row and the guest's Dress with us (the Guests card) draw it the same.
+ * ⚠ The guests' Barong Tagalog and Smart casual keep the 2026-10-16 zones (dot 1 the garment) — not ruled, an owner
+ * question. Entourage roles are unchanged. Women are unchanged.
+ */
+export const GUEST_SUIT_BLACK = '#1A1A1A';
+/** The designs with a tie or a bow tie — the ones a guest man wears his colour on the tie in. */
+export const TIE_DESIGNS: readonly AttireStyle[] = ['suit', 'three_piece_suit', 'tuxedo', 'vest_and_tie', 'vest_and_bow_tie'];
+/** The guests' people (`ROW_FIGURE_ROLES.guest`) who wear the palette on the tie — the guests' man. */
+const TIE_WEARERS: readonly FigureRole[] = ['guest_m'];
+/** Does this person wear their colour on the tie (a guest man, in a design with a tie)? */
+export function wearsColourOnTie(role: FigureRole | null | undefined, style: AttireStyle | null | undefined): boolean {
+  return Boolean(role && style && TIE_WEARERS.includes(role) && TIE_DESIGNS.includes(style));
+}
+/** The colour each zone of a tie design wears when the one colour is on the tie: the tie that colour, coat · pants ·
+ *  vest black, the shirt its own default (white). */
+export function tieZoneColours(style: AttireStyle, colour: string): string[] {
+  return zonesOf(style).map((z) => (z.key === 't' ? colour : z.key === 'a' || z.key === 'v' ? GUEST_SUIT_BLACK : z.fallback.startsWith('#') ? z.fallback : GUEST_SUIT_BLACK));
+}
+
 const ONE_ZONE: readonly DesignZone[] = [{ key: 'a', label: null, fallback: 'first' }];
 /** A design's zones in dot order — one, unlabelled, for a gown, a terno, a dress. */
 export function zonesOf(style: AttireStyle | null | undefined): readonly DesignZone[] {
@@ -238,6 +263,10 @@ export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, Figure
 /** The design a role drawing is in (`groom-tuxedo` → `tuxedo`), or null for a garment drawing. */
 export function designOfArt(g: FigureGarment): AttireStyle | null {
   return isRoleArt(g) ? (g.slice(g.indexOf('-') + 1) as AttireStyle) : null;
+}
+/** The role a role drawing is of (`guest_m-suit` → `guest_m`), or null for a garment drawing. */
+export function roleOfArt(g: FigureGarment): FigureRole | null {
+  return isRoleArt(g) ? (g.slice(0, g.indexOf('-')) as FigureRole) : null;
 }
 
 /** A child stands about four-fifths of an adult (the prototype's 104 of 132). */

@@ -14,7 +14,11 @@ import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
 import { stripComments } from '@/lib/strip-comments';
 
 const strip = stripComments;
-const PAGE = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
+// The page reads the account; `YouCard` draws it (split 2026-10-21 so /dev/you-lab can draw the real card).
+// The card's claims are read across BOTH, so the split cannot hide one.
+const PAGE_ONLY = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
+const CARD = strip(readFileSync('app/signup/you/_components/you-card.tsx', 'utf8'));
+const PAGE = `${PAGE_ONLY}\n${CARD}`;
 const ACTIONS = strip(readFileSync('app/signup/you/actions.ts', 'utf8'));
 const FIELD = strip(readFileSync('app/signup/you/_components/account-name-field.tsx', 'utf8'));
 const SIGNUP_ACTIONS = strip(readFileSync('app/signup/actions.ts', 'utf8'));
@@ -22,8 +26,11 @@ const CALLBACK = strip(readFileSync('app/auth/callback/route.ts', 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) || []).length;
 
 test('the card posts to saveYou, and nothing else', () => {
-  assert.equal(count(PAGE, /<form\b[^>]*action=\{saveYou\}/), 1);
-  assert.equal(count(PAGE, /<form\b/), 1, 'a second form on the card would post to something else');
+  // The page hands the card saveYou; the card's one form posts exactly what it was handed.
+  assert.match(PAGE_ONLY, /<YouCard\b[^>]*\baction=\{saveYou\}/);
+  assert.equal(count(PAGE_ONLY, /<form\b/), 0, 'the page draws no form of its own');
+  assert.equal(count(CARD, /<form\b[^>]*action=\{action\}/), 1);
+  assert.equal(count(CARD, /<form\b/), 1, 'a second form on the card would post to something else');
 });
 
 test('every field the card writes is on the form, by the profile page’s own names', () => {

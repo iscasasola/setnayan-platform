@@ -255,7 +255,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null }) {
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -273,13 +273,13 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: 
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,
-        profileDone: 4,
+        profileDone: rail ? 6 : 4,
         profileTotal: 6,
-        serviceCount: 0,
+        serviceCount: rail === 'docs' ? 1 : 0,
         docsStatus: 'none',
         docsIn: 0,
         docsTotal: 4,
-        submitMissing: ['Finish your business profile'],
+        submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
       })
     : null;

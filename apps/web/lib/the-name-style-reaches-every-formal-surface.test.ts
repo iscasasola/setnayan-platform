@@ -277,7 +277,7 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx',
     'app/dashboard/(account)/profile/page.tsx',
-    'app/signup/you/page.tsx',
+    'app/signup/you/_components/you-card.tsx',
   ];
   for (const rel of screens) {
     const src = readFileSync(join(APP, rel), 'utf8');

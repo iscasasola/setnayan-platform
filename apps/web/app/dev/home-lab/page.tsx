@@ -44,6 +44,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { LabSpotlight } from './lab-spotlight';
+import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
@@ -143,7 +145,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -364,6 +366,15 @@ export default async function HomeLab({
       />
     </div>
   );
+  /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */
+  const lit = q.spot === '1' ? (
+    <>
+      {home}
+      {TOURS.host_spotlight_v1.spotlight ? <LabSpotlight name="Isabel" script={TOURS.host_spotlight_v1.spotlight} /> : null}
+    </>
+  ) : (
+    home
+  );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
-  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{home}</LabShell> : home;
+  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{lit}</LabShell> : lit;
 }

@@ -122,7 +122,7 @@ function seed() {
   });
   DB.guests = [
     g({ guest_id: 'bride', role: 'bride', rsvp_status: 'attending' }),
-    g({ guest_id: 'debut', role: 'debutante', rsvp_status: 'attending' }),
+    g({ guest_id: 'celeb', role: 'celebrant', rsvp_status: 'attending' }),
     g({ guest_id: 'ana', first_name: 'Ana', plus_one_count: 2, plus_one_allowed: true }),
     g({ guest_id: 'ana-1', first_name: 'TBA', plus_one_of_guest_id: 'ana' }),
     g({ guest_id: 'ana-2', first_name: 'Ben', plus_one_of_guest_id: 'ana', plus_one_name_confirmed_at: '2026-10-01T00:00:00Z' }),
@@ -158,17 +158,17 @@ test('2 · Set reply Attending: every selected guest but the couple and the hono
   const { setGuestRsvp, restoreGuestRsvpAndSeat } = await actions();
   seed();
   const before = snapshot();
-  const res = await quiet(() => setGuestRsvp(EV, ['bride', 'debut', 'ana', 'cora', 'bert'], 'attending'));
+  const res = await quiet(() => setGuestRsvp(EV, ['bride', 'celeb', 'ana', 'cora', 'bert'], 'attending'));
   assert.ok(res.ok, `refused: ${!res.ok ? res.error : ''}`);
   assert.deepEqual(res.changed.map((c) => c.guest_id).sort(), ['ana', 'cora'], 'the couple / honoree were moved, or someone was missed');
-  assert.equal(res.skipped, 3, 'the bride, the debutante and Bert (already attending) are the skipped three');
+  assert.equal(res.skipped, 3, 'the bride, the celebrant and Bert (already attending) are the skipped three');
   for (const id of ['ana', 'cora']) {
     assert.equal(row(id).rsvp_status, 'attending');
     assert.equal(row(id).rsvp_set_by, 'host', `${id}'s reply is not marked as the host's`);
     assert.ok(row(id).rsvp_responded_at, `${id}'s answer has no date`);
   }
   assert.equal(row('bert').rsvp_set_by, 'guest', 'Bert’s own yes was re-marked as the host’s');
-  assert.equal(row('debut').rsvp_set_by, null, 'the honoree was marked');
+  assert.equal(row('celeb').rsvp_set_by, null, 'the honoree was marked');
   const undo = await quiet(() => restoreGuestRsvpAndSeat(EV, res.changed, res.seats));
   assert.ok(undo.ok);
   assert.equal(snapshot(), before, 'Undo did not put every reply back exactly');
@@ -178,8 +178,10 @@ test('2b · Set reply Not coming: chairs freed, only seats with NO name released
   const { setGuestRsvp, restoreGuestRsvpAndSeat } = await actions();
   seed();
   const before = snapshot();
-  const res = await quiet(() => setGuestRsvp(EV, ['ana'], 'declined'));
+  const res = await quiet(() => setGuestRsvp(EV, ['ana', 'bride', 'celeb'], 'declined'));
   assert.ok(res.ok);
+  assert.deepEqual([row('bride').rsvp_status, row('celeb').rsvp_status], ['attending', 'attending'], 'the couple or the honoree was set Not coming');
+  assert.deepEqual(res.changed.map((c) => c.guest_id), ['ana']);
   assert.equal(row('ana').rsvp_status, 'declined');
   assert.equal(row('ana').rsvp_set_by, 'host');
   assert.ok(!DB.event_seat_assignments.some((x) => x.guest_id === 'ana'), 'Ana’s chair was not freed');

@@ -407,7 +407,19 @@ export function buildEventMenuSections(
   // services since we have the guestlist, your team and event hub maker on the
   // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
   const services = ctx.services ?? [];
-  put({
+  /*
+    🍎 THE APP HAS NO MORE (owner 2026-10-21, testing TestFlight build 5:
+    *"pressing more on the bottom nav jumps me to home. but i do not see the
+    other services there"* → *"if all is at home already, then we can remove
+    more"*). In the store shell all five services are paid and all dropped
+    (`STORE_SHELL_HIDDEN_ADDON_KEYS`, App Review 3.1.1), so this row had no
+    children and its door was Home `?more=services` — a tab that only re-opened
+    Home. It is not built in the app: the bar is Home · Guests · Suppliers ·
+    Hub, and the iPad rail and the ☰ drawer lose the same dead row. The web
+    always keeps it (the paid services live there).
+    `the-app-bar-has-no-more.test.ts` holds it.
+  */
+  if (!ctx.storeShell) put({
     key: 'studio',
     label: SUITE_NAV_ON ? 'More Services' : 'Studio',
     href: studioHubHref(eventId),

@@ -121,6 +121,9 @@ export function CustomerBottomNav({
    * layout.tsx (`ourServicesMenuChildren`). The bar NEVER draws them as a sub-
    * row: its "More" tab opens a chooser sheet with them. Empty → the tab goes
    * to its address (Home, `?more=services`), where there is nothing to open.
+   * 🍎 In the app (store shell) all five are paid and dropped, so the tree
+   * builds NO More tab there at all (owner 2026-10-21, "if all is at home
+   * already, then we can remove more") — see `buildEventMenuSections`.
    */
   services?: ReadonlyArray<EventMenuChild>;
 }) {

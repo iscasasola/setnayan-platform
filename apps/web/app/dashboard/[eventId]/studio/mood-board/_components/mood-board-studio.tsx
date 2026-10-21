@@ -1147,7 +1147,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                             })
                           }
                         />
-                        <small className="-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65" data-mood-board-dot-word={zoneLabel}>{zoneLabel}</small>
+                        {/* 🎛 Three controls side by side in a men's column at 375 px (owner 2026-10-21, "3 palette controls"):
+                            a two-word label wraps under its own dot rather than pushing the third dot onto a new line. */}
+                        <small className={`-mt-1 ${two ? 'max-w-[52px]' : 'max-w-[64px]'} text-center text-[10.5px] leading-tight text-ink/65`} data-mood-board-dot-word={zoneLabel}>{zoneLabel}</small>
                       </span>
                     );
                     const figure = (

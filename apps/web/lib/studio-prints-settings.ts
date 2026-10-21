@@ -4,8 +4,10 @@
  * `prototypes/prints_settings_and_downloads_2026-10-17.html`). No request, no React — the words the rows say and the lists they
  * pick from, so a guard can hold them.
  *
- *   · ⚙ PRINT SETTINGS — every switch and input that sat inside a piece row, in ONE sheet with the one Save (the same print
- *     words form, the same field names — `studio-prints-posts-the-same.test.ts`). The sheet's headings are `PRINT_SETTINGS_HEADS`.
+ *   · ⚙ PRINT SETTINGS — every switch and input that sat inside a piece row, in ONE sheet (the same print words form, the same
+ *     field names — `studio-prints-posts-the-same.test.ts`). The sheet's headings are `PRINT_SETTINGS_HEADS`. NO Save since
+ *     2026-10-21 (owner *"why is there a save here? when any press changes it right away?"*): each press posts, and the sheet says
+ *     `PRINT_SETTINGS_SAVED` in the house toast (`print-settings-has-one-way-to-save.test.ts`).
  *   · A PIECE ROW — picture · name · size line · size ▾ · ONE Download (free).
  *   · A GUEST PRINT (Event pass · Digital ticket · Guest QR codes · Table signs & place cards) — ONE View as ▾ shared by all four
  *     (`guestPickOptions`), a Download for that guest (free), All guests ◆ (Event Hub Pro), and the line under both
@@ -16,6 +18,8 @@
 /** The ⚙ row's name and its one line — what the sheet holds (prototype `.band .gear`). */
 export const PRINT_SETTINGS_LABEL = 'Print settings';
 export const PRINT_SETTINGS_LINE = 'QR · NFC spot · words on the cards · passes · seat plan';
+/** What the sheet's toast says when a press has been kept — plain, and true for every write the sheet makes. */
+export const PRINT_SETTINGS_SAVED = 'Saved.';
 
 /** The sheet's headings, in the prototype's order. `line` is the small word at a heading's right. */
 export const PRINT_SETTINGS_HEADS = {

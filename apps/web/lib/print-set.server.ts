@@ -10,7 +10,7 @@ import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
 import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_PARENT_FIELDS, ENTOURAGE_ROLES, type EntourageGuestRow } from '@/lib/entourage';
-import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -43,6 +43,7 @@ import {
   printProgram,
   type MenuMoment,
   printedDate,
+  printVenueLines,
   printLookFor,
   type PrintLook,
   type PrintMode,
@@ -74,7 +75,7 @@ import { isPlaceholderSeat } from '@/lib/extra-seats';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, ceremony_type, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
+  'event_id, display_name, event_type, event_date, event_date_precision, slug, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, ceremony_type, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names, qr_shown, papic_on, gifts_on, logo_wanted, cover_photo_wanted';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -85,6 +86,8 @@ export type PrintEventRow = {
   display_name: string | null;
   event_type: string | null;
   event_date: string | null;
+  /** 📅 How precise the date is (`day` · `month` · `year`) — the print says it as the Event Hub does (`printedDate`). */
+  event_date_precision?: string | null;
   slug: string | null;
   invite_theme: string | null;
   /** 🎨 The Look's own choices (Colours · Buttons · Font) — the guided Look step's "done" reads them (2026-10-05). */
@@ -96,6 +99,12 @@ export type PrintEventRow = {
   venue_address: string | null;
   std_film_ceremony_name: string | null;
   std_film_venue_name: string | null;
+  /** 📍 The rest of the Event Hub's venue columns — the print's venue lines are the Hub's own pick (`resolveEventVenues`). */
+  venue_latitude?: number | string | null;
+  venue_longitude?: number | string | null;
+  ceremony_venue_address?: string | null;
+  ceremony_venue_latitude?: number | string | null;
+  ceremony_venue_longitude?: number | string | null;
   dress_code_config: unknown;
   role_palette: unknown;
   /** The ceremony (`muslim` adds the Nikah principals' row) — the dress code's rows are the guest page's. */
@@ -566,7 +575,8 @@ async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event:
   const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
     readEntourage(admin, eventId, readRoleNames(event.role_names), stored.nameStyle),
-    resolveStdFinalizedVenues(admin, eventId),
+    // 📍 The Event Hub's own venue read — the print names the places the Hub's Venue scene names (`printVenueLines`).
+    loadVenueBookings(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     readGiftLines(admin, eventId),
     stored.rsvp?.kind === 'host' ? readRsvpHosts(eventId) : Promise.resolve([] as RsvpHostOption[]),
@@ -643,12 +653,13 @@ export async function loadPrintSet(
   const inc = stored.include;
   // 🕒 A drafted ceremony time stands where Apply will put it (`blocksWithDraftedCeremony`).
   const draftDay =
-    typeof event.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(event.event_date) && ((event as { event_date_precision?: unknown }).event_date_precision ?? 'day') === 'day'
+    typeof event.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(event.event_date) && (event.event_date_precision ?? 'day') === 'day'
       ? event.event_date.slice(0, 10)
       : null;
   const blocks = draft && 'ceremony_time' in draft ? blocksWithDraftedCeremony(liveBlocks, draft.ceremony_time, draftDay) : liveBlocks;
 
   const ceremony = ceremonyBlock(blocks);
+  const hubVenues = printVenueLines(resolveEventVenues(venues, event));
   const reception = firstBlockOf(blocks, 'reception');
   const mark = resolveMonogram(event);
   const [a, b] = splitInitials(mark.text || event.display_name || '');
@@ -693,11 +704,12 @@ export async function loadPrintSet(
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
     eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',
-    dateLabel: printedDate(event.event_date),
+    // 📅📍 The date and the places AS THE EVENT HUB HOLDS THEM — one value, two doors (owner 2026-10-21).
+    dateLabel: printedDate(event.event_date, event.event_date_precision),
     ceremonyTime: blockTime(ceremony),
-    ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,
+    ceremonyVenue: hubVenues.ceremony,
     receptionTime: blockTime(reception),
-    receptionVenue: reception?.location?.trim() || venues.reception || event.std_film_venue_name?.trim() || event.venue_name?.trim() || null,
+    receptionVenue: hubVenues.reception,
     monogram: printMark.monogram,
     initials: [a, b].filter(Boolean).join(' & ') || 'S',
     // 🔑 THE INCLUDE TOGGLES DECIDE WHAT IS HANDED TO THE LAYOUT — an unticked

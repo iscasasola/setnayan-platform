@@ -23,6 +23,8 @@ import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import type { WebFormAction } from '@/lib/native-account-save';
 import { eventWordsFor } from '../_lib/event-words';
 import { PlusOneDoor } from './_components/plus-one-door';
+import { accountStandingOnEvent } from '@/lib/link-guest-account';
+import { seatDisplayName } from '@/lib/seat-binding';
 
 export const metadata = { title: 'Welcome' };
 export const dynamic = 'force-dynamic';
@@ -149,6 +151,13 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
+    // The plus-one's name as the bringer gave it (first + last) — this door never prints a Shown as.
+    seatName: seatDisplayName({
+      first_name: guest.first_name as string | null,
+      last_name: guest.last_name as string | null,
+    }),
+    // 🔒 A host looking at a plus-one's door is never offered the seat (lib/seat-binding.ts `'manager'`).
+    viewerManagesEvent: user ? (await accountStandingOnEvent(admin, event.event_id as string, user.id)).manages : false,
   });
   const showPass = search.pass === '1';
   // Kept in their account and nothing required missing — nothing to welcome.

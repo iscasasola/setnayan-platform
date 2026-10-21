@@ -35,6 +35,17 @@
  *     with `COUPLE_SEAT_REFUSED`.
  *   · A couple seat is never OFFERED either — not as a "Same as …" match for a
  *     request, not in the Link picker (`isCoupleSeat` filters both).
+ *   · 🔒 AN ACCOUNT THAT MANAGES THE EVENT IS NEVER BOUND TO A GUEST'S SEAT
+ *     (owner, 2026-10-21 — his own wedding again). Signed in as himself, the
+ *     HOST, on Pam's personal link, he was asked *"This invitation is for Pam.
+ *     Save it to <his own email>?"* with a "Yes, save to my account" under it.
+ *     A host, co-host, coordinator or helper (`accountManagesEvent` — the same
+ *     "host" the page's pass rule and owner layer use: a `couple` /
+ *     `coordinator` membership, or an accepted, not-removed delegate) holds a
+ *     guest's link to LOOK at it, never to keep it. Refused with `'manager'` —
+ *     unless the seat is already the account's OWN (`seatIsAccountsOwn`: its
+ *     membership or its delegate row names this very seat). The page offers no
+ *     press either: it says `hostViewingLine` in the button's place.
  */
 
 /**
@@ -54,12 +65,14 @@ export function isCoupleSeat(
   return (extraRoles ?? []).some((r) => typeof r === 'string' && COUPLE_SEAT_ROLES.includes(r));
 }
 
-export type SeatBindRefusal = 'couple_seat' | null;
+export type SeatBindRefusal = 'couple_seat' | 'manager' | null;
 
 /**
- * May THIS account be bound to THIS seat? `null` = yes. Only a couple seat can
- * be refused here; every other rule (already held by someone else, deleted,
- * wrong event) is enforced where the row is read.
+ * May THIS account be bound to THIS seat? `null` = yes. Two refusals live here —
+ * an account that manages the event (`'manager'`, checked FIRST: it is about who
+ * is pressing, whatever the seat) and a couple seat (`'couple_seat'`); every
+ * other rule (already held by someone else, deleted, wrong event) is enforced
+ * where the row is read.
  */
 export function seatBindRefusal(input: {
   seatRole: string | null | undefined;
@@ -68,7 +81,17 @@ export function seatBindRefusal(input: {
   accountIsCouple: boolean;
   /** The couple sent this account the link from this row's own guest card. */
   coupleSentTheLink?: boolean;
+  /**
+   * The account MANAGES this event — a `couple` / `coordinator` membership, or an
+   * accepted, not-removed `event_moderators` row (co-host · helper). Unknown must
+   * be passed as TRUE by the caller (fail closed: a refused bind can be retried,
+   * a wrong one is the incident).
+   */
+  accountManagesEvent?: boolean;
+  /** This seat is already the account's own (its membership or delegate row names it). */
+  seatIsAccountsOwn?: boolean;
 }): SeatBindRefusal {
+  if (input.accountManagesEvent === true && input.seatIsAccountsOwn !== true) return 'manager';
   if (!isCoupleSeat(input.seatRole, input.seatExtraRoles)) return null;
   if (input.accountIsCouple || input.coupleSentTheLink === true) return null;
   return 'couple_seat';
@@ -77,6 +100,18 @@ export function seatBindRefusal(input: {
 /** Said to the person who tried — plain words, no role jargon. */
 export const COUPLE_SEAT_REFUSED =
   'This invitation belongs to one of the people this event is for, so it can only be kept in their own account. If you were sent it by mistake, ask the couple for your own invitation.';
+
+/**
+ * 👀 SAID TO A HOST VIEWING A GUEST'S INVITATION, in the place the "Save to my
+ * account" press would stand (owner 2026-10-21: *"You're viewing Pam's
+ * invitation as the host"*). Quiet text, nothing to press — the invitation stays
+ * the guest's to keep. Also the confirm page's refusal for `'manager'`.
+ */
+export function hostViewingLine(seatName: string | null | undefined): string {
+  const name = (seatName ?? '').trim();
+  const whose = name ? `${name}’s` : 'this guest’s';
+  return `You’re viewing ${whose} invitation as the host. Only they can save it to their account.`;
+}
 
 /**
  * ONE INVITATION, ONE ACCOUNT (owner 2026-10-01, verbatim): *"save to my account.

@@ -1242,6 +1242,13 @@ h2.fd-sechead,
 .fd-sechead-go {
   color: inherit;
   text-decoration: none;
+  /* a 44px press on a 29px heading line (fits-every-phone 2026-10-21) */
+  position: relative;
+}
+.fd-sechead-go::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
 }
 .fd-sechead-go:hover,
 .fd-sechead-go:focus-visible {
@@ -1355,6 +1362,18 @@ h2.fd-sechead,
 }
 .fd-more .fd-go:hover {
   text-decoration: underline;
+}
+/* fits-every-phone 2026-10-21: every `.fd-go` door ("Open your shop →",
+   "See how sharing works →", "Browse all stories →", "See all N articles →")
+   pressed 16px tall. An expander gives each 44px without moving a line. */
+.fd-go {
+  position: relative;
+  display: inline-block;
+}
+.fd-go::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
 }
 .fd-invite-wide {
   grid-column: span 2;
@@ -1824,6 +1843,18 @@ h2.fd-sechead,
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+}
+/* fits-every-phone 2026-10-21: the pill never runs past its card. At 320 the
+   two-up grid leaves the text column 88px, and "Guest list only" (nowrap,
+   119px in WebKit) stuck out 15px and scrolled the whole page sideways
+   (iPad Audit W7). It may wrap inside its own column instead — still ≥ 44px. */
+.fd-act .fd-ask {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 .fd-ask.quiet {
   background: #f0ede6;
@@ -2775,11 +2806,19 @@ button.fd-ask.quiet {
   font-size: 15px;
 }
 .fd-opening-alt {
+  /* 44px press with no change to the line it sits on (was 22px tall) —
+     the same `::after` expander the top bar uses. */
+  position: relative;
   font-size: 14.5px;
   font-weight: 650;
   /* link slate, 8.22:1 — never the decorative gold, which is 3.48:1 and fails
      as text. Same rule the doors work closed in #4484. */
   color: var(--fd-link);
+}
+.fd-opening-alt::after {
+  content: '';
+  position: absolute;
+  inset: -11px -8px;
 }
 .fd-opening-alt:hover {
   text-decoration: underline;

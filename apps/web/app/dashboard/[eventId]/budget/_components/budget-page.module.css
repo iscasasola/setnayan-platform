@@ -221,11 +221,10 @@
   border-top: 1px solid var(--bp-line);
   min-width: 0;
 }
+/* "₱528,000 · Seda Vertis North · Oct 5" — it carries the amount, so it wraps, never cut (as `.svc` below). */
 .nextTxt {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 .nextTxt b {
   font-weight: 700;
@@ -247,6 +246,10 @@
   align-items: center;
   min-height: 44px;
   margin-block: -14px;
+  /* …and 44px WIDE: "Pay ›" is 30px of words. The box grows toward the row's
+     own text (it already sits at the far end), the words stay right-aligned. */
+  min-width: 44px;
+  justify-content: flex-end;
 }
 
 /* ═══ the one list — three groups, hairline rows ═══ */
@@ -322,12 +325,13 @@ button.row {
   white-space: nowrap;
   display: block;
 }
+/* The line under a name carries MONEY ("Reception venue · ₱105,600 paid"), so it wraps — it is never cut. On one
+   line with an ellipsis it lost the amount on every phone from 320 to 414 (fits-every-phone 2026-10-21). The name
+   above it may still truncate: a long name is a name, a cut amount is a wrong number. */
 .svc {
   font-size: 13px;
   color: var(--bp-mute);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
   display: block;
 }
 .end {

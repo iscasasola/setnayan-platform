@@ -19,6 +19,9 @@
  *   &writefail=1        Save / Remove on a card are refused (they answer in place)
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
+ *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
+ *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
+ *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report)
  *   ?tab=build          open on Build — the REAL Build body on fixtures
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
@@ -113,10 +116,13 @@ export default async function SuppliersLabPage({
     ownParts.length === 3 && ownParts[0]
       ? labOwnRow(ownParts[0], categoryKeyForAdd(ownParts[0], ownParts[1], (t) => drawnTiles.has(t)), ownParts[2] ?? '')
       : null;
+  const covers = one('covers') === '1';
   const rows = empty
     ? []
     : [
-        ...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS),
+        ...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS).map((r) =>
+          covers && r.vendor_id === 'v-seda' ? { ...r, covers_plan_groups: ['cake', 'catering'] } : r,
+        ),
         ...(dunkin ? [labDunkinRow(dunkin)] : []),
         ...(own ? [own] : []),
       ];
@@ -144,6 +150,7 @@ export default async function SuppliersLabPage({
     faithSet: new Set(),
     eventId: LAB_EVENT,
     lockHandshakeEnabled: true,
+    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : undefined,
   });
 
   // The Booked body — its own fixtures, through the real derivations.

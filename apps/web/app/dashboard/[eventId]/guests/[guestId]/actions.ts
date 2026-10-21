@@ -506,14 +506,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      stand-ins ("TBA" · "+1" · "+1 · TBA") as EMPTY boxes, so the row is compared in that same spelling: an empty box over a
      stand-in is "nobody changed it", never "another screen moved it". 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
   const seatName = plusOneNameSave(
-    (prevGuest as Parameters<typeof plusOneNameSave>[0]) ?? null,
+    (prevGuest as unknown as Parameters<typeof plusOneNameSave>[0]) ?? null,
     { first_name, last_name, display_name },
     new Date().toISOString(),
   );
   if ((namesMissing && !seatName) || seatName?.kind === 'missing') return refuse('missing_name');
   const comparedRow = prevGuest && seatName
     ? (() => {
-        const typed = seatNameAsTyped(prevGuest as Parameters<typeof seatNameAsTyped>[0]);
+        const typed = seatNameAsTyped(prevGuest as unknown as Parameters<typeof seatNameAsTyped>[0]);
         return { ...prevGuest, first_name: typed.first_name, last_name: typed.last_name, display_name: typed.display_name };
       })()
     : (prevGuest ?? null);
@@ -598,7 +598,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   };
   // 🪪 A +1 seat: its name columns are what `plusOneNameSave` decided — only what was typed, never a stand-in as a typed
   // name; an unnamed seat's stored stand-ins are left exactly as they are.
-  if (!nameLocked && seatName && seatName.kind !== 'missing') {
+  if (!nameLocked && seatName) {
     delete wholeCard.first_name;
     delete wholeCard.last_name;
     delete wholeCard.display_name;

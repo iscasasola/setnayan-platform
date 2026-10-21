@@ -24,8 +24,6 @@ import { parsePhPhone } from './ph-phone';
 import {
   GROUP_CATEGORY_LABELS,
   RSVP_LABELS,
-  guestDisplayName,
-  guestFullName,
   guestRoleLabel,
   type GuestGroupCategory,
   type GuestRole,
@@ -82,7 +80,8 @@ export function exportRows<G extends ExportGuest>(guests: readonly G[]): { g: G;
     if (placedUnder(x)) continue; // drawn under their guest, or (unnamed) not a row at all
     if (seatNameAsTyped(x).unnamed) continue; // an unnamed seat whose guest is gone — still not a person
     out.push({ g: x, guestOf: '' });
-    const bringer = guestFullName(x) ?? guestDisplayName(x);
+    // Their guest's name as THIS file writes it — the same five cells their own row holds, so "Guest of" always matches a row.
+    const bringer = [x.name_prefix, x.first_name, x.middle_name, x.last_name, x.name_suffix].map((v) => (v ?? '').trim()).filter(Boolean).join(' ');
     for (const seat of seatsOf.get(x.guest_id) ?? []) out.push({ g: seat, guestOf: bringer });
   }
   return out;

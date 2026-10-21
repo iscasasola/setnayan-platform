@@ -33,7 +33,15 @@ export function useSeatingPresence(
   /** This client's view of the editor lock, re-broadcast on every change. */
   lock: LockBroadcast = { lockHolderId: null, lockHolderLabel: null, lockHeartbeatAt: null },
 ) {
-  const [peers, setPeers] = useState<Map<string, PresencePeer>>(new Map());
+  const [peers, setPeersState] = useState<Map<string, PresencePeer>>(() => new Map());
+  // 🔂 The list as last drawn, read OUTSIDE a state updater: an unchanged sync must not even call setState — React
+  // renders a component once more before bailing out of a same-value update that lands right after another update.
+  const peersRef = useRef(peers);
+  const setPeers = (next: Map<string, PresencePeer>) => {
+    if (next === peersRef.current) return;
+    peersRef.current = next;
+    setPeersState(next);
+  };
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const lastSentRef = useRef(0);
   // Latest selection readable from the subscribe callback without re-joining.
@@ -51,20 +59,17 @@ export function useSeatingPresence(
     channel
       .on('presence', { event: 'sync' }, () => {
         // 🔂 The same Map back when the others are unchanged (my own join / re-track) — no editor render for nothing.
-        const state = channel.presenceState<PresenceMeta>();
-        setPeers((prev) => nextPeers(prev, state, me.id));
+        setPeers(nextPeers(peersRef.current, channel.presenceState<PresenceMeta>(), me.id));
       })
       .on('broadcast', { event: 'cursor' }, ({ payload }) => {
         const p = payload as { id?: string; x?: number; y?: number } | null;
         if (!p || typeof p.id !== 'string' || p.id === me.id) return;
         if (typeof p.x !== 'number' || typeof p.y !== 'number') return;
-        setPeers((prev) => {
-          const peer = prev.get(p.id!);
-          if (!peer) return prev;
-          const next = new Map(prev);
-          next.set(p.id!, { ...peer, cursor: { x: p.x!, y: p.y!, ts: Date.now() } });
-          return next;
-        });
+        const peer = peersRef.current.get(p.id);
+        if (!peer) return;
+        const next = new Map(peersRef.current);
+        next.set(p.id, { ...peer, cursor: { x: p.x, y: p.y, ts: Date.now() } });
+        setPeers(next);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {

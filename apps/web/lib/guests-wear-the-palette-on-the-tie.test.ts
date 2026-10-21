@@ -114,6 +114,14 @@ test('2b · the guest’s Dress with us (the Guests card) and a guest’s own pa
   for (const guestRole of [null, 'guest']) {
     const html = renderToStaticMarkup(React.createElement(DressCodeWidget as never, { words, config: CONFIG, rolePalette: PALETTE, guestRole, readerOnly: guestRole !== null }));
     assertTieWearers(html, guestRole ? 'a guest’s own panel' : 'the Guests card');
+    if (guestRole) {
+      /* the panel's own colours say what each option colours, as its figures wear it — never "Coat & pants" */
+      const you = html.slice(html.indexOf('data-dress-code="you"'));
+      assert.ok(html.includes('data-dress-code="you"'), 'precondition: the guest’s own panel is drawn');
+      const said = [...you.matchAll(/data-dot-word="([^"]*)"/g)].map((m) => m[1]!.replace(/&amp;/g, '&'));
+      assert.equal(said.filter((w) => w === 'Tie').length, GUESTS.length, `a guest’s own panel does not say "Tie" under each option (${JSON.stringify(said)})`);
+      assert.ok(!said.includes('Coat & pants'), 'a guest’s own panel says "Coat & pants" for a colour worn on the tie');
+    }
   }
   const stored = sanitizeRolePalette(PALETTE);
   const row = dressCodeForEveryone({ config: CONFIG, stored, board: resolveDisplayPalette(stored) }).rows.find((r) => r.rowKey === 'guest');

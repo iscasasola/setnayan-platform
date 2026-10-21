@@ -44,8 +44,9 @@ import { carrySeatDetailsToAccount } from '@/lib/seat-details-carry';
  *     on `/join/{id}/connect/confirm`.
  * `seat-links-only-on-purpose.test.ts` fails if login or signup call it again.
  * Every caller passes `expect.eventId` — a cookie for a DIFFERENT celebration
- * never binds — and a couple seat is refused unless the account is already one
- * of the event's couple members (`lib/seat-binding.ts`).
+ * never binds — a couple seat is refused unless the account is already one
+ * of the event's couple members, and an account that MANAGES the event is never
+ * bound to a seat that is not already its own (`lib/seat-binding.ts`, 2026-10-21).
  *
  * ── Contract ─────────────────────────────────────────────────────────────
  * This helper MUST NEVER throw — every caller is an auth flow (signup/login)
@@ -137,6 +138,58 @@ export async function isCoupleMember(
   return Boolean(data);
 }
 
+/**
+ * 🔒 DOES THIS ACCOUNT MANAGE THIS EVENT — and which seats are already its own?
+ * (owner 2026-10-21: the host, signed in as himself on Pam's personal link, was
+ * asked "Save it to <his email>?".) The SAME "host" every other reader uses —
+ * `loadHostMembership` (app/[slug]/_lib/loaders.ts) and the pass rule's
+ * `isHost` (lib/guest-session.ts): a `couple` / `coordinator` membership, or an
+ * accepted, not-removed `event_moderators` row (co-host · helper). `ownGuestIds`
+ * are the seats this account already holds here — its membership's `guest_id`
+ * and its delegate row's `guest_id` — the only seats a manager may be bound to.
+ *
+ * FAILS CLOSED: a read that errors answers `manages: true` with no own seats, so
+ * the bind is refused. A refused bind can be pressed again; a wrong one is the
+ * incident. Never throws.
+ */
+export async function accountStandingOnEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  userId: string,
+): Promise<{ manages: boolean; ownGuestIds: string[] }> {
+  try {
+    const [members, moderators] = await Promise.all([
+      admin.from('event_members').select('member_type, guest_id').eq('event_id', eventId).eq('user_id', userId),
+      admin
+        .from('event_moderators')
+        .select('guest_id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .not('accepted_at', 'is', null)
+        .is('removed_at', null),
+    ]);
+    if (members.error || moderators.error) {
+      console.error(
+        '[supabase-error] lib/link-guest-account.ts · accountStandingOnEvent',
+        members.error ?? moderators.error,
+      );
+      return { manages: true, ownGuestIds: [] };
+    }
+    const memberRows = (members.data ?? []) as Array<{ member_type: string | null; guest_id: string | null }>;
+    const moderatorRows = (moderators.data ?? []) as Array<{ guest_id: string | null }>;
+    return {
+      manages:
+        memberRows.some((r) => r.member_type === 'couple' || r.member_type === 'coordinator') ||
+        moderatorRows.length > 0,
+      ownGuestIds: [...memberRows, ...moderatorRows]
+        .map((r) => r.guest_id)
+        .filter((g): g is string => typeof g === 'string'),
+    };
+  } catch {
+    return { manages: true, ownGuestIds: [] };
+  }
+}
+
 export async function linkGuestSessionToUser(
   userId: string,
   expect: { eventId: string; guestId?: string },
@@ -171,6 +224,24 @@ export async function linkGuestSessionToUser(
     if (guestError) return { linked: false, reason: 'error' };
     if (!guest || guest.event_id !== event_id) {
       return { linked: false, reason: 'guest_not_found' };
+    }
+
+    // 🔒 A HOST HOLDS A GUEST'S LINK TO LOOK, NEVER TO KEEP (owner 2026-10-21 —
+    // lib/seat-binding.ts `'manager'`). A host who pressed "Open as Pam" carries
+    // Pam's pass honestly (the pass rule's `host_preview`), so the pass alone
+    // cannot stop this: the ACCOUNT is asked. Refused before anything is written —
+    // no membership, no name or answers copied off Pam's row onto the host.
+    const standing = await accountStandingOnEvent(admin, event_id, userId);
+    if (
+      seatBindRefusal({
+        seatRole: guest.role as string | null,
+        seatExtraRoles: guest.extra_roles as string[] | null,
+        accountIsCouple: false,
+        accountManagesEvent: standing.manages,
+        seatIsAccountsOwn: standing.ownGuestIds.includes(guest_id),
+      }) === 'manager'
+    ) {
+      return { linked: false, reason: 'manager' };
     }
 
     // 🔒 A COUPLE SEAT IS NEVER BOUND BY A GUEST LINK (lib/seat-binding.ts).

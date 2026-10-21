@@ -87,7 +87,6 @@ import {
 } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
-import { bottomNavItemMatches } from './bottom-nav-match';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
@@ -110,7 +109,32 @@ type AccordionProps = {
 
 type Props = FlatProps | AccordionProps;
 
-/** The bar's matching rule lives in `bottom-nav-match.ts` (pure, so a test can ask it). */
+/**
+ * Which bar tab a URL lights — EXPORTED (2026-10-21, the supplier bar Today ·
+ * Customers · Shop · Hub) so a test can ask the bar's OWN rule which tab a route lights,
+ * instead of re-typing the rule beside it — a second copy of a matcher is how a
+ * guard agrees with itself while the bar disagrees. Nothing about how it matches
+ * changed. ⚠ It stays IN this file on purpose: a module of its own is another
+ * entry in the Maker's shared first load, which sat AT its gzip ceiling on
+ * 2026-10-21 (507.0 of 507.0 KB on #6747; main itself measured 507.1 —
+ * `scripts/check-bundle-size.mjs`).
+ *
+ * Exact-only extras first (`activeMatchAlsoExact`) — lets a merged hub tab
+ * combine an exact landing (`/admin`) with prefix umbrellas without flipping
+ * every match to exact via `activeMatchExact`. A prefix matches itself or
+ * itself + '/', so `/budgets` never mis-matches `/budget`.
+ */
+export function bottomNavItemMatches(
+  pathname: string,
+  item: Pick<BottomNavItem, 'activeMatch' | 'activeMatchExact' | 'activeMatchAlsoExact'>,
+): boolean {
+  if (item.activeMatchAlsoExact?.some((p) => pathname === p)) return true;
+  const matches = Array.isArray(item.activeMatch) ? item.activeMatch : [item.activeMatch];
+  return item.activeMatchExact
+    ? matches.some((prefix) => pathname === prefix)
+    : matches.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
+}
+
 const matchesPath = bottomNavItemMatches;
 
 function useIsActive(pathname: string) {

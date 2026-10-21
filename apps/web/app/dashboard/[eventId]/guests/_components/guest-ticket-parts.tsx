@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -11,7 +11,7 @@ import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { useGuestActions } from './guest-actions-context';
 import { ticketFileName, ticketUrl, useTicketVersion, type TicketVersion } from './send-invite';
-import { DeleteGuestFlow } from './guest-delete';
+import { DeleteGuestFlow, useGuestRemoval } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
 import { useOneOpen } from '@/lib/one-open';
@@ -198,6 +198,7 @@ export function GuestMoreMenu({
   linked,
   returnTo,
   deletable = false,
+  seatWithNoName = false,
 }: {
   eventId: string;
   guestId: string;
@@ -215,8 +216,14 @@ export function GuestMoreMenu({
    * (`guest-delete.tsx`), and the card closes itself once it is done.
    */
   deletable?: boolean;
+  /**
+   * 🪑 This card is a +1 with no name yet (`plusOneHasNoName`) — the ⋯ says "Release seat" in place of Delete guest:
+   * gone at once, with Undo, their guest's "+N" one lower (owner 2026-10-21). A named +1 keeps Delete and its warning.
+   */
+  seatWithNoName?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { release: releaseSeat } = useGuestRemoval(eventId);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
@@ -405,6 +412,27 @@ export function GuestMoreMenu({
           </button>
         ) : null}
         {deletable ? (
+          seatWithNoName ? (
+          <button
+            type="button"
+            role="menuitem"
+            className={`${item} border-t border-ink/[0.06] text-danger-700`}
+            data-guest-release-seat=""
+            onClick={() => {
+              setOpen(false);
+              void releaseSeat([guestId], {
+                // The card is of a seat that is gone — close it, as Delete does.
+                onReleased: () => {
+                  if (inspector) inspector.close();
+                  else router.push(`/dashboard/${eventId}/guests`);
+                },
+              });
+            }}
+          >
+            <Armchair aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Release seat
+          </button>
+          ) : (
           <button
             type="button"
             role="menuitem"
@@ -418,6 +446,7 @@ export function GuestMoreMenu({
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Delete guest
           </button>
+          )
         ) : null}
       </div>,
       )}

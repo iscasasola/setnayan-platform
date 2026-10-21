@@ -28,6 +28,7 @@
  */
 
 import { deviceOs } from './apple-device';
+import { isInAppWebview } from './guest-one-path';
 
 export const HOME_SCREEN_LINE = 'Keep it handy — add this event to your home screen';
 
@@ -45,4 +46,26 @@ export function homeScreenStepsFor(userAgent: string | null | undefined): HomeSc
   if (os === 'iphone' || os === 'ipad') return [IPHONE];
   if (os === 'android') return [ANDROID];
   return [IPHONE, ANDROID];
+}
+
+/**
+ * 🚪 DOES THE LINE SHOW ON THIS SCREEN? (owner 2026-10-21, DECISION_LOG "AFTER THE REPLY: SAVE YOUR PASS · ADD THIS
+ * EVENT TO YOUR HOME SCREEN": *"teach them to add a shortcut icon for this event via Safari/Chrome (if they are on
+ * safari/chrome)"*). Only after a Yes (the 2026-10-03 row), and only where "Add to Home Screen" EXISTS:
+ *
+ *   · ⛔ INSIDE THE STORE APP (the Capacitor shell, `isStoreShellSignals`) — there is no Share → Add to Home Screen
+ *     in an app's own web view, and the guest already has the app on their phone;
+ *   · ⛔ INSIDE A CHAT APP'S BROWSER (Messenger · Instagram · Facebook, `isInAppWebview`) — no such menu either.
+ *     Nothing is said there in its place: the page's own bar at the very top (`InAppBar`, the approved ticket flow's
+ *     "Open in your browser" frame, 2026-09-29) already opens this same page in Safari / Chrome, where the line is.
+ */
+export function shortcutLineShows(input: {
+  reply: 'yes' | 'no' | 'unreplied';
+  userAgent: string | null | undefined;
+  /** The request came from the App Store / Play Store app (`isStoreShellRequest`, lib/request-platform.ts). */
+  storeShell: boolean;
+}): boolean {
+  if (input.reply !== 'yes') return false;
+  if (input.storeShell) return false;
+  return !isInAppWebview(input.userAgent);
 }

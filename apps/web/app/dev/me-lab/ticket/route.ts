@@ -13,18 +13,20 @@ import { LAB_DOORS, LAB_PEOPLE, labMeDressConfig } from '../lab-people';
 export async function GET(req: Request): Promise<Response> {
   if (process.env.NODE_ENV === 'production') return new Response('Not found', { status: 404 });
   const who = new URL(req.url).searchParams.get('who');
+  /* `&couple=mj` — the maker-lab guest's couple (Maria & Jose, 12 Dec 2026), for its after-a-Yes thank-you. */
+  const mj = new URL(req.url).searchParams.get('couple') === 'mj';
   const p = LAB_PEOPLE.find((x) => x.key === who) ?? LAB_PEOPLE[0]!;
   const data: PrintSetData = {
-    names: { first: 'Indalecio', second: 'Claire' },
+    names: mj ? { first: 'Maria', second: 'Jose' } : { first: 'Indalecio', second: 'Claire' },
     eyebrow: 'The wedding of',
     eventWord: 'Wedding',
-    dateLabel: 'Friday · December 18, 2026',
+    dateLabel: mj ? 'Saturday · December 12, 2026' : 'Friday · December 18, 2026',
     ceremonyTime: '2:00 PM',
-    ceremonyVenue: 'San Agustin Church',
+    ceremonyVenue: mj ? 'Seda Vertis North' : 'San Agustin Church',
     receptionTime: null,
     receptionVenue: null,
     monogram: null,
-    initials: 'I & C',
+    initials: mj ? 'M & J' : 'I & C',
     details: { parents: [], openingLine: null, rsvpContact: null, giftLines: [], setnayanMark: true },
     entourage: [],
     attire: [],

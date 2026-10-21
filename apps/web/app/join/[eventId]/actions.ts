@@ -252,6 +252,8 @@ async function createJoinRequest(
   const now = new Date().toISOString();
   const answerColumns = {
     rsvp_status: answers.rsvp_status,
+    // 🖐 Their own answer, in their own request (owner 2026-10-21).
+    rsvp_set_by: 'guest',
     rsvp_responded_at: now,
     meal_preference: answers.meal_preference,
     dietary_restrictions: answers.dietary_restrictions,

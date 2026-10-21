@@ -614,6 +614,9 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     .update({
       // 👥 Only what this screen changed (every column when the post had no base).
       ...Object.fromEntries(Object.entries(wholeCard).filter(([column]) => writes(column))),
+      // 🖐 MARKED BY YOU (owner 2026-10-21): a reply this card CHANGED is the host's — "Attending · Marked by you".
+      // An untouched answer keeps whoever gave it (a guest's own yes stays theirs); "No reply" carries no mark.
+      ...(writes('rsvp_status') && answerChanged ? { rsvp_set_by: effectiveRsvp === 'pending' ? null : 'host' } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)

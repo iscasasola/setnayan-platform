@@ -53,6 +53,8 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/ed
 import { loadEventShell, loadGuestLook, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
+import { shortcutLineShows } from '@/lib/home-screen-shortcut';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   REENTRY_PARAM,
   isLinkPreviewFetch,
@@ -568,6 +570,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         replyFaceOf(profile),
       );
   const repliesShut = replyWindowWords(replies, words.theOrganizer);
+  /* 📌 The shortcut line's one decision (`shortcutLineShows`): after a Yes, outside the store app and a chat app's
+     browser. (The Maker's canvas draws it as before — its sample said Yes.) */
+  const shortcutShows = shortcutLineShows({ reply, userAgent, storeShell: await isStoreShellRequest() });
   /* 📲 The tile's code for today — the SAME call the metadata makes
      (`tileCodeOnce`), so its row is stored before the page is done. Only after
      a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
@@ -964,7 +969,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             THIS phone open in place on a tap — a `<details>`, no script, never
             a popup — and the tile it makes is the couple's (`generateMetadata`
             above). Never on the Event Hub: the 2026-09-30 removal stands. */}
-        {reply === 'yes' ? <ShortcutLine userAgent={userAgent} /> : null}
+        {/* 🚪 …and only where "Add to Home Screen" exists (owner 2026-10-21): never inside the store app, never
+            inside Messenger / Instagram — the bar at the top of this page opens it in Safari / Chrome, where it is. */}
+        {shortcutShows ? <ShortcutLine userAgent={userAgent} /> : null}
 
         {nothingToSave ? (
           <SaveToAccount

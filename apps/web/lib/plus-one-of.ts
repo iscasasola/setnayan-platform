@@ -30,12 +30,13 @@ type Host = Pick<GuestRow, 'guest_id' | 'first_name' | 'last_name' | 'display_na
 
 /** `seatIndex` is 0-based among the guest's seats ("+2" is the second). */
 export function plusOneOfWords(
-  g: Pick<GuestRow, 'guest_id' | 'first_name'>,
+  g: Pick<GuestRow, 'guest_id' | 'first_name' | 'plus_one_name_confirmed_at'>,
   host: Host,
   seatIndex: number,
 ): PlusOneOf {
   const hostName = guestDisplayName(host);
-  const unnamed = isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
+  // The name's stamp when the read carried it — the same answer as the List's "no name yet" (`plusOneHasNoName`).
+  const unnamed = isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at ?? null });
   return {
     hostId: host.guest_id,
     hostName,

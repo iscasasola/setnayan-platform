@@ -20,9 +20,11 @@ import {
   guestRoleLabel,
   guestRolePickLabel,
   SIDE_LABELS,
+  type GuestGroupTeamSide,
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
+import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
 import { useGuestActions } from './guest-actions-context';
@@ -100,7 +102,8 @@ const SIDE_SHORT: Record<GuestSide, string> = {
   both: 'Both',
 };
 
-type GroupOpt = { group_id: string; label: string };
+/** `team_side` when known — two groups of one name then say their sides in the Group list. */
+type GroupOpt = { group_id: string; label: string; team_side?: GuestGroupTeamSide };
 
 export function QuickAddSheet({
   eventId,
@@ -169,6 +172,11 @@ export function QuickAddSheet({
     }
     return merged;
   }, [groups, localGroups]);
+  /* 👥 Same name, say the side (owner 2026-10-21): two groups of one name each carry their side's word. */
+  const namesakes = useMemo(
+    () => sidesForNamesakes(allGroups.flatMap((g) => (g.team_side ? [{ groupId: g.group_id, label: g.label, teamSide: g.team_side }] : []))),
+    [allGroups],
+  );
 
   // Merge the server snapshot with this session's just-added guests
   // (router.refresh() is async, so addedLocal covers the gap), deduped
@@ -467,7 +475,7 @@ export function QuickAddSheet({
                     value={newGroupMode ? '__new__' : groupId}
                     options={[
                       { key: '', label: 'No group' },
-                      ...allGroups.map((g) => ({ key: g.group_id, label: g.label })),
+                      ...allGroups.map((g) => ({ key: g.group_id, label: groupLabelWithSide(g.label, namesakes.get(g.group_id)) })),
                       { key: '__new__', label: '＋ New group…' },
                     ]}
                     onPick={(v) => {

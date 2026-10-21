@@ -5,6 +5,8 @@ import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
+import { clashWords, groupNameClash } from '@/lib/group-name-clash';
 import { carrySideToTheirPlusOnes, seatNumbersFollowTheRows } from '@/lib/extra-seats-sync';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -314,21 +316,16 @@ export async function createGuestGroup(
   }
 
   const supabase = await createClient();
-  const { data: inserted, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id')
-    .single();
-
-  if (error || !inserted) {
+  // 👥 One name, one group (2026-10-21): a name already in this side's list IS that group — the preselected guests join
+  // it instead of a twin being made (`makeGuestGroupOnce`, the one place an own group is written).
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) {
     // 23505 from the case-insensitive unique index — friendlier copy
     // than the raw constraint name.
-    const friendly =
-      error && (error as { code?: string }).code === '23505'
-        ? 'A group with that name already exists for this event.'
-        : (error?.message ?? 'insert_failed');
+    const friendly = made.code === '23505' ? 'A group with that name already exists for this event.' : made.error;
     redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
   }
+  const inserted = made.group;
 
   // Auto-attach any preselected guests so a single submit covers both
   // "new group" + "add these guests to it".
@@ -373,6 +370,17 @@ export async function updateGuestGroup(
   }
 
   const supabase = await createClient();
+  // 👥 One name, one group: a rename or a side move that would twin a group in the same list is refused, as the Group
+  // dropdown's in-place rename is (`groupNameClash`). A refused read refuses the write.
+  const { data: ownRows, error: ownErr } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
+  if (ownErr) redirect(backToList(eventId, { error: encodeURIComponent('Couldn’t read your groups — nothing was changed.') }));
+  const own = ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[]).map((g) => ({
+    groupId: g.group_id,
+    label: g.label ?? '',
+    teamSide: (g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : 'both') as GuestGroupTeamSide,
+  }));
+  const clash = groupNameClash(label, teamSide, [], own, groupId);
+  if (clash) redirect(backToList(eventId, { error: encodeURIComponent(clashWords(clash)) }));
   const { error } = await supabase
     .from('guest_groups')
     .update({ label, team_side: teamSide })

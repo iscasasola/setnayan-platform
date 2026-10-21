@@ -19,8 +19,10 @@
  * do, so the tests measure real layouts instead of flags.
  */
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
+import { LOGO_FONT_OUTLINE, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import type { FlatMark } from '@/lib/print-mark';
-import { roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
+import { entourageCellWord, loneRoleWord, roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import type { QrShape } from '@/lib/qr-look';
@@ -134,6 +136,8 @@ export type PrintSetData = {
   menu?: MenuMoment[];
   /** The Our Story poster's chapters — the Love Story, in reading order (`printStoryChapters`, lib/love-story-moments.ts). */
   story?: PrintStoryChapter[];
+  /** 👫 The entourage style the Hub wears (`PrintEntourageStyle`) — absent: the print's own card. */
+  entourageStyle?: PrintEntourageStyle;
   /** Is the theme's still (or the couple's hero) in `images.still`? */
   hasStill: boolean;
   /** 🖼 The couple chose their own photo for the Our Story poster (`images.posterBg`). */
@@ -179,11 +183,37 @@ export type PrintPass = {
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 
+/**
+ * The file a print face is read from: a bundled print face, or a Hub face's outline file — the SAME TrueType the
+ * Logo outlines that face from (`LOGO_FONT_OUTLINE`), served from `public/` and traced into the print lambda
+ * (`next.config.ts`).
+ */
+export function printFontFile(key: PrintFontKey): string {
+  if (key.startsWith('hub-')) return `public${LOGO_FONT_OUTLINE[key.slice(4) as HubFontKey]}`;
+  return PRINT_FONT_FILES[key as keyof typeof PRINT_FONT_FILES];
+}
+
 const fontCache = new Map<PrintFontKey, OtFont>();
+
+/** Do a face's capitals and round letters stay within two em of the baseline — i.e. are its outlines real letters? */
+function outlinesStayInTheirBox(f: OtFont): boolean {
+  for (const ch of 'OAEgQ') {
+    const b = f.getPath(ch, 0, 0, 100).getBoundingBox();
+    if (!(b.y2 - b.y1 < 200 && b.x2 - b.x1 < 200)) return false;
+  }
+  return true;
+}
 export function printFont(key: PrintFontKey): OtFont {
   let f = fontCache.get(key);
   if (!f) {
-    f = loadOtFont(PRINT_FONT_FILES[key]);
+    f = loadOtFont(printFontFile(key));
+    if (key.startsWith('hub-')) {
+      pinLogoFaceWeight(f as unknown as OtFace, key.slice(4) as HubFontKey);
+      /* 🪤 MEASURED 2026-10-21: Josefin Sans pinned to the stage's 400 (`LOGO_FONT_VARIATION`) draws its "O" 27 em
+         tall in this opentype.js — spikes across the whole card. A face whose letters leave their em box cannot go on
+         paper; the card is set in the print's own body face instead, never in broken outlines. */
+      if (!outlinesStayInTheirBox(f)) f = key === 'cardo' ? f : printFont('cardo');
+    }
     fontCache.set(key, f);
   }
   return f;
@@ -502,6 +532,10 @@ function still(ops: PrintOp[], look: PrintLook, data: PrintSetData, w: number, h
   if (!data.hasStill || look.still === 'none') return { top: 0, left: 0 };
   if (look.still === 'full') {
     ops.push({ t: 'image', ref: 'still', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b });
+    if (look.frame) {
+      paperPanel(ops, look, look.frame, w, h, b);
+      return { top: 0, left: 0 };
+    }
     if (look.scrim) ops.push({ t: 'rect', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b, fill: look.scrim.color, opacity: look.scrim.opacity });
     return { top: 0, left: 0 };
   }
@@ -520,6 +554,35 @@ function still(ops: PrintOp[], look: PrintLook, data: PrintSetData, w: number, h
     ops.push({ t: 'rect', x: -b, y: y0, w: w + 2 * b, h: (bh - fadeFrom) / steps + 0.5, fill: look.paper, opacity: Math.min(1, (i + 1) / steps) });
   }
   return { top: bh, left: 0 };
+}
+
+/**
+ * 🖼 THE HUB'S PICTURE, PRINT-SAFE (`PrintLook.frame`, lib/print-hub-look.ts). The picture runs to the bleed under
+ * the Hub's OWN scrim — the paper veil the guest page lays over it (`resolveAdaptiveTheme(…).scrim`) — so the edge
+ * of the card is the Hub's background as the guest sees it. The words sit on a paper panel `inset` points in from
+ * the trim, at `inner` (never below the Hub's scrim; raised until every ink reads on the picture's lightest and
+ * darkest parts), its edge feathered into the margin so the panel is a fade, not a box. Opacities STACK the way
+ * the backends composite them (`over`), so the panel's own steps are solved for the total they must reach.
+ */
+/** How far the panel's edge fades, inward from `inset` — the words start past it (≥ 26 pt from the trim). */
+export const FRAME_FEATHER_PT = 10;
+
+function paperPanel(ops: PrintOp[], look: PrintLook, frame: NonNullable<PrintLook['frame']>, w: number, h: number, b: number) {
+  const paper = look.scrim?.color ?? look.paper;
+  if (frame.outer > 0) ops.push({ t: 'rect', x: -b, y: -b, w: w + 2 * b, h: h + 2 * b, fill: paper, opacity: frame.outer });
+  if (frame.inner <= frame.outer) return;
+  const steps = 6;
+  /* Outermost ring first; ring i covers everything inside it, so the middle carries every ring and reaches `inner`,
+     and each band toward the edge carries one ring fewer. Each ring adds just enough paper, over what lies under it,
+     for its band to reach its share of the way from `outer` to `inner`. */
+  let had = frame.outer;
+  for (let i = 1; i <= steps; i += 1) {
+    const want = frame.outer + ((frame.inner - frame.outer) * i) / steps;
+    const add = had >= 1 ? 0 : (want - had) / (1 - had);
+    const pad = frame.inset + (FRAME_FEATHER_PT * (i - 1)) / (steps - 1);
+    if (add > 0) ops.push({ t: 'rect', x: pad, y: pad, w: w - 2 * pad, h: h - 2 * pad, fill: paper, opacity: Math.min(1, add) });
+    had = want;
+  }
 }
 
 /** The couple's own poster photo, full bleed, under a paper veil so the story reads over it. */
@@ -543,7 +606,7 @@ function lockup(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: number,
 }
 
 function eyebrow(ops: PrintOp[], look: PrintLook, s: string, x: number, y: number, size: number, align: 'center' | 'left' = 'center', color?: string) {
-  text(ops, s, x, y, { font: look.bodyFont, size, color: color ?? look.muted, align, caps: true, tracking: 0.22 });
+  text(ops, s, x, y, { font: look.labelFont ?? look.bodyFont, size, color: color ?? look.muted, align, caps: true, tracking: 0.22 });
 }
 
 // ─── The pieces ─────────────────────────────────────────────────────────────
@@ -830,19 +893,28 @@ function cardHead(ctx: Ctx, doc: PrintDoc, small: string, title: string): number
   const d = cy - 44;
   medallion(doc.ops, look, data, cx, cy, r, false);
   eyebrow(doc.ops, look, small, cx, 78 + d, 7);
-  text(doc.ops, title, cx, 102 + d, { font: look.headFont, size: 22, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: doc.w - 60, layer: ctx.foil ? 'foil' : undefined });
+  text(doc.ops, title, cx, 102 + d, { font: look.headingFont ?? look.headFont, size: 22, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: doc.w - 60, layer: ctx.foil ? 'foil' : undefined });
   rule(doc.ops, cx, 114 + d, 30, look.accent);
   return 132 + d;
 }
 
 function sectionHead(ops: PrintOp[], look: PrintLook, s: string, cx: number, y: number, half: number, size = 7) {
-  const width = measure(s.toUpperCase(), look.bodyFont, size, 0.24 * size);
-  text(ops, s, cx, y, { font: look.bodyFont, size, color: look.accent, align: 'center', caps: true, tracking: 0.24, maxWidth: half * 2 });
+  const width = measure(s.toUpperCase(), look.labelFont ?? look.bodyFont, size, 0.24 * size);
+  text(ops, s, cx, y, { font: look.labelFont ?? look.bodyFont, size, color: look.accent, align: 'center', caps: true, tracking: 0.24, maxWidth: half * 2 });
   const gap = width / 2 + 7;
   if (half > gap + 6) {
     ops.push({ t: 'rect', x: cx - half, y: y - 2.6, w: half - gap, h: 0.5, fill: look.accent, opacity: 0.6 });
     ops.push({ t: 'rect', x: cx + gap, y: y - 2.6, w: half - gap, h: 0.5, fill: look.accent, opacity: 0.6 });
   }
+}
+
+/** Lines' group heading — the page's `.pahina-eyebrow`: small caps in the accent, flush left, a short rule after. */
+function linesHead(ops: PrintOp[], look: PrintLook, s: string, x: number, y: number, maxW: number, size = 7) {
+  const font = look.labelFont ?? look.bodyFont;
+  const width = Math.min(maxW, measure(s.toUpperCase(), font, size, 0.24 * size));
+  text(ops, s, x, y, { font, size, color: look.accent, align: 'left', caps: true, tracking: 0.24, maxWidth: maxW });
+  const rule = Math.min(40, maxW - width - 8);
+  if (rule > 8) ops.push({ t: 'rect', x: x + width + 8, y: y - 2.6, w: rule, h: 0.5, fill: look.accent, opacity: 0.55 });
 }
 
 // ─── The Entourage: measured, balanced, never off the card ─────────────────
@@ -859,7 +931,15 @@ export type EntourageLine = {
   sub?: string;
   /** `c` holds a data-paired couple on one line ("Hon. Ricardo & Mrs. Jessica Villahermosa") — TWO people. */
   pair?: true;
+  /** A lone person's role word, printed small under their centred name (the Hub's `loneRoleWord` / `entourageCellWord`). */
+  word?: string;
 };
+
+/**
+ * 👫 THE ENTOURAGE STYLE THE HUB WEARS (`events.style_preferences.scene_styles.entourage`, lib/scene-styles-stages.ts;
+ * owner 2026-10-15 "ON THE AXIS · LINES · THE MARCH"). Absent = the print's own card as it always was.
+ */
+export type PrintEntourageStyle = 'roll-call' | 'lines';
 
 /**
  * A group as printed lines.
@@ -877,7 +957,7 @@ export type EntourageLine = {
  * girls, the secondary sponsors) reads down the middle — or, when `flow` is on
  * because the card is full, in two balanced columns.
  */
-export function printedEntourageLines(g: EntourageGroup, flow: boolean): EntourageLine[] {
+export function printedEntourageLines(g: EntourageGroup, flow: boolean, style?: PrintEntourageStyle): EntourageLine[] {
   /* ⚖ OWNER 2026-09-30 — the Secondary Sponsors print BY ROLE, as on the
      invitation page: "Candle" once as a small sub-heading, the pair(s) under
      it, and no "· Candle Sponsor" after any name. Same `roleBlocks` the page
@@ -886,9 +966,10 @@ export function printedEntourageLines(g: EntourageGroup, flow: boolean): Entoura
   if (blocks) {
     return blocks.flatMap((b) => [
       { sub: b.label },
-      ...printedEntourageLines({ ...g, key: `${g.key}:${b.key}`, rows: b.rows }, flow),
+      ...printedEntourageLines({ ...g, key: `${g.key}:${b.key}`, rows: b.rows }, flow, style),
     ]);
   }
+  if (style) return hubEntourageLines(g, flow, style);
   const pairs: EntourageLine[] = [];
   const left: string[] = [];
   const right: string[] = [];
@@ -916,6 +997,30 @@ export function printedEntourageLines(g: EntourageGroup, flow: boolean): Entoura
   else if (left.length) out.push({ l: left[0] });
   else if (right.length) out.push({ r: right[0] });
   return out;
+}
+
+/**
+ * 👫 THE HUB'S OWN ROWS, ON PAPER — what `EntourageSection` draws for On the axis and Lines, row for row: each row of
+ * the group (`buildEntourage` — a walk, or one person alone) is one printed line. A pair keeps its two cells, the
+ * right cell the left cell's partner (owner 2026-10-15); anyone ALONE is centred (owner 2026-10-17, "center it
+ * instead of just 1 side"), with the role word the page gives them (`loneRoleWord` On the axis, `entourageCellWord`
+ * in Lines). Nobody is moved into an empty cell. Only when the card is full (`flow`) does a group with no pairs at
+ * all flow into two columns — the fit's last resort, as before.
+ */
+function hubEntourageLines(g: EntourageGroup, flow: boolean, style: PrintEntourageStyle): EntourageLine[] {
+  const oneLine = pairsShareALine(g);
+  const lone = g.rows.every(([l, r]) => !(l && r));
+  if (flow && lone && g.rows.length >= 3) {
+    const list = g.rows.map(([l, r]) => (l ?? r)!.name);
+    const half = Math.ceil(list.length / 2);
+    return list.slice(0, half).map((l, i) => ({ l, r: list[half + i] }));
+  }
+  return g.rows.map(([l, r]): EntourageLine => {
+    if (l && r) return oneLine ? { c: lineNames([l, r]), pair: true } : { l: l.name, r: r.name };
+    const one = (l ?? r)!;
+    const word = style === 'lines' ? entourageCellWord(g, one) : loneRoleWord(g, one);
+    return word ? { c: one.name, word } : { c: one.name };
+  });
 }
 
 type PlacedText = { s: string; x: number; y: number; align: 'left' | 'right' | 'center'; width: number; sub?: boolean };
@@ -964,7 +1069,7 @@ function planEntourage(
   groups: EntourageGroup[],
   size: number,
   flow: boolean,
-  geo: { w: number; h: number; die: DieCut; font: PrintFontKey; top: (page: number) => number; floor: (page: number) => number },
+  geo: { w: number; h: number; die: DieCut; font: PrintFontKey; top: (page: number) => number; floor: (page: number) => number; style?: PrintEntourageStyle },
 ): PlannedPage[] {
   const { w } = geo;
   const cx = w / 2;
@@ -986,7 +1091,7 @@ function planEntourage(
     y = geo.top(page);
   };
   for (const g of groups) {
-    const lines = printedEntourageLines(g, flow);
+    const lines = printedEntourageLines(g, flow, geo.style);
     let headDone = false;
     for (let i = 0; i < lines.length; i += 1) {
       const row = lines[i]!;
@@ -1016,12 +1121,15 @@ function planEntourage(
         : { l: row.l ? nameLines(row.l, geo.font, size, colW) : [], r: row.r ? nameLines(row.r, geo.font, size, colW) : [] };
       const n = 'c' in wrapped ? wrapped.c!.length : Math.max(wrapped.l!.length, wrapped.r!.length);
       const headH = headDone ? 0 : gap;
-      if (y + headH + n * lead + desc > geo.floor(page) && (pages[page]!.texts.length > 0 || pages[page]!.heads.length > 0)) {
+      const wordH = row.word ? size * 1.05 : 0;
+      if (y + headH + n * lead + wordH + desc > geo.floor(page) && (pages[page]!.texts.length > 0 || pages[page]!.heads.length > 0)) {
         newPage();
         headDone = false;
       }
       const x0 = row.c !== undefined ? cx - fullW / 2 : cx - 6 - colW;
       const x1 = row.c !== undefined ? cx + fullW / 2 : cx + 6 + colW;
+      /* Lines: pairs flush-left in two columns; On the axis (and the print's own card): they meet at the centre. */
+      const flushLeft = geo.style === 'lines';
       if (!headDone) {
         y += gap * 0.78;
         for (let k = 0; k < 400 && !lineSafe(y, cx - (w - 56) / 2, cx + (w - 56) / 2); k += 1) y += 1;
@@ -1038,9 +1146,14 @@ function planEntourage(
         } else {
           const l = wrapped.l![k];
           const r = wrapped.r![k];
-          if (l) pages[page]!.texts.push({ s: l, x: cx - 6, y, align: 'right', width: colW });
+          if (l) pages[page]!.texts.push(flushLeft ? { s: l, x: cx - 6 - colW, y, align: 'left', width: colW } : { s: l, x: cx - 6, y, align: 'right', width: colW });
           if (r) pages[page]!.texts.push({ s: r, x: cx + 6, y, align: 'left', width: colW });
         }
+      }
+      if (row.word) {
+        y += wordH;
+        for (let t = 0; t < 400 && !lineSafe(y, cx - fullW / 2, cx + fullW / 2); t += 1) y += 1;
+        pages[page]!.texts.push({ s: row.word, x: cx, y, align: 'center', width: fullW, sub: true });
       }
     }
   }
@@ -1091,6 +1204,7 @@ function layoutEntourage(ctx: Ctx): PrintDoc[] {
     top: (p: number) => (p === 0 ? firstTop : backTop),
     // The back carries no QR (it rides the front), so only the safe line binds it.
     floor: (p: number) => (p === 0 ? wordsFloor(front, ctx, 0) : h - SAFE_PT),
+    style: data.entourageStyle,
   };
   let best: { pages: PlannedPage[]; size: number } | null = null;
   for (let size = 8.4; size >= PRINT_MIN_BODY_PT - 1e-9; size = Math.round((size - 0.2) * 10) / 10) {
@@ -1111,7 +1225,13 @@ function layoutEntourage(ctx: Ctx): PrintDoc[] {
       if (look.still === 'full' && data.hasStill) still(doc.ops, look, data, w, h, doc.bleed);
       continuedHead(doc, ctx, 'The Entourage');
     }
-    for (const hd of p.heads) sectionHead(doc.ops, look, hd.label, cx, hd.y, (w - 56) / 2);
+    p.heads.forEach((hd, k) => {
+      if (data.entourageStyle !== 'lines') return sectionHead(doc.ops, look, hd.label, cx, hd.y, (w - 56) / 2);
+      /* Lines: the page's own eyebrow — flush left, a short rule after it — and a hairline between groups. */
+      const x0 = cx - (w - 56) / 2;
+      if (k > 0) doc.ops.push({ t: 'rect', x: x0, y: hd.y - 22 * (size / 8.4) * 0.62, w: w - 56, h: 0.4, fill: look.ink, opacity: 0.18 });
+      linesHead(doc.ops, look, hd.label, x0, hd.y, w - 56);
+    });
     for (const t of p.texts) {
       if (t.sub) text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size: size * 0.82, color: look.muted, align: t.align, maxWidth: t.width });
       else text(doc.ops, t.s, t.x, t.y, { font: look.bodyFont, size, color: look.ink, align: t.align, maxWidth: t.width });
@@ -1231,7 +1351,7 @@ function continuedHead(doc: PrintDoc, ctx: Ctx, title: string): number {
   const { look } = ctx;
   const cx = doc.w / 2;
   const label = `${title} · continued`;
-  const half = measure(label.toUpperCase(), look.bodyFont, 7, 0.22 * 7) / 2;
+  const half = measure(label.toUpperCase(), look.labelFont ?? look.bodyFont, 7, 0.22 * 7) / 2;
   let y = SAFE_PT + 22;
   for (let k = 0; k < 200 && !safeContainsBox(doc.die, doc.w, doc.h, { x: cx - half, y: y - 6, w: half * 2, h: 8 }); k += 1) y += 1;
   eyebrow(doc.ops, look, label, cx, y, 7);

@@ -402,6 +402,9 @@ const nextConfig: NextConfig = {
       '../../node_modules/.pnpm/@tensorflow+tfjs-backend-wasm@*/node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
+      // 🔤 The Hub's faces on paper (lib/print-hub-look.ts → `printFontFile`): the Logo's own TrueType outline files.
+      './public/logo-fonts/*.ttf',
+      './public/monogram-studio/fonts/*.ttf',
       // NPC submission PDFs streamed admin-only by
       // /admin/data-privacy/documents/[doc] (read via a dynamic filename, so
       // nft can't statically trace them — force-include the set).

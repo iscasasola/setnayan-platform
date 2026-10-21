@@ -92,7 +92,7 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
       role="img"
       aria-label={`Map showing ${label}${missing}`}
       data-venue-map-pins={located.length}
-      data-venue-map-unplaced={unplaced.length}
+      data-venue-map-unplaced={unplaced.length || undefined}
       className="relative w-full overflow-hidden bg-veil"
       style={{ aspectRatio: `${box.width} / ${box.height}` }}
     >

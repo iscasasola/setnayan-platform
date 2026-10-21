@@ -225,6 +225,9 @@ export const VisibilityPanel = dynamic(() => import(/* webpackChunkName: "maker-
 export const OpenBrowsePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.OpenBrowsePanel), { loading: SlotRows });
 export const LaunchPhasePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.LaunchPhasePanel), { loading: SlotRows });
 export const RsvpBackdropPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.RsvpBackdropPanel), { loading: SlotRows });
+/* 👗 The Dress code row's panel — the whole form, fields and Save (`dress-code-panel.tsx`, 2026-10-21): its attire
+   fields were ~8.6KB gz of the first load, which sat over its 507KB ceiling again. */
+export const DressCodePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/dress-code-panel').then((m) => m.DressCodePanel), { loading: SlotRows });
 export const LaunchStdButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../studio/save-the-date/_components/launch-std-button').then((m) => m.LaunchStdButton), { loading: SlotButton });
 /* ⋯ Scan to view's strip (Download · Write to NFC · Copy link — the NFC writer is the weight) under the ⋯ sheet's rows. */
 export const ScanQrStrip = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scan-qr-strip').then((m) => m.ScanQrStrip), { loading: SlotNone });

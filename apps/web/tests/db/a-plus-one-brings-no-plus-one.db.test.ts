@@ -102,7 +102,7 @@ test('a guest who already brings +1s cannot become somebody’s +1 (a removed se
 });
 
 test('the reply’s seat mint refuses a +1 bringer and inserts nothing; a guest’s mint still works', async () => {
-  const amy = await guest('Amy', { count: 1 });
+  const amy = await guest('Amy', { count: 2 });
   const plus = await guest('Ben', { of: amy });
   const seat = JSON.stringify({ first_name: 'Carla', last_name: 'Cruz', plus_one_name_confirmed_at: new Date().toISOString() });
   const out = (await db.query<{ out: { status: string } }>(`SELECT public.guest_plus_one_seat_mint($1, $2, $3::jsonb) AS out`, [EVENT, plus, seat])).rows[0]!.out;

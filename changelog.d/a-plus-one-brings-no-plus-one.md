@@ -21,4 +21,4 @@ Owner, verbatim: *"a +1 of a guest cannot have their own +1."* (desktop Guests, 
 - **Guards:** `lib/a-plus-one-brings-no-plus-one.test.ts` (screens, writers, a scan that every seat writer asks the
   gate) and `tests/db/a-plus-one-brings-no-plus-one.db.test.ts` (CHECK, trigger, mint), each sabotaged.
 
-SPEC IMPACT: None — implements the owner's ruling of 2026-10-21 as stated; recorded in DECISION_LOG by the controller.
+SPEC IMPACT: DECISION_LOG.md — one 2026-10-21 row "A +1 CAN'T BRING THEIR OWN +1" (the owner's ruling as built; corpus commit a19f63b4, made locally — its push was not permitted from this session, the controller pushes it).

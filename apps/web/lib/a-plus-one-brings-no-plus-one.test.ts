@@ -156,6 +156,7 @@ function fakeDb(primary: Row, seats: Row[] = []) {
       in: (k: string, v: unknown) => ((filters[k] = v), b),
       neq: () => b,
       is: () => b,
+      order: () => b,
       maybeSingle: async () => read(),
       insert: async (row: unknown) => (writes.push({ table, op: 'insert', row }), { error: null }),
       update: (row: unknown) => (writes.push({ table, op: 'update', row }), b),
@@ -213,8 +214,13 @@ test('the import never gives a +1 extra seats — the row waits for a look; the 
   assert.equal(none.status, 'same');
 });
 
-/* Which files write a guest's seats. Each must ask `checkExtraSeats` (the one gate that knows a +1), or say why not. */
-const SEAT_WRITE = /\bplus_one_count\s*:|\bplus_one_allowed\s*:|\bsyncExtraSeats\s*\(|guest_plus_one_seat_mint/;
+/* Which files write a guest's seats: a call to the seat sync or the mint, or an `.update(…)` / `.insert(…)` /
+   `.upsert(…)` whose argument sets the number. Each must ask `checkExtraSeats` (the one gate that knows a +1), or say
+   why not. A type or a select that merely NAMES the column is not a write. */
+const SEAT_CALL = /\bsyncExtraSeats\s*\(|guest_plus_one_seat_mint/;
+const writesSeats = (src: string) =>
+  SEAT_CALL.test(src) ||
+  [...src.matchAll(/\.(?:update|insert|upsert)\(/g)].some((m) => /\bplus_one_(?:count|allowed)\s*:/.test(src.slice(m.index!, m.index! + 400).split(/\)\s*\n?\s*\.(?:eq|in|select|match)\(/)[0]!));
 const NEEDS_NO_GATE: Record<string, string> = {
   'lib/extra-seats-sync.ts': 'the gate itself — and `syncExtraSeats` plans 0 for a +1 (tested above)',
   'lib/extra-seats.ts': 'pure planning, no write',
@@ -243,8 +249,7 @@ test('every server writer of a guest’s seats asks the +1 gate — or is named 
   const writers: string[] = [];
   for (const file of [...sourceFiles(path.join(WEB, 'app')), ...sourceFiles(path.join(WEB, 'lib'))]) {
     const src = code(fs.readFileSync(file, 'utf8'));
-    if (!/^\s*['"]use server['"]/m.test(src) && !/from\(['"]guests['"]\)/.test(src)) continue; // only code that can write
-    if (!/\.(update|insert|upsert|rpc)\(/.test(src) || !SEAT_WRITE.test(src)) continue;
+    if (!writesSeats(src)) continue;
     const rel = path.relative(WEB, file).split(path.sep).join('/');
     writers.push(rel);
     if (rel in NEEDS_NO_GATE) continue;

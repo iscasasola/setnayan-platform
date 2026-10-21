@@ -15,7 +15,7 @@
  *
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
- *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
+ *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -424,7 +424,11 @@ export default async function GuestsLabPage({
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
       : seatCard
-        ? guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+        ? sp.named === '1'
+          ? /* 🚫 `&named=1` — a NAMED +1, as the owner's report showed one (2026-10-21, "Ms. pamela mitra labriaga · +1 of
+               Pam"): their card has no Extra seats pick — "A +1 can't bring their own +1." */
+            guest({ guest_id: 'g-p1-0015', name_prefix: 'Ms.', first_name: 'pamela', middle_name: 'mitra', last_name: 'labriaga', side: 'groom', group_category: 'work', rsvp_status: 'pending', invited_to_blocks: ['ceremony', 'reception', 'cocktails'] as GuestRow['invited_to_blocks'], plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+          : guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
         : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};

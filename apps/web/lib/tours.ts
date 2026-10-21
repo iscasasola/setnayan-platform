@@ -1317,7 +1317,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-setup',
           title: 'Set it up before the day',
-          body: 'Pick what you want on the day, and who on your team can open it.',
+          body: 'Pick what you want on the day, and which of your helpers can open it.',
         },
       ],
       finale: {

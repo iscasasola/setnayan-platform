@@ -1,5 +1,6 @@
 'use server';
 
+import { parseInBusinessSince } from '@/lib/in-business-since';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -344,7 +345,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services, business_slug')
+    .select('vendor_profile_id, services, business_slug, in_business_since_year')
     .eq('user_id', user.id);
   const owned = (ownedRows ?? []) as Array<{
     vendor_profile_id: string;
@@ -460,6 +461,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // it.
   if (chosenSlug && !existing?.business_slug) patch.business_slug = chosenSlug;
   if (contactPosition) patch.business_owner_position = contactPosition;
+  // "In business since" — asked on step 2 (owner 2026-10-22, journey_fixes Supplier 2 · A). Optional, and
+  // written ONCE: a year already on the shop is never moved from here, because changing it is what clears
+  // the DTI experience check (`updateVendorProfileField`), and that belongs to Your details, not a re-run.
+  const sinceYear = parseInBusinessSince(formData.get('in_business_since_year'), new Date().getFullYear());
+  if (sinceYear && !(existing as { in_business_since_year?: number | null } | null)?.in_business_since_year) {
+    patch.in_business_since_year = sinceYear;
+  }
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
   // The address the vendor typed (owner 2026-08-10). Guarded like the rest — a

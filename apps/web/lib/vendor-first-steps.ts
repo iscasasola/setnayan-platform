@@ -43,6 +43,7 @@ import { formatCount } from '@/lib/format-number';
 
 export type FirstStepKey =
   | 'shop_details'
+  | 'logo'
   | 'service_card'
   | 'documents'
   | 'not_available'
@@ -90,14 +91,22 @@ export type FirstStep = {
 export type FirstStepsInput = {
   /** `vendor_profiles.verification_state === 'verified'`. */
   verified: boolean;
-  /** Business-profile checklist counts (`businessProfileChecklist`). */
+  /**
+   * Business-profile checklist counts (`businessProfileChecklist`) — WITHOUT the logo, which is its own
+   * step since 2026-10-22 (owner "Yes to all", journey_fixes Supplier 2 · A).
+   */
   profileDone: number;
   profileTotal: number;
+  /**
+   * The logo is in. Absent → read off the counts: a complete profile has one (the checklist requires it),
+   * an incomplete one is treated as not yet — a rail nags rather than congratulates (see the server half).
+   */
+  hasLogo?: boolean;
   /** How many service cards the shop has authored (any state). */
   serviceCount: number;
   /** Latest verification application status; 'none' when never started. */
   docsStatus: VerificationAppStatus;
-  /** Document slots filled, and how many exist. */
+  /** The REQUIRED papers in, and how many are required (four) — the one count shown (owner 2026-10-22). */
   docsIn: number;
   docsTotal: number;
   /**
@@ -149,7 +158,10 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     rejectionReason,
   } = input;
 
-  const profileComplete = profileTotal > 0 && profileDone >= profileTotal;
+  const detailsComplete = profileTotal > 0 && profileDone >= profileTotal;
+  const logoIn = input.hasLogo ?? detailsComplete;
+  // What the submit gate calls "business profile": the details AND the logo (approval asks nothing less).
+  const profileComplete = detailsComplete && logoIn;
   const underReview = isUnderReview(docsStatus);
   // `approved` is the application's own terminal state; `verified` is the shop's.
   // An admin can verify a shop directly without an application ever being filed
@@ -169,12 +181,27 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       cta: 'Fill them in',
       meter: profileTotal > 0 ? `${formatCount(profileDone)} of ${formatCount(profileTotal)} in` : null,
       blockedBy: null,
-      done: profileComplete,
+      done: detailsComplete,
+      waiting: false,
+    },
+    {
+      // 🖼 ITS OWN STEP (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A). Optional on open-shop
+      // step 1 (FREE very easy), so it used to hide inside "N fields left" on Your details; approval still
+      // needs it, so it is asked here, by name.
+      key: 'logo',
+      n: 2,
+      title: 'Add your logo',
+      body: 'Needed to go live — couples see it on every card.',
+      href: '/vendor-dashboard/profile#name',
+      cta: 'Add your logo',
+      meter: null,
+      blockedBy: null,
+      done: logoIn,
       waiting: false,
     },
     {
       key: 'service_card',
-      n: 2,
+      n: 3,
       title: 'Add what you offer',
       body: 'Your first service — a photo, what it covers and a starting price. Couples do not see it until you are live.',
       // 🔴 THE WORST INSTANCE OF THE DEAD CREATE LINK, because of WHO sees it:
@@ -194,7 +221,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'documents',
-      n: 3,
+      n: 4,
       title: 'Send your documents',
       body:
         docsStatus === 'rejected'
@@ -204,7 +231,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
             : 'DTI/SEC · BIR · permit · bank proof · Setnayan checks them, then you are live.',
       href: '/vendor-dashboard/profile#docs',
       cta: docsStatus === 'rejected' ? 'Send them again' : 'Send documents',
-      meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} uploaded` : null,
+      meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} required` : null,
       // The one real hard gate in the flow, quoted from the server-side check.
       blockedBy: profileComplete ? null : (submitMissing[0] ?? null),
       done: docsDone,
@@ -212,7 +239,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'not_available',
-      n: 4,
+      n: 5,
       title: 'Mark the days you are not available',
       body: 'Sundays, holidays, rest days — set once.',
       href: '/vendor-dashboard/customers?seg=dates&open=block',
@@ -224,7 +251,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'outside_bookings',
-      n: 5,
+      n: 6,
       title: 'Add the bookings you already have',
       body: 'From your logbook or phone — so nothing double-books.',
       href: '/vendor-dashboard/customers?add=outside',
@@ -236,7 +263,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'own_customers',
-      n: 6,
+      n: 7,
       title: 'Show your QR to the next couple',
       body: 'They scan, and they are on your list with their date. Free, and it works before you are approved.',
       href: '/vendor-dashboard/invite',
@@ -251,7 +278,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'go_live',
-      n: 7,
+      n: 8,
       title: 'Setnayan approves you — you go live',
       body: 'The day your shop is approved, your page goes live at your own web address, your services become searchable to couples, and the subscription plans unlock. Nothing before this is visible to a stranger.',
       // Nothing to press — this one happens TO the vendor, not BY them.

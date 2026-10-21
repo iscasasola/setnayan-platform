@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   businessProfileChecklist,
+  profileGaps,
   fetchOwnVendorProfile,
   type VendorProfileRow,
 } from '@/lib/vendor-profile';
@@ -695,8 +696,10 @@ export async function submitInlineForReview(
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
   const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
+  const checklist = businessProfileChecklist(auth.profile);
   const missing = verificationSubmitMissing({
-    profileComplete: businessProfileChecklist(auth.profile).complete,
+    profileComplete: checklist.complete,
+    onlyLogoMissing: profileGaps(checklist).onlyLogoMissing,
     uploads,
     // A collided number keeps raw (needs_review) → still "on file".
     registrationNumberOnFile: Boolean(regNumber.raw),

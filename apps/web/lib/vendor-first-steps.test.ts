@@ -211,10 +211,11 @@ test('the rail counts only what is genuinely done', () => {
     outsideCount: 1,
     submitMissing: [],
   });
-  assert.equal(live.doneCount, 7);
-  assert.equal(live.total, 7);
-  // "N of 6" on Today counts the steps a supplier can DO — the approval is not one of them.
-  assert.equal(live.actionable, 6);
+  // ⚠ CHANGED ON PURPOSE 2026-10-22 — the logo is its own step (owner "Yes to all", journey_fixes Supplier 2 · A).
+  assert.equal(live.doneCount, 8);
+  assert.equal(live.total, 8);
+  // "N of 7" on Today counts the steps a supplier can DO — the approval is not one of them.
+  assert.equal(live.actionable, 7);
 });
 
 test('steps stay in their published order', () => {
@@ -223,9 +224,9 @@ test('steps stay in their published order', () => {
   const rail = buildFirstStepsRail(FRESH);
   assert.deepEqual(
     rail.steps.map((s) => s.key),
-    ['shop_details', 'service_card', 'documents', 'not_available', 'outside_bookings', 'own_customers', 'go_live'],
+    ['shop_details', 'logo', 'service_card', 'documents', 'not_available', 'outside_bookings', 'own_customers', 'go_live'],
   );
-  assert.deepEqual(rail.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(rail.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 /*
@@ -233,18 +234,21 @@ test('steps stay in their published order', () => {
   `supplier_easy_dashboard_2026-10-14_fable.html`, moment "First-time setup": "Your next step · 1 of 6").
   SABOTAGE: dropping the days-off step (or its `done` rule) → RED here.
 */
-test('the six steps a supplier can do, in the prototype’s words — and the two new ones count real rows', () => {
+test('the seven steps a supplier can do, in the prototype’s words — and the two new ones count real rows', () => {
+  // ⚠ SEVEN SINCE 2026-10-22 (owner "Yes to all", journey_fixes_2026-10-22.html § Supplier 2 · A): "Add your
+  // logo — needed to go live" is its own row, second, instead of a hidden "field left". Was six (2026-10-14).
   const rail = buildFirstStepsRail(FRESH);
-  assert.equal(rail.actionable, 6);
+  assert.equal(rail.actionable, 7);
   assert.deepEqual(
     rail.steps.filter((s) => s.key !== 'go_live').map((s) => [s.n, s.title, s.cta]),
     [
       [1, 'Your details', 'Fill them in'],
-      [2, 'Add what you offer', 'Add a service'],
-      [3, 'Send your documents', 'Send documents'],
-      [4, 'Mark the days you are not available', 'Mark days'],
-      [5, 'Add the bookings you already have', 'Add a booking'],
-      [6, 'Show your QR to the next couple', 'Open QR'],
+      [2, 'Add your logo', 'Add your logo'],
+      [3, 'Add what you offer', 'Add a service'],
+      [4, 'Send your documents', 'Send documents'],
+      [5, 'Mark the days you are not available', 'Mark days'],
+      [6, 'Add the bookings you already have', 'Add a booking'],
+      [7, 'Show your QR to the next couple', 'Open QR'],
     ],
   );
   assert.equal(rail.current?.n, 1);

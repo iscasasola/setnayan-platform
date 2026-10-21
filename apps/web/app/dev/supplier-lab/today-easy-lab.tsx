@@ -275,6 +275,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false }: 
         verified: false,
         profileDone: 4,
         profileTotal: 6,
+        hasLogo: false,
         serviceCount: 0,
         docsStatus: 'none',
         docsIn: 0,

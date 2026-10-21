@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   businessProfileChecklist,
+  profileGaps,
   fetchVendorBusinessStartDate,
   type BusinessProfileItem,
   type VendorProfileRow,
@@ -12,9 +13,9 @@ import {
 import {
   REQUIRED_DOC_SLOT_KEYS,
   VENDOR_DOC_SLOTS,
+  countCompleteRequiredSlots,
   countCompleteVendorSlots,
   fetchLatestApplication,
-  isSlotComplete,
   requiredDocsComplete,
   verificationSubmitMissing,
   type DocUploadMap,
@@ -61,6 +62,8 @@ export type DetailsData = {
   tier: string | null;
   checklist: BusinessProfileItem[];
   profileComplete: boolean;
+  /** Unfinished profile items but the logo — its own first step (`profileGaps`, owner 2026-10-22). */
+  fieldsLeft: number;
   profileFields: ProfileFieldData;
   businessStartDate: string | null;
   compatibleVenueSettings: string[] | null;
@@ -244,6 +247,7 @@ export async function loadDetailsData(
     status: (app?.status as VerifySummary['status']) ?? null,
     vendorComplete: countCompleteVendorSlots(uploads),
     vendorTotal: VENDOR_DOC_SLOTS.length,
+    requiredIn: countCompleteRequiredSlots(uploads),
     requiredDocsIn: requiredDocsComplete(uploads),
     // The stamps ride on the application row itself (`fetchLatestApplication` merges them) — the shop page read
     // them a second time; here they are taken from the row already in hand.
@@ -253,13 +257,14 @@ export async function loadDetailsData(
     decisionReason: (app?.decision_reason as string | null) ?? null,
     submitMissing: verificationSubmitMissing({
       profileComplete: completion.complete,
+      onlyLogoMissing: profileGaps(completion).onlyLogoMissing,
       uploads,
       registrationNumberOnFile: registrationOnFile,
     }),
     validateEmail: validate.validateEmail,
     validatePhone: validate.validatePhone,
   };
-  const requiredIn = [...REQUIRED_DOC_SLOT_KEYS].filter((k) => isSlotComplete(k, uploads?.[k])).length;
+  const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';
   const tier = own.tier_state ?? null;
 
@@ -307,6 +312,7 @@ export async function loadDetailsData(
     tier,
     checklist: completion.items,
     profileComplete: completion.complete,
+    fieldsLeft: profileGaps(completion).fieldsLeft,
     profileFields,
     businessStartDate,
     compatibleVenueSettings: profile.compatible_venue_settings ?? null,

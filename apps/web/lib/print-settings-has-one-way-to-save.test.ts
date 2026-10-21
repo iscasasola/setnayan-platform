@@ -20,9 +20,14 @@
  *      choices, the menu, the invite message, the ticket style, the poster photo, the name style) — a hub-owned key handed to it is dropped;
  *      the words route reads only print-only fields; the print draws the special message, the thank-you, the parents and the Love Story from
  *      their own homes (`print-set.server.ts`).
+ *   5. ONE VALUE, TWO DOORS — THE DATE AND THE PLACES: the print's venue lines are the Event Hub's own pick (`resolveEventVenues` →
+ *      `printVenueLines`), never a Schedule moment's typed location nor a second fallback order; the printed date is as precise as the
+ *      Hub holds it (`event_date_precision` — a month prints "December 2026", never the month's stand-in first day).
  *
- * Measured in production (read-only, 2026-10-21): the only `print_details` keys stored on any event are exactly that print-only list — no
- * event holds a print copy of a hub-owned fact.
+ * Where each copy stood BEFORE this change (code and the repo's seed — production was not read): `print_details` never held a hub
+ * fact (its parser drops unknown keys, test 4); the sheet's parents, special message and thank-you were already the Hub's own editors;
+ * the two that DIFFERED were read-side — the venue (a Schedule moment's `location` first; reception typed-name order reversed) and the
+ * date (precision ignored). `supabase/seed.sql` seeds no event, so no seeded value is lost.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -187,4 +192,57 @@ test('4 · ONE HOME PER FACT: print_details keeps only print-only keys; the rout
   assert.match(set, /thankYou: inc\.thankYou \? event\.pabuya_message/, 'the thank-you is not printed from its E-Gifts column');
   assert.match(set, /parents: inc\.parents \? parentsFromEntourage\(/, 'the parents are not printed from the guest list');
   assert.match(set, /storyExcerpt: inc\.loveStory === 'excerpt' \? excerpt\(storyText\(event\.love_story\)\)/, 'the Love Story is not printed from its own column');
+});
+
+test('5 · ONE VALUE, TWO DOORS: the print names the places the Event Hub names, and says the date as precisely as the Hub holds it', async () => {
+  const { printVenueLines, printedDate } = await import('./print-pieces');
+  const { resolveEventVenues } = await import('./event-venues');
+  const { dateDisplayOf } = await import('./details-your-event');
+  const booked = (name: string) => ({ name, address: null, latitude: null, longitude: null, placeKey: name });
+  /* Every shape a couple's venues come in: booked or typed, one place or two, the Save-the-Date's name and the event's own. */
+  const bookingsCases = [
+    { ceremony: null, reception: null },
+    { ceremony: booked('San Agustin Church'), reception: null },
+    { ceremony: null, reception: booked('Seda Vertis North') },
+    { ceremony: booked('San Agustin Church'), reception: booked('Seda Vertis North') },
+  ];
+  const eventCases = [
+    {},
+    { venue_name: 'The Event Hub’s venue', std_film_venue_name: 'A Save-the-Date name' },
+    { std_film_venue_name: 'A Save-the-Date name' },
+    { std_film_ceremony_name: 'Typed parish', venue_name: 'Typed hall' },
+    { std_film_ceremony_name: 'Same place', venue_name: 'Same place' },
+  ];
+  let compared = 0;
+  for (const b of bookingsCases) {
+    for (const e of eventCases) {
+      const hub = resolveEventVenues(b, e);
+      const lines = printVenueLines(hub);
+      const hubNames = new Set(hub.map((v) => v.name?.trim()).filter(Boolean));
+      const printed = [lines.ceremony, lines.reception].filter(Boolean);
+      for (const p of printed) assert.ok(hubNames.has(p!), `the print names "${p}", a place the Event Hub does not name (${[...hubNames].join(' · ') || 'none'})`);
+      for (const h of hubNames) assert.ok(printed.includes(h!), `the Event Hub names "${h}" and the print leaves it off`);
+      compared += 1;
+    }
+  }
+  assert.equal(compared, 20);
+
+  const set = read('lib/print-set.server.ts');
+  assert.match(set, /const hubVenues = printVenueLines\(resolveEventVenues\(venues, event\)\);/, 'the print does not take its places from the Event Hub’s pick');
+  assert.match(set, /ceremonyVenue: hubVenues\.ceremony,/, 'the ceremony line is not the Hub’s place');
+  assert.match(set, /receptionVenue: hubVenues\.reception,/, 'the reception line is not the Hub’s place');
+  assert.doesNotMatch(set, /Venue:[^\n]*\.location/, 'a venue line reads a Schedule moment’s typed location — a place the Hub’s Venue scene never shows');
+  for (const c of ['event_date_precision', 'ceremony_venue_address', 'venue_latitude', 'ceremony_venue_latitude']) {
+    assert.match(set, new RegExp(`const EVENT_COLUMNS =\\s*'[^']*\\b${c}\\b`), `the print does not read ${c} — the Hub’s answer needs it`);
+  }
+
+  assert.match(set, /dateLabel: printedDate\(event\.event_date, event\.event_date_precision\),/, 'the printed date ignores how precise the Hub’s date is');
+  for (const [precision, hasDay] of [['day', true], ['month', false], ['year', false]] as const) {
+    const p = printedDate('2026-12-01', precision)!;
+    const hub = dateDisplayOf('2026-12-01', precision)!;
+    assert.ok(p.includes('2026') && hub.includes('2026'), `${precision}: the year is not on both`);
+    assert.equal(/\b1\b/.test(p), hasDay, `${precision}: the print says "${p}" where the Event Hub says "${hub}"`);
+    assert.equal(/Tuesday/.test(p), hasDay, `${precision}: the print names a weekday the couple never picked ("${p}")`);
+    assert.equal(/December/.test(p), precision !== 'year', `${precision}: "${p}" vs the Hub’s "${hub}"`);
+  }
 });

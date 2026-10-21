@@ -15,7 +15,7 @@
  *
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
- *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
+ *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -288,7 +288,7 @@ function planningRoster(): GuestRow[] {
  * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
  * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
  */
-function withPlusOnes(roster: GuestRow[]): GuestRow[] {
+function withPlusOnes(roster: GuestRow[], backfilled = false): GuestRow[] {
   const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
     guest({
       guest_id: id,
@@ -318,6 +318,11 @@ function withPlusOnes(roster: GuestRow[]): GuestRow[] {
        over a seat with no row. Stand-in names, the same roles, sides and numbers; no seat row for either. */
     guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
     guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    /* 🪑 2026-10-21, live cale-ice, read-only: a guest allowed +1 since 2026-09-14 whose seat was NEVER made (Antonio
+       Loo, Ronald Llarena — owner: "why does Ronald Dane Llarena have a +1 but no row under him"). `&backfilled=1`
+       draws the row the backfill (20271282098748) mints for him; without it, the List as it stood. */
+    guest({ guest_id: 'g-p1-h003', public_id: 'S89G-LABP1H0003', first_name: 'Antonio', last_name: 'Loo', role: 'guest', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    ...(backfilled ? [seat('g-p1-0003', 'g-p1-h003', { side: 'groom', group_category: 'family' })] : []),
   ];
 }
 
@@ -433,7 +438,11 @@ export default async function GuestsLabPage({
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
       : seatCard
-        ? guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+        ? sp.named === '1'
+          ? /* 🚫 `&named=1` — a NAMED +1, as the owner's report showed one (2026-10-21, "Ms. pamela mitra labriaga · +1 of
+               Pam"): their card has no Extra seats pick — "A +1 can't bring their own +1." */
+            guest({ guest_id: 'g-p1-0015', name_prefix: 'Ms.', first_name: 'pamela', middle_name: 'mitra', last_name: 'labriaga', side: 'groom', group_category: 'work', rsvp_status: 'pending', invited_to_blocks: ['ceremony', 'reception', 'cocktails'] as GuestRow['invited_to_blocks'], plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+          : guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
         : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
@@ -582,7 +591,7 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster()) : planningRoster();
+    const roster = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1') : planningRoster();
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],

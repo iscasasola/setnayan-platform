@@ -22,8 +22,10 @@ import { formatCount } from './format-number';
 import type { RoleNames } from './role-names';
 import { SIDELESS_SIDE } from './guest-side-question';
 import {
+  A_PLUS_ONE_BRINGS_NO_ONE,
   GROUP_CATEGORY_LABELS,
   guestRoleLabel,
+  isAPlusOne,
   plusOnesFromCsv,
   type GuestGroupCategory,
   type GuestRole,
@@ -226,6 +228,8 @@ export type ExistingGuest = {
   role: GuestRole;
   mobile: string | null;
   plus_one_count: number | null;
+  /** Set ⇒ this guest IS a +1 (`isAPlusOne`) — a file may never give them a +1 of their own (owner 2026-10-21). */
+  plus_one_of_guest_id?: string | null;
 };
 
 export type ImportRowStatus = 'new' | 'changed' | 'same' | 'look';
@@ -471,6 +475,10 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     if (has('group')) diff('group_category', group_category, match.group_category, 'group');
     if (has('role')) diff('role', role, match.role, 'role');
     if (mobile && mobileKey(mobile) !== mobileKey(match.mobile)) diff('mobile', mobile, match.mobile, 'mobile');
+    // 🚫 A +1 cannot have their own +1 (owner 2026-10-21): the row is shown for a look, never written.
+    if (plusGiven && plus_one_count > 0 && isAPlusOne(match)) {
+      return look(`${A_PLUS_ONE_BRINGS_NO_ONE} ${displayName(match)} is one — leave their extra seats blank.`);
+    }
     if (plusGiven && plus_one_count !== (match.plus_one_count ?? 0)) {
       patch.plus_one_count = plus_one_count;
       patch.plus_one_allowed = plus_one_count > 0;

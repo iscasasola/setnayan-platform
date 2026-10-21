@@ -13,6 +13,7 @@ import { designLabel, type FigureRole } from './attire-designs';
 import { ATTIRE_ROWS, PICK_LABEL, honourRowLabel, isHonourRowKey, picksOf, type AttireTier } from './attire-rows';
 import type { FigureWho } from './attire-figures';
 import { pickDots } from './role-figure';
+import { allowedStyles, hasDesignLibrary, type AllowedStyle } from './attire-design-picks';
 import { roleLabel } from './entourage';
 import { guestRoleLabel, ROLE_LABELS, type GuestRole } from './guests';
 import { roleNameMany, type RoleNames } from './role-names';
@@ -68,6 +69,12 @@ export type EveryonePick = {
   /** The colours the person wears (the figure's), in dot order. */
   colours: string[];
   dots: EveryoneDot[];
+  /**
+   * 👔 THE STYLES AND DESIGNS THE HOSTS ALLOW (owner 2026-10-21, "up to 5 different attires") — drawn designs only,
+   * grouped by style, the first design the hero. Empty for a person with no library (every role but the guests):
+   * they keep the one Wear above.
+   */
+  allowed: AllowedStyle[];
 };
 
 export type EveryoneDressRow = {
@@ -166,6 +173,7 @@ export function dressCodeForEveryone(input: {
         role: p.role,
         colours,
         dots: pickDots(p.style, colours, p.role, meaning === 'options').map((d) => ({ hex: d.hex, word: d.word })),
+        allowed: hasDesignLibrary(p.role) ? allowedStyles(p.role, p.style, p.designs ?? null) : [],
       });
     }
     if (picks.length === 0) continue;
@@ -207,7 +215,9 @@ export function dressCodeLines(everyone: EveryoneDressCode): Array<{ label: stri
   for (const row of everyone.rows) {
     const worn = row.picks.filter((p) => p.styleLabel);
     if (worn.length === 0) continue;
-    const wear = worn.map((p) => (p.label ? `${p.label}: ${p.styleLabel}` : p.styleLabel)).join(' · ');
+    /* 👔 A column allowing several styles prints them all ("Suit and tie or Barong Tagalog") — paper says what the page draws. */
+    const said = (p: EveryonePick) => (p.allowed.length > 1 ? p.allowed.map((a) => a.label).join(' or ') : p.styleLabel);
+    const wear = worn.map((p) => (p.label ? `${p.label}: ${said(p)}` : said(p))).join(' · ');
     out.push({ label: row.label, line: row.note ? `${wear}, ${row.note}` : wear });
   }
   return out;

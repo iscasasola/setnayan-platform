@@ -75,6 +75,8 @@ function FigurePersonView({ person }: { person: FigurePerson }) {
     );
   }
   const art = FIGURE_ART[person.garment];
+  /* 👔 A design with no drawing yet (`lib/attire-library.ts`) is never drawn — no placeholder reaches anyone. */
+  if (!art) return null;
   /* 🎨 ONE TINT LAYER PER ZONE (owner 2026-10-16, "ATTIRE COLOUR ZONES"): each the same recipe — the zone's colour,
      clipped to its mask, multiplied over the drawing — so a suit is its coat, its tie and its shirt. */
   const tints = zoneTints(person.garment, person.colours && person.colours.length > 0 ? person.colours : [HEX.test(person.main) ? person.main : '#9B9B9B']);

@@ -21,6 +21,7 @@
  */
 import type { AttireStyle } from './role-dress-code';
 import type { FigureRole } from './attire-designs';
+import { DESIGN_LIBRARY, variantArtKey, type VariantArtKey } from './attire-library';
 
 /** Who a figure is: a woman, a man, a girl or a boy. */
 export type FigureWho = 'f' | 'm' | 'girl' | 'boy';
@@ -30,6 +31,7 @@ export type RoleArtKey = `${FigureRole}-${AttireStyle}`;
  *  silhouette ("Not said yet": no outfit is ever assumed). */
 export type FigureGarment =
   | RoleArtKey
+  | VariantArtKey
   | 'gown'
   | 'terno'
   | 'cocktail'
@@ -94,7 +96,7 @@ export function garmentFor(who: FigureWho, style: AttireStyle | null | undefined
 /** Each drawing: its file, its garment mask, and its size (px) — every one 280 tall, standing on the same line. A role
  *  drawing also has its colour ZONES, one alpha mask each (`zones`, in dot order; the first is `mask`). */
 export type FigureArt = { src: string; mask: string; w: number; h: number; zones?: ReadonlyArray<{ key: ZoneKey; mask: string }> };
-type GarmentKey = Exclude<FigureGarment, 'unset' | RoleArtKey>;
+type GarmentKey = Exclude<FigureGarment, 'unset' | RoleArtKey | VariantArtKey>;
 const SIZE: Readonly<Record<GarmentKey, readonly [number, number]>> = {
   gown: [188, 280],
   terno: [82, 280],
@@ -287,13 +289,34 @@ const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
 );
 /** Every role drawing's key — 45 (a guard holds that each has its files). */
 export const ROLE_ART_KEYS = Object.keys(ROLE_WIDTH) as RoleArtKey[];
-export const isRoleArt = (g: string): g is RoleArtKey => g in ROLE_WIDTH;
 
-/** Every drawing — the 13 garments and the 45 roles. */
-export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
-/** The design a role drawing is in (`groom-tuxedo` → `tuxedo`), or null for a garment drawing. */
+/**
+ * 👔 THE STYLES' OTHER DESIGNS (owner 2026-10-21, "up to 5 different attires" — `lib/attire-library.ts`): each DRAWN
+ * one (a width in its registry row) is a drawing of its own folder, `public/attire/roles/<role>-<style>/<variant>`,
+ * with its style's zones. An undrawn row has no entry here, so nothing can render it.
+ */
+const VARIANT_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
+  Object.entries(DESIGN_LIBRARY).flatMap(([role, designs]) =>
+    (designs ?? []).flatMap((d) => {
+      if (d.art || typeof d.w !== 'number') return [];
+      const k = variantArtKey(role as FigureRole, d);
+      const zones = artZoneKeys(d.style).map((key) => ({ key, mask: `/attire/roles/${k}-${key}.webp` }));
+      return [[k, { src: `/attire/roles/${k}.webp`, mask: zones[0]!.mask, w: d.w, h: 280, zones }]];
+    }),
+  ),
+);
+/** Every drawn design in its own folder (none until the 24 new drawings land). */
+export const VARIANT_ART_KEYS = Object.keys(VARIANT_ART) as VariantArtKey[];
+export const isRoleArt = (g: string): g is RoleArtKey | VariantArtKey => g in ROLE_WIDTH || g in VARIANT_ART;
+
+/** Every drawing — the 13 garments, the 45 roles and every drawn design of a style's five. */
+export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART, ...VARIANT_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
+/** The design a role drawing is in (`groom-tuxedo` → `tuxedo`, `guest_m-suit/slim` → `suit`), or null for a garment drawing. */
 export function designOfArt(g: FigureGarment): AttireStyle | null {
-  return isRoleArt(g) ? (g.slice(g.indexOf('-') + 1) as AttireStyle) : null;
+  if (!isRoleArt(g)) return null;
+  const rest = g.slice(g.indexOf('-') + 1);
+  const slash = rest.indexOf('/');
+  return (slash < 0 ? rest : rest.slice(0, slash)) as AttireStyle;
 }
 /** The role a role drawing is of (`guest_m-suit` → `guest_m`), or null for a garment drawing. */
 export function roleOfArt(g: FigureGarment): FigureRole | null {

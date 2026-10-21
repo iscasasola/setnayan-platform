@@ -117,6 +117,12 @@ export type RoleAttireRule = {
    * invented for them — the same rule the style already follows.
    */
   callTime?: string;
+  /**
+   * 👔 THE COLUMN'S STYLES AND DESIGNS (owner 2026-10-21, "up to 5 different attires"): `"suit"` a whole style,
+   * `"suit/classic"` one design, the first being `style`'s — read per person by `sanitizeDesignTicks`
+   * (lib/attire-design-picks.ts). Absent = `[style]`, every dress code before it.
+   */
+  designs?: string[];
 };
 
 /**
@@ -199,6 +205,11 @@ export function sanitizeRoleAttire(raw: unknown, isKnownRole: (v: string) => boo
     const rule: RoleAttireRule = { style };
     if (note) rule.note = note;
     if (callTime) rule.callTime = callTime;
+    const rawDesigns = (value as { designs?: unknown }).designs;
+    if (Array.isArray(rawDesigns)) {
+      const designs = rawDesigns.filter((t): t is string => typeof t === 'string' && /^[a-z_]+(\/[a-z_]+)?$/.test(t)).slice(0, 30);
+      if (designs.length > 0) rule.designs = designs;
+    }
     out[key as GuestRole] = rule;
   }
   return out;

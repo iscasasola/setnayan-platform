@@ -930,7 +930,17 @@ export function ChosenRow({
   below,
   data,
   attrs,
+  picked,
+  doneNote,
+  head,
+  wide = false,
 }: {
+  /** ✓ A dropdown with checkmarks (`PickMenu`'s `picked` / `doneNote` / `head`) — the guests' Wear ▾ (2026-10-21). */
+  picked?: readonly string[];
+  doneNote?: string;
+  head?: ReactNode;
+  /** The pill at the wide width whatever its row's (a longer answer: "Suit and tie +1 · 2 designs"). */
+  wide?: boolean;
   name: string;
   about?: FormRowAbout | null;
   /** A small mark after the name (the Pro mark ◆). */
@@ -952,10 +962,11 @@ export function ChosenRow({
   data?: string;
   attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
-  const width = usePillWidth();
+  const shared = usePillWidth();
+  const width = wide ? FORM_PILL_WIDTH.wide : shared;
   return (
     <FormRow name={name} about={about} mark={mark} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
-      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} />
+      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} picked={picked} doneNote={doneNote} head={head} />
     </FormRow>
   );
 }

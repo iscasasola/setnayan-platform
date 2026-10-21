@@ -29,6 +29,7 @@
 
 import { FIGURE_ART, controlOfZone, designOfArt, garmentFor, roleOfArt, tieZoneColours, wearsColourOnTie, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel, roleArtKey, type FigureRole } from './attire-designs';
+import { allowedDesigns, hasDesignLibrary } from './attire-design-picks';
 import type { AttireStyle } from './role-dress-code';
 
 export const SKIN = '#E7C8A2';
@@ -166,7 +167,7 @@ export function singleWearerOf(role: string): 'gown' | 'suit' | null {
 export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string; colours?: readonly string[] };
 /** A pick as a reader sees it (`picksOf`, lib/attire-rows.ts): who, the Wear (null = not said), its own colours (null =
  *  the row's), and — for a row with its own designs — the role it is drawn as (`columnRole`, lib/attire-designs.ts). */
-export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null; role?: FigureRole | null };
+export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null; role?: FigureRole | null; designs?: readonly string[] | null };
 
 /** A colour a shade deeper — a tie in the suit's own cloth (the approved prototype's `deeper`, ×0.72). */
 export function deeper(hex: string): string {
@@ -245,6 +246,8 @@ export function pickDots(
 export function zoneTints(garment: FigureGarment, colours: readonly string[]): Array<{ key: ZoneKey; mask: string; colour: string }> {
   if (garment === 'unset') return [];
   const art = FIGURE_ART[garment];
+  /* 👔 A design with no drawing yet (lib/attire-library.ts) has no art — nothing to tint, nothing drawn. */
+  if (!art) return [];
   const own = colours.filter((h) => HEX.test(h));
   if (!art.zones) return [{ key: 'a', mask: art.mask, colour: own[0] ?? '#9B9B9B' }];
   const design = designOfArt(garment);
@@ -256,9 +259,14 @@ export function zoneTints(garment: FigureGarment, colours: readonly string[]): A
   return art.zones.map((z) => ({ key: z.key, mask: z.mask, colour: worn[controls.indexOf(controlOfZone(design, z.key))]! }));
 }
 
-/** The drawing for a pick: its role's own drawing of the design, else the shipped garment of that style (`garmentFor`). */
-export function garmentOfPick(p: { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null }): FigureGarment {
-  return (p.role ? roleArtKey(p.role, p.style) : null) ?? garmentFor(p.who, p.style);
+/**
+ * The drawing for a pick: its HERO design's drawing where its person has a library of designs (the first allowed,
+ * drawn design — owner 2026-10-21, `allowedDesigns`), else its role's own drawing of the design, else the shipped
+ * garment of that style (`garmentFor`).
+ */
+export function garmentOfPick(p: { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null; designs?: readonly string[] | null }): FigureGarment {
+  const hero = hasDesignLibrary(p.role) ? allowedDesigns(p.role, p.style, p.designs ?? null)[0]?.art : undefined;
+  return hero ?? (p.role ? roleArtKey(p.role, p.style) : null) ?? garmentFor(p.who, p.style);
 }
 
 /** What a person wears on the GUEST page when the Wear is not said but their colours are: the plain garment of

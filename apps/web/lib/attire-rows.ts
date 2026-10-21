@@ -39,6 +39,7 @@ import { roleGroupOf } from './role-groups';
 import { roleLabel } from './entourage';
 import { womanOrManOf } from './guest-title';
 import type { RoleNames } from './role-names';
+import { sanitizeDesignTicks } from './attire-design-picks';
 
 const roleGroupOfRole = (role: GuestRole): string | null => {
   const g = roleGroupOf(role);
@@ -225,7 +226,8 @@ export const PICK_LABEL: Readonly<Record<FigureWho, string>> = { m: 'For men', f
 
 /* ── the second pick, stored ─────────────────────────────────────────────── */
 
-export type SecondPick = { style?: AttireStyle | null; colours?: string[] };
+/** `designs` — the column's allowed styles and designs (`lib/attire-design-picks.ts`), its first being `style`'s. */
+export type SecondPick = { style?: AttireStyle | null; colours?: string[]; designs?: string[] };
 export type SecondPicks = { roles?: Record<string, SecondPick>; groups?: Record<string, SecondPick> };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -254,6 +256,9 @@ export function sanitizeSecondPicks(raw: unknown): SecondPicks {
         const colours = v.colours.filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, secondPickColoursMax(key));
         if (colours.length > 0) pick.colours = colours;
       }
+      /* 👔 The column's styles and designs (owner 2026-10-21) — read against its person by `picksOf`. */
+      const designs = designTicksStored(v.designs);
+      if (designs && 'style' in pick && pick.style) pick.designs = designs;
       if (!('style' in pick) && !pick.colours) continue;
       (out[tier] ??= {})[key] = pick;
     }
@@ -262,6 +267,18 @@ export function sanitizeSecondPicks(raw: unknown): SecondPicks {
 }
 
 type Config = Record<string, unknown> | null | undefined;
+
+/** 👔 Stored `designs`, as plain words only (each read against its person later, `sanitizeDesignTicks`). */
+export const DESIGN_TICKS_MAX = 30;
+export function designTicksStored(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out = raw.filter((t): t is string => typeof t === 'string' && /^[a-z_]+(\/[a-z_]+)?$/.test(t)).slice(0, DESIGN_TICKS_MAX);
+  return out.length > 0 ? out : null;
+}
+/** The row's FIRST column's stored `designs` (the shipped place's rule). */
+function firstDesignsOf(config: Config, tier: AttireTier, key: string): unknown {
+  return (((config?.[tier] ?? {}) as Record<string, { designs?: unknown }>)[key] ?? {}).designs;
+}
 
 /** The row's FIRST Wear, as stored (the shipped place). */
 export function firstStyleOf(config: Config, tier: AttireTier, key: string): AttireStyle | null {
@@ -280,7 +297,8 @@ export function firstStyleOf(config: Config, tier: AttireTier, key: string): Att
  *     drawing table's "a man's Long gown is a suit" was a drawing fallback, not the couple's word.
  * An `either` row's one person is whoever wears its style (a reader in a gown is drawn a woman).
  */
-export type ReadPick = { who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null };
+/** `designs` — the column's allowed styles and designs as ticked (`lib/attire-design-picks.ts`), or null = `[style]`. */
+export type ReadPick = { who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null; designs?: string[] | null };
 export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   const first = firstStyleOf(config, row.tier, row.key);
   /* 👔 A row with its own designs reads a stored Wear INTO the column's role (`designOf`: its own design, or an old word
@@ -290,17 +308,22 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
     if (role) return designOf(role, style);
     return style && pickOptions(row, index).includes(style) ? style : null;
   };
+  /* 👔 Each column's styles and designs (owner 2026-10-21) — only where its person has a library (the guests), only
+     when they start with the column's own Wear; else null, the one Wear as before. */
+  const ticks = (index: 0 | 1, style: AttireStyle | null, raw: unknown) => sanitizeDesignTicks(columnRole(row.key, index), style, raw);
   if (row.who.length === 1) {
     const style = own(0, first);
     const who = row.either && style && !fitsWho(row.who[0], style) ? COUNTERPART[row.who[0]] : row.who[0];
-    return [{ who, style, colours: null, role: columnRole(row.key, 0) }];
+    return [{ who, style, colours: null, role: columnRole(row.key, 0), designs: ticks(0, style, firstDesignsOf(config, row.tier, row.key)) }];
   }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
   /* 🤵‍♂️ An `optionalSecond` column never reads the first column's Wear (the maid's gown said nothing about a man). */
   const inherited = row.optionalSecond ? null : first;
+  const firstStyle = own(0, first);
+  const secondStyle = own(1, second && 'style' in second ? (second.style ?? null) : inherited);
   return [
-    { who: row.who[0], style: own(0, first), colours: null, role: columnRole(row.key, 0) },
-    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : inherited), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
+    { who: row.who[0], style: firstStyle, colours: null, role: columnRole(row.key, 0), designs: ticks(0, firstStyle, firstDesignsOf(config, row.tier, row.key)) },
+    { who: row.who[1]!, style: secondStyle, colours: second?.colours ?? null, role: columnRole(row.key, 1), designs: ticks(1, secondStyle, second?.designs) },
   ];
 }
 
@@ -349,6 +372,37 @@ export function withFirstStyle<C extends Record<string, unknown>>(
 /** The SECOND pick's Wear (women · girls) — `null` is said ("Not said yet"), never "follow the men". */
 export function withSecondStyle<C extends Record<string, unknown>>(config: C, tier: AttireTier, key: string, style: AttireStyle | null): C {
   return withSecond(config, tier, key, (p) => ({ ...p, style }));
+}
+
+/**
+ * 👔 A COLUMN'S STYLES AND DESIGNS (owner 2026-10-21, `toggleDesignTick`): its Wear is the first tick's style, written
+ * where each Wear has always been written (the first column through `withFirstStyle`, the second through
+ * `withSecondStyle`), and `designs` beside it. A column back to ONE whole style stores no `designs` at all — the shape
+ * every dress code had before, byte for byte.
+ */
+export function withColumnDesigns<C extends Record<string, unknown>>(
+  config: C,
+  tier: AttireTier,
+  key: string,
+  index: 0 | 1,
+  style: AttireStyle | null,
+  designs: readonly string[],
+  write: (config: C, tier: AttireTier, key: string, style: string | null) => C,
+): C {
+  const keep = style && !(designs.length === 1 && designs[0] === style) ? [...designs] : null;
+  if (index === 1) {
+    return withSecond(config, tier, key, (p) => {
+      const { designs: _was, ...rest } = p;
+      return keep ? { ...rest, style, designs: keep } : { ...rest, style };
+    });
+  }
+  const next = withFirstStyle(config, tier, key, style, write);
+  const map = { ...((next[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
+  const rule = map[key];
+  if (!rule) return next;
+  const { designs: _was, ...rest } = rule;
+  map[key] = keep ? { ...rest, designs: keep } : rest;
+  return { ...next, [tier]: map };
 }
 
 /** The SECOND pick's own colours — `null` hands them back to the row's. */

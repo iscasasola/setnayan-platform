@@ -8181,6 +8181,20 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 [data-pick-grid] > li > button { width: 44px; min-height: 44px; height: 44px; padding: 0; justify-content: center; gap: 0; font-size: 18px; }
 [data-pick-grid] > li > button > span:not([aria-hidden]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* 👔 PICKMENU DESIGN TILES — the guests' Wear ▾ (owner 2026-10-21, "up to 5 different attires"; prototype
+   `attire_five_designs_per_style_2026-10-21.html` § 3): each STYLE a row of its own (its tick box, its name, how much of
+   it is allowed), its DESIGNS under it as small tiles side by side — the figure, its name, a ✓ when allowed. They are
+   the list's ordinary options (`design:` keys), laid out here: CSS, not code, because pick-menu.tsx sits at its
+   inline-size line. A tile is pressed, so it wears the frame; a style head is a row like every other option. */
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) > li { flex: 1 0 100%; }
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) > li:has(> [data-pick-option^="design:"]) { flex: 0 0 64px; }
+[role="listbox"] > li > [data-pick-option^="design:"] { position: relative; flex-direction: column; justify-content: flex-end; gap: 4px; width: 64px; min-height: 96px; padding: 4px 2px 3px; border: 1px solid rgb(var(--color-ink) / 0.14); border-radius: var(--m-r-sm); text-align: center; font-size: 10px; line-height: 1.2; }
+[role="listbox"] > li > [data-pick-option^="design:"][aria-selected="true"] { border-color: rgb(var(--sn-accent)); }
+[role="listbox"] > li > [data-pick-option^="design:"][aria-selected="false"] { opacity: 0.42; }
+[role="listbox"] > li > [data-pick-option^="design:"] > span.font-semibold { font-weight: 500; color: rgb(var(--color-ink) / 0.75); }
+[role="listbox"] > li > [data-pick-option^="design:"] > [data-pick-tick] { position: absolute; top: 3px; right: 3px; margin: 0; padding: 0; width: 15px; height: 15px; border-radius: 999px; background: rgb(var(--sn-accent)); color: rgb(var(--sn-on-accent, 255 255 255)); font-size: 9px; line-height: 15px; text-align: center; }
+
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
    ──────────────────────────────────────────────────────────────────────────

@@ -223,3 +223,18 @@ test('4 · the dress-code form body is never on the server side of the Maker; it
   assert.deepEqual(clientImports.map(rel), [], 'dress-code-config.ts imports a client module — every Maker server file reading the dress code would carry it');
   assert.ok([...lazyPieces.keys()].map(rel).includes('app/dashboard/[eventId]/website/editor/_components/dress-code-panel.tsx'), 'the Dress code panel is no longer a lazy piece');
 });
+
+/* 🪟 5 · NO GUEST-PAGE CLIENT COMPONENT RIDES THE MAKER'S FIRST LOAD (2026-10-22, Maker headroom). The guest page
+   (`app/[slug]/`) draws inside the Maker's canvas — its OWN route, in an iframe — so none of its client components
+   belongs in the Maker's first load. Measured: `lib/event-poster.ts` imported `splitCoupleNames` through
+   `pahina-masthead.tsx`'s re-export (it lives in `lib/split-names.ts`), which made the masthead a server file of the
+   Maker and put `FirstScreenDoor` · `CoverRsvpGoes` · `SceneClip` (+ `hub-veil`) in its first load, ~6KB gz.
+   A plain reader from the guest page's `_lib/` is fine (it is walked as a server file); a client component is not. */
+test('5 · no client component of the guest page (app/[slug]/) is a first-load boundary of the Maker', () => {
+  const server = [...graph.server].map(rel);
+  assert.ok(server.some((f) => f.startsWith('app/[slug]/_lib/')), 'the walk no longer reaches the guest page’s plain readers — the check would pass on nothing');
+  const guest = [...graph.boundaries]
+    .filter(([b]) => rel(b).startsWith('app/[slug]/'))
+    .map(([b, via]) => `${rel(b)} — imported by ${rel(via)}`);
+  assert.deepEqual(guest, [], `A guest-page client component is in the Maker's first load (import the plain helper from lib/, not through the component):\n  ${guest.join('\n  ')}`);
+});

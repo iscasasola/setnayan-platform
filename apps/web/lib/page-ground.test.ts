@@ -76,7 +76,7 @@ test('every surface that paints the page ground asks the one rule', () => {
     kept by making both ASK the one helper rather than each carrying a copy.
     The gate assertions below are the same ones that read site-body before.
   */
-  const helper = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const helper = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   // The gated resolution itself lives in ONE pure module (2026-10-03), shared
   // with Discover's event card; the page's helper asks it and resolves nothing.
   const gated = read('lib/guest-main-ground.ts');

@@ -73,7 +73,7 @@ test('a dark shade flips the words to the paper, and the floor holds', () => {
 });
 
 test('the guest layer lays the veil, the blur, the focus and the pattern', () => {
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   assert.match(layer, /const shade = look\.shade \? mainGroundShade\(look\.shade, page, mainGround\.tint\?\.frame \?\? \[\]\) : null;/);
   assert.match(layer, /const \{ look, page, shade \} = shadeOf\(mainGround, dressedTheme\(theme, event\.role_palette\)\);/);
   assert.match(layer, /if \(loop && isHubMainLoop\(main\)\) loop\.ground\.look = loopLook\(hubMainLook\(main\)\);/);

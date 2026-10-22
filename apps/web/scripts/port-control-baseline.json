@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3a3eacec66",
-  "routeCount": 451,
+  "generatedFromRef": "d20b993d6c",
+  "routeCount": 452,
   "destinations": 995,
-  "actions": 664,
-  "blocks": 6734,
+  "actions": 665,
+  "blocks": 6751,
   "routes": {
     "/": {
       "files": [
@@ -4927,6 +4927,7 @@
         "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
         "dashboard/(account)/create-event/_components/event-type-picker.tsx",
         "dashboard/(account)/create-event/_components/event-types.ts",
+        "dashboard/(account)/create-event/_components/new-event-head.tsx",
         "dashboard/(account)/create-event/actions.ts",
         "dashboard/(account)/create-event/life-event-guard.ts",
         "dashboard/(account)/create-event/loading.tsx",
@@ -4955,7 +4956,9 @@
         "Image",
         "InPlanningWedding",
         "Link",
+        "NewEventHead",
         "PhotoTile",
+        "PickMenu",
         "PillButton",
         "PillTrack",
         "SubmitButton"
@@ -10799,6 +10802,7 @@
     "/dev/home-lab": {
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
+        "dev/home-lab/lab-spotlight.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -10813,9 +10817,13 @@
         "ApplyProSheetLab",
         "HomeFirstScreen",
         "HomeWhatsNext",
+        "HubProOffer",
         "LabShell",
+        "LabSpotlight",
         "PapicTopBand",
+        "ProLockPanel",
         "SiteMenuBar",
+        "SpotlightMount",
         "YourShotsGallery"
       ]
     },
@@ -11211,6 +11219,20 @@
         "TeamRowFacts"
       ]
     },
+    "/dev/you-lab": {
+      "files": [
+        "dev/you-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBarSlot",
+        "EventTypePicker",
+        "FrontDoorShell",
+        "NewEventHead",
+        "YouCard"
+      ]
+    },
     "/download": {
       "files": [
         "download/_download-motion.tsx",
@@ -11563,6 +11585,7 @@
         "EventNeeds",
         "Eyebrow",
         "Field",
+        "FirstRunBrand",
         "GenericOnboarding",
         "HTMLDivElement",
         "ItemInput",
@@ -11598,6 +11621,7 @@
       ],
       "blocks": [
         "EventNeeds",
+        "FirstRunBrand",
         "HTMLDivElement",
         "Link",
         "NeedPreset",
@@ -11726,6 +11750,7 @@
         "DesktopOAuthButtons",
         "DetectedCity",
         "FileUpload",
+        "FirstRunBrand",
         "HTMLDivElement",
         "HTMLFormElement",
         "LeafletMap",
@@ -12288,33 +12313,38 @@
       ],
       "blocks": [
         "DesktopOAuthButtons",
+        "FirstRunBrand",
         "GoogleAddressDoor",
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
-        "OAuthTermsLine",
         "Sk",
         "SubmitButton",
+        "TermsFirst",
         "TurnstileField"
       ]
     },
     "/signup/you": {
       "files": [
         "signup/you/_components/account-name-field.tsx",
+        "signup/you/_components/you-card.tsx",
         "signup/you/actions.ts",
         "signup/you/page.tsx"
       ],
       "destinations": [],
       "actions": [
+        "action",
         "saveYou"
       ],
       "blocks": [
         "AccountNameCheck",
         "AccountNameField",
         "FileUpload",
+        "FirstRunBrand",
         "Link",
         "PrefixSelect",
-        "SubmitButton"
+        "SubmitButton",
+        "YouCard"
       ]
     },
     "/site-editor/[eventId]": {

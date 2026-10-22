@@ -15,7 +15,6 @@
  * without a navigation. The field logic, validation and RLS are ported VERBATIM
  * from the canonical sources so this path can never drift softer than them:
  *   • side / RSVP / plus-one  ← `[guestId]/actions.ts › updateGuest`
- *   • role                    ← `quick-add-actions.ts › setGuestPrimaryRole`
  *   • single add              ← `quick-add-actions.ts › quickAddGuest`
  * All writes use the RLS-scoped couple client (`createClient`), exactly like
  * `updateGuest`; RLS is what confines the couple to their own event's guests.
@@ -40,7 +39,6 @@ import { runAddSingleGuest } from '@/lib/add-single-guest-core';
 import {
   quickAddGuest,
   quickCreateGroup,
-  setGuestPrimaryRole,
   type AddWriteOptions,
   type QuickAddResult,
 } from './quick-add-actions';
@@ -293,21 +291,14 @@ export async function restoreGuestRsvpAndSeat(
   return { ok: true };
 }
 
-/**
- * Set one guest's PRIMARY role. Delegates to the canonical
- * `setGuestPrimaryRole` (quick-add-actions) so the offered-role validation,
- * the singleton bride/groom 23505 handling, and the seat-plan re-place run
- * IDENTICALLY to the quick-add path — this wrapper only normalises the result
- * shape for the inline editors.
- */
-export async function setGuestRole(
-  eventId: string,
-  guestId: string,
-  role: GuestRole,
-): Promise<InlineResult> {
-  const res = await setGuestPrimaryRole(eventId, guestId, role);
-  return res.ok ? { ok: true } : { ok: false, error: res.error };
-}
+/*
+  ─── `setGuestRole` DELETED (2026-10-22) ─────────────────────────────────
+  A thin wrapper over `quick-add-actions.ts › setGuestPrimaryRole` with no
+  caller anywhere in app/ or lib/ (the role editors call the canonical action
+  directly). Deleted to free one exported server action under the Vercel
+  route budget (`scripts/lint-server-action-budget.mjs`) for the sign-up
+  card's Terms carry (`app/auth/terms-carry-action.ts`).
+*/
 
 /*
   ─── `setGuestPlusOnes` DELETED (2026-09-03) ─────────────────────────────

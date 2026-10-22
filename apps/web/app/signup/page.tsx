@@ -32,7 +32,7 @@
  * (one hidden input, the value the URL decided — owner-locked 2026-09-20,
  * `lib/signup-intent.ts`), `next`, `ref` / `src_event` (guest → host
  * attribution), `refc` (couple referral), `email`, `password`, the Terms box
- * (CTRL-B3, unticked, required, above the submit — `lib/terms-agreement.ts`),
+ * (CTRL-B3, unticked, required, above the submit — and since 2026-10-22 above Google / Apple too, one box for all three doors — `lib/terms-agreement.ts`),
  * `remember`, and the Turnstile bot check inside the form. The OAuth row above
  * the email form, shell-gated exactly as /login gates it. The status banners
  * (error · confirmation sent · guest photos will be saved · a couple invited
@@ -52,7 +52,7 @@ import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { OAUTH_FLAGS, OAuthButtonRow } from '@/app/_components/oauth-button-row';
-import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
+import { TermsFirst } from '@/app/_components/auth/terms-first';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
@@ -73,6 +73,10 @@ export const metadata: Metadata = {
     'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
 };
+
+/** The one Terms box and the email form it posts with (`form=`) — one id each, so the two can never drift apart. */
+const TERMS_BOX_ID = 'hr-su-terms';
+const SIGNUP_FORM_ID = 'hr-su-form';
 
 const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both an email and a password.',
@@ -204,6 +208,31 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
+          {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B,
+              prototype journey_fixes_2026-10-22.html). Clickwrap, UNTICKED, `required` (CTRL-B3), now ABOVE the
+              Google / Apple buttons as well as the email form's submit. `form=` posts it with the email form exactly
+              as before; `TermsFirst` below dims Google / Apple until it is ticked and carries the tick through the
+              provider round trip (`carrySignupTerms` → `app/auth/callback`), so a Google / Apple account that ticked
+              here never meets the "One quick thing" second screen. The "By continuing with Google or Apple…" line
+              (browsewrap) is gone — this box is the agreement on every door. */}
+          <label htmlFor={TERMS_BOX_ID} className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
+            <input id={TERMS_BOX_ID} name={TERMS_FIELD} type="checkbox" form={SIGNUP_FORM_ID} required data-terms-box="" style={{ marginTop: 3 }} />
+            <span>
+              I agree to the{' '}
+              <Link href="/terms" className="hr-si-link">
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="hr-si-link">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
+          <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
+            Tick the Terms first.
+          </p>
+
           {/* ONE DOOR, ONE ORDER (owner 2026-09-25, verbatim: "When a new account
               is created via website must be similar to the event invitation").
               Google / Apple FIRST, as on the invitation door (DECISION_LOG
@@ -213,20 +242,21 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               owner's WORDS from that day stay — "sign in directly with Google or
               Apple" (the sentence above); the buttons say `OAUTH_VERB`
               (lib/oauth-words.ts, "Continue with"), the one wording every door
-              uses (sweep C9, 2026-10-19). `OAuthTermsLine` states the agreement
-              on this path — the Terms box below is the email path's.
+              uses (sweep C9, 2026-10-19). The one Terms box ABOVE them is the
+              agreement on this path as well (2026-10-22).
               Same components and shell gate as /login; `withAccountType` carries
               the URL's decision so a vendor arriving by Google is filed as one. */}
           {showOAuth ? (
             <div className="hr-si-oauth">
-              {desktopOAuth ? (
-                <DesktopOAuthButtons next={next} />
-              ) : nativeOAuth ? (
-                <NativeOAuthButtons next={next} accountType={accountType} />
-              ) : (
-                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
-              )}
-              <OAuthTermsLine />
+              <TermsFirst boxId={TERMS_BOX_ID}>
+                {desktopOAuth ? (
+                  <DesktopOAuthButtons next={next} termsBoxId={TERMS_BOX_ID} />
+                ) : nativeOAuth ? (
+                  <NativeOAuthButtons next={next} accountType={accountType} />
+                ) : (
+                  <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
+                )}
+              </TermsFirst>
             </div>
           ) : null}
           {showOAuth ? (
@@ -235,7 +265,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </div>
           ) : null}
 
-          <form action={signUp} className="hr-si-form">
+          <form action={signUp} id={SIGNUP_FORM_ID} className="hr-si-form">
             <input type="hidden" name="next" value={next} />
             <TurnstileField action="signup" />
             {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
@@ -268,7 +298,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               nativeOAuth={nativeOAuth}
               next={next}
               accountType={accountType}
-              withTerms
+              termsBoxId={TERMS_BOX_ID}
             />
             <div className="hr-si-field" data-password-only="">
               <label htmlFor="hr-su-password" className="hr-si-label">
@@ -285,23 +315,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 className="hr-si-input"
               />
             </div>
-
-            {/* THE AGREEMENT — clickwrap, above the submit, UNTICKED (CTRL-B3).
-                `required` is the browser's half; `signUp` refuses without it. */}
-            <label htmlFor="hr-su-terms" className="hr-si-remember" style={{ alignItems: 'flex-start' }} data-password-only="">
-              <input id="hr-su-terms" name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
-              <span>
-                I agree to the{' '}
-                <Link href="/terms" className="hr-si-link">
-                  Terms
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="hr-si-link">
-                  Privacy Policy
-                </Link>
-                .
-              </span>
-            </label>
 
             {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
                 action downgrades sb-* cookies to session-only when unchecked. */}

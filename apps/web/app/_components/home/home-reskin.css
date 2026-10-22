@@ -3409,3 +3409,40 @@ html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
   margin: -6px 0 14px;
   color: var(--hr-ink);
 }
+
+/* ✅ ONE TERMS BOX ABOVE EVERY DOOR (owner 2026-10-22, Host 1 option B — prototype journey_fixes_2026-10-22.html,
+   "Before the tick": Google and Apple sit dimmed until the box is ticked; pressing one bounces the box).
+   CSS, not state: the dim reads the box itself, so it is right before hydration and can never disagree with it.
+   Dimmed, never `disabled` — a press must still land, so `TermsFirst` can nudge the box and say why. */
+.home-reskin-ov:has([data-terms-box]:not(:checked)) [data-terms-first] button,
+.home-reskin-ov:has([data-terms-box]:not(:checked)) button[data-terms-first] {
+  opacity: 0.5;
+}
+.home-reskin-ov .sn-signin-terra .hr-si-terms-hint {
+  margin: -6px 0 8px;
+  color: #b04722;
+}
+.home-reskin-ov [data-terms-nudge] {
+  animation: hr-terms-nudge 0.45s ease-out;
+}
+@keyframes hr-terms-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-reskin-ov [data-terms-nudge] {
+    animation: none;
+    text-decoration: underline;
+  }
+}

@@ -12,7 +12,9 @@
  *
  * SABOTAGE: give `NativeOAuthButtons` back a `verb = 'Sign in with'` prop → RED (test 2).
  * SABOTAGE: type "Sign in with Google" into /signup → RED (test 3).
- * SABOTAGE: delete `<OAuthTermsLine />` from /signup → RED (test 4).
+ * SABOTAGE: delete `<OAuthTermsLine />` from the onboarding account screen → RED (test 4).
+ * SABOTAGE: move /signup's `<OAuthButtonRow>` out of `<TermsFirst>` → RED (test 4).
+ * SABOTAGE: drop `termsBoxId` from /signup's GoogleAddressDoor → RED (test 4).
  * SABOTAGE: drop `withTerms` from the onboarding's GoogleAddressDoor → RED (test 4).
  */
 import { test } from 'node:test';
@@ -80,7 +82,23 @@ test('4 · every sign-up door states the agreement on its Google / Apple path', 
   const offenders: string[] = [];
   for (const { rel, src } of doors) {
     if (!src.includes('<OAuthButtonRow')) continue;
-    if (!/<OAuthTermsLine\s*\/>/.test(src)) offenders.push(`${rel}: Google / Apple row with no <OAuthTermsLine />`);
+    // Two honest ways to state it (owner 2026-10-22, Host 1): the ONE Terms box ABOVE the doors — the row sits
+    // inside `<TermsFirst boxId=…>` naming that box, and the typed-address door waits for it (`termsBoxId`) — or
+    // the line under the row (`<OAuthTermsLine />`) with the typed-address door saying it too (`withTerms`).
+    const boxId = src.match(/<TermsFirst boxId=\{(\w+)\}>/)?.[1] ?? null;
+    const gated = boxId !== null && new RegExp(`<input\\b[^>]*\\bid=\\{${boxId}\\}[^>]*\\bname=\\{TERMS_FIELD\\}`).test(src);
+    if (boxId !== null && !gated) offenders.push(`${rel}: <TermsFirst> names a box that is not the Terms checkbox`);
+    if (gated) {
+      const wrap = src.indexOf('<TermsFirst');
+      const row = src.indexOf('<OAuthButtonRow');
+      const close = src.indexOf('</TermsFirst>');
+      if (!(wrap < row && row < close)) offenders.push(`${rel}: the Google / Apple row sits outside <TermsFirst>`);
+      for (const m of src.matchAll(/<GoogleAddressDoor\b[^>]*>/g)) {
+        if (!new RegExp(`\\btermsBoxId=\\{${boxId}\\}`).test(m[0])) offenders.push(`${rel}: its typed-address door does not wait for the Terms box`);
+      }
+      continue;
+    }
+    if (!/<OAuthTermsLine\s*\/>/.test(src)) offenders.push(`${rel}: Google / Apple row with no <OAuthTermsLine /> and no Terms box above it`);
     for (const m of src.matchAll(/<GoogleAddressDoor\b[^>]*>/g)) {
       if (!/\bwithTerms\b/.test(m[0])) offenders.push(`${rel}: its typed-address door folds the Terms box away and says nothing`);
     }

@@ -39,6 +39,7 @@ import { signInWithProviderDesktop } from '@/lib/desktop-oauth';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { OAUTH_VERB } from '@/lib/oauth-words';
 import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
+import { termsFirst } from '@/app/_components/auth/terms-first';
 import {
   GOOGLE_ADDRESS_WORDS,
   emailDomain,
@@ -63,6 +64,7 @@ export function GoogleAddressDoor({
   next,
   accountType,
   withTerms = false,
+  termsBoxId,
 }: {
   /** The shell gate's `show` — false wherever the Google button is not on screen. */
   enabled: boolean;
@@ -75,6 +77,9 @@ export function GoogleAddressDoor({
   /** A sign-up door: say the Terms + Privacy agreement under the button, since the password part (with its Terms
    *  box) folds away while this door is showing (sweep C9). */
   withTerms?: boolean;
+  /** A sign-up card with ONE Terms box above every door (/signup, owner 2026-10-22): this door waits for that box
+   *  — unticked, it nudges the box and goes nowhere; ticked, the tick is carried to the callback first (`termsFirst`). */
+  termsBoxId?: string;
 }) {
   const active = enabled && GOOGLE_ENABLED;
   const shell = googleDoorShell(desktopOAuth, nativeOAuth);
@@ -142,12 +147,13 @@ export function GoogleAddressDoor({
     };
   }, [active, domain]);
 
-  const go = useCallback(() => {
+  const go = useCallback(async () => {
     if (leaving) return;
+    if (termsBoxId && !(await termsFirst(termsBoxId))) return;
     const hint = googleLoginHint(address);
     setLeaving(true);
     if (shell === 'desktop') {
-      signInWithProviderDesktop('google', next, hint).catch(() => setLeaving(false));
+      signInWithProviderDesktop('google', next, hint, { agreed: Boolean(termsBoxId) }).catch(() => setLeaving(false));
       return;
     }
     if (shell === 'native') {
@@ -168,7 +174,7 @@ export function GoogleAddressDoor({
     startTransition(async () => {
       await signInWithGoogle(fd);
     });
-  }, [address, accountType, leaving, next, shell]);
+  }, [address, accountType, leaving, next, shell, termsBoxId]);
 
   // Fold the password part of the form away (and back), and route the form's
   // own submit — Enter in the email box — to the same Google door.
@@ -192,7 +198,7 @@ export function GoogleAddressDoor({
     const onSubmit = (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
-      goRef.current();
+      void goRef.current();
     };
     form.addEventListener('submit', onSubmit);
     return () => form.removeEventListener('submit', onSubmit);
@@ -200,7 +206,13 @@ export function GoogleAddressDoor({
 
   return (
     <div ref={anchor} style={on ? undefined : { display: 'none' }} data-google-address-door="">
-      <button type="button" className={BTN} disabled={leaving} onClick={go}>
+      <button
+        type="button"
+        className={BTN}
+        disabled={leaving}
+        onClick={() => void go()}
+        data-terms-first={termsBoxId ? '' : undefined}
+      >
         {leaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden /> : <GoogleGIcon />}
         {leaving
           ? shell === 'web'

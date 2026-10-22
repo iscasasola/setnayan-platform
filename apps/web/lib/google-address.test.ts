@@ -119,7 +119,7 @@ test('EVERY shell hands the typed address to Google as login_hint', () => {
   assert.match(native, /queryParams:\s*\{\s*login_hint:\s*loginHint\s*\}/);
   assert.match(native, /systemBrowser\(provider, next, accountType, loginHint\)/);
   const door = read('app/_components/auth/google-address-door.tsx');
-  assert.match(door, /signInWithProviderDesktop\('google', next, hint\)/);
+  assert.match(door, /signInWithProviderDesktop\('google', next, hint(, \{[^}]*\})?\)/); // + the Terms tick on /signup (2026-10-22)
   assert.match(door, /signInWithProviderNative\('google', next, accountType \?\? 'customer', hint\)/);
   assert.match(door, /fd\.set\('login_hint', hint\)/);
   assert.match(door, /signInWithGoogle\(fd\)/);

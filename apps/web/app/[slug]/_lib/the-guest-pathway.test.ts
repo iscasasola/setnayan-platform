@@ -28,7 +28,7 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 import { rsvpGate, saveMethodFor, isInAppWebview } from '@/lib/guest-one-path';
-import { rsvpTermsCarried, TERMS_VERSION } from '@/lib/terms-agreement';
+import { carriedTermsAgreement, rsvpTermsCarried, TERMS_VERSION } from '@/lib/terms-agreement';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { dayOrdinal, thankYouHeadline, replySummary } from './thank-you-words';
 
@@ -272,12 +272,20 @@ test('3 · 🔒 the Terms ticked on the RSVP page reach a Google/Apple account �
   assert.equal(rsvpTermsCarried(TERMS_VERSION), true);
   assert.equal(rsvpTermsCarried('2020-01-01'), false, 'an older version is not an agreement to this one');
   assert.equal(rsvpTermsCarried(undefined), false);
-  const at = CALLBACK.indexOf('rsvpTermsCarried(request.cookies.get(RSVP_TERMS_COOKIE)?.value)');
+  // Since 2026-10-22 the callback reads the RSVP tick through `carriedTermsAgreement`, beside the sign-up card's
+  // one tick (Host 1) — the same write, the same scope, executed here rather than grepped.
+  assert.equal(carriedTermsAgreement({ eventConnect: true, rsvpCookie: TERMS_VERSION, signupCookie: undefined }), true);
+  assert.equal(
+    carriedTermsAgreement({ eventConnect: false, rsvpCookie: TERMS_VERSION, signupCookie: undefined }),
+    false,
+    'the RSVP-page write is no longer scoped to "Save to my account"',
+  );
+  const at = CALLBACK.indexOf('rsvpCookie: request.cookies.get(RSVP_TERMS_COOKIE)?.value');
   assert.ok(at > -1, 'the OAuth callback no longer records the RSVP-page agreement');
   const block = CALLBACK.slice(at, at + 700);
   assert.match(block, /terms_accepted_at: new Date\(\)\.toISOString\(\), terms_version: TERMS_VERSION/);
   assert.match(block, /\.is\('terms_accepted_at', null\)/, 'an existing agreement would be rewritten');
-  assert.match(CALLBACK, /isEventConnectNext\(fallbackNext\) && rsvpTermsCarried/, 'the write is no longer scoped to "Save to my account"');
+  assert.match(CALLBACK, /eventConnect: isEventConnectNext\(fallbackNext\),/, 'the write is no longer scoped to "Save to my account"');
 });
 
 test('3 · the thank-you says the right thing, and reads the date as text', () => {

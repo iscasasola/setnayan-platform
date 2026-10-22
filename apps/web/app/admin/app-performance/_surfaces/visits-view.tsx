@@ -239,35 +239,42 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
               <DayChart days={days} />
             )}
           </section>
+        </>
+      )}
 
-          {/* ── 3 · top pages ─────────────────────────────────────────── */}
-          <section aria-labelledby="visits-pages">
-            <h2 id="visits-pages" className="mb-3 text-base font-semibold text-ink">
-              Top pages
-            </h2>
-            <ConsoleTable
-              label="Top pages"
-              reads="the visits"
-              rows={summary.pages}
-              rowKey={(p) => p.path}
-              readPermitted
-              minWidth="18rem"
-              empty={{
-                Icon: Footprints,
-                title: 'No pages counted yet',
-                blurb: 'Pages appear here as people open them.',
-              }}
-              columns={[
-                { header: 'Page', mono: true, cell: (p) => <span className="break-all">{p.path}</span> },
-                { header: 'Views', align: 'right', cell: (p) => <span className="tabular-nums">{formatCount(p.views)}</span> },
-                {
-                  header: 'First page for',
-                  align: 'right',
-                  cell: (p) => <span className="tabular-nums">{formatCount(p.visitors)}</span>,
-                },
-              ]}
-            />
-          </section>
+      {/* ── 3 · top pages ─────────────────────────────────────────── */}
+      <section aria-labelledby="visits-pages">
+        <h2 id="visits-pages" className="mb-3 text-base font-semibold text-ink">
+          Top pages
+        </h2>
+        <ConsoleTable
+          label="Top pages"
+          reads="the visits"
+          rows={summary ? summary.pages : null}
+        readError={summary ? null : { message: 'site_visit_summary read refused (see the earlier log line)' }}
+          rowKey={(p) => p.path}
+          readPermitted
+          minWidth="18rem"
+          empty={{
+            Icon: Footprints,
+            title: 'No pages counted yet',
+            blurb: 'Pages appear here as people open them.',
+          }}
+          columns={[
+            { header: 'Page', mono: true, cell: (p) => <span className="break-all">{p.path}</span> },
+            { header: 'Views', align: 'right', cell: (p) => <span className="tabular-nums">{formatCount(p.views)}</span> },
+            {
+              header: 'First page for',
+              align: 'right',
+              cell: (p) => <span className="tabular-nums">{formatCount(p.visitors)}</span>,
+            },
+          ]}
+        />
+      </section>
+
+
+      {unread ? null : (
+        <>
 
           {/* ── 4 · where they came from · phone or computer · country ─── */}
           <div className="grid gap-10 lg:grid-cols-3">

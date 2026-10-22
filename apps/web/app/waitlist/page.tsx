@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
@@ -18,6 +19,7 @@ export const metadata = {
     'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace with 0% commission on bookings.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Plan your wedding free — Setnayan',
     description:
       'Setnayan is live for couples. Start planning free today.',

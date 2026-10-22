@@ -14,6 +14,7 @@ import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadLandingCards } from '@/lib/supplier-landing-data';
 import { pagePath, placeName, qualifyingPages, type QualifyingPage } from '@/lib/supplier-landing';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 const TITLE = 'Filipino event suppliers by event, category and city';
 const DESCRIPTION =
@@ -27,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: DESCRIPTION,
     alternates: { canonical: '/suppliers' },
     robots: { index: any, follow: true },
-    openGraph: { title: `${TITLE} · Setnayan`, description: DESCRIPTION, url: '/suppliers', type: 'website', siteName: 'Setnayan' },
+    openGraph: { title: `${TITLE} · Setnayan`, description: DESCRIPTION, url: '/suppliers', type: 'website', siteName: 'Setnayan', images: BRAND_OG_IMAGES },
   };
 }
 

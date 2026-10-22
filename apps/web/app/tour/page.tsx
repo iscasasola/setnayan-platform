@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSampleEvent } from './_lib/sample-event';
 import { coupleNamesLine } from '@/lib/typed-names';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * /tour — the public "walk through a real wedding" intro + stop index.
@@ -18,6 +19,7 @@ export const metadata = {
     'Explore a complete sample wedding on Setnayan — the invitation, the vendors, the seating, the budget, and the gallery. No sign-up, and nothing is saved.',
   alternates: { canonical: '/tour' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Walk through a real wedding · Setnayan',
     description: 'Explore a complete sample wedding on Setnayan — no sign-up, nothing saved.',
     url: '/tour',

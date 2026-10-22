@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import {
   ALL_HELP_ARTICLES,
   findHelpArticle,
@@ -81,6 +82,7 @@ export async function generateMetadata({ params }: Props) {
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
+      images: BRAND_OG_IMAGES,
       type: 'article',
       url: canonicalUrl,
       title: `${article.title} · Setnayan Help`,
@@ -89,6 +91,7 @@ export async function generateMetadata({ params }: Props) {
       locale: 'en_PH',
     },
     twitter: {
+      images: BRAND_TWITTER_IMAGES,
       card: 'summary',
       title: article.title,
       description,

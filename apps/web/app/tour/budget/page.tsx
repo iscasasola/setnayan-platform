@@ -10,6 +10,7 @@ import { DEFAULT_ALLOCATION_CONFIG } from '@/lib/budget-allocation';
 import { TourVendorItemization } from './_components/tour-vendor-itemization';
 import { TourBudgetPlanner } from './_components/tour-budget-planner';
 import { coupleNamesLine } from '@/lib/typed-names';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * STOP 4 — "Money, handled."
@@ -35,6 +36,7 @@ export const metadata = {
     'See how a couple tracks every peso on Setnayan — committed vs. paid per vendor, plus a live budget planner you can nudge yourself. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/budget' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'The budget · Maria & Jose · Setnayan',
     description: 'Every peso tracked, every deadline in view — explore a real wedding budget.',
     url: '/tour/budget',

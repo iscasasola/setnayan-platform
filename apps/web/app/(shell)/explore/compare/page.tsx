@@ -25,6 +25,7 @@ import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -61,6 +62,7 @@ export const metadata = {
     'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
   alternates: { canonical: '/explore/compare' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Compare Filipino wedding suppliers — Setnayan',
     description:
       'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',

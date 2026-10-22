@@ -22,7 +22,7 @@ import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
 import { beyondHorizon, horizonDaysFor, isGatedLifeType } from '@/lib/life-event-gate';
-import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
+import { pickerAsksHonoree } from '@/lib/honoree-dependent-link';
 import {
   gridHiddenTypes,
   subjectHonoreeDependentId,
@@ -443,8 +443,14 @@ export function EventTypePicker({
               way to name it. They carry NO cap — `blocksLifeEventCreation`
               still keys on `isGatedLifeType` — so the footnote below says
               something different for them rather than promising a rule that
-              does not apply to them. A wedding is in neither list. */}
-          {eventTypeAcceptsHonoreeLink(selected.key) && !samahanCommunityId ? (
+              does not apply to them. A wedding is in neither list.
+
+              WIDENED 2026-10-22 (owner "yes"): when "For ▾" is a SHOP's business
+              alaga, the field is drawn on EVERY type offered for it
+              (`pickerAsksHonoree`), so a celebration or a trip for the shop
+              posts the shop's record and is filed under it. A person picked for
+              those types still draws nothing, as before. */}
+          {pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
                 {isGatedLifeType(selected.key) ? 'Para kanino?' : 'Which business is this for?'}{' '}

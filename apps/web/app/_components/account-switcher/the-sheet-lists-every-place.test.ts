@@ -22,14 +22,11 @@ import { fileURLToPath } from 'node:url';
 
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, SHEET_UNREAD_CEILING } from '@/lib/avatar-sheet-counts';
 import { pickHelperShop, reachableShops } from '@/lib/active-shop';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const SHEET = 'app/_components/account-switcher/account-switcher.tsx';
 const DATA = 'app/_components/account-switcher/get-switcher-data.ts';

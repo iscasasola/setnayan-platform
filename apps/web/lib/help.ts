@@ -489,12 +489,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'import-csv',
         title: 'Import guests from CSV',
-        body: 'On the Guests page, tap + then "Import a file". Paste your spreadsheet (max 200 rows per import). Required columns: first_name, last_name. Optional: side, role, group_category, email, mobile, meal_preference, plus_one_allowed. Bad rows are flagged; valid rows insert atomically.',
+        body: 'On Guests, tap ＋, then Import a file. Upload a CSV file — up to 200 rows at a time; download the template on that page to start. First name and last name are the only columns you must fill. You see every row before anything is added, and uploading again updates the guests already there.',
       },
       {
         slug: 'share-invite-link',
         title: 'Share an invite link',
-        body: 'Each guest gets a personal URL with their QR token. From the Invitation tab, you can either print the entire QR sheet (one per guest, A4 layout) or copy individual links from the guest table. There\'s also a generic "anyone with the link" event-join URL for ad-hoc invites.',
+        body: 'Each guest has their own invitation link and QR. On Guests, tap a guest’s Invite to copy their link or a ready message, or to share the message with their ticket. For people not on your list yet, Guests › Setup has one link anyone can use to ask to join.',
       },
     ],
   },
@@ -511,17 +511,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'monogram',
         title: 'Customize the QR monogram',
-        body: 'From the Invitation tab → Branding section. The monogram is the text in the center of every guest\'s QR code (default: first letter of each side joined by &, e.g. "M & J"). Override the text and pick an accent color. Every guest\'s QR rebuilds instantly.',
+        appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark on a free event, your own logo with Event Hub Pro. The QR’s shape, pattern and colour are in Hub, under Event Details › QR Code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',
         title: 'Print the QR sheet',
-        body: 'From the Invitation admin, click "Print sheet" — opens an A4 grid with each guest\'s branded QR + name + role. Print at 100% scale, no margins. Cut along the dashed lines or fold into card inserts.',
+        body: 'Open Hub › Prints and find Guest QR codes, under For the day. Save PDF gives every guest’s own QR with their name, twelve to an A4 page — free for every event. Print it at 100% scale.',
       },
       {
         slug: 'reissue-qr',
         title: "Re-issue a guest's QR code",
-        body: 'If a guest loses their link or shares it, you can invalidate the old token. On the Invitation admin, find the guest row → "Re-issue token". Old QR stops working immediately; new QR is ready to share.',
+        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap ⋯ › New QR, then Make a new QR. Their old QR and link stop working at once; the new one is ready to send.',
       },
     ],
   },
@@ -533,17 +534,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On the Suppliers page, click Add a supplier. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + payment if you have them. Suppliers move through a 6-stage flow: considering → shortlisted → contracted → first payment paid → delivered → complete.',
+        body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and the price you agreed. Once you have paid them, they show as Booked.',
       },
       {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'On the Budget page, each supplier card has two columns. Left: itemized line items (Payment, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
+        body: 'Your budget is in Suppliers › Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, what you bought on Setnayan, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
       },
       {
         slug: 'export-calendar',
         title: 'Export budget due dates to your calendar',
-        body: 'On the Budget page header, click "Export upcoming dates (.ics)". You get an RFC 5545 calendar file with one event per unpaid line-item due date. Import to Google Calendar, Apple Calendar, or Outlook — any standard ICS-aware app.',
+        body: 'In Suppliers › Budget, tap Export upcoming dates (.ics). You get a calendar file with one entry for each payment still due. Open it in Google Calendar, Apple Calendar or Outlook.',
       },
     ],
   },
@@ -555,7 +556,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'palette-tiers',
         title: 'Palette tiers',
-        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-3), and Roles (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-6). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
+        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-4), and the wedding party, family and sponsors (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-5). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
       },
       {
         slug: 'dress-code-by-role',
@@ -564,8 +565,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'palette-chip-dot',
-        title: 'How the palette shows up in the guest list',
-        body: "Each role chip in the Guest List grows a small colored dot when you've set a palette for that role. The dot shows the first color of the palette as a visual signal — see the full palette on the Mood Board page.",
+        title: 'How the palette shows up for your guests',
+        body: 'A guest’s card says what they wear and where it came from — their role’s dress code from the Mood Board — and the 3D seat plan dresses them in it.',
       },
     ],
   },
@@ -577,12 +578,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'start-thread-with-vendor',
         title: 'Start a thread with a supplier',
-        body: "Tap Message on a supplier in your Suppliers list, or Inquire on any shop's page — Setnayan opens the conversation for you, and the shop replies in your Messages. Everything you agree stays with your event. (If you already know the email on a shop's Setnayan profile, you can also type it on the Messages tab.) Re-opening a thread between the same event + supplier resumes the existing conversation — no duplicates. Only couples can open new threads — suppliers reply to threads couples started.",
+        body: 'Tap Message on a supplier in your Suppliers list, or Message on any shop’s page — Setnayan opens the conversation for you, and the shop replies in your chats. Everything you agree stays with your event. Opening a chat again with the same supplier for the same event picks up the one you had. Only hosts start a chat — suppliers reply.',
       },
       {
         slug: 'identity-masking',
         title: "Suppliers don't see your email",
-        body: "When a supplier opens a thread, they see only your event's display name and date — never your email or personal name. You control how you're identified by the display name you set on your event.",
+        body: 'Suppliers never see your email. In a chat they see your name and your event — its name, date, place, guest count and the suppliers you have booked — so they can answer properly.',
       },
       {
         slug: 'vendor-reply-only',
@@ -600,12 +601,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Open the Orders tile from Home. Hit "New order", describe what you need, and propose a budget. The Setnayan team reviews and confirms the price; you receive a notification with the confirmed total and a reference code.',
+        body: 'Open the service you want — Setnayan AI, Papic, Live Watch and the rest — and tap Add this service. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each service has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',
         title: 'How payments work',
-        body: 'Once your order is quoted, the order detail page shows payment instructions. Send the amount to one of our receiving accounts, from any bank or e-wallet app (the account names and QR are on the order page). Always include the reference code in transfer notes so we can match it automatically. Then log the payment on the same order page with the bank reference + a screenshot URL.',
+        body: 'Your order page has Send your payment, which opens the payment page with our accounts and QR. Pay from any bank or e-wallet app, then send a screenshot and the last 6 digits of your reference there. Put your order’s reference code in the transfer note so we can match it.',
       },
       {
         slug: 'reference-code',
@@ -621,8 +622,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     articles: [
       {
         slug: 'theme',
-        title: 'Switch your dashboard theme',
-        body: 'On Profile, pick one of five themes — Setnayan Default (burgundy), Victorian, Classy, iOS, Forest & Champagne Gold. The whole dashboard re-skins instantly. Your Event Hub keeps its own look regardless.',
+        title: 'Change your Event Hub’s theme',
+        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens keep Setnayan’s look.',
       },
       {
         slug: 'cookies',
@@ -632,12 +633,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'data-export',
         title: 'Export your data',
-        body: 'On Profile → Privacy & data → "Download .json". You get a JSON file with your profile, event memberships, supplier profile (if any), and every chat message you authored. Audit log, media files, and payment records aren\'t included (flagged in the export).',
+        body: 'On Profile, open Privacy › Your data › Download my data and tap Download .json. You get a file with your profile, your events, your supplier profile (if any), your messages, and your own orders and payments. The file lists anything it leaves out.',
       },
       {
         slug: 'delete-account',
         title: 'Delete your account',
-        body: 'On Profile, open Delete my account and type DELETE to confirm. That files a deletion request: our team reviews it within 24 hours — checking first for active events, bookings or an outstanding balance — and you can cancel it until it is approved. Once approved, deletion is permanent. RA 10173 right-to-erasure compliant.',
+        body: 'On Profile, under Account, open Delete my account and type DELETE to confirm. That files a deletion request: our team reviews it within 24 hours — checking first for active events, bookings or an outstanding balance — and you can cancel it until it is approved. Once approved, deletion is permanent. RA 10173 right-to-erasure compliant.',
       },
     ],
   },
@@ -655,17 +656,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'rsvp-from-link',
         title: 'How to RSVP',
-        body: "Tap the RSVP button on your personal page. Pick Yes or No. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
+        body: 'Open your invitation and tap Reply on the Will you join us? card. Pick your answer, name your plus-ones if you may bring any, and send. You can change your reply with Change my reply until the couple’s reply-by date.',
       },
       {
         slug: 'meal-preference',
         title: 'Meal preferences and dietary notes',
-        body: 'If the couple is asking about meals (regular, vegetarian, halal, etc.), pick yours when you RSVP. It feeds into the caterer\'s count so there\'s something for you on the day. There\'s a free-text note for allergies or "I cannot have shellfish".',
+        body: 'If the couple asks about meals, your reply has a meal choice — no preference, beef, chicken, fish, vegetarian, vegan or a kids’ meal — and a box for dietary notes like halal or allergies. The couple sees it on their guest list.',
       },
       {
         slug: 'lost-invite-link',
         title: 'I lost my invite link',
-        body: 'Reach out to the couple — they can re-issue your QR from the Invitation admin. Your old link stops working immediately and you get a fresh one. Setnayan support cannot share invite links directly; the couple controls the guest list.',
+        body: 'Message the couple. They can send your link again from their guest list, or make you a new QR — the old link then stops working.',
       },
     ],
   },
@@ -682,18 +683,18 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'find-your-table',
         title: 'Find your seat',
-        body: `From ${DAY_OF_STARTS_PLAIN} the wedding, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.`,
+        body: 'On the day, your invitation shows Your seat with your table and a small map of the room. Before then it says Your seat shows on the day — unless the couple shows seats early.',
       },
       {
         slug: 'live-schedule',
         title: "What's happening right now",
-        body: `The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what's next and roughly when. Available from ${DAY_OF_STARTS_PLAIN} until ${DAY_OF_ENDS_PLAIN}.`,
+        body: `On the day, your invitation shows Happening now — what is on, and what is up next — so you never have to ask. Available from ${DAY_OF_STARTS_PLAIN} until ${DAY_OF_ENDS_PLAIN}.`,
       },
       {
         slug: 'photo-wall',
         title: 'Share photos with the couple',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "If the couple has Photo Wall enabled, your phone becomes a photo uploader. Upload from your camera roll or take a new shot — it lands in the couple's gallery for everyone to enjoy. Optional and you can delete anything you uploaded.",
+        body: 'On the day, Capture the day on your invitation lets you share photos from your camera roll, or be a candid camera for the couple. Everything goes straight to their gallery.',
       },
     ],
   },

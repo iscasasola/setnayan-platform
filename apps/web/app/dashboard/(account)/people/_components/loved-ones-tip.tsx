@@ -8,7 +8,7 @@ import { InfoTip } from '@/app/_components/info-tip';
  */
 export function LovedOnesTip() {
   return (
-    <InfoTip label="About loved ones" labelClassName="text-[13px] text-ink/70" align="end">
+    <InfoTip label="About loved ones" ariaLabel="About loved ones" labelClassName="text-[13px] text-ink/70" align="end">
       The people and things you plan events for — a child, a lola, a pet. A shop you own is here too, so you can make
       an event for it.
     </InfoTip>

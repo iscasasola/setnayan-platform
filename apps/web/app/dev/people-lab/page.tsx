@@ -148,7 +148,8 @@ export default async function PeopleLabPage({
                 initialFilter={view === 'requests' ? 'asking' : 'all'}
                 focus={view === 'alaga' ? 'alaga' : null}
                 extra={[
-                  { key: 'alaga', label: 'Loved ones', count: r.counts.alaga, node: lovedOnes },
+                  // ?noalaga=1 — an account without Loved ones (the gate off): the People tour's middle stop is skipped.
+                  ...(sp.noalaga === '1' ? [] : [{ key: 'alaga' as const, label: 'Loved ones', count: r.counts.alaga, node: lovedOnes }]),
                   { key: 'tree', label: 'Your connection tree', count: null, folded: true, node: <TreeStandIn empty={kind !== 'full'} /> },
                 ]}
               />

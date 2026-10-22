@@ -256,12 +256,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Build your guest list',
-        body: 'Add guests one at a time or import a CSV. Setnayan ships 18 Filipino wedding roles — maid of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — plus plus-ones as first-class rows.',
+        body: 'Add guests one at a time or import a CSV. More than 30 Filipino wedding roles are built in — maid, matron or man of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — and each plus-one gets a seat of their own.',
       },
       {
         Icon: Send,
         title: 'Send branded invitations',
-        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on a personalized invitation site with RSVP, dress code, countdown.',
+        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on their own invitation on your Event Hub, with RSVP, dress code and a countdown.',
       },
       {
         Icon: Briefcase,

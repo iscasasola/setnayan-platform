@@ -13,6 +13,10 @@
  * Pro theme as a free couple · as a Pro couple · and the last two in the store shell). This test renders them again — the shipped Details way AND the Studio
  * way (the ActionButton) — and compares every word in order, the hooks, the href and the absence of a price.
  *
+ * 🎟 2026-10-22: the golden was re-recorded once (owner: *"the goal of the free is to keep everything minimum ready but no personalization."*) —
+ * every guest's ticket in one file lost its ◆ door (Classic, a free theme's, the Phone-card batch) and shows in the store shell; nothing
+ * else moved.
+ *
  * SABOTAGE (each seen RED, then restored): the zip door pointing elsewhere · the go-Pro line reworded · the zip's word changed on the Studio button · a price
  * written into the access line · the Studio showing the Pro door in the store shell.
  */
@@ -135,9 +139,10 @@ test('2 · …and Studio’s ◆ files are each the ONE door for a free couple, 
       assert.equal(m.doors + m.proDoorHrefs, 0, `${label}: a Pro couple is sent to the unlock page`);
       assert.deepEqual(m.marks, ['unlocked'], `${label}: a Pro couple’s files are not ◆ unlocked`);
     } else {
-      /* Every guest's pass · every ticket (the zip) · everything · every guest's QR · every place card: five doors, one page. */
-      assert.equal(m.doors, 5, `${label}: an all-in-one file is not the ◆ door`);
-      assert.equal(m.proDoorHrefs, 5, `${label}: a ◆ door leads somewhere other than the one unlock page`);
+      /* Every ticket (the zip) · everything · every place card: three doors, one page. Every guest's pass and every guest's QR are
+         free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."). */
+      assert.equal(m.doors, 3, `${label}: an all-in-one file is not the ◆ door (or a free one still is)`);
+      assert.equal(m.proDoorHrefs, 3, `${label}: a ◆ door leads somewhere other than the one unlock page`);
       assert.deepEqual(m.marks, ['try'], `${label}: a free couple is shown a padlock, or no ◆`);
     }
   }
@@ -152,8 +157,9 @@ test('3 · no price, no order, no confirm step on these panels — and the free 
     }
   }
   const free = await panels('abaca', false, false);
-  /* 2 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch — the SAME one unlock page. */
-  assert.equal(free.pass.proDoorHrefs, 2, 'a free couple’s zip and ticket batch are not the door to the Event Hub Pro unlock');
+  /* 2 from 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch; back to 1 on 2026-10-22 —
+     every guest's ticket in one file is free again (owner: "the goal of the free is to keep everything minimum ready"). The zip stays. */
+  assert.equal(free.pass.proDoorHrefs, 1, 'a free couple’s zip is not the door to the Event Hub Pro unlock (or the ticket batch still is)');
   assert.equal(free.pass.zipDoor, true);
   const shell = await panels('abaca', false, true);
   assert.equal(shell.pass.proDoorHrefs, 0, 'the store shell shows the unlock door');

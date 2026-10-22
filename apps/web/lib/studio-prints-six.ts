@@ -28,10 +28,9 @@ export const PASS_ZIP_PRO_NOTE = {
  * ALL' IS EVENT HUB PRO") — the zip's note, said of each file. No price: the unlock page owns it. The route says the same words
  * when it refuses (`allInOneRefusal`).
  */
-export const PASSES_PRO_NOTE = {
-  title: 'Every guest’s pass in one file is Event Hub Pro',
-  body: 'With Event Hub Pro you save all your guests’ passes at once. Each guest’s own pass still saves free, one at a time.',
-} as const;
+/* 🎟 "Every guest's pass in one file is Event Hub Pro" (`PASSES_PRO_NOTE`) and "Every guest's QR in one file is Event Hub Pro"
+   (`QR_SHEET_PRO_NOTE`) were retired on 2026-10-22 — both files download free again (owner: *"the goal of the free is to keep
+   everything minimum ready but no personalization."*; `isAllInOnePrint`, lib/print-pieces.ts). */
 export const WHOLE_SET_PRO_NOTE = {
   title: 'The whole set in one file is Event Hub Pro',
   body: 'With Event Hub Pro you save every piece at once. Each piece’s own PDF still saves free.',
@@ -41,10 +40,6 @@ export const WHOLE_SET_PRO_NOTE = {
  * GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆": *"Per the 2026-10-16 'download all is Pro' rule, the Guest QR sheet and the place-card pack
  * become Pro as all-guest files, while a single guest stays free"*). The prototype's words (`PRO_NOTE`), byte for byte.
  */
-export const QR_SHEET_PRO_NOTE = {
-  title: 'Every guest’s QR in one file is Event Hub Pro',
-  body: 'With Event Hub Pro you save all your guests’ QR codes on one sheet. Each guest’s own QR still saves free, one at a time.',
-} as const;
 export const PLACE_CARDS_PRO_NOTE = {
   title: 'Every place card in one file is Event Hub Pro',
   body: 'With Event Hub Pro you save the table directory, every sign and every place card at once. One guest’s place card still saves free.',
@@ -55,16 +50,7 @@ export const EVERYTHING_PRO_NOTE = {
 } as const;
 /** What a route says when it refuses an all-in-one file to an event without Event Hub Pro. */
 export function allInOneRefusal(piece: string): string {
-  const n =
-    piece === 'passes'
-      ? PASSES_PRO_NOTE
-      : piece === 'qr-codes'
-        ? QR_SHEET_PRO_NOTE
-        : piece === 'seating-pack'
-          ? PLACE_CARDS_PRO_NOTE
-          : piece === 'everything'
-            ? EVERYTHING_PRO_NOTE
-            : WHOLE_SET_PRO_NOTE;
+  const n = piece === 'seating-pack' ? PLACE_CARDS_PRO_NOTE : piece === 'everything' ? EVERYTHING_PRO_NOTE : WHOLE_SET_PRO_NOTE;
   return `${n.title}. ${n.body}`;
 }
 

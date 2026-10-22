@@ -229,9 +229,10 @@ test('5 · the Event pass is a guest print: View as ▾ · Download (that guest,
       assert.doesNotMatch(drawn, /Sample \(PDF\)|Pass for|Every guest’s pass \(PDF\)/, 'a retired control is back (Sample (PDF) · Pass for ▾)');
       /* The one guest's file is that guest's pass — Ana, the first guest, until another is picked. */
       assert.match(buttons!, /data-print-save="rosa-ben-pass(?:-[a-z]+)?-ana-reyes\.pdf"/, `${theme}/${pro}: the Download is not the picked guest’s pass`);
-      /* A free couple's All guests is the ◆ door, never the file; a Pro couple's is the file. */
-      if (pro) assert.match(buttons!, /data-print-save="rosa-ben-passes(?:-[a-z]+)?\.pdf"/, 'a Pro couple is not handed every guest’s pass');
-      else assert.match(buttons!, /data-print-all-in-one-pro=""/, 'a free couple is handed every guest’s pass');
+      /* Every guest's pass in one file is FREE since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready"):
+         the file itself for every couple, never the ◆ door. */
+      assert.match(buttons!, /data-print-save="rosa-ben-passes(?:-[a-z]+)?\.pdf"/, `${theme}/${pro}: every guest’s pass is not a Download`);
+      assert.doesNotMatch(buttons!, /data-print-all-in-one-pro=""/, `${theme}/${pro}: every guest’s pass is still the ◆ door`);
       assert.match(drawn, /data-print-view-as=""/, 'the Event pass has no View as ▾');
     }
   }

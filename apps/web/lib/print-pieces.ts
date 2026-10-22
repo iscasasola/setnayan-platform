@@ -531,10 +531,17 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
  * picture stays free) and the place-card pack (`seating-pack`, the directory, every sign and every place card) are all-guest
  * files now; `everything` is the set, every guest's pass and place card and the day's sheets in one PDF. ONE guest's QR and ONE
  * guest's place card stay free (`/api/website/qr/guest/<id>`, `/seating/print?guest=<id>`).
+ *
+ * 🎟 …EXCEPT EVERY GUEST'S TICKET AND THE GUEST QR SHEET — FREE AGAIN (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS
+ * PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE"; verbatim: *"the goal of the free is to keep everything minimum ready but no
+ * personalization."* · *"they pay to customize it."*). Every guest's pass in one file (`passes`) and every guest's QR on one sheet
+ * (`qr-codes`) are what a free event needs to RUN its day, so they download free — and a free event's passes are plain white, like
+ * every free print (`printLookForEvent`, #6744). What stays Pro is the DESIGNED set in one file: the whole set (`set`), Everything
+ * (`everything`) and the place-card pack (`seating-pack`). The Pro list's "One download of the whole designed set" is held to this
+ * function both ways (`the-pro-list-names-only-real-gates.test.ts`).
  */
 export function isAllInOnePrint(piece: string, mode: PrintMode): boolean {
-  if (piece === 'qr-codes') return mode !== 'screen';
-  return piece === 'passes' || piece === 'seating-pack' || piece === 'everything' || (piece === 'set' && mode !== 'sample');
+  return piece === 'seating-pack' || piece === 'everything' || (piece === 'set' && mode !== 'sample');
 }
 
 /**

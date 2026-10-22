@@ -67,7 +67,8 @@ test('1 · every Save on Studio › Prints is the ONE ActionButton — a button 
         ...freePrintParts('E1', 'rosa-ben', i, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
       ),
     );
-    /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files (the whole set, every guest's pass) are the door to Event Hub Pro. */
+    /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files are the door to Event Hub Pro (every guest's pass and the QR sheet
+       left on 2026-10-22 — they are free saves now). */
     const saves = [...drawn.matchAll(/<span data-print-save="[^"]*"[^>]*>[\s\S]*?<\/span>/g)].length;
     const doors = (drawn.match(/data-print-all-in-one-pro=""/g) ?? []).length;
     assert.ok(saves + doors >= 20, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);

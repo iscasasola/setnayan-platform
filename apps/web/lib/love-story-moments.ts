@@ -42,11 +42,12 @@
 import { hubMediaRef, sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import type { PrintStoryChapter } from '@/lib/print-pieces';
 import { splitCoupleNames } from '@/lib/split-names';
+import { FREE_MOMENT_CAP } from '@/lib/love-story-cap';
 
 /* ── LIMITS ─────────────────────────────────────────────────────────────── */
 
-/** Free couples: at most this many stories. The sixth needs Event Hub Pro. */
-export const FREE_MOMENT_CAP = 5;
+/** Free couples: at most this many stories. The sixth needs Event Hub Pro. Declared in `lib/love-story-cap.ts` (a client list reads it). */
+export { FREE_MOMENT_CAP };
 /** Hard ceiling for everyone — same bound `milestones[]` has, so one couple
  *  cannot balloon the blob every guest page render parses. */
 export const MOMENT_MAX = 100;

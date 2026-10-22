@@ -66,7 +66,8 @@ test('every free print is REACHABLE from Details (Prints & Tickets folded in), o
   for (const line of group.split('\n').filter((l) => /ownsPro|storeShell/.test(l) && !/^\s*input\?: Pick</.test(l))) {
     assert.match(line, /allInOneFile\(/, `the free group asks about Pro outside the all-guests files: ${line.trim()}`);
   }
-  assert.match(ws, /const ALL_GUESTS_NOTE: Partial<Record<FreePrint\['key'\], \{ title: string; body: string \}>> = \{\s*'qr-codes': QR_SHEET_PRO_NOTE,\s*'seating-pack': PLACE_CARDS_PRO_NOTE,\s*\};/, 'another free print became an all-guests file');
+  /* 2026-10-22: the Guest QR sheet left (it downloads free); the place-card pack is the one all-guests ◆ file in the group. */
+  assert.match(ws, /const ALL_GUESTS_NOTE: Partial<Record<FreePrint\['key'\], \{ title: string; body: string \}>> = \{\s*'seating-pack': PLACE_CARDS_PRO_NOTE,\s*\};/, 'another free print became an all-guests file');
   // …and the section itself is not wrapped in one: nothing between the return and the section tests access.
   const before = ws.slice(ws.indexOf('return ('), start);
   assert.doesNotMatch(before, /\{\s*(access\.|ownsPro|storeShell|!storeShell)[^}]*&&\s*\(/, 'the free group is not rendered conditionally');

@@ -35,7 +35,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { PRO_THEMES_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { LOVE_STORY_ITEM, PRO_THEMES_ITEM, UPLOAD_SPACE_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -140,14 +140,17 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
     'Your logo on every QR code',
     'Style and animation for every part',
     'Decorations',
-    'A 6th Love Story moment, with photos',
-    'Uploads over 10 MB',
-    'Print files in Pro themes',
+    // Computed from FREE_MOMENT_CAP (owner 2026-10-22: "Photos in your Love Story, and more than 5 moments").
+    LOVE_STORY_ITEM,
+    // Computed from the one cap function (owner 2026-10-22 "Yes to all": the gate is per-event space, not a file size).
+    UPLOAD_SPACE_ITEM,
+    // Owner 2026-10-22 (was "Print files in Pro themes"): `printLookForEvent` — a free event prints plain white.
+    'Prints in your Event Hub look',
+    // Owner 2026-10-22: every guest's ticket and the QR sheet are free; the designed set in one file is what Pro buys.
+    'One download of the whole designed set',
   ]) {
     assert.ok(html.includes(item), `"${item}" is on the Pro list and must be shown`);
   }
-  // The apostrophe renders as an entity, so the last line is matched on its words.
-  assert.match(html, /One download of every guest(&#x27;|')s ticket/, 'the all-guests download must be shown');
   assert.doesNotMatch(html, /Editorial editing/, 'the offer names editorial editing, which every couple has for free');
   // 💎 And the colours are NOT sold (owner 2026-09-28: they are free).
   assert.doesNotMatch(html, /Background colou?r|Button colou?r/i, 'the offer still sells a colour, which is free');

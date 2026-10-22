@@ -13,12 +13,21 @@
  * `FREE_MOMENT_CAP` and its photos (lib/love-story-moments.ts) · uploads past the
  * free allowance (`MAKER_EVENT_MEDIA_BYTES_CAP`, lib/maker-media-limits.ts) ·
  * print files in a Pro theme (`isProPrint`, lib/print-pieces.ts) · the all-guests
- * download (`isAllInOnePrint`). They join the list in the prototype's words, and
+ * download (`isAllInOnePrint`). Later the same day (owner, "Yes to all" — DECISION_LOG "THE PRO LIST SAYS THE
+ * REAL GATE") three of those lines were reworded to say the gate as it is: Pro's per-event upload space (computed),
+ * photos in ANY Love Story moment, and every all-in-one download by name. They join the list in the prototype's words, and
  * "Editorial editing" LEAVES it — it has been free for every couple since
  * 2026-08-23 (`EDITORIAL_PRO` in `FREE_FOR_ALL_SKUS`), so naming it told a couple
  * they were buying something they already had. NO GATE MOVED: this is the list
  * the couple reads, and `the-pro-list-names-only-real-gates.test.ts` holds every
  * line to the gate that refuses a free couple — flip a gate and it fails.
+ *
+ * 🔄 2026-10-22, LATER STILL — FREE IS READY, PRO IS PERSONAL (owner, verbatim: *"the goal of the free is to keep
+ * everything minimum ready but no personalization."* · *"they pay to customize it."* · *"my issue is the data storage
+ * if i keep accepting free photos which uses more data."*; DECISION_LOG row of that name). ONE GATE MOVED: every
+ * guest's ticket in one file and the Guest QR sheet download free (`isAllInOnePrint`). Four lines say it: "More
+ * upload space — 500 MB per event" (computed) · "Photos in your Love Story, and more than 5 moments" (computed) ·
+ * "One download of the whole designed set" · "Prints in your Event Hub look".
  *
  * 🔄 TEN → NINE, 2026-09-28 — THE FREE-VS-PRO REDRAW. Owner, verbatim: *"free
  * to change design, change text, size, color, background color, only when you
@@ -61,6 +70,8 @@
  */
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
+import { FREE_MOMENT_CAP } from '@/lib/love-story-cap';
 
 /**
  * 🎨 THE PRO THEMES, COUNTED — never typed. Owner 2026-09-29, *"Okay use modern
@@ -71,6 +82,31 @@ import { formatCount } from '@/lib/format-number';
  * rewrites the sentence instead of leaving it to rot.
  */
 export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub themes, invite link included` as const;
+
+/**
+ * 📦 THE UPLOAD LINE, COMPUTED — never typed. Owner 2026-10-22 ("Yes to all", DECISION_LOG "THE PRO LIST SAYS THE REAL
+ * GATE"): the gate is a per-EVENT allowance (Free 10 MB · Pro 500 MB, `coupleMediaCapBytes`), not a per-file size, so the
+ * line names Pro's allowance — and reads it from the ONE cap function, written the way the meter writes it
+ * (`formatMakerMediaMB`). Move the allowance and the sentence moves with it.
+ */
+export const UPLOAD_SPACE_ITEM = `More upload space — ${formatMakerMediaMB(coupleMediaCapBytes(true))} per event` as const;
+
+/**
+ * 📖 THE LOVE STORY LINE, COMPUTED — never typed. Owner 2026-10-22 (DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND
+ * THE QR SHEET ARE FREE"): *"they pay to customize it."* A free event keeps `FREE_MOMENT_CAP` word-only moments; a photo on ANY
+ * story, and a story past the cap, are Pro (`momentCapRefusal` → 'photos_pro' · 'more_stories_pro'). The number is the cap's.
+ */
+export const LOVE_STORY_ITEM = `Photos in your Love Story, and more than ${formatCount(FREE_MOMENT_CAP)} moments` as const;
+
+/**
+ * 🎟 THE DOWNLOAD LINE (owner 2026-10-22, same row): every guest's ticket in one file and the Guest QR sheet are FREE now (a free
+ * event is "minimum ready"); what Pro buys is the DESIGNED set in one file — the whole set, Everything and the place-card pack
+ * (`isAllInOnePrint`). The guard holds that set to the gate both ways.
+ */
+export const DESIGNED_SET_ITEM = 'One download of the whole designed set' as const;
+
+/** 🎨 THE PRINT LINE (owner 2026-10-21 "Themes that follows the event hub is pro"; reworded 2026-10-22): `printLookForEvent`. */
+export const PRINT_LOOK_ITEM = 'Prints in your Event Hub look' as const;
 
 /** The Pro items, named the way the couple sees them — in the prototype's order (2026-10-22). */
 export const WEBSITE_PRO_ITEMS = [
@@ -105,14 +141,18 @@ export const WEBSITE_PRO_ITEMS = [
   'Style and animation for every part',
   // The art kit (`ART_KIT_IS_PRO`, owner 2026-10-16 "the accents we added should be part of pro").
   'Decorations',
-  // Past `FREE_MOMENT_CAP` word-only stories, and any story's photos (lib/love-story-moments.ts).
-  'A 6th Love Story moment, with photos',
-  // The free media allowance (`MAKER_EVENT_MEDIA_BYTES_CAP.free`, owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB").
-  'Uploads over 10 MB',
-  // A print-ready file in a Pro theme (`isProPrint`; Classic, Modern and Cyber Neon print free).
-  'Print files in Pro themes',
-  // The all-in-one download (`isAllInOnePrint`, owner 2026-10-16 "Every guest's pass (PDF) become Pro").
-  "One download of every guest's ticket",
+  // A photo on ANY story, and a story past `FREE_MOMENT_CAP`, are Pro (`momentCapRefusal` → 'photos_pro' · 'more_stories_pro').
+  // Was "A 6th Love Story moment, with photos", then "Photos in your Love Story" (2026-10-22, both the owner's).
+  LOVE_STORY_ITEM,
+  // The per-event allowance (owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB"), COMPUTED above — was "Uploads
+  // over 10 MB", which described a per-file limit no code enforces.
+  UPLOAD_SPACE_ITEM,
+  // Every print in the event's own Hub look (`printLookForEvent`: a free event prints plain white, #6744). Was "Print
+  // files in Pro themes" (`isProPrint`), which the Hub-look gate now says better (owner 2026-10-22).
+  PRINT_LOOK_ITEM,
+  // The DESIGNED set in one file (`isAllInOnePrint`: the whole set, Everything, the place-card pack). Every guest's
+  // ticket in one file and the Guest QR sheet are free since 2026-10-22, so the line no longer names them.
+  DESIGNED_SET_ITEM,
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];

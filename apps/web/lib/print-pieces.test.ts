@@ -316,11 +316,11 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   // The sample renderer cannot make a print-ready file at all.
   const raster = read('lib/print-sample-raster.ts');
   assert.doesNotMatch(raster, /print-render-pdf|renderPrintPdf|pdf-lib/);
-  // The QR sheet's PICTURE asks no Pro question; every guest's QR in one PDF is an all-guests file (2026-10-17) — asked of the event's
-  // Pro (never the theme's), inside the free branch, before anything is drawn.
+  // The QR sheet — its picture AND its PDF — asks no Pro question (owner 2026-10-22: every guest's QR on one sheet is free again;
+  // it was an all-guests ◆ file 2026-10-17). Nothing in the free branch reads the event's Pro or refuses with a 403.
   const qrBranch = route.slice(route.indexOf("if (piece === 'qr-codes' || piece === 'guest-registry') {"), freeGroupEnd);
-  assert.match(qrBranch, /if \(isAllInOnePrint\(piece, mode\)\) \{\s*const \[ownsPro, storeShell\] = await Promise\.all\(\[printOwnsPro\(eventId\), isStoreShellRequest\(\)\]\);\s*if \(!ownsPro\) return/);
-  assert.ok(qrBranch.indexOf('printOwnsPro(') < qrBranch.indexOf('await freeSheet('), 'the QR sheet is drawn before the Pro question');
+  assert.ok(qrBranch.includes('await freeSheet('), 'the free branch was not found — the probe is blind');
+  assert.doesNotMatch(qrBranch, /printOwnsPro\(|isAllInOnePrint\(|status: 403/, 'the Guest QR sheet asks for Event Hub Pro again');
 });
 
 test('entourage groups print in lib/entourage.ts order', () => {

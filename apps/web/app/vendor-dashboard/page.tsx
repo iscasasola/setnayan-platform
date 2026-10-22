@@ -7,6 +7,7 @@ import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
@@ -220,10 +221,10 @@ export default async function VendorOverviewPage({
       feeHeld: lockAgreeFeeHeld(search.fee),
       halls: lockAgreeHalls(search.taken, search.free),
     }) ?? lockDeclineNotice(search.lock_decline);
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
+  // remembered per request) — asking again here was a second auth round trip on
+  // every open of Today (2026-10-23, the speed pass).
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) redirect('/login');
 
   // Role + profile have no dependency on each other — resolve them together.
@@ -270,6 +271,13 @@ export default async function VendorOverviewPage({
   }
 
   const timer = new ServerTimer('vendor-dashboard/overview');
+  // ⚡ What this shop owes Setnayan and whether the gate holds need only the
+  // signed-in id — STARTED here, beside wave 1, and read in wave 2 where they
+  // always were (each was up to four trips after wave 1 had come back).
+  const feeBillsP = fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE);
+  const feeEnforcedP = resolveFeeEnforcement();
+  // Started early, so a refusal before wave 2 reads it is still handled there.
+  feeEnforcedP.catch(() => undefined);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   let data;
@@ -386,8 +394,8 @@ export default async function VendorOverviewPage({
           vendorUserId: profile.user_id,
         }).catch((): PayoutReadiness => 'unreadable')
       : Promise.resolve<PayoutReadiness>('unreadable'),
-    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
-    resolveFeeEnforcement(),
+    feeBillsP,
+    feeEnforcedP,
     forecastsForBookings(createAdminClient(), {
       vendorProfileId,
       eventVendorIds: needsAnswer

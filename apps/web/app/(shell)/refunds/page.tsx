@@ -39,7 +39,7 @@ export default function RefundsPage() {
   return (
     <LegalLayout
       title="Refunds & cancellations"
-      meta="Effective 2026-10-22 · governed by Philippine law (incl. RA 7394, the Consumer Act)"
+      meta="Effective 2026-10-23 · governed by Philippine law (incl. RA 7394, the Consumer Act)"
     >
       <LegalSection title="The short version">
         <p>

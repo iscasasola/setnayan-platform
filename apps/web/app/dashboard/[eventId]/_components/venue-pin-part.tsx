@@ -12,18 +12,16 @@
  *                         (`saveManualVenuePin` → `saveSelfAddedServiceCard`) — the one value the Suppliers card also
  *                         edits. The writer is handed in (`save`), so a lab can stand in for it.
  *
- * ⚡ The map field is loaded only when a manual venue is drawn (`next/dynamic`) — never in the Maker's first load.
+ * ⚡ NOT IN THE MAKER'S FIRST LOAD: the callers are the Studio tools and Details › Venues (the lazy `maker-details`
+ * chunk, warmed by the preloaded Details tool) and the Suppliers place sheet — each already carries `AddressPinField`
+ * statically, so importing it here adds no download and the first tap waits for none.
  */
-import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { AddressPinField } from './address-pin-field';
 import { shopPinLine } from '@/lib/venue-pin-door';
 import { plainRefusal } from '../guests/_components/plain-refusal';
 import type { ManualVenuePinResult } from '../vendors/[vendorId]/workspace/actions';
-
-const AddressPinField = dynamic(() => import('./address-pin-field').then((m) => m.AddressPinField), {
-  loading: () => <div aria-hidden className="h-44 rounded-md bg-ink/[0.04]" data-pin-field-loading="" />,
-});
 
 const FAILED = 'That did not save. Nothing changed — please try again.';
 /** After a kept manual pin — it is the supplier's own card, so guests see it now (not at Apply). */

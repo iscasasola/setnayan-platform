@@ -18,12 +18,12 @@
  *              (`studioDraftKeep`) — guests see it at ✓ Apply, like every Info row.
  *   · record — a venue-list pick: one quiet row, set in Suppliers.
  *
- * Loaded through `details-lazy.tsx` (`StudioTool`, the `maker-details` chunk), and the map itself only when a card
- * that has one is drawn (`next/dynamic`) — never in the Maker's first load.
+ * Loaded through `details-lazy.tsx` (`StudioTool`, the `maker-details` chunk — which already carries `AddressPinField`
+ * through Details › Venues) — never in the Maker's first load.
  */
-import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { FactRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { AddressPinField } from '../../_components/address-pin-field';
 import { STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { shopPinLine, venuePinDoor } from '@/lib/venue-pin-door';
 import { ManualVenuePin } from '../../_components/venue-pin-part';
@@ -31,10 +31,6 @@ import type { VenueSlot } from './details-your-event';
 import { useStudioActions } from './studio-actions-context';
 import { STUDIO_INFO_ROWS, studioDraftKeep } from './studio-info';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
-
-const AddressPinField = dynamic(() => import('../../_components/address-pin-field').then((m) => m.AddressPinField), {
-  loading: () => <div aria-hidden className="h-44 rounded-md bg-ink/[0.04]" data-pin-field-loading="" />,
-});
 
 /** The pause after the last change before a card is drafted (the Maker's AutoDraft rule). */
 const KEEP_MS = 900;

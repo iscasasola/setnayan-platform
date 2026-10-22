@@ -15,13 +15,13 @@ suppliers."*
   contact card, through the card's writer (`saveManualVenuePin` → `saveSelfAddedServiceCard`), live as the Suppliers
   card always was ("Saved to your supplier's card · guests see it now"); nothing booked / "Enter your own" over a
   non-shop → the event's own venue columns through the draft (at Apply).
-- **Studio › Info › Venues** is no longer read-only: `StudioVenues` (lazy, in the `maker-details` chunk; the map
-  field itself is `next/dynamic`) draws the shipped `AddressPinField` for a manual or unbooked venue and one quiet row
+- **Studio › Info › Venues** is no longer read-only: `StudioVenues` (in the lazy `maker-details` chunk, which already
+  carries the map field through Details › Venues — nothing added to the Maker's first load) draws the shipped `AddressPinField` for a manual or unbooked venue and one quiet row
   for a shop's. The date stays read-only.
 - **Details › Venues and the Suppliers place sheet**: a manual supplier on its own details gets the same
   `AddressPinField` under the booked card; a shop's card says whose pin guests follow; "Enter your own" over a shop
   types the name and address but no pin (`AddressPinField pinLocked`) and drafts no pin columns.
-- Lab: `saveManualVenuePin` joins the Studio actions context with a stand-in and a refusal; `/dev/details-lab?studio=1&venue=mixed`.
+- Lab: `saveManualVenuePin` joins the Studio actions context with a stand-in and a refusal; `/dev/maker-lab?studio=1&venue=mixed[&shop=pinned]` (Maker › Studio › Info).
 - Guards: `lib/a-shop-venue-follows-the-shops-pin.test.ts` (property over 128 mixes + round trip; sabotaged), and
   `lib/info-shows-date-and-venue-read-only.test.ts` test 3 (render: shop row has no field and says unpinned; manual
   row carries the pin field).

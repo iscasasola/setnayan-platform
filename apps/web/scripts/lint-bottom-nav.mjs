@@ -35,6 +35,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './port-controls.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -138,7 +139,7 @@ if (canonicalSrc) {
 }
 let globalsCss = '';
 try {
-  globalsCss = readFileSync(GLOBALS_ABS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  globalsCss = stripComments(readFileSync(GLOBALS_ABS, 'utf8'));
 } catch {
   errors.push('app/globals.css is missing — the dock tokens cannot be checked.');
 }

@@ -20,7 +20,8 @@
  *   5 · run twice → the table is byte-for-byte the same.
  *
  * 🛡 Sabotaged, each red then restored (2026-10-22):
- *   • the `NOT EXISTS` and the `ON CONFLICT` both removed       → tests 3 + 5 red;
+ *   • the `NOT EXISTS` and the `ON CONFLICT` both removed       → tests 2–5 red
+ *     (the partial unique key refuses the duplicate, so the whole run fails);
  *   • the blank-name filter removed                             → test 4 red;
  *   • the `deleted_at IS NULL` join condition removed           → test 4 red;
  *   • the gate `EXISTS (… status = 'active')` removed            → test 1 red;

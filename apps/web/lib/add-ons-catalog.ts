@@ -516,7 +516,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'digital_services',
     // 2026-09-28: "and colours" came out — colours are free for every couple
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark.',
+    // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -634,7 +635,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation.',
+    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone Animated Monogram is retired).
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. Event Hub Pro’s Logo & QR adds the animation.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is

@@ -11,7 +11,10 @@
  *
  * ── THE RULE ───────────────────────────────────────────────────────────────
  * Every writer of `vendor_profiles.business_name` on a shop that HAS an owner
- * calls `syncBusinessAlagaName` after its write succeeds. Held by
+ * calls `ensureBusinessAlaga` (`lib/business-alaga-ensure.ts`) after its write
+ * succeeds — which renames through THIS function when the record exists, and
+ * writes the record when it does not (2026-10-22: a shop first named on My Shop,
+ * or claimed from a couple's link, had none to rename). Held by
  * `lib/business-alaga-sync.test.ts`, which finds those writers by their code,
  * not by a list somebody has to remember to extend.
  *

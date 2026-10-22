@@ -1,7 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Check, Clock, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
+import { Check, Clock, Plus, Search, X } from 'lucide-react';
+import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
+import { ThumbField } from '../../_components/account-thumb-row';
+import { ActionButton } from '@/components/action-button';
+import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
+import ps from './people-screen.module.css';
 import { addConfirmation, normalizeEmail } from '@/lib/people-add';
 import { parsePersonLine } from '@/lib/people-parse';
 import type { PersonHit } from '@/lib/people-search-query';
@@ -28,16 +33,33 @@ import { PersonAvatar } from './person-avatar';
  * accepts) and Add (the request, always). After a tap the row stays and says
  * so — "Following", "Asked" — because clearing it would look like nothing
  * happened, or like a connection that has not been made.
+ *
+ * ── 2026-10-22: THE LINE MOVES INTO THE THUMB ROW ─────────────────────────
+ * Owner, 22 Oct: *"People must look similar to guests."* The approved
+ * prototype (`prototypes/people_and_memories_template_2026-10-22.html`, P2)
+ * moves the line to exactly where Guests keeps "Search or add" — the field of
+ * the glass thumb row. So this file is now ONE state (`useFindOrInvite`) read
+ * by TWO pieces: `FindField` (the thumb row's box) and `FindResults` (the hits
+ * and the invite card, in the list). The behaviour is unchanged: the same
+ * parser, the same Follow · Add pair, the same invite. What is new is the
+ * Add card's own email box ("Not the one? Invite … by email") — the one-line
+ * "name email" still works, it simply fills that box.
  */
-export function FindOrInvite() {
+export type FindOrInviteState = ReturnType<typeof useFindOrInvite>;
+
+export function useFindOrInvite() {
   const [pending, startTransition] = useTransition();
   const [line, setLine] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const draft = useMemo(() => parsePersonLine(line), [line]);
-  const canAdd = draft.name.length > 0 && normalizeEmail(draft.email) !== null;
+  // The address is the one typed on the line ("Ana ana@x.com"), else the card's own box.
+  const address = draft.email || email;
+  const inviteName = (draft.email ? draft.name : line).trim();
+  const canAdd = inviteName.length > 0 && normalizeEmail(address) !== null;
 
   // The same one line does both: type an address and it invites, type a name
   // and it looks. No mode switch, because a person typing a name should not
@@ -102,11 +124,12 @@ export function FindOrInvite() {
 
   function submitAdd() {
     if (!canAdd || pending) return;
-    const { name, email } = draft;
+    const name = inviteName;
+    const to = address;
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const res = await addPersonConnection({ name, email });
+      const res = await addPersonConnection({ name, email: to });
       if (!res.ok) {
         // Keep the line so they can fix the address rather than retype it.
         setError(res.error);
@@ -114,51 +137,158 @@ export function FindOrInvite() {
       }
       setNotice(addConfirmation(name, res.delivered));
       setLine('');
+      setEmail('');
       inputRef.current?.focus();
     });
   }
 
+  return {
+    pending,
+    line,
+    setLine,
+    email,
+    setEmail,
+    draft,
+    canAdd,
+    inviteName,
+    nameQuery,
+    hits,
+    looking,
+    asked,
+    followed,
+    error,
+    notice,
+    inputRef,
+    addPicked,
+    followPicked,
+    submitAdd,
+  };
+}
+
+/** The thumb row's field — "Search or invite" (the one-thumb-row prototype's word for People), in the row's glass. */
+export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: RefObject<HTMLInputElement | null> }) {
   return (
-    <div className="space-y-2" data-find-or-invite>
-      {/* CAPTURE — one line, then Enter, exactly like the roster's own. */}
-      <div className="flex flex-col gap-2 rounded-tile bg-white/70 p-2.5 sm:flex-row sm:items-center">
-        <span
-          aria-hidden
-          className="hidden h-7 w-7 shrink-0 place-items-center rounded-lg bg-terracotta/15 text-terracotta-700 sm:grid"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.2} />
-        </span>
-        <input
-          ref={inputRef}
-          value={line}
-          onChange={(e) => setLine(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submitAdd();
-            }
-          }}
-          disabled={pending}
-          placeholder="Type a name to find them — or a name and their email to invite"
-          aria-label="Add someone by name and email"
-          className="min-h-11 min-w-0 flex-1 bg-transparent px-1 text-sm text-ink outline-none placeholder:text-ink/40"
-        />
+    <ThumbField words="Search or invite">
+      <input
+        ref={(el) => {
+          (f.inputRef as { current: HTMLInputElement | null }).current = el;
+          if (inputRef) (inputRef as { current: HTMLInputElement | null }).current = el;
+        }}
+        value={f.line}
+        onChange={(e) => f.setLine(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            f.submitAdd();
+          }
+        }}
+        disabled={f.pending}
+        placeholder="Search or invite"
+        aria-label="Search or invite — a name finds them, a name and their email invites them"
+        enterKeyHint="search"
+        autoComplete="off"
+        data-find-field=""
+        className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
+      />
+      {f.line ? (
         <button
           type="button"
-          onClick={submitAdd}
-          disabled={pending || !canAdd}
-          className="button-primary min-h-11 shrink-0 text-sm disabled:opacity-50"
+          aria-label="Clear"
+          onClick={() => {
+            f.setLine('');
+            f.inputRef.current?.focus();
+          }}
+          className="grid h-8 min-h-0 w-8 shrink-0 place-items-center rounded-full text-ink/55"
         >
-          {pending ? 'Adding…' : 'Add'}
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
-      </div>
+      ) : null}
+    </ThumbField>
+  );
+}
 
+/**
+ * ＋ INVITE — the row's one main verb (the one-thumb-row prototype: "the field's own invite line, as a sheet").
+ * The same invite the field does on Enter (`addPersonConnection`), with the typed name carried in.
+ */
+export function InviteAction({ f }: { f: FindOrInviteState }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ActionButton tone="brand" filled icon={Plus} label="Invite" onClick={() => setOpen(true)} data-testid="people-invite-open" />
+      {open ? (
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-[80]"
+          panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-4 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
+          label="Invite someone"
+          focusFirstInput
+          panelData={{ 'data-invite-sheet': '' }}
+        >
+          <p className="text-[19px] font-semibold text-ink">Invite someone</p>
+          <input
+            value={f.draft.email ? f.draft.name : f.line}
+            onChange={(e) => f.setLine(e.target.value)}
+            placeholder="Their name"
+            aria-label="Their name"
+            className="mt-3 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the name field, not a container
+          />
+          <input
+            type="email"
+            inputMode="email"
+            value={f.draft.email || f.email}
+            onChange={(e) => f.setEmail(e.target.value)}
+            placeholder="their@email.com"
+            aria-label="Their email"
+            className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the email field, not a container
+          />
+          <p className="mt-2.5 text-[12.5px] leading-snug text-ink/60">
+            They get an email either way. If they aren’t on Setnayan yet it invites them to join — add them again once
+            they’re in. You set what they are to you <em className="not-italic font-medium text-ink/80">after</em> they’re
+            on your list.
+          </p>
+          {f.error ? (
+            <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+              {f.error}
+            </p>
+          ) : null}
+          {f.notice ? (
+            <p role="status" className="mt-2 text-sm text-mulberry-600">
+              {f.notice}
+            </p>
+          ) : null}
+          <div className="mt-3 flex justify-end">
+            <ActionButton tone="brand" main icon={Check} label={f.pending ? 'Inviting…' : 'Invite'} onClick={f.submitAdd} disabled={f.pending || !f.canAdd} />
+          </div>
+        </GuestPopup>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * What the line found — "On Setnayan" (Follow · Add, the shipped pair) and the
+ * invite card. Drawn in the list, under the rows the same line filtered.
+ */
+export function FindResults({ f }: { f: FindOrInviteState }) {
+  const { nameQuery, hits, looking, followed, asked, pending, followPicked, addPicked } = f;
+  const typedAnAddress = Boolean(f.draft.email);
+  const showCard = nameQuery.length >= 2 || typedAnAddress;
+  return (
+    <div data-find-or-invite="">
       {nameQuery.length >= 2 ? (
-        <div className="rounded-tile bg-white/60">
-          {looking && hits.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink/45">Looking…</p>
-          ) : hits.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink/55">
+        <section className={gs.sec} data-find-hits="">
+          <div className={gs.barWrap}>
+            <span className={gs.bar} style={{ cursor: 'default' }}>
+              <span className={gs.ico} aria-hidden>
+                <Search strokeWidth={1.9} />
+              </span>
+              <span className={gs.lab}>On Setnayan</span>
+              <span className={gs.n}>{looking ? '· looking…' : `· ${hits.length}`}</span>
+            </span>
+          </div>
+          {looking && hits.length === 0 ? null : hits.length === 0 ? (
+            <p className={gs.empty}>
               {/* An opted-out person, a name nobody has, and a name only
                   half-finished accounts carry all land HERE — the empty result
                   must never say which of the three happened. */}
@@ -169,62 +299,36 @@ export function FindOrInvite() {
               {hits.map((h) => {
                 const isFollowing = h.following || followed.has(h.publicId);
                 return (
-                  <li
-                    key={h.publicId}
-                    className="flex items-center gap-3 border-b border-ink/[0.06] px-4 py-2.5 last:border-b-0"
-                  >
-                    <PersonAvatar name={h.name} photoUrl={h.photoUrl} />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm font-medium text-ink">
-                        {h.name}
-                        {h.handle ? (
-                          <span className="ml-1.5 font-mono text-[11.5px] font-normal text-ink/45">
-                            {h.handle}
-                          </span>
-                        ) : null}
-                      </span>
-                      {h.fullName ? (
-                        <span className="truncate text-[11.5px] text-ink/65">{h.fullName}</span>
-                      ) : null}
-                      {h.hint ? (
-                        <span className="truncate text-[11.5px] text-ink/50">{h.hint}</span>
-                      ) : null}
+                  <li key={h.publicId} className={gs.g} data-find-hit="">
+                    <span className={gs.ava} aria-hidden>
+                      <PersonAvatar name={h.name} photoUrl={h.photoUrl} size="row" />
                     </span>
-                    <span className="flex shrink-0 items-center gap-2">
+                    <span className="min-w-0">
+                      <span className={gs.nm}>
+                        <span className={gs.nmt}>{h.name}</span>
+                      </span>
+                      <span className={`${gs.meta} block truncate`}>
+                        {[h.handle, h.fullName, h.hint].filter(Boolean).join(' · ')}
+                      </span>
+                    </span>
+                    <span className={gs.acts}>
                       {/* FOLLOW — only toward a public profile, the one case the
                           write is accepted. A private profile shows Add alone. */}
                       {isFollowing ? (
-                        <span
-                          className="inline-flex items-center gap-1 text-[11.5px] font-medium text-ink/55"
-                          data-following
-                        >
+                        <span className={`${gs.pill} ${gs.pillOk} ${ps.pillRow}`} data-following>
                           <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
                           Following
                         </span>
                       ) : h.followable ? (
-                        <button
-                          type="button"
-                          onClick={() => followPicked(h)}
-                          disabled={pending}
-                          className="button-secondary min-h-11 text-xs disabled:opacity-50"
-                        >
-                          Follow
-                        </button>
+                        <ActionButton tone="neutral" icon={Check} label="Follow" onClick={() => followPicked(h)} disabled={pending} />
                       ) : null}
                       {asked.has(h.publicId) ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 text-[11px] font-medium text-warn-900">
+                        <span className={`${gs.pill} ${gs.pillWine} ${ps.pillRow}`}>
                           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
                           Asked
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => addPicked(h)}
-                          disabled={pending}
-                          className="button-secondary min-h-11 text-xs disabled:opacity-50"
-                        >
-                          Add
-                        </button>
+                        <ActionButton tone="brand" main icon={Check} label="Add" onClick={() => addPicked(h)} disabled={pending} />
                       )}
                     </span>
                   </li>
@@ -232,25 +336,63 @@ export function FindOrInvite() {
               })}
             </ul>
           )}
+        </section>
+      ) : null}
+
+      {showCard ? (
+        <div className="mt-2.5 rounded-2xl bg-ink/[0.04] px-3.5 py-3" data-invite-card="">
+          <p className="text-[15px] font-semibold text-ink">
+            {hits.length > 0 ? 'Not the one? ' : ''}
+            <span className="font-normal text-ink/60">
+              Invite “{f.inviteName || f.line.trim()}” by email
+            </span>
+          </p>
+          {typedAnAddress ? null : (
+            <input
+              type="email"
+              inputMode="email"
+              value={f.email}
+              onChange={(e) => f.setEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  f.submitAdd();
+                }
+              }}
+              placeholder="their@email.com"
+              aria-label="Their email"
+              className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
+            />
+          )}
+          <div className="mt-2.5 flex items-center gap-2.5">
+            <p className="flex-1 text-[12.5px] leading-snug text-ink/60">
+              {/* Said the same way whether or not that address has an account — the
+                  alternative is a box that answers "is this address registered?". */}
+              They get an email either way. If they aren’t on Setnayan yet it invites them to join — add
+              them again once they’re in. You set what they are to you{' '}
+              <em className="not-italic font-medium text-ink/80">after</em> they’re on your list.
+            </p>
+            <ActionButton
+              tone="brand"
+              main
+              icon={Check}
+              label={pending ? 'Adding…' : 'Invite'}
+              onClick={f.submitAdd}
+              disabled={pending || !f.canAdd}
+              data-testid="people-invite"
+            />
+          </div>
         </div>
       ) : null}
 
-      <p className="text-xs text-ink/55">
-        {/* Said the same way whether or not that address has an account — the
-            alternative is a box that answers "is this address registered?". */}
-        They get an email either way. If they aren’t on Setnayan yet it invites them to join — add
-        them again once they’re in. You set what they are to you{' '}
-        <em className="not-italic font-medium text-ink/70">after</em> they’re on your list.
-      </p>
-
-      {error ? (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
+      {f.error ? (
+        <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+          {f.error}
         </p>
       ) : null}
-      {notice ? (
-        <p role="status" className="text-sm text-mulberry-600">
-          {notice}
+      {f.notice ? (
+        <p role="status" className="mt-2 text-sm text-mulberry-600">
+          {f.notice}
         </p>
       ) : null}
     </div>

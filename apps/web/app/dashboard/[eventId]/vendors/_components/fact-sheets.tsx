@@ -57,6 +57,9 @@ import { DateClashNote } from '../../launch/_components/details-date-clash';
 import { CategoryLine, comboSummary, coverageHeadline, rankWithPin } from '../../find-date/_components/find-your-date';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { AddressPinField } from '../../_components/address-pin-field';
+import { ManualVenuePin, ShopPinNote, type ManualVenuePinSave } from '../../_components/venue-pin-part';
+import { saveManualVenuePin } from '../[vendorId]/workspace/actions';
+import { shopPinLine, venuePinDoor } from '@/lib/venue-pin-door';
 import { CityPick } from '../../launch/_components/details-city-pick';
 
 /* ── THE DOORS (the real ones; the lab stands in) ─────────────────────────────────────────────────────────────── */
@@ -67,6 +70,8 @@ export type FactSheetStandIns = {
   draft: (patch: Record<string, unknown>) => Promise<HubDraftActionResult>;
   /** The date-change request (J51): withdraw it. */
   withdraw: () => Promise<HubDraftActionResult>;
+  /** 📍 A manual venue's address + pin, on the supplier's own card (owner 2026-10-22). Absent in a lab = it answers saved. */
+  manualPin?: ManualVenuePinSave;
 };
 export const FactSheetStandInCtx = createContext<FactSheetStandIns | null>(null);
 
@@ -88,6 +93,7 @@ function useDoors(eventId: string, priced: readonly string[]): FactSheetStandIns
           fd.set('action', 'withdraw');
           return hubDraftAction(eventId, fd);
         },
+        manualPin: saveManualVenuePin,
       },
     [lab, eventId, priced],
   );
@@ -674,6 +680,8 @@ function VenueSlotBody({
   onFind: () => void;
 }) {
   const own = !slot.booked || slot.choice.source === 'own';
+  /* 📍 Where this card's pin is set (owner 2026-10-22, `lib/venue-pin-door.ts`) — a shop's is the shop's in every mode. */
+  const door = venuePinDoor(slot.booked, own);
   /* The typed card drafts itself a short pause after the last change (the Maker's AutoDraft rule) — opening sends nothing. */
   const watch = JSON.stringify([slot.typed, slot.address, slot.pin]);
   const sent = useRef(watch);
@@ -687,12 +695,17 @@ function VenueSlotBody({
       void writeEvents({
         [s.columns.name]: s.typed.trim() || null,
         [s.columns.address]: s.address.trim() || null,
-        [s.columns.lat]: s.pin?.lat ?? null,
-        [s.columns.lng]: s.pin?.lng ?? null,
+        /* A shop's card sends no pin of the couple's — the guests' map follows the shop's own. */
+        ...(door === 'shop'
+          ? {}
+          : {
+              [s.columns.lat]: s.pin?.lat ?? null,
+              [s.columns.lng]: s.pin?.lng ?? null,
+            }),
       });
     }, AUTO_DRAFT_MS);
     return () => window.clearTimeout(t);
-  }, [watch, writeEvents]);
+  }, [watch, writeEvents, door]);
 
   const choose = (source: 'supplier' | 'own') => {
     const was = slot.choice;
@@ -733,7 +746,21 @@ function VenueSlotBody({
         <div className="flex flex-col" data-venue-booked="">
           <p className="text-[15px] font-medium text-ink">{slot.booked.name}</p>
           {slot.booked.address ? <p className="text-[13px] text-ink/65">{slot.booked.address}</p> : null}
-          <p className="text-[12px] text-ink/55">Booked · follows the booking{slot.booked.pinned ? ' · pinned on the map' : ''}</p>
+          <p className="text-[12px] text-ink/55">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
+          {door === 'shop' ? <ShopPinNote shop={slot.booked.name} pinned={slot.booked.pinned} /> : null}
+          {door === 'manual' && slot.booked.vendorId ? (
+            /* 📍 A supplier added by hand: its pin is set right here, on its own card (owner 2026-10-22). */
+            <div className="pt-2">
+              <ManualVenuePin
+                eventId={eventId}
+                vendorId={slot.booked.vendorId}
+                slot={slot.slot}
+                address={slot.booked.address ?? ''}
+                pin={slot.booked.pin ?? null}
+                save={doors.manualPin ?? labPinSaved}
+              />
+            </div>
+          ) : null}
           <p className="pt-1 text-[12px] text-ink/55">Changing the venue means cancelling a booking — do that from Booked.</p>
         </div>
       ) : (
@@ -753,6 +780,7 @@ function VenueSlotBody({
             initialAddress={slot.address}
             initialPin={slot.pin}
             hideHints
+            pinLocked={door === 'shop' && slot.booked ? shopPinLine(slot.booked.name, slot.booked.pinned) : null}
             onChange={(next) => onTyped({ typed: latest.current.typed, address: next.address, pin: next.pin })}
           />
           {!slot.booked ? (
@@ -772,6 +800,9 @@ function VenueSlotBody({
     </section>
   );
 }
+
+/** A lab that hands no manual-pin stand-in: the card answers saved, and nothing leaves the browser. */
+const labPinSaved: ManualVenuePinSave = async () => ({ ok: true });
 
 /* ── words ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 

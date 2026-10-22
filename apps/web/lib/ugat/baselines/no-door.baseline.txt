@@ -13,6 +13,7 @@
 /dashboard/[eventId]/studio/thank-you	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/art-kit-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/bar-lab/[[...path]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booking-ask-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -27,6 +28,8 @@
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/pro-parts-lab	# first run 2026-10-22 · internal (dev, prototypes) · the Event Hub Pro parts frames; a page nobody can reach without typing its address
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/spotlight-lab/[[...page]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -34,6 +37,7 @@
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/you-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address

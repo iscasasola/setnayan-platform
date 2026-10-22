@@ -789,15 +789,19 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
   // 2026-08-11: LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE with the LED wall
   // backdrop it unlocked (owner: "remove wall backdrop").
   // 2026-09-24 (owner, "A then"): ANIMATED_MONOGRAM via Event Hub Pro.
+  // 2026-10-22 (owner, "Event Hub Pro, part by part", Q2 "yes"): the retired ANIMATED_MONOGRAM and the Logo & QR part
+  // are one thing — each confers the other.
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'ANIMATED_MONOGRAM',
+    'COUPLE_HUB_PART_LOGO_QR',
     'EDITORIAL_PRO',
     'LIVE_STUDIO',
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR, ['ANIMATED_MONOGRAM']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',

@@ -1,0 +1,29 @@
+/*
+ * memories-screen.module.css — only what Memories adds to the Guest list's glass thumb row (`guests-screen.module.css`
+ * `.lower` · `.thumb`, imported as `gs`). Tokens only; the row's glass pairs come with `.sn-glass-row`.
+ */
+.host {
+  --gs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  max-width: 48rem;
+  margin: 0 auto;
+}
+/* 701–1023: the account pages still carry their bottom bar (lg:hidden), so the row keeps sitting on it. */
+@media (min-width: 701px) and (max-width: 1023px) {
+  .lower:global(.sn-glass-row) {
+    bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
+  }
+}
+.pick {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.pick button {
+  width: 100%;
+  height: 44px !important;
+  min-height: 44px !important;
+  justify-content: space-between;
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  color: rgb(var(--color-ink)) !important;
+}

@@ -19,14 +19,14 @@ import { fileURLToPath } from 'node:url';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
-import { GalleryDoors, type GalleryDoorEvent } from './gallery-doors';
+import { GalleryDoor, type GalleryDoorEvent } from './gallery-doors';
 
 // tsx compiles the component with the classic JSX runtime (tsconfig keeps JSX
 // as `preserve` for Next), which reads a global `React` at render time.
 (globalThis as { React?: unknown }).React = React;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SHELF = stripComments(readFileSync(resolve(HERE, 'album-shelf.tsx'), 'utf8'));
+const CHAPTERS = stripComments(readFileSync(resolve(HERE, 'memories-chapters.tsx'), 'utf8'));
 const DOORS_SRC = stripComments(readFileSync(resolve(HERE, 'gallery-doors.tsx'), 'utf8'));
 
 const hostNoPapic: GalleryDoorEvent = {
@@ -41,7 +41,7 @@ const attended: GalleryDoorEvent = {
 };
 
 const render = (events: GalleryDoorEvent[]) =>
-  renderToStaticMarkup(createElement(GalleryDoors, { events }));
+  events.map((event) => renderToStaticMarkup(createElement(GalleryDoor, { event }))).join('');
 
 test('a host’s event with no Papic still shows a Gallery door to its gallery', () => {
   const html = render([hostNoPapic]);
@@ -73,6 +73,7 @@ test('the door is not gated on Papic, and says supplier-safe plain words', () =>
   assert.equal(/\b(website|site|vendor)\b/i.test(render([hostNoPapic])), false);
 });
 
-test('the shelf mounts the doors from the same event list', () => {
-  assert.ok(/<GalleryDoors events=\{/.test(SHELF), 'GalleryDoors is not mounted on Memories.');
+test('every event chapter on Memories carries its door (2026-10-22: on the heading, not a list of rows)', () => {
+  assert.ok(/<GalleryDoor event=\{album\.event\} \/>/.test(CHAPTERS), 'GalleryDoor is not mounted on the event chapters.');
+  assert.ok(/<GalleryDoor event=\{picked\.event\} \/>/.test(CHAPTERS), 'a picked event lost its Gallery door.');
 });

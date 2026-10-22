@@ -2813,9 +2813,12 @@ button.fd-ask.quiet {
   text-wrap: balance;
 }
 .fd-opening-lede {
-  margin: 0 0 24px;
-  font-size: 16.5px;
-  line-height: 1.6;
+  /* 2026-10-22: back in use as the ONE purpose sentence under the headline
+     (Google OAuth review: "explain the purpose of your app"). Set a step
+     smaller than the retired paragraph so the hero keeps its shape. */
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
   /* --fd-m1 is 6.14:1 on the white ground; --fd-m2 is 3.55:1 and would FAIL
      here. This is body copy, not metadata. */
   color: var(--fd-m1);

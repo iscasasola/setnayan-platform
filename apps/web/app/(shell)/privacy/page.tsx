@@ -266,7 +266,7 @@ export default function PrivacyPage() {
             <strong>2. YouTube, for Live Watch</strong> — optional, asked for
             only when a host connects their own channel to broadcast an event
             live. Permission requested:{' '}
-            <code className="font-mono text-[12px]">
+            <code className="break-all font-mono text-[12px]">
               https://www.googleapis.com/auth/youtube
             </code>
             . Used only to create, run and end that event&rsquo;s live
@@ -280,7 +280,7 @@ export default function PrivacyPage() {
             <strong>3. Google Drive, for photo delivery and Papic</strong> —
             optional, asked for only when you connect a Drive to receive your
             event&rsquo;s photos. Permission requested:{' '}
-            <code className="font-mono text-[12px]">
+            <code className="break-all font-mono text-[12px]">
               https://www.googleapis.com/auth/drive.file
             </code>
             , which limits Setnayan to the files and folders Setnayan itself

@@ -29,15 +29,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import React from 'react';
+import { stripComments } from '../lib/strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
 const APP = import.meta.dirname;
 const WEB = path.join(APP, '..');
 
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-}
 function textOf(html: string): string {
   return html
     .replace(/<[^>]+>/g, ' ')

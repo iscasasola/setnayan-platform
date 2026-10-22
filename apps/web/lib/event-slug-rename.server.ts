@@ -67,6 +67,9 @@ export async function eventHasRenamed(eventId: string): Promise<boolean> {
     .eq('entity_type', 'event')
     .eq('entity_id', eventId)
     .limit(1);
-  if (error) return false;
+  if (error) {
+    console.error('[slug-rename] could not read whether this event renamed before (shown as free):', eventId, error.message);
+    return false;
+  }
   return (data ?? []).length > 0;
 }

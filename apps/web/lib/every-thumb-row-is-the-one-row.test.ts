@@ -12,7 +12,7 @@
  *  5. The account rows' Enter goes where the palette's step-out row goes, and never to a marketplace path or a path
  *     the iPhone app refuses.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { createElement } from 'react';
@@ -167,6 +167,14 @@ describe('placeholders name the place, short', () => {
       if (p.alone) continue;
       expect(p.words.split(/\s+/).length, `${p.file}: "${p.words}"`).toBeLessThanOrEqual(3);
     }
+  });
+  it('Memories (once #6778 lands) draws through the same account row — never a band of its own', () => {
+    const f = 'app/dashboard/(account)/library/_components/memories-thumb.tsx';
+    if (!existsSync(join(WEB, f))) return; // not on this branch yet — the account row it will use is pinned above
+    const src = stripComments(read(f));
+    expect(src).toMatch(/<AccountThumbRow\b/);
+    expect(src).not.toMatch(/sn-glass-row/);
+    expect(src).toMatch(/placeholder="Search memories"/);
   });
   it('People says the owner’s words, short', () => {
     const src = read('app/dashboard/(account)/people/_components/find-or-invite.tsx');

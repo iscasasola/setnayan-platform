@@ -75,7 +75,9 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'Link',
   'LiveWallCard',
   'MagazineCard',
-  'MiniTour',
+  // The first-visit tour: the switched-off MiniTour carousel became the SPOTLIGHT on 2026-10-22 (owner "yes to all",
+  // journey_fixes_later Host 4 — `customer_papic_v2`, held by `lib/the-host-page-tours-land.test.ts`). Replaced, not lost.
+  'Spotlight',
   // ⛔ REMOVED DELIBERATELY, 2026-09-23 — and this is what "deleting a line here
   // is a decision" looks like when the decision is the owner's, twice.
   //

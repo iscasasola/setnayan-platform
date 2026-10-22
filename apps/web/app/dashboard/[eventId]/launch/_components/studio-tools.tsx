@@ -60,6 +60,7 @@ import { fadeWords } from '@/lib/background-fade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { StudioEventName } from './studio-event-name';
+import { StudioVenues } from './studio-venues';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
@@ -1116,6 +1117,7 @@ function StudioWishListLive(props: Omit<Parameters<typeof StudioWishList>[0], 'a
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
+  | ({ part: 'venues' } & Parameters<typeof StudioVenues>[0])
   | { part: 'quiet' }
   | ({ part: 'gifts' } & Parameters<typeof StudioEgifts>[0])
   | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
@@ -1162,6 +1164,8 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioHubSettings {...props} />;
     case 'fact':
       return <StudioReadOnlyFact {...props} />;
+    case 'venues':
+      return <StudioVenues {...props} />;
     case 'quiet':
       return <StudioQuietRows />;
     case 'gifts':

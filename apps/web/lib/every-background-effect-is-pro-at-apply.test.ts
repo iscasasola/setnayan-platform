@@ -52,7 +52,8 @@ test('(1) all eight are Pro; the guest render still refuses only the six that we
     'the render gate moved: Soft haze / Bokeh lights published while free would vanish for guests, or a six would draw unpaid',
   );
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
-  assert.match(layer, /if \(AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO\[effect\.kind\] && !tryOn && !\(await websiteProActiveFor\(event\.event_id\)/);
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.match(layer, /if \(AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO\[effect\.kind\] && !tryOn && !\(await hubPartActiveFor\(event\.event_id, 'background'\)/);
   assert.doesNotMatch(layer, /AMBIENT_EFFECT_IS_PRO/, 'the guest render reads the Maker’s Pro line — a published free effect would disappear');
 });
 

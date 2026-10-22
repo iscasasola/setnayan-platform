@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { INVITE_THEMES, normalizeThemeId, themeMediaKey, type InviteThemeId } from '@/lib/invite-themes';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
@@ -158,7 +158,9 @@ export async function readPrintEvent(admin: SupabaseClient, eventId: string): Pr
  *  free couple sees the free set. It gates what is drawn and served, never a
  *  write. */
 export async function printOwnsPro(eventId: string): Promise<boolean> {
-  return asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false));
+  // 💎 Prints in your Hub look, Pro-theme files and the whole set are the Prints part's (owner 2026-10-22, gates 33,
+  // 34, 36a) — Full Pro and the cap included.
+  return asViewed(eventHubPartActive(createAdminClient(), eventId, 'prints').catch(() => false));
 }
 
 /**

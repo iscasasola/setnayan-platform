@@ -11,7 +11,7 @@ import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventNoun } from '@/lib/event-noun';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
@@ -62,7 +62,7 @@ export default async function HeroPhotoEditorPage({
   // gated); putting up a new one is locked here and refused by the action.
   // Fail-open on a throwing read, like the sibling editors — the action is the
   // real gate either way.
-  const ownsPro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
+  const ownsPro = await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'background').catch(() => true);
 
   // Resolve the current photo (if any) to a presigned GET URL for display.
   const currentPhotoUrl = await displayUrlForStoredAsset(

@@ -53,7 +53,7 @@
  *
  * 🔑 EVERY WRITE IS THE COUPLE'S OWN SESSION. `events` and `invitation_widgets`
  * RLS still apply underneath the host gate; only the Pro read uses the admin
- * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
+ * client (inside `hubOwnershipForWrite`, because orders RLS is purchaser-scoped).
  */
 import { rsvpPictureRefsIn } from '@/lib/rsvp-picture-ref';
 import { deleteOwnScene } from '@/lib/own-scene-delete';
@@ -72,7 +72,9 @@ import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
-import { lookProAllows } from '@/lib/hub-look-gate';
+import { hubOwnershipForWrite } from '@/lib/hub-look-gate';
+import { NO_HUB_PARTS } from '@/lib/hub-parts';
+import { renameEventSlug } from '@/lib/event-slug-rename.server';
 import { getIapGate } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
@@ -374,11 +376,13 @@ export async function hubDraftAction(
     const iapGate = await getIapGate();
     const live = await readHubLiveState(supabase, eventId);
     const storeShell = iapGate.storeShell && !iapGate.iap;
-    /* ⛔ THE GATE. `lookProAllows(eventId, 'change')` is true only when the event
-       owns ACTIVE Event Hub Pro — the same read, and the same rule, every live
-       look writer uses. In the store shell a Pro key is never applied. */
-    const ownsPro = storeShell ? false : await lookProAllows(eventId, 'change');
-    const plan = planHubDraftApply(current, live, ownsPro);
+    /* ⛔ THE GATE. `hubOwnershipForWrite` is what the event ACTIVELY owns of
+       Event Hub Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
+       part) — the same read every live look writer's `lookProAllows` makes, and
+       each drafted item is asked for ITS parts. In the store shell a Pro key is
+       never applied. */
+    const owned = storeShell ? NO_HUB_PARTS : await hubOwnershipForWrite(eventId);
+    const plan = planHubDraftApply(current, live, owned);
 
     const held: Array<{ item: HubDraftItem; reason: HubDraftRefusal }> = plan.refused.map((item) => ({
       item,
@@ -593,6 +597,14 @@ export async function hubDraftAction(
       // "Shown" must never manufacture a blank section — `setSectionMode`'s rule.
       if (item.kind === 'widget' && item.field === 'mode' && item.value === 'shown' && !hasContent(item.widgetType, contentMap)) {
         held.push({ item, reason: 'empty_section' });
+        continue;
+      }
+      /* 💎 A CUSTOM ADDRESS (owner 2026-10-22) goes live through the ONE rename (`renameEventSlug` — conflict checks,
+         the old link forwarding), never through the events update below. Taken since it was typed → held, said why. */
+      if (item.kind === 'address') {
+        const renamed = await renameEventSlug(supabase, eventId, item.value, typeof me === 'string' ? me : null);
+        if (!renamed.ok) held.push({ item, reason: 'address_taken' });
+        else if (renamed.changed) revalidatePath(`/dashboard/${eventId}`, 'layout');
         continue;
       }
       toWrite.push(item);
@@ -1097,6 +1109,9 @@ export async function hubDraftAction(
         // A style pick is free and never held; nothing to keep.
       } else if (item.kind === 'march') {
         // 🚶 A march that stopped keeps nothing: what was still queued is dropped (said by name).
+      } else if (item.kind === 'address') {
+        // 💎 A custom address held (for the part, or taken meanwhile) stays drafted, still picked.
+        remaining.address = item.value;
       } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {

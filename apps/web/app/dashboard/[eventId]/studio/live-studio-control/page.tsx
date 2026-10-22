@@ -326,7 +326,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
               onChange: setYoutubeLiveReadyAck,
             },
         footnote:
-          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
+          'Apply-then-pay flow · we confirm price before payment · no refunds: if you cannot use it, its value becomes Papic credits for this event. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}
       />
     </div>

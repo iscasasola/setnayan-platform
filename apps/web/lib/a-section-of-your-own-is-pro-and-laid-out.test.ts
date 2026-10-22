@@ -241,7 +241,8 @@ test('⛔ no new server action — Build 4 rides the two that exist', () => {
 test('⛔ add refuses a free couple BEFORE it inserts', () => {
   const body = fnBody('addCustomSection');
   const gate = body.indexOf('refuseCustomSectionWithoutPro(');
-  const pro = body.indexOf('eventCoupleWebsiteProActive(');
+  // RE-AIMED 2026-10-22 (part by part): a scene of your own is the Your own scenes part's.
+  const pro = body.indexOf("eventHubPartActive(createAdminClient(), eventId, 'own_scenes')");
   const insert = body.indexOf('.insert(');
   assert.ok(gate > 0 && pro > 0 && insert > 0);
   assert.ok(gate < insert && pro < insert, 'the Pro check runs before the row exists');

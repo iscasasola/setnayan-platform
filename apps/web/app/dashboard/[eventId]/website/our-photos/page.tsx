@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -72,7 +72,7 @@ export default async function OurPhotosEditorPage({
      asks for Pro ("Unlock Pro and Apply"), screening each new photo again.
      A couple with Pro saves live, as before. The entitlement read failing
      treats the couple as free — the safe side is the draft, never a live write. */
-  const proActive = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false);
+  const proActive = await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos').catch(() => false);
   let draftedRefs: string[] | null = null;
   if (!proActive) {
     try {

@@ -113,5 +113,6 @@ test('wiring: the one action records the author on every step, undoes only the h
   assert.match(store, /const built = await build\(row\.draft, by\)/, 'the one door does not hand the author to its builders');
   assert.match(store, /mergeHubDraft\(current, rebased\.patch, by\)/, 'the existing writers’ draft saves do not record who made them');
   // 🍎 `proShell` = the store shell minus Apple In-App Purchase (rd/in-app-purchase, 2026-10-18).
-  assert.match(store, /summarizeHubDraft\(draft, live, ownsPro && !proShell, me\)/, 'the render’s bar does not know whose steps are whose');
+  // RE-AIMED 2026-10-22 (part by part): the plan is asked with the event's parts (`forPlan`).
+  assert.match(store, /summarizeHubDraft\(draft, live, forPlan, me\)/, 'the render’s bar does not know whose steps are whose');
 });

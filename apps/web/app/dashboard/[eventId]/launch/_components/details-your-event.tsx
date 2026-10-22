@@ -15,7 +15,10 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
 import { PickSheetContext, pickOpensAsSheet } from '../../website/editor/_components/pick-menu-place';
 import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { FileUpload } from '@/app/_components/file-upload';
-import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
+import type { VenueChoice, VenuePinSource, VenueSlotKey } from '@/lib/event-venues';
+import { shopPinLine, venuePinDoor } from '@/lib/venue-pin-door';
+import { ManualVenuePin, ShopPinNote } from '../../_components/venue-pin-part';
+import { useStudioActions } from './studio-actions-context';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { parishDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
@@ -529,7 +532,16 @@ export type VenueSlot = {
   /** The booked supplier AS OFFERED — shown under "Use the supplier's details";
    *  `photos` are their public shop photos (refs), in their order; `pin` is
    *  where their record puts them. */
-  booked: { name: string; address: string | null; photos: readonly string[]; pin: LatLng | null } | null;
+  booked: {
+    name: string;
+    address: string | null;
+    photos: readonly string[];
+    pin: LatLng | null;
+    /** 📍 Whose pin it is (`lib/venue-pin-door.ts`): a shop's is the shop's; a manual supplier's is set on its card. */
+    pinFrom?: VenuePinSource | null;
+    /** The booking (`event_vendors.vendor_id`) — the manual card's pin is saved through it. */
+    vendorId?: string | null;
+  } | null;
   /** The `events` columns this card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */
   columns: {
     name: 'std_film_ceremony_name' | 'std_film_venue_name';
@@ -653,7 +665,12 @@ export function VenuesEditor({
   const ownDetails = (s: VenueSlot) => !s.booked || choices[s.slot]?.source === 'own';
   const typedSlots = slots.filter(ownDetails);
   const reception = slots.find((s) => s.slot === 'reception') ?? null;
-  const receptionPin = reception ? (ownDetails(reception) ? values.reception?.pin : reception.booked?.pin) ?? null : null;
+  /* 📍 Where each card's pin is set (owner 2026-10-22, `lib/venue-pin-door.ts`): a shop's is the shop's in every mode. */
+  const doorOf = (s: VenueSlot) => venuePinDoor(s.booked, ownDetails(s));
+  const { saveManualVenuePin } = useStudioActions();
+  const receptionPin = reception
+    ? (ownDetails(reception) && doorOf(reception) !== 'shop' ? values.reception?.pin : reception.booked?.pin) ?? null
+    : null;
 
   const edit = (slot: VenueSlotKey, next: Partial<{ name: string; address: string; pin: LatLng | null }>) => {
     setValues((v) => ({ ...v, [slot]: { ...v[slot]!, ...next } }));
@@ -672,6 +689,8 @@ export function VenuesEditor({
       const v = values[s.slot]!;
       events[s.columns.name] = v.name.trim() || null;
       events[s.columns.address] = v.address.trim() || null;
+      /* A shop's card sends no pin of the couple's — the guests' map follows the shop's own. */
+      if (doorOf(s) === 'shop') continue;
       events[s.columns.lat] = v.pin?.lat ?? null;
       events[s.columns.lng] = v.pin?.lng ?? null;
     }
@@ -717,11 +736,24 @@ export function VenuesEditor({
                   <p className="text-sm font-medium text-ink">{s.booked.name}</p>
                   {s.booked.address ? <p className="text-xs text-ink/65">{s.booked.address}</p> : null}
                   <p className="mt-1 text-[11.5px] text-ink/55">
-                    Booked · follows the booking{s.booked.pin ? ' · pinned on the map' : ''}
+                    Booked · follows the booking{s.booked.pin && doorOf(s) !== 'shop' ? ' · pinned on the map' : ''}
                   </p>
+                  {doorOf(s) === 'shop' ? <ShopPinNote shop={s.booked.name} pinned={s.booked.pin != null} /> : null}
                 </div>
               </div>
-            ) : (
+            ) : null}
+            {!own && s.booked && doorOf(s) === 'manual' && s.booked.vendorId ? (
+              /* 📍 A supplier added by hand: its pin is set right here, on its own card (owner 2026-10-22). */
+              <ManualVenuePin
+                eventId={eventId}
+                vendorId={s.booked.vendorId}
+                slot={s.slot}
+                address={s.booked.address ?? ''}
+                pin={s.booked.pin}
+                save={saveManualVenuePin}
+              />
+            ) : null}
+            {!own && s.booked ? null : (
               <>
                 <input
                   value={v.name}
@@ -737,6 +769,7 @@ export function VenuesEditor({
                   initialPin={v.pin}
                   hideHints
                   onChange={(next) => edit(s.slot, next)}
+                  pinLocked={doorOf(s) === 'shop' && s.booked ? shopPinLine(s.booked.name, s.booked.pin != null) : null}
                 />
               </>
             )}

@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 
 /**
@@ -38,7 +38,8 @@ export async function readOneLink(supabase: SupabaseClient, eventId: string): Pr
       .eq('event_id', eventId)
       .maybeSingle(),
     admin.from('events').select(QR_LOOK_COLUMNS).eq('event_id', eventId).maybeSingle(),
-    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    // 💎 The QR's look is the Logo & QR part's (owner 2026-10-22, gate 29).
+    eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'logo_qr').catch(() => false),
   ]);
   if (tokenRes.error) logQueryError('GuestSetup.oneLink (event_join_tokens)', tokenRes.error, { event_id: eventId }, 'graceful_degrade');
   if (eventRes.error) logQueryError('GuestSetup.oneLink (events)', eventRes.error, { event_id: eventId }, 'graceful_degrade');

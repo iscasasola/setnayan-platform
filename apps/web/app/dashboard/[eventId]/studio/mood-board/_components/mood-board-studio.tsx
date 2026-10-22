@@ -28,7 +28,7 @@ import {
 } from '@/lib/inspiration-suggestions';
 import type { StudioAttireRowData } from '@/lib/studio-attire-rows';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
-import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns, keepWomenDesigns } from '@/lib/attire-design-picks';
+import { allowedStyles, designArt, designKey, drawnDesigns, hasDesignLibrary, heroArt, libraryStyles, picksWithDesigns, stripLooks, styleAllowedSaid, styleKey, toggleDesignTick, withColumnDesigns, keepWomenDesigns } from '@/lib/attire-design-picks';
 import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
 import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
 import { garmentOfPick, pickDots, zoneColours } from '@/lib/role-figure';
@@ -1299,29 +1299,50 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       /* 👗 Each option its own guest, its dot under it; "+" adds one, up to five (`GUEST_OPTIONS_MAX`). */
                       const options = (colours.length > 0 ? colours : [five[3]!]).slice(0, GUEST_OPTIONS_MAX);
                       const optionsMax = pi === 0 ? Math.min(max, GUEST_OPTIONS_MAX) : GUEST_OPTIONS_MAX;
+                      /* 👔 THE CHOSEN DESIGNS STAND IN THE STRIP (owner 2026-10-22, "still just 1 design showed"): the colours
+                         worn in turn along every allowed design, across styles in tick order (`stripLooks`) — each design in
+                         its own drawing, tinted by its own zones (`zoneTints`), said by its name and what its colour colours.
+                         One design keeps the shipped strip: one figure per colour, all in it. */
+                      const chosen = allowed.flatMap((a) => a.designs.map((d) => ({ ...d, style: a.style })));
+                      const several = chosen.length > 1;
+                      const strip: Array<{ id: string | null; label: string | null; art: typeof garment; style: AttireStyle | null }> = several ? chosen : [{ id: null, label: null, art: garment, style: pick.style }];
+                      const looks = stripLooks(strip, options);
                       return (
                         <div key={pick.who} className="flex min-w-0 flex-col gap-1.5" data-mood-board-pick={pick.who}>
                           {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
-                          <div className="flex flex-wrap items-end gap-x-1" data-mood-board-options={options.length} data-mood-board-swatches={pick.who}>
-                            {options.map((c, i) => (
-                              <span key={i} className="flex flex-col items-center" data-mood-board-option={i}>
-                                <span className="flex h-[112px] items-end" data-mood-board-figure={pick.who}>
-                                  <RoleFigure roleKey={row.key} people={[{ who: pick.who, garment, main: c, colours: [c] }]} className="h-[112px]" />
+                          <div
+                            className="flex flex-wrap items-end gap-x-1"
+                            data-mood-board-options={options.length}
+                            data-mood-board-swatches={pick.who}
+                            {...(several ? { 'data-mood-board-looks': looks.length } : {})}
+                          >
+                            {looks.map(({ design, colour: c, colourIndex: ci }, i) => {
+                              const word = several ? (pickDots(design.style, [c], role, true)[0]?.word ?? null) : (dots[i]?.word ?? null);
+                              return (
+                                <span key={i} className="flex flex-col items-center" data-mood-board-option={ci} {...(several ? { 'data-mood-board-design': design.id ?? '' } : {})}>
+                                  <span className="flex h-[112px] items-end" data-mood-board-figure={pick.who}>
+                                    <RoleFigure roleKey={row.key} people={[{ who: pick.who, garment: design.art, main: c, colours: [c] }]} className="h-[112px]" />
+                                  </span>
+                                  <RoleColourDot
+                                    label={`${pickLabel} option ${ci + 1}, ${several ? `${design.label} — ` : ''}${word ?? ''} ${c} — change it`}
+                                    colour={c}
+                                    index={ci}
+                                    onPick={() =>
+                                      setSheet({
+                                        kind: 'picker',
+                                        target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: ci } : { kind: 'second-colour', row, label: pickLabel, index: ci },
+                                      })
+                                    }
+                                  />
+                                  {several ? (
+                                    <small className="-mt-1 max-w-[64px] text-center text-[10.5px] font-semibold leading-tight text-ink/75" data-mood-board-design-name={design.label}>
+                                      {design.label}
+                                    </small>
+                                  ) : null}
+                                  {word ? <small className={`${several ? '' : '-mt-1 '}max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65`} data-mood-board-dot-word={word}>{word}</small> : null}
                                 </span>
-                                <RoleColourDot
-                                  label={`${pickLabel} option ${i + 1}, ${dots[i]?.word ?? ''} ${c} — change it`}
-                                  colour={c}
-                                  index={i}
-                                  onPick={() =>
-                                    setSheet({
-                                      kind: 'picker',
-                                      target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } : { kind: 'second-colour', row, label: pickLabel, index: i },
-                                    })
-                                  }
-                                />
-                                {dots[i] ? <small className="-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65" data-mood-board-dot-word={dots[i]!.word}>{dots[i]!.word}</small> : null}
-                              </span>
-                            ))}
+                              );
+                            })}
                             {colours.length < optionsMax && (pi === 0 || dress) ? (
                               <span className="flex h-11 items-center self-end">
                                 <ActionButton

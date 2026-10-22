@@ -63,8 +63,15 @@ test('the fixture is real — the page source was actually read, and stripped', 
   assert.ok(!CODE.includes('we already agreed'), 'comments were NOT stripped — prose could pass this guard');
 });
 
-test('🔴 "Add a loved one" is at the head of the Loved ones view — before its list', () => {
-  const alaga = viewBranch('alaga');
+/** The Loved ones block — since 2026-10-22 a folded section of the list, built ONCE as `lovedOnes`. */
+function lovedOnesBlock(): string {
+  const open = CODE.indexOf('const lovedOnes = ');
+  assert.ok(open >= 0, 'the page no longer builds the Loved ones block — the door has nowhere to live');
+  return CODE.slice(open, CODE.indexOf(') : null;', open));
+}
+
+test('🔴 "Add a loved one" is at the head of the Loved ones section — before its list', () => {
+  const alaga = lovedOnesBlock();
   const door = alaga.indexOf('<AddAlagaButton />');
   const list = alaga.indexOf('<DependentsSection />');
   assert.ok(door >= 0, 'the Loved ones view lost its "Add a loved one" door');
@@ -93,15 +100,15 @@ test('each door exists ONCE on the page — never also in the header', () => {
   );
 });
 
-test('the header holds ONLY the picker', () => {
-  const at = CODE.indexOf('data-people-header');
-  assert.ok(at >= 0, 'the header block moved; re-anchor this guard');
-  const end = CODE.indexOf('</div>', at);
-  const header = CODE.slice(at, end);
-  assert.ok(header.includes('<PeopleViewPicker'), 'the picker left the header');
-  for (const stray of ['AddAlagaButton', 'samahan/new', '<button', '<Link']) {
-    assert.ok(!header.includes(stray), `the header draws "${stray}" beside the picker`);
-  }
+test('🔴 the top is the counts line — no header block and no view dropdown above the list (owner 2026-10-22: "remove it")', () => {
+  assert.ok(!CODE.includes('data-people-header'), 'the header block above the list came back');
+  assert.ok(!CODE.includes('<PeopleViewPicker'), 'the page draws the view dropdown itself again — it lives in the thumb row');
+  const ROSTER = stripComments(readFileSync(join(__dirname, '_components', 'people-roster-view.tsx'), 'utf8'));
+  const ret = ROSTER.slice(ROSTER.indexOf('data-people-screen'));
+  assert.ok(ret.indexOf('{counts}') >= 0 && ret.indexOf('{counts}') < ret.indexOf('{list}'), 'the counts line is not the first thing the roster draws');
+  // …and the view list sits in the thumb row, as ≡.
+  const thumb = ROSTER.slice(ROSTER.indexOf('const filterPick = ('), ROSTER.indexOf('const thumb = selectMode'));
+  assert.match(thumb, /<PeopleViewPicker /, 'the ≡ button no longer opens the view list (Groups · Following · Followers)');
 });
 
 test('the Groups view does not draw a second "Groups" heading under its picker', () => {

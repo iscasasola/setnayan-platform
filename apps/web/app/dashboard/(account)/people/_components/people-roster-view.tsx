@@ -1,12 +1,39 @@
 'use client';
 
-import { Fragment, useRef, useState, useTransition } from 'react';
-import Link from 'next/link';
-import { CalendarHeart, Check, Plus, Send, X } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import {
+  CalendarHeart,
+  Check,
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CircleDashed,
+  Clock,
+  HandHeart,
+  Heart,
+  HeartHandshake,
+  Network,
+  Pencil,
+  Plus,
+  Send,
+  SquareCheck,
+  Users,
+  UsersRound,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
+import { GuestPopup, GuestConfirmActions } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
+import { followColumn } from '@/app/dashboard/[eventId]/guests/_components/dock-follows-column';
+import { useShellBarOffset } from '@/app/dashboard/[eventId]/guests/_components/use-shell-bar-offset';
+import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
+import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton } from '@/components/action-button';
 import type { ConnectionRelation } from '@/lib/people-connections';
 import { RELATION_LABEL, connectionRequestSentence } from '@/lib/people-add';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
+import type { PeopleView, PeopleViewGates } from '@/lib/people-views';
+import { normalizeSearchText } from '@/lib/guest-search';
 import {
   didNotConfirmLine,
   isRequestForMe,
@@ -24,8 +51,10 @@ import {
   withdrawConnection,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
-import { FindOrInvite } from './find-or-invite';
+import { FindField, FindResults, useFindOrInvite } from './find-or-invite';
+import { PeopleViewPicker } from './people-view-picker';
 import { PersonAvatar } from './person-avatar';
+import ps from './people-screen.module.css';
 
 /**
  * people-roster-view.tsx — People, wearing the Guest List's clothes.
@@ -71,6 +100,26 @@ import { PersonAvatar } from './person-avatar';
  * and Withdraw. Optimism is deliberately absent — a row flipping to
  * "connected" before the other person has agreed would be the product telling
  * a lie about somebody else's decision.
+ *
+ * ── 2026-10-22 · PEOPLE WEARS TODAY'S GUEST LIST (owner: "People must look
+ *    similar to guests … Somewhat but not exactly") ─────────────────────────
+ * The approved prototype `prototypes/people_and_memories_template_2026-10-22.html`
+ * (P1–P5) + the owner's rulings of the same day. The Guest list moved on (Maker
+ * PR 4f, 2026-10-07): one sticky head · folding sections with a round badge ·
+ * one-line rows with round buttons · the glass thumb row. People now draws those
+ * with the Guest list's OWN stylesheet (`guests-screen.module.css`) and its own
+ * `ActionButton`, imported — never copied — so the two cannot drift apart.
+ *   · THE VIEW DROPDOWN AT THE TOP IS GONE (owner: "remove it"). The counts line
+ *     — "3 connected · 1 waiting for them · 1 asking you" — IS the top, and each
+ *     count filters to what it counts (tap again: everyone).
+ *   · LOVED ONES (alaga, incl. a business alaga) is a folded section in the list,
+ *     like Family and Friends — no longer a view of its own.
+ *   · GROUPS (samahan), Following and Followers live under the ≡ filter button in
+ *     the thumb row — the place Guests keeps its groups.
+ *   · Find-or-invite is the thumb row's field, where Guests keeps "Search or add".
+ *   · Row → card: ✎ opens the person's card (the Guest card's bones).
+ *   · Select (controller, 2026-10-22, the prototype's question 1): two verbs only
+ *     — Ask into group · Remove N. No bulk label: a label needs each person's yes.
  */
 
 const STATE_LABEL: Record<RosterState, string> = {
@@ -80,46 +129,39 @@ const STATE_LABEL: Record<RosterState, string> = {
   in_your_care: 'In your care',
 };
 
-const STATE_PIP: Record<RosterState, string> = {
-  connected: 'bg-success-600',
-  waiting_them: 'bg-warn-500',
-  waiting_you: 'bg-terracotta',
-  in_your_care: 'bg-mulberry',
-};
-
 /** ONE heading style for the whole page (the redesign's problem 5 — four
  *  styles lived on one page). The roster's own rule, used everywhere. */
 export const PEOPLE_SECTION_HEADING =
   'font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55';
 
-/** The label chip's tint, taken from the roster's own vocabulary by MEANING. */
-function chipTint(relation: ConnectionRelation | null): string {
+/** The label pill's tint — the Guest row's pill vocabulary, chosen by MEANING (family warm, ninong violet). */
+function pillTint(relation: ConnectionRelation | null): string {
   switch (relation) {
     case 'spouse':
     case 'partner':
-      return 'bg-danger-100 text-danger-900 ring-1 ring-danger-200';
     case 'parent':
     case 'child':
     case 'sibling':
-      return 'bg-danger-200/70 text-danger-950 ring-1 ring-danger-300';
+      return ps.pillRose ?? '';
     case 'godparent':
     case 'godchild':
-      return 'bg-violet-100 text-violet-800 ring-1 ring-violet-200';
-    case 'friend':
-      return 'bg-ink/[0.06] text-ink/60 ring-1 ring-ink/10';
+      return ps.pillViolet ?? '';
     default:
-      return 'bg-ink/[0.06] text-ink/60 ring-1 ring-ink/10';
+      return '';
   }
 }
 
 /** Whose move is it — see `isWaitingOnThem` (the one rule, tested). */
 const waitingOnThem = isWaitingOnThem;
 
+type SectionKey = 'family' | 'ritual' | 'friends' | 'unlabelled' | 'waiting_them';
+
 /** Section order — the shape of a family, then whose move it is, LAST. */
-const SECTIONS: Array<{ key: string; label: string; match: (p: RosterPerson) => boolean }> = [
+const SECTIONS: Array<{ key: SectionKey; label: string; icon: LucideIcon; match: (p: RosterPerson) => boolean }> = [
   {
     key: 'family',
     label: 'Family',
+    icon: Heart,
     match: (p) =>
       p.state === 'connected' &&
       !waitingOnThem(p) &&
@@ -128,256 +170,479 @@ const SECTIONS: Array<{ key: string; label: string; match: (p: RosterPerson) => 
   {
     key: 'ritual',
     label: 'Ninong & Ninang',
+    icon: HeartHandshake,
     match: (p) =>
       p.state === 'connected' && !waitingOnThem(p) && ['godparent', 'godchild'].includes(p.relation ?? ''),
   },
   {
     key: 'friends',
     label: 'Friends',
+    icon: Users,
     match: (p) => p.state === 'connected' && !waitingOnThem(p) && p.relation === 'friend',
   },
   {
     key: 'unlabelled',
     label: 'No label yet',
+    icon: CircleDashed,
     match: (p) => p.state === 'connected' && !waitingOnThem(p) && p.relation === null,
   },
-  { key: 'waiting_them', label: 'Waiting for them', match: waitingOnThem },
+  { key: 'waiting_them', label: 'Waiting for them', icon: Clock, match: waitingOnThem },
 ];
 
-const EMPTY_LINE = 'Nobody here yet. Add the first person above — a name is enough to find them.';
+const EMPTY_LINE = 'Nobody here yet.';
 const REFUSED_LINE = 'We couldn’t load your people just now. Nothing is lost — refresh in a moment.';
 const PARTLY_REFUSED_LINE =
   'We couldn’t load all of your people just now. Nothing is lost — refresh in a moment.';
+
+/** What the counts line filters to — each count shows exactly the rows it counts. */
+export type PeopleFilter = 'all' | 'connected' | 'waiting' | 'asking';
+
+type Run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
+
+/** The ≡ filter button's list (Groups · Following · Followers — owner 2026-10-22). */
+export type PeoplePickerProps = { view: PeopleView; options: readonly PickOption[]; gates: PeopleViewGates };
+
+/** A folded section the page hands in (Loved ones · Your connection tree), drawn after the roster's own. */
+export type PeopleExtraSection = {
+  key: 'alaga' | 'tree';
+  label: string;
+  /** null = not counted (unread, or nothing to count) — never printed as 0. */
+  count: number | null;
+  node: ReactNode;
+  /** Folded on first draw (the tree, as drawn). */
+  folded?: boolean;
+};
 
 export function PeopleRosterView({
   roster,
   relations,
   spouseNote,
-  mode = 'connected',
+  picker,
+  extra = [],
+  initialFilter = 'all',
+  focus = null,
 }: {
   roster: PeopleRoster;
   /** Offerable labels — the server decides, by the spouse rule. */
   relations: ConnectionRelation[];
   spouseNote: string | null;
-  /** 'requests' draws the requests and nothing else (the Requests view). */
-  mode?: 'connected' | 'requests';
+  picker: PeoplePickerProps;
+  extra?: PeopleExtraSection[];
+  /** `?view=requests` opens on "asking you" (the rail's Requests row). */
+  initialFilter?: PeopleFilter;
+  /** `?view=alaga` opens on the Loved ones section, folded open, the rest folded shut. */
+  focus?: 'alaga' | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [filter, setFilter] = useState<PeopleFilter>(initialFilter);
+  const [selectMode, setSelectMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [cardKey, setCardKey] = useState<string | null>(null);
+  const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
+  const find = useFindOrInvite();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useShellBarOffset(rootRef);
+  useEffect(() => {
+    const root = rootRef.current;
+    return root ? followColumn(root) : undefined;
+  }, []);
 
-  function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>) {
+  const run: Run = (fn) => {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       const res = await fn();
       if (!res.ok) setError(res.error);
     });
-  }
+  };
 
   // Alaga rows stay in the data (the guest list's sheet reads them) and are
-  // never drawn here — the Alaga view owns them.
+  // never drawn as roster rows — the Loved ones section (the alaga's own cards,
+  // where the age fence and the consent stamps live) draws them.
   const connections = roster.people.filter((p) => p.kind === 'connection');
   // EVERY HANDSHAKE WAITING ON ME — a request to connect, or a label somebody
   // asked on a connection I already have (owner 2026-09-29: "it will show to
   // their requests on people as well").
   const requests = connections.filter(isRequestForMe);
-  // …and the ones waiting on THEM, which the Requests view shows too ("the
-  // sender sees their pending ones there too").
-  const outgoing = connections.filter(waitingOnThem);
-
-  const messages = (
-    <>
-      {error ? (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
-        </p>
-      ) : null}
-      {notice ? (
-        <p role="status" className="text-sm text-mulberry-600">
-          {notice}
-        </p>
-      ) : null}
-    </>
-  );
-
-  if (mode === 'requests') {
-    return (
-      <div className="space-y-6" data-people-view="requests">
-        {requests.length > 0 ? (
-          <RequestsBlock requests={requests} pending={pending} run={run} />
-        ) : (
-          <p className="py-6 text-sm text-ink/55">
-            {roster.connectionsUnavailable
-              ? 'We couldn’t load your requests just now. Nothing is lost — refresh in a moment.'
-              : 'Nobody is waiting on your answer right now.'}
-          </p>
-        )}
-        {outgoing.length > 0 ? <OutgoingBlock rows={outgoing} pending={pending} run={run} /> : null}
-        {messages}
-      </div>
-    );
-  }
 
   const shown = connections.filter((p) => p.state !== 'waiting_you');
   const sections = SECTIONS.map((s) => ({ ...s, rows: shown.filter(s.match) })).filter(
     (s) => s.rows.length > 0,
   );
+  // THE COUNTS ARE THE ROWS. Each number is the length of exactly the rows its filter draws, so a count and its list
+  // cannot disagree (the Guest list's rule, `counts-equal-the-rows.test.ts`).
+  const connectedRows = sections.filter((s) => s.key !== 'waiting_them').flatMap((s) => s.rows);
+  const waitingRows = sections.find((s) => s.key === 'waiting_them')?.rows ?? [];
+  const tally = { connected: connectedRows.length, waiting: waitingRows.length, asking: requests.length };
+
   // 🔴 A REFUSED READ IS NOT AN EMPTY LIST. The same `[]` arrives either way;
   // only `connectionsUnavailable` tells them apart, so it decides the sentence.
   const emptyLine = roster.connectionsUnavailable ? REFUSED_LINE : EMPTY_LINE;
+  const nobody = sections.length === 0 && requests.length === 0;
 
-  return (
-    <div className="space-y-5" data-people-view="connected">
-      {/* PINNED — while anybody waits on you, before everything else (owner
-          2026-09-28: "Requests pinned at top of Connected"). The bell lands on
-          this page, so this is where the ask is met. */}
-      {requests.length > 0 ? <RequestsBlock requests={requests} pending={pending} run={run} /> : null}
+  // Typing in the field filters the list too (the Guest list's "Search or add").
+  const q = normalizeSearchText(find.line.trim());
+  const searching = q.length > 0;
+  const nameMatches = (p: RosterPerson) => normalizeSearchText(p.name).includes(q);
 
-      <FindOrInvite />
+  const visibleSections = sections.filter((s) =>
+    filter === 'all' ? true : filter === 'connected' ? s.key !== 'waiting_them' : filter === 'waiting' ? s.key === 'waiting_them' : false,
+  );
+  const showRequests = filter === 'all' || filter === 'asking';
+  const showExtra = filter === 'all';
 
-      {spouseNote ? <p className="text-xs text-ink/45">{spouseNote}</p> : null}
-      {roster.samahanUnavailable ? (
-        <p className="text-xs text-ink/55">
-          We couldn’t read your groups just now, so the groups column may be missing some.
+  const [open, setOpen] = useState<Set<string>>(() => {
+    if (focus === 'alaga') return new Set(['alaga']);
+    return new Set([...SECTIONS.map((s) => s.key as string), ...extra.filter((e) => !e.folded).map((e) => e.key)]);
+  });
+  const allKeys = [...visibleSections.map((s) => s.key as string), ...(showExtra ? extra.map((e) => e.key) : [])];
+  const allOpen = allKeys.length > 0 && allKeys.every((k) => open.has(k));
+  const toggle = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const card = cardKey ? connections.find((p) => p.key === cardKey) ?? null : null;
+  const pickedRows = shown.filter((p) => picked.has(p.key));
+  const askable = pickedRows.filter((p) => p.state === 'connected');
+  const leaveSelect = () => {
+    setSelectMode(false);
+    setPicked(new Set());
+  };
+
+  function askIntoGroup(communityId: string) {
+    const name = roster.mySamahan.find((s) => s.id === communityId)?.name ?? 'the group';
+    const people = askable;
+    if (people.length === 0) return;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      let sent = 0;
+      for (const p of people) {
+        const res = await invitePersonToSamahan({ connectionId: p.connectionId ?? '', communityId });
+        if (res.ok && res.delivered) sent += 1;
+      }
+      // Said as it happened — never "sent" for an ask that did not go.
+      if (sent === people.length) setNotice(`Invitation to ${name} sent to ${formatCount(sent)}.`);
+      else setError(`${formatCount(people.length - sent)} of ${formatCount(people.length)} invitations to ${name} didn’t send — try again in a moment.`);
+      leaveSelect();
+    });
+  }
+
+  const counts = (
+    <div className={gs.stick} data-people-head="">
+      {roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? (
+        // A refusal is said as one — never "0 connected".
+        <p role="status" className={`${gs.counts} ${gs.mute}`} data-people-counts="refused">
+          {REFUSED_LINE}
         </p>
-      ) : null}
-      {roster.connectionsUnavailable && sections.length > 0 ? (
-        <p role="status" className="text-sm text-ink/60" data-people-refused>
+      ) : (
+        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="">
+          {nobody ? (
+            <span className={gs.mute}>Nobody yet</span>
+          ) : (
+            <>
+              <CountDoor n={tally.connected} word="connected" on={filter === 'connected'} onTap={() => setFilter(filter === 'connected' ? 'all' : 'connected')} />
+              {tally.waiting > 0 ? (
+                <>
+                  <span aria-hidden className={gs.mute}>·</span>
+                  <CountDoor n={tally.waiting} word="waiting for them" on={filter === 'waiting'} onTap={() => setFilter(filter === 'waiting' ? 'all' : 'waiting')} />
+                </>
+              ) : null}
+              {tally.asking > 0 ? (
+                <>
+                  <span aria-hidden className={gs.mute}>·</span>
+                  <CountDoor hot n={tally.asking} word="asking you" on={filter === 'asking'} onTap={() => setFilter(filter === 'asking' ? 'all' : 'asking')} />
+                </>
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+      {roster.connectionsUnavailable && !nobody ? (
+        <p role="status" className={`${gs.replied}`} data-people-refused>
           {PARTLY_REFUSED_LINE}
         </p>
       ) : null}
-      {messages}
-
-      {/* DESKTOP — the roster table.
-          IT RENDERS EMPTY (owner 2026-08-21: "we want to see the empty table if
-          they have no people yet"). The columns ARE the explanation: a person
-          who has added nobody can see that a row will carry a label, a samahan
-          and a status, which a single sentence saying "nobody here yet" never
-          told them. The empty row lives INSIDE the table for the same reason —
-          floated above it, the headers would sit over nothing and read as a
-          rendering fault. */}
-      <div className="hidden overflow-hidden rounded-tile border border-ink/10 bg-paper sm:block">
-          <table className="w-full table-fixed text-left text-sm">
-            <thead className={`border-b border-ink/[0.07] ${PEOPLE_SECTION_HEADING}`}>
-              <tr>
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="w-[20%] px-3 py-2.5 font-medium">Label</th>
-                <th className="w-[20%] px-3 py-2.5 font-medium">Group</th>
-                <th className="w-[18%] px-3 py-2.5 font-medium">Status</th>
-                <th className="w-[18%] px-3 py-2.5 font-medium">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sections.map((sec) => (
-                <Fragment key={sec.key}>
-                  <tr>
-                    <td colSpan={5} className={`border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-3 ${PEOPLE_SECTION_HEADING}`}>
-                      {sec.label} <span className="ml-1 tabular-nums text-ink/35">{formatCount(sec.rows.length)}</span>
-                    </td>
-                  </tr>
-                  {sec.rows.map((p) => (
-                    <tr key={p.key} className="border-t border-ink/[0.06]">
-                      <td className="px-4 py-2.5">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <PersonAvatar name={p.name} />
-                          <span className="min-w-0 truncate font-medium text-ink">{p.name}</span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <LabelCell person={p} relations={relations} disabled={pending} />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <SamahanCell
-                          person={p}
-                          samahan={roster.mySamahan}
-                          disabled={pending}
-                          onSent={(m) => {
-                            setError(null);
-                            setNotice(m);
-                          }}
-                          onFailed={(m) => {
-                            setNotice(null);
-                            setError(m);
-                          }}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <StateCell state={p.state} />
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <RowActions person={p} pending={pending} run={run} setNotice={setNotice} setError={setError} />
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-              {sections.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink/55" data-people-empty>
-                    {emptyLine}
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-      </div>
-
-      {/* PHONE — the same rows, stacked. People is one of the five thumb targets. */}
-      {sections.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink/55 sm:hidden">{emptyLine}</p>
+      {roster.samahanUnavailable ? (
+        <p className={gs.replied}>We couldn’t read your groups just now, so the groups on each row may be missing some.</p>
       ) : null}
-      {sections.length > 0 ? (
-        <div className="space-y-6 sm:hidden">
-          {sections.map((sec) => (
-            <section key={sec.key}>
-              <h3 className={`mb-1.5 ${PEOPLE_SECTION_HEADING}`}>
-                {sec.label} <span className="tabular-nums text-ink/35">{formatCount(sec.rows.length)}</span>
-              </h3>
-              <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
-                {sec.rows.map((p) => (
-                  <li key={p.key} className="flex flex-col gap-2 py-3">
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <PersonAvatar name={p.name} />
-                      <span className="min-w-0 flex-1 truncate font-medium text-ink">{p.name}</span>
-                      {/* The status pip only when the row is NOT simply connected. */}
-                      {p.state !== 'connected' ? <StateCell state={p.state} /> : null}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <LabelCell person={p} relations={relations} disabled={pending} />
-                      <SamahanCell
-                        person={p}
-                        samahan={roster.mySamahan}
-                        disabled={pending}
-                        onSent={(m) => {
-                          setError(null);
-                          setNotice(m);
-                        }}
-                        onFailed={(m) => {
-                          setNotice(null);
-                          setError(m);
-                        }}
-                      />
-                    </span>
-                    <span className="flex flex-wrap justify-end gap-2">
-                      <RowActions person={p} pending={pending} run={run} setNotice={setNotice} setError={setError} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+    </div>
+  );
+
+  const rowFor = (p: RosterPerson) => (
+    <PersonRow
+      key={p.key}
+      person={p}
+      relations={relations}
+      pending={pending}
+      selectMode={selectMode}
+      picked={picked.has(p.key)}
+      onToggle={() =>
+        setPicked((prev) => {
+          const next = new Set(prev);
+          if (next.has(p.key)) next.delete(p.key);
+          else next.add(p.key);
+          return next;
+        })
+      }
+      onOpen={() => setCardKey(p.key)}
+      onRemove={() => setToRemove([p])}
+      setNotice={setNotice}
+      setError={setError}
+    />
+  );
+
+  const fold = (key: string, label: string, icon: LucideIcon, n: number | null, body: ReactNode) => {
+    const opened = open.has(key);
+    const Icon = icon;
+    return (
+      <section key={key} className={`${gs.sec} ${opened ? gs.open : ''}`} data-people-section={key} data-open={opened ? 'true' : 'false'}>
+        <div className={gs.barWrap}>
+          <button type="button" className={gs.bar} aria-expanded={opened} onClick={() => toggle(key)} data-section-head="">
+            <span className={gs.ico} aria-hidden>
+              <Icon strokeWidth={1.9} />
+            </span>
+            <span className={gs.lab}>{label}</span>
+            {n === null ? null : <span className={gs.n}>· {formatCount(n)}</span>}
+            <ChevronDown className={gs.chev} style={{ flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
+          </button>
         </div>
+        <div className={gs.fold}>
+          <div>{body}</div>
+        </div>
+      </section>
+    );
+  };
+
+  const list = searching ? (
+    <div data-people-search="">
+      {(() => {
+        const mine = shown.filter(nameMatches);
+        return mine.length > 0 ? (
+          <section className={gs.sec} data-people-section="matches">
+            <div className={gs.barWrap}>
+              <span className={gs.bar} style={{ cursor: 'default' }}>
+                <span className={gs.ico} aria-hidden>
+                  <Users strokeWidth={1.9} />
+                </span>
+                <span className={gs.lab}>On your list</span>
+                <span className={gs.n}>· {formatCount(mine.length)}</span>
+              </span>
+            </div>
+            {mine.map(rowFor)}
+          </section>
+        ) : null;
+      })()}
+      <FindResults f={find} />
+    </div>
+  ) : (
+    <div data-people-rows="">
+      {/* PINNED — while anybody waits on you, before everything else (owner
+          2026-09-28: "Requests pinned at top of Connected"), in the Guest list's
+          "requests to join" shape. The bell lands on this page. */}
+      {showRequests && requests.length > 0 ? (
+        <ul className="list-none" data-people-requests="">
+          {requests.map((p) => (
+            <RequestRow key={p.key} person={p} pending={pending} run={run} />
+          ))}
+        </ul>
+      ) : null}
+      {filter === 'asking' && requests.length === 0 ? (
+        <p className={`${gs.empty} py-6`}>
+          {roster.connectionsUnavailable
+            ? 'We couldn’t load your requests just now. Nothing is lost — refresh in a moment.'
+            : 'Nobody is waiting on your answer right now.'}
+        </p>
+      ) : null}
+
+      {nobody && filter === 'all' ? (
+        <div className={ps.empty} data-people-empty="">
+          <p className={ps.emptyLead}>{emptyLine}</p>
+          {roster.connectionsUnavailable ? null : (
+            <>
+              <p className={ps.emptyQuiet}>A name is enough to find them on Setnayan; a name and their email invites them.</p>
+              <ActionButton
+                tone="brand"
+                main
+                icon={Plus}
+                label="Add someone"
+                onClick={() => find.inputRef.current?.focus()}
+                data-testid="people-empty-door"
+              />
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {visibleSections.map((sec) => fold(sec.key, sec.label, sec.icon, sec.rows.length, sec.rows.map(rowFor)))}
+      {showExtra
+        ? extra.map((e) =>
+            // An empty account sees the tree's own sentence under the door, unframed (P3) — not a folded heading.
+            e.key === 'tree' && nobody ? (
+              <div key={e.key} className={ps.emptyTree}>
+                {e.node}
+              </div>
+            ) : (
+              fold(e.key, e.label, e.key === 'alaga' ? HandHeart : Network, e.count, e.node)
+            ),
+          )
+        : null}
+    </div>
+  );
+
+  /* ═══ the thumb row — the Guest list's: ⇕ · ☑ · [Find or invite] · ≡ ═══ */
+  const filterPick = (
+    <span data-pick="" className={ps.iconPick} data-people-filter="">
+      <PeopleViewPicker view={picker.view} options={picker.options} gates={picker.gates} />
+    </span>
+  );
+  const thumb = selectMode ? (
+    <div className={gs.thumb} data-thumb="select">
+      {roster.mySamahan.length > 0 ? (
+        <span data-pick="" className={`${gs.grow} ${ps.growPick}`} data-bulk-ask="">
+          <PickMenu
+            label="Ask the selected into"
+            value={null}
+            buttonText={askable.length === 0 ? 'Ask into group' : `Ask ${formatCount(askable.length)} into group`}
+            options={roster.mySamahan.map((s) => ({ key: s.id, label: s.name, icon: <UsersRound className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+            onPick={askIntoGroup}
+          />
+        </span>
+      ) : (
+        <span className={`${gs.grow} ${gs.mute} text-[13px]`}>Make a group to ask people into it.</span>
+      )}
+      <span className={gs.acts}>
+        <ActionButton
+          tone="danger"
+          icon={X}
+          label={`Remove ${formatCount(pickedRows.length)}`}
+          waiting={pickedRows.length === 0}
+          onClick={() => (pickedRows.length > 0 ? setToRemove(pickedRows) : undefined)}
+          data-testid="people-bulk-remove"
+        />
+        <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="people-bulk-done" />
+      </span>
+    </div>
+  ) : (
+    <div className={gs.thumb} data-thumb="list">
+      {nobody ? null : (
+        <span className={gs.acts} data-side="left">
+          <ActionButton
+            tone="neutral"
+            iconOnly
+            icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
+            label={allOpen ? 'Collapse all' : 'Expand all'}
+            onClick={() => setOpen(allOpen ? new Set() : new Set(allKeys))}
+            data-testid="people-expand"
+          />
+          <ActionButton tone="neutral" iconOnly icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="people-select" />
+        </span>
+      )}
+      <FindField f={find} />
+      <span className={gs.acts} data-side="right">
+        {filterPick}
+      </span>
+    </div>
+  );
+
+  return (
+    <div ref={rootRef} className={`${gs.screen} ${ps.people}`} data-people-view="connected" data-people-screen="">
+      {counts}
+      {error ? (
+        <p role="alert" className="py-2 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p role="status" className="py-2 text-sm text-mulberry-600">
+          {notice}
+        </p>
+      ) : null}
+      {list}
+      <div className={`${gs.lower} ${ps.lower} sn-glass-row`} data-on="true" data-people-thumb="">
+        {thumb}
+      </div>
+      {card ? (
+        <PersonCard
+          person={card}
+          relations={relations}
+          spouseNote={spouseNote}
+          samahan={roster.mySamahan}
+          pending={pending}
+          run={run}
+          onClose={() => setCardKey(null)}
+          onRemove={() => {
+            setCardKey(null);
+            setToRemove([card]);
+          }}
+          setNotice={setNotice}
+          setError={setError}
+        />
+      ) : null}
+      {toRemove ? (
+        <GuestPopup kind="confirm" onClose={() => setToRemove(null)} label="Remove from your people">
+          <p className="text-[17px] font-semibold text-ink">
+            {toRemove.length === 1 ? `Remove ${toRemove[0]!.name}?` : `Remove ${formatCount(toRemove.length)} people?`}
+          </p>
+          <p className="mb-3 mt-1 text-[14px] text-ink/65">
+            {toRemove.length === 1 && toRemove[0]!.state === 'waiting_them'
+              ? 'Your request is taken back. They are not told.'
+              : 'They leave your people. You can add them again any time.'}
+          </p>
+          <GuestConfirmActions
+            keep={<ActionButton tone="neutral" icon={Check} label="Keep" onClick={() => setToRemove(null)} />}
+            go={
+              <ActionButton
+                tone="danger"
+                icon={X}
+                label="Remove"
+                waiting={pending}
+                onClick={() => {
+                  const ids = toRemove.map((p) => p.connectionId ?? '').filter(Boolean);
+                  setToRemove(null);
+                  leaveSelect();
+                  run(async () => {
+                    for (const id of ids) {
+                      const res = await withdrawConnection(id);
+                      if (!res.ok) return res;
+                    }
+                    return { ok: true };
+                  });
+                }}
+                data-testid="people-remove-confirm"
+              />
+            }
+          />
+        </GuestPopup>
       ) : null}
     </div>
   );
 }
 
+/** One number in the counts line, as a door to the rows it counts (the Guest list's `.countsDoor`). */
+function CountDoor({ n, word, on, hot = false, onTap }: { n: number; word: string; on: boolean; hot?: boolean; onTap: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      aria-pressed={on}
+      className={`${gs.countsDoor} ${ps.countDoor} ${hot ? ps.hot : ''} ${on ? ps.on : ''}`}
+      data-people-count={word}
+    >
+      <b>{formatCount(n)}</b> {word}
+    </button>
+  );
+}
+
 /**
- * REQUESTS — everything waiting on MY answer. Two kinds, one list, one pair of
- * buttons (Accept · Decline, the words this view already uses):
+ * REQUESTS — everything waiting on MY answer, as the Guest list's pinned "requests to join" row: the sentence,
+ * the label line, round ✓ Accept and ✕ Decline. Two kinds, one list, one pair of buttons:
  *
  *   · a request to CONNECT — the owner's words, *"{name} is trying to add you
  *     from your {event} {type} event"*, via `connectionRequestSentence` (the
@@ -385,53 +650,17 @@ export function PeopleRosterView({
  *     the label is named too: accepting the request accepts it.
  *   · a LABEL asked on a connection I already have (owner 2026-09-29:
  *     *"assigning a label needs a handshake"*) — "Ice added you as their
- *     Sibling", and, when the word turns over across the edge, "That makes Ice
- *     your Child".
+ *     Sibling".
  *
  * One partner at a time: accepting a partner while I hold one comes back as a
  * QUESTION (replace?), answered in place — never a refusal to decode.
  */
-function RequestsBlock({
-  requests,
-  pending,
-  run,
-}: {
-  requests: RosterPerson[];
-  pending: boolean;
-  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
-}) {
-  return (
-    <section aria-labelledby="people-requests-heading" data-people-requests>
-      <h2 id="people-requests-heading" className={`mb-2 ${PEOPLE_SECTION_HEADING}`}>
-        Waiting for your answer{' '}
-        <span className="tabular-nums text-ink/35">{formatCount(requests.length)}</span>
-      </h2>
-      <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
-        {requests.map((p) => (
-          <RequestRow key={p.key} person={p} pending={pending} run={run} />
-        ))}
-      </ul>
-      <p className="mt-1 text-xs text-ink/55">
-        Accepting connects you — and you follow each other. A label counts only once you say yes to it.
-      </p>
-    </section>
-  );
-}
-
 type AnswerResult =
   | { ok: true; asked?: boolean }
   | { ok: false; error: string }
   | { ok: false; replacePartner: { question: string } };
 
-function RequestRow({
-  person: p,
-  pending,
-  run,
-}: {
-  person: RosterPerson;
-  pending: boolean;
-  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
-}) {
+function RequestRow({ person: p, pending, run }: { person: RosterPerson; pending: boolean; run: Run }) {
   const [question, setQuestion] = useState<string | null>(null);
   const isLabelAsk = p.state === 'connected' && p.ask?.state === 'waiting_you';
   const id = p.connectionId ?? '';
@@ -451,126 +680,50 @@ function RequestRow({
   }
 
   return (
-    <li
-      className="flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:gap-3"
-      data-request-kind={isLabelAsk ? 'label' : 'connect'}
-    >
-      <span className="flex min-w-0 flex-1 items-start gap-2.5">
-        <PersonAvatar name={p.name} />
-        <span className="min-w-0 text-sm leading-snug text-ink">
-          {isLabelAsk && p.ask ? (
-            <span data-request-sentence>{labelRequestLine(p.name, p.ask.word)}</span>
-          ) : (
-            <>
-              <span data-request-sentence>{connectionRequestSentence(p.name, p.fromEvent)}</span>
-              {p.storedRelation ? (
-                <span className="mt-0.5 block text-[13px] text-ink/65" data-request-label>
-                  {labelRequestLine(p.name, p.storedRelation)}
-                </span>
-              ) : null}
-            </>
-          )}
-          {question ? (
-            <span className="mt-1.5 block text-[13px] text-ink" role="status" data-replace-partner>
-              {question}
-            </span>
-          ) : null}
-        </span>
+    <li className={gs.g} data-request-kind={isLabelAsk ? 'label' : 'connect'} data-people-request="">
+      <span className={gs.ava} aria-hidden>
+        <PersonAvatar name={p.name} size="row" />
       </span>
-      <span className="flex shrink-0 flex-wrap gap-2 pl-9 sm:pl-0">
+      <span className="min-w-0 text-[14px] leading-snug text-ink">
+        {isLabelAsk && p.ask ? (
+          <span className="font-semibold" data-request-sentence>{labelRequestLine(p.name, p.ask.word)}</span>
+        ) : (
+          <>
+            <span className="font-semibold" data-request-sentence>{connectionRequestSentence(p.name, p.fromEvent)}</span>
+            {p.storedRelation ? (
+              <span className={`${gs.meta} block`} data-request-label>
+                {labelRequestLine(p.name, p.storedRelation)}
+              </span>
+            ) : null}
+          </>
+        )}
+        {question ? (
+          <span className="mt-1.5 block text-[13px] text-ink" role="status" data-replace-partner>
+            {question}
+          </span>
+        ) : null}
+      </span>
+      <span className={gs.acts}>
         {question ? (
           <>
-            <button
-              type="button"
-              onClick={() => accept(true)}
-              disabled={pending}
-              className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-            >
-              Yes, change it
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuestion(null)}
-              disabled={pending}
-              className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-            >
-              Keep as is
-            </button>
+            <ActionButton tone="brand" main icon={Check} label="Yes, change it" onClick={() => accept(true)} disabled={pending} />
+            <ActionButton tone="neutral" icon={X} label="Keep as is" onClick={() => setQuestion(null)} disabled={pending} />
           </>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={() => accept(false)}
-              disabled={pending}
-              className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-            >
-              <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Accept
-            </button>
-            <button
-              type="button"
+            <ActionButton tone="ok" icon={Check} label="Accept" name={`Accept ${p.name}`} onClick={() => accept(false)} disabled={pending} />
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Decline"
+              name={`Decline ${p.name}`}
               onClick={() => run(() => declineConnection(id, { label: isLabelAsk }))}
               disabled={pending}
-              className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-            >
-              <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Decline
-            </button>
+            />
           </>
         )}
       </span>
     </li>
-  );
-}
-
-/**
- * WAITING FOR THEM — the asks I sent, in the same Requests view (owner
- * 2026-09-29: the sender sees their pending ones there too). A request to
- * connect keeps its Send again · Withdraw; a label ask can be taken back.
- */
-function OutgoingBlock({
-  rows,
-  pending,
-  run,
-}: {
-  rows: RosterPerson[];
-  pending: boolean;
-  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
-}) {
-  return (
-    <section aria-labelledby="people-outgoing-heading" data-people-outgoing>
-      <h2 id="people-outgoing-heading" className={`mb-2 ${PEOPLE_SECTION_HEADING}`}>
-        Waiting for them <span className="tabular-nums text-ink/35">{formatCount(rows.length)}</span>
-      </h2>
-      <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
-        {rows.map((p) => {
-          const word = p.ask?.state === 'waiting_them' ? p.ask.word : p.relation;
-          return (
-            <li key={p.key} className="flex items-center gap-2.5 py-3">
-              <PersonAvatar name={p.name} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink">{p.name}</span>
-                <span className="block text-[12.5px] text-ink/60" data-waiting-line>
-                  {word ? `${RELATION_LABEL[word]} · ` : ''}
-                  {waitingForLine(p.name)}
-                </span>
-              </span>
-              {p.state === 'waiting_them' ? null : (
-                <button
-                  type="button"
-                  onClick={() => run(() => setConnectionLabel(p.connectionId ?? '', null).then(plain))}
-                  disabled={pending}
-                  className="min-h-11 shrink-0 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
-                >
-                  Take back
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }
 
@@ -580,14 +733,215 @@ function plain(res: AnswerResult): { ok: true } | { ok: false; error: string } {
   return 'error' in res ? res : { ok: false, error: res.replacePartner.question };
 }
 
-/** One word per state, everywhere — "Waiting for them" is never shortened to
- *  "Waiting", which was also the name of a different state (problem 2). */
-function StateCell({ state }: { state: RosterState }) {
+/**
+ * ONE PERSON, ONE LINE — the Guest row's anatomy (`guests-screen.module.css` `.g`): the round face · the name ·
+ * the pill line (the label pill IS the editor, then "· group", then whose move it is) · round buttons at the
+ * right end. Connected: ✎ (the card) · ✕ Remove. Waiting for them: ➤ Send again · ✕ Withdraw.
+ */
+function PersonRow({
+  person: p,
+  relations,
+  pending,
+  selectMode,
+  picked,
+  onToggle,
+  onOpen,
+  onRemove,
+  setNotice,
+  setError,
+}: {
+  person: RosterPerson;
+  relations: ConnectionRelation[];
+  pending: boolean;
+  selectMode: boolean;
+  picked: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  onRemove: () => void;
+  setNotice: (s: string | null) => void;
+  setError: (s: string | null) => void;
+}) {
+  const [busy, startTransition] = useTransition();
+  const act = () => (selectMode ? onToggle() : onOpen());
+  const resend = () =>
+    startTransition(async () => {
+      setError(null);
+      setNotice(null);
+      const res = await resendConnectionInvitation(p.connectionId ?? '');
+      if (!res.ok) setError(res.error);
+      else setNotice(res.delivered ? 'Sent again.' : 'The email didn’t send — try again in a moment.');
+    });
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap text-[12.5px] text-ink/70">
-      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${STATE_PIP[state]}`} />
-      {STATE_LABEL[state]}
-    </span>
+    <div className={`${gs.g} ${picked ? gs.picked : ''}`} data-person-row="" data-person-state={p.state}>
+      <button
+        type="button"
+        className={gs.ava}
+        onClick={act}
+        aria-label={`${selectMode ? (picked ? 'Unselect' : 'Select') : 'Open'} ${p.name}`}
+        aria-pressed={selectMode ? picked : undefined}
+      >
+        {selectMode ? picked ? <Check aria-hidden strokeWidth={2.2} /> : null : <PersonAvatar name={p.name} size="row" />}
+      </button>
+      <div className={gs.who}>
+        <button type="button" className={`${gs.nm} ${ps.nameBtn}`} onClick={act} data-row-name="">
+          <span className={gs.nmt}>{p.name}</span>
+        </button>
+        <div className={`${gs.meta} ${ps.meta}`}>
+          {p.state === 'waiting_them' ? (
+            <span className={`${gs.pill} ${gs.pillWine}`}>{STATE_LABEL.waiting_them}</span>
+          ) : (
+            <LabelCell person={p} relations={relations} disabled={pending || selectMode} />
+          )}
+          {p.samahan.length > 0 ? <span className="truncate">· {p.samahan.join(', ')}</span> : null}
+        </div>
+      </div>
+      {selectMode ? null : (
+        <span className={gs.acts} data-row-acts="">
+          {p.state === 'waiting_them' ? (
+            <>
+              <ActionButton tone="info" icon={Send} label="Send again" name={`Send again to ${p.name}`} onClick={resend} disabled={pending || busy} />
+              <ActionButton tone="danger" icon={X} label="Withdraw" name={`Withdraw ${p.name}`} onClick={onRemove} disabled={pending || busy} />
+            </>
+          ) : (
+            <>
+              <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Open ${p.name}`} onClick={onOpen} />
+              <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${p.name}`} onClick={onRemove} disabled={pending || busy} />
+            </>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ROW → CARD (P4): the Guest card's bones — face · eyebrow · name · state pill · TOGETHER (where the request
+ * came from · "Plan an event together" under the same rule) · key/value rows Label and Group, each the shipped
+ * editor · the foot's Remove. What the card does NOT draw, because no read carries it yet, is named in the PR:
+ * the events you share and the person's slice of the tree.
+ */
+function PersonCard({
+  person: p,
+  relations,
+  spouseNote,
+  samahan,
+  pending,
+  run,
+  onClose,
+  onRemove,
+  setNotice,
+  setError,
+}: {
+  person: RosterPerson;
+  relations: ConnectionRelation[];
+  spouseNote: string | null;
+  samahan: Array<{ id: string; name: string }>;
+  pending: boolean;
+  run: Run;
+  onClose: () => void;
+  onRemove: () => void;
+  setNotice: (s: string | null) => void;
+  setError: (s: string | null) => void;
+}) {
+  const first = p.name.split(/\s+/)[0] ?? p.name;
+  const section = SECTIONS.find((s) => s.match(p))?.label ?? null;
+  const eyebrow = [STATE_LABEL[p.state], p.state === 'connected' ? section : null].filter(Boolean).join(' · ');
+  const outgoingAsk = p.state === 'connected' && p.ask?.state === 'waiting_them';
+  return (
+    <GuestPopup
+      onClose={onClose}
+      rootClassName="fixed inset-0 z-[80]"
+      panelClassName={`gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl ${gs.screen}`}
+      labelledById="person-card-name"
+      panelData={{ 'data-person-card': '' }}
+    >
+      <span aria-hidden className="mx-auto mb-3.5 mt-1.5 block h-1 w-10 rounded-full bg-ink/15" />
+      <div className="flex items-start gap-3.5">
+        <span className={`${ps.cardFace} ${pillTint(p.relation)}`} aria-hidden>
+          <PersonAvatar name={p.name} size="row" />
+        </span>
+        <div className="min-w-0">
+          <p className={ps.eyebrow}>{eyebrow}</p>
+          <h2 id="person-card-name" className="mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+            {p.name}
+          </h2>
+          <span className={`${gs.pill} ${p.state === 'connected' ? gs.pillOk : gs.pillWine} mt-2 inline-flex items-center gap-1`}>
+            {p.state === 'connected' ? <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} /> : null}
+            {STATE_LABEL[p.state]}
+          </span>
+        </div>
+      </div>
+
+      {p.fromEvent || offersPlanTogether({
+        relationForViewer: p.relation,
+        connected: p.state === 'connected',
+        askPending: p.ask?.state === 'waiting_them' || p.ask?.state === 'waiting_you',
+        sharesAnEvent: p.sharesAnEvent,
+      }) ? (
+        <div className="mt-5">
+          <p className={ps.eyebrow}>Together</p>
+          {p.fromEvent ? (
+            <p className="mt-1.5 text-[15px] text-ink" data-card-from-event="">
+              {connectionRequestSentence(p.name, p.fromEvent)}
+            </p>
+          ) : null}
+          <PlanTogether person={p} />
+        </div>
+      ) : null}
+
+      {p.state === 'connected' ? (
+        <div className="mt-5">
+          <p className={ps.eyebrow}>What {first} is to you</p>
+          <div className={ps.kv}>
+            <span className={ps.k}>Label</span>
+            <span className={ps.v}>
+              <LabelCell person={p} relations={relations} disabled={pending} />
+            </span>
+          </div>
+          <div className={ps.kv}>
+            <span className={ps.k}>Group</span>
+            <span className={ps.v}>
+              <SamahanCell
+                person={p}
+                samahan={samahan}
+                disabled={pending}
+                onSent={(m) => {
+                  setError(null);
+                  setNotice(m);
+                }}
+                onFailed={(m) => {
+                  setNotice(null);
+                  setError(m);
+                }}
+              />
+            </span>
+          </div>
+          {spouseNote ? <p className="mt-1.5 text-[12.5px] leading-snug text-ink/60">{spouseNote}</p> : null}
+          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/60">
+            {first} confirms a label before it counts. Lolo, lola, pinsan, biyenan and the in-laws come out of these on their own.
+          </p>
+          {outgoingAsk ? (
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Take back the label"
+              className="mt-3"
+              onClick={() => run(() => setConnectionLabel(p.connectionId ?? '', null).then(plain))}
+              disabled={pending}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={onRemove}
+        className="mt-6 min-h-11 text-[14px] text-ink/60 underline underline-offset-[3px]"
+        data-card-remove=""
+      >
+        {p.state === 'waiting_them' ? `Withdraw your request to ${first}` : `Remove ${first} from your people`}
+      </button>
+    </GuestPopup>
   );
 }
 
@@ -597,8 +951,8 @@ function StateCell({ state }: { state: RosterState }) {
  * ⚖ THE CHIP SENDS AN INVITATION; IT DOES NOT ADD THEM. `community_members`
  * admits INSERT only for a Setnayan admin, so the product's own consent model
  * already says a person is ASKED into a samahan and never placed in one. The
- * interaction is the guest list's (a chip, one tap); the mechanism is samahan's
- * (their standing link, in that person's inbox). A chip appears here when they
+ * interaction is the guest list's (a pill, one tap); the mechanism is samahan's
+ * (their standing link, in that person's inbox). A name appears here when they
  * actually join — never before, because there is nothing to show until they do.
  */
 function SamahanCell({
@@ -620,22 +974,19 @@ function SamahanCell({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Only a connected person can be asked into a group, and only into a samahan
-  // you organise. Everyone else gets the plain read-only chips.
+  // you organise. Everyone else gets the plain names.
   const canAsk =
     person.kind === 'connection' && person.state === 'connected' && samahan.length > 0;
 
   const chips = person.samahan.map((s) => (
-    <span
-      key={s}
-      className="inline-flex items-center rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-medium text-ink/60 ring-1 ring-ink/10"
-    >
+    <span key={s} className={gs.pill}>
       {s}
     </span>
   ));
 
   if (!canAsk) {
     return person.samahan.length === 0 ? (
-      <span className="text-[12px] text-ink/35">—</span>
+      <span className="text-[14px] text-ink/45">No group yet</span>
     ) : (
       <span className="flex flex-wrap gap-1">{chips}</span>
     );
@@ -661,7 +1012,7 @@ function SamahanCell({
   }
 
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    <span className="flex flex-wrap items-center gap-1.5">
       {chips}
       <button
         ref={triggerRef}
@@ -670,14 +1021,14 @@ function SamahanCell({
         disabled={disabled || busy}
         aria-haspopup="menu"
         aria-label={`Ask ${person.name} into a group`}
-        className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/25 px-2 py-0.5 text-[11px] font-medium text-ink/50 outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:opacity-50"
+        className={`${gs.pill} ${ps.askPill} inline-flex items-center gap-1`}
       >
         <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
         Group
       </button>
       {open ? (
         <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={240}>
-          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             Ask them into
           </p>
           {samahan.map((sam) => (
@@ -686,12 +1037,12 @@ function SamahanCell({
               type="button"
               role="menuitem"
               onClick={() => ask(sam.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-ink/80 transition-colors hover:bg-ink/[0.04]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-ink/85 transition-colors hover:bg-ink/[0.04]"
             >
               <span className="min-w-0 flex-1 truncate">{sam.name}</span>
             </button>
           ))}
-          <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-snug text-ink/45">
+          <p className="px-2.5 pb-1.5 pt-1 text-[11.5px] leading-snug text-ink/55">
             They get the group’s link. They’re in it once they open it — not before.
           </p>
         </Popover>
@@ -701,12 +1052,10 @@ function SamahanCell({
 }
 
 /**
- * The label IS the editor — click the chip, pick the word. (Alaga are not drawn
- * on this list: their word lives in the Alaga view's card, where the age fence
- * and the consent stamps live.)
+ * The label IS the editor — tap the pill, pick the word (the Guest row's pill now, the same Popover as ever).
  *
  * On a connection they already accepted, picking a word ASKS for it (owner
- * 2026-09-29: "assigning a label needs a handshake"): the chip then shows the
+ * 2026-09-29: "assigning a label needs a handshake"): the pill then shows the
  * asked word with "Waiting for <name> to confirm" — or "<name> didn't confirm"
  * once they have said no. Picking Partner while you already have one asks to
  * replace, in place, before anything is written.
@@ -726,15 +1075,14 @@ function LabelCell({
   const [question, setQuestion] = useState<{ text: string; next: ConnectionRelation } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const chipClass = (relation: ConnectionRelation | null) =>
-    `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipTint(relation)}`;
+  const pillClass = (relation: ConnectionRelation | null) => `${gs.pill} ${pillTint(relation)}`;
   if (!person.canLabel) {
     // They added YOU — the claim is theirs to word, yours to answer. The word
     // is shown from YOUR side (they said you are their Parent → Child).
     return person.relation ? (
-      <span className={chipClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
+      <span className={pillClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
     ) : (
-      <span className="text-[12px] text-ink/35">—</span>
+      <span className={`${gs.pill} ${gs.pillMute}`}>No label yet</span>
     );
   }
 
@@ -773,56 +1121,40 @@ function LabelCell({
               }`
             : `Say what ${person.name} is to you`
         }
-        className="inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:opacity-50"
+        className={`${ps.pillBtn} disabled:opacity-60`}
+        data-label-pill=""
       >
         {ask?.state === 'waiting_them' ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/30 px-2 py-0.5 text-[11px] font-medium text-ink/65"
-            data-label-asked
-          >
+          <span className={`${gs.pill} ${ps.askPill}`} data-label-asked>
             {RELATION_LABEL[ask.word]}
           </span>
         ) : person.relation ? (
-          <span className={chipClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
+          <span className={pillClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-ink/50 border border-dashed border-ink/25">
+          <span className={`${gs.pill} ${ps.askPill} inline-flex items-center gap-1`}>
             <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
             Label
           </span>
         )}
       </button>
       {ask ? (
-        <span className="ml-2 text-[11px] text-ink/55" data-label-ask-state={ask.state}>
-          {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
+        <span className="truncate" data-label-ask-state={ask.state}>
+          · {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
         </span>
       ) : null}
-      {failed ? <span className="ml-2 text-[11px] text-red-700">{failed}</span> : null}
+      {failed ? <span className="text-red-700 dark:text-red-300">{failed}</span> : null}
       {question ? (
         <span className="mt-1.5 flex w-full flex-col gap-1.5" role="status" data-replace-partner>
           <span className="text-[12.5px] leading-snug text-ink">{question.text}</span>
           <span className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => commit(question.next, true)}
-              disabled={busy}
-              className="button-primary inline-flex min-h-11 items-center text-xs disabled:opacity-50"
-            >
-              Yes, change it
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuestion(null)}
-              disabled={busy}
-              className="button-secondary inline-flex min-h-11 items-center text-xs disabled:opacity-50"
-            >
-              Keep as is
-            </button>
+            <ActionButton tone="brand" main icon={Check} label="Yes, change it" onClick={() => commit(question.next, true)} disabled={busy} />
+            <ActionButton tone="neutral" icon={X} label="Keep as is" onClick={() => setQuestion(null)} disabled={busy} />
           </span>
         </span>
       ) : null}
       {open ? (
         <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={228}>
-          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             How is {person.name.split(/\s+/)[0]} yours?
           </p>
           {relations.map((r) => (
@@ -831,13 +1163,14 @@ function LabelCell({
               type="button"
               role="menuitem"
               onClick={() => commit(r)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+              className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] transition-colors ${
                 current === r
                   ? 'bg-terracotta/10 font-medium text-terracotta-700'
-                  : 'text-ink/80 hover:bg-ink/[0.04]'
+                  : 'text-ink/85 hover:bg-ink/[0.04]'
               }`}
             >
               <span className="min-w-0 flex-1 truncate">{RELATION_LABEL[r]}</span>
+              {current === r ? <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : null}
             </button>
           ))}
           {current ? (
@@ -845,12 +1178,12 @@ function LabelCell({
               type="button"
               role="menuitem"
               onClick={() => commit(null)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-ink/60 transition-colors hover:bg-ink/[0.04]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-ink/60 transition-colors hover:bg-ink/[0.04]"
             >
               Remove the label
             </button>
           ) : null}
-          <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-snug text-ink/45" data-label-footnote>
+          <p className="px-2.5 pb-1.5 pt-1 text-[11.5px] leading-snug text-ink/55" data-label-footnote>
             Lolo, lola, pinsan, biyenan and the other in-laws come out of these on their own.
             {person.state === 'connected' ? ` ${person.name.split(/\s+/)[0]} confirms a label before it counts.` : ''}
           </p>
@@ -880,84 +1213,13 @@ function PlanTogether({ person }: { person: RosterPerson }) {
     return null;
   }
   return (
-    <Link
+    <ActionButton
+      tone="brand"
+      icon={CalendarHeart}
+      label="Plan an event together"
+      className="mt-2"
       href={`/dashboard/create-event?with=${encodeURIComponent(person.connectionId ?? '')}`}
-      className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-medium text-mulberry-600 underline underline-offset-2"
-      data-plan-together
-    >
-      <CalendarHeart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      Plan an event together
-    </Link>
+      data-plan-together=""
+    />
   );
-}
-
-function RowActions({
-  person,
-  pending,
-  run,
-  setNotice,
-  setError,
-}: {
-  person: RosterPerson;
-  pending: boolean;
-  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
-  setNotice: (s: string | null) => void;
-  setError: (s: string | null) => void;
-}) {
-  const [busy, startTransition] = useTransition();
-  const id = person.connectionId ?? '';
-
-  // A request is answered in <RequestsBlock> (Accept / Decline), never here.
-  if (person.state === 'waiting_them') {
-    return (
-      <span className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={() =>
-            startTransition(async () => {
-              setError(null);
-              setNotice(null);
-              const res = await resendConnectionInvitation(id);
-              if (!res.ok) setError(res.error);
-              else
-                setNotice(
-                  res.delivered ? 'Sent again.' : 'The email didn’t send — try again in a moment.',
-                );
-            })
-          }
-          disabled={pending || busy}
-          className="inline-flex min-h-11 items-center gap-1 px-1 text-xs text-mulberry-600 underline underline-offset-2 disabled:opacity-50"
-        >
-          <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Send again
-        </button>
-        <button
-          type="button"
-          onClick={() => run(() => withdrawConnection(id))}
-          disabled={pending || busy}
-          className="min-h-11 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
-        >
-          Withdraw
-        </button>
-      </span>
-    );
-  }
-
-  if (person.state === 'connected') {
-    return (
-      <span className="flex flex-wrap items-center justify-end gap-2">
-        <PlanTogether person={person} />
-        <button
-          type="button"
-          onClick={() => run(() => withdrawConnection(id))}
-          disabled={pending || busy}
-          className="min-h-11 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
-        >
-          Remove
-        </button>
-      </span>
-    );
-  }
-
-  return null;
 }

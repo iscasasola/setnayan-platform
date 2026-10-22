@@ -96,7 +96,9 @@ GRANT SELECT ON TABLE public.site_visit_days TO authenticated;
 DROP POLICY IF EXISTS site_visit_days_admin_read ON public.site_visit_days;
 CREATE POLICY site_visit_days_admin_read
   ON public.site_visit_days FOR SELECT TO authenticated
-  USING (public.is_admin());
+  -- (SELECT …) so the check runs once per statement, not once per row
+  -- (tests/db/policies-ask-once-per-query.db.test.ts).
+  USING ((SELECT public.is_admin()));
 
 -- ── 2 · today's salted hashes + today's salt ────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.site_visit_seen (

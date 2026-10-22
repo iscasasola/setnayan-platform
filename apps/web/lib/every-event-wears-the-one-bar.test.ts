@@ -190,9 +190,24 @@ test('the event day page hands the console that row, and the console draws it be
   const page = code('app/dashboard/[eventId]/page.tsx');
   const grid = page.slice(page.indexOf('<DayOfModeGrid'), page.indexOf('/>', page.indexOf('papic={')) + 2);
   assert.match(grid, /papic=\{\s*<DayPapicRow/, 'the day console is not handed the Papic row');
-  assert.match(page, /const dayPapicSvc = homeServiceRow\.find\(\(s\) => s\.key === 'papic'\)/, 'the day row is not Your services’ own entry');
+  assert.match(page, /const dayPapicSvc = homeServiceRowAll\.find\(\(s\) => s\.key === 'papic'\)/, 'the day row is not Your services’ own entry');
   const g = code('app/dashboard/[eventId]/_components/day-of-mode/grid.tsx');
   const slot = g.indexOf('data-day-papic-slot');
   const wall = g.indexOf('<LivePhotoWallCard');
   assert.ok(slot > 0 && wall > slot && wall - slot < 200, 'the Papic row is not drawn right before the Live photo wall card');
+});
+
+test('with More gone, Home draws Your services in every phase — first screen, the event day, after the day', () => {
+  const page = code('app/dashboard/[eventId]/page.tsx');
+  const day = page.slice(page.indexOf('{dayOfActive ? (\n        <>'), page.indexOf(') : afterActive && afterSummary ? ('));
+  assert.match(day, /<YourServices[\s\S]*?services=\{homeServiceRowAll\.filter\(\(s\) => s\.key !== 'papic'\)\}/, 'the event day lost Your services');
+  const after = page.slice(page.indexOf(') : afterActive && afterSummary ? ('));
+  assert.match(after, /<YourServices eventId=\{eventId\} services=\{homeServiceRowAll\}/, 'after the day lost Your services');
+  const first = code('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  assert.match(first, /<YourServices eventId=\{eventId\} services=\{services\}/, 'the first screen lost Your services');
+  assert.match(first, /id="your-services"/, 'Your services has no address for a door to scroll to');
+  // On the day and after it no Next card is on screen — nothing stands down for one.
+  assert.match(page, /const homeServiceRowAll = homeServices\(\{ \.\.\.homeServicesInput, next: 'plan' \}\)/);
+  const summary = code('app/dashboard/[eventId]/_components/after/finished-event-summary.tsx');
+  assert.match(summary, /href=\{`\$\{base\}#your-services`\}/, 'the after summary’s services card points at the retired More again');
 });

@@ -60,7 +60,7 @@ import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
-import { DayPapicRow, HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
@@ -295,6 +295,7 @@ export default async function HomeLab({
       papicDoors: { glance: dayGlance, line: dayGlance.line, buy: dayGlance.buy, whileNext: papicRowDoubled(null) },
       ai: aiStatus(false),
       eventId: E,
+      paid: store ? null : labPaid(q.paid ?? 'none', E),
     });
     const svc = dayServices.find((x) => x.key === 'papic');
     const now = Date.now();
@@ -324,6 +325,12 @@ export default async function HomeLab({
             )
           }
         />
+        {/* The rest of Your services on the day (More left the bar, owner 22 Oct 2026) — as the page draws it. */}
+        {q.before === '1' ? null : (
+          <div className="mt-4">
+            <YourServices eventId={E} services={dayServices.filter((x) => x.key !== 'papic')} papicLeft={dayGlance.count} />
+          </div>
+        )}
       </div>
     );
     return q.shell === '1' ? (

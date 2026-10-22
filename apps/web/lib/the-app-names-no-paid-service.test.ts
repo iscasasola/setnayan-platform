@@ -71,19 +71,21 @@ test('1 · the paid names come from the one filter (premise)', () => {
   assert.ok(!PAID.test('Event Hub'), 'the free Event Hub must not count as a paid name');
 });
 
-test('2 · RENDERED — the finished-event summary names no paid service in the app, and keeps More Services on the web', async () => {
+test('2 · RENDERED — the finished-event summary names no paid service in the app, and keeps its services card on the web', async () => {
   const { FinishedEventSummary } = await import('@/app/dashboard/[eventId]/_components/after/finished-event-summary');
   const summary = { guests: 180, guestsAttending: 152, checkedIn: 140, suppliers: 6, services: 2, photos: 1240, editorial: 'none', editorialMeasured: true } as const;
   const draw = (storeShell: boolean) =>
     renderToStaticMarkup(
       React.createElement(FinishedEventSummary, { eventId: E, noun: 'wedding', dateLabel: 'March 13, 2027', slug: 'ana-and-miguel', summary, storeShell }),
     );
+  // More left the bar (owner 22 Oct 2026, "Yes remove more"): the web card is "Your services" and scrolls to
+  // that list on the same page; the app draws neither.
   const web = draw(false);
-  assert.match(web, /More Services/, 'premise: the web draws the More Services card');
-  assert.ok(web.includes(MORE_ADDRESS), 'premise: the web card opens the More menu');
+  assert.match(web, /Your services/, 'premise: the web draws the services card');
+  assert.ok(web.includes('#your-services'), 'premise: the web card opens Your services');
   const app = draw(true);
-  assert.doesNotMatch(app, /More Services/, 'the app draws the More Services card');
-  assert.ok(!app.includes(MORE_ADDRESS), 'the app links to the More menu, which only re-opens Home there');
+  assert.doesNotMatch(app, /Your services|More Services/, 'the app draws the services card');
+  assert.ok(!app.includes('#your-services') && !app.includes(MORE_ADDRESS), 'the app links to the services, which it does not sell');
   assert.doesNotMatch(app, PAID, 'the app names a paid service');
 });
 

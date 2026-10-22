@@ -189,7 +189,7 @@ test('d1 · the services address lands on Home — no More to open (owner 22 Oct
 
 test('d1 · nothing hand-types the old hub address — every door goes through studioHubHref', () => {
   const files = [
-    'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
+    // (finished-event-summary.tsx left this list 22 Oct 2026: its services card scrolls to Your services on the same page.)
     'app/dashboard/[eventId]/alaala/page.tsx',
     'app/dashboard/[eventId]/launch/page.tsx',
     'app/dashboard/[eventId]/live/page.tsx',

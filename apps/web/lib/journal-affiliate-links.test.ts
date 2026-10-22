@@ -107,7 +107,7 @@ test('the shop link opens the merchant in a new tab', () => {
   );
 });
 
-test('the shop link survives without analytics — the href is plain HTML', () => {
+test('the shop link is plain HTML — nothing intercepts or counts the click', () => {
   const src = codeOnly(SHOP_LINK_SRC);
   assert.doesNotMatch(
     src,
@@ -115,50 +115,9 @@ test('the shop link survives without analytics — the href is plain HTML', () =
     'The navigation must not be intercepted. An affiliate link that only ' +
       'works after hydration earns nothing from the reader who taps it early.',
   );
-  assert.match(
-    src,
-    /catch\s*(\{|\()/,
-    'The analytics call must be wrapped — a blocked or un-inited SDK must ' +
-      'never swallow the click.',
-  );
-});
-
-// ─── The two defects the FIRST cut of this component shipped. ────────────────
-// Both were caught by reading the existing PostHog provider instead of trusting
-// the obvious import. Neither would ever have produced an error.
-
-test('the shop link does not statically import posthog-js', () => {
-  const src = codeOnly(SHOP_LINK_SRC);
-  assert.doesNotMatch(
-    src,
-    /^\s*import\s+[^;]*\bfrom\s+['"]posthog-js['"]/m,
-    'A static import drops ~60 kB gzipped into the ARTICLE bundle — on the one ' +
-      'page whose whole job is to rank and load fast. The provider lazy-loads ' +
-      'it into its own chunk for exactly this reason; load it inside onClick.',
-  );
-  assert.match(
-    src,
-    /import\(\s*['"]posthog-js['"]\s*\)/,
-    'The click counter should still exist — just deferred to the click.',
-  );
-});
-
-test('the shop link refuses to count a click without analytics consent', () => {
-  const src = codeOnly(SHOP_LINK_SRC);
-  assert.match(
-    src,
-    /analyticsAllowed\s*\(\s*\)/,
-    'Counting a click from a reader who declined analytics is third-party ' +
-      'tracking — which /privacy tells the public we do not do. That promise ' +
-      'is precisely what keeps affiliate links clear of the display-ad problem.',
-  );
-  // The gate must SHORT-CIRCUIT, not merely be consulted. Calling a check and
-  // dropping its answer reads as more thorough than not checking at all.
-  assert.match(
-    src,
-    /if\s*\(\s*!\s*analyticsAllowed\s*\(\s*\)\s*\)\s*return/,
-    'analyticsAllowed() is called but nothing acts on it.',
-  );
+  // Essential cookies only (owner 2026-10-22): the click counter went with
+  // PostHog. A handler here would be a tracker coming back by another door.
+  assert.doesNotMatch(src, /\bonClick\b/, 'the shop link counts clicks again — Setnayan runs no optional analytics');
 });
 
 // ─── 2. The disclosure. Derived, never hand-added. ───────────────────────────

@@ -11,16 +11,21 @@
  *
  *   2 · COVERAGE (a property, not a list). Every file under `app/` + `lib/` whose
  *       CODE both updates/upserts `vendor_profiles` AND names `business_name`
- *       is a rename writer, and must call `syncBusinessAlagaName` — unless it is
+ *       is a rename writer, and must call `ensureBusinessAlaga` — unless it is
  *       in `NOT_A_RENAME` below with the reason it cannot rename an owned shop.
  *       A new writer is found by its code; nobody has to remember to list it.
  *       A stale exemption (a file that no longer matches) fails too, so the
  *       list cannot rot into a blanket pass.
  *
- * ⚠ SCOPE: TypeScript only. SQL functions that write `business_name` are not
- * scanned; the one that exists (`20271280303462` claim-ready) fills a BLANK name
- * only, and a blank-named shop never got an alaga (`buildBusinessAlagaInsert`
- * refuses a blank), so it has nothing to rename.
+ *       Since 2026-10-22 the call is `ensureBusinessAlaga` — it renames through
+ *       `syncBusinessAlagaName` when the record exists AND writes it when it does
+ *       not, so a shop first NAMED at one of these doors (a vendor sign-up's
+ *       trigger opens it empty) gets its record there.
+ *
+ * ⚠ SCOPE: TypeScript only. SQL functions that write `business_name` are held by
+ * `lib/business-alaga-ensure.test.ts`: the one that exists (`20271280303462`
+ * claim-ready) is called only from the claim finalize page, which calls
+ * `ensureBusinessAlaga` after it.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -200,13 +205,13 @@ test('every writer of vendor_profiles.business_name also renames the business al
   const missing = renameWriters().filter((rel) => {
     if (rel in NOT_A_RENAME) return false;
     const code = stripComments(readFileSync(join(ROOT, rel), 'utf8'));
-    return !/\bsyncBusinessAlagaName\(/.test(code);
+    return !/\bensureBusinessAlaga\(/.test(code);
   });
   assert.deepEqual(
     missing,
     [],
-    `These write vendor_profiles.business_name but never call syncBusinessAlagaName, so a renamed shop keeps its old name in "For ▾" and on People:\n  ${missing.join('\n  ')}\n` +
-      'Call syncBusinessAlagaName(adminClient, { ownerUserId, vendorProfileId, shopName }) after the write — or, if the file cannot rename an OWNED shop, add it to NOT_A_RENAME with the reason.',
+    `These write vendor_profiles.business_name but never call ensureBusinessAlaga, so a renamed shop keeps its old name in "For ▾" and on People (and a shop first named there never gets its record):\n  ${missing.join('\n  ')}\n` +
+      'Call ensureBusinessAlaga(adminClient, { ownerUserId, vendorProfileId, shopName }) after the write — or, if the file cannot rename an OWNED shop, add it to NOT_A_RENAME with the reason.',
   );
 });
 

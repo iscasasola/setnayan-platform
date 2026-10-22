@@ -9,9 +9,9 @@
  * provider wrapping that whole span, i.e. a client component swallowing the
  * page body just to carry one string. The repo already solves exactly this
  * shape with a window CustomEvent bus in a plain (non-`'use client'`) lib
- * module — `BB_TAB_EVENT` / `goToBuildTab` in `lib/budget-build.ts`, and
- * `OPEN_CONSENT_EVENT` in `lib/cookie-consent.ts` — so this is that pattern,
- * not a new one.
+ * module — `BB_TAB_EVENT` / `goToBuildTab` in `lib/budget-build.ts` (and,
+ * until 2026-10-22, the cookie banner's re-open event) — so this is that
+ * pattern, not a new one.
  *
  * NOT a `'use client'` module on purpose: it exports no data and no component,
  * so a server component may import the event name without dragging anything

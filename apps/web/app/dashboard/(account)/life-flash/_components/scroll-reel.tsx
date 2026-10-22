@@ -19,7 +19,6 @@ import {
   useReducedMotion,
 } from '@/app/[slug]/_components/editorial/living-moments';
 import { placeholderBackground } from './placeholder';
-import { captureLifeFlash } from './life-flash-analytics';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
@@ -78,10 +77,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
           <PillButton
             on={order === 'time'}
             aria-pressed={order === 'time'}
-            onClick={() => {
-              setOrder('time');
-              void captureLifeFlash('life_flash_reel_reordered', { order: 'time' });
-            }}
+            onClick={() => setOrder('time')}
             className="px-3"
           >
             By time

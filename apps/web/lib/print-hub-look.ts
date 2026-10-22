@@ -163,6 +163,7 @@ export function printLookFromHub(base: PrintLook, hub: PrintHubInput): PrintLook
       sepia: false,
       scrim: { color: c.canvas, opacity: inner },
       frame: { inset: FRAME_INSET_PT, feather: FRAME_FEATHER_PT, outer, inner },
+      brand: 'mark',
     };
   }
 
@@ -180,6 +181,7 @@ export function printLookFromHub(base: PrintLook, hub: PrintHubInput): PrintLook
     still: hub.wearsThemeLoop ? base.still : 'none',
     scrim: base.scrim ? { color: c.canvas, opacity: base.scrim.opacity } : null,
     frame: null,
+    brand: 'mark',
   };
 }
 
@@ -198,7 +200,8 @@ export type WornHub = { hub: PrintHubInput; picture: Uint8Array | null };
  */
 export const PLAIN_PRINT_COLOURS = { canvas: '#ffffff', ink: '#1a1a1a', muted: '#5c5c5c', accent: '#5c5c5c', heading: '#1a1a1a' } as const;
 export function plainPrintLook(): PrintLook {
-  return printLookFor('house', { source: 'theme', colours: { ...INVITE_THEMES.house.palette, ...PLAIN_PRINT_COLOURS } });
+  /* 🏷 The free print carries Setnayan as a line on its front (owner 2026-10-21, *"i want the prints branded with setnayan"*). */
+  return { ...printLookFor('house', { source: 'theme', colours: { ...INVITE_THEMES.house.palette, ...PLAIN_PRINT_COLOURS } }), brand: 'line' };
 }
 
 /** The two looks a set can print in: `free` — what an event without Event Hub Pro gets; `pro` — the theme a Pro print is built on. */
@@ -213,7 +216,8 @@ export type PrintLooks = { free: PrintLook; pro: PrintLook };
  * its "free" is the theme itself (it is a sample sheet, never a couple's file).
  */
 export function printLooksFor(theme: InviteThemeId, rolePalette: unknown, opts: { sampleGallery?: boolean } = {}): PrintLooks {
-  const pro = printLookFor(theme, themeColours(theme, rolePalette));
+  /* 🏷 A Hub-look print carries Setnayan as a tiny mark on its back or edge (owner 2026-10-21) — so does every theme sample. */
+  const pro: PrintLook = { ...printLookFor(theme, themeColours(theme, rolePalette)), brand: 'mark' };
   return { free: opts.sampleGallery ? pro : plainPrintLook(), pro };
 }
 

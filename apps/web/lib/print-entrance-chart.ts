@@ -33,7 +33,7 @@
  *
  * PURE. Fonts are read by the print layout's type setter, nothing else.
  */
-import { drawText, measure, type PrintDoc, type PrintOp } from '@/lib/print-layout';
+import { brandUtilityPage, drawText, measure, type PrintDoc, type PrintOp } from '@/lib/print-layout';
 import { PT_PER_MM, printableText, type PrintFontKey } from '@/lib/print-pieces';
 import { REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
 import { guestDisplayName, type GuestRow } from '@/lib/guests';
@@ -611,6 +611,7 @@ function seatedOf(input: EntranceChartInput): number {
  * `MIN_NAME_PT` or larger — the doc then carries the header and the plain
  * sentence, and `suggest` names the next size up that holds everyone.
  */
+/** 🏷 The chart carries Setnayan once — the free line in its foot margin (`brandUtilityPage`, owner 2026-10-21). */
 export function layoutEntranceChart(input: EntranceChartInput): EntranceChartResult {
   const sheet = sheetOf(input.size);
   const doc = blankSheet(sheet);
@@ -624,14 +625,14 @@ export function layoutEntranceChart(input: EntranceChartInput): EntranceChartRes
   };
   if (seated === 0) {
     message(['No one is seated yet.', 'Seat your guests in the Seat plan, then print this chart.']);
-    return { ok: true, doc, size: input.size, nameSize: 0, columns: 0, placed: [], seated };
+    return { ok: true, doc: brandUtilityPage(doc), size: input.size, nameSize: 0, columns: 0, placed: [], seated };
   }
   const fit = bestFit(input, sheet);
   if (!fit) {
     const bigger = ENTRANCE_CHART_SIZES.slice(ENTRANCE_CHART_SIZES.findIndex((x) => x.key === input.size) + 1);
     const suggest = bigger.find((x) => bestFit(input, sheetOf(x.key)))?.key ?? null;
     message(entranceChartTooBigWords(seated, input.size, suggest));
-    return { ok: false, doc, size: input.size, reason: 'too-many', suggest, seated };
+    return { ok: false, doc: brandUtilityPage(doc), size: input.size, reason: 'too-many', suggest, seated };
   }
   const g = gutterOf(sheet, fit.s);
   const used = Math.max(...fit.slots.map((sl) => sl.col)) + 1;
@@ -654,7 +655,7 @@ export function layoutEntranceChart(input: EntranceChartInput): EntranceChartRes
       doc.ops.push({ t: 'rect', x: p.x0, y: last.y + fit.s * 0.42, w: p.maxW, h: Math.max(0.5, fit.s * 0.05), fill: RULE_GOLD, opacity: 0.7 });
     }
   }
-  return { ok: true, doc, size: input.size, nameSize: fit.s, columns: used, placed, seated };
+  return { ok: true, doc: brandUtilityPage(doc), size: input.size, nameSize: fit.s, columns: used, placed, seated };
 }
 
 /** The plain sentence for a chart too full for its sheet — the page and the route say the same. */

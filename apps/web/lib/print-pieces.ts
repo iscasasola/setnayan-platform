@@ -357,7 +357,26 @@ export type PrintLook = {
   frame?: { inset: number; feather: number; outer: number; inner: number } | null;
   /** Names print in caps (the deco and neon faces). */
   capsNames: boolean;
+  /**
+   * 🏷 HOW THE PRINT CARRIES SETNAYAN (owner 2026-10-21, *"i want the prints branded with setnayan"*, option A —
+   * `brandPiece`, lib/print-layout.ts): `line` — the plain-white FREE print: "Made with Setnayan · setnayan.com" on the
+   * front's bottom edge; `mark` — the Hub-look PRO print: a tiny Setnayan mark on the back, or at the very edge of a
+   * piece with no back. Absent = read by the theme (`printBrandOf`).
+   */
+  brand?: PrintBrand;
 };
+
+/** The two ways a print carries Setnayan — see `PrintLook.brand`. */
+export type PrintBrand = 'line' | 'mark';
+
+/**
+ * 🏷 How THIS look carries Setnayan. Every look a couple's print is drawn in names it (`plainPrintLook` → line, the Pro
+ * looks → mark); a look that does not is read by its theme: Classic is the free print's face, every other theme on paper
+ * is Event Hub Pro (DECISION_LOG 2026-10-21 "free = plain white").
+ */
+export function printBrandOf(look: Pick<PrintLook, 'brand' | 'theme'>): PrintBrand {
+  return look.brand ?? (look.theme === 'house' ? 'line' : 'mark');
+}
 
 /**
  * Fonts that ship IN the repo and are traced into every lambda
@@ -632,6 +651,12 @@ export type PrintDetails = {
   passDesign?: PassCardDesign;
   /** A small Setnayan mark in the pass card's foot — free events only (never on Pro). */
   setnayanMark?: boolean;
+  /**
+   * 🏷 PAPER ONLY — the printed phone card carries the free print's "Made with Setnayan · setnayan.com" line as the lowest
+   * line of its own foot, inside its frame (`cardFoot`; owner 2026-10-21). Set by the print path alone, never by the
+   * picture a guest saves.
+   */
+  brandLine?: boolean;
 };
 
 /**

@@ -18,7 +18,7 @@
  *
  * PURE. The route renders the QR PNGs and hands them in by ref.
  */
-import { drawText, type PrintDoc } from '@/lib/print-layout';
+import { brandUtilityPage, drawText, type PrintDoc } from '@/lib/print-layout';
 import { layoutReport, reportPage, REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
 import { PT_PER_MM } from '@/lib/print-pieces';
 import { formatCount } from '@/lib/format-number';
@@ -100,7 +100,7 @@ export function layoutSeatingPack(input: {
     drawText(ops, input.signLine, cx, y, { font: 'poppins', size: 11, color: REPORT_MUTED, align: 'center' });
     y += 18;
     drawText(ops, `${formatCount(u.guests.length)} seated${input.dateLabel ? ` · ${input.dateLabel}` : ''}`, cx, y, { font: 'poppins', size: 9, color: REPORT_MUTED, align: 'center' });
-    pages.push(doc);
+    pages.push(brandUtilityPage(doc)); // 🏷 every page carries Setnayan once — on a card page, in the margin below the cut lines
   }
 
   // ── Place cards, 2 × 4 per A4, dashed cut lines.
@@ -121,7 +121,7 @@ export function layoutSeatingPack(input: {
       const q = Math.min(84, ch - 96);
       ops.push({ t: 'image', ref: c.qrRef, x: mid - q / 2, y: y + 74, w: q, h: q });
     });
-    pages.push(doc);
+    pages.push(brandUtilityPage(doc)); // 🏷 every page carries Setnayan once — on a card page, in the margin below the cut lines
   }
   return pages;
 }

@@ -8,6 +8,7 @@ import { readServicesStepView } from '@/lib/onboarding/services-step-server';
 import { PapicStepFields } from './_components/papic-step-fields';
 import { SimpleSetupFlow } from './_components/simple-setup-flow';
 import { commitSimpleEvent } from './actions';
+import { CarriedHonoreeFields } from './_components/carried-honoree-fields';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -123,6 +124,8 @@ export default async function SimpleOnboardingPage({
       ) : null}
 
       <form action={commitSimpleEvent} className="space-y-6">
+        {/* The shop "For ▾" named, when it named one (owner 2026-10-22). */}
+        <CarriedHonoreeFields />
         {/* Paced by the setup engine when the type is admitted; with `view` null
             it renders the two halves exactly as before, one plain form. */}
         <SimpleSetupFlow

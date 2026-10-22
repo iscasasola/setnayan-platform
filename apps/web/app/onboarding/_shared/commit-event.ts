@@ -27,9 +27,7 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import {
-  eventTypeAcceptsHonoreeLink,
-  isDependentId,
-  resolveHonoreeDependentId,
+  resolveEventHonoree,
 } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
@@ -107,25 +105,25 @@ export async function commitOnboardingEvent(
   // ⚠ THE TYPE GATE IS ON THE SERVER, NOT ONLY IN THE WIZARD. Until 2026-08-31
   // this branch ran for ANY type, because the client was the only thing deciding
   // which types collect an honoree — and a server action is reachable by direct
-  // POST. `eventTypeAcceptsHonoreeLink` is the same predicate the create-event
-  // action and the picker read, so a WEDDING (in neither list, and holding its
-  // own guard) cannot name a dependent through this door either.
-  let honoreeDependentId: string | null = null;
-  if (eventTypeAcceptsHonoreeLink(payload.eventType) && isDependentId(payload.honoreeDependentId)) {
-    try {
-      honoreeDependentId = await resolveHonoreeDependentId(createAdminClient(), {
-        userId: user.id,
-        dependentId: payload.honoreeDependentId,
-        honoreeLabel: payload.honoreeLabel,
-      });
-    } catch {
-      honoreeDependentId = null;
-    }
-  }
+  // POST. The type gate lives inside `resolveEventHonoree`, so a WEDDING (which
+  // names nobody, and holds its own guard) cannot name a dependent through this
+  // door either.
+  //
+  // 2026-10-22 (owner "yes"): a SHOP's business alaga is linked on EVERY type the
+  // picker offers for it, not only the named ones — the same `resolveEventHonoree`
+  // the inline create action calls, so the two doors answer identically. The
+  // LABEL is overwritten from it too: on a business-only type it survives only
+  // beside a verified shop, so a person's name never lands on a trip.
+  const { honoreeLabel, honoreeDependentId } = await resolveEventHonoree(createAdminClient, {
+    userId: user.id,
+    eventType: payload.eventType,
+    honoreeLabel: payload.honoreeLabel,
+    dependentId: payload.honoreeDependentId,
+  });
 
   const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
     eventType: payload.eventType,
-    honoreeLabel: payload.honoreeLabel?.trim() || null,
+    honoreeLabel,
     honoreeDependentId,
   });
   if (blockingLifeEvent) {
@@ -186,7 +184,7 @@ export async function commitOnboardingEvent(
   const row = buildGenericEventInsert(
     // `honoreeDependentId` is OVERWRITTEN with the server-verified value, never
     // merged with the client's — a forged id must not survive the spread.
-    { ...payload, displayName, honoreeDependentId },
+    { ...payload, displayName, honoreeLabel, honoreeDependentId },
     {
       slug,
       now,

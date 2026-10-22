@@ -776,7 +776,8 @@ function brandFoot(doc: PrintDoc, ctx: Ctx): number {
   const half = text([], PRINT_BRAND_WORDS, 0, 0, o) / 2;
   // Measured from the trim: where this die's safe area ends under the line (a scallop's cusps sit higher than a rect's edge).
   const edge = safeBottom(doc, doc.w / 2 - half, doc.w / 2 + half);
-  return doc.h - edge + 0.5 + (ink.bottom - ink.top) + BRAND_CLEAR + 0.5;
+  // …plus a little air, so the line reads as the sheet's foot and not as the last line of the card's own words.
+  return doc.h - edge + 0.5 + (ink.bottom - ink.top) + BRAND_CLEAR + 2.5;
 }
 
 /** The lowest baseline a card's FRONT words may use — clear of the safe line, of the free brand line, and of a bottom-corner QR. */

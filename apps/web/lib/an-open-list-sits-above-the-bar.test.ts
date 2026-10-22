@@ -12,7 +12,7 @@
  * THE RULES (executed):
  *   1 · `revealDelta` brings a box's bottom above the bottom bar, keeps its top below the top bar when it cannot all fit,
  *       brings a box under a top bar down, and leaves a box already in the band alone;
- *   2 · `topChromeDrop` counts only bars stuck to the top edge — the mirror of `bottomChromeLift` (the cookie banner's);
+ *   2 · `topChromeDrop` counts only bars stuck to the top edge — the mirror of `bottomChromeLift`;
  *   3 · `placePickList` with a `floor`: over a grid of button positions and list heights, a list never reaches below the
  *       floor, and opens up when there is more room above.
  * THE WIRING (source, comments stripped):
@@ -117,6 +117,6 @@ test('4 · the wiring: PickMenu floors at the bar, the Group picker reveals its 
 
   const dom = read('lib/reveal-above-chrome.ts');
   assert.match(dom, /if \(layer && !layer\.contains\(el\) && zOf\(el\) < zOf\(layer\)\) continue;/, 'a bar under the card’s sheet is counted as covering it');
-  assert.match(dom, /import \{ bottomChromeLift, revealDelta, topChromeDrop, type ChromeBox \} from '@\/lib\/bottom-chrome';/, 'not the cookie banner’s bar rule');
+  assert.match(dom, /import \{ bottomChromeLift, revealDelta, topChromeDrop, type ChromeBox \} from '@\/lib\/bottom-chrome';/, 'not the one shared bottom-bar rule');
   assert.match(dom, /vv\.offsetTop \+ vv\.height/, 'the keyboard’s edge is not the floor');
 });

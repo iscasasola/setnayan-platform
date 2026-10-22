@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -19,11 +18,7 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
-import {
-  eventTypeAcceptsHonoreeLink,
-  isDependentId,
-  resolveHonoreeDependentId,
-} from '@/lib/honoree-dependent-link';
+import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -251,40 +246,26 @@ export async function createWeddingEvent(formData: FormData) {
   // name; unlabeled events contend for the per-type singleton slot, and typing
   // a different celebrant's name opens a new slot. Lifestyle types (travel,
   // corporate, anniversary, …) pass through untouched — zero rules, unlimited.
-  const honoree_label_raw = String(formData.get('honoree_label') ?? '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .slice(0, 80);
-  // WIDENED 2026-08-31: also the two BUSINESS-subject types (corporate ·
-  // gala_night). `isGatedLifeType` was doing double duty here — it is the CAP's
-  // vocabulary, and it was also, by accident, the gate on whether an event could
-  // say who it is for at all. So a corporate event thrown BY a company had no
-  // way to name that company. `eventTypeAcceptsHonoreeLink` separates the two;
-  // the cap itself (`blocksLifeEventCreation`) still keys on `isGatedLifeType`
-  // and is untouched, so a company may still hold twelve gala nights in
-  // planning. A WEDDING is in neither list and still cannot name a subject.
-  const honoree_label =
-    eventTypeAcceptsHonoreeLink(event_type) && honoree_label_raw ? honoree_label_raw : null;
-  // …and WHICH alaga that name belongs to, when the who step named one. This is
-  // the STRONGER half of the cardinality key (lib/life-event-gate.ts): a link to
-  // a record survives renaming the alaga, and two alaga with the same first name
-  // stop sharing one in-planning slot. Client-supplied ⇒ re-verified against
-  // `dependents` under `owner_user_id = you`; anything unowned, handed over, or
-  // no longer matching the typed label resolves to NULL and the label keys the
-  // cap exactly as it did before. Never a new way to fail at creating an event.
-  //
-  // The `isDependentId` pre-check keeps this a strict no-op for every account
-  // without a People roster: no field, no admin client constructed, not one
-  // extra round-trip, and no new place for this action to throw.
-  const honoree_dependent_id_raw = formData.get('honoree_dependent_id');
-  const honoree_dependent_id =
-    eventTypeAcceptsHonoreeLink(event_type) && isDependentId(honoree_dependent_id_raw)
-      ? await resolveHonoreeDependentId(createAdminClient(), {
-          userId: user.id,
-          dependentId: honoree_dependent_id_raw,
-          honoreeLabel: honoree_label,
-        })
-      : null;
+  // WHO IT IS FOR — one answer for both create doors (`resolveEventHonoree`,
+  // lib/honoree-dependent-link.ts; the wizard's commit-event calls the same).
+  //  • The five life types + corporate · gala_night name a subject for anyone
+  //    (widened 2026-08-31): the typed label is kept and keys the cap.
+  //  • 2026-10-22 (owner "yes"): a SHOP's business alaga is linked on EVERY type
+  //    the picker offers for it — a celebration, a tournament, a trip "for" the
+  //    shop is the shop's. A person picked for one of those is still dropped.
+  //  • A WEDDING names nobody.
+  // The id is client-supplied ⇒ re-read from `dependents` under
+  // `owner_user_id = you`; anything unowned, handed over, of the wrong kind, or
+  // no longer matching the typed label resolves to NULL. Never a new way to
+  // fail at creating an event — and with no id posted (every account without a
+  // People roster) not one extra round-trip is spent.
+  const { honoreeLabel: honoree_label, honoreeDependentId: honoree_dependent_id } =
+    await resolveEventHonoree(createAdminClient, {
+      userId: user.id,
+      eventType: event_type,
+      honoreeLabel: String(formData.get('honoree_label') ?? ''),
+      dependentId: formData.get('honoree_dependent_id'),
+    });
   if (!isWedding && isGatedLifeType(event_type)) {
     const blocking = await getBlockingLifeEvent(supabase, user.id, {
       eventType: event_type,
@@ -524,25 +505,6 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=create_failed');
   }
 
-  // Funnel event. Fire-and-forget; never block the redirect to the new
-  // event dashboard.
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: insertedEvent.event_id,
-        event_type,
-        concierge_choice: choice,
-        ceremony_type,
-        venue_setting,
-        is_mixed_ceremony,
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
-  }
-
   /* Retired 2026-05-28 V2 cutover */
   // V1 had two extra redirect branches here: 'trial' invoked
   // startConciergeTrial server-side and routed to the dashboard with a
@@ -719,20 +681,6 @@ export async function planNextYearEvent(formData: FormData) {
     return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: inserted.event_id,
-        event_type: source.event_type,
-        via: 'plan_next_year',
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
-  }
-
   return redirect(`/dashboard/${inserted.event_id}`);
 }
 
@@ -774,18 +722,6 @@ export async function notifyWhenWeddingTypeLaunches(
   if (error) {
     console.error('[create-event] notify signup failed:', error);
     return { ok: false, reason: error.message };
-  }
-
-  // Funnel signal — recruitment uses this to prioritize vendor sourcing by
-  // faith × region demand. Fire-and-forget per the existing pattern.
-  try {
-    await captureEvent({
-      distinctId: user?.id ?? email,
-      event: 'wedding_type_notify_signup',
-      properties: { ceremony_type: ceremony, region: region ?? undefined },
-    });
-  } catch {
-    // analytics never breaks user-facing flow
   }
 
   return { ok: true };

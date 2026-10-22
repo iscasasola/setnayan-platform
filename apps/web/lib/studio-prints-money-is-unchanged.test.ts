@@ -15,7 +15,9 @@
  *
  * 🎟 2026-10-22: the golden was re-recorded once (owner: *"the goal of the free is to keep everything minimum ready but no personalization."*) —
  * every guest's ticket in one file lost its ◆ door (Classic, a free theme's, the Phone-card batch) and shows in the store shell; nothing
- * else moved.
+ * else moved. Re-recorded a second time the same day (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"): the digital ticket
+ * zip's door became a plain free save on every state, store shell included — the ◆ PRO word left it and nothing else moved. The Prints
+ * panels now carry NO door toward paying; the other Studio doors (Everything, the place-card pack) are held in § 2.
  *
  * SABOTAGE (each seen RED, then restored): the zip door pointing elsewhere · the go-Pro line reworded · the zip's word changed on the Studio button · a price
  * written into the access line · the Studio showing the Pro door in the store shell.
@@ -139,16 +141,16 @@ test('2 · …and Studio’s ◆ files are each the ONE door for a free couple, 
       assert.equal(m.doors + m.proDoorHrefs, 0, `${label}: a Pro couple is sent to the unlock page`);
       assert.deepEqual(m.marks, ['unlocked'], `${label}: a Pro couple’s files are not ◆ unlocked`);
     } else {
-      /* Every ticket (the zip) · everything · every place card: three doors, one page. Every guest's pass and every guest's QR are
+      /* Everything · every place card: two doors, one page. Every guest's pass, every guest's QR and the digital ticket zip are
          free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."). */
-      assert.equal(m.doors, 3, `${label}: an all-in-one file is not the ◆ door (or a free one still is)`);
-      assert.equal(m.proDoorHrefs, 3, `${label}: a ◆ door leads somewhere other than the one unlock page`);
+      assert.equal(m.doors, 2, `${label}: an all-in-one file is not the ◆ door (or a free one — the zip? — still is)`);
+      assert.equal(m.proDoorHrefs, 2, `${label}: a ◆ door leads somewhere other than the one unlock page`);
       assert.deepEqual(m.marks, ['try'], `${label}: a free couple is shown a padlock, or no ◆`);
     }
   }
 });
 
-test('3 · no price, no order, no confirm step on these panels — and the free couple’s zip is a LINK to the one unlock page', async () => {
+test('3 · no price, no order, no confirm step on these panels — and the free couple’s zip is a free save, not a door', async () => {
   for (const [label, theme, ownsPro, storeShell] of STATES) {
     {
       const p = await panels(theme, ownsPro, storeShell);
@@ -158,9 +160,11 @@ test('3 · no price, no order, no confirm step on these panels — and the free 
   }
   const free = await panels('abaca', false, false);
   /* 2 from 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch; back to 1 on 2026-10-22 —
-     every guest's ticket in one file is free again (owner: "the goal of the free is to keep everything minimum ready"). The zip stays. */
-  assert.equal(free.pass.proDoorHrefs, 1, 'a free couple’s zip is not the door to the Event Hub Pro unlock (or the ticket batch still is)');
-  assert.equal(free.pass.zipDoor, true);
+     every guest's ticket in one file is free again (owner: "the goal of the free is to keep everything minimum ready") — and to 0 the
+     same day: the digital ticket zip is free too (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */
+  assert.equal(free.pass.proDoorHrefs, 0, 'a free couple’s zip (or the ticket batch) is still a door to the Event Hub Pro unlock');
+  assert.equal(free.pass.zipDoor, false, 'a free couple’s zip is still the ◆ door');
+  assert.match(free.pass.text, /Download all tickets \(\.zip\)/, 'the zip is gone from the free couple’s panel');
   const shell = await panels('abaca', false, true);
   assert.equal(shell.pass.proDoorHrefs, 0, 'the store shell shows the unlock door');
   const pro = await panels('abaca', true, false);

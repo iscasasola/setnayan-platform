@@ -3697,7 +3697,7 @@ export function ShortlistCategories({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your shortlist or the whole marketplace…"
+          placeholder="Search suppliers"
           aria-label="Search your shortlist or the marketplace"
         />
         {query ? (

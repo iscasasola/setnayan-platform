@@ -1665,8 +1665,7 @@ html.hr-snap {
   text-transform: uppercase;
   color: var(--hr-foot-ink-2);
 }
-.home-reskin .hr-foot-col a,
-.home-reskin .hr-foot-linkbtn {
+.home-reskin .hr-foot-col a {
   font-size: 13.5px;
   color: var(--hr-foot-ink);
   transition: color 0.18s ease;
@@ -1678,20 +1677,11 @@ html.hr-snap {
   display: inline-flex;
   align-items: center;
   /* 44, the locked tap floor (quality sweep 2026-10-13, item 6: 165 pages
-     measured every footer link and "Cookie settings" at 40). The 4px came out
+     measured every footer link at 40). The 4px came out
      of the column gap above, so nothing moves. */
   min-height: 44px;
 }
-.home-reskin .hr-foot-linkbtn {
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--hr-sans);
-}
-.home-reskin .hr-foot-col a:hover,
-.home-reskin .hr-foot-linkbtn:hover {
+.home-reskin .hr-foot-col a:hover {
   color: var(--hr-ink);
 }
 .home-reskin .hr-foot-base {
@@ -1983,20 +1973,8 @@ html.hr-snap {
   color: var(--hr-ink);
   letter-spacing: -0.01em;
 }
-/* 🍪 THE COOKIE NOTICE STANDS ABOVE THIS BACKDROP, NEVER UNDER IT (2026-10-12).
-   The notice is `z-[70]`; this layer is 200. On /login, /signup and every
-   top-nav overlay a first-time visitor saw the notice dimmed and blurred under
-   the backdrop, and a press on Accept / Essential only / Manage landed on the
-   backdrop instead (live re-walk of d2e38b7). It is the one question a visitor
-   must be able to answer on any page, so while one of these overlays is open it
-   is lifted over it — and the overlay keeps its own bottom clear of it, using
-   the height the notice already publishes (`--cookie-banner-top`, the same
-   seam `.sn-door-dock` reads), so the card's last line still scrolls into view. */
-html:has(.home-reskin-ov) [data-cookie-consent] {
-  z-index: 210;
-}
 .home-reskin-ov {
-  padding-bottom: calc(max(5vh, 28px) + var(--cookie-banner-top, 0px));
+  padding-bottom: max(5vh, 28px);
 }
 @keyframes hr-ov-fade {
   from {

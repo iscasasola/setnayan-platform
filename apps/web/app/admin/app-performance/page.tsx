@@ -12,6 +12,7 @@ import {
   Waypoints,
   ShieldAlert,
   Timer,
+  Footprints,
 } from 'lucide-react';
 import {
   GridPageSkeleton,
@@ -30,6 +31,7 @@ import { OfflineSurface } from './_surfaces/offline-surface';
 import { InterconnectionsSurface } from './_surfaces/interconnections-surface';
 import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
 import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
+import { VisitsSurface } from './_surfaces/visits-surface';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -41,7 +43,9 @@ import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
  * tabbing them together. (Interconnections joined 2026-07-31: same read-only
  * shape, reporting on the joints BETWEEN subsystems rather than on any one of
  * them.) Slow loads joined 2026-10-16: the load-time log — how long real
- * people wait for each page, against each page's target. Each tab's body was re-homed byte-identical into ./_surfaces/*;
+ * people wait for each page, against each page's target. Visits joined
+ * 2026-10-22: site traffic counted in our own database, no cookies (owner:
+ * "in our own admin, not Vercel"). Each tab's body was re-homed byte-identical into ./_surfaces/*;
  * the seven non-cockpit legacy routes now redirect in, forwarding their query
  * params. The App Performance menu parent already lands here, so the parent =
  * the Overview tab.
@@ -61,6 +65,7 @@ export const dynamic = 'force-dynamic';
 
 const TABS = [
   'overview',
+  'visits',
   'growth',
   'intelligence',
   'seo',
@@ -86,6 +91,7 @@ function coerceTab(v: string | undefined): Tab {
 
 const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
   { key: 'overview', label: 'Overview', icon: Activity },
+  { key: 'visits', label: 'Visits', icon: Footprints },
   { key: 'growth', label: 'Growth', icon: LineChart },
   { key: 'intelligence', label: 'Intelligence', icon: Radar },
   { key: 'seo', label: 'SEO & GEO', icon: Globe },
@@ -101,6 +107,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
 // Per-tab <title> — restores what each standalone route used to set.
 const TAB_TITLE: Record<Tab, string> = {
   overview: 'Numbers',
+  visits: 'Visits',
   growth: 'Growth',
   intelligence: 'Intelligence',
   seo: 'SEO & GEO',
@@ -148,6 +155,15 @@ function activeSurface(
   // narrowed (via first()) to exactly that shape so nothing in the moved
   // bodies had to change.
   switch (tab) {
+    case 'visits':
+      return (
+        <VisitsSurface
+          searchParams={Promise.resolve({
+            range: first(search.range),
+            demo: first(search.demo),
+          })}
+        />
+      );
     case 'growth':
       return (
         <GrowthSurface

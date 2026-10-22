@@ -736,7 +736,15 @@ export function useInBottomDock(): boolean {
  * The view-transition name `sn-bottomnav` sits on THIS box (globals.css), so
  * the strip rides above the sliding page with the bar instead of vanishing
  * under it for 320ms on every tab press.
+ *
+ * ↔ AND IT SLIDES WHEN THE BAR CHANGES SET (owner 2026-10-22: account → Shop,
+ * the account icons leave left and the shop's enter from the right; account →
+ * an event, the reverse way). The listener is fetched AFTER mount with a plain
+ * `import()` — never `next/dynamic`, whose loadable runtime once put the Maker
+ * over its ceiling (customer-bottom-nav.tsx) — so it is in no first load.
+ * `bar-set-slide.tsx` has the whole story; `lib/bar-set.ts` the direction map.
  */
+type Slide = typeof import('./bar-set-slide').BarSetSlide;
 export function BottomDock({
   children,
   boundary = 'lg',
@@ -750,6 +758,10 @@ export function BottomDock({
   boundary?: ShellBoundary;
 }) {
   const dockRef = useRef<HTMLDivElement>(null);
+  const [SetSlide, setSetSlide] = useState<Slide | null>(null);
+  useEffect(() => {
+    void import('./bar-set-slide').then((m) => setSetSlide(() => m.BarSetSlide));
+  }, []);
   useEffect(() => {
     const el = dockRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -788,6 +800,7 @@ export function BottomDock({
       >
         {children}
       </div>
+      {SetSlide ? <SetSlide /> : null}
     </BottomDockContext.Provider>
   );
 }

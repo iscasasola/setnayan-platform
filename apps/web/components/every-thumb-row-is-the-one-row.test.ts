@@ -19,6 +19,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ChevronsUpDown, ListFilter, Plus, SquareCheck } from 'lucide-react';
 import { ThumbRow } from './thumb-row';
+import { findPlaceholder } from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
 import { searchRowHref } from '@/app/_components/frontdoor/shell-thumb-rows';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
@@ -99,7 +100,7 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     expect(found.map((p) => p.words).sort()).toEqual(
-      ['Search events', 'Search events, people, suppliers', 'Search guests', 'Search suppliers'].sort(),
+      ['Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {
@@ -107,6 +108,14 @@ describe('placeholders name the place, short', () => {
       if (p.alone) continue;
       expect(p.words.split(/\s+/).length, `${p.file}: "${p.words}"`).toBeLessThanOrEqual(3);
     }
+  });
+  it('Find names the open category only while it stays short', () => {
+    expect(findPlaceholder('all suppliers')).toBe('Search suppliers');
+    for (const scope of ['Florists', 'Photo & video', 'Hair and makeup artists', 'Lights, sound and effects']) {
+      expect(findPlaceholder(scope).split(/\s+/).length, scope).toBeLessThanOrEqual(3);
+      expect(findPlaceholder(scope).length, scope).toBeLessThanOrEqual(21);
+    }
+    expect(read(ADOPTERS.find!.file)).toMatch(/placeholder: findPlaceholder\(scope\)/);
   });
 });
 

@@ -43,6 +43,16 @@ import { ThumbRow } from '@/components/thumb-row';
 import { FIND_DOOR_PARAM } from '@/lib/suppliers-shell';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
+/**
+ * The words name the place (owner 2026-10-13: *"whatever category is picked, that is where we add manually and
+ * search"*; 2026-10-22: short enough to read whole at 320). One open category with a short name → "Search Florists";
+ * a long one → "Search this category"; nothing open → "Search suppliers".
+ */
+export function findPlaceholder(scope: string): string {
+  if (scope === 'all suppliers') return 'Search suppliers';
+  return scope.length <= 14 && scope.trim().split(/\s+/).length <= 2 ? `Search ${scope}` : 'Search this category';
+}
+
 /** Rule 4 — the shipped Guests search waits the same 250 ms. */
 export const THUMB_SEARCH_DEBOUNCE_MS = 250;
 
@@ -194,7 +204,7 @@ export function FindThumbRow({
           },
         ]}
         field={{
-          placeholder: 'Search suppliers',
+          placeholder: findPlaceholder(scope),
           label: `Search ${scope}`,
           tour: 'suppliers-find',
           input: {

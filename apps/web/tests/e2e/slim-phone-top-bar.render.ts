@@ -94,7 +94,7 @@ void (async () => {
             photoUrl: null,
             events: [],
             eventsMeasured: true,
-            context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+            context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
           },
         }),
       ),
@@ -138,7 +138,7 @@ void (async () => {
         photoUrl: null,
         events: [],
         eventsMeasured: true,
-        context: { ...context, vendorName: context.hasVendor ? 'Ana Florals' : null, canOpenShop: false },
+        context: { ...context, vendorName: context.hasVendor ? 'Ana Florals' : null, canOpenShop: false, shops: [] },
       },
     });
   const bell = (href: string) =>

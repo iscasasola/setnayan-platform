@@ -96,7 +96,7 @@ export default async function VendorDashboardLayout({
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: true, vendorName: null, isAdmin: false, canOpenShop: false },
+    context: { hasVendor: true, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
   };
 
   // Server-render timing (2026-07-01) — one structured stdout line per layout

@@ -20,6 +20,7 @@ import { type OpenRail, type OpenRailDetails } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from './payments-paused-note';
 import { Collapsible } from './collapsible';
 import { BranchPinMap, type LatLng } from './branch-pin-map';
+import { lookUpBranchPlace } from './branch-place-cache';
 import {
   createBranch,
   renewBranch,
@@ -207,7 +208,7 @@ function AddBranchForm({
   const detect = useCallback((v: LatLng) => {
     const seq = ++detectSeq.current;
     setDetecting(true);
-    detectBranchLocation(v.lat, v.lng)
+    lookUpBranchPlace(v, detectBranchLocation)
       .then((res) => {
         if (seq !== detectSeq.current) return; // ignore stale pan responses
         if (!cityTouched.current) setCity(res.city);
@@ -221,11 +222,16 @@ function AddBranchForm({
       });
   }, []);
 
-  // Detect the opening centre once so the city is pre-filled.
-  useEffect(() => {
-    detect(initialCenter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 🔍 NO LOOKUP UNTIL THE PIN MOVES (QA 2026-10-22, F9). This form used to
+  // reverse-geocode its opening centre in a mount effect — and it MOUNTS WITH
+  // THE PAGE, folded shut inside <Collapsible>, so every open of Your details
+  // cost one server action + one Nominatim call before anyone pressed
+  // "Add a branch" (and a lab with no session was bounced to /login by it).
+  // The opening centre is the HQ — a branch is by definition somewhere else,
+  // so its city was the one answer the supplier would always have to replace.
+  // The city is looked up when the supplier moves the pin (onPinChange), and a
+  // spot already looked up is answered from `lookUpBranchPlace`'s cache.
+  // Held by `branch-place-is-looked-up-on-a-move.test.ts`.
 
   // Settle each submission once.
   useEffect(() => {

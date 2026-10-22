@@ -16,7 +16,7 @@ import { handPassCards, savePassCards } from '@/lib/save-pass-cards';
  * files already in hand.
  *
  * Free for every guest, and for the couple one card at a time — there is no
- * Pro question anywhere in this component (only the couple's zip is Pro).
+ * Pro question anywhere in this component (the couple's zip is free too since 2026-10-22).
  */
 type State = { k: 'idle' } | { k: 'working' } | { k: 'ready'; files: File[] } | { k: 'saved' } | { k: 'error'; message: string };
 

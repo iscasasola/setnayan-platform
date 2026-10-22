@@ -38,12 +38,13 @@ import assert from 'node:assert/strict';
 
 import { PRO_THEMES_ITEM, UPLOAD_SPACE_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
-import { FREE_MOMENT_CAP, momentCapRefusal, type LoveStoryMoment } from '@/lib/love-story-moments';
+import { FREE_MOMENT_CAP, momentCapRefusal, readMoment, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { CLASSIC_PRINT_THEME, PRINT_PIECES, isAllInOnePrint, isProPrint } from '@/lib/print-pieces';
 import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
 import { PRO_THEMES, FREE_THEMES } from '@/lib/invite-themes';
 import { FREE_FOR_ALL_SKUS } from '@/lib/entitlements';
+import { PUBLIC_R2_BUCKET } from '@/lib/r2-client-ref';
 
 const items = WEBSITE_PRO_ITEMS as readonly string[];
 
@@ -78,7 +79,15 @@ const EVERY_PRINT = [...Object.keys(PRINT_PIECES), 'set', 'everything'];
 /** The all-in-one files that are the union of named parts — gated, but not named on their own. */
 const UNION_OF_PARTS = new Set(['everything']);
 
-const moment = (id: string, media?: string[]): LoveStoryMoment => ({ id, line: `story ${id}`, ...(media ? { media } : {}) });
+/** A story as the one reader builds it (so it carries every required field); its photos are asserted to survive the read. */
+const moment = (id: string, media?: string[]): LoveStoryMoment => {
+  const m = readMoment({ id, line: `story ${id}`, ...(media ? { media } : {}) });
+  assert.ok(m, `readMoment refused the probe story "${id}"`);
+  assert.deepEqual(m.media ?? [], media ?? [], 'readMoment dropped the probe photo — the photo probe is blind');
+  return m;
+};
+/** A photo a couple uploaded, as the story stores it (the one public bucket). */
+const PHOTO = `r2://${PUBLIC_R2_BUCKET}/events/e1/love-story/photo.jpg`;
 
 
 /** Each added line → is the gate it names ON, read from the gate. */
@@ -88,8 +97,8 @@ const GATES: Record<string, () => true | string> = {
     'HUB_ELEMENT_PRO_FIELDS no longer holds a part’s animation (motion) — the line sells a free thing',
   Decorations: () => ART_KIT_IS_PRO === true || 'ART_KIT_IS_PRO is off — decorations are free, take the line off',
   'Photos in your Love Story': () =>
-    (momentCapRefusal({ before: [moment('a')], after: [moment('a', ['r2://p'])], ownsPro: false }) === 'photos_pro' &&
-      momentCapRefusal({ before: [moment('a')], after: [moment('a', ['r2://p'])], ownsPro: true }) === null) ||
+    (momentCapRefusal({ before: [moment('a')], after: [moment('a', [PHOTO])], ownsPro: false }) === 'photos_pro' &&
+      momentCapRefusal({ before: [moment('a')], after: [moment('a', [PHOTO])], ownsPro: true }) === null) ||
     'a free couple may add a photo to a story (momentCapRefusal) — the line sells a free thing',
   [UPLOAD_SPACE_ITEM]: () =>
     coupleMediaCapBytes(true) > coupleMediaCapBytes(false) ||
@@ -152,7 +161,7 @@ test('4b · "Photos in your Love Story" — a photo on ANY story is Pro, not onl
   assert.ok(FREE_MOMENT_CAP > 1, 'the probe needs a story count well under the cap');
   // One story, one new photo — no story-count in play. A free couple is refused; Pro is not.
   const before = [moment('a')];
-  const after = [moment('a', ['r2://photo'])];
+  const after = [moment('a', [PHOTO])];
   assert.equal(momentCapRefusal({ before, after, ownsPro: false }), 'photos_pro', 'a free couple may add a photo to their first story');
   assert.equal(momentCapRefusal({ before, after, ownsPro: true }), null, 'Pro is refused a photo');
   // And a free couple's words-only first story is NOT refused — the line is about photos, not stories.

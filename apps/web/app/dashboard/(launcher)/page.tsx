@@ -111,7 +111,7 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
 import { readForTags } from '@/lib/event-for-tag.server';
-import { cardShowsForTag } from '@/lib/honoree-dependent-link';
+import { cardShowsForTag } from '@/lib/event-subjects';
 import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 

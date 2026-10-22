@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
-import { readEventSubjects, cardShowsForTag } from '@/lib/honoree-dependent-link';
+import { readEventSubjects, cardShowsForTag } from '@/lib/event-subjects';
 import { forTagWords } from '@/lib/for-tag';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { ForTagMark } from '@/app/_components/for-tag-mark';

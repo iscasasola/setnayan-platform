@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { readEventSubjects } from '@/lib/honoree-dependent-link';
+import { readEventSubjects } from '@/lib/event-subjects';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import type { ForTag } from '@/lib/for-tag';
 
@@ -11,7 +11,7 @@ import type { ForTag } from '@/lib/for-tag';
  * The ONE reader both surfaces use — the Events board's Planning posters and the event
  * Home's cover band — so the two can never name an event's subject two ways.
  *
- * The decision of WHO lives in `readEventSubjects` (lib/honoree-dependent-link.ts: the id is
+ * The decision of WHO lives in `readEventSubjects` (lib/event-subjects.ts: the id is
  * re-read under `owner_user_id = viewer`); this file only signs the shop's logo, which needs
  * the server-only R2 signer, so it is split from the pure half (server-only forces guards to
  * grep — the pure half stays importable by a test).

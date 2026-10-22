@@ -2787,10 +2787,17 @@ button.fd-ask.quiet {
   margin-bottom: 20px;
 }
 .fd-opening-kick {
+  /* A <span> inside the <h1> since 2026-10-22 (front-door-anchor.tsx), so it
+     states the block box, line height and letter-case the old <p> got for
+     free, and the h1's tight tracking does not reach it. The markup says
+     "Setnayan" — the OAuth consent-screen name — and the capitals are CSS. */
+  display: block;
   margin: 0 0 14px;
   font-size: 13px;
+  line-height: normal;
   font-weight: 700;
   letter-spacing: 0.3em;
+  text-transform: uppercase;
   color: var(--fd-gold);
 }
 .fd-opening-h1 {
@@ -2806,9 +2813,12 @@ button.fd-ask.quiet {
   text-wrap: balance;
 }
 .fd-opening-lede {
-  margin: 0 0 24px;
-  font-size: 16.5px;
-  line-height: 1.6;
+  /* 2026-10-22: back in use as the ONE purpose sentence under the headline
+     (Google OAuth review: "explain the purpose of your app"). Set a step
+     smaller than the retired paragraph so the hero keeps its shape. */
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
   /* --fd-m1 is 6.14:1 on the white ground; --fd-m2 is 3.55:1 and would FAIL
      here. This is body copy, not metadata. */
   color: var(--fd-m1);
@@ -2881,6 +2891,28 @@ button.fd-ask.quiet {
   font-style: italic;
   font-weight: 650;
   color: var(--fd-gold);
+}
+/* 2026-10-22 — Privacy Policy · Terms of Service under the fine print, so the
+   home page itself links both (Google OAuth homepage review). Link slate, never
+   gold (fails as text); 44px press via the same ::after expander as
+   `.fd-opening-alt`, so the line keeps its height. */
+.fd-opening-legal {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--fd-m1);
+}
+.fd-opening-legal a {
+  position: relative;
+  font-weight: 650;
+  color: var(--fd-link);
+}
+.fd-opening-legal a::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
+.fd-opening-legal a:hover {
+  text-decoration: underline;
 }
 @media (max-width: 620px) {
   .fd-opening {

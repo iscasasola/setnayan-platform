@@ -144,7 +144,7 @@ test('2b · the bar names the screen you are on — "Invitation · Home" (the gu
 test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GREEN pill', async () => {
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /<IconPill label="Undo and preview">\s*<DraftButton\s+label="Undo"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Undo and Preview are not one shared pill');
-  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply="">/, 'Apply is not its own pill');
+  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply=""[^>]*>/, 'Apply is not its own pill');
   assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');
   // With no draft bar (a viewer with nothing to draft) Preview still sits in a pill.

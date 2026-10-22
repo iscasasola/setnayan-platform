@@ -47,12 +47,14 @@ test('the draft action file exports exactly ONE server action', () => {
 
 test('apply asks the Pro gate before its first live write, and the store shell never counts as Pro', () => {
   const body = fn(read(ACTIONS), 'hubDraftAction');
-  const gate = body.search(/\blookProAllows\s*\(/);
+  /* RE-AIMED 2026-10-22 (part by part): the gate is what the event owns, PART BY PART (`hubOwnershipForWrite`, the same
+     admin-client read `lookProAllows` makes) — each drafted item is asked for its own parts. */
+  const gate = body.search(/\bhubOwnershipForWrite\s*\(/);
   const firstUpdate = body.search(/\.update\s*\(/);
-  assert.ok(gate > 0, 'apply must ask lookProAllows');
+  assert.ok(gate > 0, 'apply must ask what the event owns');
   assert.ok(firstUpdate > gate, 'a live .update( comes before the Pro gate');
-  assert.match(body, /storeShell\s*\?\s*false\s*:\s*await\s+lookProAllows\(/, 'in the store shell a Pro key must never apply');
-  assert.match(body, /planHubDraftApply\(\s*current,\s*live,\s*ownsPro\s*\)/, 'the plan must be decided with the measured ownsPro');
+  assert.match(body, /storeShell\s*\?\s*NO_HUB_PARTS\s*:\s*await\s+hubOwnershipForWrite\(/, 'in the store shell a Pro key must never apply');
+  assert.match(body, /planHubDraftApply\(\s*current,\s*live,\s*owned\s*\)/, 'the plan must be decided with the measured ownership');
 });
 
 const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [

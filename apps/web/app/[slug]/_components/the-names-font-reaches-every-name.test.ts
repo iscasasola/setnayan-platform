@@ -226,7 +226,7 @@ test('(4) APPLY REVALIDATES THE GUEST PAGE — the slug, by the one helper', () 
   const helper = stripComments(read('lib/revalidate-site.ts'));
   assert.match(helper, /export function revalidateGuestSite\(slug[^)]*\): void \{\s*if \(!slug\) return;\s*revalidatePath\(`\/\$\{slug\}`\);/);
   const action = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
-  const apply = action.indexOf('planHubDraftApply(current, live, ownsPro)');
+  const apply = action.indexOf('planHubDraftApply(current, live, owned)');
   assert.ok(apply > 0, 'the apply branch moved — re-anchor this guard on it');
   const tail = action.slice(apply);
   assert.match(tail, /\.select\(`slug, /, 'the apply branch no longer reads the slug it revalidates');

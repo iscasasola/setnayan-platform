@@ -71,7 +71,16 @@ export async function openFactSheet(
         slots: yours.venues.slots.map((s) => ({
           slot: s.slot,
           label: s.label,
-          booked: s.booked ? { name: s.booked.name, address: s.booked.address, pinned: s.booked.pin != null } : null,
+          booked: s.booked
+            ? {
+                name: s.booked.name,
+                address: s.booked.address,
+                pinned: s.booked.pin != null,
+                pinFrom: s.booked.pinFrom ?? null,
+                vendorId: s.booked.vendorId ?? null,
+                pin: s.booked.pin,
+              }
+            : null,
           choice: s.choice,
           typed: s.typed,
           address: s.address,

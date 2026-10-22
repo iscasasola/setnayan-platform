@@ -26,6 +26,10 @@
  *                         after the owner's Apply). With `?studio=1`.
  *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
  *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
+ *   ?venue=mixed          Studio › Info › Venues (with `?studio=1`) and Details › Venues on one MANUAL ceremony (a supplier
+ *                         added by hand — its pin is set right there) and one SHOP reception (a Setnayan shop that has
+ *                         not pinned — "<shop> hasn't pinned their place yet"); `&shop=pinned` = the shop has pinned.
+ *                         The manual card's save is the Studio actions context's stand-in (owner 2026-10-22).
  *   ?suggest=1            with `?look=1&studio=1`: two photos a lab florist suggested, waiting on Bridal bouquet and on a full
  *                         Centrepieces — ✓ Keep · ✕ No thanks, the "already has 3 photos" sheet, the top-of-Palette notice
  *   ?library=1            with `?look=1&studio=1`: Search ideas reads the supplier library lab's memory (`/dev/supplier-lab?s=library`)
@@ -179,8 +183,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
      Santuario (a parish the drawing library has), with a stand-in uploaded photo (a file this repo ships).
      `&vpic=photo|drawing|none` is the ceremony card's stored Picture (default photo); `&pro=1` = owns Event Hub Pro. */
   const churchLab = one('venue') === 'church';
+  /* 📍 `?venue=mixed` — one manual ceremony + one shop reception (owner 2026-10-22, "manual entry venues can set pin"). */
+  const mixedLab = one('venue') === 'mixed';
   const vpic = one('vpic');
-  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab || churchLab
+  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab || churchLab || mixedLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -225,7 +231,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           matrix: Promise.resolve(null),
           nudge: null,
         },
-        venues: studioLab
+        venues: mixedLab
+          ? labMixedVenues(one('shop') === 'pinned')
+          : studioLab
           ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
           : churchLab
             ? labChurchVenues(vpic, pro)
@@ -488,6 +496,59 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         }
       />
   );
+}
+
+/**
+ * 📍 `?venue=mixed` — a MANUAL ceremony (a parish the couple added by hand in Suppliers: its card carries an address
+ * and a pin, set right here) and a SHOP reception (a Setnayan shop — its pin is the shop's; unpinned unless
+ * `&shop=pinned`). Names are lab names, not a real couple's.
+ */
+export function labMixedVenues(shopPinned: boolean): YourEventInput['venues'] {
+  return {
+    resolved: [
+      { role: 'ceremony', name: 'San Roque Parish', address: '12 Mabini St, Poblacion, Makati City', latitude: 14.5649, longitude: 121.0301 },
+      { role: 'reception', name: 'Casa Lab Events Place', address: null, latitude: shopPinned ? 14.5547 : null, longitude: shopPinned ? 121.0244 : null },
+    ],
+    slots: [
+      {
+        label: 'Ceremony',
+        slot: 'ceremony' as const,
+        booked: {
+          name: 'San Roque Parish',
+          address: '12 Mabini St, Poblacion, Makati City',
+          photos: [],
+          pin: { lat: 14.5649, lng: 121.0301 },
+          pinFrom: 'manual' as const,
+          vendorId: '00000000-0000-4000-8000-0000000000c1',
+        },
+        columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
+        typed: '',
+        address: '',
+        pin: null,
+        choice: {},
+        photoUrls: {},
+      },
+      {
+        label: 'Reception',
+        slot: 'reception' as const,
+        booked: {
+          name: 'Casa Lab Events Place',
+          address: shopPinned ? 'Ayala Ave, Makati City' : null,
+          photos: [],
+          pin: shopPinned ? { lat: 14.5547, lng: 121.0244 } : null,
+          pinFrom: 'shop' as const,
+          vendorId: '00000000-0000-4000-8000-0000000000r1',
+        },
+        columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+        typed: '',
+        address: '',
+        pin: null,
+        choice: {},
+        photoUrls: {},
+      },
+    ],
+    city: null,
+  };
 }
 
 /**

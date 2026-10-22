@@ -437,6 +437,7 @@ const STILL: Record<string, string> = {
   'app/dev/hero-lab/page.tsx': 'a dev-only lab',
   'app/dev/art-kit-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in QR on the sample bank card — not the couple’s saved logo',
   'app/dev/memories-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for kept frames — not the couple’s saved logo',
+  'app/dev/home-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in for a SHOP’s logo in the "For <name>" tag (no R2 in a lab) — not the couple’s saved logo',
   'app/dev/guests-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in for the Digital Pass picture (a sample card with a text name) — not the couple’s saved logo',
   'app/papic/decorate/_components/kwento-decorator.tsx': 'a flat colour swatch beside each caption-colour option in a dropdown — not a logo',
 };

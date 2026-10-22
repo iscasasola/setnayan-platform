@@ -10,8 +10,14 @@ import { spotlightSteps } from '@/lib/spotlight-steps';
    (`scripts/check-maker-js-budget.mjs` — this mount sits in the dashboard layout above it). */
 const SpotlightTour = lazy(() => import('./spotlight-tour').then((m) => ({ default: m.SpotlightTour })));
 
-/** The account menu's "Show me around" fires this; the role layout's mount answers it. */
+/**
+ * The account menu's "Show me around" fires this; the role layout's mount answers it — unless the page on screen
+ * has a tour of its own (a `replay="page"` mount), which answers instead (owner 2026-10-22: "Show me around" plays
+ * the page's tour where there is one). A `detail.tourKey` asks one tour by name (the Maker's ⋯ › About the Maker).
+ */
 export const SPOTLIGHT_REPLAY_EVENT = 'sn:spotlight';
+/** On <html> while a page's own tour can replay: its key. */
+const PAGE_ATTR = 'data-spotlight-page';
 
 /**
  * 🔦 MOUNTS ONE SPOTLIGHT TOUR (the engine is `spotlight-tour.tsx`).
@@ -31,12 +37,16 @@ export function SpotlightMount({
   replay = false,
   name = null,
   completeAction,
+  inMaker = false,
 }: {
   tourKey: TourKey;
   script: SpotlightScript;
   seen: boolean;
-  /** Answers "Show me around" (one mount per layout — never two tours at once). */
-  replay?: boolean;
+  /** Answers "Show me around" (one mount per layout — never two tours at once); `'page'`: this page's own tour,
+      which answers in place of the layout's. */
+  replay?: boolean | 'page';
+  /** Drawn inside the Maker — the engine does not pause for it (`lib/host-page-tours.ts`). */
+  inMaker?: boolean;
   /** The person's display name, for a welcome step's "Welcome, {name}". */
   name?: string | null;
   completeAction: (tourKey: TourKey) => Promise<void>;
@@ -46,15 +56,24 @@ export function SpotlightMount({
   useEffect(() => {
     if (!seen) setRun({ record: true, restart: false, n: 0 });
     if (!replay) return;
+    const html = document.documentElement;
+    const page = replay === 'page';
     // Lets the account menu draw "Show me around" only where there is a tour to show.
-    document.documentElement.setAttribute('data-spotlight', '');
-    const onReplay = () => setRun((r) => ({ record: false, restart: true, n: (r?.n ?? 0) + 1 }));
+    const setShow = !html.hasAttribute('data-spotlight');
+    if (setShow) html.setAttribute('data-spotlight', '');
+    if (page) html.setAttribute(PAGE_ATTR, tourKey);
+    const onReplay = (e: Event) => {
+      const asked = (e as CustomEvent<{ tourKey?: string } | null>).detail?.tourKey;
+      if (asked ? asked !== tourKey : !page && html.hasAttribute(PAGE_ATTR)) return;
+      setRun((r) => ({ record: false, restart: true, n: (r?.n ?? 0) + 1 }));
+    };
     window.addEventListener(SPOTLIGHT_REPLAY_EVENT, onReplay);
     return () => {
       window.removeEventListener(SPOTLIGHT_REPLAY_EVENT, onReplay);
-      document.documentElement.removeAttribute('data-spotlight');
+      if (setShow) html.removeAttribute('data-spotlight');
+      if (page && html.getAttribute(PAGE_ATTR) === tourKey) html.removeAttribute(PAGE_ATTR);
     };
-  }, [seen, replay]);
+  }, [seen, replay, tourKey]);
 
   if (!run || script.steps.length === 0) return null;
   return (
@@ -68,6 +87,7 @@ export function SpotlightMount({
         record={run.record}
         restart={run.restart}
         completeAction={completeAction}
+        inMaker={inMaker}
         onClose={() => setRun(null)}
       />
     </Suspense>

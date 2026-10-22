@@ -52,11 +52,36 @@ import Link from 'next/link';
 export function FrontDoorAnchor() {
   return (
     <section className="fd-opening" aria-labelledby="fd-opening-h">
-      <p className="fd-opening-kick">SETNAYAN</p>
-      {/* THE PAGE'S ONLY <h1> — see the shell's `heading` prop note. */}
+      {/*
+        THE PAGE'S ONLY <h1> — see the shell's `heading` prop note.
+
+        🔑 THE NAME IS INSIDE THE <h1>, AND IT IS TYPED "Setnayan" (2026-10-22).
+        Google refused OAuth brand verification a second time — "the app name
+        'Setnayan' … does not match the app name on your home page". The
+        eyebrow used to be a separate <p> typed in capitals ("SETNAYAN"), the
+        exact variant rejected on 2026-07-25, and the <h1> itself never named
+        the app. The eyebrow now lives inside the heading as title-case text;
+        the capitals come from `text-transform` on `.fd-opening-kick`, so the
+        look is unchanged and the heading reads "Setnayan: Plan your Filipino
+        event…" to a crawler. Guarded by app/google-can-verify-the-home-page.test.ts.
+      */}
       <h1 id="fd-opening-h" className="fd-opening-h1">
+        <span className="fd-opening-kick">Setnayan</span>
+        <span className="sr-only">: </span>
         Plan your Filipino event free — and never lose a photo.
       </h1>
+      {/*
+        THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (2026-10-22). Google's
+        second refusal also said the home page "does not explain the purpose of
+        your app". The headline is a promise, not a description — this says
+        what the app does, in the house words (event, Event Hub, supplier).
+      */}
+      <p className="fd-opening-lede">
+        Setnayan is a free app for planning and running your event in one place:
+        your guest list and RSVPs, seating, budget and schedule, the suppliers
+        you book, the Event Hub your guests open, and one album for every
+        guest&rsquo;s photos.
+      </p>
       <ul className="fd-opening-claims">
         <li>Every event, planned in one place</li>
         <li>Every guest&rsquo;s photo, kept in one album</li>
@@ -94,6 +119,17 @@ export function FrontDoorAnchor() {
       <p className="fd-opening-fine">
         <i>Set na &rsquo;yan</i> — that&rsquo;s all set. Free to plan, and no
         commission on your suppliers, ever.
+      </p>
+      {/*
+        THE TWO POLICIES, ON THE HOME PAGE ITSELF (2026-10-22). They were only
+        in the ☰ drawer's small print, which is off-screen on a phone until the
+        drawer opens. Google's homepage requirement is a visible link to the
+        privacy policy; Terms sits beside it.
+      */}
+      <p className="fd-opening-legal">
+        <Link href="/privacy">Privacy Policy</Link>
+        <span aria-hidden="true"> · </span>
+        <Link href="/terms">Terms of Service</Link>
       </p>
     </section>
   );

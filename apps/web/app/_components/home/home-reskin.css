@@ -36,12 +36,27 @@
   background: var(--hr-bg);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
+}
+/* Corner-radius scale for the reskin — its OWN token source of truth (this is
+   a self-contained, scoped design system ported px-perfect from the locked
+   prototype; the global --m-r-* scale doesn't match the ELN geometry). Every
+   radius below routes through these vars so the radius-token guard stays
+   happy and the values live in one place.
 
-  /* Corner-radius scale for the reskin — its OWN token source of truth (this is
-     a self-contained, scoped design system ported px-perfect from the locked
-     prototype; the global --m-r-* scale doesn't match the ELN geometry). Every
-     radius below routes through these vars so the radius-token guard stays
-     happy and the values live in one place. */
+   🔲 DECLARED ON BOTH ROOTS (owner 2026-10-22: popups wear the house rounded
+   shape). The popups — Prices · Download · Suppliers · Sign in · the demos,
+   and the /login · /signup · /signup/you cards — render in `.home-reskin-ov`,
+   a portal (or a page) OUTSIDE `.home-reskin`. This scale used to live on
+   `.home-reskin` alone, so every `var(--hr-rN)` in an overlay rule was
+   undefined there, the declaration went invalid at computed-value time, and
+   19 overlay rules computed a radius of 0 — square cards, square tier boxes,
+   square store buttons, square pills — in every browser, silently. The overlay
+   already re-declares the colour and font tokens it reads; the radius scale is
+   now declared once for both roots, so a new overlay rule can never read a
+   radius that is not there. Held by
+   `app/_components/home/every-popup-wears-the-house-shape.test.ts`. */
+.home-reskin,
+.home-reskin-ov {
   --hr-r2: 2px;
   --hr-r3: 3px;
   --hr-r4: 4px;
@@ -2000,7 +2015,10 @@ html.hr-snap {
 .home-reskin-ov .hr-ov-card {
   background: var(--hr-bg);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: var(--hr-r22);
+  /* The popup's own shape IS the app's popup token (ConfirmDialog's
+     `rounded-2xl` → --m-r-lg, 22px), declared on :root so it resolves in the
+     portal — not a reskin copy of the same number. */
+  border-radius: var(--m-r-lg);
   width: 100%;
   max-width: 880px;
   margin: auto;
@@ -3233,8 +3251,22 @@ html.hr-snap {
 .home-reskin-ov .hr-ov-card.sn-signin-terra {
   /* The card itself stays the greige panel — only what you ACT on changes
      colour. Repainting the whole surface would read as a different product,
-     which is the opposite of the seam. */
-  border-top: 3px solid #c24e25;
+     which is the opposite of the seam.
+
+     🔲 THE HOUSE SHAPE (owner 2026-10-22, "do both", on the live /signup at 375 px): the card wears the app's
+     popup radius and NO top stripe — the 3px terracotta edge it wore since 2026-08-13 is gone. The corners were
+     never meant to be square: `.hr-ov-card` asks for `var(--hr-r22)`, but that scale is declared on
+     `.home-reskin` only and this overlay renders in a portal OUTSIDE it, so the var was undefined and every
+     radius here computed to 0. The app's own tokens (`:root`, globals.css) are always in scope:
+       card   → --m-r-lg  (= `rounded-2xl`, the centred popup — ConfirmDialog)
+       fields → --m-r-sm  (= `rounded-md`, `.input-field` and the Google / Apple buttons on this same card)
+     Held by `app/signup/the-sign-in-cards-wear-the-house-shape.test.ts`. */
+  border-radius: var(--m-r-lg);
+}
+/* The fields, and the status banners between them, take the app's field radius. */
+.home-reskin-ov .sn-signin-terra .hr-si-input,
+.home-reskin-ov .sn-signin-terra .hr-si-banner {
+  border-radius: var(--m-r-sm);
 }
 
 /* The one button that takes you inside. */
@@ -3258,8 +3290,7 @@ html.hr-snap {
    on this card's own greige (#f2f2f0, not the cream the palette lock is quoted
    against): #C24E25 is 4.25:1, BELOW the 4.5:1 AA floor for normal text. The
    locked action colour is untouched where it ACTS — the button fill (white on
-   it is 4.76:1) and the 3px top edge (4.25:1, which clears the 3:1 non-text
-   bar). Only small TEXT moves, to the shade already sanctioned three rules
+   it is 4.76:1). Only small TEXT moves, to the shade already sanctioned three rules
    above as this same button's hover: #B04722, measuring 4.97:1.
 
    🔑 SAME RULE THE GOLD ALREADY HAS — decorative #A9834B, text #8A6B39. A brand
@@ -3343,7 +3374,7 @@ html.hr-snap {
 /* ── 🌗 THE SIGN-IN · CREATE-ACCOUNT · YOU CARDS IN DARK (first-run prototype 2026-10-21 §1b) ─────────────
    The greige card shipped with no dark rule, so on a dark page it would have stayed a light panel. It now
    follows the app's approved dark set — card #2B2821, inputs #232019, ink #FBFAF7, lines at 16 % — and keeps
-   the locked terracotta Done and top edge. Words that act (eyebrow, links) take the dark CTA #E5794E; quiet
+   the locked terracotta Done (the top edge went 2026-10-22, owner "do both"). Words that act (eyebrow, links) take the dark CTA #E5794E; quiet
    words #B3AEA3. INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
    set on a ready route, and none is. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
 html.dark .home-reskin-ov:has(.sn-signin-terra) {
@@ -3357,7 +3388,6 @@ html.dark .home-reskin-ov:has(.sn-signin-terra) {
 }
 html.dark .home-reskin-ov .hr-ov-card.sn-signin-terra {
   border-color: rgba(255, 255, 255, 0.08);
-  border-top-color: #c24e25;
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-input {
   background: #232019;

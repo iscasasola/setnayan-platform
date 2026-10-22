@@ -13,6 +13,8 @@ export const LAB_STUDIO_ACTIONS: Partial<StudioActions> = {
   savePabuyaMessage: async () => ({ ok: true }),
   /* "Accept gifts?" and the other Your-info answers — the Maker's draft door; the Maker lab hands its own counting stand-in over this one. */
   hubDraftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
+  /* 📍 A manual venue's address + pin, on its contact card (Info › Venues, Details › Venues). */
+  saveManualVenuePin: async () => ({ ok: true }),
 };
 
 /** Prints: every Save button's file. A tiny stand-in PDF — no route is asked, nothing is drawn from the database (`print-fetch-context.tsx`). */
@@ -40,4 +42,5 @@ export const LAB_STUDIO_REFUSALS: Partial<StudioActions> = {
   saveEgiftMethod: async () => ({ ok: false, error: 'duplicate key value violates unique constraint "event_egift_methods_pkey"' }),
   savePabuyaMessage: async () => ({ ok: false, error: 'column events.pabuya_message does not exist' }),
   hubDraftAction: async () => ({ ok: false, intent: 'save', error: 'invalid input syntax for type uuid: "lab"' }),
+  saveManualVenuePin: async () => ({ ok: false, error: 'new row violates row-level security policy for table "event_manual_vendors"' }),
 };

@@ -26,6 +26,7 @@ import { FIRST_EVENT_PATH, youCardOnward } from './signup-landing';
 import { SIGNED_IN_LANDING } from './sign-in-landing';
 import { TOURS } from './tours';
 import { spotlightSteps } from './spotlight-steps';
+import { spotlightCount } from './spotlight-drops';
 import { buildFirstStepsRail, firstStepsThen } from './vendor-first-steps';
 
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
@@ -107,7 +108,9 @@ test('3 · the welcome shows once, and is not one of the steps', () => {
   assert.match(mount, /steps=\{spotlightSteps\(script\.steps, run\.record\)\}/, 'the mount does not drop the welcome on a replay');
   assert.match(mount, /if \(!seen\) setRun\(\{ record: true,/, 'the first run is no longer the recorded one');
   const engine = read('app/_components/spotlight-tour.tsx');
-  assert.match(engine, /const counted = steps\.filter\(\(s\) => !s\.welcome\)\.length;/, 'the welcome is counted in "Step N of M"');
+  // Counted by `spotlightCount` since 2026-10-22 (a dropped step is not a step either) — which skips the welcome.
+  assert.match(engine, /const \{ n: shownN, of: counted \} = spotlightCount\(steps, i, dropped\);/, 'the engine no longer counts "Step N of M" with spotlightCount');
+  assert.equal(spotlightCount(steps, steps.length - 1, new Set()).of, steps.filter((s) => !s.welcome).length, 'the welcome is counted in "Step N of M"');
   assert.match(engine, /step\.welcome \? 'Welcome' : `Step \$\{formatCount\(shownN\)\} of \$\{formatCount\(counted\)\}`/);
   assert.match(engine, /<Wordmark size=\{18\}/, 'the welcome does not carry the larger mark');
   assert.match(read('app/dashboard/layout.tsx'), /<Spotlight tourKey="host_spotlight_v1"[^>]*name=\{profile\?\.display_name \?\? null\}/);

@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from './pro-quiet-line';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -126,6 +127,8 @@ export function LookPanel({
   }
   return (
     <div data-look-panel={sections.length === LOOK_SECTIONS.length ? '' : sections.join(' ')} className="flex flex-col gap-5">
+      {/* 💎 The quiet line (owner 2026-10-22) — Look's ◆ rows are Style's; Background's and Music's name their own part. */}
+      <ProQuietLine part={sections.length === 1 && sections[0] === 'background' ? 'background' : sections.length === 1 && sections[0] === 'music' ? 'music' : 'style'} />
       {sections.map((k, i) => {
         const parts = partsOf(k);
         if (look && parts.length === 0) return null;

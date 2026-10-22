@@ -34,6 +34,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeHonoree, isGatedLifeType } from './life-event-gate';
+import { PERSON_ONLY_TYPES } from './create-subjects';
 
 /**
  * ── WHICH EVENT TYPES MAY NAME A SUBJECT ───────────────────────────────────
@@ -80,6 +81,70 @@ export function eventTypeAcceptsHonoreeLink(eventType: string | null | undefined
   return isGatedLifeType(eventType) || BUSINESS_HONOREE_SET.has(eventType);
 }
 
+/**
+ * ── A SHOP IS LINKED ON EVERY EVENT IT IS PICKED FOR (owner 2026-10-22) ───────
+ *
+ * The two lists above answer "may this TYPE name a subject" without asking WHO
+ * the subject is — and for a person that is right: a birthday for Lola keys the
+ * one-in-planning cap on Lola, a travel "for" Lola is just a trip. But a shop's
+ * business alaga (`dependent_kind = 'business'`, written when the shop opens —
+ * lib/business-alaga.ts) sat in the create picker's "For ▾" and was then DROPPED
+ * by the server on every type outside those lists: a celebration, a tournament, a
+ * trip, a hangout "for" the shop was created, and was never the shop's. Owner,
+ * 22 Oct, "yes" to the controller's recommendation: link the shop on EVERY type
+ * the owner creates for it.
+ *
+ * ⇒ For a BUSINESS alaga the answer is "every type the picker offers for it":
+ * everything except `PERSON_ONLY_TYPES` (the five a business can never have —
+ * wedding · debut · christening · graduation · gender_reveal — which the grid
+ * already folds away for one, `hiddenTypesForSubject`). Derived from that list,
+ * never re-listed, so an admin-added type reaches a shop with no edit here.
+ *
+ * ⚠ IT IS ONE MORE PERMISSION TO NAME, AND STILL NO CAP. None of the widened
+ * types is in `LIFE_GATE_BY_TYPE`, so `blocksLifeEventCreation` returns false for
+ * them: a shop may hold as many tournaments in planning as it likes.
+ * ⚠ PEOPLE KEEP THEIR OWN RULES. A person / pet / item alaga on a widened type is
+ * still dropped — the kind is read from the RECORD on the server
+ * (`resolveHonoreeDependentId`), never from the wire.
+ * ⚠ A WEDDING STAYS OUT FOR EVERYONE — it is the first person-only type.
+ */
+export function businessMayBeLinkedOn(eventType: string | null | undefined): boolean {
+  if (!eventType) return false;
+  return !(PERSON_ONLY_TYPES as readonly string[]).includes(eventType);
+}
+
+/**
+ * Could an event of this type name SOME subject? The cheap pre-check before a
+ * round-trip — true for every type a person may be named on, plus every type a
+ * business may be. Whether THIS dependent may is decided once its kind is read
+ * (`honoreeLinkAllowed`, inside the resolver).
+ */
+export function eventTypeMayNameASubject(eventType: string | null | undefined): boolean {
+  return eventTypeAcceptsHonoreeLink(eventType) || businessMayBeLinkedOn(eventType);
+}
+
+/** May THIS kind of alaga be linked on THIS type? The rule, once the kind is known. */
+export function honoreeLinkAllowed(
+  eventType: string | null | undefined,
+  dependentKind: string | null | undefined,
+): boolean {
+  if (eventTypeAcceptsHonoreeLink(eventType)) return true;
+  return dependentKind === 'business' && businessMayBeLinkedOn(eventType);
+}
+
+/**
+ * Does the create picker draw the "Which business is this for?" field — i.e.
+ * post the subject's label + record id — for this type and this "For ▾" answer?
+ * The types that name a subject for anyone, as before, and every type a
+ * business may be linked on when the answer is a business.
+ */
+export function pickerAsksHonoree(
+  eventType: string | null | undefined,
+  subjectKind: string | null | undefined,
+): boolean {
+  return eventTypeAcceptsHonoreeLink(eventType) || (subjectKind === 'business' && businessMayBeLinkedOn(eventType));
+}
+
 /** A dependent_id is a uuid — reject anything else before spending a round-trip. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -119,6 +184,12 @@ export type ResolveHonoreeLinkInput = {
   dependentId: unknown;
   /** The honoree label being written alongside it. */
   honoreeLabel: string | null | undefined;
+  /**
+   * The type of the event being created. REQUIRED: whether a record may be
+   * linked depends on what KIND it is (a shop may be linked on a tournament, a
+   * person may not), and the kind is only known once the row is read here.
+   */
+  eventType: string | null | undefined;
 };
 
 /**
@@ -141,14 +212,16 @@ export type ResolveHonoreeLinkInput = {
  */
 export async function resolveHonoreeDependentId(
   client: SupabaseClient,
-  { userId, dependentId, honoreeLabel }: ResolveHonoreeLinkInput,
+  { userId, dependentId, honoreeLabel, eventType }: ResolveHonoreeLinkInput,
 ): Promise<string | null> {
   if (!userId || !isDependentId(dependentId)) return null;
+  // No type could name anybody → no round-trip spent looking.
+  if (!eventTypeMayNameASubject(eventType)) return null;
   const id = dependentId.trim();
 
   const { data, error } = await client
     .from('dependents')
-    .select('dependent_id, name')
+    .select('dependent_id, name, dependent_kind')
     .eq('dependent_id', id)
     // ⚠ THE OWNERSHIP BOUNDARY. Admin client = RLS off; this predicate is it.
     .eq('owner_user_id', userId)
@@ -167,7 +240,80 @@ export async function resolveHonoreeDependentId(
   }
   if (error || !data) return null;
 
-  const row = data as { dependent_id: string; name: string | null };
+  const row = data as { dependent_id: string; name: string | null; dependent_kind?: string | null };
   if (!honoreeLabelMatchesDependent(honoreeLabel, row.name)) return null;
+  // The KIND comes from the record, never from the wire: a person picked for a
+  // trip is dropped here exactly as before; a shop picked for one is linked.
+  // A NULL kind is the column default's legacy reading — a person.
+  if (!honoreeLinkAllowed(eventType, row.dependent_kind ?? 'person')) return null;
   return row.dependent_id;
 }
+
+export type ResolvedEventHonoree = {
+  /** `events.honoree_label` to write — NULL when this type names nobody. */
+  honoreeLabel: string | null;
+  /** `events.honoree_dependent_id` to write — server-verified, or NULL. */
+  honoreeDependentId: string | null;
+};
+
+/**
+ * BOTH CREATE DOORS' ONE ANSWER to "who is this event for" — the inline form
+ * (`create-event/actions.ts`) and the wizard (`onboarding/_shared/commit-event.ts`)
+ * both call this, so the two cannot drift.
+ *
+ *  • A type that names a subject for anyone (the five life types, corporate,
+ *    gala night): the typed label is kept as typed, and the id is resolved —
+ *    byte-identical to what each door did inline before.
+ *  • A type that only a BUSINESS may be named on (celebration, tournament,
+ *    travel, …): the label is kept ONLY IF the id resolved to a shop the caller
+ *    owns. A person's name on a trip is dropped, label and all, exactly as it
+ *    was — the widening reaches businesses and nobody else.
+ *  • Anything else (a wedding): NULL / NULL.
+ *
+ * ⚠ STILL NEVER A NEW WAY TO FAIL. A throw while resolving (no service key)
+ * resolves to NULL; the event is created either way.
+ */
+export async function resolveEventHonoree(
+  getClient: () => SupabaseClient,
+  input: {
+    userId: string;
+    eventType: string | null | undefined;
+    honoreeLabel: string | null | undefined;
+    dependentId: unknown;
+  },
+): Promise<ResolvedEventHonoree> {
+  const label = (input.honoreeLabel ?? '').trim().replace(/\s+/g, ' ').slice(0, 80) || null;
+  if (!eventTypeMayNameASubject(input.eventType)) {
+    return { honoreeLabel: null, honoreeDependentId: null };
+  }
+  let honoreeDependentId: string | null = null;
+  // `isDependentId` first: an account without a People roster posts no id, so
+  // no admin client is constructed and not one round-trip is spent.
+  if (isDependentId(input.dependentId)) {
+    try {
+      honoreeDependentId = await resolveHonoreeDependentId(getClient(), {
+        userId: input.userId,
+        dependentId: input.dependentId,
+        honoreeLabel: label,
+        eventType: input.eventType,
+      });
+    } catch {
+      honoreeDependentId = null;
+    }
+  }
+  if (eventTypeAcceptsHonoreeLink(input.eventType)) {
+    return { honoreeLabel: label, honoreeDependentId };
+  }
+  // A business-only type: the name rides only with the shop it names.
+  return honoreeDependentId
+    ? { honoreeLabel: label, honoreeDependentId }
+    : { honoreeLabel: null, honoreeDependentId: null };
+}
+
+/*
+ * READING IT BACK — who an event is FOR, for the account that holds the subject (the Events
+ * board's "For <name>" chip and the Home's line under the name, owner 22 Oct 2026) — lives in
+ * `lib/event-subjects.ts`, under the same `owner_user_id = <caller>` boundary as the write above.
+ * It is a separate file so the create pages that import this one do not also "read" the shop
+ * table on the root map (`lib/ugat/screens.generated.json` follows imports).
+ */

@@ -177,12 +177,14 @@ type UnexpectedChargeSource = Exclude<
   | 'package_catalog'
   | 'setnayan_ai_event_type'
   | 'setnayan_ai_comeback'
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — catalogue figures only, summed and capped at the rest.
+  | 'hub_parts'
 >;
 const _noBookedDealChargeSource: [UnexpectedChargeSource] extends [never] ? true : false = true;
 void _noBookedDealChargeSource;
 
 test('every refusal has buyer-facing copy that leaks nothing', () => {
-  for (const r of ['no_price_source', 'read_error'] as const) {
+  for (const r of ['no_price_source', 'read_error', 'already_owned'] as const) {
     const msg = refusalMessage(r);
     assert.ok(msg.length > 10, `${r} needs real copy`);
     assert.ok(!/catalog|resolver|null|SQL|service_role/i.test(msg), `${r} leaks internals`);

@@ -12,9 +12,9 @@
  *
  *   1 · `withCallTime` / `callTimeOf` — set, clear, refuse a half-read time, never a line that is not there.
  *   2 · a time set in the Studio is the one the guest in that row reads (group row and own row); none → nothing said.
- *   3 · the Studio draws one Call time field per row, with the stored time in it (the GUESTS' is not a dress-code time:
- *       it is the Schedule's arrival moment, owner 2026-10-19 — `guests-have-one-arrival-time.test.ts`); a row with no
- *       Wear says what to do first.
+ *   3 · the Studio draws one Call time chip per row, holding the stored time, and the field opens from it in a sheet
+ *       (owner 2026-10-22, the row's header chip) (the GUESTS' is not a dress-code time: it is the Schedule's arrival
+ *       moment, owner 2026-10-19 — `guests-have-one-arrival-time.test.ts`); a row with no Wear says what to do first.
  *   4 · the old form draws no time field and posts no time; a save from it KEEPS every stored time (`carryCallTimes`),
  *       and a poster that still sends times is read as before.
  */
@@ -137,32 +137,58 @@ const section = (html: string, key: string) => {
   return end < 0 ? html.slice(at) : html.slice(at, end);
 };
 
-test('3 · Studio › Attire: one Call time field per row, holding the stored time; the guests’ is not the dress code’s', async () => {
+test('3 · Studio › Attire: one Call time chip per row, holding the stored time; the guests’ is not the dress code’s', async () => {
+  /* RE-AIMED 2026-10-22 (owner, "Yes to all" to prototype `dress_code_role_rows_tidy_2026-10-22.html` § 2): the row's time
+     is its HEADER CHIP — "Call time 1:00 PM" · "Set a call time" — and the same field and Clear open from it in a sheet
+     (drawn below). The row itself draws no time field any more; the chip carries the stored value it hands the sheet. */
   const html = await studio(CONFIG);
   const fields = (s: string) => s.split('type="time"').length - 1;
+  const chipOf = (s: string) => /data-mood-board-call-time="[^"]+" data-mood-board-call-time-value="([^"]*)"><button([^>]*)>[\s\S]*?<span class="lbl">([^<]*)<\/span>/.exec(s);
   for (const key of ['bride', 'groom', 'principal_sponsors', 'bridesmaids']) {
     const s = section(html, key);
-    assert.match(s, new RegExp(`data-mood-board-call-time="${key}"`), `${key} has no Call time row`);
-    assert.equal(fields(s), 1, `${key} draws exactly one time field`);
+    assert.equal((s.match(/data-mood-board-call-time="/g) ?? []).length, 1, `${key} has not exactly one Call time chip`);
+    assert.equal(fields(s), 0, `${key} draws a time field in the row — it belongs in the chip’s sheet`);
   }
-  assert.match(section(html, 'groom'), /type="time"[^>]*value="13:00"/, 'the groom’s stored time (set in the old form) is in his field');
-  assert.match(section(html, 'groom'), /Arrives 1:00 PM/, 'and his header says it');
-  assert.match(section(html, 'bridesmaids'), /type="time"[^>]*value="12:30"/);
-  assert.match(section(html, 'principal_sponsors'), /type="time"[^>]*value=""/, 'no time yet → an empty field, never a guess');
+  const groom = chipOf(section(html, 'groom'));
+  assert.equal(groom?.[1], '13:00', 'the groom’s stored time (set in the old form) is not what his chip holds');
+  assert.equal(groom?.[3], 'Call time 1:00 PM', 'and his chip does not say it');
+  assert.equal(chipOf(section(html, 'bridesmaids'))?.[1], '12:30');
+  const sponsors = chipOf(section(html, 'principal_sponsors'));
+  assert.equal(sponsors?.[1], '', 'no time yet → an empty chip, never a guess');
+  assert.equal(sponsors?.[3], 'Set a call time');
+  assert.doesNotMatch(sponsors?.[2] ?? '', /data-waiting/, 'a row with a Wear cannot open its time');
 
-  /* No Wear picked → no line to keep a time on: the row says what to do first, and draws no field that would save nothing. */
+  /* No Wear picked → no line to keep a time on: the chip waits (grey, still a button) and the row says what to do first. */
   const groomsmen = section(html, 'groomsmen');
-  assert.match(groomsmen, /data-mood-board-call-time="groomsmen"/);
+  assert.match(chipOf(groomsmen)?.[2] ?? '', /aria-disabled="true"[\s\S]*data-waiting=""|data-waiting=""[\s\S]*aria-disabled="true"/, 'the chip of a row with no Wear can be pressed');
   assert.equal(fields(groomsmen), 0);
-  assert.match(groomsmen, /Pick what they wear first/);
+  assert.match(groomsmen, /data-mood-board-call-time-waits="">Pick what they wear first/);
 
   /* The guests' call time is the Schedule's arrival moment (owner 2026-10-19), handed in as `arrival` — never a dress-code
      time. Without the programme handed in, the Guests row draws none (`guests-have-one-arrival-time.test.ts` draws it). */
   const guests = section(html, 'guest');
   assert.doesNotMatch(guests, /data-mood-board-call-time=/, 'the guests’ row draws a dress-code call time');
 
-  /* The dress code could not be read → no field (nothing to write onto), as Wear ▾ is not offered then. */
+  /* The dress code could not be read → no chip (nothing to write onto), as Wear ▾ is not offered then. */
   assert.doesNotMatch(await studio(null), /data-mood-board-call-time=/);
+});
+
+test('3b · the chip’s sheet is the SAME field and Clear, read from the one `timeOf(row)` the chip reads', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CallTimeRow } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio');
+  const draw = (p: Record<string, unknown>) => renderToStaticMarkup(React.createElement(CallTimeRow as React.ComponentType<Record<string, unknown>>, { rowKey: 'groom', label: 'The groom', onSet: () => {}, onDone: () => {}, ...p }));
+  const set = draw({ value: '13:00', canSet: true });
+  assert.match(set, /type="time"[^>]*value="13:00"/, 'the sheet’s field does not hold the stored time');
+  assert.match(set, /aria-label="Clear the call time for The groom"/, 'Clear is not in the sheet');
+  assert.match(set, /data-mood-board-call-time-done=""/, 'the sheet has no Done');
+  assert.match(draw({ value: null, canSet: true }), /type="time"[^>]*value=""/);
+  assert.doesNotMatch(draw({ value: null, canSet: true }), /Clear the call time/, 'Clear offered with nothing to clear');
+  assert.doesNotMatch(draw({ value: null, canSet: false }), /type="time"/, 'a field that would save onto nothing');
+  /* One read for both: the chip and the sheet are handed `timeOf(row)` — never two answers to "what time is it". */
+  const src = readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), 'utf8');
+  assert.match(src, /const time = timeOf\(row\);/, 'the chip does not read timeOf(row)');
+  assert.match(src, /const t = timeOf\(row\);[\s\S]{0,600}<CallTimeRow \{\.\.\.t\} onDone=/, 'the sheet does not read timeOf(row)');
+  assert.match(src, /setSheet\(\{ kind: 'time', row \}\)/, 'the chip does not open the sheet');
 });
 
 /* ── 4 · the old form retires its field and keeps every time ─────────────── */

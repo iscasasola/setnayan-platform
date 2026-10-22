@@ -166,6 +166,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   const asked = [...new Set(page.reads.map((r) => `${r.client} ${r.kind} ${r.name}`))].sort();
   assert.deepEqual(asked, [
     'admin rpc event_basket_orders_granting',
+    // 💎 + the comps that may hold a part (2026-10-22, part by part — `eventHubOwnership` → `eventActiveSkus`).
+    'admin rpc event_comp_active_skus',
     'admin rpc event_has_comp_for_sku',
     'admin rpc event_host_holds_founder_seat',
     'admin rpc event_host_is_internal',

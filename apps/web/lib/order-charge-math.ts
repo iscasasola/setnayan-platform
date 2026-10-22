@@ -79,7 +79,9 @@ export type ChargeSource =
   | 'retail_catalog'
   | 'package_catalog'
   | 'setnayan_ai_event_type'
-  | 'setnayan_ai_comeback';
+  | 'setnayan_ai_comeback'
+  /** 💎 Event Hub Pro, part by part (owner 2026-10-22) — parts at their catalogue sum, or the rest to everything. */
+  | 'hub_parts';
 
 export type ChargeRefusal =
   /** No resolver owns this service_key. A NEW key must fail the sale, never fall
@@ -87,7 +89,9 @@ export type ChargeRefusal =
   | 'no_price_source'
   /** A resolver's read errored. Fail CLOSED: a checkout blocked for thirty
    *  seconds beats an order created at a client-supplied price. */
-  | 'read_error';
+  | 'read_error'
+  /** 💎 The event already holds what this would buy (a part, or everything) — nobody pays twice. */
+  | 'already_owned';
 // (`cycles_required` was removed 2026-08-01 with the per-USER subscription — the
 //  only SKU that took a cycle count. Nothing can emit it any more.)
 
@@ -136,6 +140,8 @@ export function sealServerResolvedTotal(
 /** Human copy for a refusal. Brand voice; never leaks internals to the buyer. */
 export function refusalMessage(refusal: ChargeRefusal): string {
   switch (refusal) {
+    case 'already_owned':
+      return 'Your event already has this — nothing more to pay. Refresh to see it unlocked.';
     case 'read_error':
       return 'We could not confirm the price for this right now. Please try again in a moment.';
     case 'no_price_source':

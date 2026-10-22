@@ -1,24 +1,15 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, Clock, Globe2, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  eventOwnsCoupleWebsitePro,
-  eventCoupleWebsiteProActive,
-} from '@/lib/couple-website-pro';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import { PageMasthead } from '@/app/_components/page-masthead';
-import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
 export const metadata = { title: 'Event Hub PRO' };
@@ -28,7 +19,6 @@ export const metadata = { title: 'Event Hub PRO' };
    hero if the catalog key is ever renamed. */
 const HERO = addOnHeroCopy('website-pro');
 
-const SKU_CODE = 'COUPLE_WEBSITE_PRO';
 
 /**
  * /dashboard/[eventId]/studio/website-pro — the couple-facing buy surface for
@@ -68,32 +58,20 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
  * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
 /**
- * Every line here is a thing a couple WITHOUT this upgrade is refused, checked
- * against the gate that refuses them. Nothing else belongs in this list.
- *   1 → SKU_OWNERSHIP_ALIASES grants STD_PREMIUM_OPENINGS, and the reveal is
- *       sold nowhere else (its own row is off sale, so this is the only door).
- *   2 → website/site-chrome gates the looping music + the video hero.
- *   3 → website/our-photos renders WebsiteProLock without this.
- *   4 → website/colors refuses to persist a colour without this, server-side.
- *   5 → the watermark drops on the Event Hub, the recap, the printable sheet
- *       and the story — four surfaces, all reading this one SKU.
+ * 💎 PART BY PART (owner 2026-10-22, prototype `pro_part_by_part_2026-10-22.html` frame 4): this page is the parts
+ * page. Everything stays one tap at the top; the eleven parts follow, big then small, each with one line of what it
+ * opens and its state on the right — "◆ ₱1,000", "✓ Yours", or "Under review". A row opens in place: the full list of
+ * what that part unlocks (every gate of `HUB_PRO_GATES` that lives there — never a second list) and that part's own
+ * button. Every figure is a catalogue read; the rest to everything is Full Pro less what this event has paid for parts.
+ *
+ * 🔑 THE RULE THAT REPLACED THE OLD BENEFITS LIST is the same rule, made structural: a line may name only something a
+ * buyer of THAT part is actually let through — so the lines ARE the gate table (`lib/hub-parts.ts`).
  */
-const BENEFITS = [
-  'The cinematic reveal on your Save the Date — it comes only with this.',
-  'Background music and a video across the top of your Event Hub.',
-  'Your own photo gallery on your Event Hub — your engagement or pre-wedding photos.',
-  // Colours left this list 2026-09-28 — they are free for every couple now
-  // (owner: "only when you start adding themes will it be pro. adding media
-  // for background"). Media behind a scene or the page is what Pro adds.
-  'Your own photo or video behind any scene, or behind the whole page.',
-  'A Pro theme for your invite link — it opens on your own photo, in your colour.',
-  'The Setnayan mark taken off everywhere your guests see it — the page, the printable version, your story and the recap.',
-];
 
 export default async function WebsiteProBuyPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -102,9 +80,9 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
      untouched. A closed value, never a URL from the request. */
   const search = (await searchParams) ?? {};
   const fromMaker = search.from === 'maker';
-  /* "Unlock Pro and Apply" (owner 2026-09-28): back in the Maker with
-     `?apply=1`, which applies the draft once Pro is active — or reopens the
-     sheet, draft untouched, when it is not (`unlockAndApplyOnReturn`). */
+  /* "Unlock … and Apply" (owner 2026-09-28): back in the Maker with
+     `?apply=1`, which applies the draft once its parts are active — or reopens the
+     sheet, draft untouched, when they are not (`unlockAndApplyOnReturn`). */
   const back = fromMaker
     ? {
         href: `/dashboard/${eventId}/launch${search.then === 'apply' ? `?${UNLOCK_AND_APPLY_PARAM}=1` : ''}`,
@@ -115,115 +93,38 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  // Purchaser-scoped under orders RLS → admin client so a co-host sees the
-  // owned state too.
-  const admin = createAdminClient();
-
-  // active — admin-approved (feature unlocked). owned — owned INCLUDING a
-  // pending 'submitted' order (double-buy prevention). owned && !active ⇒
-  // payment under review.
-  const [active, owned] = await Promise.all([
-    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
-    eventOwnsCoupleWebsitePro(await eventEntitlementClient(eventId), eventId).catch(() => false),
-  ]);
-
+  // Purchaser-scoped under orders RLS → the entitlement client so a co-host sees
+  // the owned state too. active — admin-approved (unlocked). owned — counting a
+  // pending order (double-buy prevention). owned && !active ⇒ under review.
+  const ent = await eventEntitlementClient(eventId);
   const supabase = await createClient();
-  const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? null;
-  const priceCentavos = skuRecord?.price_centavos ?? null;
-  const settings = await fetchPlatformSettings(supabase);
-
+  const [active, owned, prices, settings, vatRatePct] = await Promise.all([
+    eventHubOwnership(ent, eventId, 'active').catch(() => null),
+    eventHubOwnership(ent, eventId, 'owned').catch(() => null),
+    hubPartPrices(createAdminClient()).catch(() => null),
+    fetchPlatformSettings(supabase),
+    getEffectiveVatRatePct(supabase),
+  ]);
+  const view = (o: typeof active) => (o ? { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp } : null);
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  for (const p of HUB_PARTS) {
+    const php = prices?.onSale.has(p.sku) ? prices.parts.get(p.sku) : undefined;
+    if (php !== undefined) partPricePhp[p.id] = php;
+  }
   return (
-    <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
-      <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
-        <ArrowLeft aria-hidden className="h-4 w-4" /> {back.label}
-      </Link>
-
-      {/*
-        The buy state opens with the product's name, its promise and its price;
-        every other state keeps the quiet masthead. `PageMasthead` renders its
-        title `sr-only` — right for a page you live in, wrong for the one state
-        where nothing has been decided yet. ⚠ One h1 per page: either/or.
-      */}
-      {active || owned ? (
-        <PageMasthead title={HERO.label} />
-      ) : (
-        <StudioBuyHero
-          productName={HERO.label}
-          promise={HERO.blurb}
-          price={pricePhp != null ? formatPhp(pricePhp) : undefined}
-          priceNote={pricePhp != null ? 'One upgrade, for the whole Event Hub' : undefined}
-        />
-      )}
-
-      {/* What it covers — benefit language, no implementation names. */}
-      <ul className="sn-tile space-y-2 p-5">
-        {BENEFITS.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-sm text-ink/75">
-            <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" strokeWidth={1.75} />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
-
-      {active ? (
-        /* ── Owned + admin-approved. ── */
-        <div className="rounded-xl border border-success-200 bg-success-50 p-5">
-          <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
-          </p>
-          <p className="text-sm text-ink/70">
-            Event Hub PRO is active. Every premium touch is on across your Event Hub, watermark-free.
-          </p>
-          <Link
-            href={fromMaker ? back.href : WEBSITE_HUB_HREF(eventId)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
-          >
-            Open your Event Hub
-            <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        </div>
-      ) : owned ? (
-        /* ── Pending order (submitted, not yet approved). No second drawer. ── */
-        <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-          <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
-            <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
-          </p>
-          <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Event Hub PRO order. Our team reconciles within one business day —
-            you&rsquo;ll get an email when it moves to approved, and every premium touch unlocks
-            automatically.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/orders`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-600"
-          >
-            Track your order
-          </Link>
-          {fromMaker ? (
-            <Link
-              href={back.href}
-              className="mt-3 ml-4 inline-flex items-center gap-1.5 text-sm font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-600"
-            >
-              {back.label}
-            </Link>
-          ) : null}
-        </div>
-      ) : priceCentavos != null && pricePhp != null ? (
-        /* ── NOT OWNED — the working buy drawer. ── */
-        <InlineCheckoutDrawer
-          serviceKey={SKU_CODE}
-          displayName="Event Hub PRO"
-          originalPriceCentavos={String(priceCentavos)}
-          eventId={eventId}
-          settings={settings}
-          triggerLabel="Unlock Event Hub PRO"
-        />
-      ) : (
-        <p className="text-sm text-ink/65">
-          Pricing loads from your catalog &mdash; please refresh in a moment.
-        </p>
-      )}
-    </section>
+    <ProPartsBody
+      eventId={eventId}
+      title={HERO.label}
+      back={back}
+      fromMaker={fromMaker}
+      hubHref={WEBSITE_HUB_HREF(eventId)}
+      active={view(active)}
+      owned={view(owned)}
+      partPricePhp={partPricePhp}
+      fullPhp={prices?.full ?? null}
+      buy={search.buy}
+      settings={settings}
+      vatRatePct={vatRatePct}
+    />
   );
 }

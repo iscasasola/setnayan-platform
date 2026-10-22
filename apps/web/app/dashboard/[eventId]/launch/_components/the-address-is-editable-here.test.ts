@@ -134,8 +134,11 @@ test('⛔ no landing inside updateEventSlug names a page literally', () => {
 test('⛔ availability is asked ONCE, of the one answer — not re-implemented here', () => {
   const field = src('app', 'dashboard', '[eventId]', 'invitation', '_components', 'slug-field.tsx');
   assert.match(field, /\/api\/slugs\/check\?slug=/, 'the live check goes to the shared endpoint');
+  // 💎 RE-AIMED 2026-10-22: the save and the Maker's Apply share ONE rename (`renameEventSlug`), which asks it.
   const actions = src('app', 'dashboard', '[eventId]', 'invitation', 'actions.ts');
-  assert.match(actions, /findSlugConflict\(admin, requested, \{ eventId \}\)/, 'and the save asks it too');
+  assert.match(actions, /await renameEventSlug\(supabase, eventId, requested, /, 'the save goes through the one rename');
+  const rename = src('lib', 'event-slug-rename.server.ts');
+  assert.match(rename, /findSlugConflict\(admin, requested, \{ eventId \}\)/, 'and the save asks it too');
   // The stage must not grow its own idea of what is free.
   const stage = src('app', 'dashboard', '[eventId]', 'launch', '_components', 'hub-stage.tsx');
   assert.doesNotMatch(stage, /slugs\/check|findSlugConflict|SLUG_FORMAT/, 'a second opinion in the making');

@@ -122,7 +122,15 @@ export async function loadYourEvent({
       ...base,
       slot,
       booked: b
-        ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]), pin: pinOf(b.latitude, b.longitude) }
+        ? {
+            name: b.name,
+            address: b.address,
+            photos: (b.photos ?? []).filter((r) => photoUrls[r]),
+            pin: pinOf(b.latitude, b.longitude),
+            /* 📍 Whose pin this is, and the booking a manual card's pin is saved through (owner 2026-10-22). */
+            pinFrom: b.pinFrom ?? null,
+            vendorId: b.vendorId ?? null,
+          }
         : null,
       choice,
       photoUrls,

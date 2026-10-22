@@ -684,3 +684,44 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }
+
+// ============================================================================
+// saveManualVenuePin (2026-10-22) — a manual venue's pin, from Studio › Info,
+// the Suppliers place sheet and Details › Venues.
+//
+// Owner, 2026-10-22: *"manual entry venues can set pin"* · *"manual is the
+// manual added suppliers."* ONE VALUE, TWO DOORS: the pin of a supplier the
+// couple added by hand lives on its contact card, and the card's own writer
+// (`saveSelfAddedServiceCard`, above) is the ONLY thing that writes it — this is
+// that writer with the address and the pin posted, answering in words instead
+// of throwing (an editor saving as you type has no form to throw at). The
+// writer still refuses a booking linked to a Setnayan shop ("their address …
+// come from their own listing"): a shop's pin is the shop's (`lib/venue-pin-door.ts`).
+// ============================================================================
+
+export type ManualVenuePinResult = { ok: true } | { ok: false; error: string };
+
+export async function saveManualVenuePin(input: {
+  eventId: string;
+  vendorId: string;
+  address: string;
+  pin: { lat: number; lng: number } | null;
+}): Promise<ManualVenuePinResult> {
+  const fd = new FormData();
+  fd.set('event_id', input.eventId);
+  fd.set('vendor_id', input.vendorId);
+  fd.set('address', input.address);
+  if (input.pin) {
+    fd.set('address_latitude', String(input.pin.lat));
+    fd.set('address_longitude', String(input.pin.lng));
+  }
+  try {
+    await saveSelfAddedServiceCard(fd);
+  } catch (e) {
+    /* `redirect('/login')` is thrown, not returned — let it through. */
+    if (e && typeof e === 'object' && 'digest' in e && String((e as { digest?: unknown }).digest).startsWith('NEXT_REDIRECT')) throw e;
+    const msg = e instanceof Error ? e.message : '';
+    return { ok: false, error: msg || 'That did not save. Nothing changed — please try again.' };
+  }
+  return { ok: true };
+}

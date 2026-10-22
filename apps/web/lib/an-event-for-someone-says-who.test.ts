@@ -19,11 +19,12 @@ import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
-import { readEventSubjects, cardShowsForTag } from '@/lib/event-subjects';
-import { forTagWords } from '@/lib/for-tag';
+import { readEventSubjects } from '@/lib/event-subjects';
+import { cardShowsForTag, forTagWords } from '@/lib/for-tag';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 import { HomeCoverBand } from '@/app/dashboard/[eventId]/_components/home-cover-band';
+import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -131,11 +132,22 @@ test('3b · the mark: a shop wears its logo, a loved one their initials', () => 
 });
 
 test('4 · the board card stays at two chips — the tag lives in the stance slot, on a Planning poster', () => {
+  const tag = { name: 'SetnaProd', markUrl: 'https://x/l.png' };
+  const chip = (stance: 'organiser' | 'helper' | 'invited', forTag: typeof tag | null) =>
+    renderToStaticMarkup(React.createElement(StanceChip, { stance, forTag }));
+  const organiser = chip('organiser', tag);
+  assert.match(organiser, /data-for-tag=""/);
+  assert.match(organiser, /data-for-mark="logo"/);
+  assert.match(organiser, />For SetnaProd<\/span>$/);
+  assert.doesNotMatch(organiser, /You organise this/, 'the For tag sits BESIDE the stance — three chips on a 165 px card');
+  assert.match(chip('organiser', null), /You organise this/);
+  assert.match(chip('helper', tag), /You help with this/);
+  assert.doesNotMatch(chip('helper', tag), /SetnaProd/, "a helper's card was named");
+  assert.doesNotMatch(chip('invited', tag), /SetnaProd/, "a guest's card was named");
+
   const page = stripComments(readFileSync('app/dashboard/(launcher)/page.tsx', 'utf8'));
-  const chip = page.slice(page.indexOf('function StanceChip('), page.indexOf('async function GlassEventCard('));
-  assert.ok(chip.length > 0 && /<ForTagMark tag=\{forTag\} place="chip" \/>/.test(chip), 'StanceChip no longer draws the For mark');
-  assert.equal(page.match(/<ForTagMark\b/g)?.length ?? 0, 1, 'the For mark is drawn outside the stance slot — a third chip');
-  const kickers = page.match(/kicker=\{[^\n]*\n?/g) ?? [];
+  assert.equal(page.match(/<ForTagMark\b/g)?.length ?? 0, 0, 'the For mark is drawn outside the stance slot — a third chip');
+  const kickers = page.match(/kicker=\{[^\n]*/g) ?? [];
   assert.equal(kickers.length, 1);
   assert.match(kickers[0]!, /^kicker=\{stance \? \[badge, <StanceChip stance=\{stance\} forTag=\{tagged\} key="stance" \/>\] : \[badge\]\}/);
   assert.match(page, /const tagged = poster && forTag && cardShowsForTag\(stance, forTag\) \? forTag : null;/, 'the tag is no longer limited to an organiser poster card');

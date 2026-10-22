@@ -15,3 +15,19 @@ export type ForTag = {
 export function forTagWords(name: string): string {
   return `For ${name.trim()}`;
 }
+
+/**
+ * Does THIS card's stance slot say "For <name>" instead of its stance?
+ *
+ * Only an ORGANISER's card, and only with a subject in hand. A helper's or a
+ * guest's card keeps "You help with this" / "You're invited" — for them the
+ * subject never resolves anyway (it is not their record), and this says so a
+ * second time, so a widened read can never put a name on somebody else's card.
+ * Holding the subject means you organise it, so the replaced chip loses nothing.
+ */
+export function cardShowsForTag(
+  stance: 'organiser' | 'invited' | 'helper' | null | undefined,
+  subject: { name: string } | null | undefined,
+): boolean {
+  return stance === 'organiser' && !!subject && subject.name.trim().length > 0;
+}

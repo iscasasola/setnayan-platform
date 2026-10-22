@@ -105,7 +105,7 @@ export function PageCard({
             </span>
           )}
           {pro ? (
-            <span data-page-card-pro={pro.owned ? 'owned' : 'parts'} className={`mt-0.5 block text-[12px] leading-snug ${pro.owned ? 'text-terracotta-700' : 'text-ink/55'}`}>
+            <span data-page-card-pro={pro.owned ? 'owned' : 'parts'} className="mt-0.5 block text-[12px] leading-snug text-ink/55">
               {pro.owned ? '✓' : '◆'} {pro.words}
             </span>
           ) : null}

@@ -359,7 +359,7 @@ export function AddressField({
             <span className="flex-1 text-[15px] font-semibold text-ink">{renamed || owns ? 'Change it' : 'Pick your own'}</span>
             {owns ? null : price ? (
               <span className="inline-flex items-center gap-1.5 font-mono text-sm text-ink/70">
-                <PaidMark state="try" bare label="Event Hub Pro" size="xs" /> {price}
+                <PaidMark state="try" bare label="Custom address" size="xs" /> {price}
               </span>
             ) : null}
             <span aria-hidden className={`text-ink/45 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>

@@ -202,7 +202,8 @@ test('the PERSON rename asks the shared question, and acts on the answer', () =>
 });
 
 test('the WEDDING rename proves a row actually changed', () => {
-  const src = code('app/dashboard/[eventId]/invitation/actions.ts');
+  // RE-AIMED 2026-10-22: the rename's update lives in the ONE rename (`lib/event-slug-rename.server.ts`).
+  const src = code('lib/event-slug-rename.server.ts');
   assert.match(
     src,
     /\.update\(\{\s*slug: requested[\s\S]{0,200}?\.select\(/,

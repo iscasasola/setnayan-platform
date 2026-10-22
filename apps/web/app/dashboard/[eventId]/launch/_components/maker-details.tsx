@@ -502,7 +502,7 @@ export function detailsFactEditors(input: {
 }
 
 export function MakerDetails(props: MakerDetailsProps) {
-  const { eventId, slug, slugAction, address, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
+  const { eventId, slug, slugAction, address: addressPart, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
   const seatPlan = props.seatPlan ?? null;
@@ -957,9 +957,9 @@ export function MakerDetails(props: MakerDetailsProps) {
        availability, old links forward. ── */
     address: (
       <section data-details-address="" className="flex flex-col gap-2">
-        {address && slug ? (
+        {addressPart && slug ? (
           /* 💎 Owner 2026-10-22: the free address is shown; "Pick your own ◆" is tried in the draft, paid at ✓ Apply. */
-          <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...address} />
+          <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
         ) : (
           <>
             <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />

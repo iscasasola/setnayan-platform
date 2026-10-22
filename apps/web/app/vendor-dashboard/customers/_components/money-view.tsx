@@ -6,7 +6,7 @@ import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { DueFeeBill, FeeDisclosure, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
-import { MONEY_WINDOW_LABEL, MONEY_WINDOWS, type MoneyRow, type MoneyTotals, type MoneyWindow, type MoneyYear } from '@/lib/vendor-money';
+import { MONEY_WINDOW_LABEL, MONEY_WINDOWS, moneyTopLine, type MoneyRow, type MoneyTotals, type MoneyWindow, type MoneyYear } from '@/lib/vendor-money';
 import type { Paged } from '@/lib/paginate';
 import { ListPager } from '../../_components/list-pager';
 import { CustomersPick } from './customers-pick';
@@ -96,7 +96,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                 <PesoCount value={totals.toComePhp} id="money-to-come" className="block text-[22px] font-semibold leading-tight text-ink" />
               </div>
             </div>
-            {totals.pct !== null ? (
+            {moneyTopLine(totals) === 'meter' && totals.pct !== null ? (
               <div className="mt-3" data-money-meter="">
                 <div className="h-2 overflow-hidden rounded-full bg-ink/10">
                   <MoneyFill value={totals.pct} id="money-received-of-booked" />
@@ -107,6 +107,11 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                   {totals.unresolved > 0 ? ` · ${formatCount(totals.unresolved)} with no amount set` : ''}
                 </p>
               </div>
+            ) : moneyTopLine(totals) === 'unset' ? (
+              <p className="mt-2 text-[13px] text-ink/60" data-money-unset="">
+                {formatCount(totals.unresolved)} {totals.unresolved === 1 ? 'payment has' : 'payments have'} no amount set
+                yet, so {totals.unresolved === 1 ? 'it is' : 'they are'} not counted above.
+              </p>
             ) : (
               <p className="mt-2 text-[13px] text-ink/60" data-money-none="">
                 No payment plans yet — a couple&rsquo;s plan shows here once they book you.

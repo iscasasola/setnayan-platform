@@ -30,14 +30,11 @@ import {
   type ParkedAccount,
 } from '@/lib/account-jars';
 import { performSwitch, type SwitchDeps } from '@/lib/account-switch';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ICE = '11111111-1111-4111-8111-111111111111';
 const CLAIRE = '22222222-2222-4222-8222-222222222222';

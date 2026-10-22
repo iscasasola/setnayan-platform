@@ -23,6 +23,7 @@
  *   /dev/bar-lab/dashboard/ev-lab        an event (Home)
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
+ *   ?before=1 Discover as `main` drew it before 2026-10-22: signed in, no bar
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -80,7 +81,7 @@ export default async function BarLab({
   if (where === '') {
     return (
       <>
-        <FrontDoorShell account={ACCOUNT} navLabels={{}}>
+        <FrontDoorShell account={ACCOUNT} navLabels={{}} tools={[]}>
           <div
             data-fd-page=""
             className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
@@ -88,7 +89,7 @@ export default async function BarLab({
             <Cards title="Discover" links={[toEvent]} />
           </div>
         </FrontDoorShell>
-        {accountBar}
+        {sp.before === '1' ? null : accountBar}
       </>
     );
   }

@@ -38,7 +38,7 @@ import { barSlideFor } from '@/lib/bar-set';
  */
 
 type VTDocument = Document & {
-  startViewTransition?: (cb: () => unknown) => { finished: Promise<unknown> };
+  startViewTransition?: (cb: () => unknown) => { finished: Promise<unknown>; skipTransition: () => void };
 };
 
 /* Module-level, not component state: the dock that started the slide belongs to
@@ -77,14 +77,29 @@ export function BarSetSlide() {
       root.dataset.snNavDir = dir;
       root.dataset.snBarDir = dir;
       const dest = url.pathname + url.search + url.hash;
+      // The bar's tabs, as addresses — a set change is exactly a change of these.
+      const tabs = () =>
+        Array.from(doc.querySelectorAll('[data-bottom-dock] nav a'), (x) => x.getAttribute('href')).join(' ');
+      const before = tabs();
       const vt = doc.startViewTransition!(() => {
         router.push(dest);
-        // Hold the old frame until the new route has committed (its address is
-        // in the bar) — never longer than ~600 ms, the controller's own valve.
+        // Hold the old frame until the NEW BAR is in the page (its address and
+        // its tabs) — a snapshot taken any earlier is the old page sliding in
+        // again. Never longer than 1.2 s: a route that slow (not prefetched, a
+        // slow network) is NOT faked with a slide of the old page — the
+        // transition is skipped and the page swaps when it arrives, as a plain
+        // link would (measured in the lab, 2026-10-22: an unprefetched dev
+        // navigation commits in 1.5–2.3 s).
         return new Promise<void>((done) => {
           const t0 = Date.now();
-          const wait = () =>
-            location.pathname === url.pathname || Date.now() - t0 > 600 ? done() : setTimeout(wait, 16);
+          const wait = () => {
+            if (location.pathname === url.pathname && tabs() !== before) return done();
+            if (Date.now() - t0 > 1200) {
+              vt.skipTransition();
+              return done();
+            }
+            setTimeout(wait, 16);
+          };
           wait();
         });
       });

@@ -21,8 +21,8 @@
  * `rounded-2xl`) so the outside shape is literally the house's.
  *
  * ── THE PROPERTY ────────────────────────────────────────────────────────────
- *   1. Every `--hr-*` token a rule under `.home-reskin-ov` reads is declared on `.home-reskin-ov` itself — and the
- *      same for `.home-reskin`. (Radius, colour, font: an undeclared token is the same silent failure whatever it
+ *   1. Every `--hr-*` token a rule under `.home-reskin-ov` reads is declared under `.home-reskin-ov` (on the root or a
+ *      container inside it) — never only under `.home-reskin` — and the same the other way round. (Radius, colour, font: an undeclared token is the same silent failure whatever it
  *      holds.)
  *   2. Every `--hr-*` token a component reads inline is declared on BOTH roots — a component cannot know which one
  *      it renders in.
@@ -72,11 +72,13 @@ function rootOf(part: string): Root | null {
   return null;
 }
 
-/** Tokens declared on a rule whose selector list names the root ALONE (`.home-reskin-ov`, not `.home-reskin-ov .x`). */
+/** Tokens declared on the root itself OR on a container inside it (the footer declares its own two inks on
+ *  `.home-reskin footer.hr-footer`). What it can never count is a declaration under the OTHER root — which is exactly
+ *  the defect: the radius scale lived on `.home-reskin` and was read under `.home-reskin-ov`. */
 function declaredOn(root: Root): Set<string> {
   const out = new Set<string>();
   for (const { sel, body } of ALL) {
-    if (!sel.split(',').some((p) => p.trim() === root)) continue;
+    if (!sel.split(',').some((p) => rootOf(p.trim()) === root)) continue;
     for (const d of body.matchAll(/(--hr-[\w-]+)\s*:/g)) out.add(d[1]!);
   }
   return out;

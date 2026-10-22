@@ -1,12 +1,11 @@
 /**
  * lib/bottom-chrome.ts — WHAT COUNTS AS A ROUTE'S OWN BOTTOM BAR, AND HOW FAR A BANNER LIFTS TO CLEAR IT.
  *
- * The geometry half of the cookie banner's `measureRouteBottomChrome`
- * (`app/_components/cookie-consent-banner.tsx`): that function goes looking for
- * every `fixed` / `sticky` element on the page; this decides, from their boxes
- * alone, which of them really are bars anchored to the bottom edge and how tall
- * the stack is. Split out (2026-10-11) so the rule is EXECUTED by a test — a
- * banner that lands on a bar is a geometry fault, and a regex cannot measure one.
+ * Given every `fixed` / `sticky` element's box, this decides which of them
+ * really are bars anchored to the bottom edge and how tall the stack is. Split
+ * out (2026-10-11) for the cookie banner — removed 2026-10-22 with optional
+ * analytics — so the rule is EXECUTED by a test (`bottom-chrome-lift.test.ts`);
+ * `lib/reveal-above-chrome.ts` reads it today.
  *
  * Pure. No DOM.
  */

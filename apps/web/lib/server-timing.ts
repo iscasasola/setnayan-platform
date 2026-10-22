@@ -10,7 +10,7 @@
  *
  * On Vercel that stdout flows through the Log Drain → Better Stack (iteration
  * 0035), where you can chart total_ms + per-phase ms by route over time — the
- * server-side complement to the PostHog Web-Vitals RUM (which sees client TTFB
+ * server-side complement to client-side Web-Vitals RUM (which sees client TTFB
  * but not WHICH loader was slow).
  *
  * Contract: instrumentation must NEVER change behavior. `track()` measures in a

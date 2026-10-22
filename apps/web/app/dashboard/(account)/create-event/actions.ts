@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -524,25 +523,6 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=create_failed');
   }
 
-  // Funnel event. Fire-and-forget; never block the redirect to the new
-  // event dashboard.
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: insertedEvent.event_id,
-        event_type,
-        concierge_choice: choice,
-        ceremony_type,
-        venue_setting,
-        is_mixed_ceremony,
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
-  }
-
   /* Retired 2026-05-28 V2 cutover */
   // V1 had two extra redirect branches here: 'trial' invoked
   // startConciergeTrial server-side and routed to the dashboard with a
@@ -719,20 +699,6 @@ export async function planNextYearEvent(formData: FormData) {
     return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: inserted.event_id,
-        event_type: source.event_type,
-        via: 'plan_next_year',
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
-  }
-
   return redirect(`/dashboard/${inserted.event_id}`);
 }
 
@@ -774,18 +740,6 @@ export async function notifyWhenWeddingTypeLaunches(
   if (error) {
     console.error('[create-event] notify signup failed:', error);
     return { ok: false, reason: error.message };
-  }
-
-  // Funnel signal — recruitment uses this to prioritize vendor sourcing by
-  // faith × region demand. Fire-and-forget per the existing pattern.
-  try {
-    await captureEvent({
-      distinctId: user?.id ?? email,
-      event: 'wedding_type_notify_signup',
-      properties: { ceremony_type: ceremony, region: region ?? undefined },
-    });
-  } catch {
-    // analytics never breaks user-facing flow
   }
 
   return { ok: true };

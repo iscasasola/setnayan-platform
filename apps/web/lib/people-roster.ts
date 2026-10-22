@@ -122,6 +122,14 @@ export type RosterPerson = {
   samahan: string[];
   /** Only the person who made the claim may label it. */
   canLabel: boolean;
+  /**
+   * The handle `/dashboard/people?person=` opens this card by (owner 2026-10-22: a person result in the
+   * shell's search opens their card here). Their ACCOUNT's `users.public_id` (S89U-…) when somebody claims
+   * the person — the same handle the People search already gives the browser — else the person node's own
+   * `people.public_id` (S89P-…). Never a `user_id`. Connection rows only; NULL/absent = not read (the link
+   * then opens the list, never a guess).
+   */
+  publicId?: string | null;
 };
 
 export type PeopleRoster = {
@@ -269,17 +277,41 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   // to people I am already connected to; nothing about them is returned to the
   // browser beyond what the roster renders.
   const userIdByPerson = new Map<string, string>();
+  // The card's handle (see `RosterPerson.publicId`) — public ids only, read beside the accounts.
+  const publicIdByPerson = new Map<string, string>();
   if (personIdsToResolve.length > 0) {
     try {
       const admin = createAdminClient();
       const { data, error } = await admin
         .from('people')
-        .select('person_id, claimed_by_user_id')
-        .in('person_id', [...new Set(personIdsToResolve)])
-        .not('claimed_by_user_id', 'is', null);
+        .select('person_id, claimed_by_user_id, public_id')
+        .in('person_id', [...new Set(personIdsToResolve)]);
       if (error) logQueryError('getPeopleRoster.accounts', error, {}, 'graceful_degrade');
-      for (const r of (data ?? []) as Array<{ person_id: string; claimed_by_user_id: string }>) {
-        userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+      for (const r of (data ?? []) as Array<{
+        person_id: string;
+        claimed_by_user_id: string | null;
+        public_id: string | null;
+      }>) {
+        if (r.claimed_by_user_id) userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+        if (r.public_id) publicIdByPerson.set(r.person_id, r.public_id);
+      }
+      const claimed = [...new Set(userIdByPerson.values())];
+      if (claimed.length > 0) {
+        const { data: accounts, error: accountsError } = await admin
+          .from('users')
+          .select('user_id, public_id')
+          .in('user_id', claimed);
+        if (accountsError) logQueryError('getPeopleRoster.accountIds', accountsError, {}, 'graceful_degrade');
+        const accountId = new Map(
+          ((accounts ?? []) as Array<{ user_id: string; public_id: string | null }>).map((a) => [a.user_id, a.public_id]),
+        );
+        for (const [personId, uid] of userIdByPerson) {
+          const pub = accountId.get(uid);
+          // A claimed person is opened by their ACCOUNT's id; unread, the node's own id is dropped too —
+          // two handles for one person would let one link open and the other miss.
+          if (pub) publicIdByPerson.set(personId, pub);
+          else publicIdByPerson.delete(personId);
+        }
       }
     } catch {
       // An admin client that cannot be built must not empty the roster.
@@ -400,6 +432,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       fromEvent: state === 'waiting_you' ? (eventByConnection.get(r.connection_id) ?? null) : null,
       samahan: (otherUser && samahanByUser.get(otherUser)) || [],
       canLabel: iDeclared,
+      publicId: publicIdByPerson.get(otherId) ?? null,
     });
   }
 

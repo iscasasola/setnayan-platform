@@ -249,7 +249,7 @@ export function VisitsView({ stats, range }: { stats: VisitStats; range: GrowthR
         </h2>
         <ConsoleTable
           label="Top pages"
-          reads="the visits"
+          reads="visits"
           rows={summary ? summary.pages : null}
         readError={summary ? null : { message: 'site_visit_summary read refused (see the earlier log line)' }}
           rowKey={(p) => p.path}

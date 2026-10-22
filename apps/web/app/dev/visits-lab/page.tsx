@@ -30,9 +30,9 @@ export default async function VisitsLabPage({
   const demo = buildDemoVisitStats(days, LAB_UNTIL);
   const stats: VisitStats =
     s === 'unread'
-      ? { ...demo, summary: null, signUps: null, paidOrders: null }
+      ? { ...demo, demo: false, summary: null, signUps: null, paidOrders: null }
       : s === 'funnel'
-        ? { ...demo, signUps: null }
+        ? { ...demo, demo: false, signUps: null }
         : s === 'empty'
           ? {
               ...demo,

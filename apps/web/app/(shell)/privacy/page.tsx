@@ -57,7 +57,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-09-15 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-10-22 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -155,12 +155,13 @@ export default function PrivacyPage() {
               the reference you typed — see below)
             </li>
             <li>
-              Product analytics — page views, button clicks, funnel events (via
-              PostHog), <strong>only if you allow analytics</strong> in the
-              cookie banner. These events are keyed to your account id, so they
-              are linked to you and are <strong>not anonymous</strong>. Decline
-              analytics and nothing is captured, from your browser or from our
-              servers.
+              <strong>No product analytics.</strong> We do not run an analytics
+              service or set analytics cookies — Setnayan uses essential cookies
+              only (see our{' '}
+              <Link href="/cookies" className="text-terracotta hover:underline">
+                cookie policy
+              </Link>
+              , which lists each one).
             </li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>
@@ -1655,8 +1656,7 @@ export default function PrivacyPage() {
               connection is not possible — transit only, nothing stored)
             </li>
             <li>Resend (transactional email)</li>
-            <li>Sentry (server-side error monitoring · stack traces only)</li>
-            <li>PostHog Cloud (product analytics)</li>
+            <li>Sentry (error monitoring · stack traces, and a masked screen replay when something breaks · sets no cookies)</li>
             <li>
               OpenAI (content moderation · United States · never trained on your
               data) — when an event editorial or a guest-written column is

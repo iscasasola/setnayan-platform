@@ -3,16 +3,16 @@
 Batch B2 of `prototypes/dark_mode_rollout_2026-10-22.html`, stacked on B1 (the shell). With the ready-list
 non-empty the Appearance pill (Light · Dark) shows in Preferences by itself (`appearanceSwitchShown`).
 
-- `DARK_READY` = `/dashboard/people · library · life-flash · year · profile · notifications · create-event ·
-  samahan`, `/login`, `/signup`, `/forgot-password`, `/reset-password`. Not `/dashboard` — it covers the whole
-  event tree and opens with B3 (one prefix rule, no exception list). `lib/appearance.test.ts` (c) pins which
+- `DARK_READY` = `/dashboard/people · library · life-flash · profile · notifications · create-event · samahan`, `/login`, `/signup`, `/forgot-password`, `/reset-password`. Not `/dashboard` — it covers the whole
+  event tree and opens with B3 (one prefix rule, no exception list); not `/dashboard/year`, a redirect to
+  `/dashboard`. Every listed route was walked signed in at 375 px, light and dark, against a local fake backend. `lib/appearance.test.ts` (c) pins which
   paths may and may not paint dark (sabotage: `/dashboard` on the list → red).
 - The sign-in card's ✕: a #fff disc with the card's ink, which is near-white in dark — the disc takes the card
   #232019 and the × the ink. The You card's @name verdict (inline #2F6B35 / #8A3418, ~2:1 on the dark card)
   and the Google address door (`bg-white` under ink) get dark pairs.
 - The seven home-reskin dark pairs, and the create-event / samahan pairs (white on terracotta → the page
   colour in dark; ink on white → the raised card). Every other light card on these routes (`bg-white`,
-  `bg-white/40–60`, `hover:bg-white/70`) gains `dark:bg-raised`; `text-red-700` gains its dark tone; the create-event photo scrim and the Life-Flash play tile (both read `ink`, which turns near-white) stay dark.
+  `bg-white/40–60`, `hover:bg-white/70`) gains `dark:bg-raised`; `text-red-700` gains its dark tone; the create-event photo scrim, the Memories lens notes (`lens-body.tsx`) and the Life-Flash play tile stay dark (each read `ink` or a white wash, which go light in dark).
   Dark-contrast baseline 287 → 272 (removals only). Light: every change is a `dark:` class or an
   `html.dark` rule, so light does not move.
 

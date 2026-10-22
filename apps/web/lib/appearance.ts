@@ -59,10 +59,11 @@ export const DARK_READY: readonly string[] = [
   // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
   // the one holding the switch (/dashboard/profile), so a pick changes the screen it was made on. NOT
   // "/dashboard" itself: that prefix covers the whole event tree, which opens as one with B3 (no exception list).
+  // Not "/dashboard/year" either: it is a redirect to "/dashboard#worth-planning" and paints nothing of its own.
+  // Every route below was walked signed in, at 375 px, light and dark, before it was listed (2026-10-23).
   '/dashboard/people',
   '/dashboard/library',
   '/dashboard/life-flash',
-  '/dashboard/year',
   '/dashboard/profile',
   '/dashboard/notifications',
   '/dashboard/create-event',

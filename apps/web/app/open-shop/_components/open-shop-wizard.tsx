@@ -8,6 +8,7 @@ import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
   isValidOpenShopEmail,
+  LOGO_LATER,
 } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
@@ -530,7 +531,7 @@ export function OpenShopWizard({
                   <span className="ml-1 text-terracotta">*</span>
                 ) : (
                   <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    optional
+                    · {LOGO_LATER.label}
                   </span>
                 )}
               </span>
@@ -568,7 +569,7 @@ export function OpenShopWizard({
                   fields, and the profile must be complete before documents can
                   be submitted. */}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Needed before your shop is approved — add it now or later.
+                {LOGO_LATER.hint}
               </span>
             </div>
             <label className="block space-y-1">

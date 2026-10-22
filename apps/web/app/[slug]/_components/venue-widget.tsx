@@ -1,10 +1,11 @@
 import type { CSSProperties } from 'react';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 import type { ScheduleBlockRow } from '@/lib/print-pieces';
-import { DirectionsMenu, ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
+import { ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)

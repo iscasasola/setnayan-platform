@@ -120,7 +120,7 @@ import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
-import { NavLinksRow } from '@/app/_components/nav-links';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
@@ -2534,7 +2534,7 @@ export async function renderVendorBySlug({
               </div>
             ) : null}
             {/* Visual map (2026-06-28). The picture-of-the-map above the
-                directions chips — OSM embed with a marker pin, key-free.
+                Directions dropdown — OSM embed with a marker pin, key-free.
                 Renders only when coordinates exist; label uses location_city
                 so a hidden vendor's business name never leaks. */}
             <VendorLocationMap
@@ -2542,14 +2542,16 @@ export async function renderVendorBySlug({
               longitude={vendor.hq_longitude}
               label={vendor.location_city ?? null}
             />
-            {/* Nav deep-links (2026-05-21). Renders Google Maps · Waze ·
-                Apple Maps when the vendor has hq_lat/lng. Falls back to
-                a single Google Maps text-search when only the address
-                is set. Hidden entirely when neither exists. */}
-            <NavLinksRow
+            {/* Nav deep-links (2026-05-21). Google Maps · Waze · Apple Maps
+                when the vendor has hq_lat/lng — ONE "Directions ▾" dropdown
+                since 2026-10-22, the Event Hub's own `DirectionsMenu` (three
+                chips before; "any set of choices is a dropdown"). Falls back
+                to a single Google Maps text-search when only the address is
+                set. Hidden entirely when neither exists. */}
+            <DirectionsMenu
               latitude={vendor.hq_latitude}
               longitude={vendor.hq_longitude}
-              addressFallback={vendor.hq_address ?? vendor.location_city ?? null}
+              query={vendor.hq_address ?? vendor.location_city ?? null}
             />
             {/* Other locations (2026-08-29). The shop's paid, live branches —
                 name and city only. The map above stays the headquarters pin:

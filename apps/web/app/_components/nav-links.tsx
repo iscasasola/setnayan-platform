@@ -1,133 +1,64 @@
-import { Navigation, MapPin } from 'lucide-react';
-import {
-  appleMapsUrl,
-  googleMapsNavUrl,
-  googleMapsSearchByQuery,
-  wazeNavUrl,
-} from '@/lib/geo';
+import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } from '@/lib/geo';
+import { venueSearchQuery, type EventVenue } from '@/lib/event-venues';
 
-type Props = {
-  /** Latitude in decimal degrees. NULL = fall back to addressFallback. */
-  latitude: number | null;
-  /** Longitude in decimal degrees. NULL = fall back to addressFallback. */
-  longitude: number | null;
-  /**
-   * Free-text address fallback for surfaces that have not been geocoded
-   * yet. When latitude/longitude are NULL we still render a single
-   * "Open in Google Maps" link that runs a text search. Pass `null` to
-   * suppress the row entirely when there's nothing to point at.
-   */
-  addressFallback?: string | null;
-  /** Optional eyebrow label (e.g. "Get directions"). Hidden when empty. */
-  label?: string;
-  /** Compact variant — smaller chips for cramped contexts. */
-  compact?: boolean;
+/** A place to send a guest: a pin when there is one, and the words to search for when there is not. */
+type Place = {
+  /** Latitude in decimal degrees. NULL = fall back to `query`. */
+  latitude: number | null | undefined;
+  /** Longitude in decimal degrees. NULL = fall back to `query`. */
+  longitude: number | null | undefined;
+  /** Free-text search (a name, an address, a city) for a place with no pin. NULL with no pin → nothing is drawn. */
+  query: string | null | undefined;
 };
 
 /**
- * Shared map / nav deep-link row. Renders three icon chips for Google Maps,
- * Waze, and Apple Maps when coordinates are available; falls back to a
- * single Google Maps text-search link when only a free-text address is
- * supplied. Pure server component — every link is just an `<a>` with
- * `target="_blank" rel="noreferrer"`.
+ * DIRECTIONS ▾ — THE ONE WAY ANY SURFACE OFFERS THE MAP APPS (owner, standing: *"any set of choices is a
+ * dropdown"*). Google Maps · Waze · Apple Maps are ONE dropdown, never three buttons side by side.
+ *
+ * It began as the venue journey card's own note (`venue-styles.tsx`); #6751 (2026-10-21) put it on every venue
+ * card, and on 2026-10-22 it moved here, where the three-chip `NavLinksRow` used to live, so The Day's directions
+ * card (`day-directions.tsx`), the Live hub's Directions panel (`hub/page.tsx`) and a supplier's public profile
+ * (`v/[slug]/page.tsx`) mount the SAME component as the venue cards. `NavLinksRow` is gone — there is no second
+ * way to draw the map apps. Held by `app/[slug]/every-hub-press-is-44px.test.ts`.
+ *
+ * A native `<details>`: no JavaScript on the guest page. The summary and every row are 44 px presses. With no pin,
+ * the one honest link is a Google Maps search for the place; with neither, nothing at all.
  */
-export function NavLinksRow({
-  latitude,
-  longitude,
-  addressFallback,
-  label = 'Get directions',
-  compact = false,
-}: Props) {
-  const hasCoords =
-    latitude !== null &&
-    longitude !== null &&
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude);
-
-  if (!hasCoords && !addressFallback?.trim()) return null;
-
-  // 👆 EVERY CHIP IS A 44 PX PRESS (house floor; the 2026-10-21 Hub button walk measured the compact chips at 26 px
-  // tall on the Invitation's and The Day's venue cards — a thumb aimed at Waze landed on Apple Maps). The chip keeps
-  // its own words and border; only its height is floored. Held by `every-hub-press-is-44px.test.ts`.
-  const chipBase = compact
-    ? 'inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta'
-    : 'inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-sm font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta';
-
-  if (!hasCoords) {
-    // Text-search fallback — single Google Maps chip.
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        {label ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/80">
-            {label}
-          </p>
-        ) : null}
-        <a
-          href={googleMapsSearchByQuery(addressFallback!.trim())}
-          target="_blank"
-          rel="noreferrer"
-          className={chipBase}
-        >
-          <MapPin
-            aria-hidden
-            className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-            strokeWidth={1.75}
-          />
-          Google Maps
-        </a>
-      </div>
-    );
-  }
-
+export function DirectionsMenu(props: { venue: EventVenue } | Place) {
+  const place: Place =
+    'venue' in props
+      ? { latitude: props.venue.latitude, longitude: props.venue.longitude, query: venueSearchQuery(props.venue) }
+      : props;
+  const { latitude: lat, longitude: lng } = place;
+  const query = place.query?.trim();
+  const apps =
+    lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)
+      ? [
+          { name: 'Google Maps', href: googleMapsNavUrl(lat, lng) },
+          { name: 'Waze', href: wazeNavUrl(lat, lng) },
+          { name: 'Apple Maps', href: appleMapsUrl(lat, lng) },
+        ]
+      : query
+        ? [{ name: 'Google Maps', href: googleMapsSearchByQuery(query) }]
+        : [];
+  if (apps.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {label ? (
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/80">
-          {label}
-        </p>
-      ) : null}
-      <a
-        href={googleMapsNavUrl(latitude!, longitude!)}
-        target="_blank"
-        rel="noreferrer"
-        title="Open in Google Maps"
-        className={chipBase}
-      >
-        <MapPin
-          aria-hidden
-          className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-          strokeWidth={1.75}
-        />
-        Google Maps
-      </a>
-      <a
-        href={wazeNavUrl(latitude!, longitude!)}
-        target="_blank"
-        rel="noreferrer"
-        title="Open in Waze"
-        className={chipBase}
-      >
-        <Navigation
-          aria-hidden
-          className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-          strokeWidth={1.75}
-        />
-        Waze
-      </a>
-      <a
-        href={appleMapsUrl(latitude!, longitude!)}
-        target="_blank"
-        rel="noreferrer"
-        title="Open in Apple Maps"
-        className={chipBase}
-      >
-        <MapPin
-          aria-hidden
-          className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-          strokeWidth={1.75}
-        />
-        Apple Maps
-      </a>
-    </div>
+    <details className="group mt-2" data-venue-directions="">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
+        Directions
+        <span aria-hidden className="text-xs text-ink/80 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <ul className="mt-1 divide-y divide-ink/10 overflow-hidden rounded-md border border-ink/15 bg-cream">
+        {apps.map((a) => (
+          <li key={a.name}>
+            <a href={a.href} target="_blank" rel="noreferrer" className="flex min-h-11 items-center px-3 text-sm font-medium text-ink">
+              {a.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

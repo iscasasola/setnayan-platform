@@ -4,7 +4,7 @@ import { NearViewport } from '@/app/_components/near-viewport';
  * VendorLocationMap — a visual map with a marker pin for a location.
  *
  * WHY: the public vendor profile already ships Google Maps / Waze / Apple Maps
- * "Get directions" deep-link chips (<NavLinksRow>), but no *visible* map. This
+ * deep links (one "Directions ▾" dropdown, <DirectionsMenu>), but no *visible* map. This
  * adds the picture-of-the-map a couple expects when locating a business
  * (owner 2026-06-28 "do the visual map image").
  *
@@ -33,7 +33,7 @@ import { NearViewport } from '@/app/_components/near-viewport';
  * the host from next.config.ts, and do not restore the claim above.**
  *
  * Self-guards: renders nothing without coordinates (a marker needs lat/lng).
- * Address-only callers keep just the <NavLinksRow> search fallback.
+ * Address-only callers keep just the <DirectionsMenu> search fallback.
  */
 
 type Props = {

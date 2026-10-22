@@ -1,5 +1,5 @@
 {
- "_about": "RECORDED 2026-10-09 from the Prints panels AS THEY STOOD BEFORE Studio › Prints moved onto the ActionButton: `PrintSetDownloads` and `PassCardsPanel` rendered (lazy pieces settled) for six access states — what a customer READS (every word, in order), the Pro door's href and hook, the access line, the go-Pro pitch, the print-ready hooks. The Prints panels hold no price and no confirm step (the unlock page, `/dashboard/<id>/studio/website-pro`, owns both); what they carry about money is this wording and this one door, and it must not change by a byte. Re-record only with a reason written in the commit. RE-RECORDED 2026-10-16 — owner ruling, DECISION_LOG \"PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO\" (verbatim: \"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's own pass one at a time, stay free.\"): the whole set, every guest's ticket and the Printed ticket batch now wear the zip's ◆ pattern — owned: the file, ◆ unlocked; a free couple: the SAME one door to the unlock page; the store shell: absent. Still no price and no confirm step.",
+ "_about": "RECORDED 2026-10-09 from the Prints panels AS THEY STOOD BEFORE Studio › Prints moved onto the ActionButton: `PrintSetDownloads` and `PassCardsPanel` rendered (lazy pieces settled) for six access states — what a customer READS (every word, in order), the Pro door's href and hook, the access line, the go-Pro pitch, the print-ready hooks. The Prints panels hold no price and no confirm step (the unlock page, `/dashboard/<id>/studio/website-pro`, owns both); what they carry about money is this wording and this one door, and it must not change by a byte. Re-record only with a reason written in the commit. RE-RECORDED 2026-10-16 — owner ruling, DECISION_LOG \"PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO\" (verbatim: \"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's own pass one at a time, stay free.\"): the whole set, every guest's ticket and the Printed ticket batch now wear the zip's ◆ pattern — owned: the file, ◆ unlocked; a free couple: the SAME one door to the unlock page; the store shell: absent. Still no price and no confirm step. RE-RECORDED 2026-10-22 (twice) — owner: \"the goal of the free is to keep everything minimum ready but no personalization.\" First (DECISION_LOG \"FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE\"): every guest's ticket in one file lost its ◆ door. Then (owner \"yes\", DECISION_LOG \"THE DIGITAL TICKET ZIP IS FREE\"): the digital ticket zip became a plain free save on every state, store shell included — its PRO word and its door left; nothing else moved. Still no price and no confirm step.",
  "classic · free couple": {
   "set": {
    "text": "Free prints are plain white and print-ready — 3 mm bleed and crop marks, no watermark. PRO Your Event Hub look on paper is Event Hub Pro. PRO Whole set · Classic (PDF) Every guest’s ticket · Classic Passes print Calling card size, ganged on A4 with cut lines.",
@@ -12,11 +12,11 @@
    "peso": false
   },
   "pass": {
-   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
    "access": null,
    "goPro": false,
-   "zipDoor": true,
-   "proDoorHrefs": 1,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
    "printReady": false,
    "passesThemed": false,
    "peso": false
@@ -34,11 +34,11 @@
    "peso": false
   },
   "pass": {
-   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
    "access": null,
    "goPro": false,
-   "zipDoor": true,
-   "proDoorHrefs": 1,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
    "printReady": false,
    "passesThemed": false,
    "peso": false
@@ -56,11 +56,11 @@
    "peso": false
   },
   "pass": {
-   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) PRO Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
    "access": null,
    "goPro": false,
-   "zipDoor": true,
-   "proDoorHrefs": 1,
+   "zipDoor": false,
+   "proDoorHrefs": 0,
    "printReady": false,
    "passesThemed": false,
    "peso": false
@@ -100,7 +100,7 @@
    "peso": false
   },
   "pass": {
-   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
+   "text": "The ticket guests save Ticket style Classic Drawing your ticket… Digital ticket (PNG) Download all tickets (.zip) One PNG per guest who is coming. Each guest’s own saves free. Printed ticket (PDF) Every guest’s ticket · Phone card (3:4 portrait)",
    "access": null,
    "goPro": false,
    "zipDoor": false,

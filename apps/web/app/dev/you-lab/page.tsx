@@ -13,7 +13,9 @@
  *   ?state=long       a brand-new account with a long display name
  *   ?door=picker      the couple's next screen after Done: the REAL event-type picker in the REAL app bar, for an
  *                     account with no event yet (no "Back to events" — `&behind=1` draws the way back);
- *                     `&loved=1` gives the account one loved one on file, which draws the "For · You ▾" dropdown
+ *                     `&loved=1` gives the account one loved one on file, which draws the "For · You ▾" dropdown;
+ *                     `&loved=shop` gives it the business alaga a shop opens with (owner 2026-10-22: an event
+ *                     "for" the shop is the shop's on every type — pick it in "For ▾", then any type)
  *   &dark=1           (a walk adds `html.dark`) — the card's dark rules are inert until the route is DARK_READY
  *
  * The photo's live moments (chosen and not saved yet · uploading · refused) are the REAL upload widget
@@ -89,6 +91,12 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
               ...(sp.loved === '1'
                 ? dependentSubjects(
                     [{ dependent_id: 'lab-lola', name: 'Lola Rosa', dependent_kind: 'person', birth_date: '1946-05-01', sex: 'female' }],
+                    'lab-user',
+                  )
+                : []),
+              ...(sp.loved === 'shop'
+                ? dependentSubjects(
+                    [{ dependent_id: 'lab-shop', name: 'Aling Nena’s Store', dependent_kind: 'business', birth_date: null, sex: null }],
                     'lab-user',
                   )
                 : []),

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { applyClaimAutoLink } from '@/lib/vendor-invite-actions';
 import { seatClaimedCoupleAsCustomer } from '@/lib/claimed-couple-is-a-customer.server';
+import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { DoorShell } from '@/app/_components/door/door-shell';
 
@@ -27,6 +28,8 @@ type Props = { params: Promise<{ token: string }> };
  *   1. Ensure a `vendor_profiles` row exists for the signed-in user
  *      (create with placeholder business_name if missing — vendor edits
  *      it later in /vendor-dashboard).
+ *   1b. Give the shop its business alaga (`ensureBusinessAlaga`) — the shop
+ *      is now the account's, so it is a business they care for.
  *   2. Call `applyClaimAutoLink` to mark the invite claimed, raise the ONE
  *      access ask the couple approves (owner 2026-10-20 — the record is bonded
  *      to the shop only on Approve), and insert vendor_follows for the couple.
@@ -165,6 +168,42 @@ export default async function FinalizeClaimPage({ params }: Props) {
       );
     }
     vendorProfileId = created.vendor_profile_id as string;
+  }
+
+  // ------------------------------------------------------------------
+  // 1b. THE SHOP IS NOW THEIRS, SO IT BECOMES THEIR BUSINESS ALAGA.
+  //
+  //    Owner 2026-09-30: "if you create a business. it also creates a beloved
+  //    that is your business." Opening a shop has written that record since
+  //    then; a shop that became the account's HERE — the couple's link
+  //    (`claim_ready_the_shop`), the admin pre-staged transfer, the stub create,
+  //    or an existing shop connecting — never did, so its owner could not pick
+  //    "For · <shop>" when creating an event (2026-10-22).
+  //
+  //    The name is read back from the shop row, because `claim_ready_the_shop`
+  //    may have just filled it from the couple's record. Owner = the
+  //    authenticated caller, and only when the row says the shop is theirs.
+  //    Best-effort: `ensureBusinessAlaga` never throws or redirects, and nothing
+  //    here can stop the claim. Same gates, same exactly-once key as open-shop.
+  // ------------------------------------------------------------------
+  {
+    const { data: shopRow, error: shopErr } = await admin
+      .from('vendor_profiles')
+      .select('user_id, business_name')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    // A refused read skips the record (never the claim) — and says so.
+    if (shopErr) {
+      console.error('[supabase-error] vendor/claim/finalize · from:vendor_profiles.select (alaga)', shopErr);
+    }
+    const shop = shopRow as { user_id?: string | null; business_name?: string | null } | null;
+    if (shop?.user_id === user.id) {
+      await ensureBusinessAlaga(admin, {
+        ownerUserId: user.id,
+        vendorProfileId,
+        shopName: shop.business_name,
+      });
+    }
   }
 
   // ------------------------------------------------------------------

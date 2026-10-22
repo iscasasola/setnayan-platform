@@ -55,7 +55,7 @@
  * them.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { isRailFocused, type RailFocus, type RailFocusIcon } from './rail-focus';
@@ -642,6 +642,9 @@ function RailIcon({
   );
 }
 
+/** The off-canvas rail's id — the ☰ button's `aria-controls`. One shell per page. */
+export const FRONT_DOOR_RAIL_ID = 'fd-sections-rail';
+
 export function FrontDoorShell({
   account,
   tools: toolsIn,
@@ -678,7 +681,19 @@ export function FrontDoorShell({
   const [menuOpen, setMenuOpen] = useState(false);
   useOneOpen(menuOpen, setMenuOpen); // the account menu: one open at a time — lib/one-open.ts
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const railId = useId();
+  // 🔒 A FIXED ID, NOT useId() (QA 2026-10-22, F3). `useId` is a function of
+  // the component's position in the tree, so anything that renders a
+  // different shape ABOVE the shell on the client than on the server moves it.
+  // Measured: a Suspense boundary holding a `useSearchParams()` tracker, mounted
+  // as a sibling before `{children}` in the root providers (the PostHog
+  // provider, removed by #6774), made the client compute `_R_5bn…` against the
+  // server's `_R_pbn…` on ~1 load in 3 (WebKit 375 and Chromium 1280 alike) —
+  // a hydration warning on every app page, and an `aria-controls` that only
+  // matched its rail because React leaves mismatched attributes unpatched.
+  // There is exactly one shell per page (every mount is a layout's chrome), so
+  // one fixed id is unique, and no provider added above can move it again.
+  // Held by `the-rail-id-is-fixed.test.ts`.
+  const railId = FRONT_DOOR_RAIL_ID;
 
   const openRail = useCallback(() => {
     /* Re-opening mid-close must cancel the pending removal, or the drawer
@@ -1945,10 +1960,9 @@ export function FrontDoorShell({
               ALL to the download page. Same for Refunds. The rail is the only
               chrome those pages now have, so the rail has to carry them.
 
-              ⚠ Cookie settings is a real control, not a link: the consent
-              banner exposes a re-open handler and RA 10173 expects a standing
-              way to change the choice. It is rendered by the host page's own
-              banner, so this points at the page that hosts it.
+              🍪 There is no "Cookie settings" control any more (owner
+              2026-10-22): essential cookies only, so there is no choice to
+              change.
             */}
             <Link href="/refunds">Refunds</Link>
             <Link href="/download">Download</Link>

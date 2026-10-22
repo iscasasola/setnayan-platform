@@ -23,7 +23,7 @@
  * sentence disclosing it sit together. It was also the surface's one wholly
  * unchecked read.
  */
-import { ExternalLink, LineChart, Filter, BarChart3 } from 'lucide-react';
+import { LineChart, Filter, BarChart3 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
@@ -94,15 +94,6 @@ function funnelFrom(
     steps: parts.map((p) => ({ label: p.label, count: p.res.count as number })),
     error: null,
   };
-}
-
-// PostHog dashboard URL — surfaces the 4 funnels we keep on PostHog rather
-// than recomputing from Supabase. The slug is derived from the configured
-// project + host; when neither is set we fall back to the marketing host.
-function buildPostHogDashboardUrl(): string {
-  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-  if (!host) return 'https://us.posthog.com';
-  return `${host.replace(/\/+$/, '')}/insights`;
 }
 
 export async function FunnelsSurface({ searchParams }: Props) {
@@ -213,8 +204,6 @@ export async function FunnelsSurface({ searchParams }: Props) {
   const errors = funnels
     .map((f) => f.error?.message)
     .filter((m): m is string => Boolean(m));
-
-  const postHogUrl = buildPostHogDashboardUrl();
 
   // ── Per-vendor Quote-to-Booking Funnel drill-down (Wave 6) ────────────────
   // A vendor picker + the views→inquiries→quotes→booked funnel for the selected
@@ -335,31 +324,6 @@ export async function FunnelsSurface({ searchParams }: Props) {
         )}
       </section>
 
-      <section className="mt-8 rounded-xl border border-dashed border-ink/15 bg-white/50 p-5">
-        <h2 className="mb-1 text-sm font-semibold text-ink">
-          PostHog-side funnels
-        </h2>
-        <p className="mb-3 text-sm text-ink/65">
-          These funnels depend on browser-emitted events we don&apos;t mirror
-          to Supabase. Open the PostHog Insights dashboard to see the live
-          numbers.
-        </p>
-        <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-ink/70">
-          <li>Save-the-Date browse → paid render</li>
-          <li>Papic browse → paid seat</li>
-          <li>Pro Widget upgrade → paid bundle</li>
-          <li>Guided Planner adoption → completion</li>
-        </ul>
-        <a
-          href={postHogUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10"
-        >
-          Open in PostHog
-          <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        </a>
-      </section>
     </div>
   );
 }

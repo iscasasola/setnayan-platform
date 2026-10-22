@@ -270,9 +270,7 @@ export function SpotlightTour({
     if (done || busy) return;
     /* The Maker is a full-screen editor with its own first-visit welcome: the journey waits
        under it and comes back the moment the host exits. */
-    /* …and the cookie question comes first: it sits over the bottom of the screen, and a tour drawn over
-       it would hide the one thing the person must answer. One thing at a time. */
-    if (document.querySelector('[data-maker-shell], [data-cookie-consent]')) {
+    if (document.querySelector('[data-maker-shell]')) {
       targetRef.current = null;
       setBox(null);
       setLitFor(-1);

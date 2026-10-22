@@ -227,7 +227,7 @@ say();
 
 say('## What is stubbed');
 say();
-say('- **Email (Resend), file storage (R2), error reporting (Sentry), analytics (PostHog), AI, payments:** no key is given, so each takes the path the app already has for "not configured". Nothing is sent or stored outside the runner.');
+say('- **Email (Resend), file storage (R2), error reporting (Sentry), AI, payments:** no key is given, so each takes the path the app already has for "not configured". Nothing is sent or stored outside the runner.');
 say('- **Images hosted on the live media address** do not load (the address is refused) — some screenshots show empty picture frames.');
 say('- **Sign-in tokens** are signed the legacy way by the local stack (see the note under the request table).');
 say('- **The database is built from the migration FILES**, not copied from production: anything production holds that no file wrote is not here.');

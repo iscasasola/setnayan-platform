@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  *
  * WHY THIS EXISTS. `next.config.ts` has shipped `frame-ancestors`-only CSP with a
  * documented deferral: a real `default-src`/`script-src` "would have to enumerate
- * every external origin we load (Supabase · Sentry ingest · PostHog · R2 · Maya ·
+ * every external origin we load (Supabase · Sentry ingest · R2 · Maya ·
  * YouTube · Google Fonts · Vercel)". That list is a GUESS until measured, and
  * guessing it wrong takes the site down — the same long-tail trap that made a
  * fail-closed allowlist the wrong call for `/api/upload`'s media prefixes.

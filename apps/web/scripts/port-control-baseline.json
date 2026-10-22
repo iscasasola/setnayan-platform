@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e7dee3bcb2",
-  "routeCount": 453,
-  "destinations": 998,
+  "generatedFromRef": "13f833265f",
+  "routeCount": 456,
+  "destinations": 1000,
   "actions": 665,
-  "blocks": 6765,
+  "blocks": 6791,
   "routes": {
     "/": {
       "files": [
@@ -24,7 +24,6 @@
         "AppInitSplash",
         "BrandProvider",
         "ClientTypeDetector",
-        "CookieConsentBanner",
         "DeferredObservability",
         "DemoModeBanner",
         "DesktopUpdaterListener",
@@ -43,7 +42,6 @@
         "NfcTestSwitch",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
-        "PostHogProvider",
         "PressFeel",
         "Providers",
         "Reconnecting",
@@ -155,7 +153,7 @@
       ],
       "actions": [],
       "blocks": [
-        "CookieSettingsLink",
+        "CookieList",
         "LegalLayout",
         "LegalSection",
         "Link"
@@ -565,6 +563,7 @@
         "(shell)/privacy/page.tsx"
       ],
       "destinations": [
+        "/cookies",
         "/dashboard/profile",
         "/help"
       ],
@@ -2124,6 +2123,7 @@
         "/admin/app-performance?tab=offline",
         "/admin/app-performance?tab=operations",
         "/admin/app-performance?tab=seo",
+        "/admin/app-performance?tab=visits",
         "/admin/approvals",
         "/admin/background-videos",
         "/admin/booking-fees",
@@ -2369,6 +2369,8 @@
         "admin/app-performance/_surfaces/seo-rerun-button.tsx",
         "admin/app-performance/_surfaces/seo-surface.tsx",
         "admin/app-performance/_surfaces/slow-loads-surface.tsx",
+        "admin/app-performance/_surfaces/visits-surface.tsx",
+        "admin/app-performance/_surfaces/visits-view.tsx",
         "admin/app-performance/actions.ts",
         "admin/app-performance/loading.tsx",
         "admin/app-performance/page.tsx"
@@ -2400,11 +2402,13 @@
         "ConsoleTable",
         "ContextTile",
         "ConversionCard",
+        "DayChart",
         "DeepHealth",
         "DeltaChip",
         "DeltaPct",
         "ErrorState",
         "ExpensesZone",
+        "Figure",
         "FormFlash",
         "Funnel",
         "FunnelTable",
@@ -2437,6 +2441,7 @@
         "SectionHeading",
         "SeoRerunButton",
         "SeoSurface",
+        "ShareRows",
         "SignalRow",
         "SlowLoadsSurface",
         "SmokeTestPanel",
@@ -2448,6 +2453,8 @@
         "TablePageSkeleton",
         "VendorPicker",
         "VendorPickerResult",
+        "VisitsSurface",
+        "VisitsView",
         "WiringNote",
         "WonLostAdminCard",
         "ZoneHeading"
@@ -5044,7 +5051,6 @@
     "/dashboard/(account)/life-flash": {
       "files": [
         "dashboard/(account)/life-flash/_components/flash.tsx",
-        "dashboard/(account)/life-flash/_components/life-flash-analytics.ts",
         "dashboard/(account)/life-flash/_components/placeholder.ts",
         "dashboard/(account)/life-flash/_components/scroll-reel.tsx",
         "dashboard/(account)/life-flash/_components/story-people.tsx",
@@ -5107,6 +5113,7 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
+        "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
         "dashboard/(account)/people/_components/person-avatar.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
@@ -5135,46 +5142,57 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "AccountThumbRow",
+        "ActionButton",
         "ActionResult",
         "AddAlagaButton",
         "AddAlagaFields",
+        "CardGroup",
+        "CardLabel",
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
+        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
-        "FindOrInvite",
+        "FindField",
+        "FindResults",
         "FollowListView",
         "FollowRowItem",
-        "Fragment",
         "Frame",
+        "GuestConfirmActions",
+        "GuestPopup",
         "HTMLButtonElement",
+        "HTMLDivElement",
         "HTMLInputElement",
+        "Icon",
+        "InviteAction",
         "LabelCell",
         "LabelResult",
         "Layer",
         "LifeStorySection",
         "Link",
         "MiniTour",
-        "OutgoingBlock",
         "PageMasthead",
+        "PeopleFilter",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleThumb",
         "PeopleViewPicker",
         "Person",
         "PersonAvatar",
+        "PersonCard",
+        "PersonRow",
         "PickMenu",
         "PlanTogether",
         "Popover",
         "PreviewRow",
         "RequestRow",
-        "RequestsBlock",
-        "RowActions",
-        "SamahanCell",
         "SamahanPeopleSection",
-        "StateCell",
         "SubmitButton",
+        "ThumbField",
+        "ThumbTool",
         "YourStorySection"
       ]
     },
@@ -5194,7 +5212,6 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
-        "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
@@ -5234,11 +5251,9 @@
         "updateUserSlug"
       ],
       "blocks": [
-        "AnalyticsChoice",
         "Appearance",
         "AppearanceChoice",
         "ConfirmForm",
-        "CookieConsent",
         "Field",
         "FileUpload",
         "FormFlash",
@@ -6366,6 +6381,7 @@
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",
+        "dashboard/[eventId]/guests/_components/use-shell-bar-offset.ts",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/group-edit-actions.ts",
@@ -10618,6 +10634,19 @@
         "SpecialMessageWidget"
       ]
     },
+    "/dev/bar-lab/[[...path]]": {
+      "files": [
+        "dev/bar-lab/[[...path]]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Cards",
+        "FrontDoorShell",
+        "LabBar",
+        "Link"
+      ]
+    },
     "/dev/booking-ask-lab": {
       "files": [
         "dev/booking-ask-lab/page.tsx"
@@ -11003,6 +11032,20 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/people-lab": {
+      "files": [
+        "dev/people-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "FollowListView",
+        "PeopleRosterView",
+        "RosterPerson",
+        "TreeStandIn"
+      ]
+    },
     "/dev/pro-parts-lab": {
       "files": [
         "dev/pro-parts-lab/lab-client.tsx",
@@ -11242,6 +11285,16 @@
         "ShortlistCategories",
         "SuppliersLabStage",
         "TeamRowFacts"
+      ]
+    },
+    "/dev/visits-lab": {
+      "files": [
+        "dev/visits-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "VisitsView"
       ]
     },
     "/dev/you-lab": {
@@ -11613,6 +11666,7 @@
         "FirstRunBrand",
         "GenericOnboarding",
         "HTMLDivElement",
+        "HonoreeCarry",
         "ItemInput",
         "Link",
         "NeedPreset",
@@ -11630,6 +11684,7 @@
     },
     "/onboarding/simple": {
       "files": [
+        "onboarding/simple/_components/carried-honoree-fields.tsx",
         "onboarding/simple/_components/papic-step-field-names.ts",
         "onboarding/simple/_components/papic-step-fields.tsx",
         "onboarding/simple/_components/simple-setup-field.ts",
@@ -11645,9 +11700,11 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "CarriedHonoreeFields",
         "EventNeeds",
         "FirstRunBrand",
         "HTMLDivElement",
+        "HonoreeCarry",
         "Link",
         "NeedPreset",
         "NeedsStep",
@@ -12687,6 +12744,7 @@
       "files": [
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
+        "vendor-dashboard/_components/branch-place-cache.ts",
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
@@ -12786,6 +12844,7 @@
         "BottomNav",
         "BranchActionState",
         "BranchPinMap",
+        "BranchPlace",
         "BranchRow",
         "CardShell",
         "Collapsible",

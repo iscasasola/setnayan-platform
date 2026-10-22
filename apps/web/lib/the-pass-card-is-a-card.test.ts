@@ -357,14 +357,14 @@ test('one guest’s card is FREE for the couple — no Pro question on the singl
   assert.doesNotMatch(fn, /PaidMark|makerProMark|ownsPro/, 'no ◆ on the per-guest download');
 });
 
-test('the zip: hosts only, Event Hub Pro only — both on the SERVER, before a single card is drawn', () => {
+/* 🎟 The zip is FREE since 2026-10-22 (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE") — its route is CALLED for a free
+   event in `all-in-one-prints-are-pro.test.ts` § 1d; here, the host gate still comes first. */
+test('the zip: hosts only — on the SERVER, before a single card is drawn', () => {
   const r = src('app/api/guest/pass-card/all/route.ts');
   const host = r.indexOf('getHostUserId(eventId)');
-  const pro = r.indexOf('printOwnsPro(eventId)');
   const list = r.indexOf('eligiblePassCardGuests(');
   const draw = r.indexOf('renderPassCardFor(');
-  assert.ok(host > 0 && pro > host && list > pro && draw > list, 'member → Pro → the eligible list → draw');
-  assert.match(r, /PASS_CARD_ZIP_PRO_MESSAGE, \{ status: 403 \}/);
+  assert.ok(host > 0 && list > host && draw > list, 'member → the eligible list → draw');
   assert.match(r, /archiver\('zip', \{ store: true \}\)/, 'the shipped streaming zip');
   assert.match(r, /uniqueFileNames\(guests\.map\(\(g\) => passCardFileNameFor\(kit, g\)\)\)/, 'the same names as a guest’s own save');
   assert.match(r, /PASS_CARD_ZIP_MAX[\s\S]{0,400}status: 413/, 'too many → said plainly, never a short zip');

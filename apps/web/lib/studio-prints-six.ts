@@ -17,15 +17,12 @@ export function studioMenuSaveWords(ok: boolean): string {
   return ok ? 'Menu saved — the Menu card shows it' : 'Your menu did not save';
 }
 
-/** The ◆ note a free couple meets on "Download all tickets" (kind 20: shown, tappable, never a page jump). */
-export const PASS_ZIP_PRO_NOTE = {
-  title: 'Every ticket in one file is Event Hub Pro',
-  body: 'With Event Hub Pro you save all your guests’ tickets at once. Each guest can still save their own ticket, free.',
-} as const;
+/* 🎟 "Every ticket in one file is Event Hub Pro" (`PASS_ZIP_PRO_NOTE`, the ◆ note on "Download all tickets") was retired on
+   2026-10-22 — the digital ticket zip is free for every event (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */
 
 /**
  * 🗂 THE ◆ NOTES ON THE OTHER ALL-IN-ONE FILES (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD
- * ALL' IS EVENT HUB PRO") — the zip's note, said of each file. No price: the unlock page owns it. The route says the same words
+ * ALL' IS EVENT HUB PRO") — the (retired) zip note's pattern, said of each file. No price: the unlock page owns it. The route says the same words
  * when it refuses (`allInOneRefusal`).
  */
 /* 🎟 "Every guest's pass in one file is Event Hub Pro" (`PASSES_PRO_NOTE`) and "Every guest's QR in one file is Event Hub Pro"

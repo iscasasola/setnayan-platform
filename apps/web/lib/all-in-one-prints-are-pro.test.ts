@@ -17,10 +17,19 @@
  * 🎟 2026-10-22 (owner, verbatim: *"the goal of the free is to keep everything minimum ready but no personalization."* · *"they pay to
  * customize it."*; DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE"): every guest's pass in one
  * file and the Guest QR sheet are FREE again — served to a free event, store shell included, as a plain Download (no ◆). The DESIGNED
- * set in one file stays Pro: the whole set, Everything, the place-card pack. The ticket zip (digital PNGs) keeps its own ◆ (2026-09-29).
+ * set in one file stays Pro: the whole set, Everything, the place-card pack. The ticket zip (digital PNGs) kept its own ◆ (2026-09-29)…
+ *
+ * 🎟 …until later the same day (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"; under his rule above): the DIGITAL TICKET
+ * ZIP (`/api/guest/pass-card/all`, every guest's ticket picture, for sending by phone) is FREE — it is how couples hand out tickets.
+ *   1d · its route is CALLED for a free event: no Pro question, straight to the guest list and on to the ONE kit (`loadPassCardKit`
+ *        → `loadPrintSet`, whose door draws a free event plain white — #6744);
+ *   2  · Studio › Prints' Digital ticket "All guests" and the shipped Details' "Download all tickets (.zip)" are a plain Download
+ *        (no ◆, no door) for every event, store shell included.
  *
  * SABOTAGE (each seen RED, then restored — see the PR): the route's refusal removed · the refusal asking `printReady` (a theme rule)
  * instead of the event's Pro · the Event pass's all-guests file drawn as a plain save · one guest's pass treated as all-in-one.
+ * The zip (2026-10-22): the route's Pro refusal put back · Studio's Digital ticket "All guests" back to the ◆ door · the shipped
+ * Details' zip back to the ◆ door — each RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +40,7 @@ import { isAllInOnePrint } from './print-pieces';
 (globalThis as unknown as { React: unknown }).React = React;
 
 /* ── The route's I/O, stood in for: who is asking, whether the event owns Pro, and a spy on the first drawing read. ── */
-const state = { ownsPro: false, drew: 0, guestReads: 0 };
+const state = { ownsPro: false, drew: 0, guestReads: 0, zipGuests: 0 };
 /** Any admin read answers "nothing" — so a request that gets past the gate reaches its guest read (spied below), not a TypeError. */
 const NOTHING: unknown = new Proxy(function () {}, {
   get: (_t, k) => (k === 'then' ? (ok: (v: unknown) => void) => ok({ data: null, error: null }) : NOTHING),
@@ -64,6 +73,18 @@ const NOTHING: unknown = new Proxy(function () {}, {
         loadGuestPasses: async () => {
           state.guestReads += 1;
           return { passes: [], images: {}, measured: false }; // → 503 — proof the request got PAST the gate to the guest list.
+        },
+      };
+    }
+    if (request === '@/lib/pass-card.server') {
+      const real = load.call(this, request, ...rest) as Record<string, unknown>;
+      return {
+        ...real,
+        // The zip's guest read: one guest who HAS a ticket — so a request past the gate goes on to the kit (`loadPassCardKit`, real),
+        // whose `loadPrintSet` is spied above (→ null → 404 "Event not found.").
+        eligiblePassCardGuests: async () => {
+          state.zipGuests += 1;
+          return { guests: [{ guest_id: GUEST, first_name: 'Ana', last_name: 'Reyes' }], measured: true };
         },
       };
     }
@@ -138,6 +159,25 @@ test('1b · …and EVERY guest’s pass in one file (2026-10-22), ONE guest’s 
   }
 });
 
+test('1d · the DIGITAL TICKET ZIP is served to a free event (2026-10-22): no Pro question — the guest list, then the one kit', async () => {
+  const { GET } = await import('../app/api/guest/pass-card/all/route');
+  for (const ownsPro of [false, true]) {
+    state.ownsPro = ownsPro;
+    state.drew = 0;
+    state.zipGuests = 0;
+    const res = await GET(new Request(`https://x.test/api/guest/pass-card/all?event=${EVENT}`));
+    const text = await res.text();
+    const who = ownsPro ? 'a Pro event' : 'a free event';
+    assert.notEqual(res.status, 403, `${who} is refused the ticket zip: ${text}`);
+    assert.doesNotMatch(text, /Event Hub Pro/, `${who}: the zip's answer still says it is Pro`);
+    assert.equal(state.zipGuests, 1, `${who} does not reach the guest list`);
+    /* …and the cards are drawn from the ONE kit — `loadPrintSet`, whose look door (`printLookForEvent`) makes a free event's
+       tickets plain white and a Pro event's its Hub look (held in the-pro-list-names-only-real-gates § 5b). */
+    assert.equal(state.drew > 0, true, `${who}: the zip does not draw from the print set (its look)`);
+    assert.equal(res.status, 404, `${who}: expected the stubbed print set's "Event not found." — got ${res.status} ${text}`);
+  }
+});
+
 test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pattern; one guest’s file is a plain free Download', async () => {
   const L = '../app/dashboard/[eventId]/launch/_components';
   const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, PrintSetDownloads, PassCardsPanel, freePrintParts } = await import(`${L}/maker-prints`);
@@ -161,8 +201,8 @@ test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pa
     return { pass, everything, ticket, day, set, cards, shippedDay };
   };
   const free = await draw(false, false);
-  /* A free couple: the ticket zip and Everything are the ◆ door… */
-  for (const [k, h] of Object.entries({ ticket: free.ticket, everything: free.everything })) {
+  /* A free couple: Everything is the ◆ door… */
+  for (const [k, h] of Object.entries({ everything: free.everything })) {
     assert.match(h, /data-print-all-in-one-pro=""/, `${k}: a free couple is handed the all-in-one file`);
     assert.match(h, /data-paid-mark="try"/, `${k}: a free couple is not shown ◆ PRO`);
     assert.doesNotMatch(h, /data-paid-mark="locked"/, 'a padlock');
@@ -172,13 +212,16 @@ test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pa
   assert.match(free.pass, /data-print-save="rosa-ben-passes\.pdf"/, 'a free couple cannot save every guest’s pass');
   assert.match(free.day, /data-print-save="rosa-ben-qr-codes\.pdf"/, 'a free couple cannot save the Guest QR sheet');
   assert.equal((free.day.match(/data-print-all-in-one-pro=""/g) ?? []).length, 1, 'the place-card pack is not the ◆ door (or the QR sheet still is)');
-  assert.doesNotMatch(free.everything + free.day, /data-print-save="rosa-ben-(?:everything|seating-pack)\.pdf"|data-print-save="rosa-ben-tickets\.zip"/, 'a free couple can save a designed all-in-one file');
-  assert.doesNotMatch(free.ticket, /data-print-save="rosa-ben-tickets\.zip"/, 'a free couple can save the ticket zip');
+  assert.doesNotMatch(free.everything + free.day, /data-print-save="rosa-ben-(?:everything|seating-pack)\.pdf"/, 'a free couple can save a designed all-in-one file');
+  /* …and the digital ticket zip is a plain free Download (2026-10-22) — no door, no ◆ — on Studio and on the shipped Details. */
+  assert.match(free.ticket, /data-print-save="rosa-ben-tickets\.zip"/, 'a free couple cannot save the digital ticket zip');
+  assert.doesNotMatch(free.ticket, /data-print-all-in-one-pro=""|data-paid-mark=/, 'the digital ticket zip is still the ◆ door');
+  assert.match(free.cards, /data-pass-cards-digital=""[\s\S]*?data-print-save="rosa-ben-tickets\.zip"/, 'shipped: the ticket zip is not a free save');
+  assert.doesNotMatch(free.cards, /data-pass-cards-zip-pro=""/, 'shipped: the ticket zip is still the ◆ door');
   assert.equal((free.set.match(/data-print-all-in-one-pro=""/g) ?? []).length, 1, 'shipped: the whole set is not the ◆ door (or every ticket still is)');
   assert.match(free.set, /data-print-save="rosa-ben-passes\.pdf"/, 'shipped: every guest’s ticket is not a free save');
   assert.match(free.cards, /data-pass-cards-print=""[\s\S]*?data-print-save="rosa-ben-passes\.pdf"/, 'shipped: the printed ticket batch is not a free save');
   assert.doesNotMatch(free.cards, /data-pass-cards-print=""[\s\S]*?data-print-all-in-one-pro=""/, 'shipped: the printed ticket batch is still the ◆ door');
-  assert.match(free.cards, /data-pass-cards-zip-pro=""/, 'shipped: the ticket zip is no longer the ◆ door');
   assert.equal((free.shippedDay.match(/data-print-all-in-one-pro=""/g) ?? []).length, 1, 'shipped: the pack is not the ◆ door (or the QR sheet still is)');
   assert.match(free.shippedDay, /data-print-save="rosa-ben-qr-codes\.pdf"/, 'shipped: the Guest QR sheet is not a free save');
   /* …one guest's file is a plain Download — free — named for the guest, in the size picked. */
@@ -200,4 +243,6 @@ test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pa
   assert.match(shell.pass, /data-print-save="rosa-ben-pass-ana-reyes\.pdf"/, 'one guest’s pass is gone from the store shell too');
   assert.match(shell.pass, /data-print-save="rosa-ben-passes\.pdf"/, 'every guest’s pass (free) is gone from the store shell');
   assert.match(shell.day, /data-print-save="rosa-ben-qr-codes\.pdf"/, 'the Guest QR sheet (free) is gone from the store shell');
+  assert.match(shell.ticket, /data-print-save="rosa-ben-tickets\.zip"/, 'the digital ticket zip (free) is gone from the store shell');
+  assert.match(shell.cards, /data-print-save="rosa-ben-tickets\.zip"/, 'shipped: the digital ticket zip (free) is gone from the store shell');
 });

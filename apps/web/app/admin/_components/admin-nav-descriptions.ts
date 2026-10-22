@@ -146,6 +146,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── App Performance group (key 'funnels') ─────────────────────────────
   'app-performance':
     'Your platform at a glance — growth, health, and where to focus next.',
+  visits:
+    'Site traffic — visitors and page views per day, top pages, where visitors came from, phone or computer, countries. Counted in our own database, no cookies.',
   growth: 'The growth dashboard — sign-ups, activation, and retention.',
   intelligence: 'Market intelligence — demand signals and category trends.',
   demand:
@@ -294,6 +296,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   // here, and `the-menu-name-has-one-source.test.ts` fails if one goes missing.
   overview: 'overview hq pulse dashboard front page what needs me',
   'app-performance': 'app performance stats metrics speed health uptime',
+  visits: 'traffic visitors page views analytics referrers sources pageviews',
   // ── "SET UP" / "UGAT" → "ROOT MAP" (owner, DECISION_LOG 2026-10-02 "'UGAT MAP'
   // IS NOW CALLED THE 'ROOT MAP'"). The group label is part of every item's
   // haystack, so the rename silently dropped "set up" from every item; the old

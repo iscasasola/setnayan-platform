@@ -1365,7 +1365,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           attrs: { 'data-mood-board-wear-for': pick.who } as Readonly<Record<`data-${string}`, string>>,
                         };
                     const wearRow = dress ? (
-                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={`mt-auto ${two || !isGuests ? '[&_[data-form-row-name]]:sr-only' : ''}`}>
+                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={`mt-auto ${two || !isGuests ? '[&_[data-form-row-name]]:sr-only [&_[data-mood-board-wear]]:!w-full' : ''}`}>
                         <ChosenRow name="Wear" dataAttr="data-mood-board-wear" {...wearPick} />
                         {library && designCount > 1 ? (
                           <p className="mt-1.5 text-[12px] leading-snug text-ink/65" data-mood-board-wear-allowed="">

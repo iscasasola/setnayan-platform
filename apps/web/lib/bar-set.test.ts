@@ -104,13 +104,14 @@ test('🧭 the owner\'s map, from the press to the pixel', () => {
 });
 
 test('a press inside one bar is not a set change — the tab-to-tab slide keeps it', () => {
-  for (const [a, b] of [
+  const pairs: [string, string][] = [
     ['/dashboard', '/dashboard/library'],
     ['/dashboard/library', '/'],
     ['/vendor-dashboard', '/vendor-dashboard/bookings'],
     ['/dashboard/S89E-7K2M9QX4PZ', '/dashboard/S89E-7K2M9QX4PZ/guests'],
     ['/dashboard', '/admin'],
-  ])
+  ];
+  for (const [a, b] of pairs)
     assert.equal(barSlideDir(barSetOf(a), barSetOf(b)), null, `${a} → ${b}`);
 });
 

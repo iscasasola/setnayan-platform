@@ -131,3 +131,27 @@ test('the link is a public id or nothing — never a user_id, never a guess', ()
   assert.equal(personHref('S89U-ABCDEFGHJK'), `${PEOPLE_PATH}?person=S89U-ABCDEFGHJK`);
   assert.equal(personCardKey(ROSTER, 'not-an-id'), null);
 });
+
+test('the results page DRAWS the people — each card links to that person, a refused read prints its sentence', async () => {
+  const React = await import('react');
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ShellPeopleSection, PEOPLE_UNREAD } = await import('@/app/_components/frontdoor/shell-people-section');
+  const people = shellPeopleResults({ query: 'ana', roster: ROSTER, found: { hits: [hit('S89U-NEW0000001', 'Ana Santos')], failed: false } });
+  const html = renderToStaticMarkup(React.createElement(ShellPeopleSection, { people }));
+  const hrefs = [...html.matchAll(/<a\b[^>]*>/g)]
+    .map((m) => m[0])
+    .filter((tag) => /data-person-result/.test(tag))
+    .map((tag) => (/href="([^"]+)"/.exec(tag)?.[1] ?? '').replace(/&amp;/g, '&'));
+  assert.equal(hrefs.length, 3, `drew ${hrefs.length} people, expected Ana Reyes · Anabel Cruz · Ana Santos`);
+  for (const h of hrefs) assert.ok(isPersonPublicId(openedBy(h)), `a drawn person links nowhere specific: ${h}`);
+  assert.ok(!/data-people-unread/.test(html), 'a good read printed the failure sentence');
+  const refused = renderToStaticMarkup(
+    React.createElement(ShellPeopleSection, { people: shellPeopleResults({ query: 'ana', roster: null, found: { hits: [], failed: false } }) }),
+  );
+  assert.ok(refused.includes(PEOPLE_UNREAD.replace(/’/g, '&#x27;')) || refused.includes(PEOPLE_UNREAD), 'a refused read drew nothing — silence reads as "nobody"');
+  // Mounted where the shell answers: the page reads people and hands them to the results.
+  assert.match(src('app/dashboard/(account)/search/page.tsx'), /searchShellPeople\(query, user\.id\)/, 'the shell results page no longer searches people');
+  assert.match(src('app/dashboard/(account)/search/page.tsx'), /people=\{people\}/, 'the results are not handed the people');
+  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /place === 'shell' && people \? <ShellPeopleSection people=\{people\} \/>/, 'the results view stopped drawing the people');
+});

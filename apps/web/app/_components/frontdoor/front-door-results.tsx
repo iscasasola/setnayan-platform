@@ -55,6 +55,8 @@ import { formatCount } from '@/lib/format-number';
 import { ON_YOUR_EVENT } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
+import type { ShellPeopleResults } from '@/lib/shell-people-results';
+import { ShellPeopleSection } from './shell-people-section';
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -187,6 +189,7 @@ export async function FrontDoorResults({
   commandItems,
   place = 'front-door',
   findSuppliers = null,
+  people = null,
 }: {
   /** Already trimmed and known non-empty by the caller. */
   query: string;
@@ -211,6 +214,13 @@ export async function FrontDoorResults({
    * `app/dashboard/(account)/search/page.tsx`.
    */
   findSuppliers?: { href: string; eventName: string } | null;
+  /**
+   * Shell only: PEOPLE (owner 2026-10-22, "follow your recommendation") — your people whose name matches, then
+   * people on Setnayan you could ask, each opening their card on the People page. Read by the page through
+   * `searchShellPeople` (the roster + `searchPeopleByName`, no new fence). `null` = not searched here (signed
+   * out, the front door, or connections switched off).
+   */
+  people?: ShellPeopleResults | null;
   /**
    * The searcher's own events and spaces — ALREADY LOADED by the page for the
    * palette, so filtering it here costs nothing and adds no read. `[]` for a
@@ -259,7 +269,8 @@ export async function FrontDoorResults({
     return slug ? bySlug.get(slug) : undefined;
   };
 
-  const total = own.length + shops.length + hits.length;
+  const peopleRows = place === 'shell' && people ? people.rows.length : 0;
+  const total = own.length + peopleRows + shops.length + hits.length;
 
   return (
     <>
@@ -290,6 +301,9 @@ export async function FrontDoorResults({
           ))}
         </div>
       ) : null}
+
+      {/* PEOPLE — after your own things, before the shops (owner 2026-10-22). A refused read says so. */}
+      {place === 'shell' && people ? <ShellPeopleSection people={people} /> : null}
 
       {shops.length > 0 ? (
         <div className="fd-grid">

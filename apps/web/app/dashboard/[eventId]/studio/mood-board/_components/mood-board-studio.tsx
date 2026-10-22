@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Clock, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -66,6 +66,7 @@ import { useMoodBoardActions } from './mood-board-actions-context';
 import { ColourPickerSheet, StudioSheet } from './colour-picker-sheet';
 import { AutoPaletteSheet } from './auto-palette-sheet';
 import { NamedColourDot, RoleColourDot } from './colour-dot';
+import { RoleMoreRow } from './role-more-row';
 import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
 import { KeepFullSheet, SuggestionsNotice } from './suggestion-parts';
@@ -187,11 +188,21 @@ type Sheet =
   | { kind: 'note'; row: StudioAttireRow }
   /** 🤝🖼 Keep on a part that already holds three — which photo does it replace? (prototype frame 3b) */
   | { kind: 'full'; s: CoupleSuggestion }
+  /** ⏰ A row's call time, opened from its header chip — the same field and Clear (`CallTimeRow`), in a sheet (owner 2026-10-22). */
+  | { kind: 'time'; row: StudioAttireRow }
+  /** 👗 A row's note and photos on a phone, opened from its one quiet "more" row (owner 2026-10-22). */
+  | { kind: 'more'; row: StudioAttireRow }
   | null;
 
 type Tile = { url: string; credit: string | null; swatches: string[]; fromShop?: string | null; fromSuggestionId?: string | null };
 
 const SAVE_AFTER_MS = 600;
+
+/** A role row's small key word — "Note", "Photos" (the shipped Note row's own type). */
+const ROW_KEY = 'flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55';
+/** A desk's right-hand line, its key word hanging in the margin: what wraps lines up under the words, never under "Note". */
+const ROW_HANG = 'flex-wrap gap-y-1 pl-[70px]';
+const ROW_HANG_KEY = '-ml-[70px] w-16';
 
 /**
  * 👗🎨 THE MAKER'S OWN COPY OF THE BOARD'S DRAFT (2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`): an
@@ -455,6 +466,42 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         failed(MOOD_BOARD_NOT_SAVED.arrive);
       },
     );
+  };
+  /* ⏰ A ROW'S TIME, ONE READ FOR THE HEADER CHIP AND THE SHEET IT OPENS (owner 2026-10-22): the Guests' is the Schedule's
+     arrival moment (owner 2026-10-19 — changed here, never cleared from here); every other row's is its dress-code line,
+     settable once a Wear is picked. `null` — no time on this row (the dress code, or the programme, was not handed in). */
+  const timeOf = (row: StudioAttireRow): CallTimeProps | null => {
+    if (row.key === 'guest') {
+      if (props.arrival === undefined) return null;
+      const from = arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
+      return {
+        rowKey: row.key,
+        label: row.label,
+        value: arriveBlocks ? guestsArriveHhmm(arriveBlocks) : null,
+        canSet: arriveBlocks !== null,
+        waits: 'The programme could not be read — try again',
+        unset: GUESTS_ARRIVE_UNSET,
+        note: from ? `From ${from} — set a time to give guests their own` : null,
+        clearable: false,
+        onSet: setGuestsArrive,
+      };
+    }
+    if (!dress) return null;
+    return {
+      rowKey: row.key,
+      label: row.label,
+      value: callTimeOf(dress, row.tier, row.key),
+      canSet: Boolean(firstStyleOf(dress, row.tier as AttireTier, row.key)),
+      onSet: (t) => setCallTime(row, t),
+    };
+  };
+  /** The chip's words: "Call time 1:00 PM" · "Set a call time" · the Guests' "Arrives 2:30 PM · from Ceremony". */
+  const timeWords = (row: StudioAttireRow, t: CallTimeProps): string => {
+    if (!t.canSet) return 'Call time';
+    if (row.key !== 'guest') return t.value ? `Call time ${formatCallTime(t.value)}` : 'Set a call time';
+    const at = arriveBlocks ? guestsArriveTime(arriveBlocks) : null;
+    const from = arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
+    return t.value && at ? `Arrives ${at}${from ? ` · from ${from}` : ''}` : GUESTS_ARRIVE_UNSET;
   };
   const saveDress = (next: Record<string, unknown>) => {
     if (!dress) return;
@@ -809,8 +856,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
      Search ideas › (the suppliers' — the shipped picker). A photo comes off through the same confirm box; the photos'
      colours are offered to the role where its board has one ("Use for …"). `named` — a role with two boards (the
      bearers: Flower girl · Ring bearer) says whose each is. `offer` — a Palette block's own (2026-10-19, prototype frame 3):
-     the photos' colours under them with "Use for Table linens", which sets that part only when tapped (with Undo). */
-  const ideasRow = (slot: StudioInspirationSlot, named: boolean, offer?: { label: string; use: (colours: string[]) => void } | null) => {
+     the photos' colours under them with "Use for Table linens", which sets that part only when tapped (with Undo).
+     `at` — where a ROLE ROW stands it (owner 2026-10-22, prototype `dress_code_role_rows_tidy_2026-10-22.html` § 2):
+     'fold' = the row's own place — on a desk the right-hand column, "Photos" then the buttons beside their words; on a
+     phone the line folds behind the row's one "more" row (its sheet holds it) while a supplier's photo still WAITING
+     stays on the page, where the top notice jumps to it. 'sheet' = inside that sheet (the waiting photo is on the page). */
+  const ideasRow = (slot: StudioInspirationSlot, named: boolean, offer?: { label: string; use: (colours: string[]) => void } | null, at?: 'fold' | 'sheet') => {
     const row = tiles[slot.slotKey] ?? [];
     const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
     const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
@@ -819,7 +870,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const suggested = waitingIn(slot.slotKey);
     return (
       <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
-        <div className="flex min-h-11 items-center gap-1.5">
+        <div className={`${at === 'fold' ? `hidden ${ROW_HANG} lg:flex` : 'flex'} min-h-11 items-center gap-1.5`}>
+          {at === 'fold' ? <span className={`${ROW_KEY} ${ROW_HANG_KEY}`}>{named ? '' : 'Photos'}</span> : null}
           {photos.map(({ pos, tile }) =>
             tile!.url ? (
               <ActionButton
@@ -836,20 +888,20 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             ),
           )}
           {/* A full part's count drops to its own line under the photos (prototype frame 5), so "3 photos · 1 from …" is read whole. */}
-          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{photos.length >= MOODBOARD_SLOT_POSITIONS.length ? '' : named ? `${slot.label} · ${count}` : count}</span>
+          <span className={`ml-1 min-w-0 truncate text-[12px] text-ink/55 ${at === 'fold' ? 'shrink' : 'flex-1'}`}>{photos.length >= MOODBOARD_SLOT_POSITIONS.length ? '' : named ? `${slot.label} · ${count}` : count}</span>
           <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} />
           <span data-mood-board-search={slot.slotKey}>
             <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
           </span>
         </div>
         {photos.length >= MOODBOARD_SLOT_POSITIONS.length ? (
-          <p className="-mt-0.5 text-[12px] text-ink/55" data-mood-board-count={slot.slotKey}>
+          <p className={`-mt-0.5 text-[12px] text-ink/55 ${at === 'fold' ? 'hidden lg:block' : ''}`} data-mood-board-count={slot.slotKey}>
             {named ? `${slot.label} · ${count}` : count}
           </p>
         ) : null}
         {/* 🤝🖼 A SUPPLIER'S PHOTO, WAITING beside the couple's own (prototype frame 3): "From Bloom & Co." · "A photo for
             Bridal bouquet", then the shipped notice's two buttons — ✓ Keep · ✕ No thanks. Nothing moves until one is tapped. */}
-        {suggested.map((sg) => (
+        {(at === 'sheet' ? [] : suggested).map((sg) => (
           <div key={sg.id} data-mood-board-suggestion={sg.id} className="flex flex-col">
             <div className="flex min-h-12 items-center gap-2.5 pt-1.5">
               <Thumb src={sg.url} />
@@ -872,7 +924,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             </span>
           </div>
         ) : slotPalette.length > 0 && slot.useLabel && offer === undefined ? (
-          <div className="flex min-h-11 items-center gap-2">
+          <div className={`${at === 'fold' ? 'hidden lg:flex' : 'flex'} min-h-11 items-center gap-2`}>
             <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
             <span data-mood-board-use-slot={slot.slotKey} className="ml-auto">
               <ActionButton tone="neutral" icon={Sparkles} label={slot.useLabel} onClick={() => applySlotPalette(slot, slotPalette)} />
@@ -1038,7 +1090,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               />
             </FormRows>
           </div>
-          <div className="flex flex-col gap-1.5 pb-1" data-mood-board-main-palette="">
+          <div className="flex flex-col gap-1.5 pb-1" data-mood-board-main-palette="" data-tour="mood-board-palette">
             <Heading title="Your main palette" tip="One palette with Look › Colours. Every part below follows them until you set it." />
             <div className="flex flex-wrap items-start justify-between" data-mood-board-five="">
               {five.map((hex, i) => {
@@ -1064,7 +1116,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 })
               : null}
           </div>
-          <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
+          {/* 🔦 The Mood Board tour's stop 2 rings the room's heading — the group under it is taller than a phone. */}
+          <div data-tour="mood-board-reception">
+            <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
+          </div>
           <div className={STUDIO_GROUP} data-mood-board-room="">
             {ROOM_LANE_PARTS.map(partBlock)}
           </div>
@@ -1104,13 +1159,45 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const arrivalFrom = forGuests && arriveBlocks ? guestsArriveFrom(arriveBlocks) : null;
             const arrivalAt = forGuests && arriveBlocks ? guestsArriveTime(arriveBlocks) : null;
             const arrives = forGuests ? (arrivalAt ? `${arrivalAt}${arrivalFrom ? ` · from ${arrivalFrom}` : ''}` : null) : dress ? formatCallTime(callTime) : row.arrives;
+            /* ⏰ THE ROW'S TIME IS ITS HEADER CHIP (owner 2026-10-22, "Yes to all"; prototype
+               `dress_code_role_rows_tidy_2026-10-22.html` § 2): "Call time 1:00 PM" · "Set a call time" · the Guests'
+               "Arrives 2:30 PM · from Ceremony" — a tap opens the SAME field and Clear (`CallTimeRow`) in a sheet, read
+               from the one `timeOf(row)` the sheet reads too. Waiting (grey) until there is a Wear to keep a time on. */
+            const time = timeOf(row);
+            const timeSaid = time ? timeWords(row, time) : null;
+            const people = row.people ? (row.people === 1 ? '1 person' : `${formatCount(row.people)} people`) : null;
+            /* 👗 NOTE + PHOTOS: on a phone ONE quiet "more" row that opens the row's sheet; on a desk a right-hand column. */
+            const boards = attireBoardsUnder(row.key);
+            const boardPhotos = boards.flatMap((slot) => (tiles[slot.slotKey] ?? []).filter((t): t is Tile => Boolean(t?.url)));
             return (
-              <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
-                <header className="flex flex-wrap items-baseline gap-2">
+              <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="grid grid-cols-1 gap-x-6 gap-y-1.5 border-t border-ink/10 py-3 first:border-t-0 lg:grid-cols-[minmax(340px,1fr)_minmax(0,430px)]">
+                <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5 lg:col-span-2 lg:items-center">
                   <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{row.label}</h3>
-                  {arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {arrives}</small> : null}
+                  {people ? <small className="whitespace-nowrap text-[12px] text-ink/55" data-mood-board-people={row.key}>{people}</small> : null}
+                  {time && timeSaid ? (
+                    <span className="basis-full lg:ml-auto lg:basis-auto" data-mood-board-call-time={row.key} data-mood-board-call-time-value={time.value ?? ''}>
+                      <ActionButton
+                        tone="neutral"
+                        icon={Clock}
+                        label={timeSaid}
+                        name={`${row.label} — ${forGuests ? 'when guests arrive' : 'call time'}${time.canSet ? (time.value ? `, ${timeSaid}` : '') : ' (pick what they wear first)'}`}
+                        waiting={!time.canSet}
+                        aria-haspopup="dialog"
+                        onClick={() => setSheet({ kind: 'time', row })}
+                        className="!h-11"
+                      />
+                    </span>
+                  ) : arrives ? (
+                    <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {arrives}</small>
+                  ) : null}
                 </header>
-                {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
+                <div className="flex min-w-0 flex-col gap-1.5 [container-type:inline-size] lg:col-start-1 lg:row-start-2">
+                {/* ⏰ Why the chip waits — said where the row is read (the shipped words). */}
+                {time && !time.canSet ? (
+                  <p className="text-[12px] leading-snug text-ink/65" data-mood-board-call-time-waits="">
+                    {time.waits ?? 'Pick what they wear first'}
+                  </p>
+                ) : null}
                 {/* 👯 An honour row's people keep their group's look until their Wear is picked here (`honourRowSpeaks`,
                     2026-10-19) — said, so a colour picked first is not read as a page that ignores it. */}
                 {row.fallsBackTo && (row.honourColumns ?? [0]).some((i) => !picks[i]?.style) ? (
@@ -1118,7 +1205,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     Until you pick what they wear, they dress as the {row.fallsBackTo}.
                   </p>
                 ) : null}
-                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={drawn.length}>
+                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col [@container(min-width:640px)]:flex-row [@container(min-width:640px)]:gap-8 [@container(min-width:640px)]:[&>*]:flex-1' : ''}`} data-mood-board-picks={drawn.length}>
                   {drawn.map(({ pick, pi }) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
@@ -1161,9 +1248,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       </span>
                     );
                     const swatches = !row.paletteKey ? null : zoned ? (
-                      <span className={`flex flex-wrap items-start gap-x-1 ${two ? '[&_small]:max-w-[52px]' : ''}`} data-mood-board-swatches={pick.who} data-mood-board-zones={zones.length}>
+                      <span className="flex flex-wrap items-start gap-x-1 [&_small]:max-w-[52px]" data-mood-board-swatches={pick.who} data-mood-board-zones={zones.length}>
                         {/* 🎛 Three controls side by side in a men's column at 375 px (owner 2026-10-21, "3 palette controls"): in a
-                            row of two, a two-word label wraps under its own dot (the words keep the one `DOT_WORD` type;
+                            column (every role's, since 2026-10-22), a two-word label wraps under its own dot (the words keep the one `DOT_WORD` type;
                             only their width narrows here) rather than pushing the third dot onto a new line. */}
                         {/* 🏷 EVERY DOT SAYS WHAT IT COLOURS (owner 2026-10-17: "for the dress code of women, there are palettes
                             but no indication of what the colors control") — `pickDots`, the guest page's own words: each
@@ -1171,7 +1258,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                         {dots.map((d, i) => zoneDot(i, d.hex, d.word))}
                       </span>
                     ) : (
-                      <span className={`flex items-center ${two ? 'flex-col items-start' : 'flex-wrap'}`} data-mood-board-swatches={pick.who}>
+                      <span className="flex flex-wrap items-center" data-mood-board-swatches={pick.who}>
                         {pickDots(pick.style, colours, role).map((d, i) => (
                           <span key={i} className="flex flex-col items-center">
                             <RoleColourDot
@@ -1281,7 +1368,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           attrs: { 'data-mood-board-wear-for': pick.who } as Readonly<Record<`data-${string}`, string>>,
                         };
                     const wearRow = dress ? (
-                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
+                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={`mt-auto ${two || !isGuests ? '[&_[data-form-row-name]]:sr-only [&_[data-mood-board-wear]]:!w-full' : ''}`}>
                         <ChosenRow name="Wear" dataAttr="data-mood-board-wear" {...wearPick} />
                         {library && designCount > 1 ? (
                           <p className="mt-1.5 text-[12px] leading-snug text-ink/65" data-mood-board-wear-allowed="">
@@ -1364,63 +1451,55 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                         </div>
                       );
                     }
-                    if (zoned && two) {
-                      /* Two columns, a figure each: the figure, then its labelled dots in a row, then its Wear ▾. */
-                      return (
-                        <div key={pick.who} className="flex min-w-0 flex-1 flex-col gap-1.5" data-mood-board-pick={pick.who}>
-                          <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span>
-                          <div className="flex justify-start">{figure}</div>
-                          {swatches}
-                          {wearRow}
-                        </div>
-                      );
-                    }
+                    /* 🧍 EVERY COLUMN IS ONE SHAPE (owner 2026-10-22, "Yes to all"; prototype
+                       `dress_code_role_rows_tidy_2026-10-22.html` § 2): the figure, its labelled dots directly under it, its
+                       Wear ▾ under them — a VIP column, a men's or women's column, and the groom alike. A one-figure role
+                       stands at the width of a two-column role's column, so the groom and VIP line up. */
                     return (
-                      <div key={pick.who} className="flex min-w-0 flex-1 flex-col gap-1.5" data-mood-board-pick={pick.who}>
+                      <div
+                        key={pick.who}
+                        className={`flex min-w-0 flex-col gap-1.5 ${two ? 'flex-1' : 'flex-none basis-[calc(50%-0.3125rem)]'}`}
+                        data-mood-board-pick={pick.who}
+                        data-mood-board-column=""
+                      >
                         {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
-                        <div className="flex items-end gap-2.5">
-                          {figure}
-                          <div className="flex min-w-0 flex-1 flex-col justify-end gap-1.5">
-                            {swatches}
-                            {two ? null : wearRow}
-                          </div>
-                        </div>
-                        {two ? wearRow : null}
+                        <div className="flex justify-start">{figure}</div>
+                        {swatches}
+                        {wearRow}
                       </div>
                     );
                   })}
                 </div>
                 {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of these colours — never combined. Up to five.</p> : null}
-                {/* ⏰ CALL TIME — one per row, right here where the row is dressed (owner 2026-10-18: "each role will have their
-                    call time"). Guests too (owner 2026-10-19: "guest call time") — theirs is the Schedule's arrival moment, the
-                    invitation's "Guests arrive" and Event Details' row, one field (`lib/guests-arrive.ts`). */}
-                {forGuests && props.arrival !== undefined ? (
-                  <CallTimeRow
+                </div>
+                {/* 👗 THE PHONE'S ONE QUIET "MORE" ROW (owner 2026-10-22, "Yes to all"): the note's words and the photos'
+                    count, read without opening; a tap opens the row's sheet — the note, the photos, ＋ and Search ideas in
+                    the thumb zone. A desk draws the same two in the right-hand column instead. */}
+                {canNote || boards.length > 0 ? (
+                  <RoleMoreRow
                     rowKey={row.key}
                     label={row.label}
-                    value={arriveBlocks ? guestsArriveHhmm(arriveBlocks) : null}
-                    canSet={arriveBlocks !== null}
-                    waits="The programme could not be read — try again"
-                    unset={GUESTS_ARRIVE_UNSET}
-                    note={arrivalFrom ? `From ${arrivalFrom} — set a time to give guests their own` : null}
-                    clearable={false}
-                    onSet={setGuestsArrive}
+                    note={canNote ? note : undefined}
+                    photos={boards.length > 0 ? { count: boardPhotos.length, thumbs: boardPhotos.slice(0, 2).map((t) => t.url) } : null}
+                    onOpen={() => setSheet({ kind: 'more', row })}
                   />
-                ) : dress && !forGuests ? (
-                  <CallTimeRow rowKey={row.key} label={row.label} value={callTime} canSet={canNote} onSet={(t) => setCallTime(row, t)} />
                 ) : null}
+                {/* 🖥 A DESK'S RIGHT-HAND COLUMN: the note, its button beside its words; the photos, ＋ and Search ideas beside
+                    theirs. On a phone only a supplier's photo still waiting shows here (`ideasRow` 'fold'). */}
+                <div className="flex min-w-0 flex-col gap-1 lg:col-start-2 lg:row-start-2">
                 {canNote ? (
-                  <div className="flex min-h-11 items-center gap-2" data-mood-board-role-note={row.key}>
-                    <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Note</span>
-                    {note ? <em className="min-w-0 flex-1 truncate text-[13px] text-ink">“{note}”</em> : <span className="min-w-0 flex-1 text-[13px] text-ink/55">Nothing yet</span>}
+                  <div className={`hidden min-h-11 items-center gap-x-1.5 ${ROW_HANG} lg:flex`} data-mood-board-role-note={row.key}>
+                    <span className={`${ROW_KEY} ${ROW_HANG_KEY}`}>Note</span>
+                    {note ? <em className="min-w-0 shrink truncate text-[13px] text-ink">“{note}”</em> : <span className="min-w-0 shrink text-[13px] text-ink/55">Nothing yet</span>}
                     <ActionButton tone="neutral" quiet icon={PenLine} label={note ? 'Change' : 'Add a note'} name={`${note ? 'Change' : 'Add'} the note for ${row.label}`} onClick={() => setSheet({ kind: 'note', row })} />
                   </div>
                 ) : null}
                 {attireBoardsUnder(row.key).map((slot) => (
                   <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
-                    {ideasRow(slot, attireBoardsUnder(row.key).length > 1)}
+                    {ideasRow(slot, attireBoardsUnder(row.key).length > 1, undefined, 'fold')}
                   </div>
                 ))}
+                </div>
               </section>
             );
           })}
@@ -1486,6 +1565,47 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           onClose={() => setSheet(null)}
         />
       ) : null}
+      {sheet?.kind === 'time'
+        ? (() => {
+            const row = sheet.row;
+            const t = timeOf(row);
+            return t ? (
+              <StudioSheet label={`${row.label} — ${row.key === 'guest' ? 'when guests arrive' : 'call time'}`} onClose={() => setSheet(null)}>
+                <div className="flex flex-col gap-2 px-1 pb-2" data-mood-board-call-time-sheet={row.key}>
+                  {row.key === 'guest' ? null : <p className="text-[13px] leading-snug text-ink/60">When they should be dressed and ready.</p>}
+                  <CallTimeRow {...t} onDone={() => setSheet(null)} />
+                </div>
+              </StudioSheet>
+            ) : null;
+          })()
+        : null}
+      {sheet?.kind === 'more'
+        ? (() => {
+            const row = sheet.row;
+            const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
+            const boards = attireBoardsUnder(row.key);
+            const n = boards.reduce((k, slot) => k + (tiles[slot.slotKey] ?? []).filter((x) => x?.url).length, 0);
+            const t = timeOf(row);
+            const people = row.people ? (row.people === 1 ? '1 person' : `${formatCount(row.people)} people`) : null;
+            return (
+              <StudioSheet label={row.label} onClose={() => setSheet(null)}>
+                <RowSheet
+                  rowKey={row.key}
+                  sub={[people, t && t.value ? timeWords(row, t) : null].filter(Boolean).join(' · ')}
+                  note={canNote ? { start: noteFor(row), label: `${row.label} · a note`, onSave: (text) => writeNote(row, text) } : null}
+                  photosHead={boards.length > 0 ? `Photos${n > 0 ? ` · ${formatCount(n)}` : ''}` : null}
+                  onDone={() => setSheet(null)}
+                >
+                  {boards.map((slot) => (
+                    <div key={slot.slotKey} data-mood-board-row-sheet-board={slot.slotKey}>
+                      {ideasRow(slot, boards.length > 1, undefined, 'sheet')}
+                    </div>
+                  ))}
+                </RowSheet>
+              </StudioSheet>
+            );
+          })()
+        : null}
       {sheet?.kind === 'note' ? <NoteSheet label={`${sheet.row.label} · a note`} start={noteFor(sheet.row)} onClose={() => setSheet(null)} onSave={(text) => { const row = sheet.row; setSheet(null); writeNote(row, text); }} /> : null}
       {sheet?.kind === 'auto' ? (
         <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={takeAuto} onClose={() => setSheet(null)} />
@@ -1580,17 +1700,7 @@ function Thumb({ src, badge = null, big = false }: { src: string; badge?: string
  * half-read "7" can never become an alarm). It saves when the wheel is put away (blur), only when the time changed; Clear
  * takes it back. A row with no Wear picked has no outfit line to keep a time on (`withCallTime`), and says so.
  */
-function CallTimeRow({
-  rowKey,
-  label,
-  value,
-  canSet,
-  onSet,
-  waits = 'Pick what they wear first',
-  unset = null,
-  clearable = true,
-  note = null,
-}: {
+type CallTimeProps = {
   rowKey: string;
   label: string;
   value: string | null;
@@ -1605,24 +1715,43 @@ function CallTimeRow({
   clearable?: boolean;
   /** Said beside a field that holds a time (the Guests row's borrowed time: "From Ceremony — …"). */
   note?: string | null;
+};
+
+export function CallTimeRow({
+  rowKey,
+  label,
+  value,
+  canSet,
+  onSet,
+  waits = 'Pick what they wear first',
+  unset = null,
+  clearable = true,
+  note = null,
+  onDone,
+}: CallTimeProps & {
+  /** In the chip's sheet (owner 2026-10-22): ✓ Done saves what the wheel holds and closes — unless it was refused, which is
+   *  said under the field and keeps the sheet open. */
+  onDone?: () => void;
 }) {
   const id = useId();
   const [time, setTime] = useState(value ?? '');
   const [refused, setRefused] = useState<string | null>(null);
   useEffect(() => setTime(value ?? ''), [value]);
-  const commit = () => {
+  /** `true` when the time was refused (said under the field; the field goes back to the stored time). */
+  const commit = (): boolean => {
     const next = time === '' ? null : time;
-    if (next === value) return;
-    if (next !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) return;
+    if (next === value) return false;
+    if (next !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) return false;
     const no = onSet(next);
     setRefused(no || null);
     if (no) setTime(value ?? '');
+    return Boolean(no);
   };
   return (
     <div className="flex flex-col gap-1">
-    <div className="flex min-h-11 items-center gap-2" data-mood-board-call-time={rowKey}>
+    <div className={`flex min-h-11 items-center gap-2 ${onDone ? 'flex-wrap' : ''}`} data-mood-board-call-time={rowKey}>
       {canSet ? (
-        <label htmlFor={id} className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">
+        <label htmlFor={id} className={onDone ? 'sr-only' : 'flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55'}>
           Call time
         </label>
       ) : (
@@ -1654,12 +1783,77 @@ function CallTimeRow({
       ) : (
         <span className="min-w-0 flex-1 text-[13px] text-ink/55" data-mood-board-call-time-waits="">{waits}</span>
       )}
+      {onDone ? (
+        /* The press never takes the focus first, so ✓ Done itself saves (and stays open on a refusal) rather than a blur
+           saving behind it and the sheet closing over the refusal. */
+        <span className="ml-auto flex-none" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} data-mood-board-call-time-done="">
+          <ActionButton tone="brand" main icon={Check} label="Done" name={`Done — ${label} call time`} onClick={() => { if (!commit()) onDone(); }} />
+        </span>
+      ) : null}
     </div>
     {refused ? (
       <p role="alert" className="text-[12px] leading-snug text-ink/75" data-mood-board-call-time-refused={rowKey}>
         {refused}
       </p>
     ) : null}
+    </div>
+  );
+}
+
+/**
+ * 👗 A ROLE ROW'S SHEET ON A PHONE (owner 2026-10-22, "Yes to all"; prototype `dress_code_role_rows_tidy_2026-10-22.html`
+ * § 3): the row's note — the same one line, up to 120 letters (`NoteSheet`'s field), saved when it is put away, as the
+ * call time's wheel is — then its photos with ＋ and Search ideas (`ideasRow`), and ✓ Done, all in the thumb zone.
+ */
+function RowSheet({
+  rowKey,
+  sub,
+  note,
+  photosHead,
+  onDone,
+  children,
+}: {
+  rowKey: string;
+  sub: string;
+  note: { start: string; label: string; onSave: (text: string) => void } | null;
+  photosHead: string | null;
+  onDone: () => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const [text, setText] = useState(note?.start ?? '');
+  const put = () => {
+    if (note && text.trim().slice(0, 120) !== note.start.trim()) note.onSave(text);
+  };
+  return (
+    <div className="flex flex-col gap-3 px-1 pb-2" data-mood-board-row-sheet={rowKey}>
+      {sub ? <p className="text-[13px] text-ink/60">{sub}</p> : null}
+      {note ? (
+        <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-mood-board-role-note={rowKey}>
+          <label htmlFor={id} className={ROW_KEY}>
+            Note
+          </label>
+          <input
+            id={id}
+            value={text}
+            onChange={(e) => setText(e.target.value.slice(0, 120))}
+            onBlur={put}
+            maxLength={120}
+            placeholder="e.g. ivory, not white"
+            aria-label={note.label}
+            className="h-11 w-full rounded-xl border border-ink/15 bg-raised px-3 text-[16px] text-ink" // no-card-ok: a text field, not a container
+          />
+        </div>
+      ) : null}
+      {photosHead ? (
+        <div className="flex flex-col gap-1 border-t border-ink/10 pt-3">
+          <span className={ROW_KEY}>{photosHead}</span>
+          {children}
+        </div>
+      ) : null}
+      <div className="flex justify-end">
+        <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => { put(); onDone(); }} />
+      </div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from './_download-motion';
 import { formatCount } from '@/lib/format-number';
 import { formatLongDate } from '@/lib/format-date';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -27,6 +28,7 @@ export const metadata = {
     'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window.',
   alternates: { canonical: '/download' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Download Setnayan for Mac or Windows',
     description:
       'A native desktop app for Mac or Windows that opens straight to your Setnayan account.',

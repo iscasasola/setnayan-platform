@@ -80,6 +80,18 @@ export const RETAIL: RetailRow[] = [
   // retail_price_php, is_active from public.platform_retail_catalog_v2 where
   // service_code = 'COUPLE_WEBSITE_PRO'.
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 5000, is_active: true },
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; re-check with the select above.
+  { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_STYLE', title: 'Event Hub Pro · Style', retail_price_php: 1000, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_MOTION', title: 'Event Hub Pro · Motion', retail_price_php: 1000, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_LOGO_QR', title: 'Event Hub Pro · Logo & QR', retail_price_php: 500, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_MUSIC', title: 'Event Hub Pro · Music', retail_price_php: 500, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_PRINTS', title: 'Event Hub Pro · Prints', retail_price_php: 500, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Hub Pro · Post Event', retail_price_php: 500, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Hub Pro · Your own scenes', retail_price_php: 500, is_active: true },
+  { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Hub Pro · Custom address', retail_price_php: 500, is_active: true },
   // ── THE PAPIC LADDER, owner 2026-08-26 ──────────────────────────────────
   // ⚠ SIXTEEN ROWS, and this fixture is the SECOND hand-typed copy of the
   // catalog that this file's own docblock warns about. When a rung's price or
@@ -170,7 +182,8 @@ export const RETAIL: RetailRow[] = [
   // its number for three weeks; what it buys now is the six CSS animation
   // signatures on a mark whose maker is already free. This fixture mirrors
   // production and MUST be changed in the same PR as the catalogue row.
-  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: true },
+  // Retired from sale 2026-10-22 (migration 20271283592608) — the Logo & QR part sells the animation; a NEGATIVE fixture now.
+  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: false },
   // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
   // deactivated in prod by migration 20271156242842, and this fixture is a
   // second hand-typed copy of that catalog which CI reads instead of the

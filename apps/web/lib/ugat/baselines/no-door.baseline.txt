@@ -30,7 +30,9 @@
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/pro-parts-lab	# first run 2026-10-22 · internal (dev, prototypes) · the Event Hub Pro parts frames; a page nobody can reach without typing its address
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/spotlight-lab/[[...page]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -40,5 +42,4 @@
 /dev/you-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
-/privacy/google-access	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address

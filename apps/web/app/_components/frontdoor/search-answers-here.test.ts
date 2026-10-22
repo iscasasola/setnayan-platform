@@ -33,6 +33,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PUBLIC_SEARCH_NOUNS } from '@/lib/public-search-nouns';
+import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
@@ -66,16 +67,17 @@ test('the public search form posts to the front door, not the marketplace', () =
   );
 });
 
-test("the palette's escape row lands on the same page the form does", () => {
+test("the palette's escape row lands on the same results view the form does", () => {
   const src = stripComments(read(ESCAPE));
-  // The row a signed-in person presses. It must reach the front door's own
-  // results, or a member and a stranger typing the same words get different
-  // answers from one bar — the split the 2026-08-14 "one search" lock forbids.
-  assert.match(
-    src,
-    /href:\s*`\/\?q=\$\{encodeURIComponent\(q\)\}`/,
-    'the escape row no longer lands on the front door',
-  );
+  // The row a signed-in person presses. It must reach the SAME results view
+  // the public box reaches, or a member and a stranger typing the same words
+  // get different answers from one bar — the split the 2026-08-14 "one search"
+  // lock forbids. 🔄 2026-10-22: that view is now drawn, for a member, inside
+  // the account shell (`/dashboard/search`, owner: "away from our shell").
+  assert.match(src, /href:\s*shellSearchHref\(q\)/, 'the escape row no longer lands on the shell results page');
+  assert.equal(SHELL_SEARCH_PATH, '/dashboard/search');
+  const shellPage = stripComments(read('app/dashboard/(account)/search/page.tsx'));
+  assert.match(shellPage, /<FrontDoorResults\b/, 'the shell results page stopped drawing the shared results view');
   assert.equal(
     (src.match(/href:\s*`\/explore\?q=/g) ?? []).length,
     0,

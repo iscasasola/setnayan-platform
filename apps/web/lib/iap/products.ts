@@ -42,7 +42,7 @@
  */
 const EVENT_HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
-export type IapProductKind = 'event-hub-pro' | 'live-watch' | 'papic-credits';
+export type IapProductKind = 'event-hub-pro' | 'event-hub-part' | 'live-watch' | 'papic-credits';
 
 export type IapProduct = {
   /** The App Store Connect product id. */
@@ -60,6 +60,29 @@ export type IapProduct = {
 
 const PREFIX = 'com.setnayan.app.';
 
+/**
+ * 💎 EVENT HUB PRO, PART BY PART — in the iPhone app 1.1 (owner 2026-10-22, "yes to all"; flag-dark behind the one IAP
+ * gate, `SetnayanIAP/2` + the owner's switch): each of the eleven parts is a fixed-price Apple product (CONSUMABLE, for
+ * the current event — ruling 3), floor = web ÷ 0.85 like every product here (ruling 4). An in-app part counts its WEB
+ * value toward everything (the cap reads the catalogue, never Apple's price). Once any part is owned the app hides
+ * "Everything" (finish on the web — which the app may not say). Spelled here, not imported from `lib/hub-parts.ts`'s
+ * table, only so a renamed part can never silently change a PRODUCT ID (ids are forever); `products.test.ts` holds the
+ * two lists equal.
+ */
+const HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKey: string, name: string]> = [
+  ['reveal', 'COUPLE_HUB_PART_REVEAL', 'Reveal'],
+  ['background', 'COUPLE_HUB_PART_BACKGROUND', 'Background'],
+  ['photos', 'COUPLE_HUB_PART_PHOTOS', 'Photos'],
+  ['style', 'COUPLE_HUB_PART_STYLE', 'Style'],
+  ['motion', 'COUPLE_HUB_PART_MOTION', 'Motion'],
+  ['logo_qr', 'COUPLE_HUB_PART_LOGO_QR', 'Logo & QR'],
+  ['music', 'COUPLE_HUB_PART_MUSIC', 'Music'],
+  ['prints', 'COUPLE_HUB_PART_PRINTS', 'Prints'],
+  ['post_event', 'COUPLE_HUB_PART_POST_EVENT', 'Post Event'],
+  ['own_scenes', 'COUPLE_HUB_PART_OWN_SCENES', 'Your own scenes'],
+  ['address', 'COUPLE_HUB_PART_ADDRESS', 'Custom address'],
+];
+
 export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
   {
     productId: `${PREFIX}event_hub_pro`,
@@ -69,6 +92,16 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     appStoreName: 'Event Hub Pro',
     credits: null,
   },
+  ...HUB_PART_PRODUCTS.map(
+    ([part, serviceKey, name]): IapProduct => ({
+      productId: `${PREFIX}hub_part_${part}`,
+      serviceKey,
+      kind: 'event-hub-part',
+      appleType: 'consumable',
+      appStoreName: `Event Hub Pro · ${name}`,
+      credits: null,
+    }),
+  ),
   {
     productId: `${PREFIX}live_watch`,
     serviceKey: 'LIVE_STUDIO',
@@ -96,6 +129,9 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     }),
   ),
 ]);
+
+/** The eleven part products, in the parts' own order. */
+export const IAP_HUB_PART_PRODUCTS: readonly IapProduct[] = IAP_PRODUCTS.filter((p) => p.kind === 'event-hub-part');
 
 /** Every product id, for StoreKit's `Product.products(for:)`. */
 export const IAP_PRODUCT_IDS: readonly string[] = IAP_PRODUCTS.map((p) => p.productId);

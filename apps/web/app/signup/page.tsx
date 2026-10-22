@@ -32,7 +32,7 @@
  * (one hidden input, the value the URL decided — owner-locked 2026-09-20,
  * `lib/signup-intent.ts`), `next`, `ref` / `src_event` (guest → host
  * attribution), `refc` (couple referral), `email`, `password`, the Terms box
- * (CTRL-B3, unticked, required, above the submit — and since 2026-10-22 above Google / Apple too, one box for all three doors — `lib/terms-agreement.ts`),
+ * (CTRL-B3, unticked, required, JUST above the submit — one box for all three doors since 2026-10-22, and it gates Google / Apple from there — `lib/terms-agreement.ts`),
  * `remember`, and the Turnstile bot check inside the form. The OAuth row above
  * the email form, shell-gated exactly as /login gates it. The status banners
  * (error · confirmation sent · guest photos will be saved · a couple invited
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/signup' },
 };
 
-/** The one Terms box and the email form it posts with (`form=`) — one id each, so the two can never drift apart. */
+/** The one Terms box (inside the email form, just above its submit) and that form — one id each. */
 const TERMS_BOX_ID = 'hr-su-terms';
 const SIGNUP_FORM_ID = 'hr-su-form';
 
@@ -172,8 +172,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small —
               not the brand PANEL retired above. */}
           <FirstRunBrand className="hr-si-brand" />
-          <div className="hr-ov-eyebrow">User account</div>
-          <h1 className="hr-ov-title">Create your user account.</h1>
+          <div className="hr-ov-eyebrow">Your account</div>
+          <h1 className="hr-ov-title">Create your account.</h1>
           {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and
               create your password. or directly sign in with Google or Apple." —
               said in the order the card now shows them (2026-09-25: Google /
@@ -208,31 +208,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B,
-              prototype journey_fixes_2026-10-22.html). Clickwrap, UNTICKED, `required` (CTRL-B3), now ABOVE the
-              Google / Apple buttons as well as the email form's submit. `form=` posts it with the email form exactly
-              as before; `TermsFirst` below dims Google / Apple until it is ticked and carries the tick through the
-              provider round trip (`carrySignupTerms` → `app/auth/callback`), so a Google / Apple account that ticked
-              here never meets the "One quick thing" second screen. The "By continuing with Google or Apple…" line
-              (browsewrap) is gone — this box is the agreement on every door. */}
-          <label htmlFor={TERMS_BOX_ID} className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
-            <input id={TERMS_BOX_ID} name={TERMS_FIELD} type="checkbox" form={SIGNUP_FORM_ID} required data-terms-box="" style={{ marginTop: 3 }} />
-            <span>
-              I agree to the{' '}
-              <Link href="/terms" className="hr-si-link">
-                Terms
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" className="hr-si-link">
-                Privacy Policy
-              </Link>
-              .
-            </span>
-          </label>
-          <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
-            Tick the Terms first.
-          </p>
-
           {/* ONE DOOR, ONE ORDER (owner 2026-09-25, verbatim: "When a new account
               is created via website must be similar to the event invitation").
               Google / Apple FIRST, as on the invitation door (DECISION_LOG
@@ -242,8 +217,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               owner's WORDS from that day stay — "sign in directly with Google or
               Apple" (the sentence above); the buttons say `OAUTH_VERB`
               (lib/oauth-words.ts, "Continue with"), the one wording every door
-              uses (sweep C9, 2026-10-19). The one Terms box ABOVE them is the
-              agreement on this path as well (2026-10-22).
+              uses (sweep C9, 2026-10-19). The one Terms box — below them, just
+              above "Create user account" (owner 2026-10-22, "do both") — is the
+              agreement on this path as well; `TermsFirst` holds them until it is
+              ticked.
               Same components and shell gate as /login; `withAccountType` carries
               the URL's decision so a vendor arriving by Google is filed as one. */}
           {showOAuth ? (
@@ -284,7 +261,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                placeholder="you@setnayan.com"
+                placeholder="you@email.com"
                 defaultValue={prefilledEmail}
                 required
                 className="hr-si-input"
@@ -325,8 +302,34 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               </label>
             </div>
 
+            {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B,
+                prototype journey_fixes_2026-10-22.html), and since the same day ("do both") JUST ABOVE the button
+                that creates the account — the card reads choose how (Google · Apple · or email + password) →
+                agree → create. Clickwrap, UNTICKED, `required` (CTRL-B3). Inside the form, so the email door posts
+                it as before; NOT `data-password-only`, so it stays on screen when a typed Google address folds the
+                password half away. `TermsFirst` above still dims Google / Apple until it is ticked, and a press on
+                them unticked scrolls here and nudges it; the tick rides the provider round trip (`carrySignupTerms`
+                → `app/auth/callback`), so a Google / Apple account that ticked here never meets "One quick thing". */}
+            <label htmlFor={TERMS_BOX_ID} className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
+              <input id={TERMS_BOX_ID} name={TERMS_FIELD} type="checkbox" required data-terms-box="" style={{ marginTop: 3 }} />
+              <span>
+                I agree to the{' '}
+                <Link href="/terms" className="hr-si-link">
+                  Terms
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" className="hr-si-link">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
+              Tick the Terms first.
+            </p>
+
             <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
-              Create user account · free
+              Create account · free
             </SubmitButton>
           </form>
 

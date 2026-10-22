@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { HERO_MONOGRAM_COLUMNS, logoSwitchedOff } from '@/lib/hero-monogram-data';
 import { getPrimaryColor, PALETTE_ORDER, sanitizeRolePalette } from '@/lib/mood-board';
@@ -163,7 +163,8 @@ export async function resolveEventQrLook(
   let ownsPro = false;
   try {
     // 👁 As the viewer is shown it — a QR is drawn, never written, here.
-    ownsPro = await asViewed(eventCoupleWebsiteProActive(client, eventId));
+    // 💎 Your logo on the QR, its shape, pattern and colour are the Logo & QR part's (owner 2026-10-22, gate 29).
+    ownsPro = await asViewed(eventHubPartActive(client, eventId, 'logo_qr'));
   } catch (err) {
     console.error('[qr-look] Event Hub Pro could not be read; rendering the free look', err instanceof Error ? err.message : err);
     ownsPro = false;

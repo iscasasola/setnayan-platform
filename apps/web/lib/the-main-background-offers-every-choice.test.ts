@@ -93,7 +93,8 @@ test('2 · "None" hides the theme\'s loop and poster with the SAME switch the he
   const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   const body = layer.slice(layer.indexOf('export async function mainGroundLayerFor'));
   const noneAt = body.indexOf('if (mainGroundIsNone(hubMainGround(heroConfig))) {');
-  assert.ok(noneAt > 0 && noneAt < body.indexOf('websiteProActiveFor'), '"none" is answered before the Pro read');
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.ok(noneAt > 0 && noneAt < body.indexOf('hubPartActiveFor'), '"none" is answered before the Pro read');
   assert.match(body, /return INVITE_THEMES\[theme\]\?\.media \? <MainGroundNone \/> : null;/);
 });
 

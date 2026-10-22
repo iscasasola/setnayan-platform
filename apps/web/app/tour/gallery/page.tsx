@@ -7,6 +7,7 @@ import { sanitizeRolePalette, PALETTE_LIMITS, type PaletteKey } from '@/lib/mood
 import { TourLiveWall, type TourWallTile } from './_components/tour-live-wall';
 import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-palette-preview';
 import { coupleNamesLine } from '@/lib/typed-names';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * STOP 5 — "See it come alive."
@@ -44,6 +45,7 @@ export const metadata = {
     'See a wedding come alive on Setnayan — the live photo wall filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/gallery' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'The gallery · Maria & Jose · Setnayan',
     description: 'The day, captured by everyone — explore a real wedding’s live photo wall and palette.',
     url: '/tour/gallery',
@@ -306,7 +308,7 @@ export default async function TourGalleryPage() {
       <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">That&rsquo;s the whole wedding.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-          The invitation, the vendors, the seating, the budget, the gallery &mdash; one place, start to finish. Start your
+          The invitation, the suppliers, the seating, the budget, the gallery &mdash; one place, start to finish. Start your
           own on Setnayan, free, in minutes. Set na &rsquo;yan.
         </p>
         <Link

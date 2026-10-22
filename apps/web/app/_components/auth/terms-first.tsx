@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * TermsFirst — the sign-up card's ONE Terms box, in front of Google and Apple (owner 2026-10-22, Host 1 option B,
- * prototype `journey_fixes_2026-10-22.html`: "One tick, on the card, before the buttons — never a second screen").
+ * TermsFirst — the sign-up card's ONE Terms box gates Google and Apple (owner 2026-10-22, Host 1 option B,
+ * prototype `journey_fixes_2026-10-22.html`: "One tick, on the card — never a second screen"; and the same day,
+ * "do both": the box moved to JUST ABOVE "Create user account", so the card reads choose how → agree → create).
  *
- * The box itself is plain markup on the page (`app/signup/page.tsx`): an unticked, `required` checkbox, associated
- * with the email form by `form=`, so the email door posts it exactly as before. This wraps the Google / Apple row:
- *   • unticked → a press on a provider button goes nowhere; the box is nudged and says "Tick the Terms first"
+ * The box itself is plain markup on the page (`app/signup/page.tsx`): an unticked, `required` checkbox inside the
+ * email form, so the email door posts it exactly as before. This wraps the Google / Apple row above it:
+ *   • unticked → a press on a provider button goes nowhere; the box is scrolled into view, nudged, and says "Tick the
+ *     Terms first"
  *     (the buttons are drawn dimmed by CSS while the box is empty — `home-reskin.css`, `[data-terms-first]`);
  *   • ticked → the tick is carried to the callback (`carrySignupTerms`, an httpOnly cookie set by the server from
  *     the posted tick), and THEN the press goes through, unchanged — the web form, the desktop loopback and the
@@ -38,7 +40,11 @@ export async function termsFirst(boxId: string): Promise<boolean> {
     window.setTimeout(() => label?.removeAttribute('data-terms-nudge'), NUDGE_MS);
     const hint = document.getElementById(`${boxId}-hint`);
     if (hint) hint.hidden = false;
-    box.focus();
+    // The box sits BELOW Google / Apple, just above "Create user account" (owner 2026-10-22, "do both"), so on a
+    // phone it can be off screen when the press lands: bring it into view, then focus it without a second jump.
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    (label ?? box).scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    box.focus({ preventScroll: true });
     return false;
   }
   // What the browser itself would post for this box: its value, only because it is ticked.

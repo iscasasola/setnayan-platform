@@ -165,10 +165,10 @@ export function useFindOrInvite() {
   };
 }
 
-/** The thumb row's field — "Search or invite" (the one-thumb-row prototype's word for People), in the row's glass. */
+/** The thumb row's field — "Find or invite" (the owner's words for People, 2026-10-22), in the shared row's field seat. */
 export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: RefObject<HTMLInputElement | null> }) {
   return (
-    <ThumbField words="Search or invite">
+    <ThumbField words="Find or invite">
       <input
         ref={(el) => {
           (f.inputRef as { current: HTMLInputElement | null }).current = el;
@@ -183,8 +183,8 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
           }
         }}
         disabled={f.pending}
-        placeholder="Search or invite"
-        aria-label="Search or invite — a name finds them, a name and their email invites them"
+        placeholder="Find or invite"
+        aria-label="Find or invite — a name finds them, a name and their email invites them"
         enterKeyHint="search"
         autoComplete="off"
         data-find-field=""

@@ -79,6 +79,16 @@ export type ThumbField = {
   tour?: string;
 };
 
+/** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
+ *  ActionButton; the seat is the glass. */
+function NodeRound({ node }: { node: ReactNode }) {
+  return (
+    <span className={`sn-glass-row ${styles.round} ${styles.menu} ${styles.nodeRound}`} data-thumb-seat="round">
+      {node}
+    </span>
+  );
+}
+
 function Round({ r }: { r: ThumbRound }) {
   const common = {
     tone: 'neutral' as const,
@@ -113,7 +123,7 @@ export function ThumbRow({
   /** Which screen's row — the guard's and the tour's handle. */
   name: string;
   /** ≤ 2 neutral rounds before the field — ⇕ then ☑. */
-  left?: readonly ThumbRound[];
+  left?: readonly (ThumbRound | ThumbNode)[];
   field?: ThumbField | ThumbNode | null;
   /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
   right?: readonly (ThumbRound | ThumbMenu)[];
@@ -128,9 +138,7 @@ export function ThumbRow({
     <div role="toolbar" aria-label={`${name} tools`} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {children ?? (
         <>
-          {left.slice(0, 2).map((r) => (
-            <Round key={r.label} r={r} />
-          ))}
+          {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
           {field && 'node' in field ? (
             <span data-glass-row="thumb-row-field-node" className={`sn-glass-row ${styles.field} ${styles.fieldNode}`} data-thumb-seat="field">
               {field.node}

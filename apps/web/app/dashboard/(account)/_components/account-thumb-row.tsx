@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Search } from 'lucide-react';
-import { useFitRow } from '@/components/action-button';
+import { ThumbRow } from '@/components/thumb-row';
 import { followColumn } from '@/app/dashboard/[eventId]/guests/_components/dock-follows-column';
-import { SUP_REACH_X } from '@/lib/suppliers-shell';
 import tr from './account-thumb-row.module.css';
 
 /**
@@ -15,9 +14,9 @@ import tr from './account-thumb-row.module.css';
  * verb at the RIGHT as a round terracotta button. Each control is its own frosted glass (`.sn-glass-row`); the row
  * paints NOTHING — no band, no top border, no shadow. Controls are drawn at 44 px (the prototype's question 3).
  *
- * 🔁 ONE SMALL COMPONENT ON PURPOSE: the prototype's shared `components/thumb-row.tsx` is being built separately;
- * when it lands, this file is the only thing People and Memories swap (same three seats: tools · field · action).
- * `useFitRow` mounts WITH the row (the Find row's lesson: measured from a parent it measured nothing).
+ * 🔁 SWAPPED 2026-10-22 (as this note planned): the row is now drawn by the shared `components/thumb-row.tsx` — the
+ * same three seats (tools · field · action) handed in as ThumbNodes; the seat is the glass, so `ThumbTool` and
+ * `ThumbField` no longer paint one of their own. This file keeps only where the row sits (the dock, the column).
  */
 export function AccountThumbRow({
   tools,
@@ -35,13 +34,12 @@ export function AccountThumbRow({
   data: Record<`data-${string}`, string>;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
   // From 1024 (no dock) the row sits under the reading column, not across the stage.
   useEffect(() => {
     const el = hostRef.current;
     return el ? followColumn(el) : undefined;
   }, []);
+  const name = Object.values(data)[0] || 'account';
   return (
     <div ref={hostRef} className="mx-auto w-full max-w-3xl" data-thumb-host="">
       <div
@@ -49,44 +47,30 @@ export function AccountThumbRow({
         data-one-thumb-row=""
         className="pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] py-2.5 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] lg:bottom-4 lg:left-[var(--gs-left,0px)] lg:right-[var(--gs-right,0px)] lg:px-0"
       >
-        <div ref={rowRef} className="pointer-events-auto flex min-w-0 items-center gap-1.5">
-          {tools}
-          {field}
-          {/* 👆 The 44-px reach is the wrapper's (the Find row's): a press on the reach is the button's press. */}
-          {action ? (
-            <span
-              className={`${SUP_REACH_X} inline-flex shrink-0`}
-              data-press-reach=""
-              onClick={(e) => {
-                if (!(e.target as Element).closest('button, a')) e.currentTarget.querySelector<HTMLElement>('button, a')?.click();
-              }}
-            >
-              {action}
-            </span>
-          ) : null}
-        </div>
+        <ThumbRow
+          name={`people-${name}`}
+          left={tools ? [{ node: tools }] : []}
+          field={field ? { node: field } : null}
+          action={action ? { node: action } : null}
+        />
       </div>
     </div>
   );
 }
 
-/** One round tool — its own glass, 44 × 44 (the Find row's ⇕ wrapper). */
+/** One round tool, 44 × 44 — the shared row's round seat is its glass. */
 export function ThumbTool({ children }: { children: ReactNode }) {
   return (
-    <span className={`sn-glass-row ${tr.tool}`} data-thumb-tool="">
+    <span className={tr.tool} data-thumb-tool="">
       {children}
     </span>
   );
 }
 
-/** The field — the Find row's glass label, 44 tall, ≥ 60 % of the row; the placeholder is two or three words. */
+/** The field's inside — the shared row's field seat is its glass; the placeholder is two or three words. */
 export function ThumbField({ children, words }: { children: ReactNode; words: string }) {
   return (
-    <label
-      data-fit-field=""
-      data-thumb-field={words}
-      className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center gap-2 rounded-full px-3.5 text-ink"
-    >
+    <label data-thumb-field={words} className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 pr-2.5 text-ink">
       <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
       {children}
     </label>

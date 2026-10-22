@@ -44,3 +44,4 @@
 .fieldNode > * { flex: 1 1 auto; min-width: 0; height: 100%; background: transparent !important; box-shadow: none !important; border: 0 !important; }
 .actionNode :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; gap: 0; border-color: transparent; }
 .actionNode :global(.ab .lbl) { display: none; }
+.nodeRound :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; border-color: transparent; background: transparent; }

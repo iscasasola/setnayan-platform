@@ -69,6 +69,8 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   customers: { file: 'app/vendor-dashboard/customers/page.tsx', mounts: /<ThumbRow\b/g, count: 3 },
   money: { file: 'app/vendor-dashboard/customers/_components/money-segment.tsx', mounts: /<ThumbRow\b/g, count: 1 },
   page: { file: 'app/vendor-dashboard/website/_components/page-parts.tsx', mounts: /<ThumbRow\b/g, count: 1 },
+  // People (and Memories, once it lands on the same component): the account row draws through the shared one.
+  account: { file: 'app/dashboard/(account)/_components/account-thumb-row.tsx', mounts: /<ThumbRow\b/g, count: 1 },
 };
 
 function seats(html: string): string[] {
@@ -165,6 +167,10 @@ describe('placeholders name the place, short', () => {
       if (p.alone) continue;
       expect(p.words.split(/\s+/).length, `${p.file}: "${p.words}"`).toBeLessThanOrEqual(3);
     }
+  });
+  it('People says the owner’s words, short', () => {
+    const src = read('app/dashboard/(account)/people/_components/find-or-invite.tsx');
+    expect(src).toMatch(/placeholder="Find or invite"/);
   });
   it('Find names the open category only while it stays short', () => {
     expect(findPlaceholder('all suppliers')).toBe('Search suppliers');

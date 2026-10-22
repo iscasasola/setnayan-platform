@@ -907,8 +907,8 @@ function StyleAndAddOns({
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Optional packs that elevate the broadcast and the post-event recap. Prices are
-          set in the Setnayan catalog; buy through the normal orders flow and refunds
-          follow the standard 24-hour SLA.
+          set in the Setnayan catalog; buy through the normal orders flow. No refunds:
+          a pack you cannot use becomes Papic credits for this event.
         </p>
       </div>
 
@@ -1022,7 +1022,7 @@ function PackCard({
           </span>
         ) : (
           <span className="text-xs text-ink/55">
-            Open the orders page to purchase. Refundable per the standard 24-hour SLA.
+            Open the orders page to purchase. No refunds: if you cannot use it, it becomes Papic credits for this event.
           </span>
         )}
       </div>

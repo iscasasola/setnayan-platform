@@ -31,6 +31,7 @@ type Row = {
   name: string | null;
   owner_user_id: string;
   handed_over_at: string | null;
+  dependent_kind?: string | null;
 };
 
 /** Minimal PostgREST-shaped fake honouring the filters this resolver applies. */
@@ -62,7 +63,12 @@ function fakeClient(rows: Row[], opts: { error?: string } = {}) {
               r.owner_user_id === filters.owner_user_id &&
               (filters.handed_over_at !== null || r.handed_over_at === null),
           );
-          return { data: hit ? { dependent_id: hit.dependent_id, name: hit.name } : null, error: null };
+          return {
+            data: hit
+              ? { dependent_id: hit.dependent_id, name: hit.name, dependent_kind: hit.dependent_kind ?? 'person' }
+              : null,
+            error: null,
+          };
         },
       };
       return builder;
@@ -104,6 +110,7 @@ test('the happy path: my own alaga, label untouched → the link is written', as
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   assert.equal(got, DEP);
 });
@@ -114,6 +121,7 @@ test('AN UNOWNED ID IS REFUSED — the whole reason this resolver exists', async
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   assert.equal(got, null, 'writing another account’s dependent_id would leak a relationship');
 });
@@ -124,6 +132,7 @@ test('the ownership predicate is actually sent to the DB, not assumed', async ()
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   const call = client.calls.at(-1);
   assert.equal(call?.table, 'dependents');
@@ -137,6 +146,7 @@ test('an id that matches nothing on the account resolves to NULL', async () => {
     userId: OWNER,
     dependentId: OTHER_DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   assert.equal(got, null);
 });
@@ -147,6 +157,7 @@ test('a handed-over record is no longer this account’s alaga', async () => {
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   assert.equal(got, null);
 });
@@ -156,6 +167,7 @@ test('an edited label drops the link rather than filing it under the old person'
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Jose',
+    eventType: 'birthday',
   });
   assert.equal(got, null, 'the label and the link must describe the same person');
 });
@@ -165,6 +177,7 @@ test('a read error DROPS the link — it must never cost anyone their event', as
     userId: OWNER,
     dependentId: DEP,
     honoreeLabel: 'Nina',
+    eventType: 'birthday',
   });
   assert.equal(got, null);
 });
@@ -176,6 +189,7 @@ test('no caller identity, no link — and no round-trip spent looking', async ()
       userId: '',
       dependentId: DEP,
       honoreeLabel: 'Nina',
+      eventType: 'birthday',
     }),
     null,
   );
@@ -184,6 +198,7 @@ test('no caller identity, no link — and no round-trip spent looking', async ()
       userId: OWNER,
       dependentId: 'self',
       honoreeLabel: 'Nina',
+      eventType: 'birthday',
     }),
     null,
   );
@@ -246,4 +261,70 @@ test('an unknown or missing type names nobody', () => {
   assert.equal(eventTypeAcceptsHonoreeLink(''), false);
   assert.equal(eventTypeAcceptsHonoreeLink('reunion'), false);
   assert.equal(eventTypeAcceptsHonoreeLink('anniversary'), false);
+});
+
+// ── A SHOP IS LINKED ON EVERY EVENT IT IS PICKED FOR (owner 2026-10-22) ─────
+//
+// The kind is read from the RECORD, so these drive the resolver with rows of
+// each kind and assert what the database row decides — not what the wire says.
+
+const SHOP: Row = { ...MINE, name: 'Aling Nena’s Store', dependent_kind: 'business' };
+
+test('a business alaga is linked on a type outside both named lists', async () => {
+  for (const eventType of ['celebration', 'tournament', 'travel', 'anniversary', 'reunion']) {
+    const got = await resolveHonoreeDependentId(fakeClient([SHOP]), {
+      userId: OWNER,
+      dependentId: DEP,
+      honoreeLabel: 'Aling Nena’s Store',
+      eventType,
+    });
+    assert.equal(got, DEP, `${eventType} "for" the shop must be the shop's`);
+  }
+});
+
+test('a PERSON on those same types is still dropped — people keep their own rules', async () => {
+  for (const kind of ['person', null, 'pet', 'item', 'other']) {
+    const row: Row = { ...MINE, dependent_kind: kind };
+    const got = await resolveHonoreeDependentId(fakeClient([row]), {
+      userId: OWNER,
+      dependentId: DEP,
+      honoreeLabel: 'Nina',
+      eventType: 'travel',
+    });
+    assert.equal(got, null, `a ${kind ?? 'legacy NULL'} alaga must not be linked on a trip`);
+  }
+});
+
+test('a wedding names nobody — not even a shop', async () => {
+  const client = fakeClient([SHOP]);
+  const got = await resolveHonoreeDependentId(client, {
+    userId: OWNER,
+    dependentId: DEP,
+    honoreeLabel: 'Aling Nena’s Store',
+    eventType: 'wedding',
+  });
+  assert.equal(got, null);
+  assert.equal(client.calls.length, 0, 'a type nobody may be named on spends no round-trip');
+});
+
+test('the shop link still needs ownership and a matching label', async () => {
+  const theirs: Row = { ...SHOP, owner_user_id: 'user-2' };
+  assert.equal(
+    await resolveHonoreeDependentId(fakeClient([theirs]), {
+      userId: OWNER,
+      dependentId: DEP,
+      honoreeLabel: 'Aling Nena’s Store',
+      eventType: 'celebration',
+    }),
+    null,
+  );
+  assert.equal(
+    await resolveHonoreeDependentId(fakeClient([SHOP]), {
+      userId: OWNER,
+      dependentId: DEP,
+      honoreeLabel: 'Some other shop',
+      eventType: 'celebration',
+    }),
+    null,
+  );
 });

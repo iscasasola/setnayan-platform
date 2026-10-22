@@ -41,6 +41,9 @@
  */
 
 import { after } from 'next/server';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth';
+import { shellSearchHref } from '@/lib/shell-search';
 import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
@@ -299,6 +302,17 @@ export default async function HomePage({
   */
   const qParam = params.q;
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  /*
+    🔄 SIGNED IN, A SEARCH ANSWERS INSIDE THE SHELL (owner 2026-10-22, *"I
+    tried to search for seda and brought me here away from our shell"*). This
+    page is a doorway — the public top bar, no account bar — so a member's
+    `?q=` (an old link, a paste, a bookmark) goes to the account shell's own
+    results page, which renders the same results view. Signed out, nothing
+    changes: the public box still answers here. `lib/shell-search.ts`.
+  */
+  if (q?.trim() && (await getCurrentUser().catch(() => null))) {
+    redirect(shellSearchHref(q));
+  }
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the

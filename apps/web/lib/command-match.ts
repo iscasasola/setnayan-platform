@@ -35,7 +35,14 @@
 export type MatchableItem = {
   label: string;
   sublabel: string;
-  kind: 'event' | 'space' | 'action';
+  /**
+   * `supplier` (2026-10-22) — a supplier ON ONE OF YOUR EVENTS, booked or added
+   * by hand, published or not. Owner, after searching "seda" for a supplier he
+   * had booked: *"brought me here away from our shell"* — the index held no
+   * suppliers at all, so his own was unfindable. Built by
+   * `lib/own-supplier-items.ts`; never a marketplace listing.
+   */
+  kind: 'event' | 'space' | 'action' | 'supplier';
   /**
    * Extra searchable words that are NEVER RENDERED.
    *
@@ -63,6 +70,7 @@ export const KIND_LABEL: Record<MatchableItem['kind'], string> = {
   event: 'Event',
   space: 'Space',
   action: 'Go to',
+  supplier: 'Supplier',
 };
 
 /** Everything one row can be matched on, lowercased once. */

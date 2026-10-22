@@ -176,8 +176,11 @@ test('2b · every field the Studio sends is one the Schedule’s own writer read
   assert.match(body, /updateScheduleBlock\(fd\)/);
   assert.match(body, /createScheduleBlock\(fd\)/);
   assert.doesNotMatch(body, /saveDress|hubDraftAction|withCallTime/, 'the guests’ time is written into the dress code — a second home');
-  const guestsRow = studio.slice(studio.indexOf('forGuests && props.arrival'), studio.indexOf(') : dress && !forGuests'));
-  assert.match(guestsRow, /onSet=\{setGuestsArrive\}/, 'the Guests row’s call time does not save through the Schedule');
+  /* RE-AIMED 2026-10-22 (the row's time is its header chip, the field in its sheet): both read `timeOf(row)` — its Guests branch. */
+  const from = studio.indexOf("if (row.key === 'guest') {", studio.indexOf('const timeOf = '));
+  assert.ok(from >= 0, 'the Studio’s one time read has no Guests branch');
+  const guestsRow = studio.slice(from, studio.indexOf('if (!dress) return null;', from));
+  assert.match(guestsRow, /onSet: setGuestsArrive\b/, 'the Guests row’s call time does not save through the Schedule');
   assert.match(guestsRow, /guestsArriveHhmm\(/, 'the Guests row’s call time is not read from the arrival moment');
 });
 
@@ -278,7 +281,7 @@ test('6 · the pages read the one resolver — Event Details, the guest page, th
   assert.match(widget, /const arriveBy = mine\?\.callTime \?\? guestsArriveBy \?\? null;/, 'a role’s own time no longer wins, or guests are not told theirs');
 });
 
-test('6b · Studio › Attire draws the Guests call time from the Schedule — field, header, and the unset line', async () => {
+test('6b · Studio › Attire draws the Guests call time from the Schedule — the header chip, its sheet’s field, and the unset words', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MoodBoardStudio } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio');
   const draw = (arrival: unknown) =>
@@ -301,26 +304,41 @@ test('6b · Studio › Attire draws the Guests call time from the Schedule — f
         arrival,
       }),
     );
+  /* RE-AIMED 2026-10-22 (owner "Yes to all", prototype `dress_code_role_rows_tidy_2026-10-22.html` § 2): the Guests' time is
+     the row's header chip — "Arrives 2:30 PM · from Ceremony" — holding the Schedule's value it hands its sheet; the field
+     itself is the sheet's (`CallTimeRow`, drawn below with what `timeOf` hands it). */
+  const chip = (h: string) => /data-mood-board-call-time="guest" data-mood-board-call-time-value="([^"]*)"><button([^>]*)>[\s\S]*?<span class="lbl">([^<]*)<\/span>/.exec(h);
   const set = draw({ blocks: FIXTURE, eventDate: '2026-12-12' });
   assert.match(set, /data-mood-board-call-time="guest"/, 'the Guests row has no call time');
-  assert.match(set, /type="time"[^>]*value="14:30"/, 'the field holds the Schedule’s arrival');
-  assert.match(set, /Arrives 2:30 PM/, 'and the header says it');
-  assert.doesNotMatch(set, /value="09:00"/, 'a dress-code time is shown for guests — a second home');
+  assert.equal(chip(set)?.[1], '14:30', 'the chip does not hold the Schedule’s arrival');
+  assert.equal(chip(set)?.[3], 'Arrives 2:30 PM', 'and the chip does not say it');
+  assert.doesNotMatch(set, /value="09:00"|data-mood-board-call-time-value="09:00"/, 'a dress-code time is shown for guests — a second home');
   assert.doesNotMatch(set, /Clear the call time for Guests/, 'the arrival moment is cleared from the dress code');
 
   /* No arrival moment: the Ceremony's time, said with its source. */
   const borrowed = draw({ blocks: FIXTURE.filter((b) => b.block_id !== 'arrive'), eventDate: '2026-12-12' });
-  assert.match(borrowed, /type="time"[^>]*value="15:00"/, 'the field does not hold the invitation’s time');
-  assert.match(borrowed, /Arrives 3:00 PM · from Ceremony/, 'the header does not say where the time comes from');
-  assert.match(borrowed, /From Ceremony — set a time to give guests their own/);
-  /* Nothing guests can see at all: an empty field and "Set when guests arrive". */
+  assert.equal(chip(borrowed)?.[1], '15:00', 'the chip does not hold the invitation’s time');
+  assert.equal(chip(borrowed)?.[3], 'Arrives 3:00 PM · from Ceremony', 'the chip does not say where the time comes from');
+  /* Nothing guests can see at all: an empty chip that says "Set when guests arrive". */
   const unset = draw({ blocks: [], eventDate: '2026-12-12' });
-  assert.match(unset, /type="time"[^>]*value=""/);
-  assert.match(unset, /Set when guests arrive/);
+  assert.equal(chip(unset)?.[1], '');
+  assert.equal(chip(unset)?.[3], 'Set when guests arrive');
   assert.doesNotMatch(unset, /Arrives /);
 
   const unread = draw(null);
   assert.match(unread, /data-mood-board-call-time="guest"/);
-  assert.doesNotMatch(unread, /type="time"/, 'a refused read draws a field that would save onto nothing');
+  assert.match(chip(unread)?.[2] ?? '', /data-waiting=""/, 'a refused read opens a field that would save onto nothing');
   assert.match(unread, /could not be read/);
+
+  /* The sheet: the SAME field, Clear withheld (the arrival is changed here, never cleared from here), the source said. */
+  const { CallTimeRow } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio');
+  const sheet = renderToStaticMarkup(
+    React.createElement(CallTimeRow as React.ComponentType<Record<string, unknown>>, {
+      rowKey: 'guest', label: 'Guests', value: '15:00', canSet: true, clearable: false, unset: 'Set when guests arrive',
+      note: 'From Ceremony — set a time to give guests their own', onSet: () => {}, onDone: () => {},
+    }),
+  );
+  assert.match(sheet, /type="time"[^>]*value="15:00"/, 'the sheet’s field does not hold the borrowed time');
+  assert.match(sheet, /From Ceremony — set a time to give guests their own/);
+  assert.doesNotMatch(sheet, /Clear the call time/);
 });

@@ -10,6 +10,8 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { reachableShops } from '@/lib/active-shop';
+import { cookies } from 'next/headers';
+import { ACCOUNTS_LIST_COOKIE, canAddAnother, decodeParkedList, otherAccounts, type ParkedAccount } from '@/lib/account-jars';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -88,6 +90,10 @@ export type SwitcherData = {
    */
   eventsMeasured: boolean;
   context: SwitcherContext;
+  /** Other logins parked on this device (avatar sheet PR2) — display only, never a credential; never this one. */
+  otherAccounts?: ParkedAccount[];
+  /** May one more login be added on this device (MAX_ACCOUNTS_PER_DEVICE)? */
+  canAddAccount?: boolean;
 };
 
 /**
@@ -116,12 +122,22 @@ export type SwitcherData = {
  * Every sub-query is wrapped in try/catch so a missing table (pre-migration)
  * or RLS error degrades to an empty array rather than crashing the chrome.
  */
-export const getSwitcherData = cache(
-  async (userId: string): Promise<SwitcherData> =>
-    /* ⚡ A prefetch reuses the switcher this person's last page read (≤ 20 s, same verified
-       user, only a measured answer) — `lib/chrome-snapshot.ts`. A page they open reads fresh. */
-    chromeSnapshot('switcher', userId, () => loadSwitcherData(userId), (v) => v.eventsMeasured === true),
-);
+export const getSwitcherData = cache(async (userId: string): Promise<SwitcherData> => {
+  /* ⚡ A prefetch reuses the switcher this person's last page read (≤ 20 s, same verified
+     user, only a measured answer) — `lib/chrome-snapshot.ts`. A page they open reads fresh. */
+  const base = await chromeSnapshot('switcher', userId, () => loadSwitcherData(userId), (v) => v.eventsMeasured === true);
+  // The parked logins are THIS DEVICE's, read from its cookie every time — never from the per-user snapshot.
+  const parked = await readParkedAccounts();
+  return { ...base, otherAccounts: otherAccounts(parked, userId), canAddAccount: canAddAnother(otherAccounts(parked, userId)) };
+});
+
+async function readParkedAccounts(): Promise<ParkedAccount[]> {
+  try {
+    return decodeParkedList((await cookies()).get(ACCOUNTS_LIST_COOKIE)?.value);
+  } catch {
+    return [];
+  }
+}
 
 async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   try {

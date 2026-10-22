@@ -384,6 +384,41 @@ export function SwitcherPanelBody({
             <Trail on={false} />
           </Link>
         ) : null}
+
+        {/* 🔁 OTHER ACCOUNTS ON THIS PHONE (owner 2026-10-22, "Like in facebook how i can switch to different email
+            addresses"). Each row posts its id to the switch, which refreshes that account's jar, checks it IS that
+            account, and swaps the session — instant, no password (lib/account-jars.ts). No count: reading another
+            login's notifications would need its session on this page, which is exactly what the jars keep out. */}
+        {(data.otherAccounts ?? []).map((acct) => (
+          <form key={acct.uid} action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>
+            <input type="hidden" name="uid" value={acct.uid} />
+            <button type="submit" className={ROW}>
+              <RowMark className="bg-[var(--m-ivory)] text-ink">{(acct.name?.trim() || acct.email).charAt(0).toUpperCase()}</RowMark>
+              <span className="min-w-0 flex-1">
+                <span className={NAME}>{acct.name?.trim() || acct.email}</span>
+                <span className={SUB}>
+                  <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
+                  <span className="truncate">{acct.email}</span>
+                </span>
+              </span>
+              <Tag>Account</Tag>
+              <Trail on={false} />
+            </button>
+          </form>
+        ))}
+        {!data.isAnonymous && data.canAddAccount ? (
+          <form action="/auth/accounts/add" method="post" data-sheet-place="add-account">
+            <button type="submit" className={ROW}>
+              <RowMark className="border-[1.5px] border-dashed border-[var(--m-line)] text-[var(--m-slate-2)]">
+                <Plus className="h-5 w-5" strokeWidth={2} />
+              </RowMark>
+              <span className="min-w-0 flex-1">
+                <span className={NAME}>Add another account</span>
+              </span>
+              <Trail on={false} />
+            </button>
+          </form>
+        ) : null}
       </nav>
 
       {/* ── 3 · Your shop — the supplier's own rows, vendor layout only ── */}
@@ -475,10 +510,10 @@ export function SwitcherPanelBody({
         )}
       </div>
 
-      {/* ── 5 · Sign out of all accounts — one quiet line. One login lives on this phone today, so it is the same
-          sign-out; "Other accounts on this phone" is the account-switch PR's. ── */}
+      {/* ── 5 · Sign out of all accounts — one quiet line: every account on this phone (their jars revoked and
+          expired, lib/account-jars.ts), then the one you are on. ── */}
       {!data.isAnonymous ? (
-        <form action="/auth/sign-out" method="post" className="flex justify-center pt-1.5">
+        <form action="/auth/accounts/sign-out-all" method="post" className="flex justify-center pt-1.5">
           <button
             type="submit"
             data-sheet-sign-out-all=""
@@ -506,6 +541,22 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
     through the bell's own read split by place (lib/avatar-sheet-counts.ts). A refused or partial read leaves
     `unread` null and every row draws no count — never a 0.
   */
+  /*
+    🔁 ONE ACCOUNT PER BROWSER, IN EVERY TAB. The session cookies are shared by every tab, so after a switch an
+    older tab would still SHOW the account that left while its requests already carry the new one. Each tab says
+    who it was drawn for; a tab drawn for someone else reloads.
+  */
+  useEffect(() => {
+    if (!data.userId || typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel('sn-account');
+    ch.onmessage = (e: MessageEvent) => {
+      const uid = (e.data as { uid?: unknown } | null)?.uid;
+      if (typeof uid === 'string' && uid !== data.userId) window.location.reload();
+    };
+    ch.postMessage({ uid: data.userId });
+    return () => ch.close();
+  }, [data.userId]);
+
   const shopCount = data.context.shops?.length ?? 0;
   useEffect(() => {
     if (!open || !data.userId || data.isAnonymous) return;

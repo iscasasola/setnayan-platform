@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c0967b5f54",
+  "generatedFromRef": "5c16002d62",
   "routeCount": 456,
-  "destinations": 1000,
+  "destinations": 1001,
   "actions": 665,
-  "blocks": 6805,
+  "blocks": 6811,
   "routes": {
     "/": {
       "files": [
@@ -565,7 +565,8 @@
       "destinations": [
         "/cookies",
         "/dashboard/profile",
-        "/help"
+        "/help",
+        "/privacy/google-access"
       ],
       "actions": [],
       "blocks": [
@@ -5985,7 +5986,6 @@
         "InfoTip",
         "ListFilter",
         "ListPageSkeleton",
-        "MiniTour",
         "OrderGroup",
         "OrderRow",
         "OwedLine",
@@ -5999,6 +5999,7 @@
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
         "Sheet",
+        "Spotlight",
         "SuggestMilestonesResult",
         "SupplierGroup",
         "SupplierRow",
@@ -7434,6 +7435,7 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
+        "Spotlight",
         "Stack",
         "StageAbout",
         "StageAnimate",
@@ -8152,7 +8154,6 @@
         "MenuDivider",
         "MenuRow",
         "MetreSizeField",
-        "MiniTour",
         "MoveGuestSheet",
         "NotSharedWithYou",
         "OneOpenScope",
@@ -8181,6 +8182,7 @@
         "Section",
         "ShapeGlyph",
         "ShapePicker",
+        "Spotlight",
         "StatusLine",
         "Step",
         "StudioSeatPlanHead",
@@ -8701,6 +8703,7 @@
         "Sheet",
         "Slider",
         "SlotTile",
+        "Spotlight",
         "StudioDos",
         "StudioPopup",
         "StudioSheet",
@@ -8998,7 +9001,6 @@
         "LiveWallCard",
         "LiveWallControls",
         "MagazineCard",
-        "MiniTour",
         "PapicBuyForm",
         "PapicBuySheet",
         "PapicGalleryGrid",
@@ -9025,6 +9027,7 @@
         "ShowcaseToggle",
         "ShutterSection",
         "SourceRow",
+        "Spotlight",
         "StandingsStrip",
         "StatusBanners",
         "Stepper",
@@ -10703,6 +10706,7 @@
       "actions": [],
       "blocks": [
         "BudgetScreen",
+        "LabPageSpotlight",
         "LabShell",
         "TraditionNotes"
       ]
@@ -10770,6 +10774,7 @@
         "HubFontKey",
         "LabFontPick",
         "LabMoodBoardActions",
+        "LabPageSpotlight",
         "LabStudioActions",
         "LabStudioLoveStory",
         "LabStudioRsvp",
@@ -10902,6 +10907,7 @@
         "HubDraftToolbar",
         "LabDraftEngine",
         "LabLogoActions",
+        "LabPageSpotlight",
         "LabStudioActions",
         "LastSeenScope",
         "LogoActions",
@@ -11851,6 +11857,7 @@
         "FirstRunBrand",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HTMLInputElement",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",

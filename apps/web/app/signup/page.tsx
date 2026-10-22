@@ -172,8 +172,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small —
               not the brand PANEL retired above. */}
           <FirstRunBrand className="hr-si-brand" />
-          <div className="hr-ov-eyebrow">User account</div>
-          <h1 className="hr-ov-title">Create your user account.</h1>
+          <div className="hr-ov-eyebrow">Your account</div>
+          <h1 className="hr-ov-title">Create your account.</h1>
           {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and
               create your password. or directly sign in with Google or Apple." —
               said in the order the card now shows them (2026-09-25: Google /
@@ -261,7 +261,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                placeholder="you@setnayan.com"
+                placeholder="you@email.com"
                 defaultValue={prefilledEmail}
                 required
                 className="hr-si-input"
@@ -329,7 +329,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
 
             <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
-              Create user account · free
+              Create account · free
             </SubmitButton>
           </form>
 

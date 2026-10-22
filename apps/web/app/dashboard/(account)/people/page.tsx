@@ -16,7 +16,6 @@ import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { Spotlight } from '@/app/_components/spotlight';
-import { LovedOnesTip } from './_components/loved-ones-tip';
 import { PeopleRosterView } from './_components/people-roster-view';
 import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
@@ -166,9 +165,8 @@ export default async function PeoplePage({
   // 2026-10-22: a folded section in the list, like Family and Friends — a business alaga included).
   const lovedOnes = showDependents ? (
     <div data-people-view="alaga" className="pb-3">
-      <div className="mb-3 mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-view-door="alaga">
+      <div className="mb-3 mt-1" data-view-door="alaga">
         <AddAlagaButton />
-        <LovedOnesTip />
       </div>
       <DependentsSection />
     </div>

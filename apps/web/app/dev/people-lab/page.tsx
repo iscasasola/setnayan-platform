@@ -22,7 +22,6 @@ import { FollowListView } from '@/app/dashboard/(account)/people/_components/fol
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
-import { LovedOnesTip } from '@/app/dashboard/(account)/people/_components/loved-ones-tip';
 import { LabTour } from './lab-tour';
 
 const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): RosterPerson => ({
@@ -119,11 +118,6 @@ export default async function PeopleLabPage({
   };
   const lovedOnes = (
     <div className="pb-3" data-people-view="alaga">
-      {/* The page's own head (Add a loved one is a server door — a stand-in here) and its own ⓘ. */}
-      <div className="mb-3 mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-view-door="alaga">
-        <span className="button-secondary inline-flex items-center gap-2 text-sm">Add a loved one</span>
-        <LovedOnesTip />
-      </div>
       <p className="py-2 text-sm text-ink/65">{kind === 'full' ? 'Lola Nena · In your care' : 'No loved ones yet.'}</p>
     </div>
   );

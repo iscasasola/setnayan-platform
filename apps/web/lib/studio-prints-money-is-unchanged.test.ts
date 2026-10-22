@@ -135,9 +135,10 @@ test('2 · …and Studio’s ◆ files are each the ONE door for a free couple, 
       assert.equal(m.doors + m.proDoorHrefs, 0, `${label}: a Pro couple is sent to the unlock page`);
       assert.deepEqual(m.marks, ['unlocked'], `${label}: a Pro couple’s files are not ◆ unlocked`);
     } else {
-      /* Every guest's pass · every ticket (the zip) · everything · every guest's QR · every place card: five doors, one page. */
-      assert.equal(m.doors, 5, `${label}: an all-in-one file is not the ◆ door`);
-      assert.equal(m.proDoorHrefs, 5, `${label}: a ◆ door leads somewhere other than the one unlock page`);
+      /* Every ticket (the zip) · everything · every place card: three doors, one page. Every guest's pass and every guest's QR are
+         free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."). */
+      assert.equal(m.doors, 3, `${label}: an all-in-one file is not the ◆ door (or a free one still is)`);
+      assert.equal(m.proDoorHrefs, 3, `${label}: a ◆ door leads somewhere other than the one unlock page`);
       assert.deepEqual(m.marks, ['try'], `${label}: a free couple is shown a padlock, or no ◆`);
     }
   }

@@ -3093,7 +3093,8 @@ function isBrandGround(doc: PrintDoc, o: PrintOp): boolean {
   if (!o.fill || o.stroke) return false;
   // Anything as large as the sheet (the paper, a veil) — or a band of the sheet's own paper spanning it (a still's fade, the
   // words' panel, a pass's stub). A small white plate under a code is NOT ground, even on white paper.
-  const paper = doc.ops[0]?.t === 'rect' ? doc.ops[0].fill : undefined;
+  const first = doc.ops[0];
+  const paper = first && first.t === 'rect' ? first.fill : undefined;
   if (o.w >= doc.w * 0.6 && o.h >= doc.h * 0.6) return true;
   return o.fill === paper && (o.w >= doc.w * 0.6 || o.h >= doc.h * 0.6);
 }

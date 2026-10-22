@@ -170,7 +170,8 @@ function unionBox(ops: ReadonlyArray<Extract<PrintOp, { t: 'path' }>>): Box {
 /** Everything else the layout INKED on this sheet — measured here, independently of the stamp's own search. */
 function drawnInk(doc: PrintDoc): Array<{ what: string; box: Box }> {
   const out: Array<{ what: string; box: Box }> = [];
-  const paper = doc.ops[0]!.t === 'rect' ? doc.ops[0]!.fill : undefined;
+  const first = doc.ops[0]!;
+  const paper = first.t === 'rect' ? first.fill : undefined;
   for (const o of doc.ops) {
     if (o.t === 'path') {
       if (o.brand || o.layer === 'white') continue;
@@ -223,7 +224,8 @@ function brandProblems(docs: PrintDoc[], kind: 'line' | 'mark', where: string, i
     const t = ops[0]!.text;
     if (!t || t.s !== PRINT_BRAND_WORDS.toUpperCase()) out.push(`${where}: the line says "${t?.s}"`);
     if (t && t.size < PRINT_MIN_BODY_PT) out.push(`${where}: the line is ${t.size.toFixed(2)} pt, under the ${PRINT_MIN_BODY_PT} pt floor`);
-    const paper = doc.ops[0]!.t === 'rect' && doc.ops[0]!.fill ? doc.ops[0]!.fill : '#ffffff';
+    const first = doc.ops[0]!;
+    const paper = (first.t === 'rect' ? first.fill : undefined) ?? '#ffffff';
     const c = worstContrast(hexRgb(ops[0]!.fill!), 1, [hexRgb(paper)]);
     if (c < MIN_CONTRAST) out.push(`${where}: the line reads ${c.toFixed(2)} : 1 on its paper`);
   } else {

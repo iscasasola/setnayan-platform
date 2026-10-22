@@ -500,7 +500,8 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
         },
       },
     ],
-    price: { kind: 'free-plus', catalogue: 'retail', codes: ['ANIMATED_MONOGRAM'] },
+    // 💎 The animation upgrade is Event Hub Pro's Logo & QR part now (the standalone monogram is retired, 2026-10-22).
+    price: { kind: 'free-plus', catalogue: 'retail', codes: ['COUPLE_HUB_PART_LOGO_QR'] },
     moreHref: '/palogo',
     evidence: ['app/(shell)/palogo/page.tsx', 'lib/monogram.ts', 'lib/logo-layers.ts', 'app/dashboard/[eventId]/monogram/page.tsx'],
   },

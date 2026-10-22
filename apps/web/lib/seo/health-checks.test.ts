@@ -137,7 +137,8 @@ test('a declared literal that no longer matches its SKU FAILS, naming file + SKU
   const catalog: CatalogRow[] = skuBackedLiterals().map((l) => ({
     sku_code: l.sku,
     price_php:
-      l.sku === 'ANIMATED_MONOGRAM' ? 1750 : Number(l.literal.replace(/[₱,]/g, '')),
+      // The monogram demo frame's ₱500 is the Logo & QR part since 2026-10-22 (the standalone monogram retired into it).
+      l.sku === 'COUPLE_HUB_PART_LOGO_QR' ? 1750 : Number(l.literal.replace(/[₱,]/g, '')),
     source: 'retail',
   }));
 
@@ -145,7 +146,7 @@ test('a declared literal that no longer matches its SKU FAILS, naming file + SKU
   const check = res.findings.find((f) => f.check === 'hardcoded public price literals');
 
   assert.equal(check?.status, 'fail');
-  assert.ok(check?.detail.includes('ANIMATED_MONOGRAM'), 'must name the drifted SKU');
+  assert.ok(check?.detail.includes('COUPLE_HUB_PART_LOGO_QR'), 'must name the drifted SKU');
   assert.ok(check?.detail.includes('studio-card-demo'), 'must name the file to edit');
   assert.ok(check?.detail.includes('₱1,750'), 'must state the real catalog price');
 });

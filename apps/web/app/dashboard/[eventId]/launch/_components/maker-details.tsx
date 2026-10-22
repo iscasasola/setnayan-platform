@@ -40,7 +40,7 @@ import { PRINT_PIECES, PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { OpeningLineField } from './opening-line-field';
 import { SoftPost } from './soft-post';
-import { SlugField } from '../../invitation/_components/slug-field';
+import { AddressField, SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -254,6 +254,8 @@ export type MakerDetailsProps = {
   slug: string | null;
   /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
   slugAction: (formData: FormData) => Promise<void>;
+  /** 💎 The address part by part (`AddressField`) — absent: the shipped field. */
+  address?: { owns: boolean; renamed: boolean; pricePhp: number | null; drafted: string | null; storeShell: boolean };
   /** The QR's look choices (lib/qr-look.server.ts qrLookChoicesFromRow). */
   qr: { ownsPro: boolean; style: StoredQrStyle; inks: string[]; storeShell: boolean };
   /** `updateQrStyle` bound to this event. */
@@ -500,7 +502,7 @@ export function detailsFactEditors(input: {
 }
 
 export function MakerDetails(props: MakerDetailsProps) {
-  const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
+  const { eventId, slug, slugAction, address: addressPart, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
   const seatPlan = props.seatPlan ?? null;
@@ -955,8 +957,15 @@ export function MakerDetails(props: MakerDetailsProps) {
        availability, old links forward. ── */
     address: (
       <section data-details-address="" className="flex flex-col gap-2">
-        <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
-        <HubSavesImmediately className="mt-1" />
+        {addressPart && slug ? (
+          /* 💎 Owner 2026-10-22: the free address is shown; "Pick your own ◆" is tried in the draft, paid at ✓ Apply. */
+          <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
+        ) : (
+          <>
+            <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+            <HubSavesImmediately className="mt-1" />
+          </>
+        )}
       </section>
     ),
     qr: (
@@ -1109,7 +1118,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeIn = props.yourEvent ?? null;
     /* 🎁 "Accept gifts?" answered No (drafted over live, like every answer here). */
     const giftsOff = props.answers?.gifts.offered === true && props.answers.gifts.value === false;
-    /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
+    /* 📍 The Date is read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"); the Venue's pin is not, below. */
     if (yeIn && editors.date) {
       editors.date = <StudioTool part="fact" label="Date" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
     }
@@ -1119,7 +1128,12 @@ export function MakerDetails(props: MakerDetailsProps) {
         .filter((v) => v.name)
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
-      editors.venues = <StudioTool part="fact" label={ye?.rows.venues?.label ?? 'Venue'} value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+      /* 📍 …but a venue's PIN is set here when it is the couple's (owner 2026-10-22, DECISION_LOG "A MANUAL VENUE TAKES
+         THE COUPLE'S PIN; A SHOP'S VENUE TAKES THE SHOP'S"): a manual or unbooked venue opens the shipped
+         AddressPinField; a shop's venue stays one quiet row that follows the shop's pin (`studio-venues.tsx`). */
+      editors.venues = yeIn.venues.slots.length
+        ? <StudioTool part="venues" eventId={eventId} slots={yeIn.venues.slots} />
+        : <StudioTool part="fact" label={ye?.rows.venues?.label ?? 'Venue'} value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
     }
     /* 🏷 Event name · Maria & Jose — ONE row that opens the two people + Name style ▾ in place
        (owner 2026-10-07 "yes"). The same NamesEditor / NameStylePicker; a one-person event

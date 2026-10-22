@@ -39,6 +39,7 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
   savePanoodWatchUrl,
@@ -247,7 +248,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
+  // 💎 2026-10-22: the animation is sold as Event Hub Pro's Logo & QR part (the standalone row is retired) — its price.
+  const monogramSku = await formatV2Sku(hubPart('logo_qr').sku).catch(() => null);
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples

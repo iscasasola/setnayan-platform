@@ -26,6 +26,19 @@
  * hand, `venue_directory` for a directory pick, `vendor_profiles.hq_*` for a
  * supplier on the platform. Nothing is geocoded, nothing is invented.
  *
+ * 📍 A SETNAYAN SHOP'S PIN IS THE SHOP'S (owner 2026-10-22, DECISION_LOG "A MANUAL
+ * VENUE TAKES THE COUPLE'S PIN; A SHOP'S VENUE TAKES THE SHOP'S"): *"manual entry
+ * venues can set pin. venues from actual suppliers cannot customize pin, only
+ * follows what the suppliers pinned."* · *"manual is the manual added suppliers."*
+ * So a booking linked to a shop (`marketplace_vendor_id`, else
+ * `linked_vendor_profile_id`) takes its pin from `vendor_profiles.hq_*` ONLY —
+ * never from the couple's contact card (a manual supplier who CLAIMS their shop
+ * keeps the card on the row, and the shop's pin takes over from that moment),
+ * and never from the couple's "Enter your own" (that still names the card and
+ * its address; the pin stays the shop's). A shop that has not pinned gives NO
+ * pin, and the editors say "<shop> hasn't pinned their place yet"
+ * (`lib/venue-pin-door.ts`). `pinFrom` on each booking says whose pin it is.
+ *
  * ⛔ AN EVENT PIN IS NEVER BORROWED BY A BOOKING. `events.venue_latitude` is a
  * "first-saved-wins" anchor (its column comment says so): it can belong to a
  * venue the couple saved and then did not book. Laying it under a booking that
@@ -82,12 +95,25 @@ export const VENUE_ROLE_LABEL: Record<VenueRole, string> = {
   both: 'Ceremony & Reception',
 };
 
+/**
+ * 📍 Whose pin a booking carries (owner 2026-10-22):
+ *   · `shop`      — a Setnayan shop's own pin (`vendor_profiles.hq_*`); the couple never sets it;
+ *   · `manual`    — a supplier the couple added by hand — the pin on their contact card
+ *                   (`event_manual_vendors.address_*`), which the couple sets;
+ *   · `directory` — the venue list's record (`venue_directory.hq_*`).
+ */
+export type VenuePinSource = 'shop' | 'manual' | 'directory';
+
 /** A booked venue, resolved to what a guest needs. */
 export type VenueBooking = {
   name: string;
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** 📍 Whose pin this is — absent on bookings built before 2026-10-22 (read as not a shop). */
+  pinFrom?: VenuePinSource;
+  /** The booking's `event_vendors.vendor_id` — the door a manual card's pin is saved through. */
+  vendorId?: string | null;
   /** Identity of the underlying place, for "is it the same venue twice". */
   placeKey: string | null;
   /** The supplier's PUBLIC shop photos (`vendor_profiles.portfolio_r2_keys` of a
@@ -251,6 +277,7 @@ export function applyVenueChoices(
 
 /** One `event_vendors` row, joined to wherever its location lives. */
 export type VenueBookingRow = {
+  vendor_id?: string | null;
   category: string | null;
   status: string | null;
   vendor_name: string | null;
@@ -301,8 +328,21 @@ function isReception(category: string | null): boolean {
   return category === RECEPTION_VENUE_CATEGORY;
 }
 
+/** The Setnayan shop a booking is linked to, if any — the claimed link first, then the attribution link. */
+export function venueShopOf(row: Pick<VenueBookingRow, 'marketplace_vendor_id' | 'linked_vendor_profile_id'>): string | null {
+  return row.marketplace_vendor_id || row.linked_vendor_profile_id || null;
+}
+
+/** 📍 Whose pin a booking row carries (see {@link VenuePinSource}). A row with no record at all is the couple's own. */
+export function venuePinSourceOf(row: VenueBookingRow): VenuePinSource {
+  if (venueShopOf(row)) return 'shop';
+  if (!row.manual_vendor_id && row.source_venue_directory_id) return 'directory';
+  return 'manual';
+}
+
 /** Where a booking's location is recorded, most specific first. */
 function placeOf(row: VenueBookingRow, places: PlaceLookup): { rec: PlaceRecord | null; key: string | null } {
+  const shop = venueShopOf(row);
   const tries: [string | null | undefined, ReadonlyMap<string, PlaceRecord> | undefined, string][] = [
     [row.manual_vendor_id, places.manual, 'm'],
     [row.source_venue_directory_id, places.directory, 'd'],
@@ -310,15 +350,27 @@ function placeOf(row: VenueBookingRow, places: PlaceLookup): { rec: PlaceRecord 
     [row.linked_vendor_profile_id, places.profile, 'p'],
   ];
   let key: string | null = null;
+  let found: { rec: PlaceRecord; key: string } | null = null;
   for (const [id, map, tag] of tries) {
     if (!id) continue;
     key ??= `${tag}:${id}`;
     const rec = map?.get(id);
     if (rec && (clean(rec.address) || (coord(rec.latitude) != null && coord(rec.longitude) != null))) {
-      return { rec, key: `${tag}:${id}` };
+      found = { rec, key: `${tag}:${id}` };
+      break;
     }
   }
-  return { rec: null, key };
+  if (!shop) return found ?? { rec: null, key };
+  /* 📍 A SHOP'S PIN IS THE SHOP'S (owner 2026-10-22). The pin is the shop's own — or none, never the couple's card;
+     the address is the shop's, else what the couple's card says (a claimed manual supplier keeps its card on the row). */
+  const own = places.profile?.get(shop) ?? null;
+  return {
+    rec: {
+      address: clean(own?.address) ?? clean(found?.rec.address),
+      ...pin(own?.latitude, own?.longitude),
+    },
+    key: `p:${shop}`,
+  };
 }
 
 /** The winning ceremony + reception rows (see {@link pickVenueBookings}). */
@@ -358,6 +410,8 @@ export function pickVenueBookings(
       name: clean(row.vendor_name)!,
       address: clean(rec?.address),
       ...pin(rec?.latitude, rec?.longitude),
+      pinFrom: venuePinSourceOf(row),
+      vendorId: row.vendor_id ?? null,
       placeKey: key,
       photos: (profile ? photos.get(profile) : undefined) ?? [],
     };
@@ -419,7 +473,13 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
   const choices = bookings.choices ?? {};
   const ceremonyPhoto = venuePhotoFor(bookings.ceremony, choices.ceremony);
   const receptionPhoto = venuePhotoFor(bookings.reception, choices.reception);
-  const ceremonyPin = pin(event.ceremony_venue_latitude, event.ceremony_venue_longitude);
+  /* 📍 A card on the couple's own details over a booked SHOP keeps the shop's pin (owner 2026-10-22): "venues from
+     actual suppliers cannot customize pin". Their typed name and address answer; the event's typed pin does not. */
+  const shopPin = (slot: VenueSlotKey) => {
+    const o = bookings.offered?.[slot];
+    return !bookings[slot] && o?.pinFrom === 'shop' ? pin(o.latitude, o.longitude) : null;
+  };
+  const ceremonyPin = shopPin('ceremony') ?? pin(event.ceremony_venue_latitude, event.ceremony_venue_longitude);
   // ⛪ …and whether the couple PICKED "Our drawing" for it (never on its own).
   const ceremonyDrawing = choices.ceremony?.drawing === true ? ({ drawingChosen: true } as const) : {};
   const receptionDrawing = choices.reception?.drawing === true ? ({ drawingChosen: true } as const) : {};
@@ -444,7 +504,7 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
   if (bookings.reception) {
     reception = { role: 'reception', ...bookings.reception, photo: receptionPhoto, ...receptionDrawing };
   } else {
-    const p = pin(event.venue_latitude, event.venue_longitude);
+    const p = shopPin('reception') ?? pin(event.venue_latitude, event.venue_longitude);
     const name = clean(event.venue_name) ?? clean(event.std_film_venue_name);
     const address = clean(event.venue_address);
     if (name || address || p.latitude != null) reception = { role: 'reception', name, address, ...p, photo: receptionPhoto, ...receptionDrawing };
@@ -573,7 +633,7 @@ export async function loadVenueBookings(
     const { data, error } = await admin
       .from('event_vendors')
       .select(
-        'category, status, vendor_name, updated_at, manual_vendor_id, source_venue_directory_id, marketplace_vendor_id, linked_vendor_profile_id',
+        'vendor_id, category, status, vendor_name, updated_at, manual_vendor_id, source_venue_directory_id, marketplace_vendor_id, linked_vendor_profile_id',
       )
       .eq('event_id', eventId)
       .is('archived_at', null)

@@ -66,6 +66,8 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
   await requireLookPro(
     eventId,
     refChange(stored ? `${stored.theme}/${stored.intensity}` : null, `${themeRaw}/${intensity}`),
+    // 💎 The RSVP moving backdrop is the Background part's (owner 2026-10-22, gate 28).
+    'background',
   );
 
   await supabase

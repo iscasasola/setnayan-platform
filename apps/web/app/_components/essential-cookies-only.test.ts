@@ -51,11 +51,17 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 /** Analytics / tracking / session-recording SDKs. A package is banned if its name matches. */
 const TRACKER_PACKAGE =
-  /^(?:posthog-js|posthog-node|@posthog\/.+|@vercel\/analytics|@vercel\/speed-insights|react-ga4?|ga-4-react|@next\/third-parties(?:\/.+)?|mixpanel(?:-browser)?|@amplitude\/.+|amplitude-js|@segment\/.+|analytics|@analytics\/.+|react-facebook-pixel|@hotjar\/.+|react-hotjar|@microsoft\/clarity|logrocket(?:-react)?|@fullstory\/.+|heap-api|plausible-tracker|fathom-client|@datadog\/browser-rum(?:-.+)?|@snowplow\/.+|matomo-tracker|@openreplay\/.+)$/;
+  /^(?:posthog-js|posthog-node|@posthog\/.+|@vercel\/analytics|@vercel\/speed-insights|react-ga4?|ga-4-react|@next\/third-parties|mixpanel(?:-browser)?|@amplitude\/.+|amplitude-js|@segment\/.+|analytics|@analytics\/.+|react-facebook-pixel|@hotjar\/.+|react-hotjar|@microsoft\/clarity|logrocket(?:-react)?|@fullstory\/.+|heap-api|plausible-tracker|fathom-client|@datadog\/browser-rum(?:-.+)?|@snowplow\/.+|matomo-tracker|@openreplay\/.+)$/;
 
 /** Script / beacon hosts of the same trackers, as they appear in a src, a fetch or a CSP. */
 const TRACKER_HOST =
   /\b(?:[a-z0-9-]+\.)*(?:posthog\.com|googletagmanager\.com|google-analytics\.com|connect\.facebook\.net|static\.hotjar\.com|clarity\.ms|cdn\.segment\.com|api\.segment\.io|plausible\.io|usefathom\.com|cdn\.mxpnl\.com|api\.amplitude\.com|cdn\.logrocket\.io|edge\.fullstory\.com|analytics\.tiktok\.com|snap\.licdn\.com)\b/i;
+
+/** The package a specifier resolves into: `@vercel/analytics/react` → `@vercel/analytics`, `posthog-js/dist/x` → `posthog-js`. */
+function packageOf(spec: string): string {
+  const parts = spec.split('/');
+  return spec.startsWith('@') ? parts.slice(0, 2).join('/') : (parts[0] ?? spec);
+}
 
 function moduleSpecifiers(src: string): string[] {
   const out: string[] = [];
@@ -72,7 +78,7 @@ test('(1a) no shipped module imports an analytics or tracking SDK — static, dy
   for (const f of FILES) {
     for (const spec of moduleSpecifiers(code(f))) {
       specifiers++;
-      if (TRACKER_PACKAGE.test(spec)) hits.push(`${f} → ${spec}`);
+      if (TRACKER_PACKAGE.test(packageOf(spec))) hits.push(`${f} → ${spec}`);
     }
   }
   assert.ok(specifiers > 20000, `anti-vacuity: only ${specifiers} import specifiers read — the scan went blind`);

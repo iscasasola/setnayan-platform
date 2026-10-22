@@ -189,6 +189,7 @@ export default async function HomeLab({
             }),
           }
         : F0;
+  const labForWho: ForTag | undefined = 'forWho' in F ? (F.forWho as ForTag | undefined) : undefined;
   // 🏷 The Events board's Planning posters (owner 22 Oct 2026) — the real card parts on fixture facts.
   if (q.view === 'board') return <LabBoard tagged={q.for === '1'} one={q.one === '1'} />;
   const picked = proto
@@ -320,7 +321,7 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
-        cover={{ eyebrow: F.eyebrow, name: F.name, ...('forWho' in F && F.forWho ? { forWho: F.forWho } : {}) }}
+        cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         days={glanceDays(F.days)}
         coming={glanceCount(F.coming, !unread)}

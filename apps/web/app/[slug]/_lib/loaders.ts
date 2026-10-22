@@ -2365,7 +2365,7 @@ export const loadMarch = cache(
   async (
     admin: AdminClient,
     eventId: string,
-  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null }> => {
+  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null; unread?: true }> => {
     const roles = MARCH_ROLES;
     const [guestRes, trayRes] = await Promise.all([
       admin
@@ -2379,7 +2379,8 @@ export const loadMarch = cache(
     ]);
     if (guestRes.error) {
       logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
-      return { walking: [], out: null };
+      // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
+      return { walking: [], out: null, unread: true };
     }
     if (trayRes.error) logQueryError('loadMarch tray', trayRes.error, { event_id: eventId }, 'graceful_degrade');
     const outIds = trayRes.error ? null : new Set(((trayRes.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));

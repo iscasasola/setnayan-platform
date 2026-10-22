@@ -119,7 +119,7 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
   // The supplier's own rows ride along (step 5's rows + step 6's sheet, prototype SHEETS.avatar).
-  assert.match(cluster, /<AccountSwitcher data=\{switcherData\} shopRows=\{switcherShopRows\} \/>/, 'the avatar — and the only Sign out — left the bar');
+  assert.match(cluster, /<AccountSwitcher\s+data=\{switcherData\}\s+shopRows=\{switcherShopRows\}[^>]*\/>/, 'the avatar — and the only Sign out — left the bar');
   assert.match(cluster, /data-supplier-shell-shop=""[^>]*>\s*\{vendorSidebarName\}/, 'the bar names the person, not the shop');
 });
 

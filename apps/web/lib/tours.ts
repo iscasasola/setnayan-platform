@@ -1094,14 +1094,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     },
   },
   /* 🔦 PEOPLE, AS IT LOOKS SINCE 2026-10-22 ("People wears the Guest list" — the counts line is the top, the thumb
-     row's field is Search or invite, ≡ holds Groups · Following · Followers). A first-visit SPOTLIGHT, mounted by
-     the People page, after the host's journey. Loved ones is the middle stop on purpose: it is a section only some
+     row's field finds or invites, ≡ holds Groups · Following · Followers). A first-visit SPOTLIGHT, mounted by the
+     People page, after the host's journey. Loved ones is the middle stop on purpose: it is a section only some
      accounts have, and a missing stop is skipped only when a LATER one is on screen (`spotlight-tour.tsx`) — the
-     thumb row always is. Sells nothing. */
+     thumb row's field always is. The field's own word is not quoted (it is being renamed, #6790). Sells nothing. */
   customer_people_v2: {
     key: 'customer_people_v2',
     label: 'People — first visit',
-    blurb: 'The counts, your loved ones, and Search or invite.',
+    blurb: 'The counts, your loved ones, and finding or inviting someone.',
     slides: [],
     spotlight: {
       steps: [
@@ -1116,9 +1116,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The people you plan events for — a child, a lola, a pet. A shop you own is here too, so you can make an event for it.',
         },
         {
-          anchor: 'people-thumb',
-          title: 'Search or invite',
-          body: 'Type a name to find someone, or invite them if they’re not here yet. ≡ opens Groups, Following and Followers.',
+          anchor: 'people-find',
+          title: 'Find someone, or invite them',
+          body: 'Type a name here to find someone — or to invite them, if they’re not on Setnayan yet. ≡ beside it opens Groups, Following and Followers.',
         },
       ],
       finale: {

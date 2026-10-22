@@ -37,9 +37,7 @@ function drawn(token: string): string[] {
   const lit = new RegExp(`(?:data-tour|\\btour)=["'{\`]+${token.replace(/[-]/g, '\\-')}["'}\`]`);
   // …or chosen inside a data-tour expression: `data-tour={key === 'share' ? 'guests-setup' : undefined}`.
   const chosen = new RegExp(`data-tour=\\{[^}]*['"]${token.replace(/[-]/g, '\\-')}['"]`);
-  // …or handed in as a data mark a component spreads (`data={{ 'data-tour': 'people-thumb' }}` on the thumb row).
-  const handed = new RegExp(`['"]data-tour['"]\\s*:\\s*['"]${token.replace(/[-]/g, '\\-')}['"]`);
-  return SOURCES.filter(({ src }) => lit.test(src) || chosen.test(src) || handed.test(src)).map(({ f }) => f);
+  return SOURCES.filter(({ src }) => lit.test(src) || chosen.test(src)).map(({ f }) => f);
 }
 
 const steps = TOUR_KEYS.flatMap((k) => (TOURS[k].spotlight?.steps ?? []).map((s) => ({ k, s })));

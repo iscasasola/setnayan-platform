@@ -138,7 +138,8 @@ function barLabels(rel: string, from: RegExp): string[] {
   const src = read(rel);
   const start = src.search(from);
   assert.ok(start >= 0, `${rel}: the bar's list moved — re-point this guard`);
-  const block = src.slice(start, start + 4000);
+  const end = src.indexOf('];', start);
+  const block = src.slice(start, end > start ? end : start + 4000);
   return [...block.matchAll(/label:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]!);
 }
 
@@ -235,5 +236,5 @@ test('the account screens’ tours are spotlights, and their optional stop is ne
   }
   const people = TOURS.customer_people_v2.spotlight!.steps.map((s) => s.anchor);
   assert.notEqual(people.at(-1), 'people-loved-ones', 'Loved ones is People’s last stop — on an account without it the tour would stall');
-  assert.equal(people.at(-1), 'people-thumb', 'People’s last stop is the thumb row, which every list draws');
+  assert.equal(people.at(-1), 'people-find', 'People’s last stop is the thumb row’s field, which every view draws');
 });

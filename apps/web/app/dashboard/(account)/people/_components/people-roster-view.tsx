@@ -566,7 +566,7 @@ export function PeopleRosterView({
       }
     />
   ) : (
-    <AccountThumbRow data={{ 'data-people-thumb': 'list', 'data-tour': 'people-thumb' }} tools={filterPick} field={<FindField f={find} />} action={<InviteAction f={find} />} />
+    <AccountThumbRow data={{ 'data-people-thumb': 'list' }} tools={filterPick} field={<FindField f={find} />} action={<InviteAction f={find} />} />
   );
 
   return (

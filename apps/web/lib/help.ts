@@ -375,7 +375,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'people-page',
         title: 'What is People?',
-        body: 'People is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in Search or invite at the bottom to find someone, or to invite them if they are not here yet. ≡ opens Groups, Following and Followers. Nobody is connected until they say yes.',
+        body: 'People is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in the field at the bottom to find someone, or to invite them if they are not on Setnayan yet. ≡ opens Groups, Following and Followers. Nobody is connected until they say yes.',
       },
       {
         slug: 'loved-ones',
@@ -522,7 +522,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'reissue-qr',
         title: "Re-issue a guest's QR code",
-        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap ⋯ › New QR, then Make a new QR. Their old QR and link stop working at once; the new one is ready to send.',
+        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap ⋯ › New QR, then Make a new QR. Their old QR and link stop working right away, and the new one can be sent.',
       },
     ],
   },
@@ -534,12 +534,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and the price you agreed. Once you have paid them, they show as Booked.',
+        body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have paid them, they show as Booked.',
       },
       {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'Your budget is in Suppliers › Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, what you bought on Setnayan, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
+        body: 'Your budget is in Suppliers › Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, your Setnayan services, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
       },
       {
         slug: 'export-calendar',

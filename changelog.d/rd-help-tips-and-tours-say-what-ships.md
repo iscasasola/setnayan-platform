@@ -8,13 +8,13 @@ fragments; the full table (missing · stale · OK, per surface, per feature) is
 - **Tours.** Two new first-visit SPOTLIGHTS (dim + gliding ring — never the centred card), each after the host's
   journey so none stack: `customer_account_bar_v1` on the Events board (Events · Memories · People, lit on the bar's
   own tab tokens; Discover is not a stop — the app drops it and `/` stamps no segment) and `customer_people_v2` on
-  People (the counts · Loved ones · Search or invite). People's switched-off carousel mount is replaced by the
+  People (the counts · Loved ones · the find-or-invite field). People's switched-off carousel mount is replaced by the
   spotlight. Stale words fixed: the supplier Today tour's "The bar is Today, Customers, Shop and More…" (More left
   the bar 21 Oct), People's carousel ("The picker at the top…", removed 22 Oct), the couple welcome's "18 roles" and
   "invitation site".
 - **A missing stop skips — checked, unchanged.** The engine already lifts the dim and draws no ring while a stop's
   element is absent, and jumps ahead once a later stop is on screen. So Loved ones (gated) is People's MIDDLE stop
-  and the always-drawn thumb row its last — held by the new guard.
+  and the always-drawn find field its last — held by the new guard.
 - **ⓘ.** The Event Hub stage's ⓘ no longer explains "the strip across the top" (removed 15 Oct). All 61 ⓘ re-read;
   no other one names a removed thing. An "About loved ones" ⓘ was built and walked, then DROPPED: People's folds
   (`.fold > div { overflow: clip }`, the Guest list's own CSS) cut its popover off at the section's edge. What it said

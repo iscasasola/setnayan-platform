@@ -188,6 +188,7 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
         enterKeyHint="search"
         autoComplete="off"
         data-find-field=""
+        data-tour="people-find"
         className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
       />
       {f.line ? (

@@ -78,6 +78,8 @@ import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_PAGE_STAGES, MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { makerTourSlideViews } from './_components/maker-tour-slides';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
@@ -869,6 +871,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     !(((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]).includes(
       MAKER_TOUR_KEY,
     );
+  /* 🔦 THE MAKER'S OWN SPOTLIGHT (owner 2026-10-22, journey_fixes_later Host 4 · Option A): three stops — the quiet
+     line, the lower third, Apply — on the first open after the journey, mounted HERE (the journey waits under the
+     Maker; this one is `inMaker`). An unread row draws nothing, as above. While it is due the quiet line shows, since
+     it is the tour's first stop. */
+  const seenKeys: ReadonlyArray<string> | null = seenError
+    ? null
+    : (((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]);
+  const makerSpotlightDue =
+    hasWork && seenKeys !== null && seenKeys.includes(HOST_PAGE_TOURS_AFTER) && !seenKeys.includes(HOST_PAGE_TOURS.maker);
 
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
   // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
@@ -1938,6 +1949,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     !one(search.chain);
 
   return (
+    <>
     <MakerShell
       eventId={eventId}
       slug={eventSlug}
@@ -1966,6 +1978,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
       firstVisit={firstVisit}
+      tourHint={makerSpotlightDue}
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
@@ -2022,5 +2035,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">{controller}</div>
       )}
     </MakerShell>
+    {hasWork ? (
+      <Spotlight tourKey={HOST_PAGE_TOURS.maker} seenKeys={seenKeys} after={HOST_PAGE_TOURS_AFTER} replay="page" inMaker />
+    ) : null}
+    </>
   );
 }

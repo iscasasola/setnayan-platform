@@ -220,9 +220,11 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   // The shell runs each act — the same acts ⋯ ran.
   const shell = src('maker-shell.tsx');
   const pick = shell.slice(shell.indexOf('const pickPage = '), shell.indexOf('const pick = makerPagePick(key);'));
-  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', "pressDoor('prints')", 'draft.restore()', 'setTour(true)', 'setMoreOpen(true)']) {
+  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', "pressDoor('prints')", 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
     assert.ok(pick.includes(act), `Page ▾ no longer runs ${act}`);
   }
+  // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
+  assert.match(shell, /const aboutTheMaker = [\s\S]{0,400}else setTour\(true\)/, 'About the Maker lost its short-slides fallback');
   assert.match(shell, /const pageOptions = makerPageActions\(/, 'Page ▾ does not carry the moved rows');
 });
 

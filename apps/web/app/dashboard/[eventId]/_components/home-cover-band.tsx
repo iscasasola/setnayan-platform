@@ -1,6 +1,9 @@
 import { Info } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { HomeCover } from '@/lib/home-cover';
+import type { HomeCoverWords } from '@/lib/home-cover-words';
+import { forTagWords, type ForTag } from '@/lib/for-tag';
+import { ForTagMark } from '@/app/_components/for-tag-mark';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name, the date line, Event Details),
@@ -15,7 +18,7 @@ export function HomeCoverBand({
   ground = null,
 }: {
   eventId: string;
-  cover: { eyebrow: string; name: string };
+  cover: HomeCoverWords;
   ground?: HomeCover | null;
 }) {
   return (
@@ -45,10 +48,25 @@ export function HomeCoverBand({
           <h1 className="sr-only">{cover.name}</h1>
           <p className={`truncate text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
+          {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
         <span className="relative shrink-0" data-home-event-details="">
           <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Info aria-hidden="true" strokeWidth={1.9} />} label="Event Details" className="home-cover-ab" />
         </span>
       </div>
+  );
+}
+
+/**
+ * "FOR <NAME>" (owner 22 Oct 2026, prototypes/for_tag_on_event_cards_2026-10-22.html): one quiet
+ * line under the name, only when the event is for a subject the viewer holds — the shop's round
+ * logo or the loved one's initials. The eyebrow is untouched.
+ */
+function HomeForLine({ tag }: { tag: ForTag }) {
+  return (
+    <p data-home-for="" className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-semibold opacity-[0.92]">
+      <ForTagMark tag={tag} place="band" />
+      <span className="truncate">{forTagWords(tag.name)}</span>
+    </p>
   );
 }

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/face-selfie-erase';
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
 import { HOST_PREVIEW_PASS_COOKIE_NAME } from '@/lib/pass-account-rule';
+import { ACTIVE_SHOP_COOKIE } from '@/lib/active-shop';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
   // seat-links-only-on-purpose.test.ts. The Terms tick a guest carried from the
   // RSVP page goes too — it was that person's agreement, not the next one's.
   // "Sign out everywhere": the active pass AND the pass book (every event's pass).
-  for (const name of [GUEST_SESSION_COOKIE_NAME, GUEST_PASS_BOOK_COOKIE_NAME, RSVP_TERMS_COOKIE, HOST_PREVIEW_PASS_COOKIE_NAME]) {
+  // The chosen shop (`sn_shop`, the avatar sheet's shop switch) goes too — it named one of THIS login's shops.
+  for (const name of [GUEST_SESSION_COOKIE_NAME, GUEST_PASS_BOOK_COOKIE_NAME, RSVP_TERMS_COOKIE, HOST_PREVIEW_PASS_COOKIE_NAME, ACTIVE_SHOP_COOKIE]) {
     response.cookies.set(name, '', {
       maxAge: 0,
       path: '/',

@@ -85,6 +85,10 @@ export type VendorSwitchTarget = {
   vendor_profile_id: string;
   business_name: string;
   logo_url: string | null;
+  /** The shop's public address (`/v/<slug>`) — the avatar sheet's "View page ↗" row. Null = no page to open. */
+  business_slug: string | null;
+  /** True for a shop this user OWNS; false for a helper (team-member) seat. */
+  owned: boolean;
 };
 
 /**
@@ -111,12 +115,12 @@ export const fetchUserRoleSummary = cache(async (
       .maybeSingle(),
     supabase
       .from('vendor_profiles')
-      .select('vendor_profile_id, business_name, logo_url')
+      .select('vendor_profile_id, business_name, logo_url, business_slug')
       .eq('user_id', userId),
     supabase
       .from('vendor_team_members')
       .select(
-        'vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url )',
+        'vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url, business_slug )',
       )
       .eq('user_id', userId),
   ]);
@@ -162,13 +166,12 @@ export const fetchUserRoleSummary = cache(async (
     vendor_profile_id: string;
     business_name: string | null;
     logo_url: string | null;
+    business_slug?: string | null;
   }>;
+  type TeamShop = { business_name: string | null; logo_url: string | null; business_slug?: string | null };
   type TeamRow = {
     vendor_profile_id: string;
-    vendor_profiles:
-      | { business_name: string | null; logo_url: string | null }
-      | Array<{ business_name: string | null; logo_url: string | null }>
-      | null;
+    vendor_profiles: TeamShop | TeamShop[] | null;
   };
   const team = (teamRes.data ?? []) as TeamRow[];
 
@@ -183,6 +186,8 @@ export const fetchUserRoleSummary = cache(async (
       vendor_profile_id: row.vendor_profile_id,
       business_name: row.business_name?.trim() || 'My supplier profile',
       logo_url: row.logo_url ?? null,
+      business_slug: row.business_slug ?? null,
+      owned: true,
     });
   }
   for (const row of team) {
@@ -195,6 +200,8 @@ export const fetchUserRoleSummary = cache(async (
       vendor_profile_id: row.vendor_profile_id,
       business_name: vp?.business_name?.trim() || 'Team supplier',
       logo_url: vp?.logo_url ?? null,
+      business_slug: vp?.business_slug ?? null,
+      owned: false,
     });
   }
 

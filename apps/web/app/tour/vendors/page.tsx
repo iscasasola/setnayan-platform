@@ -42,7 +42,7 @@ import { coupleNamesLine } from '@/lib/typed-names';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The vendors · A real wedding on Setnayan',
+  title: 'The suppliers · A real wedding on Setnayan',
   description:
     'See how Setnayan AI shortlists a wedding team that fits — ranked by distance, reviews, and verification. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/vendors' },
@@ -239,7 +239,7 @@ export default async function TourVendorsPage() {
             One tap, and you&rsquo;re talking
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-            Message any vendor right inside Setnayan. Here&rsquo;s a sample conversation with{' '}
+            Message any supplier right inside Setnayan. Here&rsquo;s a sample conversation with{' '}
             <span className="font-medium text-[#1B1A17]">{vendorLabel}</span> — try it. Nothing
             you type is saved.
           </p>

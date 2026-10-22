@@ -9,9 +9,11 @@
  * a title and a description silently gave up the picture.
  *
  * ── THE PROPERTY ────────────────────────────────────────────────────────────
- * Every `openGraph: { … }` and `twitter: { … }` object written in a page, layout or metadata module under
- * `app/` names `images` — its own, or the brand card from `lib/brand-og.ts`. Read from the source with
- * comments stripped and braces balanced, so the explanation of the fix is never the finding.
+ * Every `openGraph: { … }` object written in a page, layout or metadata module under `app/` names `images` —
+ * its own, or the brand card from `lib/brand-og.ts`. A `twitter: { … }` object names its own too, OR sits in a
+ * file whose every `openGraph` does (X falls back to `og:image` when `twitter:image` is absent; a twitter object
+ * with no picture beside an openGraph with none is the blank card). Read from the source with comments stripped
+ * and braces balanced, so the explanation of the fix is never the finding.
  *
  * KNOWN, NOT YET FIXED — each named with why it is not this PR's: an entry that stops being true fails
  * too, so the list can only shrink.
@@ -31,6 +33,8 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APP = join(WEB, 'app');
 
 const KNOWN: Readonly<Record<string, string>> = {
+  'app/(shell)/acceptable-use/page.tsx': 'legal page — legal text has its own review; not this sweep',
+  'app/(shell)/cookies/page.tsx': 'legal page — owned by the privacy-pages PR in flight',
   'app/(shell)/privacy/page.tsx': 'legal page — owned by the privacy-pages PR in flight (rd/privacy-pages-say-what-is-true)',
   'app/(shell)/terms/page.tsx': 'legal page — owned by the privacy-pages PR in flight',
   'app/(shell)/refunds/page.tsx': 'legal page — #6798 just reworded it; the owner approves those words first',
@@ -79,11 +83,10 @@ function missing(): string[] {
     const src = stripComments(readFileSync(f, 'utf8'));
     if (!/\b(?:metadata|generateMetadata)\b/.test(src) && !/Metadata\b/.test(src)) continue;
     const rel = relative(WEB, f).split(sep).join('/');
-    for (const key of ['openGraph', 'twitter'] as const) {
-      for (const body of objects(src, key)) {
-        if (!namesImages(body)) out.push(`${rel} · ${key}`);
-      }
-    }
+    const og = objects(src, 'openGraph');
+    const ogAll = og.length > 0 && og.every(namesImages);
+    for (const body of og) if (!namesImages(body)) out.push(`${rel} · openGraph`);
+    for (const body of objects(src, 'twitter')) if (!namesImages(body) && !ogAll) out.push(`${rel} · twitter`);
   }
   return [...new Set(out)].sort();
 }

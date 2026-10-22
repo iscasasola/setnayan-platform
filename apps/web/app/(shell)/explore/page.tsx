@@ -395,8 +395,10 @@ export const metadata = {
     type: 'website',
   },
   // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
-  // card so social shares of /vendors render with the 1200×630 layout-level
-  // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
+  // card so social shares render the 1200×630 /brand/og-card.webp instead of a
+  // 144×144 thumbnail. ⚠ The card must be NAMED here: a page's own `twitter` /
+  // `openGraph` object replaces the layout's whole object (shallow merge), so
+  // "layout-level" left this page with no picture at all until 2026-10-23.
   twitter: {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',

@@ -24,6 +24,7 @@ import type * as RowMod from '@/components/thumb-row';
 import type * as FindMod from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
 import type * as ShellMod from '@/app/_components/frontdoor/shell-thumb-rows';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { stripComments } from '@/lib/strip-comments';
 
 /* The components compile to classic `React.createElement` under this runner, and a CSS module is its class names
    (the Discover card's test does the same) — set BEFORE the components are required. */
@@ -115,7 +116,8 @@ describe('every adopter mounts the one row', () => {
     });
   }
   it('Find and Guests (List / Map) draw no band of their own', () => {
-    expect(read(ADOPTERS.find!.file)).not.toMatch(/className="[^"]*sn-glass-row/);
+    // No glass of its own anywhere in Find's row file — the shared row draws every glass piece.
+    expect(stripComments(read(ADOPTERS.find!.file))).not.toMatch(/sn-glass-row/);
     // Guests keeps the band only for the Select mode's pills (named in the PR as the remaining delta).
     expect(read(ADOPTERS.guests!.file)).toMatch(/selectMode && gview === 'list' \? `\$\{styles\.lower\} sn-glass-row` : styles\.lower/);
   });

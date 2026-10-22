@@ -431,42 +431,21 @@ test('"+ Create" is desktop-only inside the app', () => {
 });
 
 /*
-  🔴 THE OWNER LOOKS FOR A WORD, NOT A POSITION. On 2026-08-15 the button was
-  repointed at the create flow and RENAMED "+ New event" in the same commit.
-  Hours later: *"create button is gone."* It was not gone — it sat in the same
-  place, in the same gold, one link away from where he was standing. He scanned
-  the bar for "Create" and the scan came back empty, which is indistinguishable
-  from a deleted button.
-
-  🔑 A RENAME IS A REMOVAL TO WHOEVER WAS LOOKING FOR THE OLD NAME — and the
-  rename was never asked for. This holds BOTH halves: the button still exists
-  (href + gold class, the ACT) and it still says the word.
-
-  🪤 Anchored inside `code()` on purpose. The docblock above the JSX says
-  "Create event" four times; a file-level substring match would pass with the
-  button deleted outright.
+  🔴 THE BAR'S "+ CREATE EVENT" IS GONE AT EVERY WIDTH (owner 2026-10-22,
+  "follow your recommendation"). This test used to pin the opposite — the
+  button existed and said "Create" (2026-08-15, "create button is gone"). The
+  account-bar ruling of 2026-10-22 moved Create to the Events board (the
+  Planning (+) and "Create an event"), the phone had already lost the bar's
+  copy, and the desktop's copy was the one left. Anchored inside `code()` so
+  the history in the docblock cannot satisfy or fail it.
 */
-test('the bar\'s create button exists and still says "Create"', () => {
+test('the bar draws no "+ Create event" of its own', () => {
   const src = code(read(SHELL));
-  const button = src.match(
-    /<Link href="\/dashboard\/create-event" className="fd-btn-gold">([\s\S]*?)<\/Link>/,
-  );
   assert.ok(
-    button,
-    'The shared bar must render a gold Link to /dashboard/create-event. ' +
-      'Deleting it removes the only create door a signed-in person meets ' +
-      'above 1024 on every surface that is not the events board.',
+    !/href="\/dashboard\/create-event"/.test(src),
+    'The shared bar links at /dashboard/create-event again — Create lives on the Events board (owner 2026-10-22).',
   );
-  /* `noUncheckedIndexedAccess` is on repo-wide, so the capture group is
-     `string | undefined`. Defaulting to '' keeps the assertion honest: an
-     empty label fails the match, which is the correct verdict anyway. */
-  assert.match(
-    button[1] ?? '',
-    /\bCreate\b/,
-    'The create button must carry the word "Create". It was renamed ' +
-      '"+ New event" on 2026-08-15 and the owner reported it GONE the same ' +
-      'day — a label he does not scan for is a button he cannot find.',
-  );
+  assert.ok(!/\+ Create event/.test(src), 'The shared bar says "+ Create event" again.');
 });
 
 test('the app variant renders no second search row', () => {

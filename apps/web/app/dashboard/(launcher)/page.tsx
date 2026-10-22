@@ -1130,8 +1130,10 @@ export default async function LauncherPage({
           what this shelf is FOR and never that you have none." The title now
           obeys the same rule its own page wrote: it NAMES the page and makes no
           claim about how many events you have, so it is true in both states.
-          The invitation to create one is the top bar's "+ Create event" (and,
-          on phones, the bottom bar's ➕ and the dashed New-event card below). */}
+          The invitation to create one is this board's own: the Planning
+          header's (+), the dashed New-event card and the empty shelf's
+          "Create an event" (the top bar's "+ Create event" left it at every
+          width on 2026-10-22 — Create lives here). */}
       {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
           on My Events. we don't need that text.").
 
@@ -1175,8 +1177,8 @@ export default async function LauncherPage({
           button arrived 2026-08-15 and overtook that premise. It also read as
           a second search bar one row under the real one — the owner himself
           misread it — so keeping it cost more than it invited. Creation stays
-          reachable here via the dashed New-event card, the phone pill's ➕,
-          the top bar and ⌘K. */}
+          reachable here via the Planning header's (+), the dashed New-event
+          card and ⌘K (the top bar's button left on 2026-10-22). */}
 
 
       {/* ⚠ THE ONE-EVENT NUDGE BANNER IS RETIRED (owner 2026-08-20: "for the

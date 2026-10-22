@@ -174,10 +174,10 @@ const RAIL_DRAWER_MS = 200;
  * escape row (`command-escape.ts`), so choosing it loses nothing; the reverse
  * was impossible, because a GET form cannot reach your own wedding.
  *
- * ⚠ WHAT THE APP VARIANT STILL PAINTS NOTHING OF BELOW 1024: the "+ Create"
- * button. The phone's bottom-bar grammar leaves no room on a 360px row beside
- * identity, search and the account cluster — creation is reached from the
- * board's create grid and the bottom bar.
+ * ⚠ NO "+ CREATE EVENT" IN THE BAR AT ANY WIDTH (owner 2026-10-22): Create
+ * lives on the Events board. Only a surface that makes something else (the
+ * Shop's "+ Create service card") hands one in through `createSlot`, and the
+ * app variant still paints that below 1024 as nothing.
  *
  * 🔴 THE RAIL IS NO LONGER ONE OF THEM — OWNER 2026-08-29: *"hamburger menu
  * disappeared on other parts of the shell. keep it visible across."* Until
@@ -523,17 +523,14 @@ type Props = {
    *
    * 🔴 ADDED 2026-08-26, OWNER: *"this needs to change depending on where they
    * are. Home - Create Event. Shop - Create Service Card. HQ - Create what?"*
-   * One hardcoded `+ Create event` was rendering on all six signed-in trees, so
-   * **a supplier standing in their own Shop was offered a couple's wedding
-   * wizard.** Not a matter of taste — a wrong button.
    *
-   * THREE STATES, and the middle one is the reason this is not a boolean:
-   *   · `undefined` — you said nothing, so the shell keeps `+ Create event`.
-   *     Every existing caller is byte-identical.
-   *   · a node   — your surface's own button.
-   *   · `null`   — this surface makes nothing. HQ passes this: measured across
-   *     every admin action ever recorded, only 9 of 65 created anything, and
-   *     HQ's real primary action is the overdue pill already in that bar.
+   * 🔴 2026-10-22, OWNER ("follow your recommendation"): the couple's
+   * "+ Create event" LEAVES this bar at every width — Create lives on the
+   * Events board (the account-bar ruling of the same day). So the default is
+   * NOTHING:
+   *   · `undefined` / `null` — no create button (every couple tree, HQ);
+   *   · a node — your surface's own button (the Shop's "+ Create service
+   *     card").
    *
    * 🔒 `.fd-btn-gold` is owner-locked (2026-08-14, one chrome one button
    * colour): a surface may change the WORDS and the destination, never the
@@ -1204,64 +1201,23 @@ export function FrontDoorShell({
           {account.signedIn ? (
             <>
               {/*
-                🔒 ONE CHROME, ONE BUTTON COLOUR — GOLD EVERYWHERE
-                (owner-locked 2026-08-14). `.fd-btn-gold` is the
-                "+ Create event" treatment on both variants; do not restyle it
-                per surface.
+                🔴 NO "+ CREATE EVENT" IN THIS BAR, AT ANY WIDTH (owner
+                2026-10-22, "follow your recommendation"). The account bar
+                ruling of the same day put Create on the Events board — the
+                Planning header's (+) and the empty shelf's "Create an event" —
+                and the phone already painted no gold button here (the app
+                variant hid it below 1024). Above 1024 the shell still drew its
+                DEFAULT "+ Create event" on every couple tree, so a desktop
+                showed a door the phone had been told was gone. The default is
+                now NOTHING: a surface that says nothing draws no create button.
 
-                ⚠ HIDDEN BELOW 1024 in the app variant (CSS, not a branch).
-                A 360px row already carries identity, the search and the
-                account cluster; creation is reached from the board's create
-                grid and from the bottom bar, which is the phone's locked
-                grammar. Named, not forgotten.
+                The slot stays for the one surface that makes something else —
+                the Shop's "+ Create service card" (owner 2026-08-26, in the
+                locked `.fd-btn-gold`). HQ passes `null`, which also draws
+                nothing. Held by `the-top-bar-creates-no-event.test.ts`, which
+                RENDERS this shell signed in and reads the bar.
               */}
-              {/*
-                🔴 IT NOW CREATES. Owner 2026-08-15: *"create should allow me to
-                create an event."* It pointed at `/dashboard` — the events BOARD
-                — which for somebody with exactly ONE upcoming event redirects
-                straight back into that event, so the button landed you on the
-                page you were already on.
-
-                RULE 0: the flow already ships and THIRTEEN other controls
-                already point at it (the ⌘K palette, the board's own create
-                grid, the phone pill, Samahan, Alaala, Life-Flash, Year, three
-                vendor-QR routes). Nothing was missing; one href was wrong.
-
-                ⚠ SIGNED OUT, THIS BUTTON DOES NOT RENDER AT ALL — the rail
-                shows the sign-in prompt instead — and that is the correct
-                answer, not a gap. Pointing a stranger at an event-type picker
-                they cannot submit would be a form behind a login wall.
-              */}
-              {/*
-                🔴 THE WORD "CREATE" STAYS IN THE LABEL. Owner 2026-08-15,
-                hours after the href fix above: *"create button is gone."* It
-                was not gone — it was RENAMED "+ New event" in the same commit
-                that repointed it, and he scanned the bar for the word he knew
-                and did not find it. The button he looks for is the word, not
-                the position.
-
-                🔑 A RENAME IS A REMOVAL TO WHOEVER WAS LOOKING FOR THE OLD
-                NAME. The href was the only thing he asked to change; the label
-                came along as an unrequested side effect and cost a round trip.
-                "Create event" keeps his word AND stays honest about the one
-                thing this button makes — which is why it is not reverted to
-                the bare "+ Create" that used to point at the wrong page.
-              */}
-              {/*
-                🔴 IT FOLLOWS THE SURFACE NOW (owner 2026-08-26). This one line
-                rendered on all six signed-in trees, so a supplier in their own
-                Shop was handed a couple's wedding wizard. `undefined` keeps
-                exactly this button — every caller that says nothing is
-                unchanged — a node replaces it, and `null` means this surface
-                makes nothing.
-              */}
-              {createSlot === undefined ? (
-                <Link href="/dashboard/create-event" className="fd-btn-gold">
-                  + Create event
-                </Link>
-              ) : (
-                createSlot
-              )}
+              {createSlot}
               {/*
                 THE HOST'S OWN CLUSTER, OR THIS PAGE'S. When a surface hands
                 one in, it carries that surface's live bell (pointed at ITS

@@ -202,6 +202,6 @@ test('Admin lives on the avatar sheet, worded Admin', () => {
   const row = sheet.match(/<Link\s+href="\/admin"[\s\S]*?<\/Link>/)?.[0] ?? '';
   assert.ok(row, 'the avatar sheet has no row to /admin');
   assert.match(row, />Setnayan HQ</, 'the /admin row is not named Setnayan HQ');
-  assert.match(row, /<Tag>Admin<\/Tag>/, 'the /admin row lost its Admin tag — the owner\'s word for it');
+  assert.match(row, /<Tag[^>]*>Admin<\/Tag>/, 'the /admin row lost its Admin tag — the owner\'s word for it');
   assert.match(sheet, /\{showHQ \? \(/, 'the /admin row is no longer gated on the admin grant');
 });

@@ -86,8 +86,8 @@ export type SheetPlace = 'events' | 'shop' | 'admin' | null;
  * The rows are what you press, so a row has no frame — the card is a filled surface, not a border.
  */
 const SHEET_CSS = `
-.sn-sheet{background:var(--m-paper-2)}
-html.dark .sn-sheet{background:rgb(var(--color-cream))}
+.sn-sheet{background:var(--m-paper-2);--sn-new:rgb(var(--color-mulberry))}
+html.dark .sn-sheet{background:rgb(var(--color-cream));--sn-new:var(--m-orange)}
 .sn-sheet-card>*+*{position:relative}
 .sn-sheet-card>*+*::before{content:"";position:absolute;left:68px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none}
 .sn-sheet-card>.sn-row-sm+*::before,.sn-sheet-card>*+.sn-row-sm::before{left:60px}
@@ -114,18 +114,22 @@ function NewCount({ n }: { n: number | null | undefined }) {
   return (
     <>
       <span aria-hidden>·</span>
-      <span data-sheet-count="" className="inline-flex items-center gap-[5px] font-semibold text-[rgb(var(--color-mulberry))]">
-        <i aria-hidden className="inline-block h-[7px] w-[7px] rounded-full bg-[rgb(var(--color-mulberry))]" />
+      <span data-sheet-count="" className="inline-flex items-center gap-[5px] font-semibold text-[var(--sn-new)]">
+        <i aria-hidden className="inline-block h-[7px] w-[7px] rounded-full bg-[var(--sn-new)]" />
         {label}
       </span>
     </>
   );
 }
 
-/** The pill tag — SHOP · ADMIN. */
-function Tag({ children }: { children: ReactNode }) {
+/** The pill tag — SHOP · ADMIN. On the row you stand in it turns gold, as drawn. */
+function Tag({ children, on = false }: { children: ReactNode; on?: boolean }) {
   return (
-    <span className="shrink-0 rounded-full bg-[var(--m-ivory)] px-[9px] py-1 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--m-slate-2)]">
+    <span
+      className={`shrink-0 rounded-full px-[9px] py-1 font-mono text-[9.5px] uppercase tracking-[0.14em] ${
+        on ? 'bg-[var(--m-nav-active)] text-[rgb(var(--color-cream))]' : 'bg-[var(--m-ivory)] text-[var(--m-slate-2)]'
+      }`}
+    >
       {children}
     </span>
   );
@@ -241,7 +245,7 @@ export function SwitcherPanelBody({
             {me}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-[22px] font-semibold leading-[1.1] text-ink">{name}</span>
+            <span className="block truncate font-[family-name:var(--font-editorial-display)] text-[22px] font-semibold leading-[1.1] text-ink">{name}</span>
             {data.displayName && data.email ? (
               <span className="mt-[3px] block truncate text-[12.5px] text-[var(--m-slate-2)]">{data.email}</span>
             ) : null}
@@ -286,7 +290,7 @@ export function SwitcherPanelBody({
           );
           const body = (
             <>
-              <RowMark className="bg-[linear-gradient(135deg,#8a6b39,#5a3b28)] font-display text-[17px] tracking-[0.02em] text-[#FFFDF8]">
+              <RowMark className="bg-[linear-gradient(135deg,#8a6b39,#5a3b28)] font-[family-name:var(--font-editorial-display)] text-[17px] tracking-[0.02em] text-[#FFFDF8]">
                 {mark}
               </RowMark>
               <span className="min-w-0 flex-1">
@@ -296,7 +300,7 @@ export function SwitcherPanelBody({
                   <NewCount n={unread?.shop} />
                 </span>
               </span>
-              <Tag>Shop</Tag>
+              <Tag on={on}>Shop</Tag>
               <Trail on={on} />
             </>
           );
@@ -353,7 +357,7 @@ export function SwitcherPanelBody({
             {...(here === 'admin' ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
             className={`${ROW} ${here === 'admin' ? 'bg-[var(--m-paper-2)]' : ''}`}
           >
-            <RowMark className="bg-ink font-display text-2xl font-semibold text-[var(--m-orange-3)]">S</RowMark>
+            <RowMark className="bg-ink font-[family-name:var(--font-editorial-display)] text-[26px] font-semibold text-[var(--m-orange-3)]">S</RowMark>
             <span className="min-w-0 flex-1">
               <span className={NAME}>Setnayan HQ</span>
               <span className={SUB}>
@@ -361,7 +365,7 @@ export function SwitcherPanelBody({
                 <NewCount n={unread?.admin} />
               </span>
             </span>
-            <Tag>Admin</Tag>
+            <Tag on={here === 'admin'}>Admin</Tag>
             <Trail on={here === 'admin'} />
           </Link>
         ) : null}

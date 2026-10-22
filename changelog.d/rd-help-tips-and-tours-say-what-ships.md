@@ -15,9 +15,10 @@ fragments; the full table (missing · stale · OK, per surface, per feature) is
 - **A missing stop skips — checked, unchanged.** The engine already lifts the dim and draws no ring while a stop's
   element is absent, and jumps ahead once a later stop is on screen. So Loved ones (gated) is People's MIDDLE stop
   and the always-drawn thumb row its last — held by the new guard.
-- **ⓘ.** The Event Hub stage's ⓘ no longer explains "the strip across the top" (removed 15 Oct). New: **About loved
-  ones** at the head of People › Loved ones — what a loved one is, and why a shop you own sits there (its business
-  alaga). One component (`loved-ones-tip.tsx`) for the page and `/dev/people-lab`.
+- **ⓘ.** The Event Hub stage's ⓘ no longer explains "the strip across the top" (removed 15 Oct). All 61 ⓘ re-read;
+  no other one names a removed thing. An "About loved ones" ⓘ was built and walked, then DROPPED: People's folds
+  (`.fold > div { overflow: clip }`, the Guest list's own CSS) cut its popover off at the section's edge. What it said
+  — a shop you own is one of your loved ones — is the People tour's second stop and the `loved-ones` Help answer.
 - **Help.** New: the tabs at the bottom (account bar, event bar; the app's answer without Discover) · one account for
   a shop and events · the supplier dashboard's four tabs · People · Loved ones · Memories · the dress code by role ·
   cookies (essential only) · the guest's "What should I wear?". Updated: privacy (essential cookies only), roles

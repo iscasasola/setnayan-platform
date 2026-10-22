@@ -38,7 +38,7 @@ import {
   guestPrintCountLine,
   type PrintGuest,
 } from './studio-prints-settings';
-import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, QR_SHEET_PRO_NOTE, allInOneRefusal } from './studio-prints-six';
+import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, allInOneRefusal } from './studio-prints-six';
 import { layoutSeatingPack } from './print-seating-pack';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -191,9 +191,7 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
   assert.doesNotMatch(guestPrintCountLine('seating-pack', GUESTS), /\d+ place cards/);
   assert.equal(guestPrintCountLine('pass', null), 'Guests who are coming');
   /* The ◆ notes are the prototype's, said the same by the routes. */
-  assert.equal(QR_SHEET_PRO_NOTE.title, 'Every guest’s QR in one file is Event Hub Pro');
   assert.equal(PLACE_CARDS_PRO_NOTE.title, 'Every place card in one file is Event Hub Pro');
-  assert.equal(allInOneRefusal('qr-codes'), `${QR_SHEET_PRO_NOTE.title}. ${QR_SHEET_PRO_NOTE.body}`);
   assert.equal(allInOneRefusal('seating-pack'), `${PLACE_CARDS_PRO_NOTE.title}. ${PLACE_CARDS_PRO_NOTE.body}`);
   assert.match(read(`${L}/studio-prints-six.tsx`), /confirmLabel="Event Hub Pro"\s*cancelLabel="Not now"/, 'the ◆ note’s buttons are not "Not now" · "Event Hub Pro"');
   /* The bar: ⬇ opens the Download sheet — "This piece" (the row's own file) and "Everything". */

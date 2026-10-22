@@ -22,6 +22,13 @@
  * the couple reads, and `the-pro-list-names-only-real-gates.test.ts` holds every
  * line to the gate that refuses a free couple — flip a gate and it fails.
  *
+ * 🔄 2026-10-22, LATER STILL — FREE IS READY, PRO IS PERSONAL (owner, verbatim: *"the goal of the free is to keep
+ * everything minimum ready but no personalization."* · *"they pay to customize it."* · *"my issue is the data storage
+ * if i keep accepting free photos which uses more data."*; DECISION_LOG row of that name). ONE GATE MOVED: every
+ * guest's ticket in one file and the Guest QR sheet download free (`isAllInOnePrint`). Four lines say it: "More
+ * upload space — 500 MB per event" (computed) · "Photos in your Love Story, and more than 5 moments" (computed) ·
+ * "One download of the whole designed set" · "Prints in your Event Hub look".
+ *
  * 🔄 TEN → NINE, 2026-09-28 — THE FREE-VS-PRO REDRAW. Owner, verbatim: *"free
  * to change design, change text, size, color, background color, only when you
  * start adding themes will it be pro. adding media for background."* So
@@ -64,6 +71,7 @@
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
+import { FREE_MOMENT_CAP } from '@/lib/love-story-cap';
 
 /**
  * 🎨 THE PRO THEMES, COUNTED — never typed. Owner 2026-09-29, *"Okay use modern
@@ -82,6 +90,23 @@ export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub them
  * (`formatMakerMediaMB`). Move the allowance and the sentence moves with it.
  */
 export const UPLOAD_SPACE_ITEM = `More upload space — ${formatMakerMediaMB(coupleMediaCapBytes(true))} per event` as const;
+
+/**
+ * 📖 THE LOVE STORY LINE, COMPUTED — never typed. Owner 2026-10-22 (DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND
+ * THE QR SHEET ARE FREE"): *"they pay to customize it."* A free event keeps `FREE_MOMENT_CAP` word-only moments; a photo on ANY
+ * story, and a story past the cap, are Pro (`momentCapRefusal` → 'photos_pro' · 'more_stories_pro'). The number is the cap's.
+ */
+export const LOVE_STORY_ITEM = `Photos in your Love Story, and more than ${formatCount(FREE_MOMENT_CAP)} moments` as const;
+
+/**
+ * 🎟 THE DOWNLOAD LINE (owner 2026-10-22, same row): every guest's ticket in one file and the Guest QR sheet are FREE now (a free
+ * event is "minimum ready"); what Pro buys is the DESIGNED set in one file — the whole set, Everything and the place-card pack
+ * (`isAllInOnePrint`). The guard holds that set to the gate both ways.
+ */
+export const DESIGNED_SET_ITEM = 'One download of the whole designed set' as const;
+
+/** 🎨 THE PRINT LINE (owner 2026-10-21 "Themes that follows the event hub is pro"; reworded 2026-10-22): `printLookForEvent`. */
+export const PRINT_LOOK_ITEM = 'Prints in your Event Hub look' as const;
 
 /** The Pro items, named the way the couple sees them — in the prototype's order (2026-10-22). */
 export const WEBSITE_PRO_ITEMS = [
@@ -116,18 +141,18 @@ export const WEBSITE_PRO_ITEMS = [
   'Style and animation for every part',
   // The art kit (`ART_KIT_IS_PRO`, owner 2026-10-16 "the accents we added should be part of pro").
   'Decorations',
-  // A photo on ANY story is Pro, not only on a later one (`momentCapRefusal` → 'photos_pro', lib/love-story-moments.ts).
-  // Was "A 6th Love Story moment, with photos" until the owner's 2026-10-22 ruling: the photo gate is on every story.
-  'Photos in your Love Story',
+  // A photo on ANY story, and a story past `FREE_MOMENT_CAP`, are Pro (`momentCapRefusal` → 'photos_pro' · 'more_stories_pro').
+  // Was "A 6th Love Story moment, with photos", then "Photos in your Love Story" (2026-10-22, both the owner's).
+  LOVE_STORY_ITEM,
   // The per-event allowance (owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB"), COMPUTED above — was "Uploads
   // over 10 MB", which described a per-file limit no code enforces.
   UPLOAD_SPACE_ITEM,
-  // A print-ready file in a Pro theme (`isProPrint`; Classic, Modern and Cyber Neon print free).
-  'Print files in Pro themes',
-  // EVERY all-in-one download (`isAllInOnePrint`, owner 2026-10-16/17): the whole set, every guest's pass, the Guest
-  // QR sheet, the place-card pack (and "Everything", which is all of them in one). Was "One download of every guest's
-  // ticket", which named one of the four. The guard holds the named parts to the gate's own list, both ways.
-  'All-in-one downloads — whole set, guest passes, QR sheet, place cards',
+  // Every print in the event's own Hub look (`printLookForEvent`: a free event prints plain white, #6744). Was "Print
+  // files in Pro themes" (`isProPrint`), which the Hub-look gate now says better (owner 2026-10-22).
+  PRINT_LOOK_ITEM,
+  // The DESIGNED set in one file (`isAllInOnePrint`: the whole set, Everything, the place-card pack). Every guest's
+  // ticket in one file and the Guest QR sheet are free since 2026-10-22, so the line no longer names them.
+  DESIGNED_SET_ITEM,
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];

@@ -19,12 +19,24 @@
  *           a hand-typed figure that drifts fails here;
  *         · Love Story photos — a free couple adding ONE photo to the FIRST story is refused ('photos_pro'), with no
  *           story-count in play; Pro is not. (The old line said only the 6th story's photos were Pro);
- *         · all-in-one downloads — the parts the line names are EXACTLY the pieces `isAllInOnePrint` refuses, read
- *           by asking the gate about every print piece. A new all-in-one file the line does not name fails; a named
- *           part the gate lets through for free fails. "Everything" is the union of the named parts, so it is not
- *           named on its own — but it must stay gated.
+ *         · all-in-one downloads — superseded by § 5 the same day (the line is now "One download of the whole designed
+ *           set", held to `isAllInOnePrint` both ways in 4c).
  *   3 · NO LINE NAMES SOMETHING FREE: while `EDITORIAL_PRO` is in `FREE_FOR_ALL_SKUS` no line says "editorial" —
  *       and if it ever stops being free, this fails the other way and asks for the line back.
+ *
+ *   5 · FREE IS READY, PRO IS PERSONAL (owner 2026-10-22, verbatim: *"the goal of the free is to keep everything minimum ready
+ *       but no personalization."* · *"they pay to customize it."* · *"my issue is the data storage if i keep accepting free photos
+ *       which uses more data."* — DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE"). Four lines
+ *       were reworded and ONE gate moved: every guest's ticket in one file (`passes`) and the Guest QR sheet (`qr-codes`) are FREE.
+ *         · the list matches the gates BOTH WAYS: "One download of the whole designed set" is exactly the set `isAllInOnePrint`
+ *           refuses (the whole set, Everything, the place-card pack) — a gated file the line does not cover fails, and so does a
+ *           free one it does; the two free files are refused in NO mode;
+ *         · a free event's prints are PLAIN WHITE (`printLookForEvent` hands it `plainPrintLook()` and never reads the Hub), so a
+ *           free all-tickets file is ready, not personal — and "Prints in your Event Hub look" names the one thing Pro adds;
+ *         · "Photos in your Love Story, and more than 5 moments" — its number IS `FREE_MOMENT_CAP` (computed), the 6th story is
+ *           refused to a free couple, the 5th is not, a photo on the first is;
+ *         · route level (`all-in-one-prints-are-pro.test.ts`): a free event's every-guest passes and QR sheet are served, and
+ *           Everything is still refused.
  *
  * ⛔ NO PRICE. The list never carries one; the figure is `platform_retail_catalog_v2`'s, read at render.
  *
@@ -36,13 +48,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PRO_THEMES_ITEM, UPLOAD_SPACE_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { DESIGNED_SET_ITEM, LOVE_STORY_ITEM, PRINT_LOOK_ITEM, PRO_THEMES_ITEM, UPLOAD_SPACE_ITEM, WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 import { FREE_MOMENT_CAP, momentCapRefusal, readMoment, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
-import { CLASSIC_PRINT_THEME, PRINT_PIECES, isAllInOnePrint, isProPrint } from '@/lib/print-pieces';
+import { PRINT_PIECES, isAllInOnePrint, type PrintMode } from '@/lib/print-pieces';
+import { PLAIN_PRINT_COLOURS, plainPrintLook, printLookForEvent, printLooksFor } from '@/lib/print-hub-look';
+import { formatCount } from '@/lib/format-number';
 import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
-import { PRO_THEMES, FREE_THEMES } from '@/lib/invite-themes';
+import { INVITE_THEME_IDS, PRO_THEMES } from '@/lib/invite-themes';
 import { FREE_FOR_ALL_SKUS } from '@/lib/entitlements';
 import { PUBLIC_R2_BUCKET } from '@/lib/r2-client-ref';
 
@@ -60,24 +74,23 @@ const DRAWN = [
   'Your logo on every QR code',
   'Style and animation for every part',
   'Decorations',
-  'Photos in your Love Story',
+  // Computed (owner 2026-10-22: "read the numbers… don't type them") — today "…more than 5 moments" and "…500 MB per event".
+  LOVE_STORY_ITEM,
   UPLOAD_SPACE_ITEM,
-  'Print files in Pro themes',
-  'All-in-one downloads — whole set, guest passes, QR sheet, place cards',
+  'Prints in your Event Hub look',
+  'One download of the whole designed set',
 ];
 
-/** The all-in-one download line, and the part of it that names each piece the gate refuses. */
-const DOWNLOADS_LINE = 'All-in-one downloads — whole set, guest passes, QR sheet, place cards';
-const DOWNLOAD_PART: Record<string, string> = {
-  set: 'whole set',
-  passes: 'guest passes',
-  'qr-codes': 'QR sheet',
-  'seating-pack': 'place cards',
-};
+/**
+ * "The whole designed set" — the designed bundle in one file (owner 2026-10-22: the whole set, Everything, the place-card pack).
+ * The gate must refuse EXACTLY these; every other print, in every mode, downloads free.
+ */
+const DESIGNED_SET = ['everything', 'seating-pack', 'set'];
+/** The two all-guests files a free event needs to run its day (owner 2026-10-22) — free in every mode. */
+const FREE_ALL_GUESTS = ['passes', 'qr-codes'];
 /** Every print the gate can be asked about: each piece, plus the two combined files the route serves. */
 const EVERY_PRINT = [...Object.keys(PRINT_PIECES), 'set', 'everything'];
-/** The all-in-one files that are the union of named parts — gated, but not named on their own. */
-const UNION_OF_PARTS = new Set(['everything']);
+const MODES: PrintMode[] = ['screen', 'sample', 'print'];
 
 /** A story as the one reader builds it (so it carries every required field); its photos are asserted to survive the read. */
 const moment = (id: string, media?: string[]): LoveStoryMoment => {
@@ -96,19 +109,20 @@ const GATES: Record<string, () => true | string> = {
     (HUB_ELEMENT_PRO_FIELDS as readonly string[]).includes('motion') ||
     'HUB_ELEMENT_PRO_FIELDS no longer holds a part’s animation (motion) — the line sells a free thing',
   Decorations: () => ART_KIT_IS_PRO === true || 'ART_KIT_IS_PRO is off — decorations are free, take the line off',
-  'Photos in your Love Story': () =>
+  [LOVE_STORY_ITEM]: () =>
     (momentCapRefusal({ before: [moment('a')], after: [moment('a', [PHOTO])], ownsPro: false }) === 'photos_pro' &&
       momentCapRefusal({ before: [moment('a')], after: [moment('a', [PHOTO])], ownsPro: true }) === null) ||
     'a free couple may add a photo to a story (momentCapRefusal) — the line sells a free thing',
   [UPLOAD_SPACE_ITEM]: () =>
     coupleMediaCapBytes(true) > coupleMediaCapBytes(false) ||
     `Pro's upload allowance (${formatMakerMediaMB(coupleMediaCapBytes(true))}) is not more than Free's — "More upload space" is false`,
-  'Print files in Pro themes': () =>
-    (PRO_THEMES.length > 0 && PRO_THEMES.every((t) => isProPrint(t.id)) && !isProPrint(CLASSIC_PRINT_THEME) && FREE_THEMES.every((t) => !isProPrint(t.id))) ||
-    'isProPrint no longer splits Pro themes from free ones — the line misdescribes the print gate',
-  [DOWNLOADS_LINE]: () =>
-    (isAllInOnePrint('passes', 'print') && !isAllInOnePrint('pass', 'print')) ||
-    'every guest’s pass in one file is no longer Pro (isAllInOnePrint) — the line misdescribes the gate',
+  // Sync half of the print-look gate (the door itself is async — § 5b): a free event's look is plain white, never its theme.
+  [PRINT_LOOK_ITEM]: () =>
+    INVITE_THEME_IDS.every((t) => printLooksFor(t, null).free.paper === PLAIN_PRINT_COLOURS.canvas) ||
+    'a free event no longer prints plain white (printLooksFor) — "Prints in your Event Hub look" sells a free thing',
+  [DESIGNED_SET_ITEM]: () =>
+    (isAllInOnePrint('set', 'print') && isAllInOnePrint('everything', 'print') && isAllInOnePrint('seating-pack', 'print')) ||
+    'the whole designed set in one file is no longer Pro (isAllInOnePrint) — the line sells a free thing',
 };
 
 test('1 · the Pro list is the drawn list, in the drawn order', () => {
@@ -156,8 +170,8 @@ test('4a · the upload line names Pro’s per-event allowance, read from the one
   assert.ok(!/\bover\b|per file|each file/i.test(UPLOAD_SPACE_ITEM), 'the gate is a per-event total, not a per-file size');
 });
 
-test('4b · "Photos in your Love Story" — a photo on ANY story is Pro, not only on a later one', () => {
-  assert.ok(items.includes('Photos in your Love Story'));
+test('4b · the Love Story line — a photo on ANY story is Pro, not only on a later one', () => {
+  assert.ok(items.includes(LOVE_STORY_ITEM));
   assert.ok(FREE_MOMENT_CAP > 1, 'the probe needs a story count well under the cap');
   // One story, one new photo — no story-count in play. A free couple is refused; Pro is not.
   const before = [moment('a')];
@@ -169,19 +183,55 @@ test('4b · "Photos in your Love Story" — a photo on ANY story is Pro, not onl
   assert.ok(!items.some((i) => /\b6th\b|\bsixth\b/i.test(i)), 'a line still says the photo gate starts at the 6th story');
 });
 
-test('4c · the all-in-one line names exactly the downloads the gate refuses', () => {
-  assert.ok(items.includes(DOWNLOADS_LINE));
-  const gated = EVERY_PRINT.filter((p) => isAllInOnePrint(p, 'print'));
-  assert.ok(gated.length >= 4, `the gate refused only ${gated.length} prints — the probe is blind`);
-  for (const p of gated) {
-    if (UNION_OF_PARTS.has(p)) continue;
-    assert.ok(DOWNLOAD_PART[p], `isAllInOnePrint refuses "${p}", and the Pro list does not name it`);
-  }
-  for (const u of UNION_OF_PARTS) assert.ok(isAllInOnePrint(u, 'print'), `"${u}" (all of the parts in one) is free — the gate moved`);
-  for (const [p, part] of Object.entries(DOWNLOAD_PART)) {
-    assert.ok(isAllInOnePrint(p, 'print'), `the Pro list names "${part}", but "${p}" downloads free — take it off the line`);
-    assert.ok(DOWNLOADS_LINE.includes(part), `"${part}" is not in the line`);
-  }
+test('4c · "One download of the whole designed set" is EXACTLY what the gate refuses — both ways', () => {
+  assert.ok(items.includes(DESIGNED_SET_ITEM));
+  const gated = EVERY_PRINT.filter((p) => MODES.some((m) => isAllInOnePrint(p, m))).sort();
+  assert.ok(gated.length >= 1, 'the gate refused nothing — the probe is blind');
+  for (const p of gated) assert.ok(DESIGNED_SET.includes(p), `isAllInOnePrint refuses "${p}", which is not the designed set — the Pro list does not cover it`);
+  for (const p of DESIGNED_SET) assert.ok(isAllInOnePrint(p, 'print'), `"${p}" is part of "the whole designed set", but it downloads free — the line oversells`);
+  // The set's watermarked sample sheet stays free (it is a sample, not the file).
+  assert.equal(isAllInOnePrint('set', 'sample'), false, 'the whole set’s sample sheet asks for Pro');
   // One at a time stays free (owner 2026-10-16): the single pass and each piece's own file.
-  assert.equal(isAllInOnePrint('pass', 'print'), false, 'one guest’s pass is no longer free — the line undersells');
+  assert.equal(isAllInOnePrint('pass', 'print'), false, 'one guest’s pass is no longer free');
+  assert.ok(!items.some((i) => /\bguest passes\b|\bQR sheet\b|every guest.s ticket/i.test(i)), 'a line still sells every guest’s ticket or the QR sheet, which are free');
+});
+
+test('5a · every guest’s ticket in one file and the Guest QR sheet are FREE — refused in no mode (owner 2026-10-22)', () => {
+  for (const p of FREE_ALL_GUESTS) {
+    assert.ok(EVERY_PRINT.includes(p), `"${p}" is not a print the gate knows — the probe is blind`);
+    for (const m of MODES) assert.equal(isAllInOnePrint(p, m), false, `"${p}" (${m}) is Event Hub Pro again — a free event cannot run its day`);
+  }
+  // …while Everything — which holds every guest's pass too — stays Pro.
+  assert.equal(isAllInOnePrint('everything', 'print'), true, 'Everything downloads free');
+});
+
+test('5b · a free event’s prints are PLAIN WHITE and never read the Hub; the Hub look is what Pro adds', async () => {
+  for (const theme of INVITE_THEME_IDS) {
+    const looks = printLooksFor(theme, null);
+    let read = 0;
+    const free = await printLookForEvent(looks, false, async () => {
+      read += 1;
+      return null;
+    });
+    assert.equal(read, 0, `${theme}: a free event’s print read the Hub look`);
+    assert.equal(free.look, looks.free, `${theme}: a free event does not print the free look`);
+    assert.equal(free.wearsHub, false);
+    assert.equal(free.picture, null, `${theme}: a free print carries a picture`);
+    assert.deepEqual(free.look, plainPrintLook(), `${theme}: a free event’s print is not plain white`);
+    assert.equal(free.look.paper, PLAIN_PRINT_COLOURS.canvas);
+    const pro = await printLookForEvent(looks, true, async () => {
+      read += 1;
+      return null;
+    });
+    assert.equal(read, 1, `${theme}: a Pro event’s print does not ask for the Hub look`);
+    assert.equal(pro.look, looks.pro, `${theme}: a Pro event prints the free look`);
+  }
+});
+
+test('5c · the Love Story line’s number is FREE_MOMENT_CAP — the 6th story is Pro, the 5th is not', () => {
+  assert.equal(LOVE_STORY_ITEM, `Photos in your Love Story, and more than ${formatCount(FREE_MOMENT_CAP)} moments`);
+  const n = (k: number) => Array.from({ length: k }, (_, i) => moment(`m${i}`));
+  assert.equal(momentCapRefusal({ before: n(FREE_MOMENT_CAP - 1), after: n(FREE_MOMENT_CAP), ownsPro: false }), null, `a free couple is refused story ${FREE_MOMENT_CAP}`);
+  assert.equal(momentCapRefusal({ before: n(FREE_MOMENT_CAP), after: n(FREE_MOMENT_CAP + 1), ownsPro: false }), 'more_stories_pro', `a free couple may add story ${FREE_MOMENT_CAP + 1} — "more than ${FREE_MOMENT_CAP} moments" sells a free thing`);
+  assert.equal(momentCapRefusal({ before: n(FREE_MOMENT_CAP), after: n(FREE_MOMENT_CAP + 1), ownsPro: true }), null, 'Pro is refused a story');
 });

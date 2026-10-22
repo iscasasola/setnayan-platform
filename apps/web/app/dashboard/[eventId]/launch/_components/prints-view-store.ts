@@ -36,7 +36,8 @@ export function usePrintGuest(eventId: string, fallback: string | null): [string
 
 /** What a row saves — read by the piece bar's ⬇ sheet, so "This piece" is the row's own file. */
 export type AllInOneF =
-  | { kind: 'save'; href: string; file: string; label: string; icon: ReactElement }
+  /* `icon`: the ◆ unlocked mark on a Pro file; none (the download arrow) on a free all-guests file (2026-10-22). */
+  | { kind: 'save'; href: string; file: string; label: string; icon?: ReactElement }
   | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } }
   | null;
 export type PieceDownload = { name: string; line?: string; one: { href: string; file: string; label: string } | null; all?: AllInOneF };

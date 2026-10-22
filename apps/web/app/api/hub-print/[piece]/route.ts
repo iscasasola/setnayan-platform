@@ -367,20 +367,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
 
   // ── THE FREE GROUP (`kind: 'free'`). `mode=screen` is page 1 as an SVG, the
   // thumbnail Prints & Tickets shows; anything else is the whole PDF, saved as
-  // `<event slug>-<print>.pdf`. Free — but the Guest QR sheet is an all-guests
-  // file since 2026-10-17 (below).
+  // `<event slug>-<print>.pdf`. Free — the Guest QR sheet too (an all-guests ◆
+  // file 2026-10-17 → free again 2026-10-22, below).
   if (piece === 'qr-codes' || piece === 'guest-registry') {
     const admin = createAdminClient();
     const event = await readPrintEvent(admin, eventId);
     if (!event) return new NextResponse('Event not found.', { status: 404 });
     const thumb = mode === 'screen';
-    /* 🗂 EVERY GUEST'S QR IN ONE FILE IS EVENT HUB PRO (owner 2026-10-17, "ALL GUESTS ◆"): the sheet's PDF — never its on-screen
-       picture — needs the event's Event Hub Pro, refused here before anything is drawn. One guest's QR stays free
-       (`/api/website/qr/guest/<id>`). The guest list registry is not a guest's file and stays free. */
-    if (isAllInOnePrint(piece, mode)) {
-      const [ownsPro, storeShell] = await Promise.all([printOwnsPro(eventId), isStoreShellRequest()]);
-      if (!ownsPro) return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal(piece), { status: 403 });
-    }
+    /* 🎟 EVERY GUEST'S QR ON ONE SHEET IS FREE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE
+       QR SHEET ARE FREE": *"the goal of the free is to keep everything minimum ready but no personalization."*). It was an all-guests
+       ◆ file from 2026-10-17; it is a plain utility sheet a free event needs to run its day, so no Pro question is asked here. */
     const sheet = await freeSheet(piece, admin, eventId, event, { thumb, url });
     if (!sheet.ok) return sheet.res;
     const { docs, images, subject, paper } = sheet;
@@ -405,11 +401,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
-  /* 🗂 EVERY "DOWNLOAD ALL" IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD
-     ALL' IS EVENT HUB PRO"): every guest's pass in one file and the whole set in one PDF — in EVERY theme, Classic too — need the
-     event's Event Hub Pro, the SAME read the ticket zip's route makes (`printOwnsPro` → `eventSkuActive`, an internal host
-     included: an unlock belongs to the event). Refused here, before anything is drawn, whatever the page did or did not show.
-     Each piece's own file and ONE guest's pass (`pass_guest=<id>`, below) stay free. */
+  /* 🗂 THE DESIGNED SET IN ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY
+     'DOWNLOAD ALL' IS EVENT HUB PRO"; narrowed 2026-10-22, "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE
+     FREE"): the whole set in one PDF and Everything — in EVERY theme, Classic too — need the event's Event Hub Pro, the SAME read
+     the ticket zip's route makes (`printOwnsPro` → `eventSkuActive`, an internal host included: an unlock belongs to the event).
+     Refused here, before anything is drawn, whatever the page did or did not show. Every guest's pass in one file (`passes`) is
+     FREE since 2026-10-22 — drawn plain white for a free event like every free print (`printLookForEvent`) — as are each
+     piece's own file and ONE guest's pass (`pass_guest=<id>`, below). */
   if (isAllInOnePrint(allName, mode) && !ownsPro) {
     return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal(allName), { status: 403 });
   }

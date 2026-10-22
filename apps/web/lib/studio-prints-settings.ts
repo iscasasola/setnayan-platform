@@ -10,7 +10,8 @@
  *     `PRINT_SETTINGS_SAVED` in the house toast (`print-settings-has-one-way-to-save.test.ts`).
  *   · A PIECE ROW — picture · name · size line · size ▾ · ONE Download (free).
  *   · A GUEST PRINT (Event pass · Digital ticket · Guest QR codes · Table signs & place cards) — ONE View as ▾ shared by all four
- *     (`guestPickOptions`), a Download for that guest (free), All guests ◆ (Event Hub Pro), and the line under both
+ *     (`guestPickOptions`), a Download for that guest (free), All guests (◆ Event Hub Pro — but every guest's pass and the Guest
+ *     QR sheet are free since 2026-10-22, `isAllInOnePrint`), and the line under both
  *     (`guestPrintCountLine`) — the number IS the file, never a guess.
  *   · EVERYTHING ◆ — the set, every guest's pass and place card, the day's sheets, in one PDF (Event Hub Pro).
  */

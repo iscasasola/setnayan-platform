@@ -1335,11 +1335,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                                     }
                                   />
                                   {several ? (
-                                    <small className="-mt-1 max-w-[64px] text-center text-[10.5px] font-semibold leading-tight text-ink/75" data-mood-board-design-name={design.label}>
+                                    <small className="-mt-1 mb-1 max-w-[64px] text-center text-[10.5px] font-semibold leading-tight text-ink/75" data-mood-board-design-name={design.label}>
                                       {design.label}
                                     </small>
                                   ) : null}
-                                  {word ? <small className={`${several ? '' : '-mt-1 '}max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65`} data-mood-board-dot-word={word}>{word}</small> : null}
+                                  {word ? <small className="-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65" data-mood-board-dot-word={word}>{word}</small> : null}
                                 </span>
                               );
                             })}

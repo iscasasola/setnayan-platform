@@ -4,6 +4,9 @@ import { detailsLabNode } from './details-lab-node';
 import { LabStudioActions } from './lab-studio-actions';
 import { SeatLab } from './seat-lab';
 import { AccessClaimLab } from './access-claim-lab';
+import { LabPageSpotlight } from '../_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 export default async function DetailsLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -23,6 +26,10 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
       <LabStudioActions>
         <LookLab>{detailsLabNode(sp)}</LookLab>
       </LabStudioActions>
+      {/* 🔦 `&spot=mood` — the Mood Board's first-visit spotlight (owner 2026-10-22), first run. */}
+      {sp.spot === 'mood' && TOURS[HOST_PAGE_TOURS.moodBoard].spotlight ? (
+        <LabPageSpotlight tourKey={HOST_PAGE_TOURS.moodBoard} script={TOURS[HOST_PAGE_TOURS.moodBoard].spotlight!} />
+      ) : null}
     </div>
   );
 }

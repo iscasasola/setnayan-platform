@@ -25,6 +25,9 @@ import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
+import { LabPageSpotlight } from '../_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -186,6 +189,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     <LastSeenScope userId="lab-viewer" eventId={EVENT}>
     <MakerLabShell
       eventId={EVENT}
+      tourHint={sp.spot === '1'}
       revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
@@ -271,6 +275,10 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
           : null
       }
     />
+    {/* 🔦 `&spot=1` — the Maker's own spotlight (owner 2026-10-22), inside the Maker, first run. */}
+    {sp.spot === '1' && TOURS[HOST_PAGE_TOURS.maker].spotlight ? (
+      <LabPageSpotlight tourKey={HOST_PAGE_TOURS.maker} script={TOURS[HOST_PAGE_TOURS.maker].spotlight!} inMaker />
+    ) : null}
     </LastSeenScope>
   );
 }

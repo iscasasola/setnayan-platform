@@ -433,6 +433,7 @@ export function PeopleSheet({
           type="button"
           aria-expanded={open}
           data-seat-plan-people-peek=""
+          data-tour="seat-plan-unseated"
           onClick={open ? onClose : onOpen}
           onPointerDown={(e) => setStartY(e.clientY)}
           onPointerUp={(e) => swipe(e.clientY)}

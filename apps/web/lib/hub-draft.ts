@@ -134,7 +134,6 @@ import {
   HUB_LOOK_EVENT_COLUMNS,
   combineChanges,
   galleryChange,
-  lookWriteAllowed,
   refChange,
   type LookChange,
 } from '@/lib/hub-look-pro';
@@ -181,6 +180,17 @@ import type { DateClash } from '@/lib/date-fits-booked';
 import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
 import { cleanRoleName, sanitizeDraftedSectionWords, withDraftedSectionWords } from '@/lib/role-names';
 import type { MarchStep } from '@/lib/march-drag';
+import {
+  HUB_EVENT_COLUMN_PART,
+  asHubOwnership,
+  canvasFacetPart,
+  ownsHubPart,
+  partsWriteAllowed,
+  rsvpFieldPart,
+  stylePreferencesPartOf,
+  type HubOwnershipLike,
+  type HubPartId,
+} from '@/lib/hub-parts';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -2136,12 +2146,19 @@ export function canvasWithoutFacet(
  * then CHECKED against it: if the result would still add or change a look, the
  * live canvas comes back unchanged — nothing Pro can leak through this door.
  */
-export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): HubSectionCanvas {
+export function canvasFreePart(
+  live: HubSectionCanvas,
+  next: HubSectionCanvas,
+  sceneType?: string | null,
+  /** 💎 Part by part (2026-10-22): a growing facet this returns true for is KEPT — its part is owned. Absent: none. */
+  keep?: (facet: CanvasLookFacet) => boolean,
+): HubSectionCanvas {
   let free = sanitizeHubCanvas({ canvas: next });
   for (const facet of canvasLookFacets(live, next, sceneType)) {
-    if (grows(facet.change)) free = canvasWithoutFacet(live, free, facet);
+    if (grows(facet.change) && !keep?.(facet)) free = canvasWithoutFacet(live, free, facet);
   }
-  return grows(canvasLookChange(live, free, sceneType)) ? live : free;
+  // 🔒 Fail-closed: anything still growing that is not kept means the live canvas, unchanged.
+  return canvasLookFacets(live, free, sceneType).some((f) => grows(f.change) && !keep?.(f)) ? live : free;
 }
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
@@ -2526,14 +2543,22 @@ export type HubDraftApplyPlan = {
  * 🎉 The FREE PART of a drafted RSVP config: everything the couple drafted,
  * with the celebration put back to what is live (absent when live has none).
  */
-export function rsvpAskFreePart(live: unknown, drafted: unknown): Record<string, unknown> {
+export function rsvpAskFreePart(
+  live: unknown,
+  drafted: unknown,
+  /** 💎 Part by part (2026-10-22): the parts the event owns keep their drafted fields. Absent: none. */
+  keep?: (part: HubPartId) => boolean,
+): Record<string, unknown> {
   const next = { ...sanitizeRsvpAskConfig(drafted) } as Record<string, unknown>;
   const liveConfig = sanitizeRsvpAskConfig(live);
-  if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
-  else delete next.celebration;
+  /* 🎉 The When yes celebration is Motion's (gate 26). */
+  if (!keep?.('motion')) {
+    if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
+    else delete next.celebration;
+  }
   /* 💎 …and each reply line's / card's NEW Style or Build in put back to live — its words, order, groups and card
      grounds (free) kept. */
-  const look = rsvpLookFreePart(liveConfig.look, next.look);
+  const look = rsvpLookFreePart(liveConfig.look, next.look, keep);
   if (look) next.look = look;
   else delete next.look;
   return next;
@@ -2577,11 +2602,13 @@ export function rsvpLookGrowing(live: unknown, drafted: unknown): string[] {
 }
 
 /** The drafted reply look with every growing Pro field put back to live's (absent where live had none). */
-function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown): Record<string, unknown> | undefined {
+function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown, keep?: (part: HubPartId) => boolean): Record<string, unknown> | undefined {
   if (!isPlainObject(draftedLook)) return undefined;
   const was = rsvpLookProFields(liveLook);
   const now = rsvpLookProFields(draftedLook);
-  const growing = [...now.keys()].filter((k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)));
+  const growing = [...now.keys()].filter(
+    (k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)) && !keep?.(rsvpFieldPart(k.split('|')[1] ?? '')),
+  );
   if (growing.length === 0) return draftedLook;
   const out = JSON.parse(JSON.stringify(draftedLook)) as Record<string, unknown>;
   const liveRaw = isPlainObject(liveLook) ? liveLook : {};
@@ -2682,8 +2709,8 @@ export function blockLooksFreePart(live: unknown, drafted: unknown): Record<stri
 }
 
 /** Did anything BESIDES the celebration move between live and the draft? */
-export function rsvpAskFreePartMoves(live: unknown, drafted: unknown): boolean {
-  return canonicalJson(rsvpAskFreePart(live, drafted)) !== canonicalJson(sanitizeRsvpAskConfig(live));
+export function rsvpAskFreePartMoves(live: unknown, drafted: unknown, keep?: (part: HubPartId) => boolean): boolean {
+  return canonicalJson(rsvpAskFreePart(live, drafted, keep)) !== canonicalJson(sanitizeRsvpAskConfig(live));
 }
 
 /** Key-order-free JSON (jsonb hands keys back in its own order). */
@@ -2700,29 +2727,79 @@ function canonicalJson(v: unknown): string {
 }
 
 /**
- * THE GATE, as a plan. `ownsPro` is measured by the caller (admin-client SKU
- * read, `lookProAllows`); this decides with the one rule, `lookWriteAllowed`.
- * Nothing here can let a Pro key through for a couple who does not own Pro.
+ * 💎 WHICH PARTS A DRAFTED ITEM NEEDS (owner 2026-10-22, "Event Hub Pro, part by
+ * part") — derived from the SAME comparisons that decided `item.pro`, never a
+ * second list of what is Pro: only of WHOSE it is (`lib/hub-parts.ts`).
+ * Empty for an item that is not Pro. An item can need several parts at once
+ * (a scene whose font AND animation changed); each comes off by its own part.
+ */
+export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPartId[] {
+  if (!item.pro) return [];
+  const out = new Set<HubPartId>();
+  switch (item.kind) {
+    case 'event': {
+      if (item.column === 'style_preferences') {
+        for (const piece of stylePreferencesProParts(live.events.style_preferences ?? null, item.value)) out.add(stylePreferencesPartOf(piece));
+      } else if (item.column === 'rsvp_ask_config') {
+        const liveConfig = live.events.rsvp_ask_config ?? null;
+        if (celebrationDraftIsPro(liveConfig, item.value)) out.add('motion');
+        for (const k of rsvpLookGrowing(liveConfig, item.value)) out.add(rsvpFieldPart(k.split('|')[1] ?? ''));
+      } else {
+        out.add(HUB_EVENT_COLUMN_PART[item.column] ?? 'style');
+      }
+      break;
+    }
+    case 'widget': {
+      if (item.field === 'main') out.add('background');
+      else if (item.field === 'canvas') {
+        const row = live.widgets.find((r) => r.widget_id === item.widgetId) ?? live.widgets.find((r) => r.widget_type === item.widgetType);
+        const liveCanvas = liveCanvasOf(row?.config_json);
+        for (const f of canvasLookFacets(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType)) {
+          if (grows(f.change)) out.add(canvasFacetPart(f.key, f.group));
+        }
+      } else out.add('own_scenes'); // a scene of their own shown or filled (22), the venue's drawing (32)
+      break;
+    }
+    case 'editorial':
+      out.add('post_event'); // 23, 24
+      break;
+    case 'fixed-style':
+      out.add('style'); // 18
+      break;
+  }
+  return [...out];
+}
+
+/**
+ * THE GATE, as a plan. What the event owns is measured by the caller
+ * (admin-client read, `hubOwnershipForWrite`) — the old boolean still means
+ * "everything" or "nothing"; this decides with the one rule, asked of the parts
+ * each item needs (`partsWriteAllowed`). Nothing here can let a Pro key through
+ * for an event that does not own its part.
  */
 export function planHubDraftApply(
   draft: HubDraftState,
   live: HubLiveState,
-  ownsPro: boolean,
+  owned: HubOwnershipLike,
 ): HubDraftApplyPlan {
+  const own = asHubOwnership(owned);
+  const keep = (part: HubPartId) => ownsHubPart(own, part);
   const { items, orphans } = classifyHubDraft(draft, live);
   const apply: HubDraftItem[] = [];
   const refused: HubDraftItem[] = [];
   for (const item of items) {
-    const allowed = item.pro ? lookWriteAllowed(ownsPro, item.change) : true;
+    const allowed = item.pro ? partsWriteAllowed(own, hubDraftItemParts(item, live), item.change) : true;
     (allowed ? apply : refused).push(item);
     /* 💎 A HELD SCENE STILL GETS ITS FREE EDITS (the 2026-09-28 redraw). The
        canvas is one item, so a colour drafted beside a Pro font would otherwise
        be held with it. Its free part is written now; the whole drafted canvas
-       stays in the draft (below), where it now differs from live only by Pro. */
+       stays in the draft (below), where it now differs from live only by Pro.
+       💎 …and, part by part (2026-10-22), the facets of every part the event
+       OWNS go live with it — only the unowned parts wait. */
     if (!allowed && item.kind === 'widget' && item.field === 'canvas') {
       const row = live.widgets.find((r) => r.widget_type === item.widgetType);
       const liveCanvas = liveCanvasOf(row?.config_json);
-      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType);
+      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType, (f) => keep(canvasFacetPart(f.key, f.group)));
       if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
         apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free, item.widgetType), pro: false, freePart: true });
       }
@@ -2744,8 +2821,8 @@ export function planHubDraftApply(
        celebration kept; the whole drafted config stays in the draft (below). */
     if (!allowed && item.kind === 'event' && item.column === 'rsvp_ask_config') {
       const liveConfig = live.events.rsvp_ask_config ?? null;
-      if (rsvpAskFreePartMoves(liveConfig, item.value)) {
-        apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value), change: 'change', pro: false, freePart: true });
+      if (rsvpAskFreePartMoves(liveConfig, item.value, keep)) {
+        apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value, keep), change: 'change', pro: false, freePart: true });
       }
     }
     /* 🎛 A held QR look still gets its free camera look: the drafted camera pick is
@@ -2756,16 +2833,22 @@ export function planHubDraftApply(
       const liveBlob = live.events.style_preferences ?? null;
       const free: Record<string, unknown> = {};
       /* 💎 The camera's look is free only back to Classic (2026-10-16); any other new look waits with the rest. */
-      if (cam && cam !== cameraLookOfDraft(liveBlob) && !grows(refChange(cameraChoice(liveBlob), cameraChoice(item.value)))) free[CAMERA_LOOK_PREF_KEY] = cam;
-      /* 🧱 …and the blocks' backgrounds (free) go live, each block's new motion put back to live's. */
-      const blocks = blockLooksFreePart(liveBlob, item.value);
+      /* 💎 Part by part (2026-10-22): a camera look is Style's (31) — owned, any drafted look goes live. */
+      if (cam && cam !== cameraLookOfDraft(liveBlob) && (keep('style') || !grows(refChange(cameraChoice(liveBlob), cameraChoice(item.value))))) free[CAMERA_LOOK_PREF_KEY] = cam;
+      /* 🧱 …and the blocks' backgrounds (free) go live, each block's new motion put back to live's — unless Motion is owned (17b). */
+      const blocks = keep('motion') && isPlainObject(item.value) && isPlainObject(item.value.block_looks) ? item.value.block_looks : blockLooksFreePart(liveBlob, item.value);
       if (blocks && canonicalJson(blocks) !== canonicalJson(isPlainObject(liveBlob) ? (liveBlob.block_looks ?? {}) : {})) free.block_looks = blocks;
-      /* 🕯 …and a scene's accent taken OFF is free: the live picks with only the drafted Nones laid on. */
+      /* 🕯 …and a scene's accent taken OFF is free: the live picks with only the drafted Nones laid on — or every drafted
+         pick, while Style is owned (16). */
       if (isPlainObject(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
         const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
-        const offs = Object.entries(sceneAccentsFromPreferences(item.value)).filter(([sc, id]) => id === ACCENT_NONE && liveAccents[sc as keyof typeof liveAccents] !== ACCENT_NONE);
+        const offs = Object.entries(sceneAccentsFromPreferences(item.value)).filter(
+          ([sc, id]) => (keep('style') || id === ACCENT_NONE) && liveAccents[sc as keyof typeof liveAccents] !== id,
+        );
         if (offs.length > 0) free[SCENE_ACCENTS_PREF_KEY] = { ...liveAccents, ...Object.fromEntries(offs) };
       }
+      /* 🔳 …and the QR's look, while Logo & QR is owned (29). */
+      if (keep('logo_qr') && isPlainObject(item.value) && QR_STYLE_PREF_KEY in item.value) free[QR_STYLE_PREF_KEY] = item.value[QR_STYLE_PREF_KEY];
       if (Object.keys(free).length > 0) apply.push({ kind: 'event', column: 'style_preferences', value: free, change: 'change', pro: false, freePart: true });
     }
     /* 💎 …and a held Post Event look gets its free edits the same way — its
@@ -2966,6 +3049,12 @@ export type HubDraftChangeLine = {
   pro: boolean;
   /** Held back at this Apply — it needs Event Hub Pro, or the web. */
   held: boolean;
+  /**
+   * 💎 The Event Hub Pro parts this change needs to go live (owner 2026-10-22, part by part) — `hubDraftItemParts`.
+   * Empty for a free change. What lets the toolbar say, without asking anybody, which held lines an event that owns
+   * some parts would still hold (`hubSummaryFor`).
+   */
+  parts?: HubPartId[];
 };
 
 /**
@@ -3019,7 +3108,7 @@ export function hubDraftCanUndoOwn(draft: HubDraft | null, me?: string): boolean
   return false;
 }
 
-export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean, me?: string): HubDraftSummary {
+export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: HubOwnershipLike, me?: string): HubDraftSummary {
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
   const changeCount = hubDraftCountedChanges(plan).length;
@@ -3122,6 +3211,7 @@ export type HubDraftActionResult =
  */
 export type HubDraftBarLive = {
   free: HubDraftSummary;
+  /** Everything owned. 💎 A part owner's half is DERIVED from `free` by the parts each held line needs (`hubSummaryFor`). */
   owned: HubDraftSummary;
   proEffects: HubProEffectView[];
   priceLabel: string | null;

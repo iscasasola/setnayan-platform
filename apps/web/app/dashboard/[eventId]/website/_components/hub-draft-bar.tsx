@@ -14,6 +14,7 @@ import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
+import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView } from '@/lib/hub-parts';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftAnswer,
@@ -96,8 +97,10 @@ export type HubDraftBarProps = {
   proEffects?: readonly HubProEffectView[];
   /** The Apply sheet's first-visit tour (`customer_apply_pro_v1`) — an element, drawn inside the open sheet. */
   applyTour?: ReactNode;
-  /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
+  /** 👁 Shown the event's REAL ownership (not "as a free couple", outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
+  /** 💎 What the event holds, part by part, as shown (`HubDraftBarData.ownership`) — a part owner's half of a save's bar. */
+  ownership?: HubOwnershipView;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -344,6 +347,7 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
+  ownership,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
@@ -362,8 +366,11 @@ export function HubDraftToolbar({
   useEffect(() => setFromSave(null), [renderedSummary]);
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
-  const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  /* 💎 Part by part (2026-10-22): an event that owns some parts gets its half DERIVED from the free one — the save asked
+     nobody who owns what (`hubSummaryFor`). */
+  const owned = hubOwnershipOfView(ownership ?? { full: ownsPro, parts: [], paidPhp: 0, fullPricePhp: null });
+  const summary = fromSave ? (ownsPro ? hubSummaryFor(fromSave.free, fromSave.owned, owned) : fromSave.free) : renderedSummary;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? fromSave.proEffects.filter((e) => !ownsHubPart(owned, e.part)) : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();

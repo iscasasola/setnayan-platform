@@ -1,3 +1,4 @@
+import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
 // behavior extraction) so the `_components/` split can share them without
@@ -303,6 +304,8 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  /** 💎 The Event Hub Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
+  hubParts: readonly HubPartId[];
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;

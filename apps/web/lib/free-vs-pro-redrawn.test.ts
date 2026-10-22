@@ -196,7 +196,8 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
   assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 0, 'Apply held a free couple’s button colour');
   // The live writer no longer feeds the button into the Pro decision.
   const action = code('app/dashboard/[eventId]/website/colors/actions.ts');
-  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf('ombreChange,', action.indexOf('siteLookChange(')));
+  // RE-AIMED 2026-10-22 (part by part): Candlelight/ombré (Style) and the travelling logo (Logo & QR) are asked apart — every call.
+  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf("'logo_qr');", action.indexOf('siteLookChange(')));
   assert.ok(call.length > 20, 'the siteLookChange call was not found — the scan is blind');
   assert.doesNotMatch(call, /button/, 'the live writer still asks Pro for the button colour');
   // The guest page paints it outside the Pro branch.

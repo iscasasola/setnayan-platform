@@ -7,6 +7,7 @@ import {
   viewAsFreeHonoured,
 } from '@/lib/view-as-free';
 import { internalAnswerFrom } from '@/lib/internal-viewer-read';
+import { NO_HUB_PARTS, type HubOwnership } from '@/lib/hub-parts';
 
 /**
  * apps/web/lib/view-as-free.server.ts
@@ -121,4 +122,14 @@ export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolea
 export async function asViewed(real: boolean | Promise<boolean>): Promise<boolean> {
   const [pro, free] = await Promise.all([real, viewingAsFreeCouple()]);
   return proAsViewed(pro, free);
+}
+
+/**
+ * 💎 `asViewed` for what an event holds PART BY PART (owner 2026-10-22): a viewer
+ * looking "as a free couple" is shown no part at all — the same switch, the same
+ * render-only rule (it never reaches a write).
+ */
+export async function asViewedOwnership(real: HubOwnership | Promise<HubOwnership>): Promise<HubOwnership> {
+  const [own, free] = await Promise.all([real, viewingAsFreeCouple()]);
+  return proAsViewed(true, free) ? own : NO_HUB_PARTS;
 }

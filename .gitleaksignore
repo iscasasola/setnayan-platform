@@ -126,3 +126,11 @@ de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-wri
 fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:77
 fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:78
 fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:79
+#
+# Same rule flags two TEST FIXTURES in the Visits guards (rd/admin-sees-visits,
+# 2026-10-22): a made-up uuid passed as a raw visitor key to prove it is NEVER
+# stored, and a made-up opaque path token to prove templating drops it. Neither
+# is a credential. Renamed at HEAD so no later commit matches; the introducing
+# commits are pinned because gitleaks-action scans every commit in the PR range.
+d929a17031996793a37f6a1a9332b3835a30b0a7:apps/web/lib/visits/visits-are-private.test.ts:generic-api-key:208
+f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.ts:generic-api-key:124

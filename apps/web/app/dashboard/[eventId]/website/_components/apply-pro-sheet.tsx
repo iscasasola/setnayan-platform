@@ -192,8 +192,9 @@ export function ApplyProSheet({
                     >
                       <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
                       <span className="min-w-0 flex-1 text-sm">
-                        <span className="font-semibold text-ink">{g.name}</span>
-                        {grouped.collapsed && !open ? <span className="text-ink/60"> {g.summary}</span> : null}
+                        <span className="block font-semibold text-ink">{g.name}</span>
+                        {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
+                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/60">{g.summary}</span> : null}
                       </span>
                       {g.pricePhp !== null ? <span className="font-mono text-[13px] text-ink">{formatPhp(g.pricePhp)}</span> : null}
                       {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}

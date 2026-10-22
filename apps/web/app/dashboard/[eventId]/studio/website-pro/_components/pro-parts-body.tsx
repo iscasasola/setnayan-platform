@@ -144,7 +144,8 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
               serviceKey: FULL_PRO_SKU,
               name: 'Event Hub Pro · everything',
               php: restPhp,
-              label: paidPhp > 0 ? `Unlock the rest · ${formatPhp(restPhp)}` : `Unlock everything · ${formatPhp(restPhp)}`,
+              // The drawer's own trigger shows the figure beside the words — the label is words only.
+              label: paidPhp > 0 ? 'Unlock the rest' : 'Unlock everything',
             })}
           </div>
         </div>
@@ -165,7 +166,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
               serviceKey: buyParts.length === 1 ? hubPart(buyParts[0]!).sku : HUB_PARTS_ORDER_KEY,
               name: `Event Hub Pro · ${hubPartsLabel(buyParts)}`,
               php: chargeOf(buyPricePhp),
-              label: `Unlock ${hubPartsLabel(buyParts)} · ${formatPhp(chargeOf(buyPricePhp))}`,
+              label: `Unlock ${hubPartsLabel(buyParts)}`,
               ...(buyParts.length > 1 ? { hubParts: buyParts } : {}),
             })}
           </div>
@@ -227,7 +228,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
                             serviceKey: p.sku,
                             name: `Event Hub Pro · ${p.name}`,
                             php: chargeOf(php),
-                            label: `Unlock ${p.name} · ${formatPhp(chargeOf(php))}`,
+                            label: `Unlock ${p.name}`,
                           })}
                           {chargeOf(php) < php ? (
                             <p className="mt-2 text-[13px] text-ink/60">This reaches everything — every part, and the footer comes off.</p>

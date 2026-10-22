@@ -37,9 +37,11 @@ type Props = {
   onDraft?: (slug: string) => Promise<boolean>;
   /** The address drafted already — the box opens on it. */
   drafted?: string | null;
+  /** Drawn inside `AddressField`, which names the address itself — no second "Address" label. */
+  bare?: boolean;
 };
 
-export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted = null }: Props) {
+export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted = null, bare = false }: Props) {
   const [value, setValue] = useState(drafted ?? initialSlug);
   const [draftedNow, setDraftedNow] = useState<string | null>(drafted);
   const [check, setCheck] = useState<CheckResult | null>(null);
@@ -123,7 +125,7 @@ export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted =
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label
           htmlFor="slug"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 sm:mr-2"
+          className={bare ? 'sr-only' : 'font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 sm:mr-2'}
         >
           Address
         </label>
@@ -364,7 +366,7 @@ export function AddressField({
           </button>
           {open ? (
             <div className="space-y-2 pb-2">
-              <SlugField eventId={eventId} initialSlug={slug} saveAction={saveAction} {...(owns ? {} : { onDraft: draftAddress, drafted })} />
+              <SlugField eventId={eventId} initialSlug={slug} saveAction={saveAction} bare {...(owns ? {} : { onDraft: draftAddress, drafted })} />
               <p className="text-xs leading-snug text-ink/55">
                 3 to 32 characters: small letters, numbers and hyphens.{' '}
                 {owns ? (

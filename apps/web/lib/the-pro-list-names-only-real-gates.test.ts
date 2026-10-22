@@ -44,6 +44,9 @@
  * "Editorial editing" put back on the list · a drawn line dropped. Section 4 (#the-pro-list-says-the-real-gate):
  * Pro's cap set equal to Free's · the upload line hand-typed "500 MB" with the cap moved to 400 · the photo refusal
  * made to fire only past `FREE_MOMENT_CAP` · `seating-pack` dropped from `isAllInOnePrint` · `menu` added to it.
+ * Section 5 (2026-10-22, free is ready): `passes` made Pro again · the QR sheet made Pro again · Everything made free · the
+ * place-card pack made free · a free event's print reading the Hub look · the Love Story line hand-typed "5" with the cap at 6 ·
+ * the old all-in-one downloads line put back — each RED (see PR #6767).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

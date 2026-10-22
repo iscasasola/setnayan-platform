@@ -12,7 +12,6 @@ import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
-import { analyticsAllowed } from '@/lib/cookie-consent';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -74,22 +73,6 @@ async function rasterizeToPng(svg: string, longEdge = 1600): Promise<Blob | null
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
 }
 
-/** Fire-and-forget analytics — no PII, never blocks the download. */
-function track(event: string, props?: Record<string, unknown>) {
-  try {
-    // No yes, no analytics — and no SDK download either (`lib/cookie-consent.ts`).
-    if (!analyticsAllowed()) return;
-    void import('posthog-js')
-      .then((m) => {
-        const ph = (m as { default?: { capture?: (e: string, p?: Record<string, unknown>) => void } }).default;
-        ph?.capture?.(event, props);
-      })
-      .catch(() => {});
-  } catch {
-    /* noop */
-  }
-}
-
 export function PublicMonogramStudio() {
   const rootRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<StudioApi | null>(null);
@@ -124,7 +107,6 @@ export function PublicMonogramStudio() {
     setPreviewKind('handwriting');
     setPreviewSvg(res.svg);
     setPreviewAnim({ kind: 'handwriting', dur: 6, smooth: 0.9, delay: 0.3 });
-    track('public_monogram_uploaded', { traced: res.traced, elements: res.elements });
   }
 
   // Keyed on previewKind alone so the reduced-motion gold/molten path (which
@@ -265,7 +247,6 @@ export function PublicMonogramStudio() {
     if (!exp) return;
     downloadBlob(new Blob([exp.svg], { type: 'image/svg+xml' }), 'setnayan-monogram.svg');
     stashMonogramDraft(exp.svg, exp.config);
-    track('public_monogram_downloaded', { format: 'svg' });
   }
 
   async function onDownloadPng() {
@@ -277,7 +258,6 @@ export function PublicMonogramStudio() {
       if (blob) {
         downloadBlob(blob, 'setnayan-monogram.png');
         stashMonogramDraft(exp.svg, exp.config);
-        track('public_monogram_downloaded', { format: 'png' });
       } else {
         setError('Could not render the PNG — the SVG download still works.');
       }
@@ -424,10 +404,7 @@ export function PublicMonogramStudio() {
         </p>
         <Link
           href="/onboarding/wedding?from=monogram"
-          onClick={() => {
-            stashIfAny();
-            track('public_monogram_cta', { target: 'onboarding' });
-          }}
+          onClick={stashIfAny}
           className="mt-3.5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1E2229] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning · free

@@ -1160,6 +1160,53 @@ async function eventOrdersForGate(
 }
 
 /**
+ * 💎 THE EVENT'S ORDER ROWS, for the Event Hub Pro cap (`lib/hub-parts.ts`
+ * `hubOwnershipFrom`) — the cap is a SUM over paid part orders, so it needs the
+ * rows, not a yes/no per product.
+ *
+ * In a render it is the SAME one read every gate already shares
+ * (`eventOrdersOnce`), so the cap costs no extra request there; outside a render
+ * it asks only for the codes it was given. Fails CLOSED: an unreadable table
+ * reads as no orders — the cap then cannot be reached by error.
+ */
+export async function eventOrderRowsFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKeys: readonly string[],
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const keep = (rows: ReadonlyArray<OrderRow>) =>
+    rows.flatMap((r) =>
+      r.service_key !== null && r.status !== null && serviceKeys.includes(r.service_key)
+        ? [{ service_key: r.service_key, status: r.status }]
+        : [],
+    );
+  if (insideRender()) {
+    const read = await eventOrdersOnce(supabase, eventId);
+    return read.error ? [] : keep(read.rows);
+  }
+  const { data, error } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('service_key', [...serviceKeys]);
+  if (error) {
+    console.error('[supabase-error] entitlements: eventOrderRowsFor', error);
+    return [];
+  }
+  return keep((data ?? []) as OrderRow[]);
+}
+
+/** Does this status confer ACCESS (admin-approved) — the feature-gate rule? */
+export function orderStatusConfersAccess(status: string | null): boolean {
+  return confersAccess(status);
+}
+
+/** Does this status confer OWNERSHIP (anything not relinquished) — the buy-surface rule? */
+export function orderStatusConfersOwnership(status: string | null): boolean {
+  return confersOwnership(status);
+}
+
+/**
  * The two liveness rules, written the way the queries filter. A NULL status is
  * excluded by both — `NOT IN (…)` is not true of NULL in SQL, so the ownership
  * query never returned such a row either.

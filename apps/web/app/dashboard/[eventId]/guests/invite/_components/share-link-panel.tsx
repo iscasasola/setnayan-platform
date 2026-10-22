@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { QrActions } from '@/app/_components/qr-actions';
@@ -79,12 +79,15 @@ export async function ShareLinkPanel({
   // after the couple check above: a session select that named a column without
   // its per-column grant would refuse the WHOLE events query and blank this page.
   const lookAdmin = createAdminClient();
-  const [{ data: lookRow, error: lookError }, ownsPro] = await Promise.all([
+  const [{ data: lookRow, error: lookError }, ownership] = await Promise.all([
     // + the QR look's columns (lib/qr-look.server.ts): the join-link code below
     // wears the event's look, and Pro is already measured on this same read.
     lookAdmin.from('events').select(`invite_theme, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
-    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    eventHubOwnership(await eventEntitlementClient(eventId), eventId).catch(() => null),
   ]);
+  /* 💎 Part by part (owner 2026-10-22): a Pro theme is the Style part's (gate 13), the QR's look Logo & QR's (29). */
+  const ownsStyle = Boolean(ownership && (ownership.full || ownership.parts.has('style')));
+  const ownsQr = Boolean(ownership && (ownership.full || ownership.parts.has('logo_qr')));
   if (lookError) {
     // Graceful: the picker falls back to House and the page still works — but the
     // failure is logged, so "no theme saved" and "could not read it" never look alike.
@@ -94,7 +97,7 @@ export async function ShareLinkPanel({
      Details (owner 2026-09-28: *"it should not be inside guestlist, it should
      be on event hub maker on details"*). The one theme rule, so this line and
      the door can never name two different looks. */
-  const liveTheme = resolveInviteTheme({ saved: lookRow?.invite_theme ?? null, ownsPro });
+  const liveTheme = resolveInviteTheme({ saved: lookRow?.invite_theme ?? null, ownsPro: ownsStyle });
 
   const [tokenRes, pendingRes, eventRes, askRes] = await Promise.all([
     supabase
@@ -178,7 +181,7 @@ export async function ShareLinkPanel({
   // SVG QR of the join link — a guest scans this, so it wears the event's look
   // (lib/qr-look.ts: the Setnayan mark for a free event, the couple's own on
   // Event Hub Pro) at level H, like every other guest code. Inline, no client JS.
-  const qrSvg = joinUrl ? await renderStyledUrlQrSvg(joinUrl, qrLookFromRow(lookRow, ownsPro), 320) : null;
+  const qrSvg = joinUrl ? await renderStyledUrlQrSvg(joinUrl, qrLookFromRow(lookRow, ownsQr), 320) : null;
 
   /* 💬 THE GROUP-CHAT MESSAGE for this ONE shared link (owner 2026-09-29) —
      "…Tap the link, reply with your full name, and we'll confirm you." It is

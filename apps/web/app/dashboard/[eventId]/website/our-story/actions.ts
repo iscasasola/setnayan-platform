@@ -28,7 +28,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
@@ -225,7 +225,8 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
      names it. The hundred-moment ceiling still refuses either way; a live
      write is capped exactly as before. */
   const ownsPro =
-    drafting || (await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId));
+    // 💎 Love Story photos and more than five moments are the Photos part's (owner 2026-10-22, gate 25).
+    drafting || (await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos'));
   const refusal = momentCapRefusal({ before, after, ownsPro });
   if (refusal === 'max') return fail('Your story holds 100 moments — the most one Event Hub can show.');
   if (refusal) redirect(`${back}?pro=${refusal === 'photos_pro' ? 'photos' : 'stories'}`);

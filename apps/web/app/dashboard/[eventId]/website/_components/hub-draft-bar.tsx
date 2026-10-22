@@ -363,7 +363,7 @@ export function HubDraftToolbar({
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
   const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? (fromSave.ownedEffects ?? []) : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();

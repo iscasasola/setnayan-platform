@@ -32,7 +32,7 @@ import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveInviteGround } from '@/lib/invite-ground';
 import { viewingAsFreeCouple } from '@/lib/view-as-free.server';
 import { dressEventCoverGiven, type CoverIo, type DressedEventCover } from '@/lib/event-cover-given';
-import { websiteProActiveFor } from '@/app/[slug]/_lib/hub-look';
+import { hubPartActiveFor } from '@/app/[slug]/_lib/hub-look';
 import { eventWordsFor, eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { posterThemeStill } from '@/lib/event-poster.server';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
@@ -390,7 +390,8 @@ export type { DressedEventCover } from '@/lib/event-cover-given';
  */
 function viewedCoverIo(r: CoverRow): CoverIo {
   return {
-    ownsPro: () => websiteProActiveFor(r.event_id),
+    // 💎 The cover's own photo as its ground is the Background part's (owner 2026-10-22, gate 9).
+    ownsPro: () => hubPartActiveFor(r.event_id, 'background'),
     words: () => eventWordsFor(r.event_type ?? ''),
     logoAnimationOn: () => logoPlaysFor(r.event_id, resolveEventMonogramSvg(r)),
     sign: (ref) => displayUrlForStoredAsset(ref),

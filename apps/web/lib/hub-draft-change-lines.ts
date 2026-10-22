@@ -49,6 +49,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
+import type { HubOwnershipLike } from '@/lib/hub-parts';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -351,7 +352,7 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
  * Every change Apply would publish (or hold), named — exactly
  * `summarizeHubDraft(...).changeCount` lines, in the same order.
  */
-export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: boolean): HubDraftChangeLine[] {
+export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: HubOwnershipLike): HubDraftChangeLine[] {
   if (!draft) return [];
   return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
     ...hubDraftChangePlace(item, live, stage),

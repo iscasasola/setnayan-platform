@@ -72,6 +72,19 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
   COUPLE_WEBSITE_PRO:  'live',     // Event Hub PRO unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22 · migration 20271282742262) — each part's gates read it live
+  // (`eventHubPartActive`, lib/couple-website-pro.ts). Sold in the Maker, never at sign-up.
+  COUPLE_HUB_PART_REVEAL: 'live',
+  COUPLE_HUB_PART_BACKGROUND: 'live',
+  COUPLE_HUB_PART_PHOTOS: 'live',
+  COUPLE_HUB_PART_STYLE: 'live',
+  COUPLE_HUB_PART_MOTION: 'live',
+  COUPLE_HUB_PART_LOGO_QR: 'live',
+  COUPLE_HUB_PART_MUSIC: 'live',
+  COUPLE_HUB_PART_PRINTS: 'live',
+  COUPLE_HUB_PART_POST_EVENT: 'live',
+  COUPLE_HUB_PART_OWN_SCENES: 'live',
+  COUPLE_HUB_PART_ADDRESS: 'live',
   EDITORIAL_PRO:       'live',     // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · marked live 2026-07-10 (owner "all features active")
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱499/28d subscription · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
@@ -227,6 +240,10 @@ export async function fetchV2CustomerCatalog(
   // from an existing code on save. `forAdmin` reads the same active rows without
   // the dark-launch filter.
   if (!opts.forAdmin) {
+    // 💎 The eleven Event Hub Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
+    // Event Hub Pro page — never as eleven more lines on /pricing, which keeps the one "Event Hub Pro" line. Its parts
+    // are read by `lib/hub-parts.ts` callers straight from the catalogue.
+    query = query.not('service_code', 'like', 'COUPLE_HUB_PART_%');
     if (!liveStudioRoamEnabled()) {
       query = query
         .neq('service_code', 'LIVE_STUDIO_ROAM')

@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { ownershipCanChangeTheCover } from '@/lib/hub-look-given';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -211,7 +211,7 @@ export type HeroConfigRow = { event_id: string; config_json: unknown };
  * everybody. `null` = it cannot change this event's cover, so it was not asked
  * (and if a reader asks anyway, it asks the live way).
  *
- * ⚠ `websitePro` IS THE REAL ANSWER — `eventCoupleWebsiteProActive`, the gate
+ * ⚠ `websitePro` IS THE REAL ANSWER — `eventHubPartActive(…, 'background')`, the gate
  * every write uses — never the one a viewer is shown. The owner's "view as a
  * free couple" switch is honoured by the caller, which does not use these facts
  * at all for a viewer who has it on.
@@ -265,7 +265,8 @@ async function readCoverRows(eventIds: string[]): Promise<CoverRows> {
       return false;
     });
   const [pro, animation, studio] = await Promise.all([
-    Promise.all(proIds.map((id) => yesOrRefused(eventCoupleWebsiteProActive(admin, id)))),
+    // 💎 The cover's ground is the Background part's (owner 2026-10-22, gate 9) — Full Pro and the cap included.
+    Promise.all(proIds.map((id) => yesOrRefused(eventHubPartActive(admin, id, 'background')))),
     Promise.all(movingIds.map((id) => yesOrRefused(eventAnimatedMonogramActive(admin, id)))),
     movingIds.length > 0
       ? admin.from('events').select('event_id, monogram_studio_config').in('event_id', movingIds)

@@ -28,10 +28,9 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const stripCss = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-const CSS = stripCss(read('app/_components/home/home-reskin.css'));
-const GLOBALS = stripCss(read('app/globals.css'));
+const CSS = stripComments(read('app/_components/home/home-reskin.css'));
+const GLOBALS = stripComments(read('app/globals.css'));
 const TAILWIND = stripComments(read('tailwind.config.ts'));
 
 /** Every `{ … }` rule whose selector list mentions `needle`: [selector, body]. Flat CSS only — this file has no nesting

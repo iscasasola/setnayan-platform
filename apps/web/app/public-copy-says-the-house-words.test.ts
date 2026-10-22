@@ -39,8 +39,25 @@ import { copyStrings } from '@/lib/public-copy-strings';
  * allowance that stops matching anything fails too, so the list cannot rot
  * into a blanket exemption.
  *
+ * ── WIDENED 2026-10-23 (live check of the public pages) ─────────────────────
+ * Two more words, and the public pages the first cut did not read:
+ *   · "celebration" — say "event" (owner 2026-10-04). "Celebration" survives
+ *     only as an EVENT TYPE's name, which comes from the database vocabulary,
+ *     not from these files — so it can never be a finding here.
+ *   · "Animated Monogram" — retired from sale 2026-10-22 (#6781); its
+ *     animation is Event Hub Pro's Logo & QR part. /palogo and the home page's
+ *     structured data still sold it by name.
+ *   · New roots: the sign-up doors (/open-shop, /signup, /login, the password
+ *     pages), /help articles, /download, the /tour walk-through, the front
+ *     page itself (`app/page.tsx`), the shared doorway components, and the two
+ *     copy libraries every Studio and feature page reads (`lib/studio-apps.ts`,
+ *     `lib/feature-pages`). /tour said "vendor" 24 times; /open-shop called a
+ *     shop's address "Your website".
+ *
  * MUTATION: write "Browse vendors" into explore-search-hero.tsx, or "your
  * website" into vendor-grow-sections.tsx → this fails.
+ * MUTATION: write "the vendors" into app/tour/page.tsx, "the celebration" into
+ * lib/studio-apps.ts, or "Animated Monogram" into palogo/page.tsx → this fails.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -62,6 +79,19 @@ const ROOTS = [
   'app/_components/frontdoor',
   'lib/blog.ts',
   'lib/help.ts',
+  // Widened 2026-10-23 — see the docblock.
+  'app/page.tsx',
+  'app/open-shop',
+  'app/signup',
+  'app/login',
+  'app/forgot-password',
+  'app/reset-password',
+  'app/help',
+  'app/download',
+  'app/tour',
+  'app/_components/marketing',
+  'lib/studio-apps.ts',
+  'lib/feature-pages',
 ] as const;
 
 const LEGAL = new Set(['privacy', 'terms', 'refunds', 'cookies', 'acceptable-use']);
@@ -71,6 +101,8 @@ const BANNED: ReadonlyArray<[string, RegExp]> = [
   ['vendor — say "supplier"', /\bvendors?\b/gi],
   ['website — say "Event Hub" (or "Setnayan page" for a supplier)', /\bweb ?sites?\b/gi],
   ['site — say "Event Hub"', /\b(?:your|our|their|the|event|wedding|invitation|own)\s+sites?\b/gi],
+  ['celebration — say "event"', /\bcelebrations?\b/gi],
+  ['Animated Monogram — retired; say Logo Maker / Event Hub Pro’s Logo & QR', /\banimated monograms?\b/gi],
 ];
 
 /** Each allowance: the file, the exact phrase it permits, and why that is true. */
@@ -86,6 +118,11 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     file: 'lib/help.ts',
     phrase: /paid wedding website builders/i,
     why: 'The question a couple types into a search engine; it names the other products, and the answer is "the Event Hub".',
+  },
+  {
+    file: 'lib/blog.ts',
+    phrase: /full liturgical celebration/i,
+    why: "The Church's own word for the rite (a liturgical celebration is the Mass), in an article about a Catholic wedding — not our word for an event.",
   },
   {
     file: 'lib/help.ts',
@@ -143,6 +180,11 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
     'app/monogram/page.tsx',
     'app/(shell)/realstories/page.tsx',
     'lib/blog.ts',
+    'app/page.tsx',
+    'app/open-shop/_components/address-preview.tsx',
+    'app/tour/page.tsx',
+    'app/(shell)/palogo/page.tsx',
+    'lib/studio-apps.ts',
   ]) {
     assert.ok(files.includes(must), `${must} was not scanned`);
   }

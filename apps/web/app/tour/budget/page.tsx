@@ -33,7 +33,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'The budget · Maria & Jose',
   description:
-    'See how a couple tracks every peso on Setnayan — committed vs. paid per vendor, plus a live budget planner you can nudge yourself. No sign-up, nothing saved.',
+    'See how a couple tracks every peso on Setnayan — committed vs. paid per supplier, plus a live budget planner you can nudge yourself. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/budget' },
   openGraph: {
     images: BRAND_OG_IMAGES,
@@ -86,7 +86,7 @@ export default async function TourBudgetPage() {
           Money, handled
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          Every peso {couple} commit is tracked against what they&rsquo;ve paid — vendor by vendor, line by
+          Every peso {couple} commit is tracked against what they&rsquo;ve paid — supplier by supplier, line by
           line. And before they book anyone, a live planner suggests where each peso should go.
         </p>
       </header>
@@ -99,13 +99,13 @@ export default async function TourBudgetPage() {
         <SummaryStat
           label="Committed"
           value={formatPhp(totals.budget)}
-          hint="across every booked vendor"
+          hint="across every booked supplier"
           tone="gold"
         />
         <SummaryStat
           label="Paid so far"
           value={formatPhp(totals.paid)}
-          hint="logged against vendors"
+          hint="logged against suppliers"
           tone="mulberry"
         />
         <SummaryStat
@@ -124,15 +124,15 @@ export default async function TourBudgetPage() {
       <section className="mx-auto mt-16 max-w-3xl">
         <div className="flex items-center gap-2">
           <Receipt aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1B1A17]">Vendor by vendor</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">Supplier by supplier</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Each vendor shows the agreed total, what&rsquo;s been paid, and every line item — so nothing slips through.
+          Each supplier shows the agreed total, what&rsquo;s been paid, and every line item — so nothing slips through.
         </p>
 
         {vendors.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
-            This sample wedding has no booked vendors yet.
+            This sample wedding has no booked suppliers yet.
           </div>
         ) : (
           <div className="mt-6 space-y-4">
@@ -187,7 +187,7 @@ export default async function TourBudgetPage() {
         </div>
         <h2 className="mt-4 font-serif text-2xl text-[#1B1A17] sm:text-3xl">Plan your own budget, free</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-          Track every peso, every deadline, every vendor — in one place. Set na &rsquo;yan.
+          Track every peso, every deadline, every supplier — in one place. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"

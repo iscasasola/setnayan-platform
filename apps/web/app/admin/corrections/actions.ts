@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { geocodeNominatim } from '@/lib/geo';
-import { syncBusinessAlagaName } from '@/lib/business-alaga-sync';
+import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import {
   isLockedIdentityFieldKey,
   type LockedIdentityFieldKey,
@@ -219,7 +219,8 @@ export async function applyCorrectionRequest(formData: FormData) {
     // ── AN APPROVED SHOP-NAME CORRECTION RENAMES THE BUSINESS ALAGA TOO ──────
     // A verified shop cannot rename itself — this is its only rename door — so
     // without this the owner's "For ▾" and People keep the old name. The owner
-    // is read from the shop row, never from the request. Best-effort: the
+    // is read from the shop row, never from the request. `ensureBusinessAlaga`
+    // also writes the record if this owned shop never got one. Best-effort: the
     // correction above is applied whatever happens here.
     if (request.field_key === 'business_name') {
       const { data: shopRow } = await admin
@@ -227,7 +228,7 @@ export async function applyCorrectionRequest(formData: FormData) {
         .select('user_id')
         .eq('vendor_profile_id', request.vendor_profile_id)
         .maybeSingle();
-      await syncBusinessAlagaName(admin, {
+      await ensureBusinessAlaga(admin, {
         ownerUserId: (shopRow as { user_id?: string | null } | null)?.user_id,
         vendorProfileId: request.vendor_profile_id,
         shopName: String(value),

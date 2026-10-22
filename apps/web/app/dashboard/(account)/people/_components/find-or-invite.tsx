@@ -298,7 +298,7 @@ export function FindResults({ f }: { f: FindOrInviteState }) {
               }}
               placeholder="their@email.com"
               aria-label="Their email"
-              className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta"
+              className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
             />
           )}
           <div className="mt-2.5 flex items-center gap-2.5">

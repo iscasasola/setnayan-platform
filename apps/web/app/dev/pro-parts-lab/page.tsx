@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { ProPartsBody } from '@/app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body';
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
-import { IAP_HUB_PART_PRODUCTS } from '@/lib/iap/products';
+import { IAP_HUB_PART_PRODUCTS, appStorePriceFloorPhp } from '@/lib/iap/products';
+import { formatPhp } from '@/lib/php';
 import { LabFrame } from './lab-client';
 
 /**
@@ -22,9 +23,9 @@ import { LabFrame } from './lab-client';
 const SAMPLE_BIG = 1000;
 const SAMPLE_SMALL = 500;
 const SAMPLE_FULL = 5000;
-/** Apple's `displayPrice` strings, as StoreKit would hand them — SAMPLE only (the floors are web ÷ 0.85). */
-const SAMPLE_APPLE_BIG = '₱1,190.00';
-const SAMPLE_APPLE_SMALL = '₱590.00';
+/** Apple's `displayPrice` strings as StoreKit would hand them — SAMPLE only: the ÷ 0.85 floor of the lab's web figure. */
+const SAMPLE_APPLE_BIG = formatPhp(appStorePriceFloorPhp(SAMPLE_BIG) ?? 0);
+const SAMPLE_APPLE_SMALL = formatPhp(appStorePriceFloorPhp(SAMPLE_SMALL) ?? 0);
 
 export default async function ProPartsLab({ searchParams }: { searchParams: Promise<{ frame?: string; buy?: string; from?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();

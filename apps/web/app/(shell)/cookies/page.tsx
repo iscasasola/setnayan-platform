@@ -42,7 +42,13 @@ function CookieList({ rows }: { rows: Row[] }) {
     <ul className="space-y-2">
       {rows.map((r) => (
         <li key={r.name}>
-          <code className="break-all font-mono text-[12px] text-ink">{r.name}</code>
+          <span className="flex flex-wrap gap-x-3">
+            {r.name.split(' · ').map((n) => (
+              <code key={n} className="break-all font-mono text-[12px] text-ink">
+                {n}
+              </code>
+            ))}
+          </span>
           <span className="block">
             {r.what} <span className="text-ink/55">· {r.keeps}</span>
           </span>
@@ -153,8 +159,8 @@ export default function CookiesPage() {
           banner.
         </p>
         <p>
-          Every cookie we set is first-party: it is read only by Setnayan and
-          is never shared with anyone else.
+          Every cookie we set is first-party — set by Setnayan&rsquo;s own site
+          and sent only back to it. None is used for advertising.
         </p>
       </LegalSection>
 
@@ -219,7 +225,10 @@ export default function CookiesPage() {
 
       <LegalSection title="What we do NOT use">
         <ul className="ml-5 list-disc space-y-1">
-          <li>No analytics or product-measurement cookies.</li>
+          <li>
+            No analytics service and no analytics cookies — beyond the view
+            counts above, nothing measures how you use Setnayan.
+          </li>
           <li>No advertising or retargeting cookies.</li>
           <li>No cross-site tracking, and no data brokers.</li>
           <li>No selling or renting of your information.</li>

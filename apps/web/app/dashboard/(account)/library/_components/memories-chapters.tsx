@@ -292,7 +292,7 @@ export async function MemoriesChapters({
 /** An event with nothing kept yet keeps its place — its own mark, "Nothing yet" (the shelf's empty cover). */
 function MonogramTile({ album }: { album: Album }) {
   const inner = (
-    <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-ink/10">
+    <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-ink/[0.05]">
       <EventMonogram event={album.event} size="lg" plays={album.markPlays} place="album-shelf" />
       <span className="absolute bottom-2 left-0 right-0 text-center text-[11px] text-ink/55">Nothing yet</span>
     </span>

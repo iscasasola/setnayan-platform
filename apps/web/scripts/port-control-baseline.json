@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bfe6c28a9",
-  "routeCount": 452,
-  "destinations": 995,
+  "generatedFromRef": "6ff66adeb7",
+  "routeCount": 453,
+  "destinations": 994,
   "actions": 665,
-  "blocks": 6755,
+  "blocks": 6766,
   "routes": {
     "/": {
       "files": [
@@ -5002,9 +5002,10 @@
     },
     "/dashboard/(account)/library": {
       "files": [
-        "dashboard/(account)/library/_components/album-shelf.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
         "dashboard/(account)/library/_components/gallery-doors.tsx",
+        "dashboard/(account)/library/_components/memories-chapters.tsx",
+        "dashboard/(account)/library/_components/memories-thumb.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -5014,7 +5015,6 @@
         "/dashboard",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/create-event",
-        "/dashboard/library?tab=[seg]",
         "/dashboard/life-flash",
         "/explore",
         "/v/[seg]",
@@ -5022,21 +5022,29 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "AlaalaLensBody",
         "AlbumCard",
-        "AlbumShelf",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "GalleryDoors",
+        "GalleryDoor",
+        "HTMLDivElement",
+        "Heading",
+        "LifeFlashTile",
         "Link",
         "LinkPickMenu",
+        "MemoriesChapters",
+        "MemoriesThumb",
+        "MemoriesUnreadable",
+        "MonogramTile",
         "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
+        "Tile",
         "VendorsTab"
       ]
     },
@@ -10983,6 +10991,18 @@
         "PeopleRosterView",
         "ScanTrailForm",
         "SubmitButton"
+      ]
+    },
+    "/dev/memories-lab": {
+      "files": [
+        "dev/memories-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "MemoriesChapters",
+        "MemoriesThumb"
       ]
     },
     "/dev/onboarding-lab": {

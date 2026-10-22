@@ -21,7 +21,8 @@
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { LOGO_FONT_OUTLINE, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
 import type { HubFontKey } from '@/lib/hub-fonts';
-import type { FlatMark } from '@/lib/print-mark';
+import { flattenSvgMark, type FlatMark } from '@/lib/print-mark';
+import { SETNAYAN_MARK_PATH, SETNAYAN_MARK_TRANSFORM, SETNAYAN_MARK_VIEWBOX } from '@/lib/qr-style-svg';
 import { entourageCellWord, loneRoleWord, roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
@@ -39,6 +40,7 @@ import {
   dieCutFor,
   formatFor,
   maskAccountLine,
+  printBrandOf,
   menuHasDishes,
   parentLine,
   printableText,
@@ -48,6 +50,7 @@ import {
   type PrintDetails,
   type PrintFontKey,
   type PrintFormat,
+  type PrintBrand,
   type PrintLook,
   type PrintMode,
   type PrintPieceKey,
@@ -62,7 +65,7 @@ export type PrintLayer = 'foil' | 'white' | 'die';
 
 export type PrintOp =
   | { t: 'rect'; x: number; y: number; w: number; h: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; layer?: PrintLayer }
-  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer; evenOdd?: boolean; text?: PrintTextMeta; mark?: true }
+  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer; evenOdd?: boolean; text?: PrintTextMeta; mark?: true; brand?: PrintBrand }
   | { t: 'image'; ref: string; x: number; y: number; w: number; h: number; opacity?: number }
   | { t: 'circle'; cx: number; cy: number; r: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; nfc?: boolean };
 
@@ -761,9 +764,24 @@ function qrPlate(ops: PrintOp[], shape: QrShape | undefined, x: number, y: numbe
   else ops.push({ t: 'rect', x: x - pad, y: y - pad, w: size + 2 * pad, h: size + 2 * pad, fill });
 }
 
-/** The lowest baseline a card's words may use — clear of the safe line and of a bottom-corner QR. */
+/**
+ * 🏷 THE ROOM A FREE FRONT KEEPS AT ITS FOOT for the "Made with Setnayan" line (`brandPiece`, owner 2026-10-21): the
+ * line's ink, its clearance and a point — so the line sits ON the bottom edge, under the card's words, never over them.
+ * 0 on a Pro look: its tiny mark finds an edge of its own.
+ */
+function brandFoot(doc: PrintDoc, ctx: Ctx): number {
+  if (printBrandOf(ctx.look) !== 'line') return 0;
+  const o = brandLineOpts(brandSize(doc, 'line'), '#000000');
+  const ink = lineInk(PRINT_BRAND_WORDS, o);
+  const half = text([], PRINT_BRAND_WORDS, 0, 0, o) / 2;
+  // Measured from the trim: where this die's safe area ends under the line (a scallop's cusps sit higher than a rect's edge).
+  const edge = safeBottom(doc, doc.w / 2 - half, doc.w / 2 + half);
+  return doc.h - edge + 0.5 + (ink.bottom - ink.top) + BRAND_CLEAR + 0.5;
+}
+
+/** The lowest baseline a card's FRONT words may use — clear of the safe line, of the free brand line, and of a bottom-corner QR. */
 function wordsFloor(doc: PrintDoc, ctx: Ctx, descender: number): number {
-  let floor = doc.h - SAFE_PT - descender;
+  let floor = Math.min(doc.h - SAFE_PT, doc.h - brandFoot(doc, ctx)) - descender;
   if (ctx.data.hasEventQr) {
     const slot = cornerQrSlot(doc.die, doc.w, doc.h);
     if (slot.at === 'bottom') floor = Math.min(floor, slot.y - QR_PLATE - 6 - descender);
@@ -1421,7 +1439,7 @@ function layoutDetails(ctx: Ctx): PrintDoc[] {
   // the venue map. The QR is ALWAYS printed; its room is reserved at the foot
   // of the FRONT, placed on this die's safe line, and the words stop above it.
   const q = 56;
-  const hubBase = Math.min(h - 18, safeBottom(front, cx - inner / 2, cx + inner / 2) - 2.5);
+  const hubBase = Math.min(h - 18, safeBottom(front, cx - inner / 2, cx + inner / 2) - 2.5, h - brandFoot(front, ctx) - 2.5);
   const qy = hubBase - 26 - q;
   const withNfc = data.details.nfc === true;
   {
@@ -1823,7 +1841,13 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   const pass = rawPass;
   // The phone card is its own composition (portrait, the QR the hero) — the
   // same one the 1080 × 1440 picture a guest saves is drawn from.
-  if (fmt.style === 'phone') return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](ctx, pass, fmt);
+  // 🏷 On paper the card carries Setnayan ONCE — never the saved picture's foot mark: a free card draws the print's line as
+  // the lowest line of its own foot, inside its frame (`cardFoot` — there is no room below a frame that sits on the safe
+  // line); a Pro card takes the mark from `brandPiece`.
+  if (fmt.style === 'phone') {
+    const printed: Ctx = { ...ctx, data: { ...ctx.data, details: { ...ctx.data.details, setnayanMark: false, brandLine: printBrandOf(ctx.look) === 'line' } } };
+    return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](printed, pass, fmt);
+  }
   const { look, data } = ctx;
   const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
   const { w, h, bleed, ops } = doc;
@@ -1839,10 +1863,12 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   // Never inside the 5 mm safe line — the composition's 14 pt pad sat 0.2 pt
   // outside it, and a glyph's overhang further (every-print-fits.test.ts).
   const pad = Math.max(14 * k, SAFE_PT + 2);
-  const nfcOn = data.details.nfc === true && nfcFits(mainW, h);
+  // 🏷 A free pass keeps its foot for the "Made with Setnayan" line (`brandFoot`): the words and the NFC spot stand above it.
+  const foot = Math.max(0, brandFoot(doc, ctx) - SAFE_PT);
+  const nfcOn = data.details.nfc === true && nfcFits(mainW, h - foot);
   const nfcRoom = nfcOn ? NFC_SPOT_CLEAR_R * 2 : 0;
-  const spotTop = nfcOn ? h - SAFE_PT - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
-  const floor = h - SAFE_PT;
+  const spotTop = nfcOn ? h - SAFE_PT - foot - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
+  const floor = h - SAFE_PT - foot;
   /** The room a line has across the main area — narrower beside the NFC spot. */
   const widthAt = (base: number, size: number) => (base + size * DESC_EM < spotTop - 2 ? mainW - pad * 2 : mainW - pad * 2 - nfcRoom);
 
@@ -1995,7 +2021,7 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   // An NFC sticker spot, 25 mm true to size, in the main area's corner (on a
   // calling card that is the only place a 25 mm sticker fits).
   // Its ring sits on the safe line, never past it.
-  if (nfcOn) nfcSpot(ops, look, mainW - NFC_SPOT_CLEAR_R, h - SAFE_PT - NFC_SPOT_R);
+  if (nfcOn) nfcSpot(ops, look, mainW - NFC_SPOT_CLEAR_R, h - SAFE_PT - foot - NFC_SPOT_R);
   // the stub, and its tear line
   ops.push({ t: 'rect', x: mainW, y: -bleed, w: stubW + bleed, h: h + 2 * bleed, fill: look.paper });
   const dash = style === 'train' ? 3 : 5;
@@ -2359,6 +2385,14 @@ function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: numbe
 function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode, door = 'Scans once at the door'): number {
   const o = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 9.5 * u), color: look.muted, caps: true, tracking: 0.16 } as const;
   const gap = Math.max(1.2, 3 * u);
+  if (data.details.brandLine) {
+    // 🏷 The printed card's Setnayan line — the lowest line of the foot; the door line stands above it.
+    const bo = { ...brandLineOpts(PRINT_MIN_BODY_PT, contrast(PRINT_BRAND_GREY, look.paper) >= MIN_CONTRAST ? PRINT_BRAND_GREY : look.muted), align: 'center' as const, maxWidth: x1 - x0 };
+    const drawn: PrintOp[] = [];
+    text(drawn, PRINT_BRAND_WORDS, (x0 + x1) / 2, y, bo);
+    for (const d of drawn) ops.push(d.t === 'path' ? { ...d, brand: 'line' } : d);
+    y = y + lineInk(PRINT_BRAND_WORDS, bo).top - Math.max(2.5, gap);
+  }
   let top = y;
   if (data.details.setnayanMark) {
     const markO = { ...o, tracking: 0.2 };
@@ -3004,6 +3038,204 @@ function layoutQrSheet(title: string, cells: Array<{ name: string; sub: string |
   return pages;
 }
 
+// ─── Every print carries Setnayan ───────────────────────────────────────────
+
+/**
+ * 🏷 EVERY PRINT CARRIES SETNAYAN — owner 2026-10-21, verbatim: *"i want the prints branded with setnayan"* (option A).
+ *
+ *   · FREE — the plain-white print (`plainPrintLook`, `brand: 'line'`) and every plain A4 utility sheet (the QR sheet,
+ *     the guest list, the seating pack, the caterer counts, the entrance chart): ONE small line, "Made with Setnayan ·
+ *     setnayan.com", in small caps, neutral grey, on the FRONT's bottom edge;
+ *   · PRO — the Hub-look print (`brand: 'mark'`): a tiny Setnayan mark — the shipped artwork itself (`SETNAYAN_MARK_PATH`,
+ *     verbatim public/brand/setnayan-mark.svg), never a redraw — in the Hub's own ink at low contrast, on the BACK when the
+ *     piece has one, else at the very edge of its one side, so the design stays clean.
+ *
+ * ONCE PER PIECE, and its place is MEASURED, never assumed (`brandSpot`): inside the safe area of the sheet's own die cut,
+ * clear of every word, mark, plate and QR the layout drew — the bottom edge first, then its corners, then (the mark only)
+ * the top corners, rising a point at a time. Applied AFTER a piece is laid out, so no layout's fit is touched.
+ * Held by `lib/every-print-carries-setnayan.test.ts`.
+ */
+export const PRINT_BRAND_WORDS = 'Made with Setnayan · setnayan.com';
+/** The free line's ink — the plain print's neutral grey (5.3 : 1 on white). */
+export const PRINT_BRAND_GREY = '#6b6b6b';
+/** The Pro mark's veil: the Hub's ink, quiet. */
+export const PRINT_BRAND_MARK_OPACITY = 0.38;
+/** Clearance kept round every drawn thing, and round a QR (its white plate plus a point). */
+const BRAND_CLEAR = 2;
+const BRAND_QR_CLEAR = 4;
+
+/** The type size of the free line, and the side of the Pro mark, on a sheet of this size. */
+export function brandSize(doc: Pick<PrintDoc, 'w' | 'h'>, kind: PrintBrand): number {
+  const big = Math.min(doc.w, doc.h) >= 800; // the A3 posters, the entrance charts
+  return kind === 'line' ? (big ? 8 : PRINT_MIN_BODY_PT) : big ? 12 : 7;
+}
+
+let brandMarkFlat: FlatMark | null = null;
+/** The Setnayan mark as outlines, in its own units — flattened ONCE from the shipped artwork. */
+function brandMarkOutline(): FlatMark {
+  if (!brandMarkFlat) {
+    brandMarkFlat = flattenSvgMark(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${SETNAYAN_MARK_VIEWBOX}"><path d="${SETNAYAN_MARK_PATH}" transform="${SETNAYAN_MARK_TRANSFORM}"/></svg>`,
+    );
+    if (!brandMarkFlat) throw new Error('[print-layout] the Setnayan mark did not flatten');
+  }
+  return brandMarkFlat;
+}
+
+type BrandBox = { x: number; y: number; w: number; h: number };
+
+/** A doc's ground — what is MEANT to sit under everything: the paper, a still, a veil or fade, the screen's safe guide. */
+function isBrandGround(doc: PrintDoc, o: PrintOp): boolean {
+  if (o.t === 'image') return o.ref === 'still' || o.ref === 'posterBg';
+  if (o.t !== 'rect') return false;
+  if (o.dash && Math.abs(o.x - SAFE_PT) < 0.5 && Math.abs(o.y - SAFE_PT) < 0.5) return true;
+  if (!o.fill || o.stroke) return false;
+  // Anything as large as the sheet (the paper, a veil) — or a band of the sheet's own paper spanning it (a still's fade, the
+  // words' panel, a pass's stub). A small white plate under a code is NOT ground, even on white paper.
+  const paper = doc.ops[0]?.t === 'rect' ? doc.ops[0].fill : undefined;
+  if (o.w >= doc.w * 0.6 && o.h >= doc.h * 0.6) return true;
+  return o.fill === paper && (o.w >= doc.w * 0.6 || o.h >= doc.h * 0.6);
+}
+
+/** Everything the brand must stay clear of, each grown by its clearance. */
+function brandObstacles(doc: PrintDoc): BrandBox[] {
+  const out: BrandBox[] = [];
+  const grow = (b: BrandBox, c: number) => out.push({ x: b.x - c, y: b.y - c, w: b.w + 2 * c, h: b.h + 2 * c });
+  for (const o of doc.ops) {
+    if (isBrandGround(doc, o)) continue;
+    if (o.t === 'image') {
+      const qr = o.ref !== 'mark';
+      grow({ x: o.x, y: o.y, w: o.w, h: o.h }, qr ? BRAND_QR_CLEAR : BRAND_CLEAR);
+    } else if (o.t === 'rect') {
+      if (o.stroke && !o.fill) {
+        // A frame or a cut line: its four edges, not the room inside it.
+        const sw = o.sw ?? 0.5;
+        grow({ x: o.x, y: o.y, w: o.w, h: sw }, BRAND_CLEAR);
+        grow({ x: o.x, y: o.y + o.h - sw, w: o.w, h: sw }, BRAND_CLEAR);
+        grow({ x: o.x, y: o.y, w: sw, h: o.h }, BRAND_CLEAR);
+        grow({ x: o.x + o.w - sw, y: o.y, w: sw, h: o.h }, BRAND_CLEAR);
+      } else grow({ x: o.x, y: o.y, w: o.w, h: o.h }, BRAND_CLEAR);
+    } else if (o.t === 'circle') {
+      grow({ x: o.cx - o.r, y: o.cy - o.r, w: o.r * 2, h: o.r * 2 }, BRAND_CLEAR);
+    } else {
+      const b = o.text?.box ?? pathBounds(o.d);
+      if (!b) continue;
+      if (o.stroke && !o.fill && b.w >= doc.w * 0.5 && b.h >= doc.h * 0.5) {
+        // A drawn frame (a rounded inner border): its four sides, not the card inside it.
+        const sw = o.sw ?? 0.5;
+        grow({ x: b.x - sw / 2, y: b.y - sw / 2, w: b.w + sw, h: sw }, BRAND_CLEAR);
+        grow({ x: b.x - sw / 2, y: b.y + b.h - sw / 2, w: b.w + sw, h: sw }, BRAND_CLEAR);
+        grow({ x: b.x - sw / 2, y: b.y - sw / 2, w: sw, h: b.h + sw }, BRAND_CLEAR);
+        grow({ x: b.x + b.w - sw / 2, y: b.y - sw / 2, w: sw, h: b.h + sw }, BRAND_CLEAR);
+      } else grow(b, BRAND_CLEAR);
+    }
+  }
+  return out;
+}
+
+const boxesMeet = (a: BrandBox, b: BrandBox) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+export type BrandEdge = 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+const LINE_EDGES: readonly BrandEdge[] = ['bottom-center', 'bottom-left', 'bottom-right'];
+const MARK_EDGES: readonly BrandEdge[] = ['bottom-center', 'bottom-right', 'bottom-left', 'top-left', 'top-right'];
+
+/**
+ * WHERE THE BRAND GOES on this sheet — the first `edges` spot, rising a point at a time up to `lift`, whose whole box is
+ * inside the die's safe area and touches nothing drawn. A cut die (a scallop's cusps, an arch's shoulders) moves a spot
+ * inward until it fits. Null = no clear spot (the guard says which sheet).
+ */
+function brandSpot(doc: PrintDoc, bw: number, bh: number, edges: readonly BrandEdge[], lift: number): { x: number; y: number } | null {
+  const obstacles = brandObstacles(doc);
+  const e = 0.5;
+  /* The die's own edge under a box at x: the lowest (or highest) y at which it is wholly safe — a rect's safe line, a
+     scallop's cusps, a deckle's torn edge. Null: no room at this x. */
+  const edgeY = (x: number, bottom: boolean): number | null => {
+    for (let k = 0; k <= doc.h / 3; k += 0.5) {
+      const y = bottom ? doc.h - SAFE_PT - e - bh - k : SAFE_PT + e + k;
+      if (safeContainsBox(doc.die, doc.w, doc.h, { x, y, w: bw, h: bh })) return y;
+    }
+    return null;
+  };
+  for (let up = 0; up <= lift; up += 1) {
+    for (const at of edges) {
+      const bottom = at.startsWith('bottom');
+      const x0 = at.endsWith('center') ? (doc.w - bw) / 2 : at.endsWith('left') ? SAFE_PT + e : doc.w - SAFE_PT - e - bw;
+      const step = at.endsWith('left') ? 1 : at.endsWith('right') ? -1 : 0;
+      for (let n = 0; n <= (step ? 40 : 0); n += 1) {
+        const x = x0 + step * n;
+        const edge = edgeY(x, bottom);
+        if (edge === null) continue;
+        const box = { x, y: bottom ? edge - up : edge + up, w: bw, h: bh };
+        if (!safeContainsBox(doc.die, doc.w, doc.h, box)) continue;
+        if (obstacles.some((o) => boxesMeet(box, o))) continue;
+        return { x: box.x, y: box.y };
+      }
+    }
+  }
+  return null;
+}
+
+/** The free line's type: small caps in the house sans, tracked open. */
+function brandLineOpts(size: number, color: string): TextOpts {
+  return { font: 'poppins', size, color, caps: true, tracking: 0.14, align: 'left' };
+}
+
+/** The free line on this sheet, at its measured spot (else the bottom centre, for the guard to name). */
+function brandLineOps(doc: PrintDoc, look: Pick<PrintLook, 'theme' | 'ink'>): PrintOp[] {
+  const size = brandSize(doc, 'line');
+  const probe = brandLineOpts(size, PRINT_BRAND_GREY);
+  const ink = lineInk(PRINT_BRAND_WORDS, probe);
+  const width = text([], PRINT_BRAND_WORDS, 0, 0, probe);
+  const bh = ink.bottom - ink.top;
+  const spot = brandSpot(doc, width, bh, LINE_EDGES, Math.round(size * 3)) ?? { x: (doc.w - width) / 2, y: doc.h - SAFE_PT - 0.5 - bh };
+  /* Neutral grey — on whatever the line actually sits on (white paper on every free print); where that ground is not
+     light enough for it, the least change of the grey that reads (`legibleInk`), as every pass line does. */
+  const grounds = samplePoints({ x: spot.x, y: spot.y, w: width, h: bh }).flatMap(([x, y]) => groundsAt(doc.ops, look.theme, doc.ops.length, x, y));
+  const color = legibleInk(PRINT_BRAND_GREY, grounds) ?? look.ink;
+  const ops: PrintOp[] = [];
+  text(ops, PRINT_BRAND_WORDS, spot.x, spot.y - ink.top, { ...probe, color });
+  return ops.map((p) => (p.t === 'path' ? { ...p, brand: 'line' as const } : p));
+}
+
+/** The Pro mark on this sheet, at its measured spot. */
+function brandMarkOps(doc: PrintDoc, look: Pick<PrintLook, 'ink'>): PrintOp[] {
+  const side = brandSize(doc, 'mark');
+  const m = brandMarkOutline();
+  const s = side / Math.max(m.bounds.w, m.bounds.h);
+  const bw = m.bounds.w * s;
+  const bh = m.bounds.h * s;
+  const spot = brandSpot(doc, bw, bh, MARK_EDGES, Math.round(side * 4)) ?? { x: (doc.w - bw) / 2, y: doc.h - SAFE_PT - 0.5 - bh };
+  const ox = spot.x - m.bounds.x * s;
+  const oy = spot.y - m.bounds.y * s;
+  return m.parts.map((p) => ({ t: 'path' as const, d: scalePath(p.d, s, ox, oy), fill: look.ink, opacity: PRINT_BRAND_MARK_OPACITY, evenOdd: p.evenOdd || undefined, brand: 'mark' as const }));
+}
+
+/** One sheet, carrying the brand. */
+export function brandSheet(doc: PrintDoc, look: Pick<PrintLook, 'theme' | 'ink'>, kind: PrintBrand): PrintDoc {
+  const ops = kind === 'mark' ? brandMarkOps(doc, look) : brandLineOps(doc, look);
+  return { ...doc, ops: [...doc.ops, ...ops] };
+}
+
+/**
+ * ONE PIECE'S SIDES, carrying the brand ONCE: the free line on the front; the Pro mark on the back when there is one
+ * (the last side), else on the front's edge.
+ */
+export function brandPiece(docs: PrintDoc[], look: PrintLook): PrintDoc[] {
+  // A piece that drew the brand in its own composition (the printed phone card's foot, `cardFoot`) already carries it.
+  if (docs.some((d) => d.ops.some((o) => o.t === 'path' && o.brand))) return docs;
+  const kind: PrintBrand = printBrandOf(look);
+  const at = kind === 'mark' && docs.length > 1 ? docs.length - 1 : 0;
+  return docs.map((d, i) => (i === at ? brandSheet(d, look, kind) : d));
+}
+
+/** The plain look of the utility sheets (white paper) — their line's grey reads on it. */
+const UTILITY_PAPER = { theme: 'house', ink: '#1a1a1a' } as const;
+
+/** A plain A4 utility sheet (QR codes, guest list, seating pack, caterer counts, entrance chart): EVERY page carries the line. */
+export function brandUtilityPage(doc: PrintDoc): PrintDoc {
+  return brandSheet(doc, UTILITY_PAPER, 'line');
+}
+
 // ─── Entry points ───────────────────────────────────────────────────────────
 
 /**
@@ -3068,7 +3300,9 @@ export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?
         return [fmt && fmt.wMm > fmt.hMm ? layoutCardLandscape(ctx, fmt) : fitDoc(layoutCard(ctx), w, h, ctx)];
     }
   })();
-  return input.mode === 'print' && input.whiteInk ? docs.map(underprintWhite) : docs;
+  /* 🏷 Every piece carries Setnayan, once (`brandPiece`) — before the white underprint, so its ink is underprinted too. */
+  const branded = brandPiece(docs, input.look);
+  return input.mode === 'print' && input.whiteInk ? branded.map(underprintWhite) : branded;
 }
 
 /** The FRONT of a piece. A caller that prints or shows a piece uses `layoutPieceDocs` / `layoutPieceView`. */
@@ -3113,13 +3347,14 @@ export function layoutPieceView(piece: PrintSetKey, input: LayoutInput & { pass?
 
 export function layoutPasses(input: LayoutInput, passes: PrintPass[]): PrintDoc[] {
   return passes.map((pass) => {
-    const doc = layoutPass({ look: input.look, data: input.data, mode: input.mode, foil: input.foil }, pass, formatFor('pass', input.format)!);
+    // 🏷 Every guest's ticket is cut out and handed over on its own — each one carries Setnayan (`brandPiece`).
+    const doc = brandPiece([layoutPass({ look: input.look, data: input.data, mode: input.mode, foil: input.foil }, pass, formatFor('pass', input.format)!)], input.look)[0]!;
     return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
   });
 }
 
 export function layoutQrCodes(title: string, cells: Array<{ name: string; sub: string | null; qrRef: string }>, shape?: QrShape): PrintDoc[] {
-  return layoutQrSheet(title, cells, shape);
+  return layoutQrSheet(title, cells, shape).map(brandUtilityPage);
 }
 
 /** How many ops of a layer a doc carries — for the tests and the route's log. */

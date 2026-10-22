@@ -263,12 +263,6 @@ test('EVERY set piece × format × look × side: the brand once, in the safe are
               if (docs.length > 1) backs += 1;
               kinds[kind] += 1;
               problems.push(...brandProblems(docs, kind, `${id} · ${piece} · ${format ?? 'A3'} · ${mode}${whiteInk ? ' + white ink' : ''}${heavy ? ' · heavy' : ''}`, kind === 'mark' ? look.ink : undefined));
-              if (process.env.BRAND_POS && (id === 'free' || id.startsWith('hub')) && mode === 'print' && !whiteInk) {
-                const at = docs.findIndex((d) => brandOps(d).length);
-                const d = docs[at]!;
-                const b = unionBox(brandOps(d));
-                console.log('POS', id, piece, format, heavy ? 'heavy' : 'light', `side ${at + 1}/${docs.length}`, `gap ${(d.h - SAFE_PT - b.y - b.h).toFixed(1)}`, `x ${(b.x + b.w / 2 - d.w / 2).toFixed(1)}`, `size ${b.w.toFixed(1)}x${b.h.toFixed(1)}`);
-              }
             }
           }
         }

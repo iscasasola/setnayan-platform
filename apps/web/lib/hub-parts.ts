@@ -27,6 +27,7 @@
  * the guest page and the tests all read the same table.
  */
 import type { LookChange } from '@/lib/hub-look-pro';
+import type { HubDraftSummary } from '@/lib/hub-draft';
 
 /* ── THE ELEVEN PARTS ─────────────────────────────────────────────────────── */
 
@@ -327,4 +328,36 @@ export function hubApplyOffer(
   if (subtotal > restToEverything) return { lead: 'everything', showParts: false, showEverything: true, more };
   if (subtotal < more) return { lead: 'parts', showParts: true, showEverything: true, more };
   return { lead: 'everything', showParts: true, showEverything: true, more };
+}
+
+/* ── ON THE CLIENT ────────────────────────────────────────────────────────── */
+
+/** `HubOwnership`, as a client prop (a Set does not cross the wire). */
+export type HubOwnershipView = { full: boolean; parts: HubPartId[]; paidPhp: number; fullPricePhp: number | null };
+
+export function hubOwnershipView(o: HubOwnership): HubOwnershipView {
+  return { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp };
+}
+
+export function hubOwnershipOfView(v: HubOwnershipView): HubOwnership {
+  return { full: v.full, parts: new Set(v.parts), paidPhp: v.paidPhp, fullPricePhp: v.fullPricePhp };
+}
+
+/**
+ * ⚡ The toolbar's count after a save, for an event that owns SOME parts — derived, never asked (a save answers
+ * without reading who owns what: `hubDraftBarAfterSave`). `free` is the summary for a couple with nothing; each of its
+ * held lines carries the parts it needs; a line whose parts this event owns goes live instead. Everything owned →
+ * `owned` as is. The same answer the render's plan gives (`hub-parts.test.ts` holds the two equal).
+ */
+export function hubSummaryFor(free: HubDraftSummary, owned: HubDraftSummary, own: HubOwnershipView | HubOwnership): HubDraftSummary {
+  const o = 'parts' in own && Array.isArray(own.parts) ? hubOwnershipOfView(own as HubOwnershipView) : (own as HubOwnership);
+  if (o.full) return owned;
+  let released = 0;
+  const changes = free.changes?.map((line) => {
+    const needs = line.parts ?? [];
+    if (!line.held || needs.length === 0 || !ownsHubParts(o, needs)) return line;
+    released += 1;
+    return { ...line, held: false };
+  });
+  return { ...free, proCount: Math.max(0, free.proCount - released), ...(changes ? { changes } : {}) };
 }

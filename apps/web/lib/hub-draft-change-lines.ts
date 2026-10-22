@@ -32,6 +32,7 @@ import {
   cameraLookOfDraft,
   canvasLookFacets,
   hubDraftCountedChanges,
+  hubDraftItemParts,
   planHubDraftApply,
   printDetailsKeysChanged,
   rsvpAskFreePartMoves,
@@ -49,7 +50,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
-import type { HubOwnershipLike } from '@/lib/hub-parts';
+import { HUB_EVENT_COLUMN_PART, type HubOwnershipLike } from '@/lib/hub-parts';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -358,6 +359,9 @@ export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveSt
     ...hubDraftChangePlace(item, live, stage),
     pro: item.pro,
     held,
+    /* 💎 The parts it needs (2026-10-22). A held line that is not Pro itself is the theme's board, held WITH a held Pro
+       theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE") — it needs what the theme needs. */
+    parts: item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [],
   }));
 }
 

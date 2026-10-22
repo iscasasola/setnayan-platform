@@ -23,11 +23,14 @@ import {
   hubApplyOffer,
   hubOwnershipFrom,
   hubRestToEverything,
+  hubOwnershipView,
+  hubSummaryFor,
   ownsHubPart,
   type HubOwnership,
   type HubPartId,
 } from './hub-parts';
-import { emptyHubDraft, mergeHubDraft, planHubDraftApply, hubDraftItemParts, type HubLiveState } from './hub-draft';
+import { emptyHubDraft, mergeHubDraft, planHubDraftApply, hubDraftItemParts, summarizeHubDraft, type HubLiveState } from './hub-draft';
+import { hubDraftChangeLines } from './hub-draft-change-lines';
 import { hubDraftProEffects } from './hub-pro-effects';
 import { INVITE_THEMES } from './invite-themes';
 import type { InvitationWidgetRow } from './invitation-widgets';
@@ -227,6 +230,19 @@ test('(D) a scene holding two parts writes the owned one now and holds only the 
   assert.equal(canvas.elements?.heading?.font, 'script', 'the owned font did not go live');
   assert.equal(canvas.elements?.heading?.motion, undefined, 'the unowned motion leaked out');
   assert.equal(canvas.preset, undefined, 'the unowned scene animation leaked out');
+});
+
+test('(D) the toolbar’s derived count after a save equals the render’s, for every single part owned', () => {
+  const d = triedEverything();
+  const free = { ...summarizeHubDraft(d, LIVE, false), changes: hubDraftChangeLines(d, LIVE, false) };
+  const owned = { ...summarizeHubDraft(d, LIVE, true), changes: hubDraftChangeLines(d, LIVE, true) };
+  for (const part of HUB_PART_IDS) {
+    const o = hubOwnershipFrom({ fullHeld: false, partHeld: (id) => id === part, paidParts: [], prices: PRICES, fullPrice: FULL });
+    const rendered = { ...summarizeHubDraft(d, LIVE, o), changes: hubDraftChangeLines(d, LIVE, o) };
+    const derived = hubSummaryFor(free, owned, hubOwnershipView(o));
+    assert.equal(derived.proCount, rendered.proCount, `${part}: the toolbar would count ${derived.proCount} held, the plan holds ${rendered.proCount}`);
+    assert.deepEqual(derived.changes?.map((l) => l.held), rendered.changes?.map((l) => l.held), `${part}: a line is held on one side only`);
+  }
 });
 
 /* ── (E) THE FOOTER ─────────────────────────────────────────────────────── */

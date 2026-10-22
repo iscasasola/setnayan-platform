@@ -11,7 +11,7 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { viewingAsFreeCouple } from '@/lib/view-as-free.server';
-import { NO_HUB_PARTS, type HubOwnership, type HubPartId } from '@/lib/hub-parts';
+import { NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView } from '@/lib/hub-parts';
 import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -545,13 +545,6 @@ export type HubDraftBarData = {
   ownership: HubOwnershipView;
 };
 
-/** `HubOwnership`, as a client prop (a Set does not cross the wire). */
-export type HubOwnershipView = { full: boolean; parts: HubPartId[]; paidPhp: number; fullPricePhp: number | null };
-
-export function hubOwnershipView(o: HubOwnership): HubOwnershipView {
-  return { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp };
-}
-
 /**
  * Resolve the bar for one event. A failed draft read renders the bar in an
  * explicit "could not read" state rather than as "no changes" — the Maker must
@@ -655,17 +648,13 @@ export async function hubDraftBarAfterSave(
   me?: string,
 ): Promise<HubDraftBarLive | null> {
   try {
-    // 💎 `owned` is the event's REAL ownership, part by part (owner 2026-10-22) — read here, never the view switch
-    // (a server action must not see it); the toolbar shows it unless the render was drawn "as a free couple".
-    const [live, real] = await Promise.all([
-      readHubLiveState(supabase, eventId),
-      eventHubOwnership(createAdminClient(), eventId).catch(() => NO_HUB_PARTS),
-    ]);
+    const live = await readHubLiveState(supabase, eventId);
     // ↺ `me` — whose steps ↺ may take back (ruling B); absent: every step, as before.
+    // 💎 Part by part (2026-10-22): still nobody is asked who owns what — every held line and effect carries the PARTS
+    // it needs, so the toolbar derives its own half from the ownership the render drew with (`hubSummaryFor`).
     const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) };
-    const owned = { ...summarizeHubDraft(draft, live, real, me), changes: hubDraftChangeLines(draft, live, real) };
+    const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
-    const ownedEffects = hubDraftProEffects(draft, live, real).map(hubProEffectView);
     let priceLabel: string | null = null;
     // 🍎 Never a web price in ANY store shell — including the one where Apple sells
     // Pro: there the toolbar is handed `storeShell: false` for Pro (HubDraftDock),
@@ -674,7 +663,7 @@ export async function hubDraftBarAfterSave(
       const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
       priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
     }
-    return { free, owned, proEffects, ownedEffects, priceLabel };
+    return { free, owned, proEffects, priceLabel };
   } catch (e) {
     console.error('[hub-draft] could not read the bar after a save:', e instanceof Error ? e.message : e);
     return null;

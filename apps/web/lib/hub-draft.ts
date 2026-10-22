@@ -3051,6 +3051,12 @@ export type HubDraftChangeLine = {
   pro: boolean;
   /** Held back at this Apply — it needs Event Hub Pro, or the web. */
   held: boolean;
+  /**
+   * 💎 The Event Hub Pro parts this change needs to go live (owner 2026-10-22, part by part) — `hubDraftItemParts`.
+   * Empty for a free change. What lets the toolbar say, without asking anybody, which held lines an event that owns
+   * some parts would still hold (`hubSummaryFor`).
+   */
+  parts?: HubPartId[];
 };
 
 /**
@@ -3207,11 +3213,9 @@ export type HubDraftActionResult =
  */
 export type HubDraftBarLive = {
   free: HubDraftSummary;
-  /** 💎 The event's REAL ownership, part by part (2026-10-22) — not "everything". */
+  /** Everything owned. 💎 A part owner's half is DERIVED from `free` by the parts each held line needs (`hubSummaryFor`). */
   owned: HubDraftSummary;
   proEffects: HubProEffectView[];
-  /** 💎 The effects still held for the event's real ownership — the parts it owns are not named. */
-  ownedEffects: HubProEffectView[];
   priceLabel: string | null;
 };
 

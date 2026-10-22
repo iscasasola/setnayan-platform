@@ -66,7 +66,7 @@ export const HUB_PARTS: readonly HubPart[] = [
   { id: 'background', sku: 'COUPLE_HUB_PART_BACKGROUND', size: 'big', name: 'Background', blurb: 'Your photo or video behind the page or a scene, effects, 500 MB.' },
   { id: 'photos', sku: 'COUPLE_HUB_PART_PHOTOS', size: 'big', name: 'Photos', blurb: 'Gallery, photos and clips in scenes, Love Story photos, crop and zoom.' },
   { id: 'style', sku: 'COUPLE_HUB_PART_STYLE', size: 'big', name: 'Style', blurb: "Pro themes, Candlelight, every part's font, colour and size, decorations." },
-  { id: 'motion', sku: 'COUPLE_HUB_PART_MOTION', size: 'big', name: 'Motion', blurb: 'Part and scene animation, Scrub and Auto-scroll, the RSVP celebration.' },
+  { id: 'motion', sku: 'COUPLE_HUB_PART_MOTION', size: 'big', name: 'Motion', blurb: 'Part and scene animation, Scrub and Auto-scroll, the RSVP \u201cWhen yes\u201d moment.' },
   { id: 'logo_qr', sku: 'COUPLE_HUB_PART_LOGO_QR', size: 'small', name: 'Logo & QR', blurb: 'Your logo animated, travelling to the bar, and on every QR code.' },
   { id: 'music', sku: 'COUPLE_HUB_PART_MUSIC', size: 'small', name: 'Music', blurb: 'Your own song on the Hub and Save-the-Date. Our songs stay free.' },
   { id: 'prints', sku: 'COUPLE_HUB_PART_PRINTS', size: 'small', name: 'Prints', blurb: 'Prints in your Hub look, Pro-theme files, the whole set in one download.' },
@@ -88,6 +88,17 @@ export function isHubPartId(v: unknown): v is HubPartId {
 /** The part a catalogue code sells, or null. */
 export function hubPartOfSku(sku: string | null | undefined): HubPartId | null {
   return HUB_PARTS.find((p) => p.sku === sku)?.id ?? null;
+}
+
+/**
+ * 💎 WHAT A COVER'S LOOK CAN TURN ON, PART BY PART (owner 2026-10-22) — the saved Pro theme is the Style part's
+ * (gate 13), the couple's own photo as the ground is the Background part's (gate 9). Asked ONCE per cover (one
+ * ownership read answers both), exactly as the guest page asks each of them (`resolveHubTheme` / `resolveHubLook`).
+ */
+export type CoverOwnership = { style: boolean; background: boolean };
+export const COVER_NOT_OWNED: CoverOwnership = Object.freeze({ style: false, background: false });
+export function coverOwnershipFrom(own: { full: boolean; parts: ReadonlySet<HubPartId> }): CoverOwnership {
+  return { style: own.full || own.parts.has('style'), background: own.full || own.parts.has('background') };
 }
 
 /* ── THE 37 GATES, EACH WITH EXACTLY ONE HOME ─────────────────────────────── */
@@ -135,7 +146,7 @@ export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubG
   { id: '23', gate: 'Post Event presets', home: 'post_event' },
   { id: '24', gate: 'Post Event looks and story extras', home: 'post_event' },
   { id: '25', gate: 'Love Story photos and more than 5 moments', home: 'photos' },
-  { id: '26', gate: 'RSVP "When yes" celebration', home: 'motion' },
+  { id: '26', gate: 'RSVP "When yes" moment', home: 'motion' },
   { id: '27a', gate: 'RSVP reply-line style', home: 'style' },
   { id: '27b', gate: 'RSVP "Build in" motion', home: 'motion' },
   { id: '28', gate: 'RSVP moving backdrop', home: 'background' },

@@ -2766,8 +2766,6 @@ export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPa
     case 'fixed-style':
       out.add('style'); // 18
       break;
-    case 'march':
-      break;
   }
   return [...out];
 }

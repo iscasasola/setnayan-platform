@@ -24,6 +24,11 @@ import { resolveMonogram } from '@/lib/monogram';
  * with it. (The originals were not made to call these — they live under
  * `app/[slug]`, which this change was told not to edit. That is the follow-up.)
  *
+ * 💎 PART BY PART (owner 2026-10-22): the originals now ask the Style part for the theme (gate 13) and the
+ * Background part for the own-photo ground (gate 9) — each function here still takes ONE boolean, and the caller
+ * hands it THAT part's answer (`CoverOwnership`, `lib/event-cover-given.ts`): `hubThemeGiven` ← `.style`,
+ * `hubLookDrawsOwnPhoto` ← `.background`. The rule text is unchanged; only which part is asked moved.
+ *
  * ⚠ `theme_try_on` IS NOT HERE. It is set only by the guest page for a host
  * trying a theme on their own canvas; a card on a shelf never tries a theme on.
  */

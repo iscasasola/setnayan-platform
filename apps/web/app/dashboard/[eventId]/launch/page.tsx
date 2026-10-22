@@ -581,18 +581,20 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Hub Pro (as the viewer is shown it) and each
      part's catalogue price — the quiet line's facts and the Studio cards' Pro lines. Never typed; none in the store
      shell (no web price there). */
-  const [proOwn, proPrices] = storeShell
-    ? [null, null]
-    : await Promise.all([
-        asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
-        hubPartPrices(createAdminClient()).catch(() => null),
-      ]);
+  const [proOwn, proPrices] = await Promise.all([
+    // What the event holds — read in the store shell too: an owner keeps their rows there (`makerProUsable`).
+    asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
+    // The prices — never in the store shell (no web price there).
+    storeShell ? Promise.resolve(null) : hubPartPrices(createAdminClient()).catch(() => null),
+  ]);
+  /** 💎 Does the event hold this part (or everything), as the viewer is shown it — each Maker row's own ◆ state. */
+  const ownsPart = (p: HubPartId): boolean => Boolean(proOwn && (proOwn.full || proOwn.parts.has(p)));
   const partPricePhp: Partial<Record<HubPartId, number>> = {};
   for (const p of HUB_PARTS) {
     const php = proPrices?.onSale.has(p.sku) ? proPrices.parts.get(p.sku) : undefined;
     if (php !== undefined && php > 0) partPricePhp[p.id] = php;
   }
-  const studioPro = proOwn ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
+  const studioPro = proOwn && !storeShell ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
   /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
   const addressRenamed = await eventHasRenamed(eventId).catch(() => false);
   const proLine: MakerProLine | null =
@@ -1282,7 +1284,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 On the web a drafted Pro theme is the one being edited even without
       // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
       // shell keeps the ownership half of the gate.
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell });
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: ownsPart('style') || !storeShell });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
@@ -1413,7 +1415,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         draftedVenue,
         draftedMarch,
         // ⛪ The venue card's "Our drawing ◆" — Pro as the celebration's mark reads it.
-        venuePro: { owns: printPro, storeShell },
+        venuePro: { owns: ownsPart('own_scenes'), storeShell },
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1464,7 +1466,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             /* 🧭 Studio › RSVP — the prototype's tool, over the same saves (new Maker only). */
             {...(stagesStudio
-              ? { studio: true, celebration: { ownsPro: printPro, storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
+              ? { studio: true, celebration: { ownsPro: ownsPart('motion'), storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
               : {})}
             current={rsvpAsk}
             drafted={rsvpAskDrafted}
@@ -1535,7 +1537,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
                Pro the QR look asks (`printPro`); its previews wear the board. */
-            celebration={{ ownsPro: printPro, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
+            celebration={{ ownsPro: ownsPart('motion'), colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
           />
         );
       }
@@ -1670,7 +1672,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         specialMessageAction: updateSpecialMessage.bind(null, eventId),
         pabuyaMessage,
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
-        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
+        loveStory: withStory ? { story: story!, ownsPro: ownsPart('photos') } : null,
       });
       // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
       if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
@@ -1810,12 +1812,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             }}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
-            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
+            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, ownsPart('logo_qr')), storeShell }}
             qrStyleAction={updateQrStyle.bind(null, eventId)}
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
               current: themeCurrent,
-              ownsPro: printPro,
+              ownsPro: ownsPart('style'),
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,

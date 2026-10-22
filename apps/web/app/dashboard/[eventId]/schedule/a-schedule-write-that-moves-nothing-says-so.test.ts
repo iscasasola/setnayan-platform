@@ -127,3 +127,13 @@ test('⓺ a template on a schedule that is no longer empty redraws the page inst
   const load = body(read(ACTIONS), 'loadScheduleTemplate');
   assert.match(load, /existing\.length\s*>\s*0\)\s*\{\s*revalidatePath\(/, 'a template press on a stale screen is silent again');
 });
+
+test('⓻ a refused shift is said where the coordinator is looking, and nothing wipes the line', () => {
+  const sheet = body(read(SHEETS), 'ShiftSheet');
+  // the reset runs as the sheet OPENS, never on every fresh moments array (that wiped the line as it was set)
+  assert.match(sheet, /if \(open && !wasOpen\.current\) \{[\s\S]*?setError\(null\);[\s\S]*?\}\s*wasOpen\.current = open;/, 'the sheet resets on every render again');
+  // the line sits in the sticky bar with the button that was pressed, not at the foot of the list
+  const bar = sheet.slice(sheet.indexOf('sticky bottom-0'));
+  assert.ok(bar.indexOf('{error ?') >= 0 && bar.indexOf('{error ?') < bar.indexOf('onClick={submit}'), 'the refusal line left the bar');
+  assert.equal(sheet.match(/\{error \?/g)?.length, 1, 'the refusal line is drawn twice');
+});

@@ -9,7 +9,7 @@ import { Plus, X } from 'lucide-react';
  * 1024px — and each writes through an EXISTING action in `../actions.ts`.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
 import { computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
 import {
@@ -356,12 +356,18 @@ export function ShiftSheet({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /* Reset ONLY as the sheet opens. This ran on every new `top` too — and a re-render that hands the rail a fresh
+     moments array (the lab does on every write) wiped the refusal line the instant it was set: a refused shift
+     left the sheet open with no word of why (coordinator walk 2026-10-23). */
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setFrom(fromId ?? top[0]?.block_id ?? '');
-    setTo('');
-    setDelta(30);
-    setError(null);
+    if (open && !wasOpen.current) {
+      setFrom(fromId ?? top[0]?.block_id ?? '');
+      setTo('');
+      setDelta(30);
+      setError(null);
+    }
+    wasOpen.current = open;
   }, [open, fromId, top]);
 
   const patches = useMemo(() => {
@@ -486,13 +492,14 @@ export function ShiftSheet({
             );
           })}
         </ul>
+      </div>
+      <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]">
+        {/* In the bar beside the button pressed — at the foot of a nine-row list it sat below the fold on a phone. */}
         {error ? (
-          <p role="alert" className="text-sm font-medium text-danger-700">
+          <p role="alert" data-shift-error="" className="basis-full text-right text-[13px] font-medium text-danger-700">
             {error}
           </p>
         ) : null}
-      </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]">
         <button type="button" onClick={onClose} className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
           Cancel
         </button>

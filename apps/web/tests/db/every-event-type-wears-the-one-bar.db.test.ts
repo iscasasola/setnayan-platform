@@ -54,11 +54,13 @@ async function everyProfile(): Promise<EventTypeProfile[]> {
   return [...seeded.values()].sort((a, b) => a.eventType.localeCompare(b.eventType));
 }
 
-function bar(profile: EventTypeProfile, phase: MenuLifecyclePhase, storeShell: boolean, hideKeys: string[] = []): string[] {
+/** `was` = the BEFORE table's replay of the old rule ONLY — the swept bar passes the layout's rule untouched
+ *  (an explicit `hideKeys: []` here would mask a hide key the rule grew, which a sabotage run caught). */
+function bar(profile: EventTypeProfile, phase: MenuLifecyclePhase, storeShell: boolean, was?: string[]): string[] {
   return buildCustomerMenuTree('ev', {
     phase,
     ...eventMenuGates(profile),
-    hideKeys,
+    ...(was ? { hideKeys: was } : {}),
     studioRows: [],
     storeShell,
     services: storeShell ? [] : SERVICES,

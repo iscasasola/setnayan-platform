@@ -13,7 +13,9 @@
  * `FREE_MOMENT_CAP` and its photos (lib/love-story-moments.ts) · uploads past the
  * free allowance (`MAKER_EVENT_MEDIA_BYTES_CAP`, lib/maker-media-limits.ts) ·
  * print files in a Pro theme (`isProPrint`, lib/print-pieces.ts) · the all-guests
- * download (`isAllInOnePrint`). They join the list in the prototype's words, and
+ * download (`isAllInOnePrint`). Later the same day (owner, "Yes to all" — DECISION_LOG "THE PRO LIST SAYS THE
+ * REAL GATE") three of those lines were reworded to say the gate as it is: Pro's per-event upload space (computed),
+ * photos in ANY Love Story moment, and every all-in-one download by name. They join the list in the prototype's words, and
  * "Editorial editing" LEAVES it — it has been free for every couple since
  * 2026-08-23 (`EDITORIAL_PRO` in `FREE_FOR_ALL_SKUS`), so naming it told a couple
  * they were buying something they already had. NO GATE MOVED: this is the list
@@ -61,6 +63,7 @@
  */
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 
 /**
  * 🎨 THE PRO THEMES, COUNTED — never typed. Owner 2026-09-29, *"Okay use modern
@@ -71,6 +74,14 @@ import { formatCount } from '@/lib/format-number';
  * rewrites the sentence instead of leaving it to rot.
  */
 export const PRO_THEMES_ITEM = `${formatCount(PRO_THEMES.length)} Event Hub themes, invite link included` as const;
+
+/**
+ * 📦 THE UPLOAD LINE, COMPUTED — never typed. Owner 2026-10-22 ("Yes to all", DECISION_LOG "THE PRO LIST SAYS THE REAL
+ * GATE"): the gate is a per-EVENT allowance (Free 10 MB · Pro 500 MB, `coupleMediaCapBytes`), not a per-file size, so the
+ * line names Pro's allowance — and reads it from the ONE cap function, written the way the meter writes it
+ * (`formatMakerMediaMB`). Move the allowance and the sentence moves with it.
+ */
+export const UPLOAD_SPACE_ITEM = `More upload space — ${formatMakerMediaMB(coupleMediaCapBytes(true))} per event` as const;
 
 /** The Pro items, named the way the couple sees them — in the prototype's order (2026-10-22). */
 export const WEBSITE_PRO_ITEMS = [
@@ -105,14 +116,18 @@ export const WEBSITE_PRO_ITEMS = [
   'Style and animation for every part',
   // The art kit (`ART_KIT_IS_PRO`, owner 2026-10-16 "the accents we added should be part of pro").
   'Decorations',
-  // Past `FREE_MOMENT_CAP` word-only stories, and any story's photos (lib/love-story-moments.ts).
-  'A 6th Love Story moment, with photos',
-  // The free media allowance (`MAKER_EVENT_MEDIA_BYTES_CAP.free`, owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB").
-  'Uploads over 10 MB',
+  // A photo on ANY story is Pro, not only on a later one (`momentCapRefusal` → 'photos_pro', lib/love-story-moments.ts).
+  // Was "A 6th Love Story moment, with photos" until the owner's 2026-10-22 ruling: the photo gate is on every story.
+  'Photos in your Love Story',
+  // The per-event allowance (owner FINAL 2026-10-15 "Free 10MB" · "Pro is 500MB"), COMPUTED above — was "Uploads
+  // over 10 MB", which described a per-file limit no code enforces.
+  UPLOAD_SPACE_ITEM,
   // A print-ready file in a Pro theme (`isProPrint`; Classic, Modern and Cyber Neon print free).
   'Print files in Pro themes',
-  // The all-in-one download (`isAllInOnePrint`, owner 2026-10-16 "Every guest's pass (PDF) become Pro").
-  "One download of every guest's ticket",
+  // EVERY all-in-one download (`isAllInOnePrint`, owner 2026-10-16/17): the whole set, every guest's pass, the Guest
+  // QR sheet, the place-card pack (and "Everything", which is all of them in one). Was "One download of every guest's
+  // ticket", which named one of the four. The guard holds the named parts to the gate's own list, both ways.
+  'All-in-one downloads — whole set, guest passes, QR sheet, place cards',
 ] as const;
 
 export type WebsiteProItem = (typeof WEBSITE_PRO_ITEMS)[number];

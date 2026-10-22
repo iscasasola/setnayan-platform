@@ -895,13 +895,13 @@ function PersonCard({
           <div className={ps.kv}>
             <span className={ps.k}>Label</span>
             <span className={ps.v}>
-              <LabelCell person={p} relations={relations} disabled={pending} />
+              <CardLabel person={p} relations={relations} disabled={pending} setError={setError} />
             </span>
           </div>
           <div className={ps.kv}>
             <span className={ps.k}>Group</span>
             <span className={ps.v}>
-              <SamahanCell
+              <CardGroup
                 person={p}
                 samahan={samahan}
                 disabled={pending}
@@ -946,16 +946,82 @@ function PersonCard({
 }
 
 /**
- * The samahan a person is in, plus the ask.
- *
- * ⚖ THE CHIP SENDS AN INVITATION; IT DOES NOT ADD THEM. `community_members`
- * admits INSERT only for a Setnayan admin, so the product's own consent model
- * already says a person is ASKED into a samahan and never placed in one. The
- * interaction is the guest list's (a pill, one tap); the mechanism is samahan's
- * (their standing link, in that person's inbox). A name appears here when they
- * actually join — never before, because there is nothing to show until they do.
+ * THE CARD'S LABEL ROW (P5) — the same words and the same handshake as the row's pill, as the shipped `PickMenu`
+ * (the control for a set of choices, owner 2026-09-28). A PickMenu, not the row's Popover, because the card is a
+ * pop-up: everything behind it is `inert`, and the Popover's portal is behind it.
  */
-function SamahanCell({
+function CardLabel({
+  person,
+  relations,
+  disabled,
+  setError,
+}: {
+  person: RosterPerson;
+  relations: ConnectionRelation[];
+  disabled: boolean;
+  setError: (s: string | null) => void;
+}) {
+  const [busy, startTransition] = useTransition();
+  const [question, setQuestion] = useState<{ text: string; next: ConnectionRelation } | null>(null);
+  if (!person.canLabel) {
+    return <span className="text-[15px] text-ink">{person.relation ? RELATION_LABEL[person.relation] : 'No label yet'}</span>;
+  }
+  const ask = person.ask && person.ask.state !== 'waiting_you' ? person.ask : null;
+  const current = ask ? ask.word : person.relation;
+  const first = person.name.split(/\s+/)[0] ?? person.name;
+  function commit(next: ConnectionRelation | null, replacePartner = false) {
+    setError(null);
+    startTransition(async () => {
+      const res = await setConnectionLabel(person.connectionId ?? '', next, { replacePartner });
+      if (res.ok) return setQuestion(null);
+      if ('replacePartner' in res) {
+        if (next) setQuestion({ text: res.replacePartner.question, next });
+        return;
+      }
+      setError(res.error);
+    });
+  }
+  return (
+    <span className="flex w-full flex-col gap-1.5" data-card-label="">
+      <span data-pick="" className={`${ps.cardPick} ${disabled || busy ? 'pointer-events-none opacity-60' : ''}`}>
+        <PickMenu
+          label={`How is ${first} yours?`}
+          value={current}
+          buttonText={current ? RELATION_LABEL[current] : 'Pick one'}
+          options={[
+            ...relations.map((r) => ({ key: r, label: RELATION_LABEL[r] })),
+            ...(current ? [{ key: 'none', label: 'Remove the label' }] : []),
+          ]}
+          onPick={(k) => commit(k === 'none' ? null : (k as ConnectionRelation))}
+          dataAttr="data-label-pill"
+        />
+      </span>
+      {ask ? (
+        <span className="text-[12.5px] text-ink/60" data-label-ask-state={ask.state}>
+          {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
+        </span>
+      ) : null}
+      {question ? (
+        <span className="flex flex-col gap-1.5" role="status" data-replace-partner>
+          <span className="text-[12.5px] leading-snug text-ink">{question.text}</span>
+          <span className="flex gap-2">
+            <ActionButton tone="brand" main icon={Check} label="Yes, change it" onClick={() => commit(question.next, true)} disabled={busy} />
+            <ActionButton tone="neutral" icon={X} label="Keep as is" onClick={() => setQuestion(null)} disabled={busy} />
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * THE CARD'S GROUP ROW — the groups they are in, and "Ask into…" as a PickMenu.
+ *
+ * ⚖ THE ASK SENDS AN INVITATION; IT DOES NOT ADD THEM. `community_members` admits INSERT only for a Setnayan admin,
+ * so the product's own consent model already says a person is ASKED into a samahan and never placed in one. A
+ * group's name appears on the row when they actually join — never before.
+ */
+function CardGroup({
   person,
   samahan,
   disabled,
@@ -963,46 +1029,20 @@ function SamahanCell({
   onFailed,
 }: {
   person: RosterPerson;
-  /** The samahan this account ORGANISES — the only ones that carry a link. */
   samahan: Array<{ id: string; name: string }>;
   disabled: boolean;
   onSent: (message: string) => void;
   onFailed: (message: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [busy, startTransition] = useTransition();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  // Only a connected person can be asked into a group, and only into a samahan
-  // you organise. Everyone else gets the plain names.
-  const canAsk =
-    person.kind === 'connection' && person.state === 'connected' && samahan.length > 0;
-
-  const chips = person.samahan.map((s) => (
-    <span key={s} className={gs.pill}>
-      {s}
-    </span>
-  ));
-
-  if (!canAsk) {
-    return person.samahan.length === 0 ? (
-      <span className="text-[14px] text-ink/45">No group yet</span>
-    ) : (
-      <span className="flex flex-wrap gap-1">{chips}</span>
-    );
-  }
-
+  const canAsk = person.kind === 'connection' && person.state === 'connected' && samahan.length > 0;
   function ask(communityId: string) {
-    setOpen(false);
     startTransition(async () => {
       const res = await invitePersonToSamahan({
         connectionId: person.connectionId ?? '',
         communityId,
       });
-      if (!res.ok) {
-        onFailed(res.error);
-        return;
-      }
+      if (!res.ok) return onFailed(res.error);
       onSent(
         res.delivered
           ? `Invitation to ${res.samahan} sent to ${person.name}.`
@@ -1010,43 +1050,23 @@ function SamahanCell({
       );
     });
   }
-
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
-      {chips}
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(true)}
-        disabled={disabled || busy}
-        aria-haspopup="menu"
-        aria-label={`Ask ${person.name} into a group`}
-        className={`${gs.pill} ${ps.askPill} inline-flex items-center gap-1`}
-      >
-        <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
-        Group
-      </button>
-      {open ? (
-        <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={240}>
-          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
-            Ask them into
-          </p>
-          {samahan.map((sam) => (
-            <button
-              key={sam.id}
-              type="button"
-              role="menuitem"
-              onClick={() => ask(sam.id)}
-              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-ink/85 transition-colors hover:bg-ink/[0.04]"
-            >
-              <span className="min-w-0 flex-1 truncate">{sam.name}</span>
-            </button>
-          ))}
-          <p className="px-2.5 pb-1.5 pt-1 text-[11.5px] leading-snug text-ink/55">
-            They get the group’s link. They’re in it once they open it — not before.
-          </p>
-        </Popover>
+    <span className="flex w-full flex-col gap-1.5" data-card-group="">
+      {person.samahan.length > 0 ? <span className="text-[15px] text-ink">{person.samahan.join(', ')}</span> : null}
+      {canAsk ? (
+        <span data-pick="" className={`${ps.cardPick} ${disabled || busy ? 'pointer-events-none opacity-60' : ''}`}>
+          <PickMenu
+            label="Ask them into"
+            value={null}
+            buttonText={person.samahan.length > 0 ? 'Ask into another group' : 'Ask into a group'}
+            options={samahan.map((s) => ({ key: s.id, label: s.name }))}
+            onPick={ask}
+          />
+        </span>
+      ) : person.samahan.length === 0 ? (
+        <span className="text-[14px] text-ink/50">No group yet</span>
       ) : null}
+      {canAsk ? <span className="text-[12px] leading-snug text-ink/55">They get the group’s link. They’re in it once they open it — not before.</span> : null}
     </span>
   );
 }

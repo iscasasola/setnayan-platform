@@ -216,3 +216,17 @@
   font-size: 14px;
   color: var(--gs-mute);
 }
+/* The card's Label / Group dropdowns — the shipped PickMenu, the prototype's full-width pill (P4/P5). */
+.cardPick {
+  display: flex;
+  width: 100%;
+}
+.cardPick button {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 44px;
+  border-radius: var(--m-r-full);
+  border: 1px solid rgb(var(--color-ink) / 0.14);
+  padding: 0 12px 0 14px;
+  font-size: 16px;
+}

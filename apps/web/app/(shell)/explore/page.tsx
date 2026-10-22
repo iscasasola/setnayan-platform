@@ -150,6 +150,7 @@ import {
 } from '@/lib/explore-event-type-scope';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -384,6 +385,7 @@ export const metadata = {
     'Setnayan suppliers',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
       'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
@@ -393,9 +395,12 @@ export const metadata = {
     type: 'website',
   },
   // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
-  // card so social shares of /vendors render with the 1200×630 layout-level
-  // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
+  // card so social shares render the 1200×630 /brand/og-card.webp instead of a
+  // 144×144 thumbnail. ⚠ The card must be NAMED here: a page's own `twitter` /
+  // `openGraph` object replaces the layout's whole object (shallow merge), so
+  // "layout-level" left this page with no picture at all until 2026-10-23.
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:

@@ -52,6 +52,9 @@ import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data'
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
+import { ON_YOUR_EVENT } from '@/lib/own-supplier-items';
+import { ShellOnward } from './shell-search-onward';
+import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -157,7 +160,20 @@ function OwnCard({ item }: { item: HomeCommandItem }) {
         <div className="fd-itxt">
           <p className="fd-ttl">{item.label}</p>
           <p className="fd-by">
-            <span className="fd-kindtag">Yours</span> {item.sublabel}
+            {/* A supplier on one of your events wears "On your event" — the
+                sublabel already starts with it, so the tag is the whole of it
+                and the sublabel's rest (which event) follows. Anything else of
+                yours is "Yours". */}
+            {item.kind === 'supplier' ? (
+              <>
+                <span className="fd-kindtag">{ON_YOUR_EVENT}</span>{' '}
+                {item.sublabel.replace(`${ON_YOUR_EVENT} · `, '')}
+              </>
+            ) : (
+              <>
+                <span className="fd-kindtag">Yours</span> {item.sublabel}
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -169,10 +185,32 @@ export async function FrontDoorResults({
   query,
   data,
   commandItems,
+  place = 'front-door',
+  findSuppliers = null,
 }: {
   /** Already trimmed and known non-empty by the caller. */
   query: string;
-  data: FrontDoorData;
+  /** Only the articles are read — for the covers of the reading hits. */
+  data: Pick<FrontDoorData, 'articles'>;
+  /**
+   * WHERE THIS LIST IS DRAWN (owner 2026-10-22, *"brought me here away from
+   * our shell"*).
+   *   `front-door` — the public `/?q=`, signed out. Unchanged: it carries the
+   *                  permanent row handing the words to the marketplace.
+   *   `shell`      — `/dashboard/search`, inside the account shell. No row
+   *                  leaves for `/explore` (a doorway page with its own top bar
+   *                  and no account bar — the page the owner was thrown onto).
+   *                  The suppliers on your events are part of your own things,
+   *                  and the empty state says where it looked.
+   */
+  place?: 'front-door' | 'shell';
+  /**
+   * Shell only: the in-shell door to find a NEW supplier — the Suppliers page
+   * of the one event this person hosts. `null` draws none (several events,
+   * none, or the store app, which shows no marketplace). See
+   * `app/dashboard/(account)/search/page.tsx`.
+   */
+  findSuppliers?: { href: string; eventName: string } | null;
   /**
    * The searcher's own events and spaces — ALREADY LOADED by the page for the
    * palette, so filtering it here costs nothing and adds no read. `[]` for a
@@ -239,7 +277,8 @@ export async function FrontDoorResults({
           that can only be left by editing the address bar is a dead end, and
           this page has no other visible control that clears the query.
         */}
-        <Link href="/" className="fd-sechead-go">
+        {/* In the shell, clearing stays in the shell — `/` is the public front door. */}
+        <Link href={place === 'shell' ? SHELL_SEARCH_PATH : '/'} className="fd-sechead-go">
           Clear
         </Link>
       </h2>
@@ -268,6 +307,10 @@ export async function FrontDoorResults({
         </div>
       ) : null}
 
+      {place === 'shell' ? (
+        <ShellOnward query={query} total={total} findSuppliers={findSuppliers} />
+      ) : (
+      <>
       {/*
         THE MARKETPLACE ROW IS PERMANENT, NOT AN EMPTY STATE.
 
@@ -295,6 +338,8 @@ export async function FrontDoorResults({
           </Link>
         </div>
       </div>
+      </>
+      )}
     </>
   );
 }

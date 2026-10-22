@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5c16002d62",
-  "routeCount": 456,
-  "destinations": 1001,
+  "generatedFromRef": "5dead10069",
+  "routeCount": 459,
+  "destinations": 1004,
   "actions": 665,
-  "blocks": 6811,
+  "blocks": 6830,
   "routes": {
     "/": {
       "files": [
@@ -5371,6 +5371,19 @@
         "SubmitButton"
       ]
     },
+    "/dashboard/(account)/search": {
+      "files": [
+        "dashboard/(account)/search/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "FrontDoorResults",
+        "PageMasthead"
+      ]
+    },
     "/dashboard/(account)/year": {
       "files": [
         "dashboard/(account)/year/page.tsx"
@@ -5389,6 +5402,7 @@
         "dashboard/(launcher)/_components/guests-top-search.tsx",
         "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/incoming-requests.tsx",
+        "dashboard/(launcher)/_components/stance-chip.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
@@ -5437,6 +5451,7 @@
         "EventPoster",
         "EventScene",
         "Flash",
+        "ForTagMark",
         "GlassEventCard",
         "GuestsTopSearch",
         "GuestsTopSearchBox",
@@ -5690,6 +5705,7 @@
         "Fill",
         "FinalizeRow",
         "FinishedEventSummary",
+        "ForTagMark",
         "FormRow",
         "FormRows",
         "FourFlapEnvelope",
@@ -5715,6 +5731,7 @@
         "HomeDecisionRow",
         "HomeDoorways",
         "HomeFirstScreen",
+        "HomeForLine",
         "HomeGuide",
         "HomeLater",
         "HomeLoadingScreen",
@@ -10649,6 +10666,19 @@
         "SpecialMessageWidget"
       ]
     },
+    "/dev/avatar-sheet-lab": {
+      "files": [
+        "dev/avatar-sheet-lab/page.tsx",
+        "dev/avatar-sheet-lab/sheet-lab.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SheetLab",
+        "SwitcherData",
+        "SwitcherPanelBody"
+      ]
+    },
     "/dev/bar-lab/[[...path]]": {
       "files": [
         "dev/bar-lab/[[...path]]/page.tsx"
@@ -10867,17 +10897,23 @@
       "blocks": [
         "AppleProScreen",
         "ApplyProSheetLab",
+        "CollectionCard",
+        "CollectionGrid",
         "DayOfModeGrid",
         "DayPapicRow",
+        "EventPoster",
+        "EventPosterFacts",
         "HomeFirstScreen",
         "HomeWhatsNext",
         "HubProOffer",
+        "LabBoard",
         "LabShell",
         "LabSpotlight",
         "PapicTopBand",
         "ProLockPanel",
         "SiteMenuBar",
         "SpotlightMount",
+        "StanceChip",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -11104,6 +11140,23 @@
         "ScheduleDay",
         "ScheduleLabClient",
         "Switch"
+      ]
+    },
+    "/dev/search-lab": {
+      "files": [
+        "dev/search-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "AccountBarSlot",
+        "Avatar",
+        "FrontDoorResults",
+        "FrontDoorShell",
+        "HomeCommandBar"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {

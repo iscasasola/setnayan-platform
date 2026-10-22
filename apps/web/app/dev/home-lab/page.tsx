@@ -34,6 +34,12 @@
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
+ *   ?for=shop|person                 🏷 "For <name>" under the name (owner 22 Oct 2026): the REAL
+ *                                    `homeCoverWords` with a subject — SetnaProd (its logo) or Lola Nena (initials)
+ *   ?view=board[&for=1][&one=1]      🏷 the Events board's Planning posters (owner 22 Oct 2026): the REAL
+ *                                    `CollectionCard` + `EventPoster` + `StanceChip`, fixture facts; `for=1`
+ *                                    puts "For SetnaProd" / "For Lola Nena" in the stance slot (prototype
+ *                                    for_tag_on_event_cards_2026-10-22.html); `one=1` the one-card row
  *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
  *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
@@ -58,6 +64,11 @@ import { LabSpotlight } from './lab-spotlight';
 import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
+import { CollectionCard, CollectionGrid } from '@/app/_components/collection-card';
+import { EventPoster } from '@/app/_components/event-poster';
+import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
+import type { EventPosterFacts } from '@/lib/event-poster';
+import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -156,7 +167,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -178,7 +189,20 @@ export default async function HomeLab({
             display_name: coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, q.order === 'b' ? 'b-first' : 'a-first').display_name,
           }),
         }
-      : F0;
+      : q.for === 'shop' || q.for === 'person'
+        ? {
+            ...F0,
+            ...homeCoverWords({
+              event_type: q.for === 'shop' ? 'gala_night' : 'birthday',
+              event_date: q.for === 'shop' ? '2027-03-07' : '2027-05-09',
+              display_name: q.for === 'shop' ? 'Year-End Gala' : 'Lola Nena',
+              for_tag: q.for === 'shop' ? LAB_SHOP_TAG : LAB_PERSON_TAG,
+            }),
+          }
+        : F0;
+  const labForWho: ForTag | undefined = 'forWho' in F ? (F.forWho as ForTag | undefined) : undefined;
+  // 🏷 The Events board's Planning posters (owner 22 Oct 2026) — the real card parts on fixture facts.
+  if (q.view === 'board') return <LabBoard tagged={q.for === '1'} one={q.one === '1'} />;
   const picked = proto
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
@@ -369,7 +393,7 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
-        cover={{ eyebrow: F.eyebrow, name: F.name }}
+        cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         days={glanceDays(F.days)}
         coming={glanceCount(F.coming, !unread)}
@@ -449,4 +473,71 @@ export default async function HomeLab({
   );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
   return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{lit}</LabShell> : lit;
+}
+
+/* 🏷 "For <name>" fixtures (prototype for_tag_on_event_cards_2026-10-22.html): the shop's round
+   logo is a drawn stand-in (no R2 in a lab); a loved one has no photo, so initials. */
+const LAB_LOGO =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%231F3A5F'/><circle cx='32' cy='32' r='24' fill='none' stroke='%23CBA766' stroke-width='3'/><text x='32' y='43' text-anchor='middle' font-family='Georgia,serif' font-size='30' fill='%23FBFAF7'>S</text></svg>";
+const LAB_SHOP_TAG: ForTag = { name: 'SetnaProd', markUrl: LAB_LOGO };
+const LAB_PERSON_TAG: ForTag = { name: 'Lola Nena', markUrl: null };
+
+function labPoster(over: Partial<EventPosterFacts>): EventPosterFacts {
+  return {
+    kind: 'deep', accent: null, capiz: false, dark: true, names: { first: '', second: null },
+    weekday: null, date: null, eyebrow: null, line: null, venue: null, photoSrc: null, ground: null, legibility: null,
+    ...over,
+  };
+}
+
+function LabBoard({ tagged, one }: { tagged: boolean; one: boolean }) {
+  const cards = one
+    ? [
+        {
+          id: 'lola', title: 'Lola Nena', badge: 'Birthday', tag: LAB_PERSON_TAG, days: '199 days to go', pct: 12, attention: undefined,
+          poster: labPoster({ kind: 'moon', accent: '#6b7a3a', names: { first: 'Lola Nena', second: null }, weekday: 'Sunday', date: '9 May 2027' }),
+          mark: 'LN',
+        },
+      ]
+    : [
+        {
+          id: 'gala', title: 'Year-End Gala', badge: 'Gala Night', tag: LAB_SHOP_TAG, days: '136 days to go', pct: 41,
+          attention: { count: 3, label: '3 tasks overdue' },
+          poster: labPoster({ kind: 'deep', accent: '#1f3a5f', names: { first: 'Year-End Gala', second: null }, weekday: 'Saturday', date: '7 March 2027' }),
+          mark: 'S',
+        },
+        {
+          id: 'mj', title: 'Maria & Jose', badge: 'Wedding', tag: null, days: '226 days to go', pct: 62,
+          attention: { count: 17, label: '17 tasks overdue' },
+          poster: labPoster({ kind: 'photo', names: { first: 'Maria', second: 'Jose' }, weekday: 'Saturday', date: '5 June 2027', photoSrc: '/event-types/wedding.webp', ground: 'hero', legibility: { '--hub-ink': '#FBFAF7', '--hub-heading': '#FBFAF7', '--hub-accent-text': '#E6D3A8', '--hub-scrim': 'rgba(20,14,10,.62)' } }),
+          mark: 'M & J',
+        },
+      ];
+  return (
+    <div className="mx-auto w-full max-w-md bg-cream px-4 py-3" data-lab-board="">
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink/45">Planning</p>
+      <CollectionGrid layout="poster">
+        {cards.map((c, i) => {
+          const forTag = tagged ? c.tag : null;
+          return (
+            <div key={c.id} className="relative">
+              <CollectionCard
+                href="#"
+                layout="poster"
+                coverTone={c.poster.dark ? 'dark' : 'light'}
+                index={i}
+                reserveMenuCorner
+                cover={<EventPoster poster={c.poster} markText={c.mark} />}
+                kicker={[c.badge, <StanceChip stance="organiser" forTag={forTag} key="stance" />]}
+                title={c.title}
+                meta={`${c.badge}, ${forTag ? `for ${forTag.name}` : 'You organise this'}`}
+                attention={c.attention}
+                progress={{ pct: c.pct, remainder: c.days, srLabel: 'planned' }}
+              />
+            </div>
+          );
+        })}
+      </CollectionGrid>
+    </div>
+  );
 }

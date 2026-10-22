@@ -916,12 +916,18 @@ test('the signed-in search row promises what the signed-out box does', async () 
     );
   }
 
+  /*
+    🔄 2026-10-22 — the row opens the SHELL's results page, not `/` (owner:
+    *"brought me here away from our shell"*). Same results view, same three
+    nouns (`FrontDoorResults`), inside the account shell; `lib/shell-search.test.ts`
+    proves that page is a page of the shell and renders that view.
+  */
   assert.match(
     row.href,
-    /^\/\?q=/,
-    'the row stopped opening the front door — the page that answers all three ' +
-      'nouns. Sending it to /explore again puts a vendor verdict above the ' +
-      'thing the person was actually looking for.',
+    /^\/dashboard\/search\?q=/,
+    'the row stopped opening the shell\'s results page — the page that answers all ' +
+      'three nouns inside the shell. Sending it to /explore again puts a vendor ' +
+      'verdict above the thing the person was actually looking for, outside the app.',
   );
 });
 

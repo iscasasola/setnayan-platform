@@ -485,7 +485,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Schedule',
     href: '/schedule',
     description:
-      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
+      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s Event Hub with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
     railLine: 'Your wedding day, block by block, live for guests and suppliers.',
     eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
     doorwayOnly: true,
@@ -524,7 +524,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Logo Maker',
     href: '/palogo',
     description:
-      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
+      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
     railLine: 'One monogram of your own, carried across your whole day.',
     addOnKey: 'animated-monogram',
     surface: 'monogram',

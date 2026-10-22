@@ -7,6 +7,7 @@ import { Count, Fill } from '@/components/count';
 import { dayPapicView, type DayPapicFace, type HomeNext, type HomeNextKind, type HomeService, type HomeServiceKey, type PaidRow, type PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
+import type { HomeCoverWords } from '@/lib/home-cover-words';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
@@ -136,7 +137,7 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
  */
 export type HomeFirstScreenProps = {
   eventId: string;
-  cover: { eyebrow: string; name: string };
+  cover: HomeCoverWords;
   next: HomeNext;
   days: { value: string; label: string };
   coming: string;

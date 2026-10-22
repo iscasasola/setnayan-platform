@@ -67,6 +67,7 @@ import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
 // the admin page and not hardcoded"): the vendor tier prices read the live
@@ -112,6 +113,7 @@ export async function generateMetadata() {
     description: `Run your whole wedding business here free — import clients, get a search-ready Setnayan page, get discovered. Free to join. ${supplierCommissionShort(fee)} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
+      images: BRAND_OG_IMAGES,
       title,
       description: `Run your whole business here free · ${supplierCommissionShort(fee)} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
@@ -119,6 +121,7 @@ export async function generateMetadata() {
       siteName: 'Setnayan',
     },
     twitter: {
+      images: BRAND_TWITTER_IMAGES,
       card: 'summary_large_image',
       title,
       description: `Built to grow your business — free. ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine}/28d.` : ''}`,

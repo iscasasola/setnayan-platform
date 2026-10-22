@@ -117,7 +117,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false, shops: [] },
   };
 
   const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
@@ -392,7 +392,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         console otherwise looking perfectly fine.
         `admin-rail-context.test.ts` fails if the class comes back.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher data={switcherData} here="admin" />
     </div>
   );
 

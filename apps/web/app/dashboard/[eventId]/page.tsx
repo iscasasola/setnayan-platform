@@ -48,6 +48,7 @@ import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
 import { formatEventDate } from '@/lib/events';
 import { homeCoverWords } from '@/lib/home-cover-words';
+import { readForTags } from '@/lib/event-for-tag.server';
 import { eventNoun } from '@/lib/event-noun';
 import { FinishedEventSummary } from './_components/after/finished-event-summary';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
@@ -631,6 +632,14 @@ export default async function EventHomePage({
   // Every path renders the first screen, so every path awaits it; a refusal still keeps
   // today's colour. 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
   const homeCoverRead = startAhead(homeCoverFor(eventId).catch(() => null));
+  // "FOR <NAME>" under the name (owner 22 Oct 2026) — only when this event is for a subject the
+  // VIEWER holds (their shop, a loved one; `readForTags` re-reads it under owner = viewer, on the
+  // viewer's own client). A refusal is null: no line, never a guessed name.
+  const homeForRead = startAhead(
+    readForTags(supabase, user.id, [eventId])
+      .then((tags) => tags.get(eventId) ?? null)
+      .catch(() => null),
+  );
   // 🚪 The type's profile, for which needs can be switched on at all (a vendor-free kind has no Suppliers) —
   // React-cached, the layout's own read.
   const homeTypeProfileRead = startAhead(resolveProfile((event.event_type as string | null) ?? 'wedding'));
@@ -865,10 +874,12 @@ export default async function EventHomePage({
   // so the day and the plan Home can never say two things about one pool. None in the store shell.
   const dayPapicSvc = homeServiceRowAll.find((s) => s.key === 'papic');
   // The cover's words — the ONE function the event layout also hands the loading screen.
+  const homeFor = await homeForRead;
   const homeCover0 = homeCoverWords({
     event_type: (event.event_type as string | null) ?? null,
     event_date: (event.event_date as string | null) ?? null,
     display_name: (event as { display_name?: string | null }).display_name ?? null,
+    for_tag: homeFor,
   });
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */

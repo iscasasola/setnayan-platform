@@ -73,8 +73,8 @@ function Heading({
   door,
 }: {
   label: string;
-  /** null = say "nothing yet". */
-  count: number | null;
+  /** null = say "nothing yet"; undefined = not known (a refused read) — no count at all, never "nothing yet". */
+  count: number | null | undefined;
   href?: string | null;
   /** The event's Gallery › door (`GalleryDoor` — hosts only), at the heading's right end. */
   door?: ReactNode;
@@ -82,7 +82,9 @@ function Heading({
   const text = (
     <>
       {label}{' '}
-      <span className="font-normal tracking-normal text-ink/50">· {count === null ? 'nothing yet' : formatCount(count)}</span>
+      {count === undefined ? null : (
+        <span className="font-normal tracking-normal text-ink/50">· {count === null ? 'nothing yet' : formatCount(count)}</span>
+      )}
     </>
   );
   return (
@@ -231,9 +233,9 @@ export async function MemoriesChapters({
         {intro}
         {chapters.length === 0 ? (
           <>
-            <Heading label={picked.event.display_name} count={null} href={picked.href} door={door} />
+            <Heading label={picked.event.display_name} count={wall.unreadable ? undefined : null} href={picked.href} door={door} />
             <div className={grid}>
-              <MonogramTile album={picked} />
+              <MonogramTile album={picked} unknown={wall.unreadable} />
             </div>
           </>
         ) : (
@@ -248,11 +250,6 @@ export async function MemoriesChapters({
             </section>
           ))
         )}
-        {shown.length > 0 ? (
-          <p className="mb-1.5 mt-2 text-[12.5px] text-ink/55">
-            {formatCount(shown.length)} {shown.length === 1 ? 'frame' : 'frames'} kept
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -265,15 +262,15 @@ export async function MemoriesChapters({
       {events.map((album) => {
         const mine = shown.filter((f) => f.eventId === album.event.event_id);
         return (
-          <section key={album.event.event_id} data-memories-event={album.event.event_id}>
+          <section key={album.event.event_id} data-memories-chapter-event={album.event.event_id}>
             <Heading
               label={album.event.display_name}
-              count={mine.length > 0 ? (lens === 'with_me' ? mine.length : Math.max(album.count, mine.length)) : null}
+              count={mine.length > 0 ? (lens === 'with_me' ? mine.length : Math.max(album.count, mine.length)) : wall.unreadable ? undefined : null}
               href={album.href}
               door={<GalleryDoor event={album.event} />}
             />
             <div className={grid}>
-              {mine.length > 0 ? mine.map((it) => <Tile key={it.key} item={it} />) : <MonogramTile album={album} />}
+              {mine.length > 0 ? mine.map((it) => <Tile key={it.key} item={it} />) : <MonogramTile album={album} unknown={wall.unreadable} />}
             </div>
           </section>
         );
@@ -290,15 +287,16 @@ export async function MemoriesChapters({
 }
 
 /** An event with nothing kept yet keeps its place — its own mark, "Nothing yet" (the shelf's empty cover). */
-function MonogramTile({ album }: { album: Album }) {
+function MonogramTile({ album, unknown = false }: { album: Album; unknown?: boolean }) {
   const inner = (
     <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-ink/[0.05]">
       <EventMonogram event={album.event} size="lg" plays={album.markPlays} place="album-shelf" />
-      <span className="absolute bottom-2 left-0 right-0 text-center text-[11px] text-ink/55">Nothing yet</span>
+      {/* Over a refused read the tile keeps the event's mark and says nothing — "Nothing yet" would be a guess. */}
+      {unknown ? null : <span className="absolute bottom-2 left-0 right-0 text-center text-[11px] text-ink/55">Nothing yet</span>}
     </span>
   );
   return album.href ? (
-    <Link href={album.href} aria-label={`${album.event.display_name} — nothing kept yet`} data-memories-monogram="">
+    <Link href={album.href} aria-label={unknown ? album.event.display_name : `${album.event.display_name} — nothing kept yet`} data-memories-monogram="">
       {inner}
     </Link>
   ) : (

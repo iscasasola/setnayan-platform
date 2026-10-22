@@ -54,9 +54,12 @@ test('🔴 the clip and the with-you marks live on the tile itself', () => {
 });
 
 test('🔴 the foot line is drawn only where it explains a capped list', () => {
-  const all = between(CH, '// ── ALL EVENTS', 'function MonogramTile(');
+  const all = between(CH, 'const events = albumsForLens(albums, lens);', 'function MonogramTile(');
   assert.match(all, /\{more > 0 \? \(\s*<p[^>]*data-memories-capped=""/, 'the "showing the newest" line is drawn on an uncapped list');
   assert.match(CH, /const more = picked \? 0 : total - shown\.length;/);
+  // One event is never capped, so it carries no foot line at all.
+  const one = between(CH, 'if (picked) {', 'const events = albumsForLens(albums, lens);');
+  assert.ok(!/frames?'? kept|frames kept/.test(one), 'the one-event view prints a foot line that explains nothing');
 });
 
 test('🔒 Life-Flash is quiet — and NOT pressable — until there is something to play (controller, question 3)', () => {
@@ -71,9 +74,9 @@ test('🔒 Life-Flash is quiet — and NOT pressable — until there is somethin
 test('🔴 every event is a chapter — an empty one keeps its heading and its monogram tile', () => {
   const lensAlbums = between(CH, 'export function albumsForLens(', '\nexport async function MemoriesChapters(');
   assert.ok(!/count/.test(lensAlbums), 'events are filtered by their count — an empty event vanishes');
-  const all = between(CH, '// ── ALL EVENTS', 'function MonogramTile(');
+  const all = between(CH, 'const events = albumsForLens(albums, lens);', 'function MonogramTile(');
   assert.match(all, /events\.map\(\(album\) =>/);
-  assert.match(all, /mine\.length > 0 \? mine\.map\(\(it\) => <Tile key=\{it\.key\} item=\{it\} \/>\) : <MonogramTile album=\{album\} \/>/);
+  assert.match(all, /mine\.length > 0 \? mine\.map\(\(it\) => <Tile key=\{it\.key\} item=\{it\} \/>\) : <MonogramTile album=\{album\} unknown=\{wall\.unreadable\} \/>/);
   // …in the shelf's order: by the event date, undated last.
   assert.match(PAGE, /if \(da\) return -1;\s*if \(db\) return 1;/);
 });
@@ -108,6 +111,9 @@ test('🔴 a refused wall says "could not be loaded" — never the empty line', 
   const empty = intro.indexOf('lensEmptyLine(');
   assert.ok(refused >= 0 && empty > refused, 'the empty line can be drawn before the refusal is checked');
   assert.match(intro, /\{!albumsMeasured \? <MemoriesUnreadable what="events" \/> : null\}/, 'a refused events read is silent');
+  // …and an event's heading over a refused wall gives no count and no "nothing yet" — it is not known.
+  assert.match(CH, /: wall\.unreadable \? undefined : null\}/, 'an event says "nothing yet" over a refused wall read');
+  assert.match(CH, /<MonogramTile album=\{album\} unknown=\{wall\.unreadable\} \/>/);
   // A refused run of show falls to time-of-day chapters, never a blank gallery.
   assert.match(CH, /catch \{[\s\S]{0,160}blocks = \[\];/);
 });

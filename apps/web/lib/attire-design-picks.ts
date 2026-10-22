@@ -138,6 +138,21 @@ export function allowedDesigns(role: FigureRole, style: AttireStyle | null, tick
   return allowedStyles(role, style, ticks).flatMap((s) => s.designs);
 }
 
+/**
+ * 👔 THE STUDIO'S GUEST STRIP — WHO STANDS IN IT (owner 2026-10-22, live Maker › Guests: ticked four suits, then
+ * suits + a barong + smart casual, and the strip "did not show still just 1 design showed" — four Classic two-button
+ * suits, one per colour). The colours are worn IN TURN ALONG THE CHOSEN DESIGNS, across styles in tick order: design 1
+ * in colour 1, design 2 in colour 2, … — more colours than designs cycles the designs, more designs than colours cycles
+ * the colours, so every chosen design stands in the strip once and every colour is worn at least once.
+ * One design (every dress code before 2026-10-21, and any column narrowed to one) is the shipped strip: one figure per
+ * colour, all in that design.
+ */
+export function stripLooks<D>(designs: readonly D[], colours: readonly string[]): Array<{ design: D; colour: string; colourIndex: number }> {
+  if (designs.length === 0 || colours.length === 0) return [];
+  const n = designs.length > 1 ? Math.max(designs.length, colours.length) : colours.length;
+  return Array.from({ length: n }, (_, i) => ({ design: designs[i % designs.length]!, colour: colours[i % colours.length]!, colourIndex: i % colours.length }));
+}
+
 /** The picker's keys: a style's head and a design's tile. */
 export const styleKey = (s: AttireStyle): string => `style:${s}`;
 export const designKey = (id: string): string => `design:${id}`;

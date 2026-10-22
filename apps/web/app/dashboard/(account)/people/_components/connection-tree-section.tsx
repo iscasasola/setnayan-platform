@@ -26,7 +26,10 @@ import { buildKinTree, type KinLayer, type KinPerson } from '@/lib/kinship-tree'
  *   2. Anybody's name that the 2026-07-05 name rule does not permit. A person
  *      with `name === null` renders as their kin word alone.
  */
-export async function ConnectionTreeSection({ userId }: { userId: string }) {
+export async function ConnectionTreeSection({ userId, bare = false }: { userId: string; bare?: boolean }) {
+  // `bare` (2026-10-22, People wears the Guest list): the roster's folded "Your connection tree" section is the
+  // heading, so the frame draws none and no tile — rows in the Guest row's anatomy, on the page's own ground.
+  const Frame = bare ? BareFrame : FramedFrame;
   const supabase = await createClient();
   const { kin, measured } = await getKinFor(supabase, createAdminClient, userId);
 
@@ -38,7 +41,7 @@ export async function ConnectionTreeSection({ userId }: { userId: string }) {
   if (!measured) {
     return (
       <Frame>
-        <div className="sn-tile flex items-start gap-3">
+        <div className={`${bare ? 'py-3' : 'sn-tile'} flex items-start gap-3`}>
           <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="space-y-1">
             <p className="text-sm font-medium text-ink">We couldn’t work out your tree just now.</p>
@@ -58,7 +61,7 @@ export async function ConnectionTreeSection({ userId }: { userId: string }) {
   if (tree.total === 0) {
     return (
       <Frame>
-        <p className="sn-tile text-sm text-ink/65">
+        <p className={`${bare ? 'py-2' : 'sn-tile'} text-sm text-ink/65`}>
           Once you and your closest people confirm each other, the rest works itself out — lolo and
           lola, tito and tita, pinsan and apo appear here on their own. You never add them.
         </p>
@@ -77,7 +80,18 @@ export async function ConnectionTreeSection({ userId }: { userId: string }) {
   );
 }
 
-function Frame({ children }: { children: React.ReactNode }) {
+function BareFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div id="connection-tree" className="scroll-mt-24 pb-3" data-connection-tree="">
+      <p className="mb-2 text-[13px] text-ink/60">
+        Worked out from the people you’ve both confirmed — never from a request still waiting on an answer.
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function FramedFrame({ children }: { children: React.ReactNode }) {
   return (
     <section id="connection-tree" className="mt-10 scroll-mt-24" aria-labelledby="connection-tree-heading">
       {/* The People page's ONE heading style (owner 2026-09-28 redesign,
@@ -117,7 +131,7 @@ function Layer({ layer }: { layer: KinLayer }) {
         <span className="text-xs text-ink/50">{layer.people.length}</span>
       </div>
       <p className="mb-3 text-sm text-ink/60">{layer.blurb}</p>
-      <ul className="space-y-2">
+      <ul>
         {shown.map((p) => (
           <li key={`${p.personId}-${p.kind}`}>
             <Person person={p} />
@@ -131,7 +145,7 @@ function Layer({ layer }: { layer: KinLayer }) {
           <summary className="cursor-pointer list-none text-sm font-medium text-ink/70 hover:text-ink">
             Show {hidden.length} more {hidden.length === 1 ? 'person' : 'people'}
           </summary>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2">
             {hidden.map((p) => (
               <li key={`${p.personId}-${p.kind}`}>
                 <Person person={p} />
@@ -158,7 +172,7 @@ function Layer({ layer }: { layer: KinLayer }) {
  */
 function Person({ person }: { person: KinPerson }) {
   return (
-    <div className="sn-row flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
+    <div className="flex min-h-[56px] flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-ink/10 py-2.5">
       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chipTint(person)}`}>
         {person.label}
       </span>
@@ -171,7 +185,7 @@ function Person({ person }: { person: KinPerson }) {
            break the rule the placeholder exists to keep. */
         <span className="text-sm italic text-ink/50">Name shown once you’re connected</span>
       )}
-      <span className="w-full text-xs text-ink/55 sm:w-auto">through {person.via}</span>
+      <span className="ml-auto text-[13px] text-ink/60">through {person.via}</span>
     </div>
   );
 }

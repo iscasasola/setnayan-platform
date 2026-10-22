@@ -697,14 +697,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
     value: plusFilter ? `plus:${plusFilter}` : view,
     buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
     menu: views
-      .map((v): PickOption => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Sort by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
       .concat(
         // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
         plusTally.named + plusTally.unnamed > 0
           ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
           : [],
         // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        copy ? [] : [{ key: 'select', label: 'Select', group: 'Choose', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+        copy ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
       ),
     onPick: (k) => {
       if (k === 'select') return setSelectMode(true);

@@ -39,7 +39,10 @@ const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
 function body(src: string, name: string): string {
   const at = src.search(new RegExp(`(?:async\\s+)?function\\s+${name}\\s*[(<]`));
   assert.ok(at >= 0, `${name} not found — this guard is pointed at nothing`);
-  const open = src.indexOf('{\n', at);
+  // The body's brace closes the parameter list (and an optional plain return type) — never a destructuring `({`.
+  const head = /\)(?:\s*:\s*[\w<>[\]., |]+)?\s*\{\n/.exec(src.slice(at));
+  assert.ok(head, `${name} has no body brace`);
+  const open = at + head.index + head[0].length - 2;
   let depth = 0;
   for (let i = open; i < src.length; i++) {
     if (src[i] === '{') depth++;
@@ -53,7 +56,7 @@ function blockUpdates(src: string): { stmt: string; after: string }[] {
   const out: { stmt: string; after: string }[] = [];
   const re = /\.from\('event_schedule_blocks'\)\s*\.update\(/g;
   for (let m = re.exec(src); m; m = re.exec(src)) {
-    const start = src.lastIndexOf('await', m.index);
+    const start = src.lastIndexOf('const', m.index);
     const end = src.indexOf(';', m.index);
     out.push({ stmt: src.slice(start, end + 1), after: src.slice(end + 1, end + 300) });
   }

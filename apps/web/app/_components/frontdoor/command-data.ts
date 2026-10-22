@@ -56,7 +56,7 @@ import {
   splitEventBoard,
 } from '@/lib/event-board';
 
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
 
 /*
   THE EVENT VOCABULARY MOVED to `lib/event-vocabulary.ts` and is re-exported

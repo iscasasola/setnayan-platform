@@ -44,22 +44,13 @@ test('the Guest list has ONE search box of its own — the thumb row’s “Sear
   assert.match(lib, /return guestMatchesSearch\(q, g, searchFacts\);/, 'the thumb row search grew its own matcher');
 });
 
-test('the top bar resolves to the guests scope on the list — and drives ?q= there', () => {
+test('the list is still the guests scope — and its search is the thumb row’s field, not the top bar (2026-10-22)', () => {
+  // SUPERSEDES the 2026-09-30 "the top bar searches guests": the top bar has no search on any shell now ("One thumb
+  // row"); the Guest list's own row is the guest search. The scope still names the place (the step-out row reads it).
   assert.equal(resolveSearchScope('/dashboard/S89E-ABCDEFGHJK/guests').key, 'guests');
-  const bar = read(join(LAUNCHER, 'home-command-bar.tsx'));
-  assert.match(
-    bar,
-    /if \(scope\.key === 'guests'\) return <GuestsTopSearch scope=\{scope\} \/>;/,
-    'the shared bar no longer hands the Guest list its guest search',
-  );
-  const top = read(join(LAUNCHER, 'guests-top-search.tsx'));
-  // The ?q= writer is the roster's own, verbatim — not a second one.
-  assert.match(top, /<LiveSearch\b/, 'the top bar guest search stopped using the roster\'s ?q= writer');
-  assert.match(top, /useSearchParams\(\)\.get\('q'\)/, 'landing on /guests?q=… no longer shows the query in the bar');
-  // The way out keeps what was typed.
-  assert.match(top, /marketplaceEscapeItem\(typed, scope\)/, 'the escape row out of the narrowed box is gone');
-  // ⌘K comes back to the top bar.
-  assert.match(top, /useEffect\(\(\) => claimCommandKey\(\), \[\]\)/, 'the top bar guest search does not claim ⌘K');
+  assert.ok(!existsSync(join(LAUNCHER, 'guests-top-search.tsx')), 'the top-bar guest search is back');
+  const screen = read(join(GUESTS, '_components', 'guests-screen.tsx'));
+  assert.match(screen, /<ThumbRow\s+name="guests"[\s\S]{0,400}field=\{field\}/, 'the Guest list row lost its search field');
 });
 
 test('nothing on the Guest list page claims ⌘K any more — the top bar owns it', () => {
@@ -90,10 +81,8 @@ test('nothing on the Guest list page claims ⌘K any more — the top bar owns i
  * 🛡 Sabotaged (see the PR): putting the inline `haystack.includes(q)` back in
  * the page's filter turns this red.
  */
-test('the top bar\'s ?q= is answered by the ONE guest matcher', () => {
+test('a ?q= on the address is answered by the ONE guest matcher', () => {
   const page = read(join(GUESTS, 'page.tsx'));
-  const live = read(join(GUESTS, '_components', 'live-search.tsx'));
-  assert.match(live, /params\.set\('q', trimmed\)/, 'the top bar no longer writes ?q=');
   assert.match(page, /const q = \(search\.q \?\? ''\)/, 'the page no longer reads ?q=');
   assert.match(page, /import \{ guestMatchesSearch \} from '@\/lib\/guest-search';/, 'the page lost the one guest matcher');
   assert.match(page, /!guestMatchesSearch\(q, g, \{/, 'the page filters ?q= without the one guest matcher');

@@ -11,7 +11,11 @@
   Enter goes where the palette's step-out row goes (`marketplaceEscapeItem`), so it follows #6782 into the shell.
 - The signed-in top bar carries no search (shells hand `search={false}`); the app shell no longer builds the
   palette's index on every request. Signed out is unchanged.
-- Guard: `components/every-thumb-row-is-the-one-row.test.ts`.
+- The top-bar palette retires with it: `home-command-bar.tsx`, the top bar's guest search (`guests-top-search.tsx`,
+  `live-search.tsx`) and the `InsideEventContext` only they read are deleted (`ugat-both-ends`: a component nothing
+  mounts is deleted, not baselined). `HomeCommandItem` moves to `frontdoor/command-item.ts`; the index and its results
+  page are unchanged. Guards on the retired palette are re-aimed at the thumb rows that took its job.
+- Guard: `lib/every-thumb-row-is-the-one-row.test.ts`.
 
 SPEC IMPACT: DECISION_LOG row "ONE THUMB ROW" (owner 2026-10-22, "Yes to all") — prototype
 `prototypes/one_thumb_row_2026-10-22.html` is the contract.

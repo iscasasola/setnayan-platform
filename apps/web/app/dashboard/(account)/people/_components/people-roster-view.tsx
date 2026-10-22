@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   CalendarHeart,
   Check,
@@ -251,8 +251,18 @@ export function PeopleRosterView({
   const [filter, setFilter] = useState<PeopleFilter>(initialFilter);
   const [selectMode, setSelectMode] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [cardKey, setCardKey] = useState<string | null>(() => personCardKey(roster, openPerson));
-  const [cardFromUrl, setCardFromUrl] = useState(cardKey !== null);
+  const [cardKey, setCardKey] = useState<string | null>(null);
+  const [cardFromUrl, setCardFromUrl] = useState(false);
+  // `?person=` opens the card AFTER mount: the card is a portal (`GuestPopup`), which the server cannot draw,
+  // so opening it in the first render is a hydration mismatch.
+  useEffect(() => {
+    const key = personCardKey(roster, openPerson);
+    if (!key) return;
+    setCardKey(key);
+    setCardFromUrl(true);
+    // The roster object is a fresh prop on every server render; the link is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPerson]);
   const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
   const find = useFindOrInvite();
   const router = useRouter();

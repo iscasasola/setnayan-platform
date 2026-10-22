@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Clock } from 'lucide-react';
 import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
@@ -25,7 +25,9 @@ import ps from './people-screen.module.css';
  */
 export function FoundPersonCard({ hit }: { hit: PersonHit }) {
   const router = useRouter();
-  const [open, setOpen] = useState(true);
+  // Opened after mount: the card is a portal the server cannot draw (a first-render open is a hydration mismatch).
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(true), []);
   const [pending, startTransition] = useTransition();
   const [asked, setAsked] = useState(false);
   const [following, setFollowing] = useState(hit.following);

@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildBusinessAlagaInsert, isAlreadyRecorded } from '@/lib/business-alaga';
+import { syncBusinessAlagaName } from '@/lib/business-alaga-sync';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
@@ -578,6 +579,15 @@ export async function becomeVendor(formData: FormData): Promise<void> {
           // Not fatal, and not silent: the shop is fine, the record is not.
           console.error('[becomeVendor] business alaga insert failed:', insErr.message);
         }
+      } else if (!readErr && already) {
+        // A RE-RUN on a shop that already has its record writes `business_name`
+        // again above — so the record follows the name it now carries, rather
+        // than keeping whatever it was first opened as.
+        await syncBusinessAlagaName(admin, {
+          ownerUserId: user.id,
+          vendorProfileId,
+          shopName,
+        });
       }
     }
   }

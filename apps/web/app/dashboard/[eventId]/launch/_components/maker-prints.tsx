@@ -38,7 +38,7 @@ import {
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
-import { EVERYTHING_PRO_NOTE, PASS_ZIP_PRO_NOTE, PLACE_CARDS_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
+import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
 import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, everythingLine, guestPrintCountLine } from '@/lib/studio-prints-settings';
 import { formatCount } from '@/lib/format-number';
 import { printHeadLine } from '@/lib/print-head-line';
@@ -186,7 +186,7 @@ export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, 
 
 /**
  * 🗂 AN ALL-IN-ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS
- * EVENT HUB PRO"; `isAllInOnePrint`, refused by the route too). The ticket zip's pattern exactly (`makerProMark`): owned → the file,
+ * EVENT HUB PRO"; `isAllInOnePrint`, refused by the route too). The 2026-09-29 ticket zip's pattern (`makerProMark`; the zip itself is free since 2026-10-22): owned → the file,
  * ◆ unlocked in the icon's place; a free couple on the web → the ◆ door that opens the centred note (`StudioProDoor`); the store
  * shell without it → nothing. An unlock belongs to the event: an internal host's event reads as owned (`printOwnsPro`).
  */
@@ -516,17 +516,18 @@ export function PrintPieceEditor({
 /**
  * 🎫 THE PASS GUESTS SAVE (owner 2026-09-29) — one look for every card, and
  * its two outputs: *"print outs are PDF. digital versions are png"*. Each
- * guest saves their own card free; the couple's zip of every card is Event
- * Hub Pro (◆, never a padlock); the Phone card print is the SAME drawing as a
- * PDF. Drawn in Details › Pass, under the piece's own saves — the look is ONE
- * dropdown in the right part, beside the card it picks.
+ * guest saves their own card free; the couple's zip of every card is FREE
+ * since 2026-10-22 (`freeAllGuestsFile` — it was Event Hub Pro from
+ * 2026-09-29); the Phone card print is the SAME drawing as a PDF. Drawn in
+ * Details › Pass, under the piece's own saves — the look is ONE dropdown in
+ * the right part, beside the card it picks.
  */
 export function PassCardsPanel({ input }: { input: PrintsInput }) {
-  const { eventId, ownsPro, storeShell, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
+  const { eventId, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
   const { themed, themedReady, q, file } = printPlan(input);
-  // The zip of every card is Event Hub Pro: ◆ unlocked when owned, ◆ PRO (a
-  // door to the one unlock) on the web, absent in the store shell.
-  const zipMark = makerProMark({ owns: ownsPro, storeShell });
+  /* 🎟 The zip of every digital ticket — FREE for every event since 2026-10-22, the store shell included (owner "yes", DECISION_LOG
+     "THE DIGITAL TICKET ZIP IS FREE": it is how couples hand out tickets). A free event's tickets are plain white (`printLookForEvent`). */
+  const zip = freeAllGuestsFile({ href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: PASS_CARD_WORDS.downloadAll });
   const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
   /* 🎟 Every guest's ticket, Phone card, in one PDF — Event Hub Pro 2026-10-16, FREE again 2026-10-22 (`freeAllGuestsFile`). */
   const printedAll = freeAllGuestsFile({
@@ -550,21 +551,7 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
       <div className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2" data-pass-cards-digital="">
           <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.digital}</span>
-          {zipMark === null ? null : zipMark === 'unlocked' ? (
-            <PrintSaveButton href={`${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`} file={passCardsZip}>
-              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
-              {PASS_CARD_WORDS.downloadAll}
-            </PrintSaveButton>
-          ) : (
-            <Link
-              href={`/dashboard/${eventId}/studio/website-pro`}
-              data-pass-cards-zip-pro=""
-              className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink"
-            >
-              <PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} className="mr-1 align-middle" />
-              {PASS_CARD_WORDS.downloadAll}
-            </Link>
-          )}
+          <AllInOneShipped f={zip}>{PASS_CARD_WORDS.downloadAll}</AllInOneShipped>
           <span className="text-xs text-ink/55">One PNG per guest who is coming. Each guest&rsquo;s own saves free.</span>
         </div>
         {/* 🎟 Every guest's ticket in one PDF — free for every event since 2026-10-22, the store shell included. */}
@@ -875,13 +862,15 @@ export function TicketStyle({ input }: { input: PrintsInput }) {
 
 /**
  * 🎫 THE DIGITAL TICKET (owner 2026-10-17) — a guest print of its own row: the PNG each guest saves, drawn for the guest View as ▾
- * shows (`/api/guest/pass-card?guest=<id>`, the Guest list's own per-guest file, free), and All guests ◆ — the zip of every ticket
- * (`PASS_CARDS_ZIP_ROUTE`, Event Hub Pro since 2026-09-29, refused by its route too). Its look is Ticket style, in Print settings.
+ * shows (`/api/guest/pass-card?guest=<id>`, the Guest list's own per-guest file, free), and All guests — the zip of every ticket
+ * (`PASS_CARDS_ZIP_ROUTE`): Event Hub Pro from 2026-09-29, FREE for every event since 2026-10-22 (owner "yes", DECISION_LOG "THE
+ * DIGITAL TICKET ZIP IS FREE" — it is how couples hand out tickets), so a plain Download (`freeAllGuestsFile`), the store shell
+ * included, and the route asks no Pro question. Its look is Ticket style, in Print settings; a free event's is plain white.
  */
 export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
   const { eventId, slug, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
   const guests = input.passGuests ?? null;
-  const zip = allInOneFile(input, { href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: 'All guests' }, PASS_ZIP_PRO_NOTE);
+  const zip = freeAllGuestsFile({ href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: 'All guests' });
   return (
     <div data-print-editor="digital-ticket" data-print-studio="" className="flex flex-col gap-1">
       <StudioTool

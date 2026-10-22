@@ -23,6 +23,7 @@ import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-re
 import { sanitizeStudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { hubPart } from '@/lib/hub-parts';
 
 /**
  * <AnimatedMonogramUpgrade> — the paid ANIMATED_MONOGRAM upgrade, rendered
@@ -57,7 +58,12 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
  * preview survive only for the fallback-lockup path (no custom mark).
  */
 
-const SKU_CODE = 'ANIMATED_MONOGRAM';
+/* 💎 THE ANIMATION IS THE LOGO & QR PART NOW (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the standalone
+   ₱500 Animated Monogram is retired from sale (migration 20271283592608); what this page sells is the Logo & QR part —
+   the animation, the logo travelling to the bar, and the logo on every guest QR. Its price is that row's. Ownership is
+   still asked through `eventOwnsAnimatedMonogram` / `eventAnimatedMonogramActive`, which read the part (and an old
+   ANIMATED_MONOGRAM order, by alias). */
+const SKU_CODE = hubPart('logo_qr').sku;
 
 /** Display labels for the studio's five reveal kinds — the EXACT vocabulary the
  *  "Animate the reveal" panel above uses (one taxonomy per page — council
@@ -445,7 +451,7 @@ async function UnownedView({
             <InlineCheckoutDrawer
               eventId={eventId}
               serviceKey={SKU_CODE}
-              displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+              displayName={`Event Hub Pro · Logo & QR${displayName ? ` · ${displayName}` : ''}`}
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
               /* NO price here: InlineCheckoutDrawer appends the formatted price
@@ -611,7 +617,7 @@ async function UnownedView({
               <InlineCheckoutDrawer
                 eventId={eventId}
                 serviceKey={SKU_CODE}
-                displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+                displayName={`Event Hub Pro · Logo & QR${displayName ? ` · ${displayName}` : ''}`}
                 originalPriceCentavos={String(Math.round(pricePhp * 100))}
                 settings={settings}
                 triggerLabel="Draw my monogram live"

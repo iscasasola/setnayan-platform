@@ -15,8 +15,10 @@ import {
   iapProductById,
   iapProductForServiceKey,
   papicCreditsMatch,
+  IAP_HUB_PART_PRODUCTS,
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { HUB_PARTS } from '../hub-parts';
 import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +26,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 test('ruling 1 — exactly Papic credits, Event Hub Pro and Live Watch; no Setnayan AI, no supplier plan', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
+    // 💎 + the eleven Event Hub Pro parts (owner 2026-10-22, "yes to all") — 1.1, flag-dark.
+    'COUPLE_HUB_PART_ADDRESS',
+    'COUPLE_HUB_PART_BACKGROUND',
+    'COUPLE_HUB_PART_LOGO_QR',
+    'COUPLE_HUB_PART_MOTION',
+    'COUPLE_HUB_PART_MUSIC',
+    'COUPLE_HUB_PART_OWN_SCENES',
+    'COUPLE_HUB_PART_PHOTOS',
+    'COUPLE_HUB_PART_POST_EVENT',
+    'COUPLE_HUB_PART_PRINTS',
+    'COUPLE_HUB_PART_REVEAL',
+    'COUPLE_HUB_PART_STYLE',
     'COUPLE_WEBSITE_PRO',
     'LIVE_STUDIO',
     'PAPIC_GUEST_100',
@@ -113,4 +127,16 @@ test('the Apple gate needs the store shell AND the plugin build AND the owner’
 
 test('Event Hub Pro’s product sells THE Pro key (the client-safe spelling equals the shipped constant)', () => {
   assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_hub_pro');
+});
+
+test('💎 the eleven part products sell exactly the eleven parts — one product a part, its own catalogue code', () => {
+  /* Held against the parts table: a part added or renamed without its product (or the reverse) fails here. */
+  const sold = IAP_HUB_PART_PRODUCTS.map((p) => p.serviceKey);
+  assert.deepEqual(sold, HUB_PARTS.map((p) => p.sku));
+  for (const p of IAP_HUB_PART_PRODUCTS) {
+    const part = HUB_PARTS.find((h) => h.sku === p.serviceKey)!;
+    assert.equal(p.productId, `com.setnayan.app.hub_part_${part.id}`, 'a part product id drifted from its part — ids are forever');
+    assert.equal(p.appStoreName, `Event Hub Pro · ${part.name}`);
+    assert.equal(p.kind, 'event-hub-part');
+  }
 });

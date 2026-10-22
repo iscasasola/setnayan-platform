@@ -12,7 +12,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { combineChanges, refChange } from '@/lib/hub-look-pro';
+import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 
 async function hostUserId(eventId: string): Promise<string | null> {
@@ -68,11 +68,13 @@ export async function saveLivingHero(
     .select('landing_page_hero_image_url, landing_page_hero_video_r2_key')
     .eq('event_id', eventId)
     .maybeSingle();
-  const change = combineChanges(
-    refChange(current?.landing_page_hero_video_r2_key as string | null | undefined, clipRef),
-    refChange(current?.landing_page_hero_image_url as string | null | undefined, stillRef),
-  );
-  if (!(await lookProAllows(eventId, change))) {
+  /* 💎 PART BY PART (owner 2026-10-22): the film is the Reveal part's (gate 5a), its still the Background part's
+     (gate 5b) — both must be held for what this write adds. */
+  const [filmOk, stillOk] = await Promise.all([
+    lookProAllows(eventId, refChange(current?.landing_page_hero_video_r2_key as string | null | undefined, clipRef), 'reveal'),
+    lookProAllows(eventId, refChange(current?.landing_page_hero_image_url as string | null | undefined, stillRef), 'background'),
+  ]);
+  if (!(filmOk && stillOk)) {
     return {
       ok: false,
       error: 'A living hero is part of Event Hub Pro — unlock it to put your own film at the top.',

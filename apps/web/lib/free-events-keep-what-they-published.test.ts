@@ -77,7 +77,7 @@ test('anti-vacuity: every published choice in the fixture is one the ruling made
   assert.deepEqual(kinds, ['dress_code.canvas', 'editorial', 'fixed-style', 'hero.canvas', 'rsvp_ask_config', 'schedule.canvas', 'style_preferences']);
   const lines = hubDraftProEffects(all, bare, false).map(hubProEffectLine);
   console.log(`[grandfather] named on a bare page: ${lines.join(' | ')}`);
-  for (const want of ['Font · Colour · Size · Width · Schedule', 'Letters · Event title on the Hero', 'Clock face · Schedule', 'Glow · Heading on the Schedule', 'Ribbon · Dress code', 'One line', 'Words only', 'Camera look · Your brand and Animation', 'Style · Animation · RSVP']) {
+  for (const want of ['Font · Colour · Size · Width · Schedule', 'Letters · Event title on the Hero', 'Clock face · Schedule', 'Glow · Heading on the Schedule', 'Ribbon · Dress code', 'One line', 'Words only', /* 💎 part by part (2026-10-22): one line per part — the camera look is Style's, a block's motion Motion's */ 'Camera look · Your brand', 'Animation', 'Style · RSVP', 'Animation · RSVP']) {
     assert.ok(lines.some((l) => l.startsWith(want) || l.includes(want)), `"${want}" is not named at ✓ Apply — got ${JSON.stringify(lines)}`);
   }
 });

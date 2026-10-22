@@ -33,6 +33,7 @@ import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-sho
 import {
   OPEN_SHOP_DRAFT_KEY,
   parseOpenShopDraft,
+  restoresOnThisLoad,
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
@@ -200,6 +201,8 @@ export function OpenShopWizard({
    * reach the submit, so the server can finally redirect with `?error=`.
    */
   const [banner, setBanner] = useState<string | null>(error ?? null);
+  /** The web address a submit-time refusal sent back (`restoresOnThisLoad`) — AddressPreview remounts holding it. */
+  const [restoredSlug, setRestoredSlug] = useState<string | null>(null);
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
@@ -336,21 +339,26 @@ export function OpenShopWizard({
       }
     }
     setBanner(null);
+    // 🧷 The form is going to the server: park what was typed, so a refusal there (an address taken in the same
+    // minute — the step-1 check makes it rare, not impossible) reloads with every field kept (journey_fixes_later
+    // Supplier 4c). Restored only on the `?error=` reload; never the password.
+    saveDraft({ atSubmit: true });
   };
 
   /**
    * Park the typed steps before Google / Apple take the page away, and restore
    * them when the callback lands back here. The forms in <OAuthButtonRow> post to
    * server actions; their submit bubbles to the wrapper below in React's tree.
+   * Also called by `submitGate` (`atSubmit`) with the address the form sends.
    */
-  const saveDraft = () => {
+  const saveDraft = (at?: { atSubmit: true }) => {
     const read = (name: string) =>
       (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
     try {
       sessionStorage.setItem(
         OPEN_SHOP_DRAFT_KEY,
         serializeOpenShopDraft({
-          step: 3,
+          step: at ? step : 3,
           shopName,
           logoUrl,
           service,
@@ -359,6 +367,8 @@ export function OpenShopWizard({
           position: read('contact_position'),
           phone: read('contact_phone'),
           email: read('contact_email'),
+          // The address box's own hidden field (`AddressPreview` renders it, not this file).
+          ...(at ? { atSubmit: true, slug: formRef.current?.querySelector<HTMLInputElement>('input[name="business_slug"]')?.value ?? '' } : {}),
         }),
       );
     } catch {
@@ -378,7 +388,7 @@ export function OpenShopWizard({
       return;
     }
     const d = parseOpenShopDraft(raw);
-    if (!d) return;
+    if (!d || !restoresOnThisLoad(d, Boolean(error))) return;
     if (d.shopName) setShopName(d.shopName);
     if (d.logoUrl) setLogoUrl(d.logoUrl);
     if (d.service) {
@@ -393,7 +403,11 @@ export function OpenShopWizard({
     write('contact_position', d.position);
     write('contact_phone', d.phone);
     write('contact_email', d.email);
-    setStep(d.step);
+    // Parked at submit: the server's `?step=` already names the step that owns the refusal — keep it. The address it
+    // refused comes back in its box, focused, so "Taken — try another." is the first thing read.
+    if (d.atSubmit) {
+      if (d.slug) setRestoredSlug(d.slug);
+    } else setStep(d.step);
     // Re-render dependencies are deliberately empty: this runs ONCE, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -458,7 +472,7 @@ export function OpenShopWizard({
             the browser drops the inner one), and the sign-in link opens a portal
             whose submit must never reach this form's gate. */}
         {guest && step === 3 ? (
-          <div className="mt-5 space-y-3" onSubmitCapture={saveDraft}>
+          <div className="mt-5 space-y-3" onSubmitCapture={() => saveDraft()}>
             {oauth.show ? (
               <>
                 {oauth.desktop ? (
@@ -574,7 +588,12 @@ export function OpenShopWizard({
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,
                   because a save-the-date already points at it. */}
-              <AddressPreview shopName={shopName} existingSlug={existingSlug} />
+              <AddressPreview
+                key={restoredSlug ?? 'typed'}
+                shopName={shopName}
+                existingSlug={existingSlug}
+                initialValue={restoredSlug}
+              />
             </label>
           </div>
           {/* 2 · What you do. Service and events are the same question asked twice;

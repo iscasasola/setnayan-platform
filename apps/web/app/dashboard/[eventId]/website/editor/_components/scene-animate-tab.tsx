@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from '@/app/dashboard/[eventId]/launch/_components/pro-quiet-line';
 
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
@@ -170,6 +171,8 @@ export function SceneAnimateTab({
   if (ss) {
     return (
       <div data-scene-tab="animate" className="contents">
+        {/* 💎 The quiet line (owner 2026-10-22) — a scene's animation is the Motion part's. */}
+        {ownsPro ? null : <ProQuietLine part="motion" />}
         <StageAnimate
           pending={pending}
           error={error}
@@ -248,6 +251,7 @@ export function SceneAnimateTab({
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
+      {ownsPro ? null : <ProQuietLine part="motion" />}
       {/* 💎 How a scene moves is Event Hub Pro — the diamond for an owning couple,
           ◆ PRO for one trying it (their pick waits in the draft for Apply). */}
       <ISection>

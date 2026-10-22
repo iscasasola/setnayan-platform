@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from './pro-quiet-line';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -181,6 +182,9 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
   if (state === null) return null;
   const owned = state === 'unlocked';
   return (
+    <>
+    {/* 💎 The quiet line (owner 2026-10-22) — prints in your Hub look are the Prints part's. */}
+    {owned || storeShell ? null : <ProQuietLine part="prints" />}
     <div data-print-hub-look={owned ? 'worn' : 'classic'} className="flex min-h-14 items-center gap-3 border-t border-ink/10 py-3">
       <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink">
         <Palette className="h-5 w-5" strokeWidth={1.75} />
@@ -204,6 +208,7 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
         </span>
       )}
     </div>
+    </>
   );
 }
 

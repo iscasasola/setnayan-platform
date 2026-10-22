@@ -151,6 +151,7 @@ test('every Apple surface is mounted ONLY behind the three-part gate', () => {
   assert.match(code('lib/hub-draft-store.ts'), /appleIap: iap,/);
   assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /const \{ iap \} = await getIapGate\(\);\s*if \(!iap\) redirect\(back\);/);
   // Owned is never sold twice: an event with Pro goes straight back to apply.
-  assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /if \(owned\) redirect\(`\$\{back\}\?apply=1`\);/);
+  // 💎 Part by part (2026-10-22): "owned" is Full Pro (or the cap reached) through the one ownership read.
+  assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /if \(own\?\.full\) redirect\(`\$\{back\}\?apply=1`\);/);
   assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
 });

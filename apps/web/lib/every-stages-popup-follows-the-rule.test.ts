@@ -127,7 +127,8 @@ test('(4) the Apply sheet’s own backdrop wears the one dark from the STYLESHEE
   assert.match(src, /onClick=\{\(e\) => \{\s*if \(e\.target === e\.currentTarget\) onClose\(\);\s*\}\}/);
   assert.deepEqual(
     [...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort(),
-    ['@/app/_components/info-tip', '@/app/_components/paid-mark', '@/lib/format-number', '@/lib/hub-draft', '@/lib/hub-pro-effect-view', '@/lib/use-modal-a11y', 'lucide-react', 'next/link', 'react'],
+    // 💎 + the parts' grouping and the one peso formatter (2026-10-22, part by part) — pure, small; the bundle check holds the budget.
+    ['@/app/_components/info-tip', '@/app/_components/paid-mark', '@/lib/apply-sheet-parts', '@/lib/format-number', '@/lib/hub-draft', '@/lib/hub-pro-effect-view', '@/lib/php', '@/lib/use-modal-a11y', 'lucide-react', 'next/link', 'react'],
     'the Apply sheet imports something new — it rides the Maker’s first load',
   );
 });

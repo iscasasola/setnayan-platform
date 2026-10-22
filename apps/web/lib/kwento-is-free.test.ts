@@ -201,11 +201,14 @@ test('Editorial authoring is free, and it does not take the watermark with it', 
   // `eventCoupleWebsiteProActive` reads COUPLE_WEBSITE_PRO. One helper reading
   // both would make the free key unlock the paid perks.
   const gates = code('lib/couple-website-pro.ts');
+  /* RE-AIMED 2026-10-22 (part by part): the watermark gate is "everything" — Full Pro (the UMBRELLA key, `FULL_PRO_SKU`
+     = COUPLE_WEBSITE_PRO) or the parts' cap — read through the one resolver. */
   assert.match(
     gates,
-    /export async function eventCoupleWebsiteProActive[\s\S]*?COUPLE_WEBSITE_PRO_SERVICE_KEY/,
+    /export async function eventCoupleWebsiteProActive[\s\S]*?eventHubOwnership\(supabase, eventId, 'active'\)\)\.full/,
     'the watermark gate must still read the UMBRELLA key.',
   );
+  assert.match(gates, /eventSkuActive\(supabase, eventId, FULL_PRO_SKU\)/, 'everything no longer starts from the UMBRELLA key');
   /*
     🪤 SLICED TO THE FUNCTION BODY, NOT A CHARACTER WINDOW. The first version of
     this looked 400 characters past the signature and went RED on correct code:

@@ -5,7 +5,7 @@ import { hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMa
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
 import { guestMainGround } from '@/lib/guest-main-ground';
 import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
-import { websiteProActiveFor } from './hub-look';
+import { hubPartActiveFor } from './hub-look';
 import type { HeroEventInput } from '@/lib/event-hero';
 import { resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme } from '@/lib/theme-colours';
@@ -70,7 +70,7 @@ export async function pictureOf(
   // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07) — and Parallax (Look restudy row 8).
   if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
   if (loop && isHubMainLoop(main) && main.motion === 'parallax') loop.ground.parallax = true;
-  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
+  const loopShows = loop ? tryOn || (await hubPartActiveFor(event.event_id, 'background').catch(() => false)) : false;
   const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
   // The ONE answer to "what is behind the event", shared with Discover's card.
   const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
@@ -89,7 +89,7 @@ export async function mainGroundStillFor(input: MainGroundInput): Promise<string
   const { theme, heroConfig, event, signed = {} } = input;
   const main = hubMainGround(heroConfig);
   if (mainGroundIsNone(main) || (main && 'ground' in main && main.ground === 'pattern')) return null;
-  const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
+  const ownsPro = heroGroundNeedsOwnership(theme) ? await hubPartActiveFor(event.event_id, 'background').catch(() => false) : false;
   const { mainGround, urls } = await pictureOf(main, input, ownsPro);
   const ref = mainGround?.stillRef ?? null;
   if (ref) return (await screenSizedStill(ref)) ?? urls[ref] ?? signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null));
@@ -112,7 +112,7 @@ export async function mainGroundPictureFor(input: MainGroundInput, opts: { full?
   const { theme, heroConfig, event, signed = {} } = input;
   const main = hubMainGround(heroConfig);
   if (mainGroundIsNone(main) || (main && 'ground' in main && main.ground === 'pattern')) return { picture: null, wearsThemeLoop: false };
-  const ownsPro = heroGroundNeedsOwnership(theme) ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
+  const ownsPro = heroGroundNeedsOwnership(theme) ? await hubPartActiveFor(event.event_id, 'background').catch(() => false) : false;
   const { mainGround, urls } = await pictureOf(main, input, ownsPro);
   const ref = mainGround?.stillRef ?? null;
   const frame = mainGround?.tint?.frame ?? [];

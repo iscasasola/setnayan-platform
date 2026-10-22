@@ -46,7 +46,7 @@ import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY, hubPartPrices } from '@/lib/couple-website-pro';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
 
 /**
@@ -207,6 +207,13 @@ export async function readServicesStepView(
       pricePhp: pricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       listPricePhp: listPricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       copy: hubProCopy,
+      // 💎 "or part by part later, from ₱500" (owner 2026-10-22) — the parts are off /pricing, so read here, from the catalogue.
+      partsFromPhp: await hubPartPrices(createAdminClient())
+        .then((p) => {
+          const on = [...p.parts.entries()].filter(([code]) => p.onSale.has(code)).map(([, php]) => php);
+          return on.length > 0 ? Math.min(...on) : null;
+        })
+        .catch(() => null),
     },
   });
 }

@@ -13,6 +13,7 @@
  *
  * `MEMORIES_PAGE_READS_DELAY_MS=150` makes every answer take 150 ms.
  */
+import Module from 'node:module';
 
 type Resolve = (request: string, ...rest: unknown[]) => string;
 type CjsModule = { filename: string; loaded: boolean; exports: unknown; paths: string[] };

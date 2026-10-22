@@ -17,5 +17,5 @@ ready but no personalization."* The zip is how couples hand out tickets — read
   `lib/the-pro-list-names-only-real-gates.test.ts` § 5d (no Pro line names a ticket or a zip) · `paid-mark`, `the-pass-card-is-a-card`,
   `studio-prints-money-is-unchanged` updated; the money golden re-recorded (only the zip's PRO word and door moved).
 
-SPEC IMPACT: `Setnayan/DECISION_LOG.md` — row 2026-10-22 "THE DIGITAL TICKET ZIP IS FREE", which supersedes the 2026-09-29
+SPEC IMPACT: `Setnayan/DECISION_LOG.md` — row 2026-10-22 "THE DIGITAL TICKET ZIP IS FREE" (corpus `49dc74ec`), which supersedes the 2026-09-29
 "THE ZIP IS PRO" lines and the 2026-10-22 "FREE IS READY, PRO IS PERSONAL" row's "the digital ticket zip stays ◆".

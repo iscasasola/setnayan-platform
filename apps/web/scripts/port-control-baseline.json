@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c4e67bacc8",
-  "routeCount": 452,
+  "generatedFromRef": "4ef4f8f467",
+  "routeCount": 453,
   "destinations": 996,
-  "actions": 665,
-  "blocks": 6751,
+  "actions": 667,
+  "blocks": 6755,
   "routes": {
     "/": {
       "files": [
@@ -5414,6 +5414,7 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "EventsThumbRow",
         "Flash",
         "GlassEventCard",
         "GuestsTopSearch",
@@ -6391,6 +6392,8 @@
         "/dashboard/profile"
       ],
       "actions": [
+        "addRound",
+        "null",
         "partnerLinkAction",
         "release",
         "releaseAction",
@@ -6549,6 +6552,7 @@
         "SubmitButton",
         "SwitchRow",
         "T",
+        "ThumbRow",
         "TicketPlaceholder",
         "TicketThumb",
         "TitleGenderResult",
@@ -9715,7 +9719,7 @@
         "TeamDecisionDoorway",
         "TeamRemoveCandidate",
         "TeamSavePlan",
-        "ThumbControls",
+        "ThumbRow",
         "Toast",
         "ToastState",
         "TypedRow",
@@ -11211,6 +11215,17 @@
         "ShortlistCategories",
         "SuppliersLabStage",
         "TeamRowFacts"
+      ]
+    },
+    "/dev/thumb-row-lab": {
+      "files": [
+        "dev/thumb-row-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DiscoverThumbRow",
+        "EventsThumbRow"
       ]
     },
     "/dev/you-lab": {

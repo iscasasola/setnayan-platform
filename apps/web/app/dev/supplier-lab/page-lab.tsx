@@ -331,7 +331,7 @@ export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; wh
             photoUrl: null,
             events: [],
             eventsMeasured: true,
-            context: { hasVendor: true, vendorName: FIX[who].name, isAdmin: false, canOpenShop: false },
+            context: { hasVendor: true, vendorName: FIX[who].name, isAdmin: false, canOpenShop: false, shops: [] },
           }}
           shopRows={supplierAvatarRows()}
         />

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { updateSession } from '@/lib/supabase/middleware';
 import {
@@ -17,6 +17,7 @@ import {
 import { userNestingRewritePath } from '@/lib/u-nesting';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
+import { recordSiteVisit } from '@/lib/visits/record-visit';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -237,6 +238,11 @@ export async function middleware(request: NextRequest) {
     });
   }
   await refreshGuestSessionCookie(request, response);
+  // VISITS (owner 2026-10-22: traffic in our own admin, no cookies) — one page
+  // view counted AFTER the response is on its way; never on the critical path.
+  // Everything that is not a view (store shell, bots, /admin, prefetches,
+  // redirects) is decided inside — lib/visits/visit-capture.ts.
+  if (request.method === 'GET') after(() => recordSiteVisit(request, response));
   return response;
 }
 

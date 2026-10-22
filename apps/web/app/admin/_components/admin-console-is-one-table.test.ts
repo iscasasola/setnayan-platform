@@ -172,6 +172,7 @@ const CONVERTED = [
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
   'app-performance/_surfaces/slow-loads-surface.tsx',
+  'app-performance/_surfaces/visits-view.tsx',
   // ── Lane D · the last ten top-level pages (2026-08-17) ──────────────────
   'account-deletions/page.tsx',
   'completions/page.tsx',

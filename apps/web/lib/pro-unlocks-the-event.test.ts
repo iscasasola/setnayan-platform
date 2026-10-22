@@ -260,6 +260,10 @@ const READERS = [
   'eventOwnsCustomQrGuest',
   'eventOwnsCoupleWebsitePro',
   'eventCoupleWebsiteProActive',
+  // 💎 Event Hub Pro, part by part (2026-10-22) — the same question, asked of one part.
+  'eventHubPartActive',
+  'eventOwnsHubPart',
+  'eventHubOwnership',
   'isEditorialProActive',
   'eventOwnsEditorialPro',
   'resolvePanoodTier',

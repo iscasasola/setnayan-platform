@@ -240,10 +240,6 @@ export async function fetchV2CustomerCatalog(
   // from an existing code on save. `forAdmin` reads the same active rows without
   // the dark-launch filter.
   if (!opts.forAdmin) {
-    // 💎 The eleven Event Hub Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
-    // Event Hub Pro page — never as eleven more lines on /pricing, which keeps the one "Event Hub Pro" line. Its parts
-    // are read by `lib/hub-parts.ts` callers straight from the catalogue.
-    query = query.not('service_code', 'like', 'COUPLE_HUB_PART_%');
     if (!liveStudioRoamEnabled()) {
       query = query
         .neq('service_code', 'LIVE_STUDIO_ROAM')
@@ -258,6 +254,10 @@ export async function fetchV2CustomerCatalog(
         // same switch — never its own, separate launch.
         .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
     }
+    // 💎 The eleven Event Hub Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
+    // Event Hub Pro page — never as eleven more lines on /pricing, which keeps the one "Event Hub Pro" line. Its parts
+    // are read by `lib/hub-parts.ts` callers straight from the catalogue.
+    query = query.not('service_code', 'like', 'COUPLE_HUB_PART_%');
   }
 
   const { data, error } = await query.order('service_code', { ascending: true });

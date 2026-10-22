@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
-import { viewingAsFreeCouple } from '@/lib/view-as-free.server';
+import { asViewedOwnership } from '@/lib/view-as-free.server';
 import { NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView } from '@/lib/hub-parts';
 import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -577,19 +577,20 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   let ownedViewed: HubOwnership = NO_HUB_PARTS;
   let viewedAsFree = false;
   try {
-    const [draft, real, asFree, me] = await Promise.all([
+    const realP = eventHubOwnership(createAdminClient(), eventId).catch(() => NO_HUB_PARTS);
+    const [draft, owned, real, me] = await Promise.all([
       readHubDraft(supabase, eventId),
       // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
-      eventHubOwnership(createAdminClient(), eventId).catch(() => NO_HUB_PARTS),
       // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
       // `hubDraftAction` asks `hubOwnershipForWrite`, which never reads the switch).
-      viewingAsFreeCouple(),
+      asViewedOwnership(realP),
+      realP,
       // ↺ Whose steps are whose (ruling B): the request's own account — the same cached read the page already made.
       getCurrentUser().then((u) => u?.id).catch(() => undefined),
     ]);
-    const owned = asFree ? NO_HUB_PARTS : real;
     ownedViewed = owned;
-    viewedAsFree = asFree;
+    /* "As a free couple" — the switch handed back no parts for an event that holds some. */
+    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0);
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),

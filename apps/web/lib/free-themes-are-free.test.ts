@@ -217,12 +217,14 @@ test('5a · on Modern / Cyber Neon: Pro owner → own photo; free couple → the
 test('5b · the page, the door and the print each measure ownership through the entitlement resolver, as viewed', () => {
   // Page ground (Event Hub body + RSVP page): `websiteProActiveFor` = asViewed(eventCoupleWebsiteProActive).
   const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
-  assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await hubPartActiveFor\(event\.event_id, 'background'\)/);
   assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
   assert.match(read('lib/guest-main-ground.ts'), /heroMayBePageGround\(theme, ownsPro\)/);
   // Door photo.
   const look = read('app/[slug]/_lib/hub-look.ts');
-  assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await hubPartActiveFor\(event\.event_id, 'background'\)/);
+  assert.match(look, /hubOwnershipFor = cache\([\s\S]{0,300}asViewedOwnership\(eventHubOwnership\(/, 'the part reader stopped honouring "view as free"');
   assert.match(look, /if \(!heroMayBePageGround\(look\.theme, ownsPro\)\)/);
   assert.match(look, /websiteProActiveFor = cache\([\s\S]{0,400}asViewed\(eventCoupleWebsiteProActive\(/, 'the page reader stopped honouring "view as free"');
   // Print still: `printOwnsPro` = asViewed(eventCoupleWebsiteProActive).
@@ -231,7 +233,8 @@ test('5b · the page, the door and the print each measure ownership through the 
      door, `printLookForEvent`) and the still asks that same read. */
   assert.match(print, /const ownsPro = await printOwnsPro\(eventId\);/, 'the print stopped measuring ownership through printOwnsPro');
   assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? ownsPro : false\)\s*\?\s*heroStill\(/);
-  assert.match(print, /printOwnsPro[\s\S]{0,200}asViewed\(eventCoupleWebsiteProActive\(/, 'the print reader stopped honouring "view as free"');
+  // RE-AIMED 2026-10-22: prints are the Prints part's (gates 33, 34, 36a), as viewed.
+  assert.match(print, /printOwnsPro[\s\S]{0,400}asViewed\(eventHubPartActive\(createAdminClient\(\), eventId, 'prints'\)/, 'the print reader stopped honouring "view as free"');
 });
 
 /* ══ 6 · NO TYPED COUNT, NO TYPED LIST ══════════════════════════════════════ */

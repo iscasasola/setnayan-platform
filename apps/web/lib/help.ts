@@ -217,7 +217,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
@@ -330,7 +330,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'sign-up-as-vendor',
         title: 'Sign up as a supplier',
-        body: 'Start from the For suppliers page (setnayan.com/for-suppliers) and open your shop from there — that signs you up as a supplier rather than a couple. Then fill in your business name, services, and contact email in your supplier dashboard. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
+        body: 'Start from the For suppliers page (setnayan.com/for-suppliers) and open your shop from there. Then fill in your business name, services, and contact email in your supplier dashboard. One account can do both: with a shop, you can still plan your own events from Events. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
       {
         slug: 'create-an-event',
@@ -338,9 +338,54 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'From your dashboard, start a new event. Pick the event type, enter a display name (this is what guests and suppliers see), and the date. You can change all of it later.',
       },
       {
+        // The account bar (owner 2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"), the event
+        // bar of four, and the iPhone app's (Discover is dropped there while it bounces `/`).
+        slug: 'the-bar-at-the-bottom',
+        title: 'What are the tabs at the bottom of the screen?',
+        appBody:
+          'On your account screens the bar is Events, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers and Hub.',
+        body: 'On your account screens the bar is Events, Discover, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Discover shows public events from people you follow, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers and Hub. On a laptop the same places run down the side.',
+      },
+      {
+        // Owner 2026-10-22: "In shop they do not create events, but them as a user, they can create their events".
+        slug: 'one-account-shop-and-events',
+        title: 'Can I plan my own events if I have a shop?',
+        body: 'Yes. One account can run a shop and plan events. Create an event from Events, as anyone does. A shop you open or claim is also one of your loved ones in People, so you can make an event for your shop as well as for yourself.',
+      },
+      {
+        // The supplier bar (owner 2026-10-21 "SUPPLIER BAR — TODAY · CUSTOMERS · SHOP · HUB"; More left the bar).
+        slug: 'supplier-dashboard-tabs',
+        title: 'Suppliers: where is everything in my dashboard?',
+        body: 'The bar is Today, Customers, Shop and Hub. Today shows the one thing waiting on you. Customers holds your people, dates and money — and your messages, which also open from the envelope at the top. Shop is your page and what you sell, with How it is going. Hub runs your event days. Settings is under your profile picture.',
+      },
+      {
         slug: 'event-id-vs-slug',
         title: 'Event ID vs slug',
         body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). You can change the slug later; old slugs auto-redirect for ' + slugForwardingLabel() + ', so links and QR codes already printed keep working.',
+      },
+    ],
+  },
+  {
+    // People (owner 2026-10-22 "PEOPLE WEARS TODAY'S GUEST LIST") and Memories, the account bar's two places
+    // that are not events. Loved ones include a business alaga (2026-10-22, a claimed shop too).
+    key: 'people-memories',
+    label: 'People & Memories',
+    roles: ['couple', 'vendor'],
+    articles: [
+      {
+        slug: 'people-page',
+        title: 'What is People?',
+        body: 'People is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in Search or invite at the bottom to find someone, or to invite them if they are not here yet. ≡ opens Groups, Following and Followers. Nobody is connected until they say yes.',
+      },
+      {
+        slug: 'loved-ones',
+        title: 'What are loved ones?',
+        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop.',
+      },
+      {
+        slug: 'memories',
+        title: 'What is Memories?',
+        body: 'Memories keeps the photos and stories from every event you hosted or went to, in one place. Open it from Memories in the bar at the bottom.',
       },
     ],
   },
@@ -434,12 +479,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'add-guest-roles',
         title: 'Filipino wedding roles',
-        body: 'More than 30 Filipino ceremony roles are built in, including maid or matron of honor, best man, bridesmaids, groomsmen, principal sponsors, candle, veil, cord and coin sponsors, ring, bible and coin bearers, flower girl, officiant, readers, and Nikah roles. Pick one for each guest when you add them.',
+        body: 'More than 30 Filipino ceremony roles are built in, including maid, matron or man of honor, best man or best woman, bridesmaids, groomsmen, the parents and grandparents of the bride and of the groom, principal sponsors, candle, veil, cord and coin sponsors, ring, bible and coin bearers, flower girl, officiant, readers, and Nikah roles. A guest can hold more than one: tick each in Role on their card — the first is their main role.',
       },
       {
         slug: 'plus-ones',
         title: 'How plus-ones work',
-        body: 'Pick how many plus-ones a guest may bring (+1, +2 and so on) and Setnayan adds a guest row linked to them for each one, with its own QR code. If a plus-one is TBA, either the guest names them on their own reply card, or the +1 names themselves the first time they open their invitation.',
+        body: 'Pick how many plus-ones a guest may bring (+1, +2 and so on) and Setnayan adds a seat for each one, listed with their guest, with its own QR code. Until it is named it reads as the guest’s +1 — the guest can name them on their reply, or the +1 names themselves the first time they open their invitation. The counts at the top say how many +1s are named and how many have no name yet; tap either to see them. A seat with no name yet can be let go with Release seat. A +1 cannot bring a +1 of their own.',
       },
       {
         slug: 'import-csv',
@@ -513,6 +558,11 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-3), and Roles (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-6). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
       },
       {
+        slug: 'dress-code-by-role',
+        title: 'How does the dress code work?',
+        body: 'Set it in Studio › Mood Board & Dress Code. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
+      },
+      {
         slug: 'palette-chip-dot',
         title: 'How the palette shows up in the guest list',
         body: "Each role chip in the Guest List grows a small colored dot when you've set a palette for that role. The dot shows the first color of the palette as a visual signal — see the full palette on the Mood Board page.",
@@ -575,6 +625,11 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'On Profile, pick one of five themes — Setnayan Default (burgundy), Victorian, Classy, iOS, Forest & Champagne Gold. The whole dashboard re-skins instantly. Your Event Hub keeps its own look regardless.',
       },
       {
+        slug: 'cookies',
+        title: 'Does Setnayan use cookies?',
+        body: 'Only the essential ones — to keep you signed in and remember your choices, like light or dark. Setnayan uses no analytics, advertising or tracking cookies, so nothing asks you about cookies. Every cookie is listed, with what it does and how long it stays, at setnayan.com/cookies.',
+      },
+      {
         slug: 'data-export',
         title: 'Export your data',
         body: 'On Profile → Privacy & data → "Download .json". You get a JSON file with your profile, event memberships, supplier profile (if any), and every chat message you authored. Audit log, media files, and payment records aren\'t included (flagged in the export).',
@@ -619,6 +674,11 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     label: 'The Day',
     roles: ['guest'],
     articles: [
+      {
+        slug: 'what-to-wear',
+        title: 'What should I wear?',
+        body: 'Open your invitation and find Dress code. It shows what you wear for your own role, in the couple’s colours, with their do’s and don’ts. If the couple allows more than one outfit, wear any one of them in any of the colours shown.',
+      },
       {
         slug: 'find-your-table',
         title: 'Find your seat',

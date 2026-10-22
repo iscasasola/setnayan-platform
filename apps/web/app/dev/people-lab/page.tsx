@@ -21,6 +21,9 @@ import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/p
 import { FollowListView } from '@/app/dashboard/(account)/people/_components/follow-list-view';
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
+import { TOURS } from '@/lib/tours';
+import { LovedOnesTip } from '@/app/dashboard/(account)/people/_components/loved-ones-tip';
+import { LabTour } from './lab-tour';
 
 const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): RosterPerson => ({
   kind: 'connection',
@@ -116,6 +119,11 @@ export default async function PeopleLabPage({
   };
   const lovedOnes = (
     <div className="pb-3" data-people-view="alaga">
+      {/* The page's own head (Add a loved one is a server door — a stand-in here) and its own ⓘ. */}
+      <div className="mb-3 mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-view-door="alaga">
+        <span className="button-secondary inline-flex items-center gap-2 text-sm">Add a loved one</span>
+        <LovedOnesTip />
+      </div>
       <p className="py-2 text-sm text-ink/65">{kind === 'full' ? 'Lola Nena · In your care' : 'No loved ones yet.'}</p>
     </div>
   );
@@ -149,6 +157,13 @@ export default async function PeopleLabPage({
         </div>
       </main>
       <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
+      {/* 🔦 ?tour=bar | people — the account screens' spotlights on this fixture (help-sync, 2026-10-22). */}
+      {sp.tour === 'bar' || sp.tour === 'people' ? (
+        <LabTour
+          tourKey={sp.tour === 'bar' ? 'customer_account_bar_v1' : 'customer_people_v2'}
+          script={TOURS[sp.tour === 'bar' ? 'customer_account_bar_v1' : 'customer_people_v2'].spotlight!}
+        />
+      ) : null}
     </div>
   );
 }

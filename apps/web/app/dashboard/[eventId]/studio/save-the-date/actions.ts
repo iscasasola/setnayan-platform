@@ -223,21 +223,18 @@ export async function saveAllStdContent(
     const storedMedia = resolveStdMedia(stored?.std_media, eventId);
     /* 💎 PART BY PART (owner 2026-10-22): the film is the Reveal part's (gate 3), the song the Music part's (gate 4) —
        each asked of its own part, and a refusal of either refuses the save. */
-    const asks: Array<{ change: LookChange; part: 'reveal' | 'music' }> = [];
-    if (wantsMedia) {
-      asks.push({
-        part: 'reveal',
-        change: refChange(
+    const filmChange: LookChange = wantsMedia
+      ? refChange(
           storedMedia.type === 'video' ? (storedMedia.videoKey ?? null) : null,
           wantsMedia.type === 'video' ? (wantsMedia.videoKey ?? null) : null,
-        ),
-      });
-    }
-    if (wantsSong) {
-      asks.push({ part: 'music', change: refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong) });
-    }
-    const allowed = await Promise.all(asks.map((a) => lookProAllows(eventId, a.change, a.part)));
-    if (allowed.includes(false)) {
+        )
+      : 'none';
+    const songChange: LookChange = wantsSong ? refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong) : 'none';
+    const [filmOk, songOk] = await Promise.all([
+      lookProAllows(eventId, filmChange, 'reveal'),
+      lookProAllows(eventId, songChange, 'music'),
+    ]);
+    if (!filmOk || !songOk) {
       return { ok: false, error: LOOK_PRO_REQUIRED };
     }
   }

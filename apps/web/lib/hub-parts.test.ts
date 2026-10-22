@@ -33,6 +33,7 @@ import { emptyHubDraft, mergeHubDraft, planHubDraftApply, hubDraftItemParts, sum
 import { hubDraftChangeLines } from './hub-draft-change-lines';
 import { hubDraftProEffects } from './hub-pro-effects';
 import { INVITE_THEMES } from './invite-themes';
+import { SPATIAL_THEME_KEYS } from './spatial-backdrop';
 import type { InvitationWidgetRow } from './invitation-widgets';
 
 /* ── (A) THE GATES ──────────────────────────────────────────────────────── */
@@ -166,17 +167,18 @@ function triedEverything() {
       invite_theme: PRO_THEME, // style
       std_reveal_template: 'four-flap', // reveal
       site_bg_music_r2_key: ref('site-music/ours.mp3'), // music
-      rsvp_backdrop: { theme: 'petals', intensity: 'soft' }, // background
+      rsvp_backdrop: { theme: SPATIAL_THEME_KEYS[0], intensity: 'standard' }, // background
       site_magic_traveller: 'bar', // logo & qr
       our_photos: [ref('our-photos/one.jpg')], // photos
       style_preferences: { qr: { shape: 'circle' }, camera_look: 'brand', block_looks: { entourage: { motion: { in: { fade: true } } } } },
       rsvp_ask_config: { look: { lines: { 'rsvp.question': { c: '#8a1c2b', i: { fade: true } } } } },
     },
     widgets: {
-      schedule: { canvas: { focal: 2, preset: 'rise', elements: { heading: { font: 'script', motion: { during: 'glow' } } } } },
+      schedule: { canvas: { kind: 'photo', media: ref('our-photos/one.jpg'), focal: 2, preset: 'rise', elements: { heading: { font: 'script', motion: { during: 'glow' } } } } },
       custom_1: { custom: { title: 'Ours', body: 'A scene of our own.' }, mode: 'shown' },
     },
     fixedStyles: { hero_names: 'one-line' },
+    editorial: { sceneLooks: { couple: { style: 'words-only' } } },
   } as never);
   return d;
 }
@@ -186,7 +188,8 @@ const ALL_NAMED = partsNamed(false);
 
 test('(D) anti-vacuity: a free couple’s held effects span most of the parts', () => {
   console.log(`[hub-parts] parts named for a free couple: ${[...ALL_NAMED].sort().join(', ')}`);
-  assert.ok(ALL_NAMED.size >= 8, `only ${ALL_NAMED.size} parts reached the Apply sheet — the fixture tries too little`);
+  /* Prints and Custom address are never drafted in the Maker (prints are served, the address is PR 2) — the other nine are. */
+  for (const p of HUB_PART_IDS.filter((x) => x !== 'prints' && x !== 'address')) assert.ok(ALL_NAMED.has(p), `${p} never reached the Apply sheet — the fixture tries too little`);
   /* Every held item's parts are named; nothing is held that no effect names. */
   const plan = planHubDraftApply(triedEverything(), LIVE, false);
   const heldParts = new Set(plan.refused.flatMap((i) => hubDraftItemParts(i, LIVE)));
@@ -241,7 +244,9 @@ test('(D) the toolbar’s derived count after a save equals the render’s, for 
     const rendered = { ...summarizeHubDraft(d, LIVE, o), changes: hubDraftChangeLines(d, LIVE, o) };
     const derived = hubSummaryFor(free, owned, hubOwnershipView(o));
     assert.equal(derived.proCount, rendered.proCount, `${part}: the toolbar would count ${derived.proCount} held, the plan holds ${rendered.proCount}`);
-    assert.deepEqual(derived.changes?.map((l) => l.held), rendered.changes?.map((l) => l.held), `${part}: a line is held on one side only`);
+    /* The same lines held on both sides (a released line moves into the applied half of the render's walk — order aside). */
+    const key = (ls?: readonly { place: string; what: string; held: boolean }[]) => (ls ?? []).map((l) => `${l.place}·${l.what}·${l.held}`).sort();
+    assert.deepEqual(key(derived.changes), key(rendered.changes), `${part}: a line is held on one side only`);
   }
 });
 

@@ -358,14 +358,13 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
  */
 export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: HubOwnershipLike): HubDraftChangeLine[] {
   if (!draft) return [];
-  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
-    ...hubDraftChangePlace(item, live, stage),
-    pro: item.pro,
-    held,
-    /* 💎 The parts it needs (2026-10-22). A held line that is not Pro itself is the theme's board, held WITH a held Pro
-       theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE") — it needs what the theme needs. */
-    parts: item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [],
-  }));
+  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => {
+    /* 💎 The parts it needs (2026-10-22) — present only on a line that needs one. A held line that is not Pro itself is
+       the theme's board, held WITH a held Pro theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE")
+       — it needs what the theme needs. */
+    const parts = item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [];
+    return { ...hubDraftChangePlace(item, live, stage), pro: item.pro, held, ...(parts.length > 0 ? { parts } : {}) };
+  });
 }
 
 function isPlainObjectValue(v: unknown): v is Record<string, unknown> {

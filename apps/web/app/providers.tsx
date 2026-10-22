@@ -28,7 +28,6 @@ import { DeferredObservability } from './_components/deferred-observability';
 import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
 import { GlobalSliderHint } from './_components/global-slider-hint';
-import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
 import { ToastFromParams } from './_components/toast/toast-from-params';
@@ -158,15 +157,6 @@ export function Providers({
           buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
         }}
       >
-        {/*
-          TODO: pass `userId` from a server component once we have a clean
-          place to read it (e.g., a SignedInProviders wrapper). For now the
-          PostHogProvider resolves the Supabase user_id itself via the
-          browser client + onAuthStateChange — keeps providers.tsx free of
-          server-only imports and avoids plumbing the id through every
-          layout.
-        */}
-        <PostHogProvider>
           {/*
             App-wide blocking loader overlay (Organic loaders handoff
             2026-06-07). Provides useLoader() to any client component for
@@ -195,7 +185,6 @@ export function Providers({
               </BrandProvider>
             </LoaderOverlayProvider>
           </LoaderConfigProvider>
-        </PostHogProvider>
         {/*
           Sentry browser SDK is lazy-loaded post-hydration via a deferred
           client component so the ~105 kB `@sentry/nextjs` chunk stays

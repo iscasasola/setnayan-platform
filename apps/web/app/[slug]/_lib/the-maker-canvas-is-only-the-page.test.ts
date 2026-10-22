@@ -97,7 +97,7 @@ test('the "Guest bars" switch brings back only the GUEST bars, never the host\'s
 test('SOURCE: the root layout notices are hidden in the canvas by their one attribute', () => {
   assert.match(BODY, /isEditorCanvas \? <style>\{EDITOR_CANVAS_HIDES_APP_CHROME\}<\/style> : null/);
   assert.match(EDITOR_CANVAS_HIDES_APP_CHROME, /\[data-app-chrome\]\{display:none!important\}/);
-  for (const rel of ['../../_components/cookie-consent-banner.tsx', '../../_components/stale-tab-notice.tsx']) {
+  for (const rel of ['../../_components/stale-tab-notice.tsx']) {
     assert.match(read(rel), /data-app-chrome=""/, `${rel} must carry data-app-chrome`);
   }
 });

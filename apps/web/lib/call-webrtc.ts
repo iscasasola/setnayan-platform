@@ -28,7 +28,6 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { reportConnectionType } from '@/lib/webrtc-telemetry';
 
 /** STUN-only fallback when a caller passes no `iceServers` (or TURN is unconfigured). */
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
@@ -137,7 +136,6 @@ export function joinCall(opts: {
     if (pc || closed) return;
     const peer = new RTCPeerConnection({ iceServers });
     pc = peer;
-    reportConnectionType(peer, 'call'); // relay-vs-direct telemetry (best-effort)
     armConnectTimeout();
 
     for (const track of localStream.getTracks()) peer.addTrack(track, localStream);

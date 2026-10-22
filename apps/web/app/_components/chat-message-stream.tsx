@@ -1216,7 +1216,6 @@ export function ChatMessageStream({
                               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                               wrapperClassName="flex w-full flex-col items-start"
-                              source="chat_quote_card"
                             />
                           ) : (
                             <Link

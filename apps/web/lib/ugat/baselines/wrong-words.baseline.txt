@@ -23,7 +23,6 @@ app/[slug]/_lib/room-links.ts "Happening now" → /[slug]/hub	# first run 2026-1
 app/[slug]/_lib/room-links.ts "The album" → /[slug]/recap	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Walk the room" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/avatar/_components/avatar-maker.tsx "See me in the room →" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
-app/[slug]/find-seat/_components/seat-frame.tsx "Confirm your Booking" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/hub/page.tsx "See the venue map →" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/creators/_components/creator-story-hero.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/creators/_components/creator-story-sections.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
@@ -37,7 +36,6 @@ app/dashboard/(account)/people/[dependentId]/page.tsx "Visit the shop" → /[slu
 app/dashboard/(account)/profile/page.tsx "secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/profile/page.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/profile/page.tsx "View public profile" → /u/[userSlug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/dashboard/(launcher)/_components/account-bottom-nav.tsx "Discover" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(launcher)/_components/year-moments-strip.tsx "Add your birthday" → /dashboard/profile	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/checklist/checklist-full.tsx "· available" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/event-dashboard.tsx "t replied yet" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

@@ -145,6 +145,19 @@ function seedRequests(dateKey: string): DayRequest[] {
       proposed_location: null,
       note: 'The cake needs 20 minutes at room temperature — right after the first dance works.',
     },
+    {
+      /* A change in WORDS ONLY — no new time, place or name (coordinator walk 2026-10-23): Approve moves nothing,
+         and the sheet says so ("a note only"). */
+      suggestion_id: 'r4',
+      block_id: 'cock',
+      kind: 'adjust',
+      by: 'Casa Catering',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      note: 'Could the bar sit by the garden steps instead of the terrace door?',
+    },
   ];
 }
 

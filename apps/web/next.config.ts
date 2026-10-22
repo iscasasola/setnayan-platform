@@ -121,7 +121,7 @@ const remoteImagePatterns = [
 //
 // We intentionally ship ONLY `frame-ancestors 'self'` for CSP — NOT a full
 // resource/script CSP. A strict default-src/script-src would have to enumerate
-// every external origin we load (Supabase · Sentry ingest · PostHog · R2 ·
+// every external origin we load (Supabase · Sentry ingest · R2 ·
 // Maya · YouTube · Google Fonts · Vercel) AND would break the inline
 // Babel-standalone keynote decks under public/keynote/* — so a tested
 // resource-CSP is a deliberate follow-up, not this change.
@@ -192,11 +192,10 @@ const CSP_REPORT_ONLY = [
   //
   // 🔑 REPORT-ONLY DATA IS A LOWER BOUND ON WHAT BREAKS. Read the code for the
   // rarely-exercised paths; the table only knows what visitors happened to hit.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com https://challenges.cloudflare.com https://itunes.apple.com https://cdn.jsdelivr.net",
-  // ↑ MEASURED 2026-08-02: PostHog loads its client from
-  // `us-assets.i.posthog.com`, and it was in connect-src but NOT script-src —
-  // so the policy let PostHog SEND but not LOAD. Enforcing the old list would
-  // have killed product analytics outright. Exactly what report-only is for.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://challenges.cloudflare.com https://itunes.apple.com https://cdn.jsdelivr.net",
+  // ↑ 2026-10-22: `https://*.posthog.com` LEFT both lists with PostHog itself
+  // (owner: essential cookies only). Nothing loads from or sends to it now, so
+  // a report naming it would mean an analytics SDK came back.
   //
   // ↑ 2026-08-11, both found by `csp-embeds-are-allowed.test.ts` once it was
   // taught to look at SCRIPT hosts, not just `<iframe>` markup we wrote:
@@ -238,7 +237,7 @@ const CSP_REPORT_ONLY = [
   // the r2.dev host. A future custom domain would still be an ADD, not a swap,
   // because the dev URL is currently the ONLY public path to the bucket —
   // disabling it before a custom domain is Active blacks out 1.11 GB of media.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the

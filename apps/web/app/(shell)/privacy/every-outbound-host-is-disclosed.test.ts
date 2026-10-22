@@ -26,7 +26,7 @@
  *
  * ⚠ WHAT THIS CANNOT SEE, stated rather than left to be discovered: a host
  * assembled at runtime from parts, or reached through an SDK that never names
- * its endpoint in our source (Supabase, Sentry, PostHog and Resend are all in
+ * its endpoint in our source (Supabase, Sentry and Resend are all in
  * EXEMPT for that reason AND are all already disclosed). This guard raises the
  * floor; it is not a proof of completeness.
  *
@@ -163,8 +163,8 @@ test('the page does not claim analytics are anonymous', () => {
   for (const claim of ['no personal identifiers', 'Anonymized product analytics', 'anonymous analytics']) {
     assert.ok(
       !page.includes(claim),
-      `/privacy still says "${claim}". lib/analytics.ts sets distinctId to the Supabase user_id and the ` +
-        'browser SDK calls posthog.identify(user.id), so analytics events are linked to a named account.',
+      `/privacy still says "${claim}". When Setnayan ran PostHog (until 2026-10-22) its events were keyed to the ` +
+        'Supabase user_id, so this sentence was false; there is no product analytics now — say that instead.',
     );
   }
 });

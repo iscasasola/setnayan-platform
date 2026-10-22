@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
  * the bug worth catching is not "does this one banner return null" — it is the
  * one that has now recurred THREE times:
  *
- *   · <CookieConsentBanner> shipped with no route gate at all (#3721).
+ *   · <CookieConsentBanner> shipped with no route gate at all (#3721). (It was
+ *     removed outright on 2026-10-22 — essential cookies only.)
  *   · <DemoModeBanner> was gated in the same sweep.
  *   · <PilotModeBanner> was missed by BOTH and was gated here (2026-07-26).
  *     It was then DELETED outright on 2026-07-27 — it promised "everything is
@@ -82,12 +83,13 @@ test('every *-banner mounted in the root layout reaches the capture gate', () =>
     .map((m) => m[1])
     .filter((n): n is string => typeof n === 'string');
 
-  // Floor = the banners known to be mounted today (cookie-consent, demo-mode).
-  // Raise it when a banner is added; lower it ONLY when one is genuinely
-  // deleted, as <PilotModeBanner> was on 2026-07-27. A silent drop to zero
-  // would make the loop below vacuous and this guard useless.
+  // Floor = the banners known to be mounted today (demo-mode). Raise it when a
+  // banner is added; lower it ONLY when one is genuinely deleted, as
+  // <PilotModeBanner> was on 2026-07-27 and <CookieConsentBanner> on 2026-10-22
+  // (essential cookies only — there is nothing optional to ask). A silent drop
+  // to zero would make the loop below vacuous and this guard useless.
   assert.ok(
-    mounted.length >= 2,
+    mounted.length >= 1,
     `Expected to find the known banners in the root layout, found ${mounted.length}: ` +
       `${mounted.join(', ')}. If the layout was restructured, update this test ` +
       `rather than weakening it — it is the only thing standing between a new ` +

@@ -270,11 +270,8 @@ test('(5) the page wears it: the button never floats, the component measures wha
   // It writes custom properties and one attribute — never a position of its own.
   assert.doesNotMatch(fit, /style\.(?:position|top|transform)\b/, 'the component positions a block itself');
 
-  // The banner says where its top is — only as the full-width sheet — and takes the word back when it goes.
-  const banner = stripComments(read('app/_components/cookie-consent-banner.tsx'));
-  assert.match(banner, /const BANNER_TOP_VAR = '--cookie-banner-top';/);
-  assert.match(banner, /if \(r\.width >= window\.innerWidth - 1\) root\.style\.setProperty\(BANNER_TOP_VAR, `\$\{Math\.round\(window\.innerHeight - r\.top\)\}px`\);/);
-  assert.ok((banner.match(/root\.style\.removeProperty\(BANNER_TOP_VAR\)/g) ?? []).length >= 2, 'the banner’s top outlives the banner');
+  // (The cookie banner that published `--cookie-banner-top` was removed 2026-10-22 — essential cookies only — so the
+  // variable is never set and the fit reads 0 for it: the door's limit is the bar's, as on any answered visit.)
 });
 
 /* ── (6) 📷 A PHOTO COVER IS FITTED TOO (owner 2026-10-13, DECISION_LOG: *"do it"*) ─────────────────────────────────────

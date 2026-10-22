@@ -12,6 +12,9 @@ UPDATE with zero rows and no error, so these writers reported success over an un
 - **A supplier's change in words only** (no new time, place or name): the sheet says "a note only — nothing on the
   schedule moves", and the supplier's notice says "They read your note — nothing on the schedule moved" instead of
   "Your proposed change is now on their schedule". One predicate, `isNoteOnlySuggestion` (`lib/schedule-ros.ts`).
+- **A refused shift left the sheet open with no word of why**: the line sat at the foot of a nine-row list (below
+  the fold at 375 px), and the sheet's reset ran on every fresh moments array, wiping it as it was set. The line is
+  now in the sticky bar beside "Shift the day", and the sheet resets only as it opens.
 - A template pressed on a stale screen (the schedule is no longer empty) redraws the page instead of doing nothing.
 - Copy: "Guests see public blocks on the Event Hub" (was "their invitation site").
 

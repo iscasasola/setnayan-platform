@@ -125,18 +125,21 @@ export async function floorRetimeFrom(
 
   let moved = 0;
   for (const p of patches) {
-    const { error } = await ctx.supabase
+    const { data: changed, error } = await ctx.supabase
       .from('event_schedule_blocks')
       .update({ start_at: p.start_at, end_at: p.end_at })
       .eq('block_id', p.block_id)
-      .eq('event_id', eventId);
-    if (error) {
+      .eq('event_id', eventId)
+      .select('block_id');
+    // RLS answers a refused UPDATE with ZERO rows and no error (a booked coordinator without The Day = Edit) —
+    // counted as refused, so the floor never says "Moved 6 blocks." over an unmoved day.
+    if (error || !changed?.length) {
       // Report what actually happened rather than claiming a clean run.
       return {
         ok: false,
         error:
           moved === 0
-            ? 'You do not have permission to move this schedule.'
+            ? 'Nothing moved — the host has not given you edit access to the schedule.'
             : `Only ${moved} of ${patches.length} blocks moved — reload and check the timeline.`,
       };
     }

@@ -11,7 +11,7 @@ import { Plus, X } from 'lucide-react';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
-import { computeRetimePatches, MAX_RETIME_MINUTES } from '@/lib/schedule-ros';
+import { computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
 import {
   formatClock,
   formatClockRange,
@@ -332,12 +332,15 @@ export function ShiftSheet({
   eventId,
   moments,
   fromId,
+  onShifted,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: string;
   moments: DayMoment[];
   fromId: string | null;
+  /** The new times, once the shift LANDED — the rail lays them at once (the Maker's quiet write brings no render). */
+  onShifted?: (patches: readonly RetimePatch[]) => void;
 }) {
   const { bulkRetimeScheduleBlocks } = useDayActions();
   const top = useMemo(
@@ -392,6 +395,7 @@ export function ShiftSheet({
         await bulkRetimeScheduleBlocks(
           toFormData({ event_id: eventId, from_block_id: from, to_block_id: to, delta_minutes: String(delta) }),
         );
+        onShifted?.(patches);
         onClose();
       } catch {
         setError(COULD_NOT_SAVE);
@@ -581,7 +585,9 @@ export function RequestsSheet({
                           ? whenOf(r.proposed_start_at ?? current?.start_at ?? null, r.proposed_end_at, refDate)
                           : r.proposed_label && current
                             ? `rename to “${r.proposed_label}”`
-                            : 'same time'}
+                            : isNoteOnlySuggestion(r)
+                              ? 'a note only'
+                              : 'same time'}
                       </p>
                     </div>
                   </div>
@@ -616,7 +622,9 @@ export function RequestsSheet({
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'
-                        : 'Approving changes the moment on the schedule.'}{' '}
+                        : isNoteOnlySuggestion(r)
+                          ? 'Nothing on the schedule moves — approving says you read it.'
+                          : 'Approving changes the moment on the schedule.'}{' '}
                     {r.by} is told either way.
                   </p>
                 </li>

@@ -49,6 +49,7 @@ export function AddressPinField({
   initialAddress,
   initialPin,
   hideHints = false,
+  pinLocked = null,
   onChange,
 }: {
   id?: string;
@@ -64,6 +65,12 @@ export function AddressPinField({
    * "Pinned at …" line stays: it IS the pin. Default (every other caller): shown.
    */
   hideHints?: boolean;
+  /**
+   * 📍 THE PIN IS NOT THE COUPLE'S TO SET (owner 2026-10-22, `lib/venue-pin-door.ts`): a venue that is a Setnayan
+   * shop follows the shop's own pin. Given, only the address row is drawn — no Find, no map, no pin posted — and
+   * this line says whose pin the guests' map uses (or that the shop has not pinned yet). Default: the full field.
+   */
+  pinLocked?: string | null;
   /** The address and the pin, every time either changes — for a caller with no form (the Maker's draft). */
   onChange?: (next: { address: string; pin: LatLng | null }) => void;
 }) {
@@ -131,15 +138,25 @@ export function AddressPinField({
             />
           </FormRows>
         </div>
-        <ActionButton
-          tone="neutral"
-          icon={locating ? Loader2 : Search}
-          label="Find"
-          name="Find this address on the map"
-          onClick={locate}
-          disabled={disabled || locating}
-        />
+        {pinLocked == null ? (
+          <ActionButton
+            tone="neutral"
+            icon={locating ? Loader2 : Search}
+            label="Find"
+            name="Find this address on the map"
+            onClick={locate}
+            disabled={disabled || locating}
+          />
+        ) : null}
       </div>
+
+      {pinLocked != null ? (
+        <p className="flex items-center gap-1 text-[11.5px] text-ink/60" data-pin-locked="">
+          <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.9} />
+          {pinLocked}
+        </p>
+      ) : (
+        <>
 
       {hideHints ? null : (
         <p className="text-[10px] text-ink/45">
@@ -178,6 +195,8 @@ export function AddressPinField({
       ) : null}
 
       {note ? <p className="text-[11px] text-warn-800">{note}</p> : null}
+        </>
+      )}
     </div>
   );
 }

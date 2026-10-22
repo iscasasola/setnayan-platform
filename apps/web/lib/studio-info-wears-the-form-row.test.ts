@@ -131,7 +131,8 @@ test('(2) date and venue are one quiet line each: the value, where it is changed
   assert.match(await paint(h(StudioReadOnlyFact, { label: 'Venue', value: null, line: 'x', data: 'venues' })), />Not set yet</);
   const block = read(DETAILS);
   assert.match(block, /editors\.date = <StudioTool part="fact" label="Date" /);
-  assert.match(block, /editors\.venues = <StudioTool part="fact" label=\{ye\?\.rows\.venues\?\.label \?\? 'Venue'\} /);
+  /* 📍 2026-10-22: the venues are `StudioVenues` (a manual venue's pin is set there); the quiet fact stays for an event with no venue slots. */
+  assert.match(block, /editors\.venues = yeIn\.venues\.slots\.length\s*\?\s*<StudioTool part="venues" [^\n]*\n\s*: <StudioTool part="fact" label=\{ye\?\.rows\.venues\?\.label \?\? 'Venue'\} /);
 });
 
 /* ── (3) the words ────────────────────────────────────────────────────── */

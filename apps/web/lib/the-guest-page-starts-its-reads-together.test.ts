@@ -108,6 +108,8 @@ test('only these reads are started ahead — each one every path below awaits, n
     aheadCalls(LOADERS).sort(),
     [
       'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
+      'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
       'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
       // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is

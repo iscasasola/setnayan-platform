@@ -9,7 +9,8 @@
  * else. Email sign-ups were never asked twice; Google / Apple sign-ups always were.
  *
  * ── THE PROPERTY ────────────────────────────────────────────────────────────
- *   1. ONE box, above every door — the Google / Apple row sits under it and inside its gate.
+ *   1. ONE box for every door — just above "Create user account" (owner 2026-10-22, "do both"); the Google / Apple
+ *      row above it sits inside its gate.
  *   2. The tick travels only as a tick: an httpOnly cookie the SERVER sets from an affirmative posted tick, never
  *      OAuth `state` (Supabase owns that) and never a URL parameter (anyone can type one).
  *   3. The callback records it — only where nothing is on record — and spends it.
@@ -69,18 +70,23 @@ test('an account with no stamp still meets the one-time re-ask', () => {
 
 // ── THE CARD ───────────────────────────────────────────────────────────────
 
-// SABOTAGE: move the box below the OAuth row → RED.
+// SABOTAGE: move the box back above the OAuth row → RED (owner 2026-10-22, "do both": choose how → agree → create).
+// SABOTAGE: move the box below the submit → RED.
 // SABOTAGE: put `<OAuthTermsLine />` back under the row → RED.
-test('/signup: ONE box, above Google / Apple and the email form, and no browsewrap line', () => {
+test('/signup: ONE box, just above "Create user account", gating Google / Apple, and no browsewrap line', () => {
   const page = code('app/signup/page.tsx');
   const box = page.indexOf('name={TERMS_FIELD}');
   assert.ok(box > 0, 'the Terms box is gone from /signup');
   assert.equal(page.split('name={TERMS_FIELD}').length - 1, 1, 'exactly one box — the tick is asked once');
-  for (const row of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons', '<form action={signUp}']) {
-    const at = page.indexOf(row);
-    assert.ok(at > 0, `${row} moved — this guard is pointed at nothing`);
-    assert.ok(box < at, `the Terms box must sit ABOVE ${row} — it is the agreement for every door`);
+  // The reading order (owner 2026-10-22, "do both"): choose how (Google · Apple · or email + password) → agree → create.
+  for (const before of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons', '<form action={signUp}', 'name="email"', 'name="password"']) {
+    const at = page.indexOf(before);
+    assert.ok(at > 0, `${before} moved — this guard is pointed at nothing`);
+    assert.ok(at < box, `the Terms box must sit BELOW ${before} — the card reads choose how, then agree, then create`);
   }
+  const submit = page.indexOf('<SubmitButton');
+  assert.ok(submit > box, 'the Terms box must sit ABOVE the button that creates the account — below it is browsewrap');
+  assert.ok(box < page.indexOf('</form>'), 'the box is inside the email form, so the email door posts it');
   const wrap = page.indexOf('<TermsFirst boxId={TERMS_BOX_ID}>');
   const close = page.indexOf('</TermsFirst>');
   for (const row of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons']) {
@@ -91,6 +97,10 @@ test('/signup: ONE box, above Google / Apple and the email form, and no browsewr
   assert.doesNotMatch(page, /<OAuthTermsLine/, 'the "By continuing…" line is browsewrap — the box above is the agreement');
   const tag = page.match(/<input id=\{TERMS_BOX_ID\}[^>]*>/)?.[0] ?? '';
   assert.doesNotMatch(tag, /data-password-only/, 'the box must never fold away with the password half — it covers Google too');
+  // Inside the form now, so its LABEL must not fold away either (`GoogleAddressDoor` hides every `[data-password-only]`).
+  const label = page.match(/<label htmlFor=\{TERMS_BOX_ID\}[^>]*>/)?.[0] ?? '';
+  assert.ok(label, 'the box has lost its label — the label is the 44 px press');
+  assert.doesNotMatch(label, /data-password-only/, 'the Terms row must never fold away with the password half');
 });
 
 // SABOTAGE: let the gate carry before checking `box.checked` → RED.

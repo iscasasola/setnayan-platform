@@ -47,7 +47,7 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { formatPhp, formatPhpRounded } from '@/lib/php';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { formatCount } from '@/lib/format-number';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
@@ -278,7 +278,7 @@ export default async function EventDetailsPage({
           ),
       moneyHidden || !budgetTruth ? Promise.resolve(null) : settle(resolveEventMoney(supabase, eventId)),
       moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
-      settle(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
+      settle(eventHubOwnership(await eventEntitlementClient(eventId), eventId)),
       readEventPoolStatus(admin, eventId),
       /* 💾 The Event Hub draft — what the couple changed and has not applied.
          A draft that cannot be read shows the live values (no "waiting" marks). */
@@ -311,8 +311,10 @@ export default async function EventDetailsPage({
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
   // ── The look (as drafted) ─────────────────────────────────────────────────
-  const ownsPro = proRead.ok && proRead.v === true;
-  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsPro || (canEditHub && !storeShell) })];
+  // 💎 Part by part (owner 2026-10-22): "Event Hub Pro · Active" is everything; a Pro theme is the Style part's (13).
+  const ownsPro = proRead.ok && proRead.v.full;
+  const ownsStyle = proRead.ok && (proRead.v.full || proRead.v.parts.has('style'));
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsStyle || (canEditHub && !storeShell) })];
   const headingFontKey = sanitizeHubFontKey(shown.site_font_key);
   const headingFont = headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading;
   const storedPalette = sanitizeRolePalette(e.role_palette);

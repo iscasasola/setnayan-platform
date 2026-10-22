@@ -7,7 +7,7 @@ import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO } from '@/lib/ambient-effects';
 import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
-import { websiteProActiveFor } from './hub-look';
+import { hubPartActiveFor } from './hub-look';
 import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
@@ -89,8 +89,9 @@ async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
   }
   // The ownership read only where it can change the answer (a free theme with
   // a loop); cached per request, shared with the theme gate and the watermark.
+  // 💎 Background part (gates 9, 21) — Full Pro and the cap included.
   const ownsPro = heroGroundNeedsOwnership(theme)
-    ? await websiteProActiveFor(event.event_id).catch(() => false)
+    ? await hubPartActiveFor(event.event_id, 'background').catch(() => false)
     : false;
   /* 🎞 A MOVING BACKGROUND OF OURS (owner 2026-10-05, DECISION_LOG "THEMES ARE
      REPLACED BY THREE DIRECT GLOBAL SETTINGS"): one of the shipped loops, picked
@@ -201,7 +202,7 @@ async function effectOver(ground: ReactNode, { theme, heroConfig, event, tryOn =
   const main = hubMainGround(heroConfig);
   const effect = hubMainEffect(main);
   if (!effect) return ground;
-  if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
+  if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await hubPartActiveFor(event.event_id, 'background').catch(() => false))) return ground;
   const shown = ground === null ? null : main;
   const spec = lookSampleEffect(effect, lookEffectOn(shown, lookRowOf(event), theme, true));
   if (!spec) return ground;

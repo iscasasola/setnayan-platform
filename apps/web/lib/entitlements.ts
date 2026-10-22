@@ -348,7 +348,12 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Hub Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']),
+    // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the
+    // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
+    // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the
+    // part's buyers own the animation (the line above). Read side only: past AND pending orders, no backfill.
+    COUPLE_HUB_PART_LOGO_QR: Object.freeze(['ANIMATED_MONOGRAM']),
     // LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE (owner 2026-08-11, "remove
     // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
     // unlock an LED maker whose output nothing could produce. The whole
@@ -1157,6 +1162,84 @@ async function eventOrdersForGate(
     throw new Error(`Failed to resolve ${what} for ${serviceKey}: ${read.error.message}`);
   }
   return read.rows;
+}
+
+/**
+ * 💎 THE EVENT'S ORDER ROWS, for the Event Hub Pro cap (`lib/hub-parts.ts`
+ * `hubOwnershipFrom`) — the cap is a SUM over paid part orders, so it needs the
+ * rows, not a yes/no per product.
+ *
+ * In a render it is the SAME one read every gate already shares
+ * (`eventOrdersOnce`), so the cap costs no extra request there; outside a render
+ * it asks only for the codes it was given. Fails CLOSED: an unreadable table
+ * reads as no orders — the cap then cannot be reached by error.
+ */
+export async function eventOrderRowsFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKeys: readonly string[],
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const keep = (rows: ReadonlyArray<OrderRow>) =>
+    rows.flatMap((r) =>
+      r.service_key !== null && r.status !== null && serviceKeys.includes(r.service_key)
+        ? [{ service_key: r.service_key, status: r.status }]
+        : [],
+    );
+  if (insideRender()) {
+    const read = await eventOrdersOnce(supabase, eventId);
+    return read.error ? [] : keep(read.rows);
+  }
+  const { data, error } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('service_key', [...serviceKeys]);
+  if (error) {
+    console.error('[supabase-error] entitlements: eventOrderRowsFor', error);
+    return [];
+  }
+  return keep((data ?? []) as OrderRow[]);
+}
+
+/**
+ * 💎 Every line that buys one of `codes` on this event — its own order (`service_key`) AND a line inside a
+ * multi-product bill (`onboarding_order_items`, e.g. several Event Hub Pro parts bought in one press), each with its
+ * order's status. In a render it is the entitlement facts every gate already shares (orders + basket lines, one RPC);
+ * outside it, the orders read plus the basket RPC per code. Fails CLOSED to "no lines".
+ */
+export async function eventSkuLinesFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  codes: readonly string[],
+  /** The bill code whose lines can carry `codes` — outside a render the basket is asked only when such a bill exists. */
+  billKey?: string,
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const rows = await eventOrderRowsFor(supabase, eventId, billKey ? [...codes, billKey] : codes);
+  const direct = rows.filter((r) => r.service_key !== billKey);
+  const facts = insideRender() ? await entitlementFactsOnce(supabase, eventId) : null;
+  if (facts) {
+    return [
+      ...direct,
+      ...facts.basket.filter((b) => codes.includes(b.serviceCode)).map((b) => ({ service_key: b.serviceCode, status: b.status })),
+    ];
+  }
+  if (billKey && direct.length === rows.length) return direct;
+  const basket = await Promise.all(
+    codes.map(async (code) =>
+      (await eventBasketOrdersGranting(supabase, eventId, code)).map((r) => ({ service_key: code, status: r.status })),
+    ),
+  );
+  return [...direct, ...basket.flat()];
+}
+
+/** Does this status confer ACCESS (admin-approved) — the feature-gate rule? */
+export function orderStatusConfersAccess(status: string | null): boolean {
+  return confersAccess(status);
+}
+
+/** Does this status confer OWNERSHIP (anything not relinquished) — the buy-surface rule? */
+export function orderStatusConfersOwnership(status: string | null): boolean {
+  return confersOwnership(status);
 }
 
 /**

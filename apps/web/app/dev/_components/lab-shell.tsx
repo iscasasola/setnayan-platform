@@ -26,7 +26,8 @@
 import type { ReactNode } from 'react';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
-import { BottomDock } from '@/app/_components/nav/bottom-nav';
+import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
+import { labEventBarItems, type LabEventBar } from '@/app/dev/bar-lab/lab-bar';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
@@ -49,9 +50,12 @@ export function LabShell({
   eventId,
   children,
   gutter = true,
+  eventBar,
 }: {
   eventId: string;
   children: ReactNode;
+  /** The REAL event tab list for a type's gates (`/dev/bar-lab`'s `labEventBar`) in place of the stand-in labels. */
+  eventBar?: LabEventBar;
   /** Draw the event layout's own content gutter (`px-4 sm:px-6 lg:px-8`). Off for a lab that draws it itself. */
   gutter?: boolean;
 }) {
@@ -95,6 +99,9 @@ export function LabShell({
         </div>
       </FrontDoorShell>
       <BottomDock boundary="tab">
+        {eventBar ? (
+          <BottomNav items={labEventBarItems(eventId, eventBar)} />
+        ) : (
         <nav className="flex h-16 items-center justify-around text-xs text-ink/70" data-lab-dock="">
           <span>Home</span>
           <span>Guests</span>
@@ -102,6 +109,7 @@ export function LabShell({
           <span>Hub</span>
           <span>More</span>
         </nav>
+        )}
       </BottomDock>
     </>
   );

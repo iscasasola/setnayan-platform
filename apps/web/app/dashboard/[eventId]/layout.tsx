@@ -4,8 +4,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
-import { needsHiddenNavKeys } from '@/lib/event-needs';
-import { readEventNeedsFor } from '@/lib/event-needs-read.server';
+import { eventMenuGates } from '@/lib/event-menu-gates';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -308,13 +307,10 @@ export default async function EventLayout({ children, params }: Props) {
   // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
   const guestCountRead = countGuestsByEvent(supabase, eventId).catch(() => null);
 
-  // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
-  // A vendor-free type drops the Explore (vendor marketplace) tab when its
-  // profile sets marketplace_enabled=FALSE, and the Budget tab when 'budget' is
-  // not an enabled surface. For wedding + every existing type the profile keeps
-  // both (marketplace_enabled DEFAULTs TRUE; their surfaces include budget), so
-  // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
-  // to a hard-coded profile on any DB hiccup.
+  // The event type's profile — the menu's Hub and Seat-plan gates (`eventMenuGates`) and every
+  // per-type surface below. It no longer drops a TAB (owner 22 Oct 2026: every event wears the
+  // wedding's bar — a vendor-free type keeps Suppliers, whose page says suppliers are not listed).
+  // resolveProfile is React-cached + degrades to a hard-coded profile on any DB hiccup.
   // ⛓ CHAINED OFF THE EVENT READ, because it needs the row's type — and asked
   // ONLY when there is a row, exactly as before: a missing event is a 404
   // below, and it never paid for a profile read.
@@ -374,9 +370,6 @@ export default async function EventLayout({ children, params }: Props) {
       : 0,
   );
 
-  // 🚪 What THIS event needs (Level 1) — its own small read, degrading to "everything on".
-  const needsRead = readEventNeedsFor(supabase, eventId, 'EventLayout');
-
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { unreadCount },
@@ -391,7 +384,6 @@ export default async function EventLayout({ children, params }: Props) {
     storeShell,
     owned,
     aiPricePhp,
-    eventNeeds,
   ] = await Promise.all([
     shellRead,
     eventRead,
@@ -405,7 +397,6 @@ export default async function EventLayout({ children, params }: Props) {
     storeShellRead,
     ownedRead,
     aiPriceRead,
-    needsRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -484,27 +475,21 @@ export default async function EventLayout({ children, params }: Props) {
     `referHref` below. A key left here would hide nothing — the handle-with-no-
     gate trap the referral note above describes.
   */
-  // 🚪 …and what THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`): a need switched
-  // off at onboarding is ABSENT from the bar — Guests without a guest list, Suppliers without suppliers.
-  // NULL (never asked, every event before) hides nothing.
-  const navHideKeys = [
-    ...new Set([
-      ...(profile.marketplaceEnabled ? [] : ['explore']),
-      ...needsHiddenNavKeys(eventNeeds),
-    ]),
-  ];
+  // 🧭 EVERY EVENT WEARS THE WEDDING'S BAR (owner 22 Oct 2026, "Fix both"): no tab is dropped by the
+  // type's marketplace flag or by what the event left off at onboarding — those still leave Home, the
+  // Maker and Studio, never the bar. The rule is `lib/event-menu-gates.ts` (no hideKeys, by design), so
+  // the lab and the guard that sweeps EVERY event type in the migrations read what this layout reads.
+  const menuGates = eventMenuGates(profile);
   // Gates the Event Hub Maker row to event types whose profile enables the
   // public website. Threaded to the desktop rail + the phone's bottom bar.
-  const websiteEnabled = surfaceEnabled(profile, 'website');
+  const websiteEnabled = menuGates.websiteEnabled;
   // Gates the Studio "Monogram" child to event types whose profile enables the
   // 'monogram' surface (weddings today). Non-wedding events without it never see
   // the monogram maker in the nav. Threaded to the desktop sidebar.
   const monogramEnabled = surfaceEnabled(profile, 'monogram');
-  // 🪑 Gates the DAY-OF "Seats" tab to kinds that seat people (owner
-  // 2026-08-28). Passed as its own prop rather than through `navHideKeys`,
-  // which by its own docblock only filters the PLANNING tree — the day-of
-  // branch returns before that filter, so a hideKeys entry would hide nothing.
-  const seatingEnabled = surfaceEnabled(profile, 'seating');
+  // 🪑 Which row claims the Seat plan's page — kinds that seat people (owner 2026-08-28). A surface,
+  // not a menu key: it never hides a tab.
+  const seatingEnabled = menuGates.seatingEnabled;
 
   /*
     THE EVENT'S STUDIO PRODUCTS, AS PLAIN DATA (owner 2026-09-24 — the Studio
@@ -660,7 +645,6 @@ export default async function EventLayout({ children, params }: Props) {
   const eventRailInputs: EventRailInputs = {
     eventId,
     navSlots,
-    hideKeys: navHideKeys,
     websiteEnabled,
     monogramEnabled,
     slug: (event.slug as string | null) ?? null,
@@ -882,7 +866,7 @@ export default async function EventLayout({ children, params }: Props) {
         `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
       <BottomDock boundary="tab">
-        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
+        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
       </BottomDock>
       {/*
         📲 THE HOST'S WHOLE APP, PRELOADED (owner 2026-10-02, DECISION_LOG "A
@@ -896,7 +880,7 @@ export default async function EventLayout({ children, params }: Props) {
       <AppPreload
         {...appPreloadPlan({
           hostEventId: eventId,
-          hostMenu: { phase, hideKeys: navHideKeys, websiteEnabled, seatingEnabled, studioRows, storeShell, services },
+          hostMenu: { phase, websiteEnabled, seatingEnabled, studioRows, storeShell, services },
           hasShop: switcherData.context.hasVendor,
         })}
       />

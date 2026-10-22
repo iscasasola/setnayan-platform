@@ -28,6 +28,7 @@ import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
+  dayPapicFace,
   HOME_PAID_SKU,
   homeGuestsRead,
   homeServices,
@@ -72,7 +73,7 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
-import { HomeFirstScreen } from './_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen } from './_components/home-first-screen';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -856,6 +857,9 @@ export default async function EventHomePage({
         )
       : null,
   });
+  // 📷 Papic on the event day (owner 22 Oct 2026) — the console draws Your services' OWN Papic entry,
+  // so the day and the plan Home can never say two things about one pool. None in the store shell.
+  const dayPapicSvc = homeServiceRow.find((s) => s.key === 'papic');
   // The cover's words — the ONE function the event layout also hands the loading screen.
   const homeCover0 = homeCoverWords({
     event_type: (event.event_type as string | null) ?? null,
@@ -1101,6 +1105,19 @@ export default async function EventHomePage({
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
+          papic={
+            <DayPapicRow
+              eventId={eventId}
+              face={dayPapicFace({
+                svc: dayPapicSvc,
+                papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
+                permitted: canViewPapicCounts,
+                tile: papicTile,
+              })}
+              svc={dayPapicSvc}
+              left={papicNow.count}
+            />
+          }
         />
       ) : null}
 

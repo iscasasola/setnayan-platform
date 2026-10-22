@@ -122,9 +122,15 @@ test('the Seat plan page is claimed only where the kind seats people, on every s
 
 test('layout resolves seatingEnabled and hands it to the bar and the rail', () => {
   const src = code('app/dashboard/[eventId]/layout.tsx');
+  // The layout reads it through the ONE menu rule (`lib/event-menu-gates.ts`, 22 Oct 2026), which
+  // resolves it from the profile exactly once.
   assert.ok(
-    times(src, "surfaceEnabled(profile, 'seating')") === 1,
+    /const seatingEnabled = menuGates\.seatingEnabled;/.test(src) && /eventMenuGates\(profile\)/.test(src),
     'layout.tsx no longer resolves seatingEnabled.',
+  );
+  assert.ok(
+    times(code('lib/event-menu-gates.ts'), "surfaceEnabled(profile, 'seating')") === 1,
+    'the menu rule no longer resolves seatingEnabled from the profile.',
   );
   // 🔄 Stage D (2026-09-29): the section sub-nav is retired — the phone has
   // ONE bar, whose Maker (or Services) tab lights the Seat plan's page (train

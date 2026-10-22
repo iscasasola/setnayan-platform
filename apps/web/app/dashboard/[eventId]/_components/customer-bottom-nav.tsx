@@ -65,8 +65,8 @@ export function CustomerBottomNav({
    * helper renders nothing rather than a badge claiming zero.
    */
   guestCount?: number | null;
-  /** Top-level menu keys to drop for this event type (['explore'] for a
-   *  vendor-free Simple Event). Resolved from the profile in layout.tsx. */
+  /** Top-level menu keys to drop. ⚖ The event layout passes NONE (owner 22 Oct 2026 — every event
+   *  wears the wedding's bar, `lib/event-menu-gates.ts`); kept for a caller that draws a part bar. */
   hideKeys?: string[];
   /** Whether this event type enables 'seating' — gates the Seat plan rail row,
    *  whose pages light the Guest list tab here. Resolved in layout.tsx. */

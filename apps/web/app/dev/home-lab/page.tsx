@@ -39,18 +39,28 @@
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
  *                                    not added · pending = payments waiting · unread = the reads failed
+ *   ?view=day                        📷 the EVENT-DAY console (owner 22 Oct 2026, "Fix both"): the REAL
+ *                                    `DayOfModeGrid` with Home › Your services' own Papic row beside the Live
+ *                                    photo wall (`DayPapicRow`, face from `dayPapicFace`)
+ *     [&face=off|none|failed]        Papic switched off · not on yet · the credits read failed
+ *     [&store=1]                     the App Store / Play shell — no Papic row, as Your services
+ *     [&before=1]                    the console as `main` drew it before 22 Oct (no Papic; with &shell=1,
+ *                                    main's bar rule too — `/dev/bar-lab`'s `was=1`)
+ *     [&shell=1&type=…&needs=…]      the REAL event bar for that type (`/dev/bar-lab`'s gates), phase dayof
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { labEventBar } from '@/app/dev/bar-lab/lab-event';
+import { DayOfModeGrid } from '@/app/dashboard/[eventId]/_components/day-of-mode/grid';
 import { LabSpotlight } from './lab-spotlight';
 import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
-import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
@@ -71,6 +81,7 @@ import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
 import {
   HOME_PAID_SKU,
   aiStatus,
+  dayPapicFace,
   glanceCount,
   glanceDays,
   glanceMoney,
@@ -145,7 +156,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -268,6 +279,60 @@ export default async function HomeLab({
       </div>
     );
     return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
+  }
+  if (q.view === 'day') {
+    /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */
+    const store = q.store === '1';
+    const face = q.face;
+    const dayGlance =
+      face === 'failed' || face === 'none'
+        ? papicGlance({ permitted: true, tile: face === 'failed' ? 'failed' : null, window: { startDate: null, endIso: null }, papicOn: true })
+        : papicNow;
+    const dayServices = homeServices({
+      next: 'plan',
+      storeShell: store,
+      papic: dayGlance.status,
+      papicDoors: { glance: dayGlance, line: dayGlance.line, buy: dayGlance.buy, whileNext: papicRowDoubled(null) },
+      ai: aiStatus(false),
+      eventId: E,
+    });
+    const svc = dayServices.find((x) => x.key === 'papic');
+    const now = Date.now();
+    const at = (min: number) => new Date(now + min * 60_000).toISOString();
+    const blocks = [
+      { block_id: 'b1', label: 'Ceremony', start_at: at(-90), end_at: at(-30), location: 'Garden' },
+      { block_id: 'b2', label: 'Cocktails', start_at: at(-30), end_at: at(30), location: 'Terrace' },
+      { block_id: 'b3', label: 'Dinner & toasts', start_at: at(30), end_at: at(150), location: 'Main hall' },
+    ];
+    const day = (
+      <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
+        <DayOfModeGrid
+          eventId={E}
+          blocks={blocks}
+          headTable={null}
+          nearbyTables={[]}
+          liveWallActive={!store}
+          papic={
+            q.before === '1' ? null : (
+              <DayPapicRow
+                eventId={E}
+                face={dayPapicFace({ svc, papicOn: face === 'off' ? false : true, permitted: true, tile: face === 'failed' ? 'failed' : face === 'none' ? null : {} })}
+                svc={svc}
+                left={dayGlance.count}
+                sizes={LAB_SIZES}
+              />
+            )
+          }
+        />
+      </div>
+    );
+    return q.shell === '1' ? (
+      <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase ?? 'dayof', store: q.store, was: q.before })}>
+        {day}
+      </LabShell>
+    ) : (
+      day
+    );
   }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
   const base: HomeNextInput = ps

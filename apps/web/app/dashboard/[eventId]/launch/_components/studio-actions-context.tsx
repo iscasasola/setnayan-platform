@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled } from '../../pabuya/actions';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { saveManualVenuePin } from '../../vendors/[vendorId]/workspace/actions';
 import type { UploadSend } from '@/lib/upload-send';
 
 /**
@@ -19,7 +20,7 @@ import type { UploadSend } from '@/lib/upload-send';
  * Call sites keep the action's OWN name (`const { saveEgiftMethod } = useStudioActions();`), so every call reads — and every guard
  * that pins "the page calls saveEgiftMethod(…)" still reads — as the real call.
  *
- * Pages on it so far: E-Gifts (`StudioEgifts`, `StudioThanks`, `AnswerPicker`). Prints' two seams are NOT here: the Save buttons' file fetch rides its own tiny
+ * Pages on it so far: E-Gifts (`StudioEgifts`, `StudioThanks`, `AnswerPicker`); Info › Venues' manual pin (`saveManualVenuePin`, 2026-10-22). Prints' two seams are NOT here: the Save buttons' file fetch rides its own tiny
  * context (`print-fetch-context.tsx` — `PrintSaveButton` is rendered by pure-render tests that must not load the server actions this file imports), and the print
  * words form's submit is stood in on the lab's side (`lab-studio-actions.tsx`; its `SoftPost` is in the Maker's first load and must not read a context). EACH PAGE CONVERTED LATER ADDS ITS WRITES HERE, in its
  * own commit — the context is not "done".
@@ -33,6 +34,8 @@ export type StudioActions = {
   savePabuyaMessage: typeof savePabuyaMessage;
   /** The Maker's draft door — "Accept gifts?" and the other Your-info answers. */
   hubDraftAction: typeof hubDraftAction;
+  /** 📍 Info › Venues and Details › Venues: a manual venue's address + pin, on the supplier's own card (owner 2026-10-22). */
+  saveManualVenuePin: typeof saveManualVenuePin;
   /**
    * A stand-in for storage for the QR upload (`FileUpload send`) — `undefined` = the real presigned upload. ONLY the lab provides one.
    */
@@ -44,6 +47,7 @@ export const REAL_STUDIO_ACTIONS: StudioActions = {
   saveEgiftMethod,
   savePabuyaMessage,
   hubDraftAction,
+  saveManualVenuePin,
   qrUploadSend: undefined,
 };
 

@@ -2,7 +2,7 @@
 
 Owner, 22 Oct 2026 — "follow your recommendation":
 
-- **People in the shell's search.** `/dashboard/search` (the in-shell results, #6782) lists a **People** section:
+- **People in the shell's search.** `/dashboard/search` (the in-shell results, #6782 — merged into this branch) lists **People** after your own things (`ShellPeopleSection`, the results' own `fd-item` card):
   your people whose name matches (the roster — names only through `visible_connection_names`, matched by the
   People page's own field matcher `lib/people-name-match.ts`), then **On Setnayan** — `searchPeopleByName`'s
   fence, unchanged (five refusals, four fields, never an email). Nothing new decides who may be found
@@ -23,7 +23,7 @@ Owner, 22 Oct 2026 — "follow your recommendation":
 - Guards: `app/_components/frontdoor/the-top-bar-creates-no-event.test.ts` (renders the shell signed in — both
   variants, slot unsaid / null / the Shop's — and reads the bar; sabotage: a computed-href default → red),
   `lib/a-person-result-opens-their-card.test.ts` (round trip: the search's href → the People page's resolver
-  names the same person; a refused read → unavailable; sabotage: resolve on `connectionId` → red, force
+  names the same person; a refused read → unavailable; the section RENDERS with each card linking to its person and is mounted by the page; sabotage: unmount → red, links to the bare list → red, resolve on `connectionId` → red, force
   `unavailable: false` → red). Turned around on purpose: `create-follows-the-surface`, `one-top-bar` (the
   "create button exists" test), `doorway-shell` § 9.
 

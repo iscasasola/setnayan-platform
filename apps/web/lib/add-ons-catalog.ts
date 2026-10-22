@@ -635,7 +635,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation.',
+    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone Animated Monogram is retired).
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. Event Hub Pro’s Logo & QR adds the animation.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is

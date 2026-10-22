@@ -348,7 +348,12 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Hub Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']),
+    // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the
+    // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
+    // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the
+    // part's buyers own the animation (the line above). Read side only: past AND pending orders, no backfill.
+    COUPLE_HUB_PART_LOGO_QR: Object.freeze(['ANIMATED_MONOGRAM']),
     // LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE (owner 2026-08-11, "remove
     // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
     // unlock an LED maker whose output nothing could produce. The whole

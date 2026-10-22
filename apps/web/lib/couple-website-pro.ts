@@ -11,10 +11,11 @@ import { askedOnce } from '@/lib/request-once';
 import {
   FULL_PRO_SKU,
   HUB_PARTS_ORDER_KEY,
+  HUB_PART_PAID_CODES,
   HUB_PART_SKUS,
   hubOwnershipFrom,
+  hubPartOfPaidCode,
   hubPart,
-  hubPartOfSku,
   type HubOwnership,
   type HubPartId,
 } from '@/lib/hub-parts';
@@ -132,7 +133,7 @@ export function eventHubOwnership(
     //    order's own status (`eventSkuLinesFor`) — held, and counted toward the cap, exactly like its own order.
     const [batch, rows] = await Promise.all([
       eventActiveSkus(supabase, eventId),
-      eventSkuLinesFor(supabase, eventId, HUB_PART_SKUS, HUB_PARTS_ORDER_KEY),
+      eventSkuLinesFor(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY),
     ]);
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
     const heldSku = (sku: string) =>
@@ -140,7 +141,7 @@ export function eventHubOwnership(
     // 3. The cap: the parts PAID for, each at its catalogue (web) price.
     const paidParts = rows
       .filter((r) => counts(r.status))
-      .map((r) => hubPartOfSku(r.service_key))
+      .map((r) => hubPartOfPaidCode(r.service_key))
       .filter((p): p is HubPartId => p !== null);
     const prices = paidParts.length === 0 ? null : await hubPartPrices(supabase);
     return hubOwnershipFrom({

@@ -90,6 +90,17 @@ export function hubPartOfSku(sku: string | null | undefined): HubPartId | null {
   return HUB_PARTS.find((p) => p.sku === sku)?.id ?? null;
 }
 
+/**
+ * 💎 Codes whose PAID orders count toward the cap, each as the part it is: every part's own code, and the retired
+ * standalone Animated Monogram, which reads as Logo & QR (owner 2026-10-22, Q2 "yes" — what its owners paid counts at
+ * the part's web value, never asked again).
+ */
+export const HUB_PART_PAID_CODES: readonly string[] = [...HUB_PARTS.map((p) => p.sku), 'ANIMATED_MONOGRAM'];
+
+export function hubPartOfPaidCode(code: string | null | undefined): HubPartId | null {
+  return code === 'ANIMATED_MONOGRAM' ? 'logo_qr' : hubPartOfSku(code);
+}
+
 /* ── THE 37 GATES, EACH WITH EXACTLY ONE HOME ─────────────────────────────── */
 
 /**

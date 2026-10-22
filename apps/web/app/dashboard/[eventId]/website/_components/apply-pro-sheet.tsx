@@ -235,7 +235,19 @@ export function ApplyProSheet({
                   </section>
                 );
               })}
-              {buttons ? (
+              {buttons?.appleStore ? (
+                /* 🍎 The app (1.1, flag-dark): no figure on this sheet — Apple's prices are on Apple's page. Once anything
+                   is owned the band names it and that it counts; "everything" is not offered here (owner 2026-10-22). */
+                <div className="border-t border-ink/10 px-2 pt-2" data-apply-parts-total="apple">
+                  {buttons.ownedNames.length > 0 ? (
+                    <div data-apply-cap-band="apple" className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[13px] leading-snug text-ink/80">
+                      You already have <strong className="text-ink">{buttons.ownedNames.join(' · ')}</strong>. Everything you unlock counts toward Event Hub Pro.
+                    </div>
+                  ) : (
+                    <p className="text-[13px] leading-snug text-ink/65">Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer.</p>
+                  )}
+                </div>
+              ) : buttons ? (
                 <div className="border-t border-ink/10 px-2 pt-2" data-apply-parts-total="">
                   {buttons.paidPhp > 0 ? (
                     /* The cap band — information, not a press: the raised surface, never a border (frame 2). */
@@ -330,6 +342,7 @@ export function ApplyProSheet({
                    than the "more"; everything leads once the "more" is no more than they cost; and the parts are not
                    offered at all once they would cost more than everything — never charged above the rest. */
                 (() => {
+                  const apple = buttons.appleStore === true;
                   const parts = (primary: boolean) => (
                     <Link
                       key="parts"
@@ -337,9 +350,11 @@ export function ApplyProSheet({
                       data-apply-parts-unlock=""
                       className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
                     >
-                      {primary
-                        ? `Unlock ${buttons.partsLabel} and Apply · ${formatPhp(buttons.subtotalPhp)}`
-                        : `Just ${buttons.partIds.length === 1 ? buttons.partsLabel : `these ${formatCount(buttons.partIds.length)} parts`} · ${formatPhp(buttons.subtotalPhp)}`}
+                      {apple
+                        ? `Unlock ${buttons.partsLabel} and Apply`
+                        : primary
+                          ? `Unlock ${buttons.partsLabel} and Apply · ${formatPhp(buttons.subtotalPhp)}`
+                          : `Just ${buttons.partIds.length === 1 ? buttons.partsLabel : `these ${formatCount(buttons.partIds.length)} parts`} · ${formatPhp(buttons.subtotalPhp)}`}
                     </Link>
                   );
                   const everything = (primary: boolean) => (
@@ -349,9 +364,18 @@ export function ApplyProSheet({
                       data-apply-pro-unlock=""
                       className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
                     >
-                      {primary ? `Unlock everything and Apply · ${formatPhp(buttons.restPhp)}` : `Everything instead · ${formatPhp(buttons.restPhp)}`}
+                      {apple ? 'Everything instead' : primary ? `Unlock everything and Apply · ${formatPhp(buttons.restPhp)}` : `Everything instead · ${formatPhp(buttons.restPhp)}`}
                     </Link>
                   );
+                  if (apple) {
+                    return [
+                      parts(true),
+                      ...(buttons.everythingOffered ? [everything(false)] : []),
+                      <p key="apple" className="text-center text-xs text-ink/60">
+                        Billed by Apple to your Apple account.
+                      </p>,
+                    ];
+                  }
                   if (!buttons.showParts) return everything(true);
                   return buttons.lead === 'parts' ? [parts(true), everything(false)] : [everything(true), parts(false)];
                 })()

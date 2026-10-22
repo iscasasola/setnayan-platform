@@ -191,6 +191,8 @@ const SECTIONS: Array<{ key: SectionKey; label: string; icon: LucideIcon; match:
 
 const EMPTY_LINE = 'Nobody here yet.';
 const REFUSED_LINE = 'We couldn’t load your people just now. Nothing is lost — refresh in a moment.';
+/** The counts line over a refused read — no number at all; the list below says the whole sentence once. */
+const REFUSED_COUNTS = 'Not loaded just now';
 const PARTLY_REFUSED_LINE =
   'We couldn’t load all of your people just now. Nothing is lost — refresh in a moment.';
 
@@ -339,7 +341,7 @@ export function PeopleRosterView({
       {roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? (
         // A refusal is said as one — never "0 connected".
         <p role="status" className={`${gs.counts} ${gs.mute}`} data-people-counts="refused">
-          {REFUSED_LINE}
+          {REFUSED_COUNTS}
         </p>
       ) : (
         <div className={`${gs.counts} ${ps.counts}`} data-people-counts="">
@@ -526,7 +528,7 @@ export function PeopleRosterView({
           onClick={() => (pickedRows.length > 0 ? setToRemove(pickedRows) : undefined)}
           data-testid="people-bulk-remove"
         />
-        <ActionButton tone="neutral" icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="people-bulk-done" />
+        <ActionButton tone="neutral" iconOnly icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="people-bulk-done" />
       </span>
     </div>
   ) : (
@@ -851,10 +853,11 @@ function PersonCard({
     <GuestPopup
       onClose={onClose}
       rootClassName="fixed inset-0 z-[80]"
-      panelClassName={`gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl ${gs.screen}`}
+      panelClassName={`gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl`}
       labelledById="person-card-name"
       panelData={{ 'data-person-card': '' }}
     >
+      <div className={ps.cardBody}>
       <span aria-hidden className="mx-auto mb-3.5 mt-1.5 block h-1 w-10 rounded-full bg-ink/15" />
       <div className="flex items-start gap-3.5">
         <span className={`${ps.cardFace} ${pillTint(p.relation)}`} aria-hidden>
@@ -865,7 +868,7 @@ function PersonCard({
           <h2 id="person-card-name" className="mt-0.5 text-[26px] font-semibold leading-tight text-ink">
             {p.name}
           </h2>
-          <span className={`${gs.pill} ${p.state === 'connected' ? gs.pillOk : gs.pillWine} mt-2 inline-flex items-center gap-1`}>
+          <span className={`${gs.pill} ${p.state === 'connected' ? gs.pillOk : gs.pillWine} ${ps.pillRow} mt-2`}>
             {p.state === 'connected' ? <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} /> : null}
             {STATE_LABEL[p.state]}
           </span>
@@ -941,6 +944,7 @@ function PersonCard({
       >
         {p.state === 'waiting_them' ? `Withdraw your request to ${first}` : `Remove ${first} from your people`}
       </button>
+      </div>
     </GuestPopup>
   );
 }
@@ -1052,13 +1056,13 @@ function CardGroup({
   }
   return (
     <span className="flex w-full flex-col gap-1.5" data-card-group="">
-      {person.samahan.length > 0 ? <span className="text-[15px] text-ink">{person.samahan.join(', ')}</span> : null}
+      {person.samahan.length > 0 && !canAsk ? <span className="text-[15px] text-ink">{person.samahan.join(', ')}</span> : null}
       {canAsk ? (
         <span data-pick="" className={`${ps.cardPick} ${disabled || busy ? 'pointer-events-none opacity-60' : ''}`}>
           <PickMenu
             label="Ask them into"
             value={null}
-            buttonText={person.samahan.length > 0 ? 'Ask into another group' : 'Ask into a group'}
+            buttonText={person.samahan.length > 0 ? person.samahan.join(', ') : 'Ask into a group'}
             options={samahan.map((s) => ({ key: s.id, label: s.name }))}
             onPick={ask}
           />
@@ -1151,7 +1155,7 @@ function LabelCell({
         ) : person.relation ? (
           <span className={pillClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
         ) : (
-          <span className={`${gs.pill} ${ps.askPill} inline-flex items-center gap-1`}>
+          <span className={`${gs.pill} ${ps.askPill} ${ps.pillRow}`}>
             <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
             Label
           </span>

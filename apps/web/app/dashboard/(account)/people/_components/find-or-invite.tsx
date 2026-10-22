@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } f
 import { Check, Clock, Search, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
+import ps from './people-screen.module.css';
 import { addConfirmation, normalizeEmail } from '@/lib/people-add';
 import { parsePersonLine } from '@/lib/people-parse';
 import type { PersonHit } from '@/lib/people-search-query';
@@ -252,7 +253,7 @@ export function FindResults({ f }: { f: FindOrInviteState }) {
                       {/* FOLLOW — only toward a public profile, the one case the
                           write is accepted. A private profile shows Add alone. */}
                       {isFollowing ? (
-                        <span className={`${gs.pill} ${gs.pillOk} inline-flex items-center gap-1`} data-following>
+                        <span className={`${gs.pill} ${gs.pillOk} ${ps.pillRow}`} data-following>
                           <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
                           Following
                         </span>
@@ -260,7 +261,7 @@ export function FindResults({ f }: { f: FindOrInviteState }) {
                         <ActionButton tone="neutral" icon={Check} label="Follow" onClick={() => followPicked(h)} disabled={pending} />
                       ) : null}
                       {asked.has(h.publicId) ? (
-                        <span className={`${gs.pill} ${gs.pillWine} inline-flex items-center gap-1`}>
+                        <span className={`${gs.pill} ${gs.pillWine} ${ps.pillRow}`}>
                           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
                           Asked
                         </span>

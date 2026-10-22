@@ -132,7 +132,8 @@ test('🔴 a refused roster says "couldn’t load" at the top — never "0 conne
   const first = head.indexOf('<CountDoor');
   assert.ok(refused >= 0, 'the counts line no longer checks the refusal first');
   assert.ok(first > refused, 'a count can be drawn before the refusal is checked');
-  assert.ok(head.slice(refused, first).includes('{REFUSED_LINE}'), 'the refusal branch does not say so');
+  assert.ok(head.slice(refused, first).includes('{REFUSED_COUNTS}'), 'the refusal branch does not say so');
+  assert.ok(!/\d/.test(ROSTER.slice(ROSTER.indexOf("const REFUSED_COUNTS = '"), ROSTER.indexOf("const REFUSED_COUNTS = '") + 60).split("'")[1] ?? '0'), 'the refused counts line carries a number');
   // The counts ARE the rows they filter to — never a server number that can disagree with the list.
   assert.match(ROSTER, /const tally = \{ connected: connectedRows\.length, waiting: waitingRows\.length, asking: requests\.length \};/);
 });

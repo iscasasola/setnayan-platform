@@ -116,7 +116,7 @@ export default async function PeopleLabPage({
   };
   const lovedOnes = (
     <div className="pb-3" data-people-view="alaga">
-      <p className="py-2 text-sm text-ink/65">Lola Nena · In your care</p>
+      <p className="py-2 text-sm text-ink/65">{kind === 'full' ? 'Lola Nena · In your care' : 'No loved ones yet.'}</p>
     </div>
   );
 

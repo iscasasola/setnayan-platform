@@ -31,11 +31,11 @@
 .countDoor b {
   font-weight: 700;
 }
-.hot {
+.countDoor.hot {
   color: rgb(var(--color-terracotta-700));
   text-decoration-color: currentColor;
 }
-:global(html.dark) .hot {
+:global(html.dark) .countDoor.hot {
   color: rgb(var(--color-terracotta-400, 229 121 78));
 }
 /* The count that is filtering wears the pressed look: no underline, a soft disc behind it. */
@@ -67,8 +67,10 @@
 .iconPick button > svg:last-child {
   display: none;
 }
-.growPick {
+.growPick.growPick {
   display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .growPick button {
   width: 100%;
@@ -190,7 +192,7 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-weight: 700;
-  color: rgb(var(--color-ink) / 0.6);
+  color: var(--sn-gold-700, #8c6932);
 }
 .kv {
   display: flex;
@@ -229,4 +231,21 @@
   border: 1px solid rgb(var(--color-ink) / 0.14);
   padding: 0 12px 0 14px;
   font-size: 16px;
+}
+/* A pill with an icon in it stays one line (the Guest pill is inline-block; an icon would wrap under the word). */
+.pillRow.pillRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+/* The card's body reads the Guest list's tokens (the panel itself stays the pop-up's absolute sheet). */
+.cardBody {
+  --gs-ink: rgb(var(--color-ink));
+  --gs-mute: rgb(var(--color-ink) / 0.6);
+  --gs-line: rgb(var(--color-ink) / 0.1);
+  --gs-gild: var(--sn-gold-500, #a9834b);
+  --gs-gild-soft: color-mix(in srgb, var(--sn-gold-500, #a9834b) 16%, transparent);
+  --gs-ok: rgb(var(--color-ok, 43 116 74));
+  --gs-warn: rgb(var(--color-warn, 150 90 0));
 }

@@ -1,5 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import {
+  eventActiveSkus,
+  eventSkuLinesFor,
+  eventOwnsSku,
+  eventSkuActive,
+  orderStatusConfersAccess,
+  orderStatusConfersOwnership,
+} from '@/lib/entitlements';
+import { askedOnce } from '@/lib/request-once';
+import {
+  FULL_PRO_SKU,
+  HUB_PARTS_ORDER_KEY,
+  HUB_PART_PAID_CODES,
+  HUB_PART_SKUS,
+  hubOwnershipFrom,
+  hubPartOfPaidCode,
+  hubPart,
+  type HubOwnership,
+  type HubPartId,
+} from '@/lib/hub-parts';
 
 /**
  * apps/web/lib/couple-website-pro.ts
@@ -49,7 +68,9 @@ export async function eventOwnsCoupleWebsitePro(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventOwnsSku(supabase, eventId, COUPLE_WEBSITE_PRO_SERVICE_KEY);
+  // 💎 Full Pro outright, or the parts' cap reached (owner 2026-10-22) — the buy
+  // surface must not offer everything again to an event that has paid for it.
+  return (await eventHubOwnership(supabase, eventId, 'owned')).full;
 }
 
 /**
@@ -62,7 +83,135 @@ export async function eventCoupleWebsiteProActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventSkuActive(supabase, eventId, COUPLE_WEBSITE_PRO_SERVICE_KEY);
+  // 💎 EVERYTHING — Full Pro outright, or the parts' cap reached (owner
+  // 2026-10-22: "when it reaches the Full Pro price, the event owns everything
+  // (incl. footer)"). The footer (gate 37) asks THIS and nothing narrower.
+  return (await eventHubOwnership(supabase, eventId, 'active')).full;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   💎 EVENT HUB PRO, PART BY PART (owner 2026-10-22) — `lib/hub-parts.ts`
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Everything this event holds of Event Hub Pro: Full Pro, each part, and what
+ * it has paid toward everything (the cap).
+ *
+ *   · `'active'` — the FEATURE GATE (admin-approved orders only), like
+ *                  `eventSkuActive`. Gates call this.
+ *   · `'owned'`  — the BUY SURFACE (a pending order counts, so nobody is asked
+ *                  to pay twice mid-review), like `eventOwnsSku`.
+ *
+ * Full Pro is read through the SAME chain every SKU is (order, bundle, onboarding
+ * basket, comp, promo, internal host, founder seat), so an event that owns
+ * everything today still owns every part. Each part is read the same way under
+ * its own code. The cap then sums the paid part orders at their CATALOGUE price
+ * (the web value — an app purchase counts the same), and reaching the Full Pro
+ * price is everything. No order of a part → no catalogue read at all.
+ *
+ * 🔑 One answer per render per (authority, event, mode) — `askedOnce` — so the
+ * many gates of one page ask the chain once.
+ */
+export function eventHubOwnership(
+  supabase: SupabaseClient,
+  eventId: string,
+  mode: 'active' | 'owned' = 'active',
+): Promise<HubOwnership> {
+  return askedOnce(supabase, 'hub-ownership', [eventId, mode], async () => {
+    // 1. Full Pro through the whole chain — an internal or founder host, a basket,
+    //    a bundle, a comp: any of them is everything, and nothing else is read.
+    const fullHeld =
+      mode === 'active'
+        ? await eventSkuActive(supabase, eventId, FULL_PRO_SKU)
+        : await eventOwnsSku(supabase, eventId, FULL_PRO_SKU);
+    if (fullHeld) return hubOwnershipFrom({ fullHeld, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null });
+    // 2. Each part on its own. A part is sold only by its own order (or gifted by
+    //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
+    //    and an internal/founder host already answered in step 1 — so the ONE batch
+    //    reader (orders + comps + promos, `eventActiveSkus`) answers all eleven.
+    //    💎 …and a part bought inside a multi-part order is a LINE of that order (`HUB_PARTS_ORDER_KEY`), read with the
+    //    order's own status (`eventSkuLinesFor`) — held, and counted toward the cap, exactly like its own order.
+    const [batch, rows] = await Promise.all([
+      eventActiveSkus(supabase, eventId),
+      eventSkuLinesFor(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY),
+    ]);
+    const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
+    const heldSku = (sku: string) =>
+      batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku)) || rows.some((r) => r.service_key === sku && counts(r.status));
+    // 3. The cap: the parts PAID for, each at its catalogue (web) price.
+    const paidParts = rows
+      .filter((r) => counts(r.status))
+      .map((r) => hubPartOfPaidCode(r.service_key))
+      .filter((p): p is HubPartId => p !== null);
+    const prices = paidParts.length === 0 ? null : await hubPartPrices(supabase);
+    return hubOwnershipFrom({
+      fullHeld: false,
+      partHeld: (id) => heldSku(hubPart(id).sku),
+      paidParts,
+      prices: prices?.parts ?? new Map(),
+      fullPrice: prices?.full ?? null,
+    });
+  });
+}
+
+/**
+ * The parts' and Full Pro's catalogue prices — read, never typed. Asked once per
+ * render. A failed read returns null prices, which can never reach the cap.
+ */
+export function hubPartPrices(
+  supabase: SupabaseClient,
+): Promise<{ parts: ReadonlyMap<string, number>; full: number | null; onSale: ReadonlySet<string> }> {
+  return askedOnce(supabase, 'hub-part-prices', [], async () => {
+    const { data, error } = await supabase
+      .from('platform_retail_catalog_v2')
+      .select('service_code, retail_price_php, is_active')
+      .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU]);
+    if (error || !data) {
+      if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
+      return { parts: new Map(), full: null, onSale: new Set<string>() };
+    }
+    const parts = new Map<string, number>();
+    const onSale = new Set<string>();
+    let full: number | null = null;
+    for (const r of data as Array<{ service_code: string; retail_price_php: number | string | null; is_active?: boolean | null }>) {
+      const php = Number(r.retail_price_php);
+      if (!Number.isFinite(php) || php <= 0) continue;
+      /* A part taken off sale still COUNTS toward the cap at its price (it was paid for); it just cannot be bought. */
+      if (r.is_active) onSale.add(r.service_code);
+      if (r.service_code === FULL_PRO_SKU) full = php;
+      else parts.set(r.service_code, php);
+    }
+    return { parts, full, onSale };
+  });
+}
+
+/**
+ * THE PART GATE — is this one part ACTIVE for the event (its own order, Full
+ * Pro, or the cap)? Every Pro gate that is not the footer asks THIS with its
+ * part (`HUB_PRO_GATES`), never `eventCoupleWebsiteProActive`.
+ */
+export async function eventHubPartActive(
+  supabase: SupabaseClient,
+  eventId: string,
+  part: HubPartId,
+): Promise<boolean> {
+  const own = await eventHubOwnership(supabase, eventId, 'active');
+  return own.full || own.parts.has(part);
+}
+
+/** Buy-surface twin of `eventHubPartActive` — a pending order counts. */
+export async function eventOwnsHubPart(
+  supabase: SupabaseClient,
+  eventId: string,
+  part: HubPartId,
+): Promise<boolean> {
+  const own = await eventHubOwnership(supabase, eventId, 'owned');
+  return own.full || own.parts.has(part);
+}
+
+/** The part's catalogue code — re-exported so a caller never spells one. */
+export function hubPartSku(part: HubPartId): string {
+  return hubPart(part).sku;
 }
 
 /** Standalone à-la-carte Editorial PRO SKU (owner 2026-07-04). Unlocks

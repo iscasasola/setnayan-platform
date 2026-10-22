@@ -993,6 +993,7 @@ async function invitationBody({
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    hubParts,
     bespokeSvg,
     studioAnim,
     heroPhotoUrl,
@@ -1719,6 +1720,7 @@ async function invitationBody({
        door would stand (`doorways.pabuya`) on a Welcome that carries E-Gifts. */
     giftPageReader: (e: GiftPageEvent) => loadGiftPage(admin, e),
     proWatermarkHidden,
+    hubParts,
     isEditorCanvas,
     // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the
     // host's draft only; `hostDraft` is null for every guest, so their story

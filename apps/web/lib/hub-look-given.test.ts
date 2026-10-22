@@ -73,7 +73,9 @@ test('1d · where ownership cannot change the cover, the theme and the photo gat
 
 const ORIGINAL = join(__dirname, '..', 'app', '[slug]', '_lib', 'hub-look.ts');
 /** sha-256 of the two originals, comments stripped and whitespace collapsed. */
-const PINNED = '1c5f4be5a3901799368b25241606264a9527aba197bb442ee8a1b59b69af620f';
+// RE-PINNED 2026-10-22 (part by part): the originals ask `hubPartActiveFor(…, 'style' | 'background')`; this copy is
+// handed each part's answer by its caller (`CoverOwnership`), so the rule here did not change.
+const PINNED = '80ef9165b0186c18bd4ae8f4306141f7ef3ca3f1ef345e37e9b4fabc26091ff8';
 
 test('2 · the originals have not moved since this copy of their rule was taken', () => {
   const src = stripComments(readFileSync(ORIGINAL, 'utf8'));

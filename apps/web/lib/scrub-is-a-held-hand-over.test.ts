@@ -337,7 +337,8 @@ test('(8) the whole page stands still: a page wraps its column in one pair a han
   assert.equal(hubScrubHoldsAtMost([null, null].map(row) as never, true, true), 0);
   /* BOTH TREES of the guest page wrap their article, with the one count. */
   const body = read(`${B}/site-body.tsx`);
-  assert.match(body, /const pageHolds = hubScrubHoldsAtMost\(widgets, proWatermarkHidden\);/);
+  // RE-AIMED 2026-10-22 (part by part): Scrub and Auto-scroll are the Motion part's (gate 20) — `scrubAllowed`.
+  assert.match(body, /const scrubAllowed = holdsPart\('motion'\);[\s\S]*?const pageHolds = hubScrubHoldsAtMost\(widgets, scrubAllowed\);/);
   assert.equal((body.match(/<HubPageHold holds=\{pageHolds\}>\s*<article data-pahina-chapters/g) ?? []).length, 2, 'a tree of the guest page is not inside the page’s own hold');
   assert.equal((body.match(/<\/article>\s*<\/HubPageHold>/g) ?? []).length, 2);
   /* THE ENGINE: the page's pairs from the outside in; hand-over k gets pair k, else its own cell; a spare pair holds nothing. */

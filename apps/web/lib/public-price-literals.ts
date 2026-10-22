@@ -81,8 +81,9 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
     literal: '₱500',
-    sku: 'ANIMATED_MONOGRAM',
-    reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one.',
+    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone ANIMATED_MONOGRAM is retired).
+    sku: 'COUPLE_HUB_PART_LOGO_QR',
+    reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one (the Logo & QR part).',
   },
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',

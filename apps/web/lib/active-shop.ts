@@ -150,7 +150,8 @@ export async function resolveOwnedActiveShop(
 ): Promise<OwnedActiveShop> {
   let active: ActiveShop | null;
   try {
-    active = await resolveActiveShop(supabase, userId, chosen);
+    // Same argument count as the page's own call, so React's per-request cache shares one pair of reads.
+    active = await (chosen === undefined ? resolveActiveShop(supabase, userId) : resolveActiveShop(supabase, userId, chosen));
   } catch {
     return { ok: false, error: SHOP_UNREADABLE };
   }

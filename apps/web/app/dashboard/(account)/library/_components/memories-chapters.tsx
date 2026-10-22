@@ -240,7 +240,7 @@ export async function MemoriesChapters({
           </>
         ) : (
           chapters.map((c, i) => (
-            <section key={c.key}>
+            <section key={c.key} data-memories-filter-name={`${picked.event.display_name} ${c.label}`}>
               <Heading label={c.label} count={c.items.length} door={i === 0 ? door : null} />
               <div className={grid}>
                 {c.items.map((it) => (
@@ -262,7 +262,7 @@ export async function MemoriesChapters({
       {events.map((album) => {
         const mine = shown.filter((f) => f.eventId === album.event.event_id);
         return (
-          <section key={album.event.event_id} data-memories-chapter-event={album.event.event_id}>
+          <section key={album.event.event_id} data-memories-chapter-event={album.event.event_id} data-memories-filter-name={album.event.display_name}>
             <Heading
               label={album.event.display_name}
               count={mine.length > 0 ? (lens === 'with_me' ? mine.length : Math.max(album.count, mine.length)) : wall.unreadable ? undefined : null}

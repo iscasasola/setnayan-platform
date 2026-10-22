@@ -10,7 +10,12 @@ line drawn at the top, *"remove these"*. Built to `prototypes/people_and_memorie
   (`memories-chapters.tsx`): a gold mono chapter per event (controller, question 2: by event), EVERY event incl.
   empty ones with their monogram tile, "Gallery ›" (`GalleryDoor`, hosts only) on each heading, then 3-across
   rounded frames with ▶ on a clip and a gold dot on a frame you are in.
-- New Event ▾ (`?event=`): one event picked → the day's chapters from the run of show (`lib/alaala-chapters.ts`,
+- THE ONE THUMB ROW (owner 2026-10-22, the Find row on every list page; `prototypes/one_thumb_row_2026-10-22.html`):
+  ≡ · "Search memories" — no band, each control its own glass, no ＋ (nothing is added here). ≡ is ONE dropdown:
+  Event (All events · each event) · Show (the five lenses · Also kept) · ⤓ Download all once a hosted event is
+  picked. The field is new and small: it narrows the chapters on the page by name, on the device. Drawn by one small
+  component (`(account)/_components/account-thumb-row.tsx`, the same file as People's) so the shared row can replace it.
+- New Event choice (`?event=`): one event picked → the day's chapters from the run of show (`lib/alaala-chapters.ts`,
   time-of-day when no schedule reads) and ⤓ Download all (the studio's `gallery-zip`) for a host.
 - Show ▾ is the same list (five lenses · "Also kept"), moved into the glass thumb row. The People lens and the
   three "Also kept" views draw what they drew.

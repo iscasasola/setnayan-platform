@@ -89,8 +89,9 @@ const SEATS: Array<[string, string, RegExp]> = [
   ['Gallery › door on each event heading (hosts only — GalleryDoor)', CH, /door=\{<GalleryDoor event=\{album\.event\} \/>\}/],
   ['Show — the five lenses', PAGE, /\.\.\.LENSES\.map\(/],
   ['Show — "Also kept"', PAGE, /\.\.\.KEPT\.map\(\(\{ key, label \}\) => \(\{ key, label, group: 'Also kept'/],
-  ['Show sits in the thumb row', THUMB, /<LinkPickMenu label="Show" value=\{showValue\} options=\{show\}/],
-  ['The Event dropdown', THUMB, /<LinkPickMenu label="Event" value=\{eventValue\} options=\{events\}/],
+  ['Show — every lens and "Also kept" — in the ≡ menu', THUMB, /\.\.\.show\.map\(\(o\) => \(\{\s*\.\.\.o,\s*key: `show:\$\{o\.key\}`/],
+  ['The Event choice in the ≡ menu', THUMB, /\.\.\.\(events \?\? \[\]\)\.map\(\(o\) => \(\{ \.\.\.o, key: `event:\$\{o\.key\}`/],
+  ['⤓ Download all in the ≡ menu, once a hosted event is picked', THUMB, /download \? \[\{ key: 'download', label: 'Download all'/],
   ['Per-event download (gallery-zip)', PAGE, /\/studio\/papic\/gallery-zip/],
   ['The People lens — faces and Open People', PAGE, /<AlaalaLensBody lens="people" wall=\{wall\}/],
   ['Albums by event', PAGE, /active === 'albums' \?[\s\S]{0,300}<PhotosTab userId=\{user\.id\} \/>/],
@@ -102,6 +103,20 @@ const SEATS: Array<[string, string, RegExp]> = [
 for (const [what, src, re] of SEATS) {
   test(`🔒 still reachable: ${what}`, () => assert.match(src, re, `"${what}" lost its seat`));
 }
+
+test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Search memories" — no band, no ＋ (nothing is added here)', () => {
+  assert.match(THUMB, /from '\.\.\/\.\.\/_components\/account-thumb-row';/, 'Memories draws its own bottom row instead of the one row');
+  assert.ok(!/gs\.lower|sn-glass-row/.test(THUMB), 'Memories brought back a band of its own');
+  const row = between(THUMB, '<AccountThumbRow', '\n      />');
+  assert.ok(row.includes('tools={') && row.includes('field={'), 'the row lost ≡ or the field');
+  assert.ok(!row.includes('action={'), 'a ＋ appeared on Memories — nothing is added here');
+  assert.ok(/<PickMenu\b/.test(row) && (row.match(/<PickMenu\b/g) ?? []).length === 1, '≡ is not ONE dropdown');
+  const words = (THUMB.match(/placeholder="([^"]+)"/) ?? [])[1] ?? '';
+  assert.equal(words, 'Search memories');
+  // The field narrows what is on the page, by name — every chapter carries its name.
+  assert.match(CH, /data-memories-filter-name=\{album\.event\.display_name\}/);
+  assert.match(CH, /data-memories-filter-name=\{`\$\{picked\.event\.display_name\} \$\{c\.label\}`\}/);
+});
 
 // ── 4 · a failed read says so ───────────────────────────────────────────────
 

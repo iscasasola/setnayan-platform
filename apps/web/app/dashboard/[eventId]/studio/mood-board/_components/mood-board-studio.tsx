@@ -200,6 +200,9 @@ const SAVE_AFTER_MS = 600;
 
 /** A role row's small key word — "Note", "Photos" (the shipped Note row's own type). */
 const ROW_KEY = 'flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55';
+/** A desk's right-hand line, its key word hanging in the margin: what wraps lines up under the words, never under "Note". */
+const ROW_HANG = 'flex-wrap gap-y-1 pl-[70px]';
+const ROW_HANG_KEY = '-ml-[70px] w-16';
 
 /**
  * 👗🎨 THE MAKER'S OWN COPY OF THE BOARD'S DRAFT (2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`): an
@@ -867,8 +870,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const suggested = waitingIn(slot.slotKey);
     return (
       <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
-        <div className={`${at === 'fold' ? 'hidden lg:flex' : 'flex'} min-h-11 items-center gap-1.5`}>
-          {at === 'fold' ? <span className={`${ROW_KEY} w-16`}>{named ? '' : 'Photos'}</span> : null}
+        <div className={`${at === 'fold' ? `hidden ${ROW_HANG} lg:flex` : 'flex'} min-h-11 items-center gap-1.5`}>
+          {at === 'fold' ? <span className={`${ROW_KEY} ${ROW_HANG_KEY}`}>{named ? '' : 'Photos'}</span> : null}
           {photos.map(({ pos, tile }) =>
             tile!.url ? (
               <ActionButton
@@ -1164,7 +1167,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             const boards = attireBoardsUnder(row.key);
             const boardPhotos = boards.flatMap((slot) => (tiles[slot.slotKey] ?? []).filter((t): t is Tile => Boolean(t?.url)));
             return (
-              <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="grid grid-cols-1 gap-x-8 gap-y-1.5 border-t border-ink/10 py-3 first:border-t-0 lg:grid-cols-[minmax(0,1fr)_430px]">
+              <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="grid grid-cols-1 gap-x-6 gap-y-1.5 border-t border-ink/10 py-3 first:border-t-0 lg:grid-cols-[minmax(340px,1fr)_minmax(0,430px)]">
                 <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5 lg:col-span-2 lg:items-center">
                   <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{row.label}</h3>
                   {people ? <small className="whitespace-nowrap text-[12px] text-ink/55" data-mood-board-people={row.key}>{people}</small> : null}
@@ -1185,7 +1188,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {arrives}</small>
                   ) : null}
                 </header>
-                <div className="flex min-w-0 flex-col gap-1.5 lg:col-start-1 lg:row-start-2">
+                <div className="flex min-w-0 flex-col gap-1.5 [container-type:inline-size] lg:col-start-1 lg:row-start-2">
                 {/* ⏰ Why the chip waits — said where the row is read (the shipped words). */}
                 {time && !time.canSet ? (
                   <p className="text-[12px] leading-snug text-ink/65" data-mood-board-call-time-waits="">
@@ -1199,7 +1202,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     Until you pick what they wear, they dress as the {row.fallsBackTo}.
                   </p>
                 ) : null}
-                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col lg:flex-row lg:gap-8 [&>*]:lg:flex-1' : ''}`} data-mood-board-picks={drawn.length}>
+                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col [@container(min-width:640px)]:flex-row [@container(min-width:640px)]:gap-8 [@container(min-width:640px)]:[&>*]:flex-1' : ''}`} data-mood-board-picks={drawn.length}>
                   {drawn.map(({ pick, pi }) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
@@ -1362,7 +1365,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           attrs: { 'data-mood-board-wear-for': pick.who } as Readonly<Record<`data-${string}`, string>>,
                         };
                     const wearRow = dress ? (
-                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={two || !isGuests ? '[&_[data-form-row-name]]:sr-only' : undefined}>
+                      <FormRows width={library ? 'auto' : 'short'} data="mood-board-wear" className={`mt-auto ${two || !isGuests ? '[&_[data-form-row-name]]:sr-only' : ''}`}>
                         <ChosenRow name="Wear" dataAttr="data-mood-board-wear" {...wearPick} />
                         {library && designCount > 1 ? (
                           <p className="mt-1.5 text-[12px] leading-snug text-ink/65" data-mood-board-wear-allowed="">
@@ -1482,8 +1485,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     theirs. On a phone only a supplier's photo still waiting shows here (`ideasRow` 'fold'). */}
                 <div className="flex min-w-0 flex-col gap-1 lg:col-start-2 lg:row-start-2">
                 {canNote ? (
-                  <div className="hidden min-h-11 items-center gap-1.5 lg:flex" data-mood-board-role-note={row.key}>
-                    <span className={`${ROW_KEY} w-16`}>Note</span>
+                  <div className={`hidden min-h-11 items-center gap-x-1.5 ${ROW_HANG} lg:flex`} data-mood-board-role-note={row.key}>
+                    <span className={`${ROW_KEY} ${ROW_HANG_KEY}`}>Note</span>
                     {note ? <em className="min-w-0 shrink truncate text-[13px] text-ink">“{note}”</em> : <span className="min-w-0 shrink text-[13px] text-ink/55">Nothing yet</span>}
                     <ActionButton tone="neutral" quiet icon={PenLine} label={note ? 'Change' : 'Add a note'} name={`${note ? 'Change' : 'Add'} the note for ${row.label}`} onClick={() => setSheet({ kind: 'note', row })} />
                   </div>

@@ -132,7 +132,7 @@ test('1 · the header holds the row’s ONE time chip (≥ 44 px) and nothing el
   const html = await draw();
   for (const r of ROWS) {
     const row = rowOf(html, r.key);
-    assert.ok(cls(row).includes('lg:grid-cols-[minmax(0,1fr)_430px]'), `${r.key}: no desk column for the note and photos`);
+    assert.ok(cls(row).includes('lg:grid-cols-[minmax(340px,1fr)_minmax(0,430px)]'), `${r.key}: no desk column for the note and photos`);
     const header = elementAt(row.outer, row.outer.indexOf('<header'));
     const chips = all(header.outer, 'data-mood-board-call-time=');
     assert.equal(chips.length, 1, `${r.key}: the header does not hold exactly one time chip`);

@@ -284,7 +284,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <span>
             Planning for <span className="font-medium text-ink">{samahan.name}</span>
           </span>
-          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 dark:bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             Group
           </span>
         </p>
@@ -304,7 +304,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
-              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
               href={`/dashboard/${blockedLifeEvent.eventId}`}
             >
               Buksan ang {blockedLifeEvent.displayName}

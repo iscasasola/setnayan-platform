@@ -3392,6 +3392,58 @@ html.dark .home-reskin-ov .sn-signin-terra .hr-si-link {
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
   color: #f3b59a;
 }
+/* ✕ The close disc (dark B2, 2026-10-23). It is the base `.hr-ov-x` — a solid #fff disc with the card's
+   ink — and the card's ink turns near-white in dark: a white × on a white disc, invisible (the audit reads
+   words, not glyphs; dark_mode_rollout_2026-10-22 §3). The disc takes the raised card, the × the ink. */
+html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x {
+  background: #232019;
+  border-color: rgba(251, 250, 247, 0.16);
+  color: #fbfaf7;
+}
+html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x:hover {
+  background: #34322b;
+}
+/* The You card's @name verdict paints its tone inline (#2F6B35 ok · #8A3418 taken) — about 2:1 on the dark
+   card. Its dark pair: the house's dark success-deep and the card's own error ink. `!important` because the
+   light value is an inline style (account-name-field.tsx), which only an important rule can outrank. */
+html.dark .home-reskin-ov .sn-signin-terra #hr-you-slug-verdict[data-tone='ok'] {
+  color: #9be0b8 !important;
+}
+html.dark .home-reskin-ov .sn-signin-terra #hr-you-slug-verdict[data-tone='no'] {
+  color: #f3b59a !important;
+}
+
+/* 🌗 The home's own pills and chips, given their dark pair (dark B2, 2026-10-23 — the seven home-reskin pairs
+   the dark-contrast guard counted). Each was a light fill with a label that turns light in dark. INERT where
+   no screen is on DARK_READY (the signed-out home is always Light — call 4); written so the day the home
+   goes dark, these read. Light is untouched: every rule here needs `html.dark`. */
+html.dark .home-reskin .hr-pw-bar .hr-u {
+  background: #232019;
+}
+html.dark .home-reskin .hr-mchip.hr-warn {
+  color: #c7bce9;
+  border-color: rgba(199, 188, 233, 0.3);
+  background: #2c2838;
+}
+html.dark .home-reskin .hr-mcal .hr-on {
+  background: #cba766;
+  color: #17160f;
+}
+html.dark .home-reskin-ov .hr-vd-card .hr-ic {
+  background: #2b2821;
+  color: #e2c98b;
+}
+html.dark .home-reskin-ov .hr-tier-free {
+  color: #b3aea3;
+  background: #2b2821;
+}
+html.dark .home-reskin-ov .hr-tier-pro {
+  color: #f0b45a;
+  background: #403522;
+}
+html.dark .home-reskin-ov .hr-vb-legend {
+  background: #2b2821;
+}
 
 /* The first-run brand line (`FirstRunBrand`, owner 2026-10-21 "make sure there is Setnayan"): the shipped
    wordmark, small, above the eyebrow — the card's own ink, one quiet line. */

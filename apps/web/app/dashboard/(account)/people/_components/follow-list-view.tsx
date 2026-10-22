@@ -149,7 +149,7 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium text-ink">{row.name}</span>
         <span className="truncate text-[11.5px] text-ink/55">{why}</span>
-        {error ? <span className="text-[11.5px] text-red-700">{error}</span> : null}
+        {error ? <span className="text-[11.5px] text-red-700 dark:text-red-300">{error}</span> : null}
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {which === 'following' ? (

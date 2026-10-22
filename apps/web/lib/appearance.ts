@@ -45,7 +45,7 @@ export const THEME_COLOR: Record<Appearance, string> = {
 /**
  * 🚦 THE READY-LIST — route prefixes whose screens have been swept for dark.
  *
- * EMPTY ON PURPOSE (owner call 3, 2026-10-13). The switch itself is HIDDEN while the list is empty
+ * EMPTY UNTIL B2 (owner call 3, 2026-10-13). The switch itself is HIDDEN while the list is empty
  * (owner, 2026-10-16: "Hide the Light/Dark switch until the first area is ready for dark mode") —
  * `appearanceSwitchShown` below, so nobody can pick a Dark that changes nothing. Each area PR adds its prefix once every screen
  * under it has been walked in dark ("/dashboard", "/vendor-dashboard", "/admin" …); the last one
@@ -55,7 +55,25 @@ export const THEME_COLOR: Record<Appearance, string> = {
  * Every entry's first segment must be an app route — `lib/appearance.test.ts` enforces it — so a
  * couple's slug can never be put on the list by mistake.
  */
-export const DARK_READY: readonly string[] = [];
+export const DARK_READY: readonly string[] = [
+  // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
+  // the one holding the switch (/dashboard/profile), so a pick changes the screen it was made on. NOT
+  // "/dashboard" itself: that prefix covers the whole event tree, which opens as one with B3 (no exception list).
+  '/dashboard/people',
+  '/dashboard/library',
+  '/dashboard/life-flash',
+  '/dashboard/year',
+  '/dashboard/profile',
+  '/dashboard/notifications',
+  '/dashboard/create-event',
+  '/dashboard/samahan',
+  // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
+  // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+];
 
 /**
  * 🚦 Is the Appearance row (Preferences › Light · Dark) shown? Only once an area is on the ready-list —

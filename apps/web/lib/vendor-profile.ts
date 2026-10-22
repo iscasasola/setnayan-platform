@@ -1,7 +1,6 @@
 import { cache } from 'react';
-import { pickHelperShop, readActiveShopCookie } from '@/lib/active-shop';
+import { resolveActiveShop } from '@/lib/active-shop';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { classifyShopRead } from '@/lib/shop-presence';
 
 export type VendorProfileRow = {
   vendor_profile_id: string;
@@ -287,8 +286,9 @@ function normalizeVendorProfileRow(data: Record<string, unknown>): VendorProfile
  *      owner + `vendor_profiles_member_read` RLS policies only admit shops the
  *      caller owns or is a team member of, so a forged/foreign id returns null
  *      rather than another user's shop.
- *   2. else → the shop this user OWNS (`vendor_profiles.user_id = auth.uid()`).
- *   3. else → the caller's first team membership (`vendor_team_members`).
+ *   2. else → THE ACTIVE SHOP from `resolveActiveShop` (`lib/active-shop.ts`, 2026-10-22): the shop chosen in
+ *      the avatar sheet when this login owns it or helps in it, else the shop they OWN, else their first helper
+ *      seat. The switch is a cookie, not this argument, so (1) still has no caller.
  *
  * Wrapped in React `cache()` (2026-07-01 perf): the vendor dashboard layout and
  * the page it renders each fetch the profile in the SAME request. Since the
@@ -341,60 +341,24 @@ export const fetchOwnVendorProfile = cache(async (
     return byId ? normalizeVendorProfileRow(byId) : null;
   }
 
-  // (2) Owner path — the shop this user owns.
-  const owned = await selectVendorProfileBy(supabase, 'user_id', userId);
-  if (owned) return normalizeVendorProfileRow(owned);
-
-  // (3) Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
-  // may be a team member (admin / agent / viewer). Resolve their vendor via
-  // vendor_team_members (first membership), then load it by id — now through
-  // the shared FULL/LEGACY resolver, so this path gets the same fallback the
-  // owner path always had (it was previously FULL-only and returned null on a
-  // transient projection error). The `vendor_profiles_member_read` RLS policy
-  // admits members; agent data scoping happens on the per-table policies
-  // (services / chat), not here.
+  // (2) THE ACTIVE SHOP (2026-10-22) — the one resolver (`lib/active-shop.ts`): the shop chosen in the avatar
+  // sheet when this login owns it or helps in it, else the shop they own, else their first helper seat. The owner
+  // path and the helper path are no longer two branches here — one rule decides for both, and every shop-scoped
+  // read and write in the supplier pages asks the same rule, so a switch moves the page and the saves together.
   //
-  // 🔑 THE ERROR IS NOT DESTRUCTURED AWAY (2026-09-20). Until today this read
-  // was `const { data: memberships } = await …`, so a REFUSED or failed
-  // membership read produced `memberships = null` — the identical value a
-  // successful read over zero memberships produces — and this function
-  // returned null. `loadShopData` turns that null into the `'no-vendor'`
-  // sentinel and `/vendor-dashboard/shop` turns THAT into
-  // `redirect('/open-shop')`: the brand-new-shop wizard, shown to a team
-  // member who already has a shop, inviting them to create a second one.
-  // Every other null this function returns is a PROVEN absence (a read that
-  // succeeded and found nothing); `selectVendorProfileBy` already throws when
-  // both its projections fail, so throwing here does not add a failure mode
-  // callers were not already obliged to handle — it just stops one silent
-  // one. `/vendor-dashboard/shop` catches it and renders "couldn't load".
+  // 🔑 A REFUSED READ STILL THROWS (2026-09-20). `resolveActiveShop` throws when either the owned-shops or the
+  // seats read is unreadable, exactly as this function did for the membership read: a refused read that came back
+  // as `null` used to send a team member who HAS a shop to `/open-shop`, the brand-new-shop wizard. Every null
+  // returned here is a PROVEN absence. `/vendor-dashboard/shop` catches the throw and renders "couldn't load".
   //
-  // 🔀 THE SHOP-ID SWITCH (avatar sheet, 2026-10-22): a helper who sits in TWO shops picks one from the avatar
-  // sheet, and the choice is a cookie (`lib/active-shop.ts`). So this reads every seat, oldest first, and opens the
-  // chosen one when it is one of theirs — else the first, which is what `.limit(1)` returned before. Only this
-  // helper path reads the cookie; the owner path above never does (see active-shop.ts for why).
-  const { data: memberships, error: membershipError } = await supabase
-    .from('vendor_team_members')
-    .select('vendor_profile_id')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
-  const presence = classifyShopRead(memberships, membershipError);
-  if (presence === 'unreadable') {
-    throw new Error(
-      `fetchOwnVendorProfile failed: vendor_team_members read unreadable: [${
-        (membershipError as { message?: string } | null)?.message ?? 'no rows and no error'
-      }]`,
-    );
-  }
-  const seatIds = ((memberships ?? []) as Array<{ vendor_profile_id?: string }>)
-    .map((m) => m.vendor_profile_id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  const memberVendorProfileId =
-    seatIds.length > 1 ? pickHelperShop(seatIds, await readActiveShopCookie()) : seatIds[0];
-  if (presence === 'no-shop' || !memberVendorProfileId) return null;
+  // The full row is then read BY ID through the shared FULL/LEGACY resolver; the `vendor_profiles` owner and
+  // `vendor_profiles_member_read` policies admit only shops this login owns or sits on.
+  const active = await resolveActiveShop(supabase, userId);
+  if (!active) return null;
   const byId = await selectVendorProfileBy(
     supabase,
     'vendor_profile_id',
-    memberVendorProfileId,
+    active.vendorProfileId,
   );
   return byId ? normalizeVendorProfileRow(byId) : null;
 });

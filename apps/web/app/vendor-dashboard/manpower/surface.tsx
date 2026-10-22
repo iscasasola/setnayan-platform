@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { HardHat, Clock, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveActiveShopId } from '@/lib/active-shop';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
@@ -57,11 +58,23 @@ export default async function VendorManpowerPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/vendor-dashboard/manpower');
 
-  const { data: vendor, error: vendorError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_name')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // 🔀 The ACTIVE shop (lib/active-shop.ts) — the shop chosen in the avatar sheet, else the one they own, else their
+  // first helper seat. A refused shop read lands in the same honest "couldn't load" below.
+  let activeShopId: string | null = null;
+  let shopReadError: unknown = null;
+  try {
+    activeShopId = await resolveActiveShopId(supabase, user.id);
+  } catch (e) {
+    shopReadError = e;
+  }
+  const { data: vendor, error: vendorReadError } = activeShopId
+    ? await supabase
+        .from('vendor_profiles')
+        .select('vendor_profile_id, business_name')
+        .eq('vendor_profile_id', activeShopId)
+        .maybeSingle()
+    : { data: null, error: null };
+  const vendorError = shopReadError ?? vendorReadError;
 
   // ⚠ THIS ABSENCE DENIES, WHICH IS THE SAFE DIRECTION — AND IT STILL SAID
   // ⚠ SOMETHING FALSE. `!vendor` sent the viewer to /verify, i.e. "you are not

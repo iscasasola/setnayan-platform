@@ -5,9 +5,9 @@
  * properties, each of which shipped wrong at least once in the shape it replaces:
  *
  *   1. ONE ROW PER SHOP. The rail drew `vendorProfiles[0]` — a helper in two shops saw one, and the supplier pages
- *      could only ever open the first. The sheet maps every reachable shop; the shop-id switch (lib/active-shop.ts)
- *      lets the helper path open the one they pressed, and NEVER lets the owner path follow it (47 owner-path reads
- *      find "my shop" by user_id, so a switched owner would see shop B while writing to shop A).
+ *      could only ever open the first. The sheet maps every reachable shop — every shop the login OWNS and every
+ *      shop it helps in (owner 2026-10-22) — and the shop-id switch (lib/active-shop.ts) opens the one they pressed.
+ *      That every server read follows the same switch is held by lib/the-active-shop-is-resolved-once.test.ts.
  *   2. "• N new" IS THE BELL'S OWN SET, SPLIT BY PLACE — the row counts add up to the bell, a shop count is drawn only
  *      when it can be attributed to one shop, and a refused or partial read draws NOTHING (never 0).
  *   3. THE SWITCH CHECKS BEFORE IT WRITES — the route admits only this login's reachable shops.
@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, SHEET_UNREAD_CEILING } from '@/lib/avatar-sheet-counts';
-import { pickHelperShop, reachableShops } from '@/lib/active-shop';
+import { pickActiveShop, reachableShops } from '@/lib/active-shop';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -127,29 +127,26 @@ test('the sheet draws one row per listed shop, and the list is every reachable s
   assert.match(data, /shops: listed\.map\(/);
 });
 
-test('an owner reaches their own shop; a helper with none of their own reaches every seat', () => {
+test('every shop is offered — the ones this login owns and the ones it helps in', () => {
   const own = { id: 'A', owned: true };
   const seatB = { id: 'B', owned: false };
   const seatC = { id: 'C', owned: false };
-  assert.deepEqual(reachableShops([own, seatB]), [own], 'an owner was offered a shop the owner-path reads cannot follow');
+  assert.deepEqual(reachableShops([own, seatB]), [own, seatB], 'an owner was not offered the shop they help in');
   assert.deepEqual(reachableShops([seatB, seatC]), [seatB, seatC]);
   assert.deepEqual(reachableShops([]), []);
 });
 
-test('the helper path opens the chosen seat only when it is theirs', () => {
-  assert.equal(pickHelperShop(['B', 'C'], 'C'), 'C');
-  assert.equal(pickHelperShop(['B', 'C'], 'Z'), 'B', 'a foreign id was opened');
-  assert.equal(pickHelperShop(['B', 'C'], null), 'B');
-  assert.equal(pickHelperShop([], 'B'), undefined, 'an id with no seat behind it was opened');
+test('the resolver opens the chosen shop only when it is theirs', () => {
+  assert.deepEqual(pickActiveShop(['A'], ['B', 'C'], 'C'), { vendorProfileId: 'C', owned: false });
+  assert.deepEqual(pickActiveShop([], ['B', 'C'], 'Z'), { vendorProfileId: 'B', owned: false }, 'a foreign id was opened');
+  assert.deepEqual(pickActiveShop([], ['B', 'C'], null), { vendorProfileId: 'B', owned: false });
+  assert.equal(pickActiveShop([], [], 'B'), null, 'an id with no seat behind it was opened');
 });
 
-test('the resolver reads the chosen shop on the helper path only — never before the owner path returns', () => {
+test('fetchOwnVendorProfile has ONE path — the active-shop resolver, owner and helper alike', () => {
   const src = code(RESOLVER);
-  const ownerReturn = src.indexOf('if (owned) return normalizeVendorProfileRow(owned);');
-  const cookieRead = src.indexOf('readActiveShopCookie()');
-  assert.ok(ownerReturn > 0, 'the owner path anchor moved');
-  assert.ok(cookieRead > ownerReturn, 'the chosen shop is read before (or instead of) the owner path');
-  assert.match(src, /pickHelperShop\(seatIds, await readActiveShopCookie\(\)\)/);
+  assert.doesNotMatch(src, /selectVendorProfileBy\(supabase, 'user_id', userId\)/, 'the owner path is back, and it cannot follow a switch');
+  assert.match(src, /const active = await resolveActiveShop\(supabase, userId\);/);
 });
 
 /* ─── 3 · the switch checks before it writes ─────────────────────────────── */

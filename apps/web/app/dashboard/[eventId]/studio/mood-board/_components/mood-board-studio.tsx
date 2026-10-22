@@ -1311,7 +1311,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                         <div key={pick.who} className="flex min-w-0 flex-col gap-1.5" data-mood-board-pick={pick.who}>
                           {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
                           <div
-                            className="flex flex-wrap items-end gap-x-1"
+                            className={`flex flex-wrap gap-x-1 ${several ? 'items-start gap-y-2' : 'items-end'}`}
                             data-mood-board-options={options.length}
                             data-mood-board-swatches={pick.who}
                             {...(several ? { 'data-mood-board-looks': looks.length } : {})}
@@ -1344,7 +1344,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                               );
                             })}
                             {colours.length < optionsMax && (pi === 0 || dress) ? (
-                              <span className="flex h-11 items-center self-end">
+                              <span className={`flex h-11 items-center ${several ? 'basis-full' : 'self-end'}`}>
                                 <ActionButton
                                   tone="neutral"
                                   iconOnly

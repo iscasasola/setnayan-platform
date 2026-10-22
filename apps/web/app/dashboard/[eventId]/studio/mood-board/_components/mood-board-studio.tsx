@@ -1064,8 +1064,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 })
               : null}
           </div>
-          <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
-          <div className={STUDIO_GROUP} data-mood-board-room="" data-tour="mood-board-reception">
+          {/* 🔦 The Mood Board tour's stop 2 rings the room's heading — the group under it is taller than a phone. */}
+          <div data-tour="mood-board-reception">
+            <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
+          </div>
+          <div className={STUDIO_GROUP} data-mood-board-room="">
             {ROOM_LANE_PARTS.map(partBlock)}
           </div>
           <Heading title="Flowers — for your florist" tip="Your booked florist can change the flowers. You see every change." />

@@ -352,7 +352,10 @@ export function SpotlightTour({
       const band = freeBand(el, insets.current);
       if (!inBand(el, band)) {
         scrolledFor.current = iRef.current;
-        el.scrollIntoView({ block: 'center', behavior: prefersReduced() ? 'auto' : 'smooth' });
+        /* Taller than the room between the bars: its TOP comes into view (centred, both ends were off screen and it
+           read as covered for ever). */
+        const tall = el.getBoundingClientRect().height > band.bottom - band.top - 16;
+        el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: prefersReduced() ? 'auto' : 'smooth' });
         return; // measure on the next tick, once the scroll has settled
       }
       scrolledFor.current = iRef.current;
@@ -577,7 +580,7 @@ export function SpotlightTour({
         </div>
         <h4 id="sn-spot-title">{title}</h4>
         <p>{step.body}</p>
-        {step.welcome ? null : <div className="sn-spot-hint">Tap it yourself — or press Next</div>}
+        {step.welcome ? null : <div className="sn-spot-hint">{step.hint ?? 'Tap it yourself — or press Next'}</div>}
         <div className="sn-spot-row">
           <button type="button" className="sn-spot-skip" onClick={finish}>
             Skip

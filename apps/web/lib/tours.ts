@@ -101,6 +101,9 @@ export type SpotlightStep = {
   body: string;
   /** A doorway (a tab, a link to the next page): Next walks through it too, as the sample's Next did. */
   go?: boolean;
+  /** The line under the words, when this stop asks for something else than "Tap it yourself — or press Next" — a
+      stop with nothing to tap says "Press Next" (the host page tours' prototype, 2026-10-22). Plain text. */
+  hint?: string;
   /**
    * 👋 THE ONCE-ONLY WELCOME (owner 2026-10-21, prototype `first_run_you_and_next_steps_2026-10-21.html` P4 —
    * controller decision, owner may veto). Drawn with the SETNAYAN wordmark, larger, and "Welcome" in place of
@@ -1601,6 +1604,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'maker-hint',
+          hint: 'Tap the page — or press Next',
           title: 'Tap anything to change it',
           body: 'Tap words on the page to type over them, or tap a scene for its settings. Your guests see nothing until you press Apply.',
         },
@@ -1631,11 +1635,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'budget-summary',
+          hint: 'Press Next',
           title: 'Target · Agreed · Paid · Owed',
           body: 'The numbers up top are the sum of the list below — nothing is typed here.',
         },
         {
           anchor: 'budget-list',
+          hint: 'Tap a row — or press Next',
           title: 'One list, one truth',
           body: 'Booked suppliers, what you bought here, and your own expenses. Tap a supplier to see every payment and record one — Owed moves the moment you do.',
         },
@@ -1661,6 +1667,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'papic-band',
+          hint: 'Press Next',
           title: 'Your guests become the photographers',
           body: 'Every guest’s phone can be a camera — no app to install. This band says when the cameras are on and how many shots are left.',
         },
@@ -1731,6 +1738,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'mood-board-palette',
+          hint: 'Tap a colour — or press Next',
           title: 'Your colours',
           body: 'Up to five. Your Event Hub’s look, your prints and your dress code read from here — change one and they follow.',
         },

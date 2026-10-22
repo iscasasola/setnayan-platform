@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 296,
+  "total": 287,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -9,15 +9,6 @@
     "app/_components/chat/conversation-column.tsx · mulberry on white": 1,
     "app/_components/facebook-dual-stream-card.tsx · ink on white": 1,
     "app/_components/file-upload.tsx · sn-accent on white": 1,
-    "app/_components/frontdoor/front-door.css · .fd-ask": 1,
-    "app/_components/frontdoor/front-door.css · .fd-ask.quiet": 1,
-    "app/_components/frontdoor/front-door.css · .fd-btn-gold:hover (label inherited from .fd-btn-gold)": 1,
-    "app/_components/frontdoor/front-door.css · .fd-chip": 1,
-    "app/_components/frontdoor/front-door.css · .fd-chip:hover (label inherited from .fd-chip)": 1,
-    "app/_components/frontdoor/front-door.css · .fd-kindtag": 1,
-    "app/_components/frontdoor/front-door.css · .fd-micbtn": 1,
-    "app/_components/frontdoor/front-door.css · .fd-notice": 1,
-    "app/_components/frontdoor/front-door.css · .fd-searchgo": 1,
     "app/_components/home/home-reskin.css · .home-reskin .hr-mcal .hr-on": 1,
     "app/_components/home/home-reskin.css · .home-reskin .hr-mchip.hr-warn": 1,
     "app/_components/home/home-reskin.css · .home-reskin .hr-pw-bar .hr-u": 1,

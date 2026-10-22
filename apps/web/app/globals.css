@@ -3463,6 +3463,15 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      that gives up its hairline needs a denser fill and a shadow that SEATS it:
      a 1px contact layer plus two soft ambients, warm, never grey. */
   --sn-glass-bg-raised: rgba(255,255,255,.86);
+
+  /* 🌗 The phone's bottom dock (`bottom-nav.tsx` BottomDock / TravelPill / PressFlash).
+     These are the bar's locked literals (NAV-9) moved into tokens, byte for byte, so
+     light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
+     The bar painted `rgba(248,246,240,.92)` inline under html.dark too, so its
+     near-white labels read 1.15:1 on every screen. */
+  --sn-dock-bg:    rgba(248, 246, 240, 0.92); /* the frosted paper @ 92 % */
+  --sn-dock-pill:  rgba(30, 34, 41, 0.15);    /* the travelling active pill — ink @ 15 % */
+  --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
@@ -3528,6 +3537,11 @@ html.dark {
 
   --sn-canvas: #17160F;
   --sn-glass-bg-raised: rgba(35,32,25,.86);
+  /* The dock: the card #232019 frosted at the same 92 %, the pill = ink #FBFAF7 @ 15 %,
+     and a softer press-light (a 95 % white bloom is a flashbulb on the dark page). */
+  --sn-dock-bg:    rgba(35, 32, 25, 0.92);
+  --sn-dock-pill:  rgba(251, 250, 247, 0.15);
+  --sn-dock-press: rgba(251, 250, 247, 0.28);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
   --sn-glass-row-alpha: 62%;

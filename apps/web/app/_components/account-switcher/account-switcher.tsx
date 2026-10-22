@@ -642,7 +642,10 @@ export function SwitcherPlaqueTrigger({
           background:
             'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.18), transparent 60%), var(--sn-glass-dark-bg, rgba(23,22,15,.82))',
           borderColor: 'var(--sn-glass-dark-line, rgba(255,255,255,.18))',
-          color: 'var(--sn-gold-100, #F3ECDF)',
+          // 🌗 A literal, on purpose: the plaque is DARK GLASS in both themes, so its words
+          // stay light in both. `--sn-gold-100` is the gold WASH, which goes dark (#413827)
+          // under html.dark — it painted the plaque's name dark-on-dark (dark B1, 2026-10-23).
+          color: '#F3ECDF',
           outlineColor: 'var(--sn-gold-500, #CBA766)',
         }}
       >

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { isTauri, tauri } from '@/lib/desktop-oauth';
+import { isTauri, tauri } from '@/lib/tauri-global';
 import { createProgramCanvas, type ProgramCanvas } from '@/lib/encoder/program-canvas';
 import { createEncoderSession, type EncoderSession } from '@/lib/encoder/encoder-session';
 import { guardGoLive } from '@/lib/encoder/go-live-guard';

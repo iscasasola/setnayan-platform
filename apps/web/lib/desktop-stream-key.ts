@@ -19,9 +19,9 @@
  *     type-level guarantee, not just a convention here.
  */
 
-import { tauri } from '@/lib/desktop-oauth';
+import { tauri } from '@/lib/tauri-global';
 
-export { isTauri } from '@/lib/desktop-oauth';
+export { isTauri } from '@/lib/tauri-global';
 
 /**
  * OWN-CHANNEL (default tier): hand the couple's pasted YouTube stream key

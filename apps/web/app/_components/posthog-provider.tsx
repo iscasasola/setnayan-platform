@@ -25,7 +25,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-import { createClient } from '@/lib/supabase/client';
 import { analyticsAllowed, CONSENT_CHANGE_EVENT } from '@/lib/cookie-consent';
 import {
   sanitizeAnalyticsProperties,
@@ -178,18 +177,28 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
     // they accept analytics, and skipped entirely otherwise.
     // (Perf sweep 2026-07-02, finding #19.)
     if (!consentReady) return;
+    /* 📦 THE SUPABASE CLIENT IS FETCHED HERE, NOT IMPORTED AT THE TOP (2026-10-22).
+       This provider sits in the root layout, so a static import put the whole
+       Supabase browser SDK (auth · realtime · storage · postgrest) into EVERY
+       page's first load — for a call that only ever runs after an analytics yes.
+       Loaded on that yes instead; held by lib/the-root-layout-stays-light.test.ts. */
     let cancelled = false;
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    let unsubscribe: (() => void) | undefined;
+    void import('@/lib/supabase/client').then(({ createClient }) => {
       if (cancelled) return;
-      setResolvedUserId(data.user?.id ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setResolvedUserId(session?.user?.id ?? null);
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        if (cancelled) return;
+        setResolvedUserId(data.user?.id ?? null);
+      });
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        setResolvedUserId(session?.user?.id ?? null);
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
     });
     return () => {
       cancelled = true;
-      sub.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, [userId, consentReady]);
 

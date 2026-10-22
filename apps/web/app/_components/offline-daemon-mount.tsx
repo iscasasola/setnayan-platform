@@ -25,7 +25,14 @@
 
 import { useEffect } from 'react';
 
-import { registerSyncDaemon, triggerSyncNow } from '@/lib/offline/sync-daemon';
+/* 📦 THE DAEMON IS FETCHED WHEN IT STARTS, NOT IMPORTED AT THE TOP (2026-10-22).
+   This mount sits in the root layout — and is only RENDERED behind
+   NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED — but a static import shipped the whole
+   daemon (IndexedDB queue, the five service handlers, the Papic drain) in EVERY
+   page's first load whether the flag was on or not. Both calls below already
+   ran inside this effect, after paint, so asking for the module there changes
+   nothing a visitor sees. Held by lib/the-root-layout-stays-light.test.ts. */
+const loadDaemon = () => import('@/lib/offline/sync-daemon');
 
 export function OfflineDaemonMount() {
   useEffect(() => {
@@ -47,7 +54,14 @@ export function OfflineDaemonMount() {
         return;
       }
       if (cancelled) return;
-      await registerSyncDaemon();
+      let daemon: Awaited<ReturnType<typeof loadDaemon>>;
+      try {
+        daemon = await loadDaemon();
+      } catch {
+        return; // the chunk could not load — best-effort, like the SW registration above
+      }
+      if (cancelled) return;
+      await daemon.registerSyncDaemon();
     })();
 
     // Listen for `TRIGGER_SYNC` from the SW when Background Sync wakes
@@ -61,7 +75,11 @@ export function OfflineDaemonMount() {
         // Fire-and-forget — `triggerSyncNow()` is itself best-effort
         // and never throws on bad input. Errors get surfaced in the
         // admin diagnostic, not via uncaught promise rejections.
-        void triggerSyncNow();
+        void loadDaemon()
+          .then(({ triggerSyncNow }) => triggerSyncNow())
+          .catch(() => {
+            /* the chunk could not load (offline mid-deploy) — the next wake retries */
+          });
       }
     };
     navigator.serviceWorker.addEventListener('message', onMessage);

@@ -35,39 +35,13 @@ import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-next';
 import { acceptTermsNow } from '@/app/dashboard/_components/terms-reaccept-actions';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
+// The `window.__TAURI__` accessor lives in its own import-free file so the root
+// layout can ask "am I the desktop app?" without downloading this sign-in flow
+// (and the Supabase client it carries) on every page — see lib/tauri-global.ts.
+import { tauri } from '@/lib/tauri-global';
+export { tauri, isTauri, type TauriGlobal } from '@/lib/tauri-global';
 
 export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
-
-interface TauriCore {
-  invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
-}
-interface TauriEvent {
-  listen: (
-    event: string,
-    handler: (e: { payload: unknown }) => void,
-  ) => Promise<() => void>;
-}
-interface TauriGlobal {
-  core: TauriCore;
-  event: TauriEvent;
-}
-
-/**
- * Exported so other desktop-only modules (e.g. lib/desktop-stream-key.ts, S8)
- * can invoke additional Tauri commands through the SAME typed accessor rather
- * than re-declaring the `window.__TAURI__` shape a second time.
- */
-export function tauri(): TauriGlobal | null {
-  if (typeof window === 'undefined') return null;
-  const w = window as unknown as { __TAURI__?: TauriGlobal };
-  const t = w.__TAURI__;
-  return t && t.core && t.event ? t : null;
-}
-
-/** True only inside the Tauri desktop shell (globalTauri injected). */
-export function isTauri(): boolean {
-  return tauri() !== null;
-}
 
 /** Route any desktop sign-in failure to the login page with a friendly note. */
 function fail(message: string): void {

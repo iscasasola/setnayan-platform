@@ -23,7 +23,7 @@
  */
 
 import { useEffect } from 'react';
-import { isTauri, tauri } from '@/lib/desktop-oauth';
+import { isTauri, tauri } from '@/lib/tauri-global';
 import { useToast } from './toast/toast-provider';
 
 const UPDATE_READY_EVENT = 'setnayan://update-ready';

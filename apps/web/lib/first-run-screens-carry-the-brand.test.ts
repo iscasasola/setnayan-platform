@@ -73,9 +73,13 @@ test('2 · a brand-new couple’s Done goes to the picker — and only then', ()
   const create = read('app/dashboard/(account)/create-event/page.tsx');
   assert.match(create, /nothingBehind = !error && \(count \?\? 0\) === 0;/, 'an unread count would hide the way back');
   assert.match(create, /<NewEventHead nothingBehind=\{nothingBehind\}/);
-  // The first screen fits a 320 px phone: the "Para kanino ito?" rows shrink to the column (measured 2026-10-21:
-  // a long subtitle held them at 334 px and the whole page zoomed out to 350).
-  assert.match(read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx'), /<ul className="grid max-w-lg grid-cols-\[minmax\(0,1fr\)\] gap-2">/);
+  // The first screen fits a 320 px phone. It was the "Para kanino ito?" rows (measured 2026-10-21: a long subtitle
+  // held them at 334 px and the page zoomed out to 350); since 2026-10-22 (Host 3) there is no who-screen — the first
+  // screen IS the grid, and the who is a compact dropdown whose long lines live in its list, not in the page column
+  // (`create-event/the-grid-opens-first.test.ts`).
+  const picker = read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx');
+  assert.doesNotMatch(picker, /Para kanino ito/, 'the who-screen is back in front of the grid');
+  assert.match(picker, /<PickMenu[\s\S]{0,120}\bcompact\b/, 'the who must stay a compact dropdown on the first screen');
   const head = read('app/dashboard/(account)/create-event/_components/new-event-head.tsx');
   assert.match(head, /\{nothingBehind \? null : \(\s*<Link/, 'the way back is drawn with nothing behind it');
   // ONE wordmark on the picker: the account bar's top bar (mark + "Setnayan" at every width) — never a second

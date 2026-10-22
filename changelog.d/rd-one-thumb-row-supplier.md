@@ -8,6 +8,9 @@
   (grey while nothing changed), both at the right.
 - `ThumbRow` gains `ThumbNode` seats (a shipped component — the Search box, Check a date, Add, Log a payment — keeps its
   sheet and address; the row gives it the seat's shape) and `target` on a link round.
-- Guard: `lib/every-thumb-row-is-the-one-row.test.ts` covers the supplier rows.
+- People (#6773's `AccountThumbRow`) draws through the shared row — as its own docblock planned; the seat is the
+  glass, so its `ThumbTool` / `ThumbField` paint none of their own. The field says "Find or invite" (the owner's words).
+  Memories rides the same component when #6778 lands.
+- Guard: `lib/every-thumb-row-is-the-one-row.test.ts` covers the supplier rows and People.
 
 SPEC IMPACT: None beyond the 2026-10-22 DECISION_LOG row "ONE THUMB ROW" (PR1).

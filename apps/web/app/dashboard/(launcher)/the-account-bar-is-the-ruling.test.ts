@@ -197,11 +197,11 @@ test('the account-level screens wear the mark AND the word — and only they car
 
 test('Admin lives on the avatar sheet, worded Admin', () => {
   const sheet = src('app/_components/account-switcher/account-switcher.tsx');
-  // `stripComments` keeps offsets (comments become spaces), so match the tile
-  // as one element rather than a fixed window after its href.
-  assert.match(
-    sheet,
-    /href="\/admin"[^<]*>[\s{}]*<ShieldCheck[^>]*\/>[\s{}]*<span>Admin<\/span>[\s{}]*<span[^>]*>Setnayan HQ<\/span>/,
-    'the avatar sheet tile to /admin is not worded Admin · Setnayan HQ',
-  );
+  // Direction 2 (owner 2026-10-22): the tile became a "Switch to" row — Setnayan HQ, its ADMIN tag. Match the row
+  // as one element, from its href to its closing </Link>, so the words cannot drift to a neighbouring row.
+  const row = sheet.match(/<Link\s+href="\/admin"[\s\S]*?<\/Link>/)?.[0] ?? '';
+  assert.ok(row, 'the avatar sheet has no row to /admin');
+  assert.match(row, />Setnayan HQ</, 'the /admin row is not named Setnayan HQ');
+  assert.match(row, /<Tag>Admin<\/Tag>/, 'the /admin row lost its Admin tag — the owner\'s word for it');
+  assert.match(sheet, /\{showHQ \? \(/, 'the /admin row is no longer gated on the admin grant');
 });

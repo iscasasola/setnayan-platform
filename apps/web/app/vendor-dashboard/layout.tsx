@@ -485,7 +485,12 @@ export default async function VendorDashboardLayout({
         way to sign out and no error to notice. Matches what the account
         spokes already render at all widths.
       */}
-      <AccountSwitcher data={switcherData} shopRows={switcherShopRows} />
+      <AccountSwitcher
+        data={switcherData}
+        shopRows={switcherShopRows}
+        here="shop"
+        activeShopId={vendorProfile?.vendor_profile_id ?? null}
+      />
     </div>
   );
 

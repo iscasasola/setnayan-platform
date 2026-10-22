@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { pickHelperShop, readActiveShopCookie } from '@/lib/active-shop';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { classifyShopRead } from '@/lib/shop-presence';
 
@@ -366,12 +367,16 @@ export const fetchOwnVendorProfile = cache(async (
   // both its projections fail, so throwing here does not add a failure mode
   // callers were not already obliged to handle — it just stops one silent
   // one. `/vendor-dashboard/shop` catches it and renders "couldn't load".
+  //
+  // 🔀 THE SHOP-ID SWITCH (avatar sheet, 2026-10-22): a helper who sits in TWO shops picks one from the avatar
+  // sheet, and the choice is a cookie (`lib/active-shop.ts`). So this reads every seat, oldest first, and opens the
+  // chosen one when it is one of theirs — else the first, which is what `.limit(1)` returned before. Only this
+  // helper path reads the cookie; the owner path above never does (see active-shop.ts for why).
   const { data: memberships, error: membershipError } = await supabase
     .from('vendor_team_members')
     .select('vendor_profile_id')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-    .limit(1);
+    .order('created_at', { ascending: true });
   const presence = classifyShopRead(memberships, membershipError);
   if (presence === 'unreadable') {
     throw new Error(
@@ -380,8 +385,11 @@ export const fetchOwnVendorProfile = cache(async (
       }]`,
     );
   }
-  const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
-    ?.vendor_profile_id;
+  const seatIds = ((memberships ?? []) as Array<{ vendor_profile_id?: string }>)
+    .map((m) => m.vendor_profile_id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  const memberVendorProfileId =
+    seatIds.length > 1 ? pickHelperShop(seatIds, await readActiveShopCookie()) : seatIds[0];
   if (presence === 'no-shop' || !memberVendorProfileId) return null;
   const byId = await selectVendorProfileBy(
     supabase,

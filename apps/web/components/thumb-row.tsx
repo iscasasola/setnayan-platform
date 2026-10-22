@@ -123,7 +123,7 @@ export function ThumbRow({
             <Round key={r.label} r={r} />
           ))}
           {field ? (
-            <label className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour}>
+            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}

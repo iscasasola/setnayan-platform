@@ -14,16 +14,52 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import * as React from 'react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { ChevronsUpDown, ListFilter, Plus, SquareCheck } from 'lucide-react';
-import { ThumbRow } from './thumb-row';
-import { findPlaceholder } from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
-import { searchRowHref } from '@/app/_components/frontdoor/shell-thumb-rows';
+import type * as RowMod from '@/components/thumb-row';
+import type * as FindMod from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
+import type * as ShellMod from '@/app/_components/frontdoor/shell-thumb-rows';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
-const WEB = join(__dirname, '..');
+/* The components compile to classic `React.createElement` under this runner, and a CSS module is its class names
+   (the Discover card's test does the same) — set BEFORE the components are required. */
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Mod = require('node:module');
+  Mod._extensions['.css'] = (m: { exports: unknown }) => {
+    m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
+  };
+}
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { ThumbRow } = require('@/components/thumb-row') as typeof RowMod;
+const { findPlaceholder } = require('@/app/dashboard/[eventId]/vendors/_components/find-thumb-row') as typeof FindMod;
+const { searchRowHref } = require('@/app/_components/frontdoor/shell-thumb-rows') as typeof ShellMod;
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+/** A small `expect` over node:assert — this runner is `tsx --test`. */
+function expect(v: unknown, msg?: string) {
+  const s = () => String(v);
+  return {
+    toBe: (x: unknown) => assert.equal(v, x, msg),
+    toBeTruthy: () => assert.ok(v, msg),
+    toBeNull: () => assert.equal(v, null, msg),
+    toContain: (x: string) => assert.ok(s().includes(x), msg ?? `expected to contain ${x}`),
+    toMatch: (re: RegExp) => assert.match(s(), re, msg),
+    toBeLessThan: (n: number) => assert.ok((v as number) < n, msg ?? `${v} < ${n}`),
+    toBeLessThanOrEqual: (n: number) => assert.ok((v as number) <= n, msg ?? `${v} <= ${n}`),
+    not: {
+      toContain: (x: string) => assert.ok(!s().includes(x), msg ?? `expected not to contain ${x}`),
+      toMatch: (re: RegExp) => assert.doesNotMatch(s(), re, msg),
+    },
+  };
+}
+
+const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> = {
@@ -53,14 +89,14 @@ describe('the row draws one order', () => {
         ],
       }),
     );
-    expect(seats(html)).toEqual(['round', 'round', 'field', 'menu', 'action']);
+    assert.deepEqual(seats(html), ['round', 'round', 'field', 'menu', 'action']);
     expect(html.match(/data-thumb-seat="action"/g)?.length).toBe(1);
     expect(html).not.toContain('A third left round');
   });
 
   it('a lone verb sits at the right, after an empty seat', () => {
     const html = renderToStaticMarkup(createElement(ThumbRow, { name: 'money', action: { icon: Plus, label: 'Log a payment' } }));
-    expect(seats(html)).toEqual(['action']);
+    assert.deepEqual(seats(html), ['action']);
     expect(html.indexOf('aria-hidden')).toBeLessThan(html.indexOf('data-thumb-seat="action"'));
   });
 
@@ -99,7 +135,7 @@ describe('placeholders name the place, short', () => {
     }
   }
   it('finds every placeholder (premise)', () => {
-    expect(found.map((p) => p.words).sort()).toEqual(
+    assert.deepEqual(found.map((p) => p.words).sort(), 
       ['Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });

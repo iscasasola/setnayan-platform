@@ -477,7 +477,7 @@ test('the app variant renders no second search row', () => {
     ("the search bar is still on top"), so `.fd-searchrow` must be gated.
   */
   assert.ok(
-    /\{inApp \? null : \(\s*<div className="fd-searchrow">/.test(src),
+    /\{inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">/.test(src),
     'The phone search ROW must be front-door only. Inside the app everything ' +
       'stays on one line — the 2026-07-30 ruling.',
   );
@@ -536,20 +536,17 @@ test('each tree still renders exactly one landmark of its own', () => {
 
 /* ─── THE SEARCH: ONE QUESTION, ONE ANSWER ──────────────────────────────── */
 
-test('the app variant searches the person\'s own things, not the marketplace', () => {
+test('signed in, the shared bar carries NO search — it moved to the thumb row (owner 2026-10-22)', () => {
+  /*
+    SUPERSEDES the 2026-08-14 "the palette is the app's search" pin. Owner, 22 Oct ("One thumb row", "Yes to all"):
+    the top bar is wordmark · ✉ · 🔔 · avatar on every shell; each list's thumb row searches the place you stand in
+    (`components/thumb-row.tsx`, `lib/every-thumb-row-is-the-one-row.test.ts`). The shell is handed `false` — not
+    `undefined`, which would fall back to the MARKETPLACE box: that is still what a signed-out visitor gets.
+  */
   const src = code(read(RAIL_SHELL));
-  assert.ok(
-    /<HomeCommandBar items=\{commandItems\}/.test(src),
-    'The shared bar must pass the command palette as its search inside the ' +
-      'app. A marketplace GET form cannot reach your own wedding, which is ' +
-      'the question every one of these five surfaces is actually asking.',
-  );
-  assert.ok(
-    /resolveCommandItems\(\)/.test(src),
-    'The palette must be fed by the ONE shared index. The launcher used to ' +
-      'build its own inline, which would list different things on /dashboard ' +
-      'than inside a wedding, with nothing to notice.',
-  );
+  assert.match(src, /search=\{searchSlot \?\? \(account\.signedIn \? false : undefined\)\}/, 'the signed-in app bar has a search again');
+  assert.doesNotMatch(src, /<HomeCommandBar\b/, 'the top-bar palette is mounted again');
+  assert.doesNotMatch(src, /resolveCommandItems\(\)/, 'the shell builds an index for a palette it no longer draws');
 });
 
 test('the palette carries the marketplace as an escape row', () => {
@@ -704,7 +701,8 @@ test('neither mount hands out the palette without asking who is looking', () => 
     */
     assert.match(
       src,
-      /search=\{\s*(searchSlot \?\? \()?\s*account\.signedIn \? \(?\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\)? : undefined\)?\s*\}/,
+      // 2026-10-22: signed in → `false` (no top-bar search; the thumb row has it). Signed out → `undefined`.
+      /search=\{\s*(searchSlot \?\? \()?\s*account\.signedIn \? false : undefined\)?\s*\}/,
       `${m.name} no longer branches its search on whether anybody is signed ` +
         'in. Signed out, the palette searches events, people and vendors the ' +
         'visitor does not have: the index is empty without a session, so it ' +
@@ -734,11 +732,11 @@ test('both mounts answer it the same way', () => {
     exact divergence the owner photographed.
   */
   const expr = (src: string) =>
-    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0]
+    (code(src).match(/search=\{[^\n]*\}/) ?? [''])[0]
       .replace(/\s+/g, ' ')
-      .replace(/^search=\{ searchSlot \?\? \((.*)\) \}$/, 'search={ $1 }');
+      .replace(/^search=\{ ?searchSlot \?\? \((.*)\) ?\}$/, 'search={$1}');
   const [a, b] = SEARCH_MOUNTS.map((m) => expr(read(m.file)));
-  assert.ok(a && a.length > 40, 'The front door mount matched no search expression at all.');
+  assert.ok(a && a.length > 30, 'The front door mount matched no search expression at all.');
   assert.equal(
     a,
     b,
@@ -760,7 +758,7 @@ test('the phone row shows the same search as the desktop row', () => {
   */
   assert.match(
     src,
-    /\{inApp \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
+    /\{inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
     'The phone search row must render the SAME control the desktop row does ' +
       '(`search ?? <SearchBox />`). Hardcoding <SearchBox /> here gives one ' +
       'page two different searches depending on how wide the window is.',

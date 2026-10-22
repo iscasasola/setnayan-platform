@@ -214,7 +214,6 @@ export function FindThumbRow({
             onClick: emptyPanel != null ? () => setOpen(true) : undefined,
             'aria-expanded': emptyPanel != null ? showPanel : undefined,
             'aria-controls': showPanel ? panelId : undefined,
-            'data-glass-row': 'suppliers-find',
           },
         }}
         action={{

@@ -127,7 +127,7 @@ test('🔒 select mode has the two verbs and only two — no bulk label (a label
 // ── 3 · a failed read says so ───────────────────────────────────────────────
 
 test('🔴 a refused roster says "couldn’t load" at the top — never "0 connected"', () => {
-  const head = ROSTER.slice(ROSTER.indexOf('const counts = ('), ROSTER.indexOf('const rowFor = '));
+  const head = ROSTER.slice(ROSTER.indexOf('const topLine = ('), ROSTER.indexOf('const rowFor = '));
   const refused = head.indexOf('roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ?');
   const first = head.indexOf('<CountDoor');
   assert.ok(refused >= 0, 'the counts line no longer checks the refusal first');

@@ -105,7 +105,7 @@ test('🔴 the top is the counts line — no header block and no view dropdown a
   assert.ok(!CODE.includes('<PeopleViewPicker'), 'the page draws the view dropdown itself again — it lives in the thumb row');
   const ROSTER = stripComments(readFileSync(join(__dirname, '_components', 'people-roster-view.tsx'), 'utf8'));
   const ret = ROSTER.slice(ROSTER.indexOf('data-people-screen'));
-  assert.ok(ret.indexOf('{counts}') >= 0 && ret.indexOf('{counts}') < ret.indexOf('{list}'), 'the counts line is not the first thing the roster draws');
+  assert.ok(ret.indexOf('{topLine}') >= 0 && ret.indexOf('{topLine}') < ret.indexOf('{list}'), 'the counts line is not the first thing the roster draws');
   // …and the view list sits in the thumb row, as ≡.
   const thumb = ROSTER.slice(ROSTER.indexOf('const filterPick = ('), ROSTER.indexOf('const thumb = selectMode'));
   assert.match(thumb, /<PeopleViewPicker /, 'the ≡ button no longer opens the view list (Groups · Following · Followers)');

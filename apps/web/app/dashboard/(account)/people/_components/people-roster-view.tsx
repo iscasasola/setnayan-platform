@@ -336,7 +336,7 @@ export function PeopleRosterView({
     });
   }
 
-  const counts = (
+  const topLine = (
     <div className={gs.stick} data-people-head="">
       {roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? (
         // A refusal is said as one — never "0 connected".
@@ -555,7 +555,7 @@ export function PeopleRosterView({
 
   return (
     <div ref={rootRef} className={`${gs.screen} ${ps.people}`} data-people-view="connected" data-people-screen="">
-      {counts}
+      {topLine}
       {error ? (
         <p role="alert" className="py-2 text-sm text-red-700 dark:text-red-300">
           {error}

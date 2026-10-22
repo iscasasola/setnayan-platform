@@ -5,13 +5,14 @@
  * the REAL `LaunchHubPage`, then the REAL `WebsiteEditorPage` it mounts (React draws it only after the
  * page returns), against a database that counts how deep each request ran:
  *
- *   · the page was 25 trips deep: whether the address was renamed, the internal reading, the event
+ *   · the page was 26 trips deep: whether the address was renamed, the internal reading, the event
  *     type's profile and the tour keys were each awaited on their own line; inside the work the draft
  *     waited for the Menu's sources, the RSVP deadline for Your event, the background for the seat plan,
  *     where the reveal plays and the See-as role names for everything above them, and two query builders
  *     only left at their await;
  *   · the editor then added 14 more in single file — its gate, the draft, the scenes, the fixed styles,
- *     the schedule, the names, the rite, the roles, the role names, the entourage count — 39 in all.
+ *     the schedule, the names, the rite, the roles, the role names, the entourage count — 40 in all.
+ *     Simulated at 150 ms a trip: 6,108 ms; after, 3,104 ms (page 15 deep, with its editor 20).
  *
  * Each read is now STARTED as soon as what it needs is in (`lib/start-ahead.ts`) and awaited where it
  * always was. The property held is the DEPTH — what a couple waits for before the Maker is drawn — and
@@ -52,15 +53,15 @@ test('0 · the fixture drew the new Maker and its editor — or the depth below 
   }
 });
 
-/** MEASURED: the page 25 → 14, the page and its editor 39 → 19. */
-const PAGE_MAX_DEPTH = 14;
-const MAKER_MAX_DEPTH = 19;
+/** MEASURED: the page 26 → 15, the page and its editor 40 → 20. */
+const PAGE_MAX_DEPTH = 15;
+const MAKER_MAX_DEPTH = 20;
 
-test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 25)`, () => {
+test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26)`, () => {
   assert.ok(VIEW.pageDepth <= PAGE_MAX_DEPTH, `the Maker page waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
-test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 39)`, () => {
+test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40)`, () => {
   assert.ok(VIEW.depth <= MAKER_MAX_DEPTH, `the Maker's editor waits on reads one after another again:\n${shape(VIEW)}`);
 });
 

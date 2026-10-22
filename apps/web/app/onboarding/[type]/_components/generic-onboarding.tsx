@@ -55,6 +55,7 @@ import type { GenericPersonaReveal } from '@/lib/onboarding/generic-content';
 import type { OnboardingIntro } from '@/lib/onboarding/onboarding-db';
 import type { OnboardingPickChip } from '@/lib/onboarding-refinements';
 import { getSpecialtyFields } from '@/lib/onboarding/specialty-catalog';
+import { eventNameExample, specialtyAskedElsewhere } from '@/lib/onboarding/asked-once';
 import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
@@ -506,8 +507,8 @@ export function GenericOnboarding(props: Props) {
     } catch {
       /* ignore corrupt draft */
     }
-    // "Para kanino ito?" was already answered one screen ago, on the create-event
-    // WHO step. Consume the carry (sessionStorage, single-read, 10-min TTL — the
+    // Who it is for was already answered on the create-event grid (the "For · You ▾"
+    // dropdown, owner 2026-10-22; "Para kanino ito?" before that). Consume the carry (sessionStorage, single-read, 10-min TTL — the
     // name never touches the URL) so this flow CONFIRMS the celebrant instead of
     // asking the same question twice. Only for the types that actually ask.
     if (asksHonoree) {
@@ -905,6 +906,27 @@ export function GenericOnboarding(props: Props) {
     [prefillSpecialty, derivedSpecialty, specialtyValues],
   );
 
+  /**
+   * 🔁 ASKED ONCE (owner 2026-10-22, Host 6): the specialty fields whose answer the honoree screen already holds — the
+   * birthday's "Celebrant" — are SHOWN on the specialty screen ("Celebrant · Lola Rosa  Change"), never asked again.
+   * Change goes back to the honoree screen, the one place the name is asked (`lib/onboarding/asked-once.ts`).
+   */
+  const askedElsewhere = useMemo(
+    () =>
+      specialtyAskedElsewhere({
+        values: specialtyValues,
+        derived: derivedSpecialty,
+        hasHonoreeScreen: screens.includes('honoree'),
+      }),
+    [specialtyValues, derivedSpecialty, screens],
+  );
+  /** The Event name example — the birthday's own, from the name (and age) this flow already holds. */
+  const nameExample = eventNameExample({
+    eventType,
+    name: typeof derivedSpecialty.celebrant_name === 'string' ? derivedSpecialty.celebrant_name : null,
+    age: knownBirthdayAge,
+  });
+
   const go = useCallback(
     (delta: number) => {
       setError(null);
@@ -1145,6 +1167,7 @@ export function GenericOnboarding(props: Props) {
           title={`New ${label.toLowerCase()}`}
           limitLine={limitLineFor(eventType)}
           solemn={register === 'solemn'}
+          namePlaceholder={nameExample ?? undefined}
           name={displayName}
           onName={setDisplayName}
           where={setupAnswers.whereText}
@@ -1270,7 +1293,13 @@ export function GenericOnboarding(props: Props) {
             onChange={(e) => setDisplayName(e.target.value)}
             // 🕊 "Wake of the Year" was the solemn type's placeholder (audit
             // 2026-09-30). A wake names a person, plainly; every other type keeps its line.
-            placeholder={register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`}
+            placeholder={
+              nameExample
+                ? `e.g. ${nameExample}`
+                : register === 'solemn'
+                  ? `e.g. ${label} for Lola Rosa`
+                  : `e.g. ${label} of the Year`
+            }
             className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
           />
         </div>
@@ -1649,7 +1678,18 @@ export function GenericOnboarding(props: Props) {
           <p className="mt-2 text-ink/55">
             Optional — the more you share, the more personal your plan. Skip anything you’re unsure of.
           </p>
-          <SpecialtyFields fields={specialtyFields} value={specialtyValues} onChange={setSpecialtyValues} prefilledKeys={prefilledSpecialtyKeys} />
+          <SpecialtyFields
+            fields={specialtyFields}
+            value={specialtyValues}
+            onChange={setSpecialtyValues}
+            prefilledKeys={prefilledSpecialtyKeys}
+            answered={askedElsewhere}
+            onChangeAnswered={() => {
+              // Back to the one place the name is asked — with its field open, not the "This one's yours" line.
+              setHonoreeRevealed(true);
+              setStep(Math.max(0, screens.indexOf('honoree')));
+            }}
+          />
         </div>
       );
     }

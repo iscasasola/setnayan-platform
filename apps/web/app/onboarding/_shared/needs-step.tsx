@@ -63,6 +63,9 @@ type Props = {
   fieldNames?: { name: string; where?: string; when: string };
   /** A wake speaks quietly. */
   solemn?: boolean;
+  /** This type's own Event name example (the birthday's "Lola Rosa turns 80", `lib/onboarding/asked-once.ts`) —
+   *  absent = the line below, so no type borrows another's example by default. */
+  namePlaceholder?: string;
 };
 
 const LABEL = 'block text-[11px] font-bold uppercase tracking-[0.08em] text-ink/55';
@@ -88,6 +91,7 @@ export function NeedsStep({
   notice,
   fieldNames,
   solemn = false,
+  namePlaceholder,
 }: Props) {
   return (
     <div data-needs-step="" className="flex flex-col gap-2.5">
@@ -108,7 +112,7 @@ export function NeedsStep({
           onChange={(e) => onName(e.target.value)}
           required
           autoComplete="off"
-          placeholder={solemn ? 'For Lola Rosa' : 'Movie night sa bahay'}
+          placeholder={namePlaceholder ?? (solemn ? 'For Lola Rosa' : 'Movie night sa bahay')}
           className={INPUT}
           data-needs-name=""
         />

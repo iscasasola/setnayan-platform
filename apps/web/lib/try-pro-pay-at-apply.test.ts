@@ -159,8 +159,9 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
 
   // The server's Apply still asks the one live gate, fail-closed in the shell.
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /const ownsPro = storeShell \? false : await lookProAllows\(eventId, 'change'\);/);
-  assert.match(action, /const plan = planHubDraftApply\(current, live, ownsPro\);/);
+  /* RE-AIMED 2026-10-22 (part by part): the one live gate is what the event owns, part by part — fail-closed in the shell. */
+  assert.match(action, /const owned = storeShell \? NO_HUB_PARTS : await hubOwnershipForWrite\(eventId\);/);
+  assert.match(action, /const plan = planHubDraftApply\(current, live, owned\);/);
   // …and a held scene of their own stays SHOWN in the draft after Apply.
   assert.match(action, /else if \(item\.field === 'is_visible'\) \{\s*\(remaining\.widgets\[item\.widgetType\] \?\?= \{\}\)\.is_visible = item\.value as boolean;/);
 });
@@ -299,7 +300,8 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
   assert.match(load, /const proShell = storeShell && !iap;/);
   /* RE-AIMED 2026-10-18 round 3 (rulings A + B): every step records who made it (`by`); the bar greys ↺ for the viewer (`me`). Same property. */
-  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !proShell, me\);\s*if \(!proShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
+  /* RE-AIMED 2026-10-22 (part by part): the plan is asked with the event's parts (none in a shell that cannot sell Pro). */
+  assert.match(load, /const forPlan = proShell \? NO_HUB_PARTS : owned;\s*summary = summarizeHubDraft\(draft, live, forPlan, me\);\s*if \(!proShell\) proEffects = hubDraftProEffects\(draft, live, owned\)\.map\(hubProEffectView\);/);
   // …and still no web price or web link in ANY store shell, Apple or not.
   assert.match(load, /if \(!storeShell && summary\.proCount > 0\)/);
   assert.match(load, /proHref: iap \? `\/dashboard\/\$\{eventId\}\/apple-pro\?from=maker` : storeShell \? null :/);
@@ -333,7 +335,8 @@ test('a Love Story past the free cap is tried in the draft, named on the sheet, 
   assert.deepEqual(story!.jump, { kind: 'tool', key: 'love-story' });
   // The moment action does not refuse the draft; the live write is capped as before.
   const action = code('app/dashboard/[eventId]/website/our-story/actions.ts');
-  assert.match(action, /const ownsPro =\s*drafting \|\| \(await eventCoupleWebsiteProActive\(await eventEntitlementClient\(eventId\), eventId\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
+  // RE-AIMED 2026-10-22 (part by part): Love Story photos and moments are the Photos part's (gate 25).
+  assert.match(action, /const ownsPro =\s*drafting \|\| \(await eventHubPartActive\(await eventEntitlementClient\(eventId\), eventId, 'photos'\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
 });
 
 test('a drafted Pro theme is worn on the verified host’s canvas — never on a guest’s', () => {

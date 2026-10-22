@@ -90,6 +90,17 @@ export function hubPartOfSku(sku: string | null | undefined): HubPartId | null {
   return HUB_PARTS.find((p) => p.sku === sku)?.id ?? null;
 }
 
+/**
+ * 💎 WHAT A COVER'S LOOK CAN TURN ON, PART BY PART (owner 2026-10-22) — the saved Pro theme is the Style part's
+ * (gate 13), the couple's own photo as the ground is the Background part's (gate 9). Asked ONCE per cover (one
+ * ownership read answers both), exactly as the guest page asks each of them (`resolveHubTheme` / `resolveHubLook`).
+ */
+export type CoverOwnership = { style: boolean; background: boolean };
+export const COVER_NOT_OWNED: CoverOwnership = Object.freeze({ style: false, background: false });
+export function coverOwnershipFrom(own: { full: boolean; parts: ReadonlySet<HubPartId> }): CoverOwnership {
+  return { style: own.full || own.parts.has('style'), background: own.full || own.parts.has('background') };
+}
+
 /* ── THE 37 GATES, EACH WITH EXACTLY ONE HOME ─────────────────────────────── */
 
 /**

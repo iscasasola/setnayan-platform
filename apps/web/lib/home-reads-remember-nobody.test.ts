@@ -186,8 +186,9 @@ test('a remembered read takes a date, public event ids, a limit or nothing — n
     'the remembered reads now touch the session or the viewer’s own rows',
   );
   // The ownership it remembers is the REAL one — never the one a viewer is shown.
-  // RE-AIMED 2026-10-22 (part by part): the cover's ground is the Background part's — still the real read every write uses.
-  assert.match(core, /eventHubPartActive\(admin, id, 'background'\)/, 'the remembered ownership is no longer the gate every write uses');
+  // RE-AIMED 2026-10-22 (part by part): the theme is the Style part's, the ground the Background part's — both from the
+  // ACTIVE ownership read every write uses (`eventHubOwnership(…, 'active')`), never the viewer's.
+  assert.match(core, /eventHubOwnership\(admin, id, 'active'\)\.then\(coverOwnershipFrom\)/, 'the remembered ownership is no longer the gate every write uses');
   assert.doesNotMatch(core, /websiteProActiveFor|hubPartActiveFor|asViewed|viewingAsFreeCouple/, 'a remembered fact is being read as a viewer is shown it');
 });
 
@@ -218,6 +219,7 @@ test('👁 the view-as-free switch still decides: remembered facts dress a card 
     loader,
     /export async function dressEventCover\(r: CoverRow, heroConfig: unknown\): Promise<DressedEventCover> \{\s*return dressEventCoverGiven\(r, heroConfig, viewedCoverIo\(r\)\);\s*\}/,
   );
-  // RE-AIMED 2026-10-22: the as-viewed part reader (`hubPartActiveFor` → `asViewedOwnership`) — the same switch.
-  assert.match(loader, /ownsPro: \(\) => hubPartActiveFor\(r\.event_id, 'background'\),/, 'the as-viewed reader no longer goes through the view switch');
+  // RE-AIMED 2026-10-22: the as-viewed ownership (`hubOwnershipFor` → `asViewedOwnership`) — the same switch — read
+  // once and answered as the two parts a cover can turn on (Style · Background).
+  assert.match(loader, /ownsPro: async \(\) => coverOwnershipFrom\(await hubOwnershipFor\(r\.event_id\)\),/, 'the as-viewed reader no longer goes through the view switch');
 });

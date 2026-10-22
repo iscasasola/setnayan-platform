@@ -236,7 +236,7 @@ export function DetailsScreen({
                 ? 'Setnayan is checking your documents'
                 : d.isVerified
                   ? 'Verified · kept private'
-                  : `${formatCount(d.docsIn)} of ${formatCount(d.docsTotal)} in · DTI or SEC · BIR 2303 · permit · a bank proof`
+                  : `${formatCount(d.docsIn)} of ${formatCount(d.docsTotal)} required · DTI or SEC · BIR 2303 · permit · a bank proof`
             }
             aside={badge('docs')}
           >
@@ -248,7 +248,7 @@ export function DetailsScreen({
                 vendorProfileId={d.vendorId}
                 isVerified={d.isVerified}
                 profileComplete={d.profileComplete}
-                profileFieldsLeft={d.checklist.filter((i) => !i.ok).length}
+                profileFieldsLeft={d.fieldsLeft}
                 verify={d.verify}
               />
             </div>

@@ -341,12 +341,13 @@ test('8 · the Shop row says Checking · Live · Not yet, what is left of the de
 
 /* ═══ 9 · SETUP ════════════════════════════════════════════════════════════ */
 
-test('9 · a new shop’s card is "N of 6" — the six steps, the approval not one of them', async () => {
+// ⚠ "N of 7" SINCE 2026-10-22 — the logo is its own step (owner "Yes to all", journey_fixes Supplier 2 · A).
+test('9 · a new shop’s card is "N of 7" — the seven steps, the approval not one of them', async () => {
   const { buildFirstStepsRail } = await import('@/lib/vendor-first-steps');
   const rail = buildFirstStepsRail({ verified: false, profileDone: 4, profileTotal: 6, serviceCount: 0, docsStatus: 'none', docsIn: 0, docsTotal: 4, submitMissing: [], customerCount: 0 });
   const { html } = await draw({ firstSteps: rail, verified: false, findable: false, upcoming: [], earnings: null, views: null });
   const card = text(cardOf(html));
-  assert.match(card, /1 of 6 Your next step Your details/);
+  assert.match(card, /1 of 7 Your next step Your details/);
   assert.match(card, /Fill them in/);
 });
 

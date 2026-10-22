@@ -618,6 +618,25 @@ export function businessProfileChecklist(
 }
 
 /**
+ * 🔢 WHAT "FIELDS LEFT" COUNTS (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A). The logo is
+ * its OWN first step on Today ("Add your logo — needed to go live"), so it leaves the hidden "N fields left"
+ * count — while `businessProfileChecklist().complete` still requires it (approval asks nothing less).
+ *   fieldsLeft      — every unfinished item but the logo
+ *   logoMissing     — the logo is not in
+ *   onlyLogoMissing — the logo is the one thing left (the submit gate then says "Add your logo")
+ */
+export function profileGaps(checklist: { items: ReadonlyArray<BusinessProfileItem> }): {
+  fieldsLeft: number;
+  logoMissing: boolean;
+  onlyLogoMissing: boolean;
+} {
+  const open = checklist.items.filter((i) => !i.ok);
+  const logoMissing = open.some((i) => i.key === 'logo');
+  const fieldsLeft = open.filter((i) => i.key !== 'logo').length;
+  return { fieldsLeft, logoMissing, onlyLogoMissing: logoMissing && fieldsLeft === 0 };
+}
+
+/**
  * Profile-fields-only gauge. Since 2026-07-03 (documents item removed) this is
  * the SAME set as `businessProfileChecklist` — kept as the stable entry point
  * for callers that only care about the counts (e.g. the vendor-activity score).

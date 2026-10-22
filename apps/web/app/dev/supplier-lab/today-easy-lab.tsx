@@ -255,7 +255,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean }) {
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -273,8 +273,10 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,
-        profileDone: rail ? 6 : 4,
+        profileDone: rail || logoNext ? 6 : 4,
         profileTotal: 6,
+        // A `rail` moment has its logo in (its next step is the service or the papers); `&logo=1` has none.
+        hasLogo: Boolean(rail) && !logoNext,
         serviceCount: rail === 'docs' ? 1 : 0,
         docsStatus: 'none',
         docsIn: 0,

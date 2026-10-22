@@ -44,7 +44,8 @@ const steps = TOUR_KEYS.flatMap((k) => (TOURS[k].spotlight?.steps ?? []).map((s)
 
 test('there are spotlight tours to check (the scan is not looking at nothing)', () => {
   assert.ok(steps.length >= 15, `only ${steps.length} spotlight steps — did the scripts move out of lib/tours.ts?`);
-  for (const k of ['host_spotlight_v1', 'host_day_spotlight_v1', 'supplier_spotlight_v1'] as const) {
+  // + the four supplier page tours (owner 2026-10-22, journey_fixes Supplier 3).
+  for (const k of ['host_spotlight_v1', 'host_day_spotlight_v1', 'supplier_spotlight_v1', 'vendor_shop_v1', 'vendor_dates_v1', 'vendor_money_v1', 'vendor_hub_v1'] as const) {
     assert.ok(TOURS[k].spotlight, `${k} has no spotlight script`);
   }
 });

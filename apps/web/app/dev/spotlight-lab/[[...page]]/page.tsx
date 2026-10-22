@@ -83,6 +83,13 @@ export default async function SpotlightLabPage({
       return <SupplierLabPage searchParams={Promise.resolve({ easy: 'normal', sup: 'studio' })} />;
     case 'customers':
       return <SupplierLabPage searchParams={Promise.resolve({ s: 'people' })} />;
+    // 🔦 The page tours (owner 2026-10-22) on the supplier lab's real screens.
+    case 'shop-tour':
+      return <SupplierLabPage searchParams={Promise.resolve({ s: 'page', who: 'studio' })} />;
+    case 'dates-tour':
+      return <SupplierLabPage searchParams={Promise.resolve({ s: 'dates' })} />;
+    case 'money-tour':
+      return <SupplierLabPage searchParams={Promise.resolve({ s: 'money' })} />;
     case 'shop':
       /* Shop's first rows (`ShopHome` in app/vendor-dashboard/shop/page.tsx) with the REAL row, and the
          services manager's empty-state button — the page itself reads the database. */

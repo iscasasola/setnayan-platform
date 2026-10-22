@@ -12,6 +12,7 @@
  *   /launch                       a stand-in Maker shell: the tour waits under it
  *   /day · /after                 the event day and Post Event on Home — the day tour
  *   /vendor-dashboard · /shop · /customers   the supplier's Today, Shop and Customers
+ *   /shop-tour · /dates-tour · /money-tour   the Shop › Page, Dates and Money first-visit tours (2026-10-22)
  *
  *   ?step=N   start at step N (1-based) — a walk's shortcut; it writes the tour's progress first.
  */
@@ -36,6 +37,11 @@ export default function SpotlightLabLayout({ children }: { children: React.React
         host={TOURS.host_spotlight_v1.spotlight!}
         day={TOURS.host_day_spotlight_v1.spotlight!}
         supplier={TOURS.supplier_spotlight_v1.spotlight!}
+        pages={{
+          'shop-tour': TOURS.vendor_shop_v1.spotlight!,
+          'dates-tour': TOURS.vendor_dates_v1.spotlight!,
+          'money-tour': TOURS.vendor_money_v1.spotlight!,
+        }}
         completeAction={labComplete}
       />
     </>

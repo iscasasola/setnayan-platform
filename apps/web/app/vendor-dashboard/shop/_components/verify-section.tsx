@@ -24,6 +24,7 @@ import {
 } from '../inline-docs-actions';
 import { DocsBody } from './docs-body';
 import { formatCount } from '@/lib/format-number';
+import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots } from '@/lib/vendor-verification';
 
 /**
  * "Get verified" — the always-visible verification stage on My Shop (owner-
@@ -52,6 +53,8 @@ export type VerifySummary = {
   status: 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
   vendorComplete: number;
   vendorTotal: number;
+  /** How many of the 4 REQUIRED papers are in — the one count shown (owner 2026-10-22). */
+  requiredIn: number;
   /** All 4 required documents in. */
   requiredDocsIn: boolean;
   emailConfirmedAt: string | null;
@@ -80,6 +83,7 @@ export function VerifySection({
   isVerified: boolean;
   /** All 8 Business-Profile fields in — the prerequisite that unlocks this. */
   profileComplete: boolean;
+  /** Unfinished profile items BUT the logo, which is its own first step on Today (`profileGaps`). */
   profileFieldsLeft: number;
   verify: VerifySummary;
 }) {
@@ -109,7 +113,10 @@ export function VerifySection({
   }, [profileComplete, submitted, isVerified]);
 
   const step1Done = verify.requiredDocsIn;
-  const step2Done = Boolean(verify.emailConfirmedAt && verify.phoneConfirmedAt);
+  // 🔢 Until texting works (no VALIDATE number is set) the contacts step asks for the email ALONE — it used to
+  // want both, so it could never finish (owner 2026-10-22, journey_fixes Supplier 2: "0 of 1" as drawn).
+  const textingWorks = Boolean(verify.validatePhone);
+  const step2Done = Boolean(verify.emailConfirmedAt && (!textingWorks || verify.phoneConfirmedAt));
   const stepsDone = (step1Done ? 1 : 0) + (step2Done ? 1 : 0);
 
   return (
@@ -182,7 +189,9 @@ export function VerifySection({
             FIXED: whether a verified shop's submit should skip the profile
             gate is a ruling, and this build strictly widens what they can
             reach (until today they could not open this section at all). */}
-        {!profileComplete && !submitted && !isVerified ? (
+        {/* 🔢 The logo is NOT one of these "fields left" — it is its own first step on Today (owner
+            2026-10-22, journey_fixes Supplier 2 · A), and the submit gate names it on its own. */}
+        {!profileComplete && profileFieldsLeft > 0 && !submitted && !isVerified ? (
           // Owner 2026-07-03 ("or it should show both?"): the documents stay
           // visible + uploadable while the profile is unfinished — docs are the
           // slow, offline part, so vendors start gathering early. The profile
@@ -260,8 +269,7 @@ export function VerifySection({
             done={step1Done}
             open={openStep === 1}
             onToggle={() => toggle(1)}
-            vendorComplete={verify.vendorComplete}
-            vendorTotal={verify.vendorTotal}
+            requiredIn={verify.requiredIn}
             vendorProfileId={vendorProfileId}
             isVerified={isVerified}
           />
@@ -390,8 +398,7 @@ function DocsStep({
   done,
   open,
   onToggle,
-  vendorComplete,
-  vendorTotal,
+  requiredIn,
   vendorProfileId,
   isVerified,
 }: {
@@ -399,8 +406,8 @@ function DocsStep({
   done: boolean;
   open: boolean;
   onToggle: () => void;
-  vendorComplete: number;
-  vendorTotal: number;
+  /** Required papers in, from the page's read — replaced by the live payload's once it loads. */
+  requiredIn: number;
   vendorProfileId: string;
   /** From the page's own authoritative profile read — NOT a second probe. */
   isVerified: boolean;
@@ -442,13 +449,14 @@ function DocsStep({
     onToggle();
   };
 
-  const shown = payload ? payload.vendorComplete : vendorComplete;
+  // 🔢 ONE COUNT: the four required papers, never "of 7" (owner 2026-10-22, journey_fixes Supplier 2).
+  const shown = payload ? countCompleteRequiredSlots(payload.docMap) : requiredIn;
   return (
     <StepShell
       n={n}
       title="Your documents"
       sub="DTI/SEC, BIR 2303, Business Permit, bank proof — plus optional extras"
-      pill={<StepPill tone={done ? 'done' : 'action'}>{formatCount(shown)} of {formatCount(vendorTotal)} in</StepPill>}
+      pill={<StepPill tone={done ? 'done' : 'action'}>{formatCount(shown)} of {formatCount(REQUIRED_DOC_COUNT)} required</StepPill>}
       done={done}
       open={open}
       onToggle={handleToggle}
@@ -505,13 +513,16 @@ function ContactsStep({
 }) {
   const [copied, setCopied] = useState(false);
   const token = `VALIDATE ${businessName}`;
-  const oneIn = Boolean(emailConfirmedAt) !== Boolean(phoneConfirmedAt);
+  // 🔢 Count only what can be confirmed: the text line joins the count the day a VALIDATE number exists.
+  const textingWorks = Boolean(validatePhone);
+  const needed = textingWorks ? 2 : 1;
+  const confirmed = (emailConfirmedAt ? 1 : 0) + (textingWorks && phoneConfirmedAt ? 1 : 0);
   const pill = done ? (
     <StepPill tone="done">Confirmed</StepPill>
-  ) : oneIn ? (
-    <StepPill tone="checking">We&rsquo;re checking</StepPill>
   ) : (
-    <StepPill tone="action">Action needed</StepPill>
+    <StepPill tone={confirmed > 0 ? 'checking' : 'action'}>
+      {formatCount(confirmed)} of {formatCount(needed)}
+    </StepPill>
   );
 
   const copy = () => {
@@ -524,7 +535,7 @@ function ContactsStep({
     <StepShell
       n={n}
       title="Confirm your contacts"
-      sub="Prove your email and number are really yours"
+      sub={textingWorks ? 'Prove your email and number are really yours' : 'Prove your email is really yours'}
       pill={pill}
       done={done}
       open={open}
@@ -532,8 +543,9 @@ function ContactsStep({
     >
       <div className="space-y-3">
         <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          From your own email and phone, send us an email and a text with this exact message —
-          we confirm each as it lands:
+          {textingWorks
+            ? 'From your own email and phone, send us an email and a text with this exact message — we confirm each as it lands:'
+            : 'From your own email, send us an email with this exact message — we confirm it as it lands:'}
         </p>
         <div
           className="flex items-center justify-between gap-3 rounded-lg border p-2.5 pl-3"
@@ -567,16 +579,11 @@ function ContactsStep({
               <Smartphone className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
               Text {validatePhone}
             </a>
-          ) : (
-            <span data-coming-soon className="inline-flex items-center gap-2 px-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              <Smartphone className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Text number coming soon — email works now
-            </span>
-          )}
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
           <ReceiptLine label="Email" at={emailConfirmedAt} />
-          <ReceiptLine label="Text" at={phoneConfirmedAt} />
+          {textingWorks ? <ReceiptLine label="Text" at={phoneConfirmedAt} /> : null}
         </div>
       </div>
     </StepShell>

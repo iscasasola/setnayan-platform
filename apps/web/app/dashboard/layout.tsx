@@ -170,11 +170,17 @@ export default async function DashboardLayout({
     so the person most likely to lose their wedding was a couple mid-planning who
     accepted an invitation the product showed them.
 
-    🔑 THE RULING IS ABOUT CREATING, SO THE BLOCK BELONGS ON CREATING. It now
-    lives at the four server entry points that actually make an event
+    🔑 THE RULING IS ABOUT CREATING, SO THE GATE BELONGS ON CREATING. It lives
+    at the server entry points that actually make an event
     (`lib/vendor-event-creation.ts`), which is the door rather than the button —
     a layout redirect could never have covered the onboarding wizards anyway,
     because they commit from `/onboarding/*`, outside this tree.
+
+    ⛔ SUPERSEDED 2026-10-22 — ONE ACCOUNT IS BOTH. Owner: *"In shop they do not
+    create events, but them as a user, they can create their events."* The
+    2026-08-15 "block only creating" above is reversed: a shop account now
+    creates its own events here like any host, and the gate refuses nobody. The
+    shop side (Today · Customers · Shop · Hub) still never offers "create event".
 
     ✅ NO REDIRECT LOOP RETURNS — the 2026-08-10 "more than 20 redirections" bug
     needed BOTH sides pointing at each other. `vendor-dashboard/layout.tsx` still

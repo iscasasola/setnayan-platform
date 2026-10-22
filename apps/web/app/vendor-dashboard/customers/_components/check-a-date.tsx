@@ -21,6 +21,7 @@ export function CheckADate() {
     <label
       className="sn-press relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-ink/[0.06] px-4 text-[15px] font-medium text-ink"
       data-dates-check=""
+      data-tour="dates-check"
       data-pressed={opening ? '' : undefined}
     >
       <CalendarDays aria-hidden className="h-[18px] w-[18px] flex-none text-ink/60" strokeWidth={1.9} />

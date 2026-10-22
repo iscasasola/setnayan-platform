@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { anchorForType } from '@/lib/event-anchor';
@@ -135,8 +135,10 @@ export async function startTheNextCelebration(
   });
   if (!authz.ok) return { ok: false, error: NO_ACCESS };
 
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return { ok: false, error: 'This account doesn’t plan events.' };
+  // The one creation gate (lib/vendor-event-creation.ts — owner 2026-10-22:
+  // one account is both, so nobody is refused today).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: NO_ACCESS };
   }
 
   // Defence-in-depth only — the gate is above. `events_host`, not `events`:

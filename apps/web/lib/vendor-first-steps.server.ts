@@ -2,12 +2,12 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { notAvailableWindowFilter } from '@/lib/not-available';
 
-import { businessProfileChecklist, type VendorProfileRow } from '@/lib/vendor-profile';
+import { businessProfileChecklist, profileGaps, type VendorProfileRow } from '@/lib/vendor-profile';
 import {
   fetchLatestApplication,
-  countCompleteVendorSlots,
+  countCompleteRequiredSlots,
   verificationSubmitMissing,
-  VENDOR_DOC_SLOTS,
+  REQUIRED_DOC_COUNT,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
 import {
@@ -72,18 +72,25 @@ export async function fetchVendorFirstStepsState(
 
   const uploads = (application?.doc_uploads ?? {}) as DocUploadMap;
 
+  // 🖼 The logo is its own step (owner 2026-10-22), so Your details counts the rest.
+  const details = profileChecklist.items.filter((i) => i.key !== 'logo');
+  const gaps = profileGaps(profileChecklist);
+
   return buildFirstStepsRail({
     verified,
-    profileDone: profileChecklist.done,
-    profileTotal: profileChecklist.total,
+    profileDone: details.filter((i) => i.ok).length,
+    profileTotal: details.length,
+    hasLogo: !gaps.logoMissing,
     serviceCount,
     docsStatus: (application?.status as VerificationAppStatus | undefined) ?? 'none',
-    docsIn: countCompleteVendorSlots(uploads),
-    docsTotal: VENDOR_DOC_SLOTS.length,
+    // 🔢 One count: the four required papers (owner 2026-10-22) — never every upload.
+    docsIn: countCompleteRequiredSlots(uploads),
+    docsTotal: REQUIRED_DOC_COUNT,
     // The ONE source of truth for why Submit is refused, shared with the
     // Get-verified stepper so the rail can never invent a different reason.
     submitMissing: verificationSubmitMissing({
       profileComplete: profileChecklist.complete,
+      onlyLogoMissing: gaps.onlyLogoMissing,
       uploads,
       registrationNumberOnFile,
     }),

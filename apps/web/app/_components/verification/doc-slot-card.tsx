@@ -23,7 +23,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, ArrowUpRight } from 'lucide-react';
-import { DOC_SLOTS, type DocSlot, type DocSlotKind } from '@/lib/vendor-verification';
+import { REQUIRED_DOC_COUNT, requiredDocPosition, type DocSlot, type DocSlotKind } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -92,7 +92,11 @@ export function DocSlotCard({
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Item {formatCount(slot.number)} of {formatCount(DOC_SLOTS.length)}
+            {/* 🔢 ONE COUNT (owner 2026-10-22, journey_fixes Supplier 2): a required paper is "n of 4", an
+                optional item carries no count — never "Item n of 8" (the 8th is Setnayan's own Meet). */}
+            {requiredDocPosition(slot.key)
+              ? `Required · ${formatCount(requiredDocPosition(slot.key)!)} of ${formatCount(REQUIRED_DOC_COUNT)}`
+              : 'Optional'}
           </p>
           <h3 className="mt-0.5 text-base font-semibold text-ink">
             {slot.label}

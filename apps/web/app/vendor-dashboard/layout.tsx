@@ -40,6 +40,7 @@ import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { Spotlight } from '@/app/_components/spotlight';
+import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
@@ -656,6 +657,9 @@ export default async function VendorDashboardLayout({
       {/* 🔦 The supplier's spotlight journey — Today → Shop → services → Customers → payday (owner
           2026-10-02). In the layout so it carries across pages. The old welcome above stays off. */}
       <Spotlight tourKey="supplier_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay />
+      {/* 🔦 Shop · Dates · Money · Hub — each page's own first-visit spotlight, after the journey above
+          (owner "Yes to all", 2026-10-22). One mount here, so the Shop tour survives its walk into Page. */}
+      <SupplierPageSpotlight seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} />
     </div>
   );
 }

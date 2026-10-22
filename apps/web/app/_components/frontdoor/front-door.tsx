@@ -18,7 +18,7 @@ import { loadDiscover } from '@/lib/discover-events';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { resolveCommandItems } from './command-data';
-import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { DiscoverThumbRow } from './shell-thumb-rows';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
@@ -169,12 +169,10 @@ export async function FrontDoor({ q }: { q?: string }) {
         one bar means one search — is finally true across every surface rather
         than on five of them.
       */
-      search={
-        account.signedIn ? (
-          <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined
-      }
+      search={account.signedIn ? false : undefined}
     >
+      {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
+      {account.signedIn ? <DiscoverThumbRow q={searchQuery} /> : null}
       {searchQuery ? (
         <FrontDoorResults
           query={searchQuery}

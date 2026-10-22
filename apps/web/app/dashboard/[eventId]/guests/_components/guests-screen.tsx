@@ -67,6 +67,7 @@ import {
   X,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { ThumbRow, type ThumbField, type ThumbMenu, type ThumbRound } from '@/components/thumb-row';
 import { Count, Fill } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -689,54 +690,43 @@ export function GuestsScreen(props: GuestsScreenProps) {
   );
 
   /* ═══ the thumb row ═══ */
-  const addBtn = (
-    <ActionButton
-      tone="brand"
-      main
-      icon={Plus}
-      label="Add"
-      onClick={() => openAddGuest(q)}
-      data-testid="thumb-add"
-      tour="guests-add"
-    />
-  );
-  const sortPick = (
-    <span data-pick="" data-thumb-sort="">
-      <PickMenu
-        label="Sort — groups the list by"
-        value={plusFilter ? `plus:${plusFilter}` : view}
-        buttonText={plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined}
-        options={views.map((v): PickOption => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })).concat(
-          // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
-          plusTally.named + plusTally.unnamed > 0
-            ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-            : [],
-        )}
-        onPick={(k) => {
-          if (k.startsWith('plus:')) {
-            setPlusFilter(k.slice(5) as PlusOneFilter);
-            window.scrollTo({ top: 0 });
-            return;
-          }
-          const next = k as RosterView;
-          setPlusFilter(null);
-          setView(next);
-          setOpen(firstOpen(next));
-          window.scrollTo({ top: 0 });
-        }}
-      />
-    </span>
-  );
-  const arrangePick = (
-    <span data-pick="" data-thumb-arrange="">
-      <PickMenu
-        label="Arrange the map by"
-        value={arrange}
-        options={arranges.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
-        onPick={(k) => setArrange(k as MapArrange)}
-      />
-    </span>
-  );
+  const addRound: ThumbRound = { icon: Plus, label: 'Add', onClick: () => openAddGuest(q), testId: 'thumb-add' };
+  const sortMenu: ThumbMenu = {
+    mark: 'data-thumb-sort',
+    label: 'Sort — groups the list by',
+    value: plusFilter ? `plus:${plusFilter}` : view,
+    buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
+    menu: views
+      .map((v): PickOption => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+      .concat(
+        // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
+        plusTally.named + plusTally.unnamed > 0
+          ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+          : [],
+        // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
+        copy ? [] : [{ key: 'select', label: 'Select', group: 'Choose', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+      ),
+    onPick: (k) => {
+      if (k === 'select') return setSelectMode(true);
+      if (k.startsWith('plus:')) {
+        setPlusFilter(k.slice(5) as PlusOneFilter);
+        window.scrollTo({ top: 0 });
+        return;
+      }
+      const next = k as RosterView;
+      setPlusFilter(null);
+      setView(next);
+      setOpen(firstOpen(next));
+      window.scrollTo({ top: 0 });
+    },
+  };
+  const arrangeMenu: ThumbMenu = {
+    mark: 'data-thumb-arrange',
+    label: 'Arrange the map by',
+    value: arrange,
+    menu: arranges.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+    onPick: (k) => setArrange(k as MapArrange),
+  };
   /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
      add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
      the line is a new guest, on the List at once (the shipped capture-bar grammar, the shipped `addSingleGuest`, through
@@ -830,22 +820,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     );
     return '';
   };
-  const field = (
-    <input
-      ref={fieldRef}
-      className={styles.field}
-      defaultValue={q}
-      placeholder="Search or add"
-      autoComplete="off"
-      autoCorrect="off"
-      enterKeyHint="go"
-      aria-label="Search guests or add"
-      data-fit-field=""
-      data-guests-search=""
-      data-tour="guests-add"
-      onFocus={loadPeople}
-      onInput={(e) => onType(e.currentTarget.value)}
-      onKeyDown={(e) => {
+  /* 🔎 ONE THUMB ROW (owner 2026-10-22): the field is the shared row's seat — "Search guests", glass, 44 px. Its
+     behaviour is unchanged: the same input, the same one-Enter grammar. */
+  const field: ThumbField = {
+    placeholder: 'Search guests',
+    label: 'Search guests or add',
+    tour: 'guests-add',
+    inputRef: fieldRef,
+    input: {
+      defaultValue: q,
+      autoCorrect: 'off',
+      enterKeyHint: 'go',
+      'data-guests-search': '',
+      onFocus: loadPeople,
+      onInput: (e) => onType(e.currentTarget.value),
+      onKeyDown: (e) => {
         if (e.key !== 'Enter') return;
         // A keyboard still composing a word (an IME, a phone's suggestion) owns this Enter — it finishes the word.
         if (e.nativeEvent.isComposing) return;
@@ -870,9 +859,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
         }
         if (typedLineIsAFilter(v, facts, filterLabels)) return;
         addTyped(v);
-      }}
-    />
-  );
+      },
+    },
+  };
 
   const setNamesakes = sidesForNamesakes(groups.map((g) => ({ groupId: g.group_id, label: g.label, teamSide: g.team_side })));
   const setOptions: PickOption[] = [
@@ -971,35 +960,27 @@ export function GuestsScreen(props: GuestsScreenProps) {
       </div>
     );
   } else if (gview === 'list') {
+    /* ⇕ · Search guests · ≡ · ＋ (owner 2026-10-22, question 1 "fold ☑ Select into ≡"): four seats, so "Search guests"
+       reads whole at 320; ＋ Add is always there (Enter still adds at once). */
     thumb = (
-      <div className={styles.thumb} data-fit-row="" data-thumb="list">
-        <span className={styles.acts} data-fit-acts="" data-side="left">
-          <ActionButton
-            tone="neutral"
-            icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
-            label={allOpen ? 'Collapse all' : 'Expand all'}
-            onClick={() => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.key)))}
-            data-testid="thumb-expand"
-          />
-          {copy ? null : (
-            <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="thumb-select" />
-          )}
-        </span>
-        {field}
-        <span className={styles.acts} data-fit-acts="" data-side="right">
-          {noMatch && !copy ? addBtn : sortPick}
-        </span>
-      </div>
+      <ThumbRow
+        name="guests"
+        left={[
+          {
+            icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
+            label: allOpen ? 'Collapse all' : 'Expand all',
+            expanded: allOpen,
+            onClick: () => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.key))),
+            testId: 'thumb-expand',
+          },
+        ]}
+        field={field}
+        right={[sortMenu]}
+        action={copy ? null : addRound}
+      />
     );
   } else if (gview === 'map') {
-    thumb = (
-      <div className={styles.thumb} data-fit-row="" data-thumb="map">
-        {field}
-        <span className={styles.acts} data-fit-acts="" data-side="right">
-          {noMatch ? addBtn : arrangePick}
-        </span>
-      </div>
-    );
+    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} action={copy ? null : addRound} />;
   }
 
   /* ═══ the list ═══ */
@@ -1314,7 +1295,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.
-            className={`${styles.lower} sn-glass-row`}
+            // ONE THUMB ROW (owner 2026-10-22): no band under the List / Map row — each control is its own glass. The
+            // Select mode's pills keep the shared glass row until they are drawn as glass pills of their own.
+            className={selectMode && gview === 'list' ? `${styles.lower} sn-glass-row` : styles.lower}
             data-on={barOn ? 'true' : 'false'}
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}

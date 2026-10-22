@@ -2865,6 +2865,81 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
 }
 
 /*
+ * ↔ THE BAR CHANGES SET — IT BUILDS OUT ONE WAY AND THE NEW SET BUILDS IN FROM THE OTHER (owner 2026-10-22, verbatim
+ * in `lib/bar-set.ts`: account → Shop, "everything moves to the left and the shop icons enter from the right"; account →
+ * an event, "the account menus move to the right and the event icons enter from the left").
+ *
+ * `BarSetSlide` (app/_components/nav/bar-set-slide.tsx) sets `html[data-sn-bar-dir]` — 'fwd' or 'back', the same words
+ * as `data-sn-nav-dir`, which it sets too — before it starts the View Transition, and clears both when it has finished.
+ * While it is set:
+ *   · the DOCK slides: its old snapshot out, the new set's in, clipped to the dock's own box. Both snapshots are the
+ *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
+ *     whose height differs never draws its old icons halfway up.
+ *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
+ *     content (`.fd-col > main` in the launcher and account layouts, `[data-fd-page]` on Discover) takes a name of its
+ *     OWN, `sn-acct-page`, for the length of the slide only — so a tab press inside the account bar is exactly what it
+ *     was (no page slide), and no two selectors ever declare one name (`the-bar-outlives-the-slide.test.ts`). The two
+ *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
+ *   · the top bar stays in the frozen `root` snapshot above — it holds still.
+ * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
+ */
+html[data-sn-bar-dir] :is(.fd-col > main:not(.sn-vt-page), [data-fd-page]) {
+  view-transition-name: sn-acct-page;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {
+  overflow: clip;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-bottomnav),
+html[data-sn-bar-dir]::view-transition-new(sn-bottomnav) {
+  inset-block: auto 0;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-page),
+html[data-sn-bar-dir]::view-transition-new(sn-page),
+html[data-sn-bar-dir]::view-transition-old(sn-acct-page),
+html[data-sn-bar-dir]::view-transition-new(sn-acct-page) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-left;
+}
+/* Reduced motion: the listener never starts a slide (`barSlideFor`), and should any transition run anyway, nothing in
+   it moves — an instant swap. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+    mix-blend-mode: normal;
+  }
+}
+
+/*
  * Broken-out action (NavFab) in the bottom-nav ROW (owner-tuned 2026-06-22).
  *
  * When a doorway's FAB is mounted it sets `data-sn-fab` on <html> and renders a

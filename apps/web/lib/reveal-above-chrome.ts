@@ -1,6 +1,6 @@
 /**
  * reveal-above-chrome.ts — 📱 THE DOM HALF OF "AN OPEN LIST NEVER HIDES UNDER THE BOTTOM BAR" (2026-10-20; the rule is
- * `lib/bottom-chrome.ts`, the same rule the cookie banner clears the bar with).
+ * `lib/bottom-chrome.ts`, the one rule for what counts as a bottom bar).
  *
  * The bar is fixed at the foot of the screen (`<BottomDock>`, z-30) and on the Guests List the thumb row floats on it
  * (z-25). What opens IN FLOW under a pill near the bottom — the one Group list and its in-place editors — landed under

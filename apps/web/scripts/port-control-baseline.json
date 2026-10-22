@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bfe6c28a9",
+  "generatedFromRef": "c4e67bacc8",
   "routeCount": 452,
-  "destinations": 995,
+  "destinations": 996,
   "actions": 665,
-  "blocks": 6755,
+  "blocks": 6751,
   "routes": {
     "/": {
       "files": [
@@ -24,7 +24,6 @@
         "AppInitSplash",
         "BrandProvider",
         "ClientTypeDetector",
-        "CookieConsentBanner",
         "DeferredObservability",
         "DemoModeBanner",
         "DesktopUpdaterListener",
@@ -43,7 +42,6 @@
         "NfcTestSwitch",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
-        "PostHogProvider",
         "PressFeel",
         "Providers",
         "Reconnecting",
@@ -155,7 +153,7 @@
       ],
       "actions": [],
       "blocks": [
-        "CookieSettingsLink",
+        "CookieList",
         "LegalLayout",
         "LegalSection",
         "Link"
@@ -565,6 +563,7 @@
         "(shell)/privacy/page.tsx"
       ],
       "destinations": [
+        "/cookies",
         "/dashboard/profile",
         "/help"
       ],
@@ -5043,7 +5042,6 @@
     "/dashboard/(account)/life-flash": {
       "files": [
         "dashboard/(account)/life-flash/_components/flash.tsx",
-        "dashboard/(account)/life-flash/_components/life-flash-analytics.ts",
         "dashboard/(account)/life-flash/_components/placeholder.ts",
         "dashboard/(account)/life-flash/_components/scroll-reel.tsx",
         "dashboard/(account)/life-flash/_components/story-people.tsx",
@@ -5193,7 +5191,6 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
-        "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
@@ -5233,11 +5230,9 @@
         "updateUserSlug"
       ],
       "blocks": [
-        "AnalyticsChoice",
         "Appearance",
         "AppearanceChoice",
         "ConfirmForm",
-        "CookieConsent",
         "Field",
         "FileUpload",
         "FormFlash",

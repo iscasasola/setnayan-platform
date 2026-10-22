@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6743
+# facts: 6754
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
-#   col       4938
-#   policy    954
+#   tpriv     574
+#   col       4947
+#   policy    955
 #   view      8
 #   func      266
 #
@@ -401,6 +401,7 @@ tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
+tpriv	public.site_visit_days|authenticated	S
 tpriv	public.site_widgets|anon	SIUD
 tpriv	public.site_widgets|authenticated	SIUD
 tpriv	public.slug_change_log|anon	SIUD
@@ -3971,6 +3972,15 @@ col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_tl	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.group_name	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
+col	public.site_visit_days.country	anon=- authenticated=S
+col	public.site_visit_days.day	anon=- authenticated=S
+col	public.site_visit_days.device	anon=- authenticated=S
+col	public.site_visit_days.path	anon=- authenticated=S
+col	public.site_visit_days.signed_in	anon=- authenticated=S
+col	public.site_visit_days.source	anon=- authenticated=S
+col	public.site_visit_days.utm_source	anon=- authenticated=S
+col	public.site_visit_days.views	anon=- authenticated=S
+col	public.site_visit_days.visitors	anon=- authenticated=S
 col	public.site_widgets.config	anon=SIU authenticated=SIU
 col	public.site_widgets.display_order	anon=SIU authenticated=SIU
 col	public.site_widgets.gate_type	anon=SIU authenticated=SIU
@@ -6180,6 +6190,7 @@ policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERM
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.site_visit_days|site_visit_days_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
 policy	public.site_widgets|site_widgets_admin_write_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_admin_write_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL

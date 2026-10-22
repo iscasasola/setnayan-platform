@@ -23,11 +23,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { FeaturesPageBody } from './_PageBody';
-import { FEATURE_PAGES } from '@/lib/feature-pages';
+import { stripComments } from '@/lib/strip-comments';
+
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 
+// The feature registry's types module carries `server-only`; outside Next it throws.
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 const LOCALES: readonly MarketingLocale[] = ['en', 'tl'];
 
 /** Internals a stranger should never be shown. Same family as the /help guard's list. */
@@ -51,10 +66,38 @@ function offenders(where: string, text: string): string[] {
   return out;
 }
 
+/**
+ * Every section of the hub that paints synchronously, in page order. The one
+ * left out, `_FeatureGroups`, is async (it reads the price catalogue) — its
+ * words are the registry's `name` / `line`, held by the second test below.
+ * `features-tagging.test.ts` holds the hub's section list; a new section added
+ * to `_PageBody.tsx` without joining this list fails the count check here.
+ */
+const SYNC_SECTIONS = ['_Hero', '_Ecosystem', '_WhySetnayan', '_HowItWorks', '_FinalCTA'] as const;
+
 async function paint(locale: MarketingLocale): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  return renderToStaticMarkup(React.createElement(FeaturesPageBody, { locale }));
+  const html: string[] = [];
+  for (const name of SYNC_SECTIONS) {
+    const mod = (await import(`./_sections/${name}`)) as Record<string, unknown>;
+    const comps = Object.values(mod).filter(
+      (v): v is React.FC<{ locale: MarketingLocale }> => typeof v === 'function' && /^[A-Z]/.test((v as { name: string }).name),
+    );
+    assert.ok(comps.length > 0, `${name} exports no section component — re-point this guard`);
+    for (const C of comps) html.push(renderToStaticMarkup(React.createElement(C, { locale })));
+  }
+  return html.join('\n');
 }
+
+test('every section the hub draws is painted here, or is the async catalogue one', () => {
+  const body = readFileSync(join(HERE, '_PageBody.tsx'), 'utf8');
+  const drawn = [...stripComments(body).matchAll(/from '\.\/_sections\/(_\w+)'/g)].map((m) => m[1]);
+  assert.deepEqual(
+    drawn.filter((s) => s !== '_FeatureGroups' && !(SYNC_SECTIONS as readonly string[]).includes(s!)),
+    [],
+    'a new /features section is not painted by this guard',
+  );
+});
 
 /** Visible text + the attributes a screen reader speaks, one entry per node. */
 function visibleStrings(html: string): string[] {
@@ -93,7 +136,8 @@ test('the /features hub shows no route path, code span or column name — both l
   assert.deepEqual(found, [], 'The public /features page shows internals to strangers:\n  ' + found.join('\n  '));
 });
 
-test('every feature page’s words show no route path, code span or column name (F2)', () => {
+test('every feature page’s words show no route path, code span or column name (F2)', async () => {
+  const { FEATURE_PAGES } = await import('@/lib/feature-pages');
   assert.ok(FEATURE_PAGES.length > 10, 'the feature registry is empty — re-point this guard');
   const found: string[] = [];
   let n = 0;

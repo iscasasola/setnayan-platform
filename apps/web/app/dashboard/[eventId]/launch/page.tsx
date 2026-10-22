@@ -143,7 +143,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
-import { HUB_PARTS } from '@/lib/hub-parts';
+import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
 import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
@@ -577,26 +577,31 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
-  /* 💎 THE QUIET LINE'S FACTS (owner 2026-10-22, part by part): what the event has paid toward everything, the parts it
-     holds, the cheapest part and Full Pro — catalogue reads, never typed; none in the store shell (no web price). */
-  const proLine: MakerProLine | null = storeShell
-    ? null
-    : await (async () => {
-        const [own, prices] = await Promise.all([
-          asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
-          hubPartPrices(createAdminClient()).catch(() => null),
-        ]);
-        if (!own || own.full || !prices?.full) return null;
-        const onSale = HUB_PARTS.flatMap((p) => (prices.onSale.has(p.sku) ? [prices.parts.get(p.sku) ?? 0] : [])).filter((n) => n > 0);
-        if (onSale.length === 0) return null;
-        return {
-          fromPhp: Math.min(...onSale),
-          fullPhp: prices.full,
-          paidPhp: own.paidPhp,
-          owned: [...own.parts],
+  /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Hub Pro (as the viewer is shown it) and each
+     part's catalogue price — the quiet line's facts and the Studio cards' Pro lines. Never typed; none in the store
+     shell (no web price there). */
+  const [proOwn, proPrices] = storeShell
+    ? [null, null]
+    : await Promise.all([
+        asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
+        hubPartPrices(createAdminClient()).catch(() => null),
+      ]);
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  for (const p of HUB_PARTS) {
+    const php = proPrices?.onSale.has(p.sku) ? proPrices.parts.get(p.sku) : undefined;
+    if (php !== undefined && php > 0) partPricePhp[p.id] = php;
+  }
+  const studioPro = proOwn ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
+  const proLine: MakerProLine | null =
+    !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
+      ? null
+      : {
+          fromPhp: Math.min(...Object.values(partPricePhp)),
+          fullPhp: proPrices.full,
+          paidPhp: proOwn.paidPhp,
+          owned: [...proOwn.parts],
           href: `/dashboard/${eventId}/studio/website-pro?from=maker`,
         };
-      })();
 
   /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
      read through the same per-request cache every Pro read above passed
@@ -1617,6 +1622,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         const gifts = await egiftAllP;
         studio = {
           tiles: studioTiles({
+            pro: studioPro,
             facts: guided,
             setup: setupFacts,
             giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,

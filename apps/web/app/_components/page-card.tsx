@@ -42,6 +42,7 @@ export function PageCard({
   onOpen,
   attrs,
   data,
+  pro = null,
 }: {
   /** The page's mark — an icon; the tile sizes and colours it. */
   mark: ReactNode;
@@ -62,6 +63,8 @@ export function PageCard({
   attrs?: Readonly<Record<`data-${string}`, string>>;
   /** `data-page-card="<data>"`. */
   data?: string;
+  /** 💎 The page's Event Hub Pro parts, quietly — "◆ Style · Background from ₱500", or ✓ when owned (owner 2026-10-22). */
+  pro?: { owned: boolean; words: string } | null;
 }) {
   return (
     <div
@@ -101,6 +104,11 @@ export function PageCard({
               {description}
             </span>
           )}
+          {pro ? (
+            <span data-page-card-pro={pro.owned ? 'owned' : 'parts'} className={`mt-0.5 block text-[12px] leading-snug ${pro.owned ? 'text-terracotta-700' : 'text-ink/55'}`}>
+              {pro.owned ? '✓' : '◆'} {pro.words}
+            </span>
+          ) : null}
         </span>
       </button>
       {/* Its own target, beside the card's button — the explanation never opens the page. */}

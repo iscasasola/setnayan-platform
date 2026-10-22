@@ -40,5 +40,5 @@ a per-page footer in HTML print is not reliable across browsers). Also unchanged
 which already credits Setnayan) and the saved digital pass PNG (free keeps its "● SETNAYAN" foot mark, Pro carries none — it is
 not a print).
 
-SPEC IMPACT: DECISION_LOG.md 2026-10-22 "EVERY PRINT CARRIES SETNAYAN — A LINE ON THE FREE FRONT, A TINY MARK ON THE PRO BACK"
+SPEC IMPACT: DECISION_LOG.md 2026-10-21 "EVERY PRINT CARRIES SETNAYAN — A LINE ON THE FREE FRONT, A TINY MARK ON THE PRO BACK"
 (corpus f71d2dd5, pushed alone).

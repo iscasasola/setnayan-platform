@@ -73,7 +73,7 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
-import { NavLinksRow } from '@/app/_components/nav-links';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import { venueIsOpen } from '@/lib/venue-disclosure';
 import { loadVenueBookings, resolveEventVenues, venueSearchQuery, VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { ScheduleWidget } from '../_components/schedule-widget';
@@ -883,12 +883,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             {v.name ?? 'Venue'}
           </h3>
           {v.address ? <p className="text-sm text-ink/65">{v.address}</p> : null}
-          <NavLinksRow
-            latitude={v.latitude ?? null}
-            longitude={v.longitude ?? null}
-            addressFallback={venueSearchQuery(v)}
-            label="Open in"
-          />
+          {/* ▾ The map apps are ONE dropdown — the venue cards' own `DirectionsMenu` (three chips until 2026-10-22). */}
+          <DirectionsMenu venue={v} />
         </article>
       ))}
     </div>

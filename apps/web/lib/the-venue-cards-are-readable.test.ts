@@ -51,7 +51,7 @@ const WEB = join(__dirname, '..');
 const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
 const LOADERS = readFileSync(join(WEB, 'app/[slug]/_lib/loaders.ts'), 'utf8');
 const WIDGET = readFileSync(join(WEB, 'app/[slug]/_components/venue-widget.tsx'), 'utf8');
-const DIRECTIONS = readFileSync(join(WEB, 'app/[slug]/_components/venue-styles.tsx'), 'utf8');
+const DIRECTIONS = readFileSync(join(WEB, 'app/_components/nav-links.tsx'), 'utf8');
 
 /** Every block for `selector` (top level or inside `@layer`), merged in source order (later wins). */
 function cssVars(selector: string): Record<string, string> {
@@ -180,7 +180,7 @@ test('the venue card and its buttons paint with the tokens measured above', () =
   assert.match(WIDGET, /text-ink\/80">\{venue\.address\}/);
   assert.match(WIDGET, /tracking-\[0\.28em\] text-ink\/80">\s*\{VENUE_ROLE_LABEL\[venue\.role\]\}/);
   assert.match(WIDGET, /text-ink\/80">\{VENUE_WITHHELD_LINE\}/);
-  // The directions are ONE dropdown on the plate (`DirectionsMenu`, venue-styles.tsx), never the three-chip row.
+  // The directions are ONE dropdown on the plate (`DirectionsMenu`, app/_components/nav-links.tsx), never the three-chip row.
   assert.match(WIDGET, /<DirectionsMenu venue=\{venue\} \/>/);
   assert.doesNotMatch(WIDGET, /<NavLinksRow(?![A-Za-z0-9_])/, 'the plain card is back to three map chips');
   // The chips' ground is the plate, not the page.

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
-import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue, type VenueRole } from '@/lib/event-venues';
-import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } from '@/lib/geo';
+import { VENUE_ROLE_LABEL, type EventVenue, type VenueRole } from '@/lib/event-venues';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-pieces';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { mapFrame } from '@/lib/scene-map-tiles';
@@ -160,45 +160,6 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
         <span className="bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80">© OpenStreetMap</span>
       </a>
     </figure>
-  );
-}
-
-/**
- * DIRECTIONS ▾ — three map apps are ONE dropdown, never three buttons (the
- * prototype's journey note; any set of 3+ choices is a dropdown). A native
- * `<details>`: no JavaScript on the guest page. With no pin, the one honest
- * link is a maps search for the place.
- */
-export function DirectionsMenu({ venue }: { venue: EventVenue }) {
-  const query = venueSearchQuery(venue)?.trim();
-  const apps = hasPin(venue)
-    ? [
-        { name: 'Google Maps', href: googleMapsNavUrl(venue.latitude!, venue.longitude!) },
-        { name: 'Waze', href: wazeNavUrl(venue.latitude!, venue.longitude!) },
-        { name: 'Apple Maps', href: appleMapsUrl(venue.latitude!, venue.longitude!) },
-      ]
-    : query
-      ? [{ name: 'Google Maps', href: googleMapsSearchByQuery(query) }]
-      : [];
-  if (apps.length === 0) return null;
-  return (
-    <details className="group mt-2" data-venue-directions="">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
-        Directions
-        <span aria-hidden className="text-xs text-ink/80 transition-transform group-open:rotate-180">
-          ▾
-        </span>
-      </summary>
-      <ul className="mt-1 divide-y divide-ink/10 overflow-hidden rounded-md border border-ink/15 bg-cream">
-        {apps.map((a) => (
-          <li key={a.name}>
-            <a href={a.href} target="_blank" rel="noreferrer" className="flex min-h-11 items-center px-3 text-sm font-medium text-ink">
-              {a.name}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }
 

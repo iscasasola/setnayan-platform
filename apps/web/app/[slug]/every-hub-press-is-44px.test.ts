@@ -141,8 +141,8 @@ test('the rule can see a small press (it is not reading nothing)', () => {
   assert.ok(FILES.length > 100, `read ${FILES.length} files — expected the whole Hub tree`);
   const all = FILES.flatMap(presses);
   assert.ok(all.length > 300, `found ${all.length} presses — the tag reader is not reading`);
-  const chips = all.filter((p) => p.file.endsWith('nav-links.tsx'));
-  assert.ok(chips.length >= 8, 'the directions chips (className={chipBase}) are read through their constant');
+  const directions = all.filter((p) => p.file.endsWith('nav-links.tsx'));
+  assert.ok(directions.length >= 2, 'the shared Directions dropdown (its summary and its row) is read');
 });
 
 test('every press the guest Event Hub draws is at least 44 px in every axis its classes size', () => {
@@ -157,7 +157,17 @@ test('every press the guest Event Hub draws is at least 44 px in every axis its 
    choices is a dropdown"): the plain card and the full-photo card drew Google Maps · Waze · Apple Maps as three
    side-by-side chips (`NavLinksRow`, 26 px tall when the walk measured them); the journey card already drew ONE
    "Directions ▾" (`DirectionsMenu`). Every venue card now reuses that one component, whose summary and rows are each
-   a 44 px press. SABOTAGE: `<NavLinksRow …>` put back on the plain card → RED; the menu's rows at `min-h-9` → RED. */
+   a 44 px press. Since 2026-10-22 it lives in `app/_components/nav-links.tsx` (where `NavLinksRow` was) and The Day,
+   the Live hub and the supplier profile mount it too — see the next test. SABOTAGE: `<NavLinksRow …>` put back on
+   the plain card → RED; the menu's rows at `min-h-9` → RED. */
+const SHARED_DIRECTIONS = 'app/_components/nav-links.tsx';
+const directionsMenuSource = (): string => {
+  const src = stripComments(readFileSync(join(WEB, SHARED_DIRECTIONS), 'utf8'));
+  const at = src.indexOf('export function DirectionsMenu(');
+  assert.ok(at >= 0, `DirectionsMenu is the exported, shared component in ${SHARED_DIRECTIONS}`);
+  return src.slice(at, src.indexOf('\n}\n', at));
+};
+
 test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 44 px rows — never a row of chips', () => {
   const cards = ['venue-widget.tsx', 'venue-styles.tsx'].map((f) => [f, stripComments(readFileSync(join(HUB, '_components', f), 'utf8'))] as const);
   for (const [f, src] of cards) {
@@ -165,10 +175,7 @@ test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 4
   }
   const mounts = cards.reduce((n, [, src]) => n + (src.match(/<DirectionsMenu(?![\w.])/g) ?? []).length, 0);
   assert.ok(mounts >= 3, `the plain, full-photo and journey cards each mount DirectionsMenu (found ${mounts})`);
-  const styles = cards[1]![1];
-  const at = styles.indexOf('export function DirectionsMenu(');
-  assert.ok(at >= 0, 'DirectionsMenu is the exported, shared component');
-  const menu = styles.slice(at, styles.indexOf('\n}\n', at));
+  const menu = directionsMenuSource();
   assert.match(menu, /<details\b/, 'a native <details> — one dropdown, no script on the guest page');
   const summary = /<summary className="([^"]*)"/.exec(menu)?.[1] ?? '';
   const row = /<a href=\{a\.href\}[^>]*className="([^"]*)"/.exec(menu)?.[1] ?? '';
@@ -176,4 +183,77 @@ test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 4
   assert.deepEqual(undersized('summary', summary), [], 'the "Directions" summary is a 44 px press');
   assert.deepEqual(undersized('a', row), [], 'each map app row is a 44 px press');
   assert.match(row, /min-h-(11|\[44px\])/, 'each row carries its own 44 px floor');
+});
+
+/* ▾ NO SURFACE DRAWS THE MAP APPS AS SEPARATE BUTTONS — ANYWHERE IN THE APP (owner, standing: "any set of choices is a
+   dropdown"; 2026-10-22, the follow-up #6751 named: The Day's directions card and the Live hub still drew three chips,
+   and so did a supplier's public profile, all through `NavLinksRow`).
+
+   THE PROPERTY: a Waze or Apple Maps link — a call to `wazeNavUrl` / `appleMapsUrl`, or the host written out
+   (`waze.com`, `maps.apple.com`, `waze://`, `maps://`) — is built in exactly ONE component, the shared
+   `DirectionsMenu`, and only inside its `<details>` list, which draws its rows from one `<a>` in a `.map`. Any other
+   file that builds one is a second way to draw the map apps, and a second way is how three chips come back. The URL
+   builders' own definitions (`lib/geo.ts`) are the only other place the hosts may appear.
+   Every surface that offers directions is then a mount of the one component, counted per file.
+
+   SABOTAGE (each seen RED, then restored): a three-chip row (Google Maps · Waze · Apple Maps `<a>`s with
+   `wazeNavUrl`/`appleMapsUrl`) put back in `day-directions.tsx` → RED · the dropdown's `.map` replaced by three
+   written-out `<a>`s → RED · `hub/page.tsx` back on `NavLinksRow` → RED. */
+const MAP_APP_LINK = /\b(?:wazeNavUrl|appleMapsUrl)\s*\(|waze\.com|maps\.apple\.com|\bwaze:\/\/|\bmaps:\/\//g;
+const DIRECTION_SURFACES = [
+  'app/[slug]/_components/venue-widget.tsx',
+  'app/[slug]/_components/venue-styles.tsx',
+  'app/[slug]/_components/day-directions.tsx',
+  'app/[slug]/hub/page.tsx',
+  'app/v/[slug]/page.tsx',
+];
+
+function walkSource(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name.startsWith('.')) continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...walkSource(p));
+    else if (/\.(tsx?|mjs|jsx?)$/.test(p) && !/\.test\.|\.golden\./.test(p)) out.push(p);
+  }
+  return out;
+}
+
+test('no surface draws Google Maps · Waze · Apple Maps as separate buttons — every one mounts the ONE Directions dropdown', () => {
+  const files = ['app', 'components', 'lib'].flatMap((d) => walkSource(join(WEB, d)));
+  assert.ok(files.length > 1000, `read ${files.length} source files — expected the whole app`);
+  const elsewhere: string[] = [];
+  let builtInMenu = 0;
+  for (const f of files) {
+    const rel = relative(WEB, f);
+    if (rel === 'lib/geo.ts') continue; // the URL builders' own definitions
+    const src = stripComments(readFileSync(f, 'utf8'));
+    if (/\bNavLinksRow\b/.test(src)) elsewhere.push(`${rel}: NavLinksRow — the three-chip row is retired; mount DirectionsMenu`);
+    const hits = [...src.matchAll(MAP_APP_LINK)];
+    if (!hits.length) continue;
+    if (rel !== SHARED_DIRECTIONS) {
+      elsewhere.push(`${rel}: builds a ${hits.map((m) => m[0].replace(/\s*\($/, '')).join(' · ')} link outside the shared DirectionsMenu`);
+      continue;
+    }
+    const menu = directionsMenuSource();
+    const inMenu = [...menu.matchAll(MAP_APP_LINK)].length;
+    builtInMenu += inMenu;
+    if (inMenu !== hits.length) elsewhere.push(`${rel}: a map-app link is built outside DirectionsMenu`);
+  }
+  assert.deepEqual(elsewhere, [], 'the map apps are ONE "Directions ▾" dropdown — mount DirectionsMenu, never a row of chips');
+  assert.ok(builtInMenu >= 2, `anti-vacuity: the shared menu builds the Waze and Apple Maps links (found ${builtInMenu})`);
+
+  // Inside the one component: one <details>, and its rows come from ONE <a> in a .map — never three written out.
+  const menu = directionsMenuSource();
+  assert.equal((menu.match(/<details\b/g) ?? []).length, 1, 'DirectionsMenu draws one <details>');
+  assert.equal((menu.match(/<a\b/g) ?? []).length, 1, 'DirectionsMenu draws its rows from ONE <a> — three written-out <a>s are three buttons');
+  assert.match(menu, /\.map\(\(a\) => \([\s\S]*<a href=\{a\.href\}/, 'the rows are the apps list, mapped');
+  assert.ok(menu.indexOf('<details') < menu.indexOf('<a '), 'the rows sit inside the dropdown, not beside it');
+
+  // Every surface that offers directions mounts it (a surface that drops it would pass the check above by drawing nothing).
+  for (const rel of DIRECTION_SURFACES) {
+    const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    assert.match(src, /<DirectionsMenu(?![\w.])/, `${rel}: offers directions — mount the shared DirectionsMenu`);
+    assert.match(src, /import \{[^}]*\bDirectionsMenu\b[^}]*\} from '@\/app\/_components\/nav-links'/, `${rel}: the ONE DirectionsMenu, from nav-links`);
+  }
 });

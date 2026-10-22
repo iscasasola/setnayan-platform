@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bfe6c28a9",
-  "routeCount": 452,
-  "destinations": 995,
+  "generatedFromRef": "e7dee3bcb2",
+  "routeCount": 453,
+  "destinations": 998,
   "actions": 665,
-  "blocks": 6755,
+  "blocks": 6765,
   "routes": {
     "/": {
       "files": [
@@ -1304,6 +1304,7 @@
         "HubDraft",
         "HubLook",
         "HubMenuButton",
+        "HubOwnership",
         "HubPageFrame",
         "HubPageHold",
         "HubSceneFx",
@@ -6850,6 +6851,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "QrActions",
         "ReissueQrButton",
         "SlugField",
@@ -6942,6 +6944,7 @@
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
+        "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/replies-window-rows.tsx",
         "dashboard/[eventId]/launch/_components/rsvp-canvas-arrange.ts",
@@ -7024,6 +7027,7 @@
         "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/print?format=pdf&guest=[seg]",
         "/dashboard/[seg]/studio/website-pro",
+        "/dashboard/[seg]/studio/website-pro?from=maker",
         "/marketplace"
       ],
       "actions": [
@@ -7042,6 +7046,7 @@
         "ActionButton",
         "AddPartSheet",
         "AddWish",
+        "AddressField",
         "AddressPinField",
         "AllInOneButton",
         "AllInOneShipped",
@@ -7342,6 +7347,7 @@
         "PrintThumb",
         "PrintedStamp",
         "ProMark",
+        "ProQuietLine",
         "ProfileShareButton",
         "QrActions",
         "QrLookControls",
@@ -9408,6 +9414,7 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
+        "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
@@ -9418,9 +9425,8 @@
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
-        "PageMasthead",
         "PaidMark",
-        "StudioBuyHero"
+        "ProPartsBody"
       ]
     },
     "/dashboard/[eventId]/vendors": {
@@ -10214,6 +10220,7 @@
         "PostEventWordsField",
         "PresetTiles",
         "ProLockPanel",
+        "ProQuietLine",
         "QrActions",
         "ReturnTo",
         "RowBlock",
@@ -10994,6 +11001,25 @@
       "blocks": [
         "GenericOnboarding",
         "SimpleSetupFlow"
+      ]
+    },
+    "/dev/pro-parts-lab": {
+      "files": [
+        "dev/pro-parts-lab/lab-client.tsx",
+        "dev/pro-parts-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/pro-parts-lab",
+        "/dev/pro-parts-lab?frame=parts-free"
+      ],
+      "actions": [],
+      "blocks": [
+        "AddressField",
+        "ApplyProSheet",
+        "LabFrame",
+        "MakerContext.Provider",
+        "ProPartsBody",
+        "ProQuietLine"
       ]
     },
     "/dev/schedule-lab": {

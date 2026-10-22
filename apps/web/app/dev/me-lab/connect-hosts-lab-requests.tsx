@@ -40,5 +40,17 @@ export function LabHostRequests() {
       samahan: 0,
     },
   };
-  return <PeopleRosterView roster={roster} relations={[]} spouseNote={null} mode="requests" />;
+  return (
+    <PeopleRosterView
+      roster={roster}
+      relations={[]}
+      spouseNote={null}
+      initialFilter="asking"
+      picker={{
+        view: 'connected',
+        options: [{ key: 'connected', label: 'Your people 0' }],
+        gates: { showConnections: true, showDependents: false },
+      }}
+    />
+  );
 }

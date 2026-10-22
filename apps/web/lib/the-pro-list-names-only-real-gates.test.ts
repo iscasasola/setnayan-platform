@@ -37,6 +37,10 @@
  *           refused to a free couple, the 5th is not, a photo on the first is;
  *         · route level (`all-in-one-prints-are-pro.test.ts`): a free event's every-guest passes and QR sheet are served, and
  *           Everything is still refused.
+ *         · 5d · THE DIGITAL TICKET ZIP IS FREE too (owner "yes", later on 2026-10-22, DECISION_LOG "THE DIGITAL TICKET ZIP IS
+ *           FREE" — every guest's ticket picture, for sending by phone; it is how couples hand out tickets). No Pro line names a
+ *           ticket or a zip, and the zip route is CALLED for a free event (`all-in-one-prints-are-pro.test.ts` § 1d): no Pro
+ *           question, then the one kit whose look is § 5b's door — plain white free, the Hub look on Pro.
  *
  * ⛔ NO PRICE. The list never carries one; the figure is `platform_retail_catalog_v2`'s, read at render.
  *
@@ -229,6 +233,12 @@ test('5b · a free event’s prints are PLAIN WHITE and never read the Hub; the 
     assert.equal(read, 1, `${theme}: a Pro event’s print does not ask for the Hub look`);
     assert.equal(pro.look, looks.pro, `${theme}: a Pro event prints the free look`);
   }
+});
+
+test('5d · the digital ticket zip is FREE — no Pro line names a ticket or a zip (owner 2026-10-22, "yes")', () => {
+  /* Handing out tickets is readiness, not personalization: the list of what Pro buys may not name it. The designed set is the
+     only download Pro sells (4c), and its words name no ticket. The route's own freedom is CALLED in all-in-one § 1d. */
+  for (const i of items) assert.doesNotMatch(i, /\btickets?\b|\bzip\b|\.zip|\bPNGs?\b/i, `the Pro list sells the ticket zip, which is free: "${i}"`);
 });
 
 test('5c · the Love Story line’s number is FREE_MOMENT_CAP — the 6th story is Pro, the 5th is not', () => {

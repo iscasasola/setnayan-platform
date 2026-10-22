@@ -33,9 +33,9 @@ const rule = (css: string, sel: string) => {
   return css.slice(i, css.indexOf('}', i));
 };
 
-test('footer links and "Cookie settings" are 44px tall, at the same row pitch', () => {
+test('footer links are 44px tall, at the same row pitch', () => {
   const css = read('app/_components/home/home-reskin.css');
-  const link = rule(css, '.home-reskin .hr-foot-col a,\n.home-reskin .hr-foot-linkbtn');
+  const link = rule(css, '.home-reskin .hr-foot-col a');
   const h = Number(link.match(/min-height:\s*(\d+)px/)?.[1]);
   assert.ok(h >= 44, `footer link min-height is ${h}px — under the 44px floor`);
   const gap = Number(rule(css, '.home-reskin .hr-foot-col').match(/gap:\s*(\d+)px/)?.[1]);

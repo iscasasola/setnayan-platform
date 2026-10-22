@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7bfe6c28a9",
-  "routeCount": 452,
-  "destinations": 995,
+  "generatedFromRef": "5c2c2f98e9",
+  "routeCount": 453,
+  "destinations": 996,
   "actions": 665,
-  "blocks": 6755,
+  "blocks": 6767,
   "routes": {
     "/": {
       "files": [
@@ -24,7 +24,6 @@
         "AppInitSplash",
         "BrandProvider",
         "ClientTypeDetector",
-        "CookieConsentBanner",
         "DeferredObservability",
         "DemoModeBanner",
         "DesktopUpdaterListener",
@@ -43,7 +42,6 @@
         "NfcTestSwitch",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
-        "PostHogProvider",
         "PressFeel",
         "Providers",
         "Reconnecting",
@@ -155,7 +153,7 @@
       ],
       "actions": [],
       "blocks": [
-        "CookieSettingsLink",
+        "CookieList",
         "LegalLayout",
         "LegalSection",
         "Link"
@@ -565,6 +563,7 @@
         "(shell)/privacy/page.tsx"
       ],
       "destinations": [
+        "/cookies",
         "/dashboard/profile",
         "/help"
       ],
@@ -5043,7 +5042,6 @@
     "/dashboard/(account)/life-flash": {
       "files": [
         "dashboard/(account)/life-flash/_components/flash.tsx",
-        "dashboard/(account)/life-flash/_components/life-flash-analytics.ts",
         "dashboard/(account)/life-flash/_components/placeholder.ts",
         "dashboard/(account)/life-flash/_components/scroll-reel.tsx",
         "dashboard/(account)/life-flash/_components/story-people.tsx",
@@ -5106,6 +5104,7 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
+        "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
         "dashboard/(account)/people/_components/person-avatar.tsx",
         "dashboard/(account)/people/_components/samahan-people-section.tsx",
@@ -5134,46 +5133,57 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "AccountThumbRow",
+        "ActionButton",
         "ActionResult",
         "AddAlagaButton",
         "AddAlagaFields",
+        "CardGroup",
+        "CardLabel",
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
+        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
-        "FindOrInvite",
+        "FindField",
+        "FindResults",
         "FollowListView",
         "FollowRowItem",
-        "Fragment",
         "Frame",
+        "GuestConfirmActions",
+        "GuestPopup",
         "HTMLButtonElement",
+        "HTMLDivElement",
         "HTMLInputElement",
+        "Icon",
+        "InviteAction",
         "LabelCell",
         "LabelResult",
         "Layer",
         "LifeStorySection",
         "Link",
         "MiniTour",
-        "OutgoingBlock",
         "PageMasthead",
+        "PeopleFilter",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleThumb",
         "PeopleViewPicker",
         "Person",
         "PersonAvatar",
+        "PersonCard",
+        "PersonRow",
         "PickMenu",
         "PlanTogether",
         "Popover",
         "PreviewRow",
         "RequestRow",
-        "RequestsBlock",
-        "RowActions",
-        "SamahanCell",
         "SamahanPeopleSection",
-        "StateCell",
         "SubmitButton",
+        "ThumbField",
+        "ThumbTool",
         "YourStorySection"
       ]
     },
@@ -5193,7 +5203,6 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
-        "dashboard/(account)/profile/_components/analytics-choice.tsx",
         "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
@@ -5233,11 +5242,9 @@
         "updateUserSlug"
       ],
       "blocks": [
-        "AnalyticsChoice",
         "Appearance",
         "AppearanceChoice",
         "ConfirmForm",
-        "CookieConsent",
         "Field",
         "FileUpload",
         "FormFlash",
@@ -6365,6 +6372,7 @@
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",
+        "dashboard/[eventId]/guests/_components/use-shell-bar-offset.ts",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/group-edit-actions.ts",
@@ -10994,6 +11002,20 @@
       "blocks": [
         "GenericOnboarding",
         "SimpleSetupFlow"
+      ]
+    },
+    "/dev/people-lab": {
+      "files": [
+        "dev/people-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "FollowListView",
+        "PeopleRosterView",
+        "RosterPerson",
+        "TreeStandIn"
       ]
     },
     "/dev/schedule-lab": {

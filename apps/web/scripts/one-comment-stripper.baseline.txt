@@ -62,7 +62,6 @@ apps/web/app/_components/page-masthead.test.ts
 apps/web/app/_components/save-photo-button.test.ts
 apps/web/app/_components/sheet-agrees-with-the-nav.test.ts
 apps/web/app/_components/states/an-empty-screen-is-deliberate.test.ts
-apps/web/app/_components/turning-analytics-off-turns-it-off.test.ts
 apps/web/app/admin/_components/admin-console-is-one-table.test.ts
 apps/web/app/admin/_components/admin-gold-is-not-text.test.ts
 apps/web/app/admin/_components/admin-page-starts-at-its-content.test.ts
@@ -144,7 +143,6 @@ apps/web/lib/canvas-maker-epilogue.test.ts
 apps/web/lib/captcha-is-wired.test.ts
 apps/web/lib/chapter-event-link.test.ts
 apps/web/lib/comparison-shows-the-delta.test.ts
-apps/web/lib/cookie-consent.test.ts
 apps/web/lib/correction-queue-has-an-intake.test.ts
 apps/web/lib/couple-face-choice.test.ts
 apps/web/lib/couple-screens-keep-the-shell.test.ts

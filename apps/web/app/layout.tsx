@@ -15,7 +15,6 @@ import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
 import { NfcTestSwitch } from './_components/use-nfc-enabled';
-import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
@@ -593,9 +592,8 @@ export default async function RootLayout({
 
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
-  // the first auth check, first analytics event, and first signed-URL fetch.
+  // the first auth check and first signed-URL fetch.
   const supabaseOrigin = getOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
   // Two independent cached reads that gate EVERY page's render — resolve them
@@ -675,17 +673,6 @@ export default async function RootLayout({
           <>
             <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
             <link rel="dns-prefetch" href={supabaseOrigin} />
-          </>
-        ) : null}
-        {posthogOrigin ? (
-          <>
-            {/* PostHog is consent-gated and never loads until the visitor
-                accepts analytics cookies, so a speculative preconnect (DNS+TCP+
-                TLS) just burns one of the browser's limited early connections
-                for a request most first-time visitors never make. Keep only the
-                cheap dns-prefetch; the provider opens the real connection after
-                consent. (Perf sweep 2026-07-02, finding #32.) */}
-            <link rel="dns-prefetch" href={posthogOrigin} />
           </>
         ) : null}
         {r2Origin ? (
@@ -791,17 +778,10 @@ export default async function RootLayout({
         <NativeBridge />
         {/* Remembers a phone's own `?nfc-test=1` NFC opt-in from any page. */}
         <NfcTestSwitch />
-        {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
-            it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
-            itself only on the Live Watch surfaces where it would be
-            broadcast, cover the on-air controls, or sit on a venue screen a
-            room is watching (/live/screen) — see
-            _components/capture-safe-routes.ts. Every other route, including
-            '/', still gets the ask. (The old note here claimed a '/' self-hide
-            for a bespoke HomeReskin pill; no such pill exists — the only consent
-            UI in the tree is this banner plus the "Cookie settings" re-open
-            links, which all share state via lib/cookie-consent.) */}
-        <CookieConsentBanner />
+        {/* 🍪 NO COOKIE BANNER (owner 2026-10-22). Setnayan sets essential cookies
+            only — sign-in, security, a guest's pass, the person's own Appearance
+            choice — so there is nothing optional to ask about. The guard is
+            app/_components/essential-cookies-only.test.ts. */}
         {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
             minutes and a page left open can break in a way that throws NOTHING
             — no exception, so no error boundary and no stale-bundle reload,

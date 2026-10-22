@@ -12,13 +12,13 @@ import {
   AI_FIELD_SELECTED,
   HUB_PRO_FIELD_SELECTED,
 } from './_components/papic-step-field-names';
-import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers, setupLanding } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
+import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
 import { setupColumns } from '@/lib/onboarding/event-insert';
 import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
 import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
@@ -96,6 +96,19 @@ export async function commitSimpleEvent(formData: FormData) {
   const admin = createAdminClient();
   const slug = await generateUniqueSlug(admin, display_name);
 
+  // WHO IT IS FOR (owner 2026-10-22, "yes"): a SHOP picked in "For ▾" is linked
+  // on every event created for it — this one included. The same
+  // `resolveEventHonoree` the other two doors call: the posted id is a claim,
+  // re-read under `owner_user_id = you`, and kept only for the caller's own
+  // business (a person carried here is dropped, label and all).
+  const { honoreeLabel: honoree_label, honoreeDependentId: honoree_dependent_id } =
+    await resolveEventHonoree(() => admin, {
+      userId: user.id,
+      eventType: 'simple_event',
+      honoreeLabel: String(formData.get('honoree_label') ?? ''),
+      dependentId: formData.get('honoree_dependent_id'),
+    });
+
   // 🎟 The setup cards (G1) — read only once the seed has admitted this type,
   // and re-read key by key against its own view (the wire is never trusted).
   // Each answer lands in its real home, the same columns the generic commit
@@ -132,6 +145,8 @@ export async function commitSimpleEvent(formData: FormData) {
     .insert({
       event_type: 'simple_event',
       display_name,
+      honoree_label,
+      honoree_dependent_id,
       // We have an exact date → day precision (the column DEFAULTs to 'year').
       // No date ("When" is optional on the needs screen) → an undated event,
       // the generic commit's shape.
@@ -203,21 +218,6 @@ export async function commitSimpleEvent(formData: FormData) {
       return redirect('/onboarding/simple?error=create_incomplete');
     }
     return redirect('/onboarding/simple?error=create_failed');
-  }
-
-  // Funnel event — fire-and-forget, never blocks the redirect.
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: insertedEvent.event_id,
-        event_type: 'simple_event',
-        concierge_choice: 'diy',
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
   }
 
   // ── what they picked on the Papic step (owner 2026-08-11) ────────────────

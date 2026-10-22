@@ -65,7 +65,6 @@ import {
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
 import { PrefixSelect } from '@/app/_components/formal-name-inputs';
-import { AnalyticsChoice } from './_components/analytics-choice';
 import { SettingsShell } from './_components/settings-shell';
 import { groupFromSearchParams } from '@/lib/profile-settings-groups';
 import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
@@ -922,8 +921,6 @@ export default async function ProfilePage({ searchParams }: Props) {
               Your data
             </h3>
           </div>
-          <AnalyticsChoice />
-
           <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">Download my data</p>

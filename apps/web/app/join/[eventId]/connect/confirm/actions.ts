@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { connectEventForUser } from '@/lib/event-account-link';
 import { connectQuery } from '@/lib/invite-arrival';
-import { captureEvent } from '@/lib/analytics';
 import { setAccountFaceReuse } from '@/lib/account-face-profile';
 import { REUSE_FACE_FIELD } from '@/lib/face-selfie-lifetime';
 import { connectHostsTicked } from '@/lib/guest-connects-hosts';
@@ -57,14 +56,5 @@ export async function confirmSeatLinkAction(
   if (connectHostsTicked(formData)) {
     await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
   }
-  // The growth-loop metric login/signup used to fire when they auto-bound a
-  // seat — now fired where the person actually said yes.
-  void captureEvent({
-    distinctId: user.id,
-    event: 'guest_account_linked',
-    properties: { ref: 'guest' },
-  }).catch(() => {
-    // Telemetry failure never blocks. Silent.
-  });
   redirect(`/join/${eventId}/connect${carry}`);
 }

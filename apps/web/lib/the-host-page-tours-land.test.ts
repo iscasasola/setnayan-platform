@@ -71,8 +71,15 @@ for (const m of MOUNTS) {
   });
 }
 
-test('inside the Maker, a page tour waits for the Maker’s own (one tour at a time there too)', () => {
+test('inside the Maker, every page tour waits for the Maker’s own (one tour at a time there too)', () => {
   assert.equal(MAKER_INNER_TOURS_AFTER, HOST_PAGE_TOURS.maker);
+  // Every inMaker mount but the Maker's own waits for the Maker's tour — none may wait only for the journey.
+  for (const f of [...new Set(MOUNTS.map((m) => m.file))]) {
+    for (const t of spotlightTags(read(f)).filter((t) => /\binMaker\b/.test(t))) {
+      if (/tourKey=\{HOST_PAGE_TOURS\.maker\}/.test(t)) continue;
+      assert.match(t, /after=\{MAKER_INNER_TOURS_AFTER\}/, `${f}: an inMaker page tour does not wait for the Maker's own — two would stack`);
+    }
+  }
 });
 
 test('the old carousels for the replaced pages are gone (two first-visit things never stack)', () => {

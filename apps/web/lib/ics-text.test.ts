@@ -28,7 +28,8 @@ test('⓵ TEXT values escape ; , \\ and every line break', () => {
 });
 
 test('⓶ folded lines stay within 75 octets, keep every character whole, and unfold to the original', () => {
-  const long = `SUMMARY:${icsEscape('Kasal nina Señorita María Concepción Dela Cruz-Santos at Ginoong Juan Ñiño · booked on Setnayan')}`;
+  // Long enough for several continuation lines — each of which carries its own leading space within the 75.
+  const long = `SUMMARY:${icsEscape('Kasal nina Señorita María Concepción Dela Cruz-Santos at Ginoong Juan Ñiño · booked on Setnayan · '.repeat(4))}`;
   const folded = foldIcsLine(long);
   for (const physical of folded.split('\r\n')) assert.ok(utf8.encode(physical).length <= 75, `"${physical}" passes 75 octets`);
   assert.ok(folded.split('\r\n').slice(1).every((l) => l.startsWith(' ')), 'a continuation line does not start with a space');

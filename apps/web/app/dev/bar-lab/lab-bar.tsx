@@ -34,7 +34,16 @@ export function LabBar({ kind, ownsShop = true }: { kind: 'account' | 'shop' | '
       ? accountBarItems(accountBarTabs({ ownsShop, discoverOpen: true }))
       : kind === 'shop'
         ? vendorBarItems({ role: 'owner', navSlots: {}, bookingsBadge: 2, threadsBadge: 1 })
-        : buildCustomerMenuTree(LAB_EVENT, { websiteEnabled: true, seatingEnabled: true }).map((m) => ({
+        : buildCustomerMenuTree(LAB_EVENT, {
+            // Every gate the layout forwards (the-phone-forwards-every-gate.test.ts), at a plain web event's values.
+            phase: 'plan',
+            hideKeys: [],
+            seatingEnabled: true,
+            websiteEnabled: true,
+            studioRows: [],
+            storeShell: false,
+            services: [],
+          }).map((m) => ({
             key: m.key,
             label: m.label,
             icon: navLineIcon(undefined, m.icon),

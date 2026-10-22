@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
-import { Check, Clock, Search, X } from 'lucide-react';
+import { Check, Clock, Plus, Search, X } from 'lucide-react';
+import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
+import { ThumbField } from '../../_components/account-thumb-row';
 import { ActionButton } from '@/components/action-button';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
 import ps from './people-screen.module.css';
@@ -163,11 +165,10 @@ export function useFindOrInvite() {
   };
 }
 
-/** The thumb row's box — "Find or invite", where Guests keeps "Search or add". */
+/** The thumb row's field — "Search or invite" (the one-thumb-row prototype's word for People), in the row's glass. */
 export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: RefObject<HTMLInputElement | null> }) {
   return (
-    <span className={`${gs.field} flex items-center gap-2`} data-find-field="">
-      <Search aria-hidden className="h-[18px] w-[18px] shrink-0 text-ink/45" strokeWidth={1.8} />
+    <ThumbField words="Search or invite">
       <input
         ref={(el) => {
           (f.inputRef as { current: HTMLInputElement | null }).current = el;
@@ -182,10 +183,12 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
           }
         }}
         disabled={f.pending}
-        placeholder="Find or invite"
-        aria-label="Find someone by name — or a name and their email to invite"
+        placeholder="Search or invite"
+        aria-label="Search or invite — a name finds them, a name and their email invites them"
         enterKeyHint="search"
-        className="min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/45"
+        autoComplete="off"
+        data-find-field=""
+        className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
       />
       {f.line ? (
         <button
@@ -200,7 +203,66 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
       ) : null}
-    </span>
+    </ThumbField>
+  );
+}
+
+/**
+ * ＋ INVITE — the row's one main verb (the one-thumb-row prototype: "the field's own invite line, as a sheet").
+ * The same invite the field does on Enter (`addPersonConnection`), with the typed name carried in.
+ */
+export function InviteAction({ f }: { f: FindOrInviteState }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ActionButton tone="brand" filled icon={Plus} label="Invite" onClick={() => setOpen(true)} data-testid="people-invite-open" />
+      {open ? (
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-[80]"
+          panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-4 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
+          label="Invite someone"
+          focusFirstInput
+          panelData={{ 'data-invite-sheet': '' }}
+        >
+          <p className="text-[19px] font-semibold text-ink">Invite someone</p>
+          <input
+            value={f.draft.email ? f.draft.name : f.line}
+            onChange={(e) => f.setLine(e.target.value)}
+            placeholder="Their name"
+            aria-label="Their name"
+            className="mt-3 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the name field, not a container
+          />
+          <input
+            type="email"
+            inputMode="email"
+            value={f.draft.email || f.email}
+            onChange={(e) => f.setEmail(e.target.value)}
+            placeholder="their@email.com"
+            aria-label="Their email"
+            className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the email field, not a container
+          />
+          <p className="mt-2.5 text-[12.5px] leading-snug text-ink/60">
+            They get an email either way. If they aren’t on Setnayan yet it invites them to join — add them again once
+            they’re in. You set what they are to you <em className="not-italic font-medium text-ink/80">after</em> they’re
+            on your list.
+          </p>
+          {f.error ? (
+            <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+              {f.error}
+            </p>
+          ) : null}
+          {f.notice ? (
+            <p role="status" className="mt-2 text-sm text-mulberry-600">
+              {f.notice}
+            </p>
+          ) : null}
+          <div className="mt-3 flex justify-end">
+            <ActionButton tone="brand" main icon={Check} label={f.pending ? 'Inviting…' : 'Invite'} onClick={f.submitAdd} disabled={f.pending || !f.canAdd} />
+          </div>
+        </GuestPopup>
+      ) : null}
+    </>
   );
 }
 

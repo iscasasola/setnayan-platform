@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   CalendarHeart,
   Check,
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
+  ListFilter,
   CircleDashed,
   Clock,
   HandHeart,
@@ -24,7 +25,6 @@ import {
 } from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import { GuestPopup, GuestConfirmActions } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
-import { followColumn } from '@/app/dashboard/[eventId]/guests/_components/dock-follows-column';
 import { useShellBarOffset } from '@/app/dashboard/[eventId]/guests/_components/use-shell-bar-offset';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -32,7 +32,8 @@ import { ActionButton } from '@/components/action-button';
 import type { ConnectionRelation } from '@/lib/people-connections';
 import { RELATION_LABEL, connectionRequestSentence } from '@/lib/people-add';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
-import type { PeopleView, PeopleViewGates } from '@/lib/people-views';
+import { peopleViewHref, type PeopleView, type PeopleViewGates } from '@/lib/people-views';
+import { useRouter } from 'next/navigation';
 import { normalizeSearchText } from '@/lib/guest-search';
 import {
   didNotConfirmLine,
@@ -51,8 +52,8 @@ import {
   withdrawConnection,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
-import { FindField, FindResults, useFindOrInvite } from './find-or-invite';
-import { PeopleViewPicker } from './people-view-picker';
+import { FindField, FindResults, InviteAction, useFindOrInvite } from './find-or-invite';
+import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
 import ps from './people-screen.module.css';
 
@@ -244,12 +245,9 @@ export function PeopleRosterView({
   const [cardKey, setCardKey] = useState<string | null>(null);
   const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
   const find = useFindOrInvite();
+  const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   useShellBarOffset(rootRef);
-  useEffect(() => {
-    const root = rootRef.current;
-    return root ? followColumn(root) : undefined;
-  }, []);
 
   const run: Run = (fn) => {
     setError(null);
@@ -498,59 +496,71 @@ export function PeopleRosterView({
     </div>
   );
 
-  /* ═══ the thumb row — the Guest list's: ⇕ · ☑ · [Find or invite] · ≡ ═══ */
+  /* ═══ THE ONE THUMB ROW (owner 2026-10-22; prototypes/one_thumb_row_2026-10-22.html): ≡ · [Search or invite] · ＋ ═══
+     ≡ is ONE dropdown (any set of choices is a dropdown): the views (Your people · Following · Followers · Groups) and
+     the list's own two tools — Expand / Collapse all and Select — so the field keeps its 60 % at 320. */
   const filterPick = (
-    <span data-pick="" className={ps.iconPick} data-people-filter="">
-      <PeopleViewPicker view={picker.view} options={picker.options} gates={picker.gates} />
-    </span>
+    <ThumbTool>
+      <span data-pick="" data-people-filter="" className="contents">
+        <PickMenu
+          label="People — show, or work the list"
+          value={picker.view}
+          options={[
+            ...picker.options.map((o) => ({ ...o, group: 'Show', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+            ...(nobody
+              ? []
+              : [
+                  { key: 'list:fold', label: allOpen ? 'Collapse all' : 'Expand all', group: 'This list', icon: allOpen ? <ChevronsDownUp className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <ChevronsUpDown className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
+                  { key: 'list:select', label: 'Select', group: 'This list', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
+                ]),
+          ]}
+          onPick={(k) => {
+            if (k === 'list:fold') return setOpen(allOpen ? new Set() : new Set(allKeys));
+            if (k === 'list:select') return setSelectMode(true);
+            router.push(peopleViewHref(k as PeopleView, picker.gates));
+          }}
+          dataAttr="data-people-views"
+        />
+      </span>
+    </ThumbTool>
   );
   const thumb = selectMode ? (
-    <div className={gs.thumb} data-thumb="select">
-      {roster.mySamahan.length > 0 ? (
-        <span data-pick="" className={`${gs.grow} ${ps.growPick}`} data-bulk-ask="">
-          <PickMenu
-            label="Ask the selected into"
-            value={null}
-            buttonText={askable.length === 0 ? 'Ask into group' : `Ask ${formatCount(askable.length)} into group`}
-            options={roster.mySamahan.map((s) => ({ key: s.id, label: s.name, icon: <UsersRound className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
-            onPick={askIntoGroup}
-          />
-        </span>
-      ) : (
-        <span className={`${gs.grow} ${gs.mute} text-[13px]`}>Make a group to ask people into it.</span>
-      )}
-      <span className={gs.acts}>
+    <AccountThumbRow
+      data={{ 'data-people-thumb': 'select' }}
+      tools={
+        <ThumbTool>
+          <ActionButton tone="neutral" iconOnly icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="people-bulk-done" />
+        </ThumbTool>
+      }
+      field={
+        roster.mySamahan.length > 0 ? (
+          <span data-pick="" className={`sn-glass-row rounded-full ${ps.growPick}`} data-bulk-ask="">
+            <PickMenu
+              label="Ask the selected into"
+              value={null}
+              buttonText={askable.length === 0 ? 'Ask into group' : `Ask ${formatCount(askable.length)} into group`}
+              options={roster.mySamahan.map((s) => ({ key: s.id, label: s.name, icon: <UsersRound className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+              onPick={askIntoGroup}
+            />
+          </span>
+        ) : (
+          <span className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center rounded-full px-3.5 text-[13px] text-ink/60">Make a group to ask people into it.</span>
+        )
+      }
+      action={
         <ActionButton
           tone="danger"
+          filled
           icon={X}
           label={`Remove ${formatCount(pickedRows.length)}`}
           waiting={pickedRows.length === 0}
           onClick={() => (pickedRows.length > 0 ? setToRemove(pickedRows) : undefined)}
           data-testid="people-bulk-remove"
         />
-        <ActionButton tone="neutral" iconOnly icon={SquareCheck} label="Done" onClick={leaveSelect} data-testid="people-bulk-done" />
-      </span>
-    </div>
+      }
+    />
   ) : (
-    <div className={gs.thumb} data-thumb="list">
-      {nobody ? null : (
-        <span className={gs.acts} data-side="left">
-          <ActionButton
-            tone="neutral"
-            iconOnly
-            icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
-            label={allOpen ? 'Collapse all' : 'Expand all'}
-            onClick={() => setOpen(allOpen ? new Set() : new Set(allKeys))}
-            data-testid="people-expand"
-          />
-          <ActionButton tone="neutral" iconOnly icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="people-select" />
-        </span>
-      )}
-      <FindField f={find} />
-      <span className={gs.acts} data-side="right">
-        {filterPick}
-      </span>
-    </div>
+    <AccountThumbRow data={{ 'data-people-thumb': 'list' }} tools={filterPick} field={<FindField f={find} />} action={<InviteAction f={find} />} />
   );
 
   return (
@@ -567,9 +577,7 @@ export function PeopleRosterView({
         </p>
       ) : null}
       {list}
-      <div className={`${gs.lower} ${ps.lower} sn-glass-row`} data-on="true" data-people-thumb="">
-        {thumb}
-      </div>
+      {thumb}
       {card ? (
         <PersonCard
           person={card}

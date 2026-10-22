@@ -9,6 +9,10 @@ top, *"remove it"*. Built to the approved prototype `prototypes/people_and_memor
 - Rows, folding sections, the sticky head and the glass thumb row are the Guest list's own
   (`guests-screen.module.css`, `ActionButton`, imported). Row: face · name · label pill (the editor) · "· group" ·
   round ✎ / ✕ (Send again · Withdraw on a waiting row). Requests are pinned rows with round ✓ Accept · ✕ Decline.
+- THE ONE THUMB ROW (owner 2026-10-22, the Find row on every list page; `prototypes/one_thumb_row_2026-10-22.html`):
+  ≡ · "Search or invite" · ＋ Invite — no band, each control its own glass, 44 px, the field ≥ 60 % (72 % at 375, 67 %
+  at 320). ≡ is one dropdown: the views AND the list's Expand / Collapse all and Select. ＋ opens the invite as a
+  sheet. Drawn by one small component (`(account)/_components/account-thumb-row.tsx`) so the shared row can replace it.
 - Find-or-invite moved into the thumb row's field (one state: `useFindOrInvite` → `FindField` + `FindResults`);
   a name nobody has shows the invite card with its own email box.
 - Loved ones (alaga, incl. a business alaga) and Your connection tree are folded sections of the list.

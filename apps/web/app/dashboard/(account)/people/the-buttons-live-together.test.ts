@@ -108,7 +108,7 @@ test('🔴 the top is the counts line — no header block and no view dropdown a
   assert.ok(ret.indexOf('{topLine}') >= 0 && ret.indexOf('{topLine}') < ret.indexOf('{list}'), 'the counts line is not the first thing the roster draws');
   // …and the view list sits in the thumb row, as ≡.
   const thumb = ROSTER.slice(ROSTER.indexOf('const filterPick = ('), ROSTER.indexOf('const thumb = selectMode'));
-  assert.match(thumb, /<PeopleViewPicker /, 'the ≡ button no longer opens the view list (Groups · Following · Followers)');
+  assert.match(thumb, /picker\.options\.map\(/, 'the ≡ button no longer opens the view list (Groups · Following · Followers)');
 });
 
 test('the Groups view does not draw a second "Groups" heading under its picker', () => {

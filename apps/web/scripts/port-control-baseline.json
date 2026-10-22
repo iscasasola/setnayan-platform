@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2be9b3b638",
+  "generatedFromRef": "72d8e9f738",
   "routeCount": 453,
   "destinations": 995,
   "actions": 665,
-  "blocks": 6767,
+  "blocks": 6771,
   "routes": {
     "/": {
       "files": [
@@ -5135,6 +5135,7 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "AccountThumbRow",
         "ActionButton",
         "ActionResult",
         "AddAlagaButton",
@@ -5159,6 +5160,7 @@
         "HTMLDivElement",
         "HTMLInputElement",
         "Icon",
+        "InviteAction",
         "LabelCell",
         "LabelResult",
         "Layer",
@@ -5182,6 +5184,8 @@
         "RequestRow",
         "SamahanPeopleSection",
         "SubmitButton",
+        "ThumbField",
+        "ThumbTool",
         "YourStorySection"
       ]
     },

@@ -182,7 +182,8 @@ export const RETAIL: RetailRow[] = [
   // its number for three weeks; what it buys now is the six CSS animation
   // signatures on a mark whose maker is already free. This fixture mirrors
   // production and MUST be changed in the same PR as the catalogue row.
-  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: true },
+  // Retired from sale 2026-10-22 (migration 20271283592608) — the Logo & QR part sells the animation; a NEGATIVE fixture now.
+  { service_code: 'ANIMATED_MONOGRAM', title: 'Animated Monogram', retail_price_php: 500, is_active: false },
   // KWENTO is FREE since 2026-08-21 (owner: "kwento is free") — its row is
   // deactivated in prod by migration 20271156242842, and this fixture is a
   // second hand-typed copy of that catalog which CI reads instead of the

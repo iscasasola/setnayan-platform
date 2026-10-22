@@ -104,6 +104,8 @@ export type HubDraftBarProps = {
   /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
   partPricePhp?: Partial<Record<HubPartId, number>>;
   fullPricePhp?: number | null;
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet names parts with no web figure. */
+  appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -354,6 +356,7 @@ export function HubDraftToolbar({
   ownership,
   partPricePhp,
   fullPricePhp = null,
+  appleIap = false,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
@@ -633,9 +636,12 @@ export function HubDraftToolbar({
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
           pricing={
-            !storeShell && partPricePhp && Object.keys(partPricePhp).length > 0
-              ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
-              : null
+            appleIap
+              ? /* 🍎 1.1 where Apple sells (flag-dark): the parts by name, no web figure — Apple's page prices them. */
+                { partPricePhp: {}, fullPricePhp: null, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null }, appleStore: true }
+              : !storeShell && partPricePhp && Object.keys(partPricePhp).length > 0
+                ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
+                : null
           }
         />,
         document.body,

@@ -91,6 +91,17 @@ export function hubPartOfSku(sku: string | null | undefined): HubPartId | null {
 }
 
 /**
+ * 💎 Codes whose PAID orders count toward the cap, each as the part it is: every part's own code, and the retired
+ * standalone Animated Monogram, which reads as Logo & QR (owner 2026-10-22, Q2 "yes" — what its owners paid counts at
+ * the part's web value, never asked again).
+ */
+export const HUB_PART_PAID_CODES: readonly string[] = [...HUB_PARTS.map((p) => p.sku), 'ANIMATED_MONOGRAM'];
+
+export function hubPartOfPaidCode(code: string | null | undefined): HubPartId | null {
+  return code === 'ANIMATED_MONOGRAM' ? 'logo_qr' : hubPartOfSku(code);
+}
+
+/**
  * 💎 WHAT A COVER'S LOOK CAN TURN ON, PART BY PART (owner 2026-10-22) — the saved Pro theme is the Style part's
  * (gate 13), the couple's own photo as the ground is the Background part's (gate 9). Asked ONCE per cover (one
  * ownership read answers both), exactly as the guest page asks each of them (`resolveHubTheme` / `resolveHubLook`).

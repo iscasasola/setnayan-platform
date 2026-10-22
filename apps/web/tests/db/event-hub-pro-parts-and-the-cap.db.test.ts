@@ -15,7 +15,17 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
-import { FULL_PRO_SKU, HUB_PARTS, HUB_PART_SKUS, hubOwnershipFrom, hubPart, hubPartOfSku, hubRestToEverything, type HubPartId } from '../../lib/hub-parts';
+import {
+  FULL_PRO_SKU,
+  HUB_PARTS,
+  HUB_PART_SKUS,
+  hubOwnershipFrom,
+  hubPart,
+  hubPartOfPaidCode,
+  hubPartOfSku,
+  hubRestToEverything,
+  type HubPartId,
+} from '../../lib/hub-parts';
 import { entitlementFactsFrom } from '../../lib/entitlements';
 
 let replay: ReplayResult;
@@ -74,7 +84,7 @@ test('Full Pro keeps its ₱5,000 and its one sign-up price', async () => {
 });
 
 /** A fresh event with these part orders. */
-async function eventWith(orders: Array<{ part: HubPartId; status: string }>): Promise<string> {
+async function eventWith(orders: Array<{ part: HubPartId; status: string; code?: string }>): Promise<string> {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type) VALUES ('Parts Event', 'birthday') RETURNING event_id`,
   );
@@ -83,7 +93,7 @@ async function eventWith(orders: Array<{ part: HubPartId; status: string }>): Pr
     await db.query(
       `INSERT INTO public.orders (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
        VALUES ($1, NULL, $2, 'part', 1, $3, $4)`,
-      [eventId, hubPart(o.part).sku, o.status, nextRef()],
+      [eventId, o.code ?? hubPart(o.part).sku, o.status, nextRef()],
     );
   }
   return eventId;
@@ -99,7 +109,7 @@ async function capOf(eventId: string, mode: 'active' | 'owned') {
     const live = mode === 'active' ? new Set(['paid', 'fulfilled']) : new Set(['submitted', 'awaiting_payment', 'paid', 'fulfilled']);
     const paid = facts!.orders
       .filter((o) => o.status !== null && live.has(o.status))
-      .map((o) => hubPartOfSku(o.service_key))
+      .map((o) => hubPartOfPaidCode(o.service_key))
       .filter((p): p is HubPartId => p !== null);
     const p = await prices();
     return hubOwnershipFrom({ fullHeld: false, partHeld: (id) => paid.includes(id), paidParts: paid, prices: p.parts, fullPrice: p.full });
@@ -153,4 +163,21 @@ test('a part paid twice counts once; a submitted order owns nothing yet but coun
   assert.equal(active.parts.has('logo_qr'), false, 'a payment under review unlocked a part');
   const owned = await capOf(id, 'owned');
   assert.equal(owned.paidPhp, 1500, 'the buy surface would ask for a part already under review');
+});
+
+test('🪄 the retired Animated Monogram reads as Logo & QR — owned, and counted at the part’s web value (PR3)', async () => {
+  /* Owner 2026-10-22, Q2: the standalone ₱500 monogram is off sale (migration 20271283592608), and what its owners
+     paid is Logo & QR — never asked again, never sold again. */
+  const row = await db.query<{ is_active: boolean }>(
+    `SELECT is_active FROM public.platform_retail_catalog_v2 WHERE service_code = 'ANIMATED_MONOGRAM'`,
+  );
+  assert.equal(row.rows[0]?.is_active, false, 'the standalone Animated Monogram is still on sale');
+  const id = await eventWith([
+    { part: 'logo_qr', status: 'paid', code: 'ANIMATED_MONOGRAM' },
+    { part: 'reveal', status: 'paid' },
+  ]);
+  const o = await capOf(id, 'active');
+  assert.equal(o.parts.has('logo_qr'), true, 'a monogram owner does not own Logo & QR');
+  assert.equal(o.paidPhp, 1500, 'the monogram did not count at Logo & QR’s web value');
+  assert.equal(hubRestToEverything(o), 3500);
 });

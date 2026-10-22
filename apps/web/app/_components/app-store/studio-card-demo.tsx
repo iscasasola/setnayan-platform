@@ -248,7 +248,8 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          {/* ₱500 = ANIMATED_MONOGRAM. Repriced from ₱1,000 on 2026-09-05 by the
+          {/* ₱500 = the Logo & QR part (COUPLE_HUB_PART_LOGO_QR) since 2026-10-22, when the standalone
+              ANIMATED_MONOGRAM was retired into it. Earlier history: ANIMATED_MONOGRAM was repriced from ₱1,000 on 2026-09-05 by the
               owner: the SKU lost the LED Live Background on 2026-08-11 ("that
               half of the ₱1,000 could never be delivered") and kept its number,
               so the figure was halved to match what it actually buys — the six

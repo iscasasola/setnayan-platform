@@ -167,7 +167,8 @@ const REQUIRED_RETAIL = [
   // the `R('LIVE_WALL')` call throws MissingSkuError for the same result. That is
   // not theoretical — it happened in production hours earlier when
   // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
-  'ANIMATED_MONOGRAM',
+  // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
+  // Logo & QR part of Event Hub PRO now, quoted on the Pro line. 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
   // 💎 Event Hub Pro, part by part (owner 2026-10-22, migration 20271282742262) — each quoted on the Pro line below.
   'COUPLE_HUB_PART_REVEAL',
@@ -601,7 +602,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
-- **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
+- **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Hub PRO's Logo & QR part animates it.
 - **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks the Save-the-Date Cinematic Reveal across the whole site, and removes the Setnayan watermark.
   Or part by part, each for the event and everyone on it: Reveal ${R('COUPLE_HUB_PART_REVEAL')} · Background ${R('COUPLE_HUB_PART_BACKGROUND')} · Photos ${R('COUPLE_HUB_PART_PHOTOS')} · Style ${R('COUPLE_HUB_PART_STYLE')} · Motion ${R('COUPLE_HUB_PART_MOTION')} · Logo & QR ${R('COUPLE_HUB_PART_LOGO_QR')} · Music ${R('COUPLE_HUB_PART_MUSIC')} · Prints ${R('COUPLE_HUB_PART_PRINTS')} · Post Event ${R('COUPLE_HUB_PART_POST_EVENT')} · Your own scenes ${R('COUPLE_HUB_PART_OWN_SCENES')} · Custom address ${R('COUPLE_HUB_PART_ADDRESS')}. Everything paid for parts counts toward Event Hub PRO; reaching its price unlocks everything, and only Event Hub PRO removes the watermark.

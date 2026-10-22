@@ -32,6 +32,12 @@ const FOUR = [
   effect('m', 'music', 'Your own song', 'Whole Event Hub'),
 ];
 
+const APPLE = [
+  effect('a', 'motion', 'Animation', 'Schedule'),
+  effect('t', 'motion', 'Transition', 'Scrub'),
+  effect('m', 'music', 'Your own song', 'Whole Event Hub'),
+];
+
 export function LabFrame({ frame, pricing, line }: { frame: string; pricing: ApplySheetPricing; line: MakerState['proLine'] }) {
   const backdrop = (body: ReactNode) => (
     <div className="relative min-h-dvh bg-gradient-to-b from-[#d6cab8] to-[#b9a78f]">
@@ -40,7 +46,7 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
     </div>
   );
   if (frame.startsWith('sheet')) {
-    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' ? [] : TWO;
+    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' ? [] : frame === 'sheet-apple' ? APPLE : TWO;
     return backdrop(
       <ApplyProSheet
         effects={effects}
@@ -53,7 +59,7 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
           { place: 'Love Story', what: 'Moment 3', pro: false, held: false },
         ]}
         priceLabel={null}
-        proHref="/dev/pro-parts-lab?frame=parts-free&from=maker"
+        proHref={frame === 'sheet-apple' ? '/dev/pro-parts-lab?frame=apple-parts&from=maker' : '/dev/pro-parts-lab?frame=parts-free&from=maker'}
         pending={false}
         onGo={noop}
         onRemove={noop}

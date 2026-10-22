@@ -172,7 +172,197 @@ export default function PrivacyPage() {
               </strong>{' '}
               from their own invitation page, at any time.
             </li>
+            <li>
+              If you sign in with Google — your name, email address and profile
+              photo from your Google account (see{' '}
+              <a href="#google-user-data" className="text-terracotta hover:underline">
+                Google user data
+              </a>{' '}
+              below)
+            </li>
           </ul>
+          <p className="pt-2">
+            <strong>Why we collect it.</strong> To create your account and sign
+            you in; to plan and run your events — the guest list and RSVPs,
+            seating, budget, schedule, the suppliers you book, and the Event Hub
+            your guests open; to deliver and keep your event&rsquo;s photos and
+            videos; to record payments and issue receipts; to keep the
+            marketplace safe from fake accounts; and to find and fix bugs. We do
+            not sell personal data, and we do not use it for advertising.
+          </p>
+        </Section>
+
+        {/* ── Google user data ─────────────────────────────────────────────
+            Added 2026-10-22: Google's OAuth brand verification refused
+            /privacy for not detailing the Google user data we receive. Every
+            sentence is read off the code — keep it that way:
+              • SIGN-IN SCOPES. Neither signInWithOAuth call
+                (app/auth/oauth-actions.ts, lib/native-oauth.ts) passes
+                `scopes`, so Google is asked only for the provider defaults —
+                `email` and `profile`. If a scope is ever added there, this
+                section must change with it (guarded by
+                app/google-can-verify-the-home-page.test.ts).
+              • USES. full_name → account name + the RSVP/join prefill
+                (join-flow.tsx, rail-data.ts); avatar_url/picture → the guest's
+                photo on the event they join (join/[eventId]/actions.ts,
+                photo_source 'oauth_google'); email → the account + the
+                exact-email match to a host-seeded guest row.
+              • DELETION. Point at the rights section; do NOT add a new,
+                stronger promise here — see the erasure guardrail's KNOWN_GAPS
+                before claiming more. */}
+        <Section id="google-user-data" title="Google user data">
+          <p>
+            This section is about the data Setnayan receives from Google, and it
+            covers all three ways Setnayan connects to a Google account. All
+            three are your choice: you can use Setnayan with an email address
+            and never connect Google at all.
+          </p>
+
+          <p className="pt-2">
+            <strong>1. Sign in with Google.</strong> When you choose
+            &ldquo;Continue with Google&rdquo;, Setnayan asks Google only for the
+            basic sign-in permissions, <code className="font-mono text-[12px]">email</code>{' '}
+            and <code className="font-mono text-[12px]">profile</code>. From
+            them we receive:
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>your name,</li>
+            <li>your email address (and whether Google has verified it),</li>
+            <li>your profile photo, and</li>
+            <li>
+              the account identifier Google uses for you, so the same Google
+              account signs in to the same Setnayan account each time.
+            </li>
+          </ul>
+          <p className="pt-1">
+            We never receive your Google password, and signing in gives us no
+            access to your Gmail, contacts, calendar, Drive or YouTube.
+          </p>
+          <p className="pt-2">
+            <strong>How we use it.</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              <strong>To create your Setnayan account and sign you in.</strong>{' '}
+              Your email address is the address of your account; we also use it
+              to send you messages about your account and your events.
+            </li>
+            <li>
+              <strong>To show who you are.</strong> Your name becomes your
+              account name and is filled in for you when you reply to an
+              invitation or join an event, so the hosts know who replied. When
+              you join an event as a guest, your Google profile photo is used as
+              your picture on that event&rsquo;s guest list, unless you or the
+              host have added another photo.
+            </li>
+            <li>
+              <strong>To connect you to your invitation.</strong> If the hosts
+              put your email address on their guest list, signing in with that
+              same address links you to your own invitation.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>2. YouTube, for Live Watch</strong> — optional, asked for
+            only when a host connects their own channel to broadcast an event
+            live. Permission requested:{' '}
+            <code className="font-mono text-[12px]">
+              https://www.googleapis.com/auth/youtube
+            </code>
+            . Used only to create, run and end that event&rsquo;s live
+            broadcast and to link its replay. Full detail:{' '}
+            <a href="#google-youtube" className="text-terracotta hover:underline">
+              Google / YouTube data (Live Watch)
+            </a>
+            .
+          </p>
+          <p className="pt-2">
+            <strong>3. Google Drive, for photo delivery and Papic</strong> —
+            optional, asked for only when you connect a Drive to receive your
+            event&rsquo;s photos. Permission requested:{' '}
+            <code className="font-mono text-[12px]">
+              https://www.googleapis.com/auth/drive.file
+            </code>
+            , which limits Setnayan to the files and folders Setnayan itself
+            creates in your Drive. Full detail:{' '}
+            <a href="#google-drive" className="text-terracotta hover:underline">
+              Google Drive integration
+            </a>
+            . A one-page summary of both connections is at{' '}
+            <Link href="/privacy/google-access" className="text-terracotta hover:underline">
+              What connecting Google does
+            </Link>
+            .
+          </p>
+
+          <p className="pt-3">
+            <strong>What we never do with Google user data.</strong> We do not
+            sell it. We do not use it for advertising, and we do not use it to
+            train AI or machine-learning models. We do not share it with
+            suppliers, other users or any third party, except as described in
+            this section and below.
+          </p>
+          <p className="pt-2">
+            <strong>Who it is shared with.</strong> Only the service providers
+            that run Setnayan for us, and only to provide the service:{' '}
+            <strong>Supabase</strong>, our sign-in and database provider
+            (Singapore region), stores your account and the details Google sends
+            us; <strong>Vercel</strong> hosts the app that handles the sign-in;
+            and <strong>Resend</strong> delivers the emails we send to your
+            address. The full list is under{' '}
+            <a href="#subprocessors" className="text-terracotta hover:underline">
+              Subprocessors
+            </a>
+            . Inside Setnayan, your name and photo are seen by the people on the
+            events you join, as described above. We would disclose data
+            otherwise only where the law requires it.
+          </p>
+          <p className="pt-2">
+            <strong>Limited Use.</strong> Setnayan&rsquo;s use and transfer of
+            information received from Google APIs to any other app adheres to
+            the{' '}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements.
+          </p>
+          <p className="pt-2">
+            <strong>How long we keep it, and how to delete it.</strong> Your
+            sign-in details are kept for as long as your Setnayan account is
+            open. To delete your account and the personal data in it, sign in
+            and open{' '}
+            <Link href="/dashboard/profile" className="text-terracotta hover:underline">
+              your profile
+            </Link>{' '}
+            → <em>Delete my account</em>; or write to{' '}
+            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+              dpo@setnayan.com
+            </a>{' '}
+            from the address on your account. What happens next, and the few
+            records the law requires us to keep, are set out under{' '}
+            <a href="#your-rights" className="text-terracotta hover:underline">
+              Your rights
+            </a>{' '}
+            and{' '}
+            <a href="#retention" className="text-terracotta hover:underline">
+              How long we keep things
+            </a>
+            . You can also stop Setnayan&rsquo;s access at any time from your{' '}
+            <a
+              href="https://myaccount.google.com/permissions"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Account permissions
+            </a>{' '}
+            page.
+          </p>
         </Section>
 
         <Section title="Device identifier (fraud prevention)">
@@ -1004,7 +1194,7 @@ export default function PrivacyPage() {
             is out of step with the code is false whichever way it points. It is
             corrected in the SAME change as the sweep, because a correction at
             one site is not a correction. */}
-        <Section title="How long we keep things">
+        <Section id="retention" title="How long we keep things">
           <p>
             Different kinds of data have different lifespans, and two of them are
             set by law rather than by us. This is the whole schedule.
@@ -1072,7 +1262,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Your rights (RA 10173)">
+        <Section id="your-rights" title="Your rights (RA 10173)">
           <ul className="ml-5 list-disc space-y-1">
             <li>
               <strong>Right to access:</strong> download a JSON archive of your data anytime
@@ -1231,7 +1421,7 @@ export default function PrivacyPage() {
               5. THE SCOPE LIST MUST BYTE-MATCH YOUTUBE_OAUTH_SCOPES *AND* THE
                  OAUTH CONSENT SCREEN. A policy that discloses a scope we do
                  not request is as wrong as one that hides a scope we do. */}
-        <Section title="Google / YouTube data (Live Watch)">
+        <Section id="google-youtube" title="Google / YouTube data (Live Watch)">
           <p>
             Live Watch is Setnayan&rsquo;s live-broadcast feature. It is
             optional and off by default. When a host turns it on for an event,{' '}
@@ -1512,7 +1702,7 @@ export default function PrivacyPage() {
         </Section>
 
 
-        <Section title="Google Drive integration (Photo Delivery + Papic)">
+        <Section id="google-drive" title="Google Drive integration (Photo Delivery + Papic)">
           <p>
             Couples who use Photo Delivery (vendor-released final wedding
             photos) or Papic (the V1.5+ camera mesh) connect a Google Drive
@@ -1646,7 +1836,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Subprocessors">
+        <Section id="subprocessors" title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth · Singapore region)</li>
             <li>Vercel (web hosting)</li>
@@ -1725,9 +1915,18 @@ export default function PrivacyPage() {
 
 
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  /** An in-page anchor (`/privacy#google-user-data`) — linked from this page and handed to reviewers. */
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-2">
+    <section id={id} className="scroll-mt-24 space-y-2">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <div className="text-sm text-ink/75">{children}</div>
     </section>

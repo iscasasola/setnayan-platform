@@ -54,6 +54,7 @@ const SUPPLIER_ITEMS = ownSupplierItems(EVENTS, [
 
 const labPerson = (key: string, name: string, extra: Partial<RosterPerson> = {}): RosterPerson => ({
   key,
+  name,
   kind: 'connection',
   connectionId: `lab-${key}`,
   dependentId: null,

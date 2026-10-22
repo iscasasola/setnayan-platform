@@ -54,7 +54,7 @@ export function ShellPeopleSection({ people }: { people: ShellPeopleResults }) {
         </div>
       ) : null}
       {people.unavailable ? (
-        <p role="status" className="fd-meta" data-people-unread="">
+        <p role="status" className="mb-4 text-sm text-ink/65" data-people-unread="">
           {PEOPLE_UNREAD}
         </p>
       ) : null}

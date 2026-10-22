@@ -132,6 +132,7 @@ import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
 import { useRowState } from './use-row-state';
 import { followColumn } from './dock-follows-column';
+import { useShellBarOffset } from './use-shell-bar-offset';
 import { GuestMapCanvas } from './guest-map-canvas';
 import { plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
 import type { GuestMutation } from '@/lib/guest-optimistic';
@@ -234,27 +235,6 @@ function Mark({ mark }: { mark: SectionMark }) {
 }
 
 /** The shell bar's height while it shows — the sticky block sits under it. */
-function useShellBarOffset(root: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = root.current;
-    const bar = document.querySelector<HTMLElement>('.shell-topbar');
-    if (!el) return;
-    const sync = () => {
-      const shown = bar && bar.getAttribute('data-hidden') !== 'true' && getComputedStyle(bar).display !== 'none';
-      el.style.setProperty('--gs-top', shown ? `${bar!.getBoundingClientRect().height}px` : '0px');
-    };
-    sync();
-    if (!bar) return;
-    const mo = new MutationObserver(sync);
-    mo.observe(bar, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
-    window.addEventListener('resize', sync);
-    return () => {
-      mo.disconnect();
-      window.removeEventListener('resize', sync);
-    };
-  }, [root]);
-}
-
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
   // Only when the phone holds one for this account + event; otherwise the page's honest "We couldn't load

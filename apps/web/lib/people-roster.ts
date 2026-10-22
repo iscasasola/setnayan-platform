@@ -186,105 +186,145 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   let samahanUnavailable = false;
   let connectionsUnavailable = false;
 
+  /*
+    ⚡ THREE BRANCHES, STARTED TOGETHER (2026-10-23, the speed pass). Connections,
+    samahan and alaga need nothing from each other — only the signed-in id — so
+    they run side by side, and inside connections the three reads that need only
+    the rows (names · which event asked · their accounts) run side by side too,
+    as does every partner's "do we share an event?". The roster used to be ten
+    database trips one after another; it is now four (me → my connections → the
+    three → the partners). Every read, its scope, its refusal handling and the
+    order of the rows it returns are unchanged — only WHEN each read starts moved.
+    Held by `lib/the-people-roster-reads-together.test.ts`.
+  */
   // ── connections ──────────────────────────────────────────────────────────
   let myPerson: string | null = null;
-  if (peopleConnectionsEnabled()) {
-    const { data: me, error: meError } = await supabase
-      .from('people')
-      .select('person_id')
-      .eq('claimed_by_user_id', userId)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (meError) {
-      connectionsUnavailable = true;
-      logQueryError('getPeopleRoster.me', meError, {}, 'graceful_degrade');
-    }
-    myPerson = (me as { person_id: string } | null)?.person_id ?? null;
-  }
-
   const personIdsToResolve: string[] = [];
   const pendingRows: ConnRow[] = [];
-
-  if (myPerson) {
-    const { data, error } = await supabase
-      .from('person_connections')
-      .select(
-        'connection_id, relation, proposed_relation, proposed_status, status, declared_name, from_person_id, to_person_id, created_by_event_id',
-      )
-      .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
-      .is('deleted_at', null)
-      .neq('status', 'declined')
-      .order('created_at', { ascending: true });
-    if (error) {
-      connectionsUnavailable = true;
-      logQueryError('getPeopleRoster.connections', error, {}, 'graceful_degrade');
-    }
-    for (const r of (data ?? []) as ConnRow[]) {
-      pendingRows.push(r);
-      personIdsToResolve.push(r.from_person_id === myPerson ? r.to_person_id : r.from_person_id);
-    }
-  }
-
-  // Names, through the one function allowed to resolve them.
   const names = new Map<string, string>();
-  if (personIdsToResolve.length > 0) {
-    const { data, error } = await supabase.rpc('visible_connection_names', {
-      p_person_ids: [...new Set(personIdsToResolve)],
-    });
-    if (error) {
-      connectionsUnavailable = true;
-      logQueryError('getPeopleRoster.names', error, {}, 'graceful_degrade');
-    }
-    for (const r of (data ?? []) as Array<{ person_id: string; display_name: string | null }>) {
-      const label = (r.display_name ?? '').trim();
-      if (label) names.set(r.person_id, label);
-    }
-  }
-
-  // The events requests came FROM — only those asking ME, through the one
-  // narrow door (`connection_request_events`, migration 20271253740454): the
-  // event's name and kind, for a pending request addressed to me, when I am a
-  // celebrant of that event or host it. Owner 2026-09-28: "a connection request
-  // from an event always names the event" — co-host or not, which `events_host`
-  // (hosts only) could not do. A refusal, or nothing returned, leaves the plain
-  // request copy, which is still true: somebody is trying to add you.
   const eventByConnection = new Map<string, { name: string; type: string }>();
-  const askedFromAnEvent = pendingRows.some(
-    (r) => r.status === 'pending' && r.to_person_id === myPerson && r.created_by_event_id,
-  );
-  if (askedFromAnEvent) {
-    const { data, error } = await supabase.rpc('connection_request_events');
-    if (error) logQueryError('getPeopleRoster.fromEvents', error, {}, 'graceful_degrade');
-    for (const e of (data ?? []) as Array<{
-      connection_id: string;
-      event_name: string | null;
-      event_type: string | null;
-    }>) {
-      const name = (e.event_name ?? '').trim();
-      if (name) eventByConnection.set(e.connection_id, { name, type: e.event_type ?? '' });
-    }
-  }
-
-  // Their accounts, so samahan membership can be matched. Admin-read and scoped
-  // to people I am already connected to; nothing about them is returned to the
-  // browser beyond what the roster renders.
   const userIdByPerson = new Map<string, string>();
-  if (personIdsToResolve.length > 0) {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
+  const sharedEventByPerson = new Map<string, boolean | null>();
+
+  const connectionsRead = (async () => {
+    if (peopleConnectionsEnabled()) {
+      const { data: me, error: meError } = await supabase
         .from('people')
-        .select('person_id, claimed_by_user_id')
-        .in('person_id', [...new Set(personIdsToResolve)])
-        .not('claimed_by_user_id', 'is', null);
-      if (error) logQueryError('getPeopleRoster.accounts', error, {}, 'graceful_degrade');
-      for (const r of (data ?? []) as Array<{ person_id: string; claimed_by_user_id: string }>) {
-        userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+        .select('person_id')
+        .eq('claimed_by_user_id', userId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (meError) {
+        connectionsUnavailable = true;
+        logQueryError('getPeopleRoster.me', meError, {}, 'graceful_degrade');
       }
-    } catch {
-      // An admin client that cannot be built must not empty the roster.
+      myPerson = (me as { person_id: string } | null)?.person_id ?? null;
     }
-  }
+
+    if (myPerson) {
+      const { data, error } = await supabase
+        .from('person_connections')
+        .select(
+          'connection_id, relation, proposed_relation, proposed_status, status, declared_name, from_person_id, to_person_id, created_by_event_id',
+        )
+        .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
+        .is('deleted_at', null)
+        .neq('status', 'declined')
+        .order('created_at', { ascending: true });
+      if (error) {
+        connectionsUnavailable = true;
+        logQueryError('getPeopleRoster.connections', error, {}, 'graceful_degrade');
+      }
+      for (const r of (data ?? []) as ConnRow[]) {
+        pendingRows.push(r);
+        personIdsToResolve.push(r.from_person_id === myPerson ? r.to_person_id : r.from_person_id);
+      }
+    }
+
+    // Names, through the one function allowed to resolve them.
+    const namesRead = async () => {
+      if (personIdsToResolve.length === 0) return;
+      const { data, error } = await supabase.rpc('visible_connection_names', {
+        p_person_ids: [...new Set(personIdsToResolve)],
+      });
+      if (error) {
+        connectionsUnavailable = true;
+        logQueryError('getPeopleRoster.names', error, {}, 'graceful_degrade');
+      }
+      for (const r of (data ?? []) as Array<{ person_id: string; display_name: string | null }>) {
+        const label = (r.display_name ?? '').trim();
+        if (label) names.set(r.person_id, label);
+      }
+    };
+
+    // The events requests came FROM — only those asking ME, through the one
+    // narrow door (`connection_request_events`, migration 20271253740454): the
+    // event's name and kind, for a pending request addressed to me, when I am a
+    // celebrant of that event or host it. Owner 2026-09-28: "a connection request
+    // from an event always names the event" — co-host or not, which `events_host`
+    // (hosts only) could not do. A refusal, or nothing returned, leaves the plain
+    // request copy, which is still true: somebody is trying to add you.
+    const fromEventsRead = async () => {
+      const askedFromAnEvent = pendingRows.some(
+        (r) => r.status === 'pending' && r.to_person_id === myPerson && r.created_by_event_id,
+      );
+      if (!askedFromAnEvent) return;
+      const { data, error } = await supabase.rpc('connection_request_events');
+      if (error) logQueryError('getPeopleRoster.fromEvents', error, {}, 'graceful_degrade');
+      for (const e of (data ?? []) as Array<{
+        connection_id: string;
+        event_name: string | null;
+        event_type: string | null;
+      }>) {
+        const name = (e.event_name ?? '').trim();
+        if (name) eventByConnection.set(e.connection_id, { name, type: e.event_type ?? '' });
+      }
+    };
+
+    // Their accounts, so samahan membership can be matched. Admin-read and scoped
+    // to people I am already connected to; nothing about them is returned to the
+    // browser beyond what the roster renders.
+    const accountsRead = async () => {
+      if (personIdsToResolve.length === 0) return;
+      try {
+        const admin = createAdminClient();
+        const { data, error } = await admin
+          .from('people')
+          .select('person_id, claimed_by_user_id')
+          .in('person_id', [...new Set(personIdsToResolve)])
+          .not('claimed_by_user_id', 'is', null);
+        if (error) logQueryError('getPeopleRoster.accounts', error, {}, 'graceful_degrade');
+        for (const r of (data ?? []) as Array<{ person_id: string; claimed_by_user_id: string }>) {
+          userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+        }
+      } catch {
+        // An admin client that cannot be built must not empty the roster.
+      }
+    };
+
+    await Promise.all([namesRead(), fromEventsRead(), accountsRead()]);
+
+    // ── partners: do we already share an event? ─────────────────────────────
+    // Only for an AGREED partner row, and only to decide one line ("Plan an
+    // event together"). Admin-read, scoped to exactly the two accounts, and
+    // nothing but a boolean leaves this function. A refused read leaves NULL,
+    // which holds the line back rather than offering a door they may have used.
+    // Every partner is asked at once — one trip, not one per partner.
+    const partnerRows = pendingRows.filter(
+      (r) => r.status === 'confirmed' && r.relation === 'partner',
+    );
+    await Promise.all(
+      partnerRows.map(async (r) => {
+        const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
+        const otherUser = userIdByPerson.get(otherId);
+        if (!otherUser) {
+          sharedEventByPerson.set(otherId, null);
+          return;
+        }
+        sharedEventByPerson.set(otherId, await shareAnEvent(userId, otherUser));
+      }),
+    );
+  })();
 
   // ── samahan: my groups, then who else is in them ─────────────────────────
   // ⚠ `community_members.community_id` is the UUID key, NOT `communities.id`
@@ -294,7 +334,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   const mySamahan: Array<{ id: string; name: string }> = [];
   const samahanByUser = new Map<string, string[]>();
   let samahanCount = 0;
-  {
+  const samahanRead = (async () => {
     const { data: mine, error: mineError } = await supabase
       .from('community_members')
       .select('community_id, role')
@@ -347,28 +387,71 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
         samahanByUser.set(m.user_id, list);
       }
     }
-  }
+  })();
 
-  // ── partners: do we already share an event? ───────────────────────────────
-  // Only for an AGREED partner row, and only to decide one line ("Plan an
-  // event together"). Admin-read, scoped to exactly the two accounts, and
-  // nothing but a boolean leaves this function. A refused read leaves NULL,
-  // which holds the line back rather than offering a door they may have used.
-  const sharedEventByPerson = new Map<string, boolean | null>();
-  {
-    const partnerRows = pendingRows.filter(
-      (r) => r.status === 'confirmed' && r.relation === 'partner',
-    );
-    for (const r of partnerRows) {
-      const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
-      const otherUser = userIdByPerson.get(otherId);
-      if (!otherUser) {
-        sharedEventByPerson.set(otherId, null);
-        continue;
-      }
-      sharedEventByPerson.set(otherId, await shareAnEvent(userId, otherUser));
+  // ── alaga ────────────────────────────────────────────────────────────────
+  // 🔒 WHOSE ROWS — `lib/my-loved-ones.ts`, the SAME rule the Loved ones view
+  // lists by. RLS admits an ADMIN to every dependent on the platform (prod's
+  // admin is the owner), so the raw read is everybody's: on 2026-09-29 another
+  // user's business ("Indigo Caterers") was counted here as "Loved ones 1" while
+  // the view — which applies the rule — said "No loved ones yet."
+  //   · the COUNT is exactly what the view lists (mine · handed over · my actual
+  //     spouse's shared rows) — it can never claim a row the list cannot show;
+  //   · the ROWS (read by the guest list's "Add from people" sheet) are the ones
+  //     still in my care.
+  // Read beside the other two branches; its rows are still listed AFTER the
+  // connections, exactly where they always were.
+  let alagaCount: number | null = 0;
+  const alagaPeople: RosterPerson[] = [];
+  const alagaRead = (async () => {
+    if (!(dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles')))) return;
+    const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, relationship, dependent_kind, handed_over_at, owner_user_id, handed_over_by_user_id, shared_with_spouse',
+        )
+        .order('created_at', { ascending: true }),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
+    if (error) logQueryError('getPeopleRoster.alaga', error, {}, 'graceful_degrade');
+    // Refused, a spouse's shared rows are left out — exactly as the view leaves
+    // them out, so the count and the list still agree.
+    if (spouseError) logQueryError('getPeopleRoster.alagaSpouse', spouseError, {}, 'graceful_degrade');
+    const rows = (data ?? []) as Array<{
+      dependent_id: string;
+      name: string;
+      relationship: string | null;
+      dependent_kind: string | null;
+      handed_over_at: string | null;
+      owner_user_id: string | null;
+      handed_over_by_user_id: string | null;
+      shared_with_spouse: boolean | null;
+    }>;
+    const spouses = spouseIdSet(spouseIds);
+    alagaCount = error ? null : myLovedOnes(rows, userId, spouses).length;
+    for (const d of lovedOnesInMyCare(rows, userId, spouses)) {
+      alagaPeople.push({
+        key: d.dependent_id,
+        kind: 'alaga',
+        connectionId: null,
+        dependentId: d.dependent_id,
+        dependentKind: d.dependent_kind,
+        name: d.name,
+        relation: null,
+        storedRelation: null,
+        ask: null,
+        sharesAnEvent: null,
+        careLabel: careLabelFor(d.relationship, d.dependent_kind),
+        state: 'in_your_care',
+        fromEvent: null,
+        samahan: [],
+        canLabel: false,
+      });
     }
-  }
+  })();
+
+  await Promise.all([connectionsRead, samahanRead, alagaRead]);
 
   for (const r of pendingRows) {
     const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
@@ -402,64 +485,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       canLabel: iDeclared,
     });
   }
-
-  // ── alaga ────────────────────────────────────────────────────────────────
-  // 🔒 WHOSE ROWS — `lib/my-loved-ones.ts`, the SAME rule the Loved ones view
-  // lists by. RLS admits an ADMIN to every dependent on the platform (prod's
-  // admin is the owner), so the raw read is everybody's: on 2026-09-29 another
-  // user's business ("Indigo Caterers") was counted here as "Loved ones 1" while
-  // the view — which applies the rule — said "No loved ones yet."
-  //   · the COUNT is exactly what the view lists (mine · handed over · my actual
-  //     spouse's shared rows) — it can never claim a row the list cannot show;
-  //   · the ROWS (read by the guest list's "Add from people" sheet) are the ones
-  //     still in my care.
-  let alagaCount: number | null = 0;
-  if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
-      supabase
-        .from('dependents')
-        .select(
-          'dependent_id, name, relationship, dependent_kind, handed_over_at, owner_user_id, handed_over_by_user_id, shared_with_spouse',
-        )
-        .order('created_at', { ascending: true }),
-      supabase.rpc('current_spouse_user_ids'),
-    ]);
-    if (error) logQueryError('getPeopleRoster.alaga', error, {}, 'graceful_degrade');
-    // Refused, a spouse's shared rows are left out — exactly as the view leaves
-    // them out, so the count and the list still agree.
-    if (spouseError) logQueryError('getPeopleRoster.alagaSpouse', spouseError, {}, 'graceful_degrade');
-    const rows = (data ?? []) as Array<{
-      dependent_id: string;
-      name: string;
-      relationship: string | null;
-      dependent_kind: string | null;
-      handed_over_at: string | null;
-      owner_user_id: string | null;
-      handed_over_by_user_id: string | null;
-      shared_with_spouse: boolean | null;
-    }>;
-    const spouses = spouseIdSet(spouseIds);
-    alagaCount = error ? null : myLovedOnes(rows, userId, spouses).length;
-    for (const d of lovedOnesInMyCare(rows, userId, spouses)) {
-      people.push({
-        key: d.dependent_id,
-        kind: 'alaga',
-        connectionId: null,
-        dependentId: d.dependent_id,
-        dependentKind: d.dependent_kind,
-        name: d.name,
-        relation: null,
-        storedRelation: null,
-        ask: null,
-        sharesAnEvent: null,
-        careLabel: careLabelFor(d.relationship, d.dependent_kind),
-        state: 'in_your_care',
-        fromEvent: null,
-        samahan: [],
-        canLabel: false,
-      });
-    }
-  }
+  people.push(...alagaPeople);
 
   const connections = people.filter((p) => p.kind === 'connection');
   const counts = {

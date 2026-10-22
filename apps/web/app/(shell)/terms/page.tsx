@@ -33,7 +33,7 @@ export default function TermsPage() {
   return (
     <LegalLayout
       title="Setnayan terms of service"
-      meta="Effective 2026-06-30 · governed by the laws of the Republic of the Philippines"
+      meta="Effective 2026-06-30 · last updated 2026-10-23 · governed by the laws of the Republic of the Philippines"
     >
       <LegalSection title="Who we are">
         <p>
@@ -76,10 +76,11 @@ export default function TermsPage() {
           <li>One account per person. Couples share an event through event membership.</li>
           <li>Tell us promptly if you suspect unauthorized use of your account.</li>
           <li>
-            You can close your account at any time. We may suspend or close
-            accounts that violate these terms or applicable law. Soft-deleted
-            accounts are retained for 30 days before permanent removal, as
-            described in the{' '}
+            You can ask us to delete your account at any time. We may suspend
+            or close accounts that violate these terms or applicable law. A
+            deletion request is reviewed within 24 hours; once approved, your
+            personal details are blanked out, and the records the law makes us
+            keep stay, as described in the{' '}
             <Link href="/privacy" className="text-terracotta hover:underline">
               privacy policy
             </Link>
@@ -137,8 +138,8 @@ export default function TermsPage() {
             You grant Setnayan a limited, worldwide, royalty-free license to
             host, display, and process your content solely to provide the
             service to you and your event&rsquo;s members. This license ends when
-            you delete the content or your account, except for backups and where
-            we must retain data by law.
+            you delete the content or your account, except where we must retain
+            data by law.
           </li>
           <li>
             You&rsquo;re responsible for having the rights to the content you

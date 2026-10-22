@@ -13,7 +13,7 @@ non-empty the Appearance pill (Light · Dark) shows in Preferences by itself (`a
 - The seven home-reskin dark pairs, and the create-event / samahan pairs (white on terracotta → the page
   colour in dark; ink on white → the raised card). Every other light card on these routes (`bg-white`,
   `bg-white/40–60`, `hover:bg-white/70`) gains `dark:bg-raised`; `text-red-700` gains its dark tone.
-  Dark-contrast baseline 287 → 271 (removals only). Light: every change is a `dark:` class or an
+  Dark-contrast baseline 287 → 272 (removals only). Light: every change is a `dark:` class or an
   `html.dark` rule, so light does not move.
 
 SPEC IMPACT: None — implements the approved plan (DECISION_LOG 2026-10-13 calls 1–10).

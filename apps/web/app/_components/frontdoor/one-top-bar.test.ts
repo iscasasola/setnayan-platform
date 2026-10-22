@@ -549,45 +549,17 @@ test('signed in, the shared bar carries NO search — it moved to the thumb row 
   assert.doesNotMatch(src, /resolveCommandItems\(\)/, 'the shell builds an index for a palette it no longer draws');
 });
 
-test('the palette carries the marketplace as an escape row', () => {
+test('the search keeps its way out — the thumb rows go where the escape row went (2026-10-22)', () => {
   /*
-    This is what makes choosing the palette lossless. Without it, replacing
-    the front door's box on four surfaces would DELETE the marketplace search
-    for anyone standing inside the app.
+    RE-AIMED 2026-10-22, NOT LOOSENED. The property was "choosing the palette is lossless: one search answers both
+    questions, and a narrowed box always has a way out". The palette retired with the top bar's 🔍 (owner, "One thumb
+    row"); the account rows that took over its search hand Enter to the SAME step-out row builder, with their place's
+    scope — so the widest answer is one press away, as before.
   */
-  const bar = code(
-    read(join(APP, 'dashboard', '(launcher)', '_components', 'home-command-bar.tsx')),
-  );
-  /*
-    ⚠ RE-AIMED 2026-09-23, AND DELIBERATELY NOT LOOSENED. This used to assert
-    the literal call `marketplaceEscapeItem(query)` and the exact line
-    `const escape = …; return escape ? [...own, escape] : own;`. The row now
-    carries the SCOPE too (`marketplaceEscapeItem(query, scope)`), so a guard
-    keyed on the old spelling went red while the property it protects was
-    perfectly intact — the shape this repo names "guard a property, never a
-    phrasing".
-
-    What is asserted is the PROPERTY, in three parts that a reword cannot slip
-    past but a real regression cannot satisfy: the row is built from the live
-    query, it is appended AFTER the filtered list, and the filtered list is
-    never what produced it.
-  */
-  assert.ok(
-    /marketplaceEscapeItem\(\s*query\b/.test(bar),
-    'The palette no longer offers the escape row. One search now has to ' +
-      'answer both questions — and a narrowed box with no way out is worse ' +
-      'than one that never narrowed.',
-  );
-  assert.ok(
-    /\[\s*\.\.\.own\s*,\s*escape\s*\]/.test(bar),
-    'The escape row must be APPENDED AFTER filtering. Passed through the ' +
-      'filter it disappears whenever nothing local matches — which is the one ' +
-      'moment it exists for.',
-  );
-  assert.ok(
-    !/\.filter\([^)]*marketplaceEscapeItem/.test(bar),
-    'The escape row is being run through the filter — see above.',
-  );
+  const rows = code(read(join(APP, '_components', 'frontdoor', 'shell-thumb-rows.tsx')));
+  assert.match(rows, /marketplaceEscapeItem\(q, SEARCH_SCOPES\[scope\]\)\?\.href/, 'the account rows lost the way out');
+  assert.match(rows, /useEnterSearches\('events'\)/);
+  assert.match(rows, /useEnterSearches\('discover'\)/);
 });
 
 test('the launcher no longer builds a second command index', () => {
@@ -611,9 +583,8 @@ test('⌘K cannot be bound by two palettes at once', () => {
   const OWNERS = [
     join(APP, 'admin', '_components', 'admin-command-palette.tsx'),
     join(APP, 'admin', 'ugat', '_components', 'ugat-console.tsx'),
-    // ⤷ 2026-10-01: the Guest list's ⌘K moved from its in-page box (deleted)
-    // to the top bar's own guest search, which claims it the same way.
-    join(APP, 'dashboard', '(launcher)', '_components', 'guests-top-search.tsx'),
+    // ⤷ 2026-10-22: the top bar's guest search and the shared palette retired with the top bar's 🔍 ("One thumb
+    // row") — the two console palettes are the only ⌘K owners left, and each still claims it.
   ];
   for (const p of OWNERS) {
     assert.ok(
@@ -622,14 +593,6 @@ test('⌘K cannot be bound by two palettes at once', () => {
         'dialog over it on the same keystroke.',
     );
   }
-  const bar = code(
-    read(join(APP, 'dashboard', '(launcher)', '_components', 'home-command-bar.tsx')),
-  );
-  assert.ok(
-    /if \(commandKeyClaimed\(\)\) return;/.test(bar),
-    'The shared palette does not check the claim, so it will fire alongside ' +
-      'whichever surface-specific palette owns the key.',
-  );
 });
 
 /* ─── 6 · ONE SEARCH PER PERSON, NOT PER PAGE ───────────────────────────── */

@@ -24,7 +24,6 @@ import { setupColumns } from '@/lib/onboarding/event-insert';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
-import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -66,7 +65,7 @@ import {
  * the accumulated client state object and writes events + event_members in one
  * shot — the prototype's "create the event row at the account gate, all data at
  * once" model. It mirrors createWeddingEvent's insert path exactly (same auth
- * gate → admin-client inserts → slug → event_members couple row → captureEvent)
+ * gate → admin-client inserts → slug → event_members couple row)
  * so the row lands in a state valid against the events_wedding_fields_consistency
  * CHECK constraint (migration 20260521080000: wedding events must populate
  * ceremony_type + venue_setting).
@@ -713,18 +712,6 @@ export async function commitOnboardingWedding(
   } catch (songPickErr) {
     console.error('[onboarding] event_song_picks sync failed (non-fatal)', songPickErr);
   }
-
-  await captureEvent({
-    distinctId: user.id,
-    event: 'onboarding_wedding_committed',
-    properties: {
-      event_id: insertedEvent.event_id,
-      kind: payload.kind,
-      region: payload.region,
-      pax: payload.pax,
-      budget_band: payload.budgetBand,
-    },
-  });
 
   // Persist the find-vendor shortlist — the REAL reception venues the couple
   // tapped on screen 12 — as event_vendors 'considering' picks so they show on

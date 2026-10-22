@@ -38,6 +38,7 @@ import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -646,6 +647,29 @@ export async function updateVendorProfileField(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('user_id', user.id);
   if (error) return { ok: false, error: error.message };
+
+  // ── A RENAMED SHOP RENAMES ITS BUSINESS ALAGA — OR IS NAMED INTO ONE ────────
+  // Opening a shop wrote the business a `dependents` row named after the shop
+  // as it was THEN; without this the event picker's "For ▾" and People keep the
+  // old name forever. And a vendor sign-up's trigger opens an EMPTY shop that is
+  // first named HERE — `ensureBusinessAlaga` writes that shop its record the
+  // moment it has a name (2026-10-22), and renames an existing one. Best-effort
+  // (never throws) — the rename above already succeeded and nothing here can
+  // undo it. Owner = the authenticated caller, the same `user_id` the update was
+  // keyed on.
+  if (field === 'business_name') {
+    const admin = createAdminClient();
+    const { data: shopRow } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    await ensureBusinessAlaga(admin, {
+      ownerUserId: user.id,
+      vendorProfileId: (shopRow as { vendor_profile_id?: string | null } | null)?.vendor_profile_id,
+      shopName: patch.business_name as string,
+    });
+  }
 
   // Best-effort geocode for a changed address (async, non-fatal — same contract
   // as saveVendorProfile). Admin-supplied coords aren't clobbered on a miss.

@@ -12,7 +12,6 @@ import {
   AI_FIELD_SELECTED,
   HUB_PRO_FIELD_SELECTED,
 } from './_components/papic-step-field-names';
-import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
@@ -203,21 +202,6 @@ export async function commitSimpleEvent(formData: FormData) {
       return redirect('/onboarding/simple?error=create_incomplete');
     }
     return redirect('/onboarding/simple?error=create_failed');
-  }
-
-  // Funnel event — fire-and-forget, never blocks the redirect.
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: insertedEvent.event_id,
-        event_type: 'simple_event',
-        concierge_choice: 'diy',
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
   }
 
   // ── what they picked on the Papic step (owner 2026-08-11) ────────────────

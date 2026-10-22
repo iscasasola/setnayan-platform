@@ -2865,6 +2865,81 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
 }
 
 /*
+ * ↔ THE BAR CHANGES SET — IT BUILDS OUT ONE WAY AND THE NEW SET BUILDS IN FROM THE OTHER (owner 2026-10-22, verbatim
+ * in `lib/bar-set.ts`: account → Shop, "everything moves to the left and the shop icons enter from the right"; account →
+ * an event, "the account menus move to the right and the event icons enter from the left").
+ *
+ * `BarSetSlide` (app/_components/nav/bar-set-slide.tsx) sets `html[data-sn-bar-dir]` — 'fwd' or 'back', the same words
+ * as `data-sn-nav-dir`, which it sets too — before it starts the View Transition, and clears both when it has finished.
+ * While it is set:
+ *   · the DOCK slides: its old snapshot out, the new set's in, clipped to the dock's own box. Both snapshots are the
+ *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
+ *     whose height differs never draws its old icons halfway up.
+ *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
+ *     content (`.fd-col > main` in the launcher and account layouts, `[data-fd-page]` on Discover) takes a name of its
+ *     OWN, `sn-acct-page`, for the length of the slide only — so a tab press inside the account bar is exactly what it
+ *     was (no page slide), and no two selectors ever declare one name (`the-bar-outlives-the-slide.test.ts`). The two
+ *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
+ *   · the top bar stays in the frozen `root` snapshot above — it holds still.
+ * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
+ */
+html[data-sn-bar-dir] :is(.fd-col > main:not(.sn-vt-page), [data-fd-page]) {
+  view-transition-name: sn-acct-page;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {
+  overflow: clip;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-bottomnav),
+html[data-sn-bar-dir]::view-transition-new(sn-bottomnav) {
+  inset-block: auto 0;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-page),
+html[data-sn-bar-dir]::view-transition-new(sn-page),
+html[data-sn-bar-dir]::view-transition-old(sn-acct-page),
+html[data-sn-bar-dir]::view-transition-new(sn-acct-page) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-left;
+}
+/* Reduced motion: the listener never starts a slide (`barSlideFor`), and should any transition run anyway, nothing in
+   it moves — an instant swap. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+    mix-blend-mode: normal;
+  }
+}
+
+/*
  * Broken-out action (NavFab) in the bottom-nav ROW (owner-tuned 2026-06-22).
  *
  * When a doorway's FAB is mounted it sets `data-sn-fab` on <html> and renders a
@@ -9763,36 +9838,6 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   display: none;
 }
 
-/* 🍪 THE COOKIE NOTICE NEVER COVERS "I SENT IT" (2026-10-12, owner: "fix the problems"; flagged in #6493).
-   On a guest's FIRST visit the notice (`z-[70]`, full width on a phone) sat over the foot of the wish list's send
-   sheet (`data-wish-send`, z 60) — "I sent it" was under it until the notice was answered — and the record sheet
-   that replaces it (`data-gift-record`) ties the notice at 70. Fixed the way #6482 fixed /login's sign-in card
-   (`home-reskin.css`): while either sheet is open the notice is lifted over it (it stays answerable), and the
-   sheet's panel ends above the notice by the height the notice already publishes (`--cookie-banner-top`, set only
-   while it is the full-width bar — 0 otherwise), so its foot and its last line stay in view. Held by
-   app/[slug]/pabuya/_components/the-cookie-notice-never-covers-i-sent-it.test.ts. */
-html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
-  z-index: 80;
-}
-@media (max-width: 1023.98px) {
-  /* below `lg`, where the panel is the bottom sheet (`max-h-[90dvh]`); at `lg` it is the full-height side panel */
-  :is([data-wish-send], [data-gift-record]) [data-sheet-panel] {
-    margin-bottom: var(--cookie-banner-top, 0px);
-    max-height: calc(90dvh - var(--cookie-banner-top, 0px));
-  }
-}
-
-/* 🍪 THE EVENT HUB LEAVES ROOM ABOVE THE FIRST-VISIT COOKIE NOTICE (2026-10-13, hub leftovers; owner's walk found
-   "See our page" and "Sign out of this invitation" under it until answered). Same seam as the two rules above: the
-   notice publishes its height (`--cookie-banner-top`, set only while it is the full-width bar — 0 once answered).
-   The page's foot (`data-guest-foot`, and Me's own `data-me-stage`, which end in the record note and the sign-out)
-   is given that much room below it, so the last press scrolls up clear of the notice; the Save the Date film's quiet
-   "See our page" does the same inside `save-the-date-film.tsx`. Held by
-   app/[slug]/_lib/the-hub-leaves-room-above-the-cookie-notice.test.ts. */
-[data-guest-foot],
-[data-me-stage] {
-  padding-bottom: var(--cookie-banner-top, 0px);
-}
 /* ═══ THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO BAR OVER IT (owner 2026-10-15) ═══
    `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx) puts ONE `<style data-cover-menu="wait">` in
    `<head>` — never a class on <html>, which React renders and would not patch after a pre-hydration change; while a

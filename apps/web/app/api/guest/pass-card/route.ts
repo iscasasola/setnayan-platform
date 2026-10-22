@@ -29,7 +29,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  *     credential /api/guest/qr trusts), for ITSELF with no `guest`, or for a
  *     plus-one it brought (`guest=<their id>`);
  *   · or a signed-in HOST of the guest's event (owner 2026-09-29: "downloading
- *     them individually is free" — no Pro question here; only the zip is Pro).
+ *     them individually is free" — no Pro question here; the zip is free too since 2026-10-22).
  * Nothing in the address is a credential: no token, no slug, no name. A guest
  * id is not a key — without the cookie or the host's sign-in it opens nothing.
  *

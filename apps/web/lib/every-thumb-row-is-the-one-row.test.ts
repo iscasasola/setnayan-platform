@@ -68,6 +68,10 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   guests: { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', mounts: /<ThumbRow\b/g, count: 2 },
   events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<EventsThumbRow\b/g, count: 1 },
   discover: { file: 'app/_components/frontdoor/front-door.tsx', mounts: /<DiscoverThumbRow\b/g, count: 1 },
+  // The supplier (PR2): People · Dates (with a schedule) · a day — one per screen, three screens in one file.
+  customers: { file: 'app/vendor-dashboard/customers/page.tsx', mounts: /<ThumbRow\b/g, count: 3 },
+  money: { file: 'app/vendor-dashboard/customers/_components/money-segment.tsx', mounts: /<ThumbRow\b/g, count: 1 },
+  page: { file: 'app/vendor-dashboard/website/_components/page-parts.tsx', mounts: /<ThumbRow\b/g, count: 1 },
 };
 
 function seats(html: string): string[] {
@@ -123,12 +127,30 @@ describe('every adopter mounts the one row', () => {
   });
 });
 
+describe('the supplier rows carry the one row, with no band', () => {
+  for (const key of ['customers', 'money', 'page'] as const) {
+    it(`${key}: every SupplierThumbRow hands in a row`, () => {
+      const src = stripComments(read(ADOPTERS[key]!.file));
+      const opens = [...src.matchAll(/<SupplierThumbRow\b/g)].length;
+      expect(opens > 0, 'premise: no SupplierThumbRow').toBeTruthy();
+      expect([...src.matchAll(/<SupplierThumbRow\b[^>]*?\brow=\{/g)].length).toBe(opens);
+    });
+  }
+  it('a row-carrying SupplierThumbRow draws no band', () => {
+    const src = stripComments(read('app/vendor-dashboard/_components/supplier-thumb-row.tsx'));
+    const branch = src.slice(src.indexOf('if (row) {'), src.indexOf('}', src.indexOf('document.body', src.indexOf('if (row) {'))));
+    expect(branch).toMatch(/className=\{styles\.lower\}/);
+    expect(branch).not.toMatch(/sn-glass-row/);
+  });
+});
+
 describe('placeholders name the place, short', () => {
   const files = [...Object.values(ADOPTERS).map((a) => a.file), 'app/_components/frontdoor/shell-thumb-rows.tsx'];
   const found: { file: string; words: string; alone: boolean }[] = [];
   for (const f of files) {
     const src = read(f);
-    for (const m of src.matchAll(/placeholder: '([^']+)'/g)) {
+    for (const m of src.matchAll(/placeholder(?:: '|=")([^'"]+)['"]/g)) {
+      if (src.lastIndexOf('<ThumbRow', m.index) === -1 && !/placeholder: '/.test(m[0])) continue;
       // A field alone in its row: the row literal around it has no `action`, `left` or `right`.
       const start = src.lastIndexOf('<ThumbRow', m.index);
       const end = src.indexOf('/>', m.index);
@@ -138,7 +160,7 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
-      ['Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      ['Search customers', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {

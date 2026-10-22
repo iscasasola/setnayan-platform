@@ -47,7 +47,7 @@ export function shopUnpinnedLine(shop: string): string {
 
 /** The line under a shop's venue that has — whose pin the guests' map uses. */
 export function shopPinnedLine(shop: string): string {
-  return `Pinned by ${shop.trim() || 'the supplier'} — guests’ map follows it`;
+  return `Pinned by ${shop.trim() || 'the supplier'}`;
 }
 
 /** The line a shop's pin says, pinned or not. */

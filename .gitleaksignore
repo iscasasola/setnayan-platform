@@ -132,5 +132,5 @@ fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories
 # stored, and a made-up opaque path token to prove templating drops it. Neither
 # is a credential. Renamed at HEAD so no later commit matches; the introducing
 # commits are pinned because gitleaks-action scans every commit in the PR range.
-/Users/icecasasola/Documents/Claude/Projects/wt-admin-visits/d929a17031996793a37f6a1a9332b3835a30b0a7pps/web/lib/visits/visits-are-private.test.ts:generic-api-key:208
-/Users/icecasasola/Documents/Claude/Projects/wt-admin-visits/f1ac6e24695d137e4736aae2d1a94d85496530f6pps/web/tests/db/site-visits.db.test.ts:generic-api-key:124
+d929a17031996793a37f6a1a9332b3835a30b0a7:apps/web/lib/visits/visits-are-private.test.ts:generic-api-key:208
+f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.ts:generic-api-key:124

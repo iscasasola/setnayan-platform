@@ -41,15 +41,19 @@ const read = (p: string) => readFileSync(p, 'utf8');
 
 import { INVITE_THEMES, INVITE_THEME_IDS } from '@/lib/invite-themes';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { HUB_PARTS } from '@/lib/hub-parts';
 
 const SKU = 'COUPLE_WEBSITE_PRO';
 const GATE = 'eventCoupleWebsiteProActive';
 
 /** The customer-facing sentences that describe this upgrade, all three of them. */
 function claimSurfaces(): Array<{ where: string; text: string }> {
-  const page = read(join(HERE, 'page.tsx'));
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(page);
-  assert.ok(benefits, 'BENEFITS block not found — the scan is blind');
+  /* 💎 RE-AIMED 2026-10-22 ("Event Hub Pro, part by part"): the buy page is the PARTS page now — its claims are the
+     Everything card's sentence and each part's one line (`HUB_PARTS[].blurb`, the prototype's frame-4 words). */
+  const body = read(join(HERE, '_components', 'pro-parts-body.tsx'));
+  const everything = /`(All \$\{HUB_PARTS\.length\} parts, and the "Powered by Setnayan" footer[^`]*)`/.exec(body);
+  assert.ok(everything, 'the Everything card sentence was not found — the scan is blind');
+  const benefits = [everything[0], everything[1]! + ' ' + HUB_PARTS.map((p) => `${p.name}: ${p.blurb}`).join(' ')] as const;
 
   const catalog = read(join(WEB, 'lib/add-ons-catalog.ts'));
   const entry = /key: 'website-pro',[\s\S]*?blurb: '([^']*)'/.exec(catalog);
@@ -166,7 +170,8 @@ const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what
     migration, so widening the copy needs one — and this branch deliberately
     carries no schema change. Owner's call.
   */
-  { under: 'app/[slug]/', claim: /invite link/i, what: 'a Pro theme for the invite link' },
+  // 💎 2026-10-22: the parts page names the themes as the Style part's "Pro themes" (the prototype's words).
+  { under: 'app/[slug]/', claim: /invite link|Pro themes/i, what: 'a Pro theme for the invite link' },
 ];
 
 test('every guest-facing gate on this SKU is the watermark or an inclusion the copy names', () => {
@@ -199,7 +204,10 @@ test('every advertised guest gate still exists — the copy cannot outlive what 
 
 test('the copy does not promise RSVP or the on-the-day page', () => {
   // Held while no guest-side gate withholds RSVP or the on-the-day page.
-  for (const { where, text } of claimSurfaces()) {
+  for (const { where, text: said } of claimSurfaces()) {
+    /* 💎 2026-10-22: the Motion part names the RSVP "When yes" moment — that IS withheld (gate 26: Apply holds a Pro
+       celebration, `celebrationDraftIsPro`), so it is the one RSVP words allowed; RSVP itself stays free. */
+    const text = said.replace(/the RSVP (\u201c|")When yes(\u201d|") moment/g, '');
     assert.doesNotMatch(text, /\bRSVP\b/i, `${where} promises RSVP, which no gate withholds`);
     assert.doesNotMatch(
       text,
@@ -254,7 +262,7 @@ test('the Pro list sells the invite theme if and only if the registry has one', 
     for (const { where, text } of claimSurfaces()) {
       assert.match(
         text,
-        /invite link/i,
+        /invite link|Pro themes/i,
         `${where} does not name the invite theme, which ${sellablePro.length} shipped Pro theme(s) withhold from non-buyers`,
       );
     }

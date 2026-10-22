@@ -863,7 +863,8 @@ export async function submitOrderAction(
         error_message: String(linesErr.message),
         payload_snapshot: { orderId, eventId: eventIdClean, hubParts },
       });
-      await moneyWriter.from('orders').delete().eq('order_id', orderId);
+      const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+      if (undoErr) console.error('[checkout] could not remove the parts order whose lines failed:', orderId, undoErr.message);
       return { ok: false, reason: 'We could not record which parts this covers. Nothing was charged — please try again.' };
     }
   }

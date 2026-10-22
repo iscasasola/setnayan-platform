@@ -34,7 +34,7 @@ type Props = {
    * 💎 TRY FREE, PAY AT APPLY (owner 2026-10-22): instead of saving, an available address is put in the DRAFT — the
    * Custom address part is asked for at ✓ Apply. Absent: the shipped Save button.
    */
-  onDraft?: (slug: string) => Promise<boolean>;
+  onDraft?: (address: string) => Promise<boolean>;
   /** The address drafted already — the box opens on it. */
   drafted?: string | null;
   /** Drawn inside `AddressField`, which names the address itself — no second "Address" label. */
@@ -151,7 +151,7 @@ export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted =
               setCheck(null);
             }}
           />
-          <StatusLine check={check} />
+          <StatusLine check={check} drafting={Boolean(onDraft)} />
           {notSaved ? (
             <p role="alert" className="mt-1 text-xs text-warn-700">
               That did not save. Please try again.
@@ -216,10 +216,15 @@ function StatusBadge({
   );
 }
 
-function StatusLine({ check }: { check: CheckResult | null }) {
+function StatusLine({ check, drafting }: { check: CheckResult | null; drafting: boolean }) {
   if (!check) return null;
   if (check.status === 'available') {
-    return <p className="mt-1 text-xs text-success-700">Available.</p>;
+    /* Drafted (the Maker, without the Custom address part): no Save button here — ✓ Apply keeps it. */
+    return drafting ? (
+      <p className="mt-1 text-xs text-success-700">Available — ✓ Apply keeps it.</p>
+    ) : (
+      <p className="mt-1 text-xs text-success-700">Available — tap Save address to keep it.</p>
+    );
   }
   if (check.status === 'current') {
     return <p className="mt-1 text-xs text-ink/55">This is your address now.</p>;

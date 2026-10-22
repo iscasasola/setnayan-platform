@@ -131,6 +131,11 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.equal(item.pro, false, 'a fixed part\'s Pro card went live');
       continue;
     }
+    // 💎 A custom address is the Custom address part (2026-10-22) — Pro, so never published for a free couple.
+    if (item.kind === 'address') {
+      assert.equal(item.pro, false, 'Apply renamed the address for a couple without the Custom address part');
+      continue;
+    }
     // 🚶 A Wedding March move is free (owner 2026-10-06, "Wait for apply").
     if (item.kind === 'march') {
       assert.equal(item.pro, false, 'a Wedding March move is free');
@@ -235,6 +240,7 @@ test('3 · one source: no Pro effect named for an owning couple, and none once t
   for (const item of plan.refused) {
     if (item.kind === 'fixed-style') continue; // none drafted here
     if (item.kind === 'march') continue; // free — never refused
+    if (item.kind === 'address') continue; // none drafted here
     const key = item.kind === 'event' ? `event:${item.column}` : item.kind === 'editorial' ? 'pe:' : item.widgetType;
     assert.ok(
       effects.some((e) =>

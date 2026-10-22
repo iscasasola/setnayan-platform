@@ -41,13 +41,15 @@ export async function renameEventSlug(
   if (updateErr) return { ok: false, reason: updateErr.message };
   if (!updatedRows || updatedRows.length === 0) return { ok: false, reason: 'We couldn’t save that address. Please refresh and try again.' };
   if (existing?.slug && existing.slug !== requested) {
-    await admin.from('slug_change_log').insert({
+    // The forwarding row keeps the old link working; a failed insert is logged (the rename itself already stands).
+    const { error: logErr } = await admin.from('slug_change_log').insert({
       entity_type: 'event',
       entity_id: eventId,
       old_slug: existing.slug,
       new_slug: requested,
       changed_by: userId,
     });
+    if (logErr) console.error('[slug-rename] the old address will not forward:', eventId, logErr.message);
   }
   return { ok: true, changed: true };
 }

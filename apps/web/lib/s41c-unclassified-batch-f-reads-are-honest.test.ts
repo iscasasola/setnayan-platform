@@ -217,8 +217,10 @@ test('the remaining 9 shape-1 sites each carry at least one [supabase-error] log
       needle: '[supabase-error] app/auth/callback/route.ts · from:users.update',
     },
     {
-      file: 'app/open-shop/actions.ts',
-      needle: '[supabase-error] app/open-shop/actions.ts · from:dependents.select',
+      // The open-shop alaga read moved into the one writer every shop door
+      // calls (2026-10-22) — the log line moved with it.
+      file: 'lib/business-alaga-ensure.ts',
+      needle: '[supabase-error] lib/business-alaga-ensure.ts · from:dependents.select',
     },
     {
       file: 'app/panood/actions.ts',

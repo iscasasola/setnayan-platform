@@ -7,6 +7,7 @@ import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { formatCount } from '@/lib/format-number';
+import { catererCountsHtml } from './counts-html';
 import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
@@ -20,14 +21,11 @@ export const maxDuration = 300;
 //   • per-table breakdown (linked tables grouped as one unit)
 //   • every dietary restriction, called out by name + table
 // Printable HTML by default ("Print → Save as PDF", same pattern as the
-// seating print pack); `?format=csv` downloads the raw per-guest rows for
+// seating print pack; drawn by `counts-html.ts`, closing with the "Made with
+// Setnayan" line, owner 2026-10-22); `?format=csv` downloads the raw per-guest rows for
 // caterers who want a spreadsheet (name · table · meal · dietary).
 // ---------------------------------------------------------------------------
 
-const esc = (s: string) =>
-  s.replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
-  );
 const csvCell = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 
 export async function GET(req: Request, ctx: { params: Promise<{ eventId: string }> }) {
@@ -201,108 +199,39 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     });
   }
 
-  // Overall totals per meal.
-  const totals = new Map<string, number>();
-  for (const g of attending) totals.set(mealOf(g.meal_preference), (totals.get(mealOf(g.meal_preference)) ?? 0) + 1);
-  const totalRows = [...totals.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([meal, n]) => `<tr><td class="meal">${esc(meal)}</td><td class="count">${n}</td></tr>`)
-    .join('');
-
+  // The browser-print page (`counts-html.ts`): the same counts, drawn as HTML.
+  const tally = (list: typeof attending): Array<[string, number]> => {
+    const m = new Map<string, number>();
+    for (const g of list) m.set(mealOf(g.meal_preference), (m.get(mealOf(g.meal_preference)) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
   // Per-unit breakdown: meal counts + dietary notes per table.
   const unitKeys = [...new Set([...tables.map((t) => t.link_group_id ?? t.table_id), UNSEATED])];
-  const unitSections = unitKeys
-    .map((key) => {
-      const members = attending.filter((g) => unitOf(g.guest_id) === key);
-      if (members.length === 0) return '';
-      const counts = new Map<string, number>();
-      for (const g of members) counts.set(mealOf(g.meal_preference), (counts.get(mealOf(g.meal_preference)) ?? 0) + 1);
-      const mealsLine = [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([meal, n]) => `${n}× ${esc(meal)}`)
-        .join(' · ');
-      const diets = members
-        .filter((g) => g.dietary_restrictions)
-        .map((g) => `<li><strong>${esc(guestDisplayName(g))}</strong> — ${esc(g.dietary_restrictions!)}</li>`)
-        .join('');
-      return `<section class="unit">
-        <h3>${esc(labelOfUnit(key))} <span class="muted">· ${members.length} ${members.length === 1 ? 'guest' : 'guests'}</span></h3>
-        <p class="meals">${mealsLine}</p>
-        ${diets ? `<ul class="diets">${diets}</ul>` : ''}
-      </section>`;
-    })
-    .join('');
-
-  // All dietary restrictions in one caterer-facing list.
-  const allDiets = attending
-    .filter((g) => g.dietary_restrictions)
-    .map(
-      (g) =>
-        `<li><strong>${esc(guestDisplayName(g))}</strong> (${esc(labelOfUnit(unitOf(g.guest_id)))}) — ${esc(
-          g.dietary_restrictions!,
-        )}</li>`,
-    )
-    .join('');
-
-  const dateStr = (() => {
-    if (!event.event_date) return '';
-    const d = new Date(event.event_date as string);
-    return Number.isNaN(d.getTime())
-      ? ''
-      : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-  })();
-
-  const html = `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Caterer meal counts — ${esc(event.display_name || 'Wedding')}</title>
-<style>
-  :root { --ink:#1E2229; --cream:#FBFBFA; --gold:#C5A059; --muted:#9a958c; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: #efece6; color: var(--ink); font-family: -apple-system, system-ui, sans-serif; }
-  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 12px 18px; background: var(--cream); border-bottom: 1px solid rgba(30,34,41,.12); }
-  .toolbar a, .toolbar button { font: inherit; font-size: 14px; border-radius: 9px; padding: 8px 14px; cursor: pointer;
-    text-decoration: none; border: 1px solid rgba(30,34,41,.18); background: var(--cream); color: var(--ink); }
-  .toolbar button { background: #C97B4B; border-color: #C97B4B; color: #fff; font-weight: 600; }
-  .doc { max-width: 800px; margin: 0 auto; padding: 16px; }
-  .sheet { background: var(--cream); margin: 16px auto; padding: 18mm 16mm; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
-  h1 { font-family: Georgia, serif; font-size: 30px; margin: 0 0 2px; }
-  .sub { color: var(--muted); margin: 0 0 16px; }
-  h2 { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); margin: 22px 0 8px; }
-  table { border-collapse: collapse; min-width: 50%; }
-  .meal { padding: 6px 24px 6px 0; border-bottom: 1px solid rgba(30,34,41,.08); }
-  .count { padding: 6px 0; border-bottom: 1px solid rgba(30,34,41,.08); font-weight: 700; text-align: right; }
-  .unit { padding: 10px 0; border-bottom: 1px solid rgba(30,34,41,.08); }
-  .unit h3 { font-size: 15px; margin: 0 0 2px; }
-  .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
-  .meals { margin: 0; font-size: 13px; }
-  .diets { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: #854f0b; }
-  ul.all { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
-  @media print { html, body { background:#fff; } .toolbar { display:none; } .doc { max-width:none; padding:0; }
-    .sheet { box-shadow:none; margin:0; padding:0; } @page { size: A4; margin: 14mm; } }
-</style>
-</head><body>
-  <div class="toolbar">
-    <a href="/dashboard/${esc(eventId)}/seating">← Back to seating</a>
-    <span style="color:var(--muted);font-size:12px;">Meal counts = confirmed guests${tentativeCount > 0 ? ` · ${formatCount(tentativeCount)} tentative (pending replies)` : ''} · linked tables count as one</span>
-    <span>
-      <a href="/dashboard/${esc(eventId)}/seating/caterer?format=csv">Download CSV</a>
-      <button type="button" onclick="window.print()">Print / Save as PDF</button>
-    </span>
-  </div>
-  <div class="doc"><section class="sheet">
-    <h1>Caterer meal counts</h1>
-    <p class="sub">${esc(event.display_name || 'Wedding')}${dateStr ? ` · ${esc(dateStr)}` : ''} · ${formatCount(attending.length)} confirmed${tentativeCount > 0 ? ` · ${formatCount(tentativeCount)} tentative` : ''}</p>
-    <h2>Totals</h2>
-    <table><tbody>${totalRows || '<tr><td class="meal">No attending guests yet.</td></tr>'}</tbody></table>
-    <h2>Per table</h2>
-    ${unitSections || '<p class="muted">No one seated yet.</p>'}
-    <h2>All dietary restrictions</h2>
-    ${allDiets ? `<ul class="all">${allDiets}</ul>` : '<p class="muted">None recorded.</p>'}
-  </section></div>
-</body></html>`;
+  const html = catererCountsHtml({
+    eventId,
+    eventName: event.display_name || 'Wedding',
+    dateStr: (() => {
+      if (!event.event_date) return '';
+      const d = new Date(event.event_date as string);
+      return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    })(),
+    confirmed: attending.length,
+    tentative: tentativeCount,
+    totals: tally(attending),
+    units: unitKeys
+      .map((key) => ({ key, members: attending.filter((g) => unitOf(g.guest_id) === key) }))
+      .filter((u) => u.members.length > 0)
+      .map((u) => ({
+        label: labelOfUnit(u.key),
+        guests: u.members.length,
+        meals: tally(u.members),
+        diets: u.members.filter((g) => g.dietary_restrictions).map((g) => ({ name: guestDisplayName(g), restriction: g.dietary_restrictions! })),
+      })),
+    // All dietary restrictions in one caterer-facing list.
+    allDiets: attending
+      .filter((g) => g.dietary_restrictions)
+      .map((g) => ({ name: guestDisplayName(g), table: labelOfUnit(unitOf(g.guest_id)), restriction: g.dietary_restrictions! })),
+  });
 
   return new NextResponse(html, {
     status: 200,

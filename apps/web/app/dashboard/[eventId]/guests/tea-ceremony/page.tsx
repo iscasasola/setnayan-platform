@@ -15,6 +15,7 @@ import {
 import { roleImportanceRank } from '@/lib/role-groups';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { PrintButton } from '@/components/print-button';
+import { PrintBrandLine } from '@/components/print-brand-line';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Tea ceremony serving order' };
@@ -157,6 +158,8 @@ export default async function TeaCeremonyPage({ params }: Props) {
         your elders. Set each guest&rsquo;s within-side order and relationship
         on their guest detail page.
       </p>
+      {/* 🏷 The paper says who made it (owner 2026-10-22, lib/print-html-brand.ts) — print only, the last line. */}
+      <PrintBrandLine printOnly />
     </section>
   );
 }

@@ -123,7 +123,11 @@ test('5 · (follow-up) the table sign, the album and the emcee script say the ev
   // the HTML pack and the PDF pack can never say different things (P1b,
   // 2026-10-02: the PDF pack had hard-coded "Scan to visit our wedding").
   assert.match(sign, /const signSub = seatingSignLine\(eventWords\)/);
-  assert.match(sign, /<p class="sign-sub">\$\{esc\(signSub\)\}<\/p>/);
+  // The HTML pack's page is drawn by `pack-html.ts` (2026-10-22); the route hands it the same line.
+  assert.match(sign, /seatingPackHtml\(\{[^}]*\bsignSub,/);
+  const signPage = read('app/dashboard/[eventId]/seating/print/pack-html.ts');
+  assert.doesNotMatch(signPage, /Scan to visit our wedding/, 'the HTML pack\u2019s table sign says "our wedding" to every type');
+  assert.match(signPage, /<p class="sign-sub">\$\{esc\(signSub\)\}<\/p>/);
   assert.match(sign, /layoutSeatingPack\(\{[^}]*signLine: signSub/);
   const pack = read('lib/print-seating-pack.ts');
   assert.doesNotMatch(pack, /Scan to visit our wedding/, 'the PDF pack\u2019s table sign says "our wedding" to every type');

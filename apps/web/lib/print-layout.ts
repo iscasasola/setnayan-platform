@@ -23,6 +23,7 @@ import { LOGO_FONT_OUTLINE, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fo
 import type { HubFontKey } from '@/lib/hub-fonts';
 import { flattenSvgMark, type FlatMark } from '@/lib/print-mark';
 import { SETNAYAN_MARK_PATH, SETNAYAN_MARK_TRANSFORM, SETNAYAN_MARK_VIEWBOX } from '@/lib/qr-style-svg';
+import { PRINT_BRAND_GREY, PRINT_BRAND_WORDS } from '@/lib/print-brand-words';
 import { entourageCellWord, loneRoleWord, roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
@@ -3056,9 +3057,8 @@ function layoutQrSheet(title: string, cells: Array<{ name: string; sub: string |
  * the top corners, rising a point at a time. Applied AFTER a piece is laid out, so no layout's fit is touched.
  * Held by `lib/every-print-carries-setnayan.test.ts`.
  */
-export const PRINT_BRAND_WORDS = 'Made with Setnayan · setnayan.com';
-/** The free line's ink — the plain print's neutral grey (5.3 : 1 on white). */
-export const PRINT_BRAND_GREY = '#6b6b6b';
+/* The words and the grey live in `lib/print-brand-words.ts` — one home shared with the browser-print pages. */
+export { PRINT_BRAND_WORDS, PRINT_BRAND_GREY };
 /** The Pro mark's veil: the Hub's ink, quiet. */
 export const PRINT_BRAND_MARK_OPACITY = 0.38;
 /** Clearance kept round every drawn thing, and round a QR (its white plate plus a point). */

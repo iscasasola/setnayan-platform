@@ -57,7 +57,7 @@ import {
 } from '@/lib/event-board';
 
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
-import { OWN_SUPPLIER_COLUMNS, ownSupplierItems, type OwnSupplierRow } from '@/lib/own-supplier-items';
+import { ownSupplierItems, type OwnSupplierRow } from '@/lib/own-supplier-items';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /*
@@ -209,7 +209,7 @@ async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
       if (organiser.length > 0) {
         const { data: supplierRows, error: supplierErr } = await supabase
           .from('event_vendors')
-          .select(OWN_SUPPLIER_COLUMNS)
+          .select('vendor_id, event_id, vendor_name, archived_at')
           .in('event_id', organiser.map((e) => e.event_id))
           .order('created_at', { ascending: true });
         if (supplierErr) {

@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 import { matchesCommandQuery } from './command-match';
 import { itemInScope } from './search-scope';
-import { ON_YOUR_EVENT, OWN_SUPPLIER_COLUMNS, ownSupplierHref, ownSupplierItems, type OwnSupplierRow } from './own-supplier-items';
+import { ON_YOUR_EVENT, ownSupplierHref, ownSupplierItems, type OwnSupplierRow } from './own-supplier-items';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -93,10 +93,14 @@ test('the guests box keeps no palette rows — suppliers included', () => {
 
 test('the shared index reads the suppliers and hands them to this function', () => {
   const src = code('app/_components/frontdoor/command-data.ts');
-  assert.match(src, /\.from\('event_vendors'\)\s*\.select\(OWN_SUPPLIER_COLUMNS\)/, 'the index stopped reading your suppliers');
+  const sel = /\.from\('event_vendors'\)\s*\.select\('([^']+)'\)\s*\.in\('event_id', organiser/.exec(src);
+  assert.ok(sel, 'the index stopped reading your suppliers');
+  const cols = sel[1]!.split(',').map((c) => c.trim());
+  // Every field the decision reads is selected — a dropped one is `undefined` and drops rows silently.
+  for (const f of ['vendor_id', 'event_id', 'vendor_name', 'archived_at']) assert.ok(cols.includes(f), `the read no longer selects ${f}`);
   assert.match(src, /\.in\('event_id', organiser\.map\(\(e\) => e\.event_id\)\)/, 'the read is no longer the events you organise');
   assert.match(src, /items\.push\(\.\.\.ownSupplierItems\(organiser,/, 'the rows read are never added to the index');
-  for (const col of OWN_SUPPLIER_COLUMNS.split(',').map((c) => c.trim())) {
+  for (const col of cols) {
     assert.match(readFileSync(join(WEB, '..', '..', 'supabase', 'security', 'prod-schema.snapshot.txt'), 'utf8'), new RegExp(`^event_vendors\\.${col}$`, 'm'), `event_vendors.${col} is not a column`);
   }
 });

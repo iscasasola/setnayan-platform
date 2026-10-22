@@ -34,9 +34,7 @@ import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/hom
 /** The tag a supplier row wears everywhere it is drawn — one string, one place. */
 export const ON_YOUR_EVENT = 'On your event';
 
-/** The columns this reads, from `event_vendors`. */
-export const OWN_SUPPLIER_COLUMNS = 'vendor_id, event_id, vendor_name, archived_at';
-
+/** The `event_vendors` columns this reads (the select lives in `command-data.ts`). */
 export type OwnSupplierRow = {
   vendor_id: string;
   event_id: string;

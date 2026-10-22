@@ -107,7 +107,6 @@ export function LabShell({
           <span>Guests</span>
           <span>Suppliers</span>
           <span>Hub</span>
-          <span>More</span>
         </nav>
         )}
       </BottomDock>

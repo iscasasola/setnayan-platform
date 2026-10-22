@@ -4,8 +4,8 @@
  *
  * ⚖ EVERY EVENT WEARS THE WEDDING'S BAR (owner 22 Oct 2026, on a just-created Simple event's Home on
  * its day, whose bar read "Home · Hub · More": *"Fix both"* → *"I think this might be an issue on
- * other events as well"*). The bar is Home · Guests · Suppliers · Hub (+ More on the web; the iPhone
- * app has no More, `the-app-bar-has-no-more.test.ts`) for EVERY type, in every phase.
+ * other events as well"*), then *"Yes remove more"*. The bar is Home · Guests · Suppliers · Hub for EVERY
+ * type, in every phase, on the web and in the app (`the-app-bar-has-no-more.test.ts`).
  *
  * 🔴 WHY IT WAS "HOME · HUB · MORE": the layout dropped Guests and Suppliers by key —
  *   · `needsHiddenNavKeys(eventNeeds)` (Level 1, 2026-10-08, matrix §2 "a need that is OFF is absent,

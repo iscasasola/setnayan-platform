@@ -1,4 +1,3 @@
-import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -23,13 +22,6 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
-import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
-import { eventActiveSkus } from '@/lib/entitlements';
-import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
-import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
-import { buildOurServices, ourServicesMenuChildren } from '@/lib/our-services';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
@@ -352,23 +344,10 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const storeShellRead = isStoreShellRequest();
   /*
-    📂 MORE SERVICES' FIVE (owner 2026-09-30) — the row opens to the SAME cards
-    the More Services page draws, so the two reads that decide WHICH cards and
-    WHERE each opens are the page's own: what this event owns (a paid day-of
-    service stays open after the day) and whether Setnayan AI is sellable for
-    this kind. Both fail soft to "nothing owned" / "not sellable".
+    🚫 THE MORE ROW'S TWO READS ARE GONE WITH IT (owner 22 Oct 2026, "Yes remove more"): what the
+    event owns and whether Setnayan AI is sellable decided which services More listed. Home ›
+    Your services reads its own (page.tsx), and nothing in the menu lists services any more.
   */
-  const ownedRead = eventEntitlementClient(eventId)
-    .then((ent) => eventActiveSkus(ent, eventId))
-    .catch(() => ({
-      active: new Set<string>(),
-      pending: new Set<string>(),
-    }));
-  const aiPriceRead = eventRead.then((res) =>
-    res.data
-      ? resolveSetnayanAiDisplayPricePhp(supabase, (res.data.event_type as string | null) ?? 'wedding').catch(() => 0)
-      : 0,
-  );
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -382,8 +361,6 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabled,
     navSlots,
     storeShell,
-    owned,
-    aiPricePhp,
   ] = await Promise.all([
     shellRead,
     eventRead,
@@ -395,8 +372,6 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabledRead,
     navSlotsRead,
     storeShellRead,
-    ownedRead,
-    aiPriceRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -507,31 +482,6 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const studioRows: EventStudioRow[] = railToolsSignedIn({ eventId, count: 1, profile }).map(
     (t) => ({ key: t.key, href: t.href, name: t.name }),
-  );
-
-  /*
-    📂 THE FIVE UNDER MORE SERVICES (owner 2026-09-30: *"the sidebar will
-    expand and collapse to show these"*). `buildOurServices` — the ONE
-    builder, so the rail and the phone sheet can never list different services,
-    or in another order (the full page is gone since 2026-10-02). Prices are not read here:
-    a menu row names a service, it never prices it. Plain data only (the
-    icon is a NAME) — this crosses into two client components.
-  */
-  const communityId = (event as { community_id?: string | null }).community_id ?? null;
-  const services = ourServicesMenuChildren(
-    buildOurServices({
-      eventId,
-      catalogue: ADD_ONS,
-      owned,
-      prices: new Map(),
-      offered: (a) =>
-        !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
-        addOnOfferedForEvent(a, profile, communityId),
-      sellableNow: (e) => addOnSellableNow(e, phase === 'after' ? 'after' : 'plan'),
-      aiSellable: aiPricePhp > 0,
-      papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
-      refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
-    }),
   );
 
   const tr = makeT(locale);
@@ -653,7 +603,6 @@ export default async function EventLayout({ children, params }: Props) {
     seatingEnabled,
     studioRows,
     storeShell,
-    services,
   };
 
   return (
@@ -866,7 +815,7 @@ export default async function EventLayout({ children, params }: Props) {
         `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
       <BottomDock boundary="tab">
-        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
+        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} />
       </BottomDock>
       {/*
         📲 THE HOST'S WHOLE APP, PRELOADED (owner 2026-10-02, DECISION_LOG "A
@@ -880,7 +829,7 @@ export default async function EventLayout({ children, params }: Props) {
       <AppPreload
         {...appPreloadPlan({
           hostEventId: eventId,
-          hostMenu: { phase, websiteEnabled, seatingEnabled, studioRows, storeShell, services },
+          hostMenu: { phase, websiteEnabled, seatingEnabled, studioRows, storeShell },
           hasShop: switcherData.context.hasVendor,
         })}
       />

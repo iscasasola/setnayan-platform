@@ -108,12 +108,13 @@ test('the Seat plan page is claimed only where the kind seats people, on every s
       const rail = buildCustomerNavGroups('E', { phase, seatingEnabled: false, websiteEnabled }).flatMap((g) => g.items);
       assert.ok(!rail.some((i) => i.key === 'seat'), `${phase}: the RAIL shows Seat plan`);
       // ⚠ UNDEFINED MEANS SEATING — a caller not taught the field keeps the claim,
-      // on the Maker where there is one, else on Our Services.
+      // on the Maker where there is one, else on Home.
       const untaught = buildEventMenuSections('E', { phase, websiteEnabled }).flatMap((x) => x.rows);
       const holder = untaught.find((r) => (r.alsoMatch ?? []).includes('/dashboard/E/seating'));
       assert.equal(
         holder?.key,
-        websiteEnabled ? 'launch' : 'studio',
+        // No Maker → Home holds it since More left the menu (owner 22 Oct 2026).
+        websiteEnabled ? 'launch' : 'home',
         `${phase}/${websiteEnabled ? 'maker' : 'no maker'}: /seating is not held by the right row`,
       );
     }

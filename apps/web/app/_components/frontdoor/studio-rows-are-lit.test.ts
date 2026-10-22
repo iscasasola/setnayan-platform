@@ -90,7 +90,8 @@ function wholeRail(): RailMatchRow[] {
 }
 
 /** The row that holds a product's page: the host a ruling folded it into, else Our Services. */
-const holderOf = (key: string) => STUDIO_ABSORBED[key]?.into ?? 'studio';
+// Home holds every service page since More left the menu (owner 22 Oct 2026, "Yes remove more").
+const holderOf = (key: string) => STUDIO_ABSORBED[key]?.into ?? 'home';
 
 /** The product pages that must light a holder (the Event Hub product IS the Maker row; `__all__` IS Our Services). */
 function productPages(): RailMatchRow[] {

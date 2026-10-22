@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c4e67bacc8",
-  "routeCount": 452,
+  "generatedFromRef": "269b57f192",
+  "routeCount": 453,
   "destinations": 996,
   "actions": 665,
-  "blocks": 6751,
+  "blocks": 6755,
   "routes": {
     "/": {
       "files": [
@@ -5508,7 +5508,6 @@
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
-        "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
         "dashboard/[eventId]/_components/nikah-imam.ts",
@@ -5648,6 +5647,7 @@
         "DateRow",
         "DayOfModeBanner",
         "DayOfModeGrid",
+        "DayPapicRow",
         "DeleteResult",
         "DirectPayBody",
         "DirectPayTrigger",
@@ -5733,9 +5733,6 @@
         "ModalMode",
         "ModalShell",
         "Money",
-        "MoreServicesSheet",
-        "MoreSheet",
-        "MoreSheetRow",
         "NextCard",
         "OneLink",
         "OneLinkRow",
@@ -10606,6 +10603,19 @@
         "SpecialMessageWidget"
       ]
     },
+    "/dev/bar-lab/[[...path]]": {
+      "files": [
+        "dev/bar-lab/[[...path]]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Cards",
+        "FrontDoorShell",
+        "LabBar",
+        "Link"
+      ]
+    },
     "/dev/booking-ask-lab": {
       "files": [
         "dev/booking-ask-lab/page.tsx"
@@ -10809,6 +10819,8 @@
       "blocks": [
         "AppleProScreen",
         "ApplyProSheetLab",
+        "DayOfModeGrid",
+        "DayPapicRow",
         "HomeFirstScreen",
         "HomeWhatsNext",
         "HubProOffer",

@@ -17,8 +17,13 @@
  *
  * ── THE PROPERTY ────────────────────────────────────────────────────────────
  *   1. In the store shell no event menu builds More — not the bar, the tree,
- *      or the rail / ☰ drawer — in any phase, for any event shape. The web
- *      keeps it (the paid services live there).
+ *      or the rail / ☰ drawer — in any phase, for any event shape.
+ *   3. 🔁 FLIPPED ON PURPOSE (owner 22 Oct 2026, verbatim *"Yes remove more"*,
+ *      DECISION_LOG "MORE LEAVES THE WEB BAR TOO"): the web has no More either —
+ *      bar, rail (the desktop "More Services" row and its pop-up) and ☰. Until
+ *      then property 3 read "the web keeps More, five tabs". Every service More
+ *      listed on the web is a row on Home › Your services, by the same
+ *      catalogue and the same `offered` rule — nothing is lost.
  *   2. Every destination More would have offered in the app is still linked
  *      from Home or the ☰ drawer. Today that is only Home itself (its door),
  *      because the app's service list is empty. If a service ever survives the
@@ -38,7 +43,10 @@ import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from './store-
 import { studioHubHref } from './studio-hub';
 import { builderRailItems, plannerRailItems, togetherRailItems } from './free-tools-rail';
 import { railToolsSignedIn } from './studio-rail';
-import { WEDDING_PROFILE } from './event-type-profile';
+import { GENERIC_PROFILE, SIMPLE_PROFILE, TRAVEL_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from './event-type-profile';
+import { addOnOfferedForEvent } from './add-on-event-scope';
+import { homePaidFacts } from './home-paid-services';
+import { HOME_PAID_SKU, homeServices } from './home-first-screen';
 import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
@@ -111,14 +119,67 @@ test('🍎 in the store shell no event menu builds More — bar, tree, rail or �
   assert.equal(n, 24, 'premise: the shape sweep shrank');
 });
 
-test('🌐 the web keeps More — five tabs with a Hub, its services listed', () => {
+test('🌐 the web has no More either — four tabs, no More Services row in the rail or ☰ (owner 22 Oct 2026)', () => {
+  let n = 0;
   for (const ctx of shapes(false)) {
-    if (!ctx.websiteEnabled || ctx.hideKeys?.length) continue;
+    n += 1;
     const bar = buildCustomerMenuTree(EVENT, ctx);
-    assert.equal(bar.length, 5, `${ctx.name}: the web bar is not five`);
-    assert.ok(bar.some((m) => m.key === 'studio'), `${ctx.name}: the web lost More`);
+    assert.equal(bar.some((m) => m.key === 'studio'), false, `${ctx.name}: the web bar has More again`);
+    assert.equal(bar.some((m) => m.href.includes('more=services')), false, `${ctx.name}: a web tab opens Home ?more=services`);
+    assert.equal(eventMenuRows(buildEventMenuSections(EVENT, ctx)).some((r) => r.key === 'studio'), false, `${ctx.name}: tree`);
+    const rail = buildCustomerNavGroups(EVENT, ctx).flatMap((g) => g.items);
+    assert.equal(rail.some((i) => i.key === 'studio' || i.href.includes('more=services')), false, `${ctx.name}: the desktop rail / ☰ keeps More Services`);
+    if (ctx.websiteEnabled && !ctx.hideKeys?.length) {
+      assert.deepEqual(bar.map((m) => m.key), ['home', 'guests', 'explore', 'launch'], `${ctx.name}: the web bar is not the four`);
+    }
   }
-  assert.ok(servicesFor(false).length >= 4, 'premise: the web lists the paid services under More');
+  assert.equal(n, 24, 'premise: the shape sweep shrank');
+  assert.ok(servicesFor(false).length >= 4, 'premise: the web still has the paid services to place');
+});
+
+/** Home › Your services on the web, built as the event page builds it (the same `offered` rule). */
+function homeServiceHrefs(offered: (a: (typeof ADD_ONS)[number]) => boolean, owned: boolean): Set<string> {
+  const reads = Object.fromEntries(Object.values(HOME_PAID_SKU).map((s) => [s, { active: owned, pending: false }]));
+  const facts = homePaidFacts({
+    eventId: EVENT,
+    catalogue: ADD_ONS,
+    reads,
+    prices: new Map(),
+    offered,
+    sellableNow: () => true,
+    aiSellable: true,
+    refusesPath: () => false,
+  });
+  const rows = homeServices({ next: 'plan', storeShell: false, papic: 'On', ai: 'Try it', eventId: EVENT, paid: facts });
+  return new Set(rows.flatMap((r) => (r.key === 'papic' ? [`/dashboard/${EVENT}/studio/papic`] : r.paid ? [pathOf(r.paid.href)] : [])));
+}
+
+test('🌐 every service More listed on the web has its row on Home › Your services — every type, owned or not', () => {
+  for (const profile of [WEDDING_PROFILE, GENERIC_PROFILE, SIMPLE_PROFILE, TRAVEL_PROFILE, WAKE_PROFILE]) {
+    const offered = (a: (typeof ADD_ONS)[number]) => addOnOfferedForEvent(a, profile, null);
+    for (const owned of [false, true]) {
+      const more = ourServicesMenuChildren(
+        buildOurServices({
+          eventId: EVENT,
+          catalogue: ADD_ONS,
+          owned: { active: owned ? new Set(ADD_ONS.flatMap((a) => (a.serviceKey ? [a.serviceKey] : []))) : new Set(), pending: new Set() },
+          prices: new Map(),
+          offered,
+          sellableNow: () => true,
+          aiSellable: true,
+          papicOwnedBy: ['PAPIC_GUEST'],
+          refusesPath: () => false,
+        }),
+      );
+      const home = homeServiceHrefs(offered, owned);
+      for (const m of more) {
+        assert.ok(
+          home.has(pathOf(m.href)),
+          `${profile.eventType} (owned=${owned}): "${m.label}" (${m.href}) was reachable through More on the web and has no row on Home › Your services — add it there, do not bring More back`,
+        );
+      }
+    }
+  }
 });
 
 /* ══ 2 · nothing More offered in the app is lost ═════════════════════════ */
@@ -146,8 +207,12 @@ test('🍎 every destination More offered in the app is linked from Home or ☰'
 
 /* ══ wiring — the layout really hands the bar the shell and the filter ═══ */
 
-test('wiring: the event layout drops the paid keys in the shell and hands the bar `storeShell`', () => {
+test('wiring: the event layout hands the bar `storeShell` and no services list (there is nothing to open)', () => {
   const layout = fs.readFileSync(path.join(EV, 'layout.tsx'), 'utf8');
-  assert.match(layout, /!\(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS\.has\(a\.key\)\)/);
   assert.match(layout, /<CustomerBottomNav[^>]*storeShell=\{storeShell\}/);
+  assert.doesNotMatch(layout, /<CustomerBottomNav[^>]*services=/, 'the bar is handed a services list again');
+  assert.equal(fs.existsSync(path.join(EV, '_components', 'more-services-sheet.tsx')), false, 'the More chooser sheet is back');
+  // …and Home's Your services keeps the shell filter (the app shows no paid row — App Review 3.1.1).
+  const page = fs.readFileSync(path.join(EV, 'page.tsx'), 'utf8');
+  assert.match(page, /!\(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS\.has\(a\.key\)\)/);
 });

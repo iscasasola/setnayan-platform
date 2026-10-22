@@ -11,7 +11,8 @@
  * `eventMenuGates`, and this fails naming the type. There is no hand-kept roster.
  *
  * For each type × needs preset × phase × web / app shell: the layout's OWN rule (`eventMenuGates`)
- * handed to the ONE tree must build Home · Guests · Suppliers · Hub, plus More on the web only.
+ * handed to the ONE tree must build Home · Guests · Suppliers · Hub — web and app alike (owner 22 Oct
+ * 2026, "Yes remove more").
  *
  * `EVENT_BAR_TABLE=<file>` also writes the type × phase table for the PR body (no effect otherwise).
  */
@@ -79,7 +80,7 @@ test('🧭 every event type × needs preset × phase × shell in the migrations 
       for (const phase of PHASES) {
         for (const storeShell of [false, true]) {
           const keys = bar(p, phase, storeShell);
-          const want = storeShell ? FOUR : [...FOUR, 'studio'];
+          const want = FOUR; // web and app alike (owner 22 Oct 2026, "Yes remove more")
           if (keys.join(' ') !== want.join(' ')) {
             wrong.push(`${p.eventType} · ${preset} · ${phase} · ${storeShell ? 'app' : 'web'} → ${keys.map((k) => WORD[k]).join(' · ')}`);
           }

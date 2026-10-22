@@ -6,8 +6,8 @@
  * PROPERTIES, not phrasings:
  *   1. For EVERY event type the app knows (`DEFAULT_PRESET_BY_TYPE` + the code profiles) × every needs
  *      preset × every phase × web and the app shell, the layout's OWN rule (`eventMenuGates`, handed to
- *      the ONE tree exactly as the layout hands it) builds Home · Guests · Suppliers · Hub, plus More on
- *      the web only (`the-app-bar-has-no-more.test.ts`). The roster is read from the code, so a type
+ *      the ONE tree exactly as the layout hands it) builds Home · Guests · Suppliers · Hub — on the web too
+ *      (owner 22 Oct 2026, *"Yes remove more"*; `the-app-bar-has-no-more.test.ts`). The roster is read from the code, so a type
  *      added to it is swept without editing this file; the migrations' own rows are swept by
  *      `tests/db/every-event-type-wears-the-one-bar.db.test.ts`.
  *   2. The layout reads that rule and hands the menu no `hideKeys` at all.
@@ -50,7 +50,7 @@ function profileOf(t: string) {
   } as unknown as ProfileRow);
 }
 
-test('every event type × needs preset × phase × shell builds the one bar — four, plus More on the web', () => {
+test('every event type × needs preset × phase × shell builds the one bar — the same four, web and app', () => {
   assert.ok(TYPES.length >= 20, `the type roster shrank to ${TYPES.length} — a sweep of nothing passes`);
   assert.ok(TYPES.includes('simple_event') && TYPES.includes('hangout') && TYPES.includes('wake'));
   const wrong: string[] = [];
@@ -71,7 +71,7 @@ test('every event type × needs preset × phase × shell builds the one bar — 
             storeShell,
             services: storeShell ? [] : SERVICES,
           }).map((m) => m.key);
-          const want = storeShell ? FOUR : [...FOUR, 'studio'];
+          const want = FOUR; // web and app alike (owner 22 Oct 2026, "Yes remove more")
           if (keys.join(' ') !== want.join(' ')) wrong.push(`${type} · ${preset} · ${phase} · ${storeShell ? 'app' : 'web'} → ${keys.join(' · ')}`);
         }
       }

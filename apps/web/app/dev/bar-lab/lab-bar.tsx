@@ -67,6 +67,7 @@ export function labEventBarItems(eventId: string, event?: LabEventBar): BottomNa
     href: m.href,
     activeMatch: m.activeMatch,
     activeMatchExact: m.activeMatchExact,
+    ...(m.activeMatchAlsoExact ? { activeMatchAlsoExact: m.activeMatchAlsoExact } : {}),
   }));
 }
 

@@ -696,7 +696,7 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   };
 
   /* Pull each declaration by the PROPERTY that decides which bar it takes.
-     `color:` is text (4.5). `border-top`/`accent-color` are non-text UI (3.0).
+     `color:` is text (4.5). `accent-color` is non-text UI (3.0).
      The button is white ON its own fill, so it is checked against that fill,
      not against the card. */
   const textColours = [...block.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)]
@@ -725,14 +725,8 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
     `the button's white label on ${fill} is ${onFill.toFixed(2)}:1, below 4.5:1`,
   );
 
-  const edge = block.match(/border-top:\s*3px solid\s*(#[0-9a-f]{6})/i)?.[1];
-  if (!edge) throw new Error('the top edge must be readable');
-  const onEdge = ratio(edge, bg);
-  assert.ok(
-    onEdge >= 3,
-    `the 3px top edge ${edge} is ${onEdge.toFixed(2)}:1 on ${bg}, below the ` +
-      '3:1 bar for non-text',
-  );
+  /* The 3px top edge this checked against the 3:1 non-text bar is gone (owner 2026-10-22, "do both": the card wears
+     the house shape, no stripe) — `app/signup/the-sign-in-cards-wear-the-house-shape.test.ts` holds its absence. */
   /* 🌗 The same card in dark (first-run prototype 2026-10-21 §1b): every text colour the dark rules set clears AA
      on the DARK card's own --hr-bg, and the inputs' words on the dark input. */
   const darkStart = css.indexOf('html.dark .home-reskin-ov:has(.sn-signin-terra)');

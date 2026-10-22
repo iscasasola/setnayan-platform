@@ -131,7 +131,8 @@ test('2 · every held save asks for the Apply bar; the action answers with the r
 
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /addEventListener\(MAKER_DRAFT_BAR_EVENT/, 'the toolbar no longer hears the count a save answers with');
-  assert.match(bar, /fromSave \? \(ownsPro \? fromSave\.owned : fromSave\.free\) : renderedSummary/, 'the toolbar must pick the half the render drew with');
+  /* RE-AIMED 2026-10-22 (part by part): a part owner's half is DERIVED from the free one by the parts each held line needs — still nobody asked. */
+  assert.match(bar, /fromSave \? \(ownsPro \? hubSummaryFor\(fromSave\.free, fromSave\.owned, owned\) : fromSave\.free\) : renderedSummary/, 'the toolbar must pick the half the render drew with');
   const refresh = read('lib/maker-refresh.ts');
   assert.match(refresh, /shared\.save\(send, refresh, options\.ok, Boolean\(options\.held\)\)/, 'makerSave dropped `held` on its way to the refresher');
   assert.match(refresh, /announceDraftBar\(result\)/);

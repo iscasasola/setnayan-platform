@@ -218,8 +218,9 @@ test('1 · a first view sends 15 requests, 5 deep; a second view inside 60 s sen
   */
   assert.equal(db.serialDepth(), 5, 'the cold view got deeper — a read is waiting on one it does not need');
   // The facts are the REAL ownership: A (internal host, saved a Pro theme) owns it; B does not.
-  assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: true, logoAnimation: null });
-  assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: false, logoAnimation: null });
+  // 💎 2026-10-22: the remembered ownership is the two parts a cover can turn on (Style · Background).
+  assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: { style: true, background: true }, logoAnimation: null });
+  assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: { style: false, background: false }, logoAnimation: null });
 
   db.reset();
   clock.now += 45_000;
@@ -298,14 +299,14 @@ test('2e · a refused ownership read is "not owned" for that view and is NOT rem
   const ask = () => withRenderScopeForTest(() => reads.rememberedCoverRows([EVENT_A]).then((rows) => rows, (e: unknown) => e));
   const caught = await ask();
   assert.ok(caught instanceof ReadRefused && caught.site === 'coverFacts', 'a refused orders read was not reported as a refusal');
-  const partial = caught.partial as { covers: unknown[]; facts: Record<string, { websitePro: boolean | null }> };
-  assert.equal(partial.facts[EVENT_A]?.websitePro, false, 'a refused ownership read drew something other than "not owned"');
+  const partial = caught.partial as { covers: unknown[]; facts: Record<string, { websitePro: unknown }> };
+  assert.deepEqual(partial.facts[EVENT_A]?.websitePro, { style: false, background: false }, 'a refused ownership read drew something other than "not owned"');
   assert.equal(partial.covers.length, 2, 'the cover rows that answered were dropped');
   assert.equal(fake.entries.size, 0, '"not owned" was remembered for everybody after a read that never answered');
   refuse = false;
   const rows = await ask();
   assert.ok(!(rows instanceof ReadRefused) && !(rows instanceof Error));
-  assert.equal((rows as { facts: Record<string, { websitePro: boolean | null }> }).facts[EVENT_A]?.websitePro, true);
+  assert.deepEqual((rows as { facts: Record<string, { websitePro: unknown }> }).facts[EVENT_A]?.websitePro, { style: true, background: true });
 });
 
 test('2d · a failed chapters read is thrown, never remembered as "no stories"', async () => {

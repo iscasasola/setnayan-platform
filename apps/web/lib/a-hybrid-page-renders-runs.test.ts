@@ -272,6 +272,7 @@ test('🪤 no selector nests :has() inside :has() — the browser drops the WHOL
 /* ══ THE WRITER'S GATE ═══════════════════════════════════════════════════ */
 
 test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll — server-side, not just the chip', () => {
+  /* RE-AIMED 2026-10-22 (part by part): Scrub and Auto-scroll are the Motion part's (gate 20) — the same refusal, asked of its part. */
   const src = stripComments(
     readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'widgets', 'actions.ts'), 'utf8'),
   );
@@ -280,7 +281,7 @@ test('⛔ setWidgetMotion refuses a free couple landing on Scrub / Auto-scroll �
   const body = src.slice(at, src.indexOf('\nexport async function', at + 10));
   assert.match(
     body,
-    /const step = nextTransition\(canvas, transitionRaw, autoSpeedRaw\);\s*if \((?:!drafting && )?step\.needsPro && !\(await eventCoupleWebsiteProActive\(createAdminClient\(\), eventId\)\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\);/,
+    /const step = nextTransition\(canvas, transitionRaw, autoSpeedRaw\);\s*if \((?:!drafting && )?step\.needsPro && !\(await eventHubPartActive\(createAdminClient\(\), eventId, 'motion'\)\)\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/studio\/website-pro`\);/,
   );
   // …and the gate runs BEFORE the row is written.
   // RE-AIMED 2026-10-18 round 3: the live write is now the one-at-a-time section writer (`writeWidgetConfig`).

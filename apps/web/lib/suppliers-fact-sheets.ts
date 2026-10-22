@@ -55,7 +55,17 @@ export type PlaceSlot = {
   slot: VenueSlotKey;
   label: string;
   /** The booked supplier as offered — their name, address and whether their record carries a pin. */
-  booked: { name: string; address: string | null; pinned: boolean } | null;
+  booked: {
+    name: string;
+    address: string | null;
+    pinned: boolean;
+    /** 📍 Whose pin it is (`lib/venue-pin-door.ts`, owner 2026-10-22) — a shop's is the shop's; a manual supplier's is set on its card. */
+    pinFrom?: 'shop' | 'manual' | 'directory' | null;
+    /** The booking (`event_vendors.vendor_id`) a manual card's pin is saved through. */
+    vendorId?: string | null;
+    /** The pin on the record — what a manual card's field opens on. */
+    pin?: { lat: number; lng: number } | null;
+  } | null;
   /** The couple's choice for this card (supplier's details or their own). */
   choice: VenueChoice;
   /** Typed by hand — name, street address, pin. */

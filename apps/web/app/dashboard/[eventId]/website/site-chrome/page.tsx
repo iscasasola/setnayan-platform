@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
@@ -64,13 +64,18 @@ export default async function SiteChromeEditorPage({
   // couple that already uploaded a song (grandfathered) OR owns PRO keeps the
   // music control, and the live guest site never loses a launched song (only the
   // EDITOR gates). Fail-open on a throwing entitlement read (treat as owned).
-  const proActive = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
-  const musicGated = !proActive && !musicRef;
+  // 💎 Part by part (owner 2026-10-22): the song is the Music part's (gate 7), the film the Reveal part's (gate 5a).
+  const ent = await eventEntitlementClient(eventId);
+  const [musicActive, filmActive] = await Promise.all([
+    eventHubPartActive(ent, eventId, 'music').catch(() => true),
+    eventHubPartActive(ent, eventId, 'reveal').catch(() => true),
+  ]);
+  const musicGated = !musicActive && !musicRef;
   // 🎞 AND NOW THE VIDEO HERO TOO (owner 2026-09-24, "A": their own films on the
   // page are Pro). The comment above predates the ruling — the video is no
   // longer free. Same grandfather: a couple who already has one keeps the field
   // (and can clear it); `updateSiteChrome` refuses a new or different file.
-  const videoGated = !proActive && !videoRef;
+  const videoGated = !filmActive && !videoRef;
 
   const [musicUrl, videoUrl] = await Promise.all([
     // 🔒 Held to the public bucket before signing (lib/site-media-ref.ts).

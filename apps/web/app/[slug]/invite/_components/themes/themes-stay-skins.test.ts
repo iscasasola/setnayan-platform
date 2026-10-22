@@ -110,7 +110,7 @@ test('saving a Pro theme is re-checked on the server, after the host check, befo
   // into the DRAFT; Apply (`hub-draft-actions.ts`) is its one live writer.
   const src = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
   const host = src.indexOf('requireHostMembershipOrThrow(eventId');
-  const pro = src.indexOf('planHubDraftApply(current, live, ownsPro)');
+  const pro = src.indexOf('planHubDraftApply(current, live, owned)');
   const write = src.indexOf('.update({ invite_theme');
   assert.ok(host > -1 && pro > -1 && write > -1, 'a step of the save is missing');
   assert.ok(host < pro && pro < write, 'the Pro re-check must come after the host check and before the write');

@@ -102,7 +102,8 @@ export async function updateOurPhotos(
      canvas and named on the Apply sheet. The screen below still runs first —
      and Apply screens every new photo again before one goes live. */
   const drafting = isHubDraftWrite(formData);
-  if (!drafting) await requireLookPro(eventId, galleryChange(currentRefs, deduped));
+  // 💎 The gallery is the Photos part's (owner 2026-10-22, gate 6).
+  if (!drafting) await requireLookPro(eventId, galleryChange(currentRefs, deduped), 'photos');
 
   // ── NSFW screen, on the NEW refs only, BEFORE anything is persisted ─────────
   // See the module note: this surface has no `moderation_state` to hide behind, so

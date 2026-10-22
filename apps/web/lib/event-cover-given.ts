@@ -15,6 +15,7 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { hubLookDrawsOwnPhoto, hubThemeGiven, wantsProTheme, type HubThemeGiven } from '@/lib/hub-look-given';
 import { paperGroundOf, type DiscoverPaper, type DiscoverScene } from '@/lib/discover-events-core';
 import type { CoverRow } from '@/lib/home-public-reads-core';
+import { COVER_NOT_OWNED, type CoverOwnership } from '@/lib/hub-parts';
 
 /**
  * event-cover-given.ts — 🖼 ONE EVENT'S COVER, as the guest's Event Hub draws
@@ -56,8 +57,8 @@ export type DressedEventCover = {
 
 /** Everything the cover asks of the outside world. */
 export type CoverIo = {
-  /** Is Event Hub Pro live for this event? Asked only where it can change the answer. */
-  ownsPro: () => Promise<boolean>;
+  /** Which of Style / Background (or Full Pro) is live for this event? Asked once, only where it can change the answer. */
+  ownsPro: () => Promise<CoverOwnership>;
   /** The event type's words, or null when they could not be resolved. */
   words: () => Promise<EventWords | null>;
   /** Is the logo animation on for this event? Asked only for a logo that moves. */
@@ -83,14 +84,14 @@ export async function dressEventCoverGiven(
 ): Promise<DressedEventCover> {
   // Ownership is asked at most once, and a read that fails is "not owned" —
   // the default every one of its three askers always took.
-  let asked: Promise<boolean> | null = null;
-  const owned = (): Promise<boolean> => (asked ??= io.ownsPro().catch(() => false));
+  let asked: Promise<CoverOwnership> | null = null;
+  const owned = (): Promise<CoverOwnership> => (asked ??= io.ownsPro().catch(() => COVER_NOT_OWNED));
 
   // The theme the hub wears — the one gate (`hubThemeGiven`). Ownership is
   // read only for a saved Pro theme.
   let hub: HubThemeGiven | null;
   try {
-    hub = hubThemeGiven(r, wantsProTheme(r.invite_theme) ? await owned() : false);
+    hub = hubThemeGiven(r, wantsProTheme(r.invite_theme) ? (await owned()).style : false);
   } catch {
     hub = null;
   }
@@ -98,7 +99,7 @@ export async function dressEventCoverGiven(
   // 1 · THE MAIN BACKGROUND, as the guest's Event Hub draws it. Ownership
   //     is read only where it can change the answer, as the page reads it.
   if (hub) {
-    const ownsPro = heroGroundNeedsOwnership(hub.theme) ? await owned() : false;
+    const ownsPro = heroGroundNeedsOwnership(hub.theme) ? (await owned()).background : false;
     const main = guestMainGround(hub.theme, ownsPro, heroConfig, r);
     const mainSrc = main?.stillRef
       ? renderableImageSrc(await io.sign(siteMediaServeRef(main.stillRef)).catch(() => null))
@@ -122,7 +123,7 @@ export async function dressEventCoverGiven(
     (async (): Promise<PosterLook | null> => {
       if (!hub) return null;
       // Ownership only where it can change the answer — never an extra read.
-      const own = heroGroundNeedsOwnership(hub.theme) ? await owned() : false;
+      const own = heroGroundNeedsOwnership(hub.theme) ? (await owned()).background : false;
       const photo = hubLookDrawsOwnPhoto(hub.theme, own) ? await io.backgroundPhoto(r.std_background) : null;
       return { theme: hub.theme, photo };
     })().catch(() => null),

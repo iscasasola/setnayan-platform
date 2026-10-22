@@ -138,7 +138,8 @@ const OWN_MECHANISM = [
 
 /** Hits that are not an app user being shown a paid service, each with its reason. A stale entry fails. */
 const NOT_SHOWN = new Map<string, string>([
-  ['app/dashboard/[eventId]/monogram/page.tsx', 'the page\'s <title> metadata (the free monogram design page shares the word); no body text'],
+  ['app/dashboard/[eventId]/monogram/page.tsx', 'the page\'s <title> metadata (the free monogram design page shares the word), and the Logo & QR checkout name, built only under `!ownsAnimated && !storeShell` (2026-10-22)'],
+  ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', 'the Logo & QR part\'s checkout names (2026-10-22); the component is mounted only by monogram/page.tsx as `!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade …/> : null` — never in the app'],
   ['app/dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx', 'mounted only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule)'],
   ['app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', 'the Pro refusal notes appear only after an Event Hub Pro effect is picked; the picker offers none in the app (`storeShell` reaches it as `sellsOpenings`/price null) — OPEN: walk on TestFlight'],
   ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', 'the Story editor\'s Papic empty line — OPEN (PR body), the editorial page is a post-event surface'],

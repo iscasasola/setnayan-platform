@@ -19,6 +19,7 @@
  * sheet to see should cost nothing.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type SheetUnread = {
   /** Your events — every unread that is not the shop's or HQ's. */
@@ -66,10 +67,16 @@ export async function readSheetUnreadUrls(
       .eq('user_id', userId)
       .is('read_at', null)
       .range(0, SHEET_UNREAD_CEILING - 1);
-    if (error || !Array.isArray(data)) return null;
+    if (error) {
+      // Recorded, then answered "unknown" — every row draws no count (never a 0).
+      logQueryError('readSheetUnreadUrls', error, { user_id: userId }, 'graceful_degrade');
+      return null;
+    }
+    if (!Array.isArray(data)) return null;
     if (typeof count !== 'number' || count !== data.length) return null;
     return data.map((r) => ((r as { related_url?: string | null }).related_url ?? null));
-  } catch {
+  } catch (caught) {
+    logQueryError('readSheetUnreadUrls (threw)', caught instanceof Error ? caught : new Error(String(caught)), { user_id: userId }, 'graceful_degrade');
     return null;
   }
 }

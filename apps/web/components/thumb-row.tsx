@@ -40,6 +40,8 @@ export type ThumbRound = {
   label: string;
   onClick?: () => void;
   href?: string;
+  /** A link that opens in a new tab (Shop › Page's 👁 View my page). */
+  target?: '_blank';
   /** `aria-expanded` for a toggle (⇕ Expand all). */
   expanded?: boolean;
   waiting?: boolean;
@@ -57,6 +59,13 @@ export type ThumbMenu = {
   /** A data attribute on the wrapper (`data-thumb-sort`), for tests and the tour. */
   mark?: string;
 };
+
+/**
+ * A seat whose control is a SHIPPED component that owns its own sheet or address (the supplier's Search box, Check a
+ * date, ＋ Add a booking, ✓ Log a payment): the row gives it the seat's shape — the field's glass and width, or the
+ * main verb's 44 round (its word kept as its accessible name) — and the component keeps everything it does.
+ */
+export type ThumbNode = { node: ReactNode };
 
 export type ThumbField = {
   /** Names the place — "Search guests". ≤ 3 words. */
@@ -84,7 +93,7 @@ function Round({ r }: { r: ThumbRound }) {
   return (
     <span className={`sn-glass-row ${styles.round}`} data-thumb-seat="round">
       {r.href ? (
-        <ActionButton {...common} href={r.href} />
+        <ActionButton {...common} href={r.href} target={r.target} />
       ) : (
         <ActionButton {...common} onClick={r.onClick} aria-expanded={r.expanded} />
       )}
@@ -105,16 +114,16 @@ export function ThumbRow({
   name: string;
   /** ≤ 2 neutral rounds before the field — ⇕ then ☑. */
   left?: readonly ThumbRound[];
-  field?: ThumbField | null;
+  field?: ThumbField | ThumbNode | null;
   /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
   right?: readonly (ThumbRound | ThumbMenu)[];
   /** THE one main verb — terracotta, last. */
-  action?: ThumbRound | null;
+  action?: ThumbRound | ThumbNode | null;
   /** A mode row's own buttons, in place of the seats. */
   children?: ReactNode;
   className?: string;
 }) {
-  const FieldIcon = field?.kind === 'date' ? CalendarDays : Search;
+  const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   return (
     <div role="toolbar" aria-label={`${name} tools`} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {children ?? (
@@ -122,7 +131,11 @@ export function ThumbRow({
           {left.slice(0, 2).map((r) => (
             <Round key={r.label} r={r} />
           ))}
-          {field ? (
+          {field && 'node' in field ? (
+            <span data-glass-row="thumb-row-field-node" className={`sn-glass-row ${styles.field} ${styles.fieldNode}`} data-thumb-seat="field">
+              {field.node}
+            </span>
+          ) : field ? (
             <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
@@ -147,7 +160,11 @@ export function ThumbRow({
               <Round key={r.label} r={r} />
             ),
           )}
-          {action ? (
+          {action && 'node' in action ? (
+            <span className={`${styles.round} ${styles.actionNode}`} data-thumb-seat="action">
+              {action.node}
+            </span>
+          ) : action ? (
             <span className={styles.round} data-thumb-seat="action">
               {action.href ? (
                 <ActionButton tone="brand" filled iconOnly icon={action.icon} label={action.label} href={action.href} tour={action.tour} data-testid={action.testId} className={styles.btn} />

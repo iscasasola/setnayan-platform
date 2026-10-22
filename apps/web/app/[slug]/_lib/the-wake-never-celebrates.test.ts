@@ -465,8 +465,10 @@ test('🖨 the printed card reads "In loving memory of" at a wake — the cover�
 
 test('🗂 onboarding: no "Wake of the Year", no cheerful services framing at a wake', () => {
   const gen = appSrc('onboarding/[type]/_components/generic-onboarding.tsx');
+  // Whitespace-insensitive since 2026-10-22: a birthday now leads with its own example (`eventNameExample`,
+  // Host 6), so the two arms sit one ternary deeper and on their own lines — both must still be there.
   assert.ok(
-    gen.includes("placeholder={register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`}"),
+    gen.replace(/\s+/g, ' ').includes("register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`"),
     'the name placeholder has lost an arm',
   );
   assert.ok(

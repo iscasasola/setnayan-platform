@@ -21,6 +21,7 @@
  * and is hashed before it is sent; no cookie, no browser id, nothing stored in
  * the browser.
  */
+import { deviceOs } from '@/lib/apple-device';
 import { isStoreShellSignals } from '@/lib/store-shell';
 
 export type VisitDevice = 'phone' | 'tablet' | 'desktop';
@@ -58,12 +59,21 @@ export function isBot(userAgent: string | null | undefined): boolean {
   return BOT_UA.test(ua);
 }
 
-/** Phone / tablet / desktop from the user-agent alone (no client hints, no JS). */
+/**
+ * Phone / tablet / desktop from the user-agent alone (no client hints, no JS).
+ * Apple devices are read through THE helper (`deviceOs`, lib/apple-device.ts):
+ * an iPad in its own app reads as a tablet; iPad SAFARI sends a Mac user-agent
+ * that no server can see past, so it counts as a computer — the one known
+ * miscount, and the helper's own docblock says why.
+ */
 export function deviceFromUserAgent(userAgent: string | null | undefined): VisitDevice {
   const ua = userAgent ?? '';
-  if (/iPad|Tablet|PlayBook|Silk|Kindle|SM-T\d|Nexus (7|9|10)/i.test(ua)) return 'tablet';
-  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return 'tablet';
-  if (/Mobi|iPhone|iPod|Android|Windows Phone|BlackBerry|Opera Mini/i.test(ua)) return 'phone';
+  const os = deviceOs(ua);
+  if (os === 'ipad') return 'tablet';
+  if (os === 'iphone') return 'phone';
+  if (os === 'android') return /Mobile/i.test(ua) ? 'phone' : 'tablet';
+  if (/Tablet|PlayBook|Silk|Kindle/i.test(ua)) return 'tablet';
+  if (/Mobi|Windows Phone|BlackBerry|Opera Mini/i.test(ua)) return 'phone';
   return 'desktop';
 }
 

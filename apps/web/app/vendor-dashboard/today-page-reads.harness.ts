@@ -126,7 +126,6 @@ const SHOP_ROW: Record<string, unknown> = {
   tier_state: 'standard',
   created_at: '2026-01-10T00:00:00Z',
   in_business_since_year: 2019,
-  is_published: true,
 };
 const THREADS = [
   { thread_id: 't-new', event_id: EVENT_A, vendor_profile_id: SHOP, inquiry_status: 'pending', archived: false, created_at: '2026-10-20T00:00:00Z', pax_at_inquiry: 120, event: { event_date: '2027-02-14' } },

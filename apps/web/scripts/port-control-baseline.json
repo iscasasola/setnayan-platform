@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ec90efe04c",
-  "routeCount": 456,
-  "destinations": 997,
+  "generatedFromRef": "435459079e",
+  "routeCount": 457,
+  "destinations": 1000,
   "actions": 667,
-  "blocks": 6784,
+  "blocks": 6804,
   "routes": {
     "/": {
       "files": [
@@ -1303,6 +1303,7 @@
         "HubDraft",
         "HubLook",
         "HubMenuButton",
+        "HubOwnership",
         "HubPageFrame",
         "HubPageHold",
         "HubSceneFx",
@@ -5543,6 +5544,7 @@
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
+        "dashboard/[eventId]/_components/venue-pin-part.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -5734,6 +5736,7 @@
         "LiveBroadcastCard",
         "LivePhotoWallCard",
         "LiveScheduleCard",
+        "ManualVenuePinResult",
         "MarketplaceAutocomplete",
         "MarketplaceContact",
         "MarketplaceReviewsData",
@@ -6861,6 +6864,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PaidMark",
         "QrActions",
         "ReissueQrButton",
         "SlugField",
@@ -6953,6 +6957,7 @@
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
+        "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/replies-window-rows.tsx",
         "dashboard/[eventId]/launch/_components/rsvp-canvas-arrange.ts",
@@ -7011,6 +7016,7 @@
         "dashboard/[eventId]/launch/_components/studio-prints-settings.tsx",
         "dashboard/[eventId]/launch/_components/studio-prints-six.tsx",
         "dashboard/[eventId]/launch/_components/studio-tools.tsx",
+        "dashboard/[eventId]/launch/_components/studio-venues.tsx",
         "dashboard/[eventId]/launch/_components/studio-wish-gifts.tsx",
         "dashboard/[eventId]/launch/_components/studio-wish-list.tsx",
         "dashboard/[eventId]/launch/_components/studio-wish-sheet.tsx",
@@ -7035,6 +7041,7 @@
         "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/print?format=pdf&guest=[seg]",
         "/dashboard/[seg]/studio/website-pro",
+        "/dashboard/[seg]/studio/website-pro?from=maker",
         "/marketplace"
       ],
       "actions": [
@@ -7053,6 +7060,7 @@
         "ActionButton",
         "AddPartSheet",
         "AddWish",
+        "AddressField",
         "AddressPinField",
         "AllInOneButton",
         "AllInOneShipped",
@@ -7269,6 +7277,7 @@
         "MakerTool",
         "MakerTour",
         "MakerUpdating",
+        "ManualVenuePin",
         "MarchBoundary",
         "MarchCardPerson",
         "MarchCardResult",
@@ -7353,6 +7362,7 @@
         "PrintThumb",
         "PrintedStamp",
         "ProMark",
+        "ProQuietLine",
         "ProfileShareButton",
         "QrActions",
         "QrLookControls",
@@ -7411,6 +7421,7 @@
         "Sheet",
         "SheetHead",
         "SheetSections",
+        "ShopPinNote",
         "Shown",
         "ShutDoor",
         "SiteStage",
@@ -7467,6 +7478,7 @@
         "StudioMainExtras",
         "StudioMenuEditor",
         "StudioOpeningLine",
+        "StudioOwnVenue",
         "StudioParents",
         "StudioPhotosHeading",
         "StudioPieceDownload",
@@ -7485,6 +7497,8 @@
         "StudioTileKey",
         "StudioTool",
         "StudioToolMenu",
+        "StudioVenueCard",
+        "StudioVenues",
         "StudioWishGift",
         "StudioWishList",
         "StudioWishListLive",
@@ -9422,6 +9436,7 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
+        "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
@@ -9432,9 +9447,8 @@
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
-        "PageMasthead",
         "PaidMark",
-        "StudioBuyHero"
+        "ProPartsBody"
       ]
     },
     "/dashboard/[eventId]/vendors": {
@@ -9662,6 +9676,7 @@
         "Logo",
         "ManualVendorInviteResult",
         "ManualVendorResult",
+        "ManualVenuePin",
         "MarketplaceVendorSuggestion",
         "MerkadoGuardBanner",
         "MonthCompare",
@@ -9716,6 +9731,7 @@
         "Sheet",
         "SheetDoor",
         "SheetDoorCtx.Provider",
+        "ShopPinNote",
         "ShortlistCategories",
         "SlotPickerModal",
         "StartServiceInquiryResult",
@@ -9871,6 +9887,7 @@
         "Icon",
         "LaterInstallment",
         "Link",
+        "ManualVenuePinResult",
         "MoveSupplierResult",
         "PaymentAsksCard",
         "PaymentHistoryList",
@@ -10228,6 +10245,7 @@
         "PostEventWordsField",
         "PresetTiles",
         "ProLockPanel",
+        "ProQuietLine",
         "QrActions",
         "ReturnTo",
         "RowBlock",
@@ -11035,6 +11053,26 @@
         "PeopleRosterView",
         "RosterPerson",
         "TreeStandIn"
+      ]
+    },
+    "/dev/pro-parts-lab": {
+      "files": [
+        "dev/pro-parts-lab/lab-client.tsx",
+        "dev/pro-parts-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/pro-parts-lab",
+        "/dev/pro-parts-lab?frame=parts-free"
+      ],
+      "actions": [],
+      "blocks": [
+        "AddressField",
+        "AppleProScreen",
+        "ApplyProSheet",
+        "LabFrame",
+        "MakerContext.Provider",
+        "ProPartsBody",
+        "ProQuietLine"
       ]
     },
     "/dev/schedule-lab": {

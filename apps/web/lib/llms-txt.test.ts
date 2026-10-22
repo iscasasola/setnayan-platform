@@ -232,14 +232,15 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   const retired = {
     ...INPUT,
     retail: INPUT.retail.map((r) =>
-      r.service_code === 'ANIMATED_MONOGRAM' ? { ...r, is_active: false } : r,
+      // 2026-10-22: ANIMATED_MONOGRAM was retired (the Logo & QR part sells it) — PAKANTA is prose-priced and on sale.
+      r.service_code === 'PAKANTA' ? { ...r, is_active: false } : r,
     ),
   };
   assert.throws(
     () => renderLlmsTxt(retired),
     (err: unknown) => {
       assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
-      assert.match((err as Error).message, /ANIMATED_MONOGRAM/);
+      assert.match((err as Error).message, /PAKANTA/);
       return true;
     },
     'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +

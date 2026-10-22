@@ -32,7 +32,8 @@ import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveInviteGround } from '@/lib/invite-ground';
 import { viewingAsFreeCouple } from '@/lib/view-as-free.server';
 import { dressEventCoverGiven, type CoverIo, type DressedEventCover } from '@/lib/event-cover-given';
-import { websiteProActiveFor } from '@/app/[slug]/_lib/hub-look';
+import { coverOwnershipFrom } from '@/lib/hub-parts';
+import { hubOwnershipFor } from '@/app/[slug]/_lib/hub-look';
 import { eventWordsFor, eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { posterThemeStill } from '@/lib/event-poster.server';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
@@ -390,7 +391,9 @@ export type { DressedEventCover } from '@/lib/event-cover-given';
  */
 function viewedCoverIo(r: CoverRow): CoverIo {
   return {
-    ownsPro: () => websiteProActiveFor(r.event_id),
+    // 💎 The theme is the Style part's, the cover's own photo as its ground the Background part's (owner 2026-10-22,
+    //    gates 13 · 9) — one ownership read, as the viewer is shown it, answers both.
+    ownsPro: async () => coverOwnershipFrom(await hubOwnershipFor(r.event_id)),
     words: () => eventWordsFor(r.event_type ?? ''),
     logoAnimationOn: () => logoPlaysFor(r.event_id, resolveEventMonogramSvg(r)),
     sign: (ref) => displayUrlForStoredAsset(ref),
@@ -444,8 +447,7 @@ function publicCoverIo(r: CoverRow, facts: CoverFacts | undefined, types: Public
   const viewed = viewedCoverIo(r);
   return {
     ...viewed,
-    ownsPro: () =>
-      typeof facts?.websitePro === 'boolean' ? Promise.resolve(facts.websitePro) : viewed.ownsPro(),
+    ownsPro: () => (facts?.websitePro ? Promise.resolve(facts.websitePro) : viewed.ownsPro()),
     words: async () => eventWordsFromProfile(types.profileOf(r.event_type ?? '')),
     logoAnimationOn: () =>
       typeof facts?.logoAnimation === 'boolean' ? Promise.resolve(facts.logoAnimation) : viewed.logoAnimationOn(),

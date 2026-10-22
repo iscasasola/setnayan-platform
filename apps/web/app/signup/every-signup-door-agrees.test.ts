@@ -87,7 +87,7 @@ test('every sign-up door carries the Terms box — a checkbox, required, UNTICKE
   const offenders: string[] = [];
   for (const d of ALL) {
     // A box may sit OUTSIDE its form and still be the form's own field: HTML's `form=` attribute posts it with the
-    // form whose `id` it names (/signup since 2026-10-22 — one box ABOVE Google, Apple and the email form). It counts
+    // form whose `id` it names (any door that keeps its box outside the form; /signup keeps its one box INSIDE, just above the submit, since 2026-10-22). It counts
     // for THIS door only when the `form=` names THIS form's id; any other id, or none, is somebody else's box.
     const formId = d.form.match(/^<form action=\{signUp\}[^>]*\bid=\{(\w+)\}/)?.[1] ?? null;
     const outside = formId

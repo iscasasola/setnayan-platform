@@ -619,7 +619,8 @@ test('(7b) the guest page draws that answer on EVERY background, by the one laye
   assert.match(fx, /<>\s*\{ground\}\s*<AmbientEffectLayer spec=\{spec\} className="fixed inset-0 -z-10" \/>\s*<\/>/, 'the effect is not laid over the background, fixed behind the page');
   /* ◆ gated BEFORE it is worked out — for a guest by the event's own entitlement (the six always-Pro effects; Soft haze
      and Bokeh lights are gated at ✓ Apply since 2026-10-16); the host's own canvas tries it on. */
-  const gate = fx.indexOf('if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;');
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  const gate = fx.indexOf("if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await hubPartActiveFor(event.event_id, 'background').catch(() => false))) return ground;");
   assert.ok(gate > 0 && gate < fx.indexOf('const spec = lookSampleEffect('), 'a Pro effect is worked out, or drawn, before the event’s Pro is asked');
   /* The row the guest page measures from is the row the sample drafts over — the same six columns, by name. */
   const rowType = /export type LookSampleRow = \{([\s\S]*?)\n\};/.exec(read('lib/look-sample.ts'))?.[1] ?? '';

@@ -34,6 +34,46 @@ export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey 
 import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { STUDIO_TILE_UNREAD } from './studio-page-cards';
+import { formatPhp } from '@/lib/php';
+import { hubPart, type HubPartId } from '@/lib/hub-parts';
+
+/**
+ * 💎 STUDIO NESTING (owner 2026-10-22, "Event Hub Pro, part by part"): each Studio card names the Pro parts that live
+ * on its page — a quiet "◆ … from ₱500" line, ✓ when owned. Info → Custom address · Look → Style, Background, Motion,
+ * Music · Logo → Logo & QR · Love Story → Photos · Prints → Prints. Mood Board & Dress Code, Schedule, Wedding March,
+ * Seat plan and E-Gifts show no price (free); RSVP likewise. (Reveal and Post Event live in the Stages, Your own
+ * scenes on the stage canvas.)
+ */
+export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartId[]>> = {
+  info: ['address'],
+  look: ['style', 'background', 'motion', 'music'],
+  logo: ['logo_qr'],
+  mood: [],
+  schedule: [],
+  story: ['photos'],
+  march: [],
+  seats: [],
+  gifts: [],
+  rsvp: [],
+  prints: ['prints'],
+};
+
+/** The card's quiet Pro line — every figure a catalogue read; null where the page holds no part (or no price was read). */
+export function studioTilePro(
+  key: StudioTileKey,
+  pro: { owned: readonly HubPartId[]; full: boolean; pricePhp: Partial<Record<HubPartId, number>> } | null | undefined,
+): { owned: boolean; words: string } | null {
+  const parts = STUDIO_TILE_PARTS[key];
+  if (!pro || parts.length === 0) return null;
+  const names = parts.map((p) => hubPart(p).name);
+  if (pro.full || parts.every((p) => pro.owned.includes(p))) return { owned: true, words: names.join(' · ') };
+  const open = parts.filter((p) => !pro.owned.includes(p));
+  const figures = open.map((p) => pro.pricePhp[p]).filter((n): n is number => typeof n === 'number');
+  if (figures.length === 0) return null;
+  const least = Math.min(...figures);
+  const same = figures.every((n) => n === least) && open.length === 1;
+  return { owned: false, words: `${open.map((p) => hubPart(p).name).join(' · ')} ${same ? '' : 'from '}${formatPhp(least)}` };
+}
 
 type StudioTileDef = {
   /** The tile's name, and the short name the pill shows. */
@@ -74,6 +114,8 @@ export type StudioTileModel = {
   /** ✓ (true) · Missing (false) · no claim (undefined: not read, or "done" means nothing). */
   done: boolean | undefined;
   status: string;
+  /** 💎 Its Pro parts' quiet line (`studioTilePro`) — null where it holds none, and in the store shell. */
+  pro?: { owned: boolean; words: string } | null;
 };
 
 export type StudioTilesInput = {
@@ -89,6 +131,8 @@ export type StudioTilesInput = {
   offered: (item: DetailsItemKey) => boolean;
   /** The march's name in the event type's own words (`yourEventLabel('march', kind)`). */
   marchLabel?: string;
+  /** 💎 What the event holds of Event Hub Pro and each part's price — null in the store shell (no web price). */
+  pro?: { owned: readonly HubPartId[]; full: boolean; pricePhp: Partial<Record<HubPartId, number>> } | null;
 };
 
 /* The one sentence for a fact that could not be read — the Studio home's card says it too (`lib/studio-page-cards.ts`). */
@@ -149,6 +193,7 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
       immersive: def.immersive === true,
       done: tileDone(key, input),
       status: tileStatus(key, input),
+      pro: studioTilePro(key, input.pro),
     };
   });
 }

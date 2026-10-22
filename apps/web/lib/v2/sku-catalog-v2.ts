@@ -88,6 +88,19 @@ export const V2_SKU_CODES = [
   // codes stay listed here for historical order rows but go is_active=false in
   // the catalog (hidden from /pricing).
   'COUPLE_WEBSITE_PRO',
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22, migration 20271282742262) —
+  // one catalogue row per part; `lib/hub-parts.ts` names them. Never a price here.
+  'COUPLE_HUB_PART_REVEAL',
+  'COUPLE_HUB_PART_BACKGROUND',
+  'COUPLE_HUB_PART_PHOTOS',
+  'COUPLE_HUB_PART_STYLE',
+  'COUPLE_HUB_PART_MOTION',
+  'COUPLE_HUB_PART_LOGO_QR',
+  'COUPLE_HUB_PART_MUSIC',
+  'COUPLE_HUB_PART_PRINTS',
+  'COUPLE_HUB_PART_POST_EVENT',
+  'COUPLE_HUB_PART_OWN_SCENES',
+  'COUPLE_HUB_PART_ADDRESS',
   // Editorial PRO — new à-la-carte SKU (₱3,499 · owner-locked 2026-07-04) to
   // author the editorial front page (name the moments, tell each story, arrange
   // the layout). Seeded by migration 20270511151471. COUPLE_WEBSITE_PRO is the

@@ -87,7 +87,7 @@ import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
-import type { MakerVenuePictures } from './_components/maker-context';
+import type { MakerProLine, MakerVenuePictures } from './_components/maker-context';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
@@ -135,12 +135,16 @@ import { readChapterOverrides } from '@/app/[slug]/_components/editorial/data';
 import { resolveHubProOffer } from '@/lib/event-hub-pro';
 import {
   eventCoupleWebsiteProActive,
+  eventHubOwnership,
   eventOwnsCoupleWebsitePro,
+  hubPartPrices,
 } from '@/lib/couple-website-pro';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
-import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { eventHasRenamed } from '@/lib/event-slug-rename.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
 import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
@@ -574,6 +578,35 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
+  /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Hub Pro (as the viewer is shown it) and each
+     part's catalogue price — the quiet line's facts and the Studio cards' Pro lines. Never typed; none in the store
+     shell (no web price there). */
+  const [proOwn, proPrices] = await Promise.all([
+    // What the event holds — read in the store shell too: an owner keeps their rows there (`makerProUsable`).
+    asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
+    // The prices — never in the store shell (no web price there).
+    storeShell ? Promise.resolve(null) : hubPartPrices(createAdminClient()).catch(() => null),
+  ]);
+  /** 💎 Does the event hold this part (or everything), as the viewer is shown it — each Maker row's own ◆ state. */
+  const ownsPart = (p: HubPartId): boolean => Boolean(proOwn && (proOwn.full || proOwn.parts.has(p)));
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  for (const p of HUB_PARTS) {
+    const php = proPrices?.onSale.has(p.sku) ? proPrices.parts.get(p.sku) : undefined;
+    if (php !== undefined && php > 0) partPricePhp[p.id] = php;
+  }
+  const studioPro = proOwn && !storeShell ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
+  /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
+  const addressRenamed = await eventHasRenamed(eventId).catch(() => false);
+  const proLine: MakerProLine | null =
+    !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
+      ? null
+      : {
+          fromPhp: Math.min(...Object.values(partPricePhp)),
+          fullPhp: proPrices.full,
+          paidPhp: proOwn.paidPhp,
+          owned: [...proOwn.parts],
+          href: `/dashboard/${eventId}/studio/website-pro?from=maker`,
+        };
 
   /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
      read through the same per-request cache every Pro read above passed
@@ -1195,9 +1228,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let qrPrefs: unknown = printEvent.style_preferences;
       // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
       let draftedMarch: MarchStep[][] | null = null;
+      // 💎 The custom address tried in the draft (owner 2026-10-22) — the Address field opens on it.
+      let draftedAddress: string | null = null;
       try {
         const d = await readHubDraft(supabase, eventId);
         draftedMarch = d?.march ?? [];
+        draftedAddress = d?.address ?? null;
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
@@ -1248,7 +1284,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 On the web a drafted Pro theme is the one being edited even without
       // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
       // shell keeps the ownership half of the gate.
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell });
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: ownsPart('style') || !storeShell });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
@@ -1379,7 +1415,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         draftedVenue,
         draftedMarch,
         // ⛪ The venue card's "Our drawing ◆" — Pro as the celebration's mark reads it.
-        venuePro: { owns: printPro, storeShell },
+        venuePro: { owns: ownsPart('own_scenes'), storeShell },
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1430,7 +1466,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             /* 🧭 Studio › RSVP — the prototype's tool, over the same saves (new Maker only). */
             {...(stagesStudio
-              ? { studio: true, celebration: { ownsPro: printPro, storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
+              ? { studio: true, celebration: { ownsPro: ownsPart('motion'), storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
               : {})}
             current={rsvpAsk}
             drafted={rsvpAskDrafted}
@@ -1501,7 +1537,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
                Pro the QR look asks (`printPro`); its previews wear the board. */
-            celebration={{ ownsPro: printPro, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
+            celebration={{ ownsPro: ownsPart('motion'), colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
           />
         );
       }
@@ -1594,6 +1630,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         const gifts = await egiftAllP;
         studio = {
           tiles: studioTiles({
+            pro: studioPro,
             facts: guided,
             setup: setupFacts,
             giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
@@ -1635,7 +1672,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         specialMessageAction: updateSpecialMessage.bind(null, eventId),
         pabuyaMessage,
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
-        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
+        loveStory: withStory ? { story: story!, ownsPro: ownsPart('photos') } : null,
       });
       // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
       if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
@@ -1765,14 +1802,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             slug={printEvent.slug}
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            /* 💎 THE ADDRESS, PART BY PART (owner 2026-10-22): free = the address it has; renaming = the Custom address part. */
+            address={{
+              owns: Boolean(proOwn && (proOwn.full || proOwn.parts.has('address'))),
+              renamed: addressRenamed,
+              pricePhp: partPricePhp.address ?? null,
+              drafted: draftedAddress,
+              storeShell,
+            }}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
-            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
+            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, ownsPart('logo_qr')), storeShell }}
             qrStyleAction={updateQrStyle.bind(null, eventId)}
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
               current: themeCurrent,
-              ownsPro: printPro,
+              ownsPro: ownsPart('style'),
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,
@@ -1916,6 +1961,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       factEditors={factEditors}
       venuePictures={venuePictures}
       storeShell={storeShell}
+      proLine={proLine}
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}

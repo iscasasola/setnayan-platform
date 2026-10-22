@@ -14,6 +14,7 @@ import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
+import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftAnswer,
@@ -96,8 +97,15 @@ export type HubDraftBarProps = {
   proEffects?: readonly HubProEffectView[];
   /** The Apply sheet's first-visit tour (`customer_apply_pro_v1`) — an element, drawn inside the open sheet. */
   applyTour?: ReactNode;
-  /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
+  /** 👁 Shown the event's REAL ownership (not "as a free couple", outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
+  /** 💎 What the event holds, part by part, as shown (`HubDraftBarData.ownership`) — a part owner's half of a save's bar. */
+  ownership?: HubOwnershipView;
+  /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
+  partPricePhp?: Partial<Record<HubPartId, number>>;
+  fullPricePhp?: number | null;
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet names parts with no web figure. */
+  appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -128,6 +136,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
+  address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
 
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
@@ -344,6 +353,10 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
+  ownership,
+  partPricePhp,
+  fullPricePhp = null,
+  appleIap = false,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
@@ -362,8 +375,11 @@ export function HubDraftToolbar({
   useEffect(() => setFromSave(null), [renderedSummary]);
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
-  const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  /* 💎 Part by part (2026-10-22): an event that owns some parts gets its half DERIVED from the free one — the save asked
+     nobody who owns what (`hubSummaryFor`). */
+  const owned = hubOwnershipOfView(ownership ?? { full: ownsPro, parts: [], paidPhp: 0, fullPricePhp: null });
+  const summary = fromSave ? (ownsPro ? hubSummaryFor(fromSave.free, fromSave.owned, owned) : fromSave.free) : renderedSummary;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? fromSave.proEffects.filter((e) => !ownsHubPart(owned, e.part)) : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();
@@ -619,6 +635,14 @@ export function HubDraftToolbar({
           }}
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
+          pricing={
+            appleIap
+              ? /* 🍎 1.1 where Apple sells (flag-dark): the parts by name, no web figure — Apple's page prices them. */
+                { partPricePhp: {}, fullPricePhp: null, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null }, appleStore: true }
+              : !storeShell && partPricePhp && Object.keys(partPricePhp).length > 0
+                ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
+                : null
+          }
         />,
         document.body,
       ) : null}

@@ -110,7 +110,6 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'app/[slug]/recap/page.tsx': 'the recap footer (gate 37)',
   'app/[slug]/print/page.tsx': 'the print page footer (gate 37)',
   'app/[slug]/_components/editorial/editorial-content.tsx': 'the editorial colophon footer (gate 37)',
-  'app/dashboard/[eventId]/studio/website-pro/page.tsx': 'the Full Pro buy surface — "Everything"',
   'app/dashboard/[eventId]/studio/editorial-pro/page.tsx': 'the Editorial buy surface, which Full Pro includes',
   'app/dashboard/[eventId]/launch/page.tsx': "the Maker's one Full Pro offer and its marks (PR2 moves the marks to parts)",
   'app/dashboard/[eventId]/website/our-story/page.tsx': 'the buy CTA on the legacy story page — Full Pro',

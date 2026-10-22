@@ -14,7 +14,7 @@ import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
-import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView } from '@/lib/hub-parts';
+import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftAnswer,
@@ -101,6 +101,9 @@ export type HubDraftBarProps = {
   ownsPro?: boolean;
   /** 💎 What the event holds, part by part, as shown (`HubDraftBarData.ownership`) — a part owner's half of a save's bar. */
   ownership?: HubOwnershipView;
+  /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
+  partPricePhp?: Partial<Record<HubPartId, number>>;
+  fullPricePhp?: number | null;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
    * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
@@ -131,6 +134,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
+  address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
 
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
@@ -348,6 +352,8 @@ export function HubDraftToolbar({
   applyTour = null,
   ownsPro = false,
   ownership,
+  partPricePhp,
+  fullPricePhp = null,
   draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
@@ -626,6 +632,11 @@ export function HubDraftToolbar({
           }}
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
+          pricing={
+            !storeShell && partPricePhp && Object.keys(partPricePhp).length > 0
+              ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
+              : null
+          }
         />,
         document.body,
       ) : null}

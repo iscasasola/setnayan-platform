@@ -516,7 +516,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'digital_services',
     // 2026-09-28: "and colours" came out — colours are free for every couple
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark.',
+    // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',

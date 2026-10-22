@@ -835,6 +835,13 @@ export type HubDraftState = {
    */
   march?: MarchStep[][];
   /**
+   * 💎 A CUSTOM ADDRESS TRIED IN THE MAKER (owner 2026-10-22, "Event Hub Pro, part by part"): the couple's own
+   * setnayan.com/… typed under "Pick your own ◆", held here — never saved on the Details page itself. Apply renames the
+   * event to it (`renameEventSlug`, the shipped rename: conflict checks, the old link forwarding) when the event holds
+   * the Custom address part; until then guests use the address they have. Absent = nothing drafted.
+   */
+  address?: string;
+  /**
    * 👥 WHO MADE THE STEP THAT LEFT THIS STATE (owner 2026-10-18, rulings A + B — `lib/hub-draft-authors.ts`): the
    * account id of the host whose save produced it, set by the one door (`updateHubDraft` → `mergeHubDraft(…, by)`).
    * Each Undo state keeps its own, so the draft knows who made every step it can still take back. Absent = not known
@@ -1197,13 +1204,26 @@ function sanitizeState(raw: unknown): HubDraftState {
   const fixedStyles = sanitizeFixedSceneStylesDraft(src.fixedStyles);
   // 🚶 The Wedding March's moves — each step one of the shipped march moves (`lib/march-draft.ts`).
   const march = sanitizeMarchMoves(src.march);
+  // 💎 A custom address — the shape the rename enforces (`SLUG_SHAPE`), else nothing.
+  const address = sanitizeDraftAddress(src.address);
   return {
     events,
     widgets,
     ...(editorial ? { editorial } : {}),
     ...(fixedStyles ? { fixedStyles } : {}),
     ...(march ? { march } : {}),
+    ...(address ? { address } : {}),
   };
+}
+
+/** The address shape the rename enforces (`invitation/actions.ts` `updateEventSlug`): 3–32 small letters, digits, hyphens. */
+export const SLUG_SHAPE = /^[a-z0-9-]{3,32}$/;
+
+/** A drafted custom address, or null. */
+export function sanitizeDraftAddress(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim().toLowerCase();
+  return SLUG_SHAPE.test(v) ? v : null;
 }
 
 /** A posted patch (or a save's `base`, the same shape) → its well-formed state, through the SAME readers every write uses. */
@@ -1239,7 +1259,8 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
     Object.keys(d.widgets).length > 0 ||
     Object.keys(d.editorial ?? {}).length > 0 ||
     Object.keys(d.fixedStyles ?? {}).length > 0 ||
-    (d.march?.length ?? 0) > 0
+    (d.march?.length ?? 0) > 0 ||
+    Boolean(d.address)
   );
 }
 
@@ -1259,6 +1280,8 @@ export type HubDraftPatch = {
   march?: MarchStep[][];
   /** 🚶 Take the LAST drafted march move back off (the march's own Undo) — before `march` is added. */
   marchUndo?: true;
+  /** 💎 A custom address to try (`HubDraftState.address`); `null` takes the drafted one back off. */
+  address?: string | null;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -1269,6 +1292,7 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
   ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
   ...(d.march ? { march: d.march.map((move) => [...move]) } : {}),
+  ...(d.address ? { address: d.address } : {}),
   ...(d.by ? { by: d.by } : {}),
 });
 
@@ -1319,6 +1343,12 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: stri
   if ((patch as { marchUndo?: unknown }).marchUndo === true && next.march?.length) next.march = next.march.slice(0, -1);
   if (clean.march) next.march = [...(next.march ?? []), ...clean.march];
   if (next.march && next.march.length === 0) delete next.march;
+  /* 💎 A custom address replaces the drafted one; `null` takes it back off. */
+  if ('address' in patch) {
+    const a = sanitizeDraftAddress((patch as { address?: unknown }).address);
+    if (a) next.address = a;
+    else delete next.address;
+  }
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
@@ -1510,6 +1540,8 @@ export type HubLiveState = {
   editorial?: unknown;
   /** 🎨 The fixed parts' live picks (`events.style_preferences.scene_styles`). Absent reads as none. */
   fixedStyles?: FixedSceneStyles;
+  /** 💎 The address guests use today (`events.slug`). Absent reads as unknown — a drafted address is then no change. */
+  slug?: string | null;
 };
 
 export type HubDraftItem =
@@ -1573,6 +1605,14 @@ export type HubDraftItem =
       value: string | null;
       change: LookChange;
       pro: boolean;
+      freePart?: undefined;
+    }
+  | {
+      /** 💎 A custom address tried in the Maker — Pro (the Custom address part) to put live. */
+      kind: 'address';
+      value: string;
+      change: LookChange;
+      pro: true;
       freePart?: undefined;
     }
   | {
@@ -2526,6 +2566,11 @@ export function classifyHubDraft(
   // 🚶 The Wedding March's moves, very last: they are not compared with live (a
   // move is a step, not a value) — every drafted move is one Apply makes.
   if (draft.march?.length) items.push({ kind: 'march', value: draft.march, change: 'change', pro: false });
+  /* 💎 A custom address (owner 2026-10-22): renaming is the Custom address part's — tried free, held at Apply. One that
+     names the address guests already use is no change at all. */
+  if (draft.address && typeof live.slug === 'string' && draft.address !== live.slug) {
+    items.push({ kind: 'address', value: draft.address, change: 'change', pro: true });
+  }
   return { items, orphans };
 }
 
@@ -2766,6 +2811,9 @@ export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPa
     case 'fixed-style':
       out.add('style'); // 18
       break;
+    case 'address':
+      out.add('address'); // the custom address — the one part PRO-GATES.md had no row for (it was ungated)
+      break;
   }
   return [...out];
 }
@@ -2894,6 +2942,9 @@ export function planHubDraftApply(
     } else if (item.kind === 'march') {
       // Never refused (a march move is free) — kept for completeness.
       remaining.march = item.value;
+    } else if (item.kind === 'address') {
+      // 💎 A held custom address stays drafted, still picked.
+      remaining.address = item.value;
     } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
@@ -2936,7 +2987,7 @@ export function hubDraftWriteTables(
   // 🚶 The march's moves are the shipped march actions' (`march_walks`, the tray, the section order).
   for (const i of items)
     out.add(
-      i.kind === 'event' || i.kind === 'fixed-style'
+      i.kind === 'event' || i.kind === 'fixed-style' || i.kind === 'address'
         ? 'events'
         : i.kind === 'editorial'
           ? 'event_editorial'
@@ -3161,7 +3212,9 @@ export type HubDraftRefusal =
   /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */
   | 'needs_a_day'
   /** 🚶 A drafted march move the server refused at Apply — the moves before it went live, the rest were dropped. */
-  | 'march_stopped';
+  | 'march_stopped'
+  /** 💎 A drafted custom address someone else took (or a word we keep) since it was typed. */
+  | 'address_taken';
 
 export type HubDraftActionResult =
   | {
@@ -3371,6 +3424,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.kind === 'editorial') return postEventItemLabel(item.item);
   if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.kind === 'march') return MARCH_DRAFT_PLACE;
+  if (item.kind === 'address') return `Your address · ${item.value}`;
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'music') return 'Your music button';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';

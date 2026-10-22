@@ -303,6 +303,9 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
        apply"): "Wedding March · 3 changes" — one per drop the couple made. */
     case 'march':
       return { place: MARCH_DRAFT_PLACE, what: marchChangesWord(item.value.length) };
+    /* 💎 A custom address (owner 2026-10-22): "Event Details · Address" — the Address is one fact. */
+    case 'address':
+      return { place: 'Event Details', what: 'Address' };
     case 'widget': {
       const place = scenePlace(item.widgetType);
       switch (item.field) {

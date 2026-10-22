@@ -372,3 +372,59 @@ export function hubSummaryFor(free: HubDraftSummary, owned: HubDraftSummary, own
   });
   return { ...free, proCount: Math.max(0, free.proCount - released), ...(changes ? { changes } : {}) };
 }
+
+/* ── BUYING PARTS (owner 2026-10-22 — "never charge above the rest") ─────── */
+
+/**
+ * The order code for SEVERAL parts bought in one press ("Unlock Style + Motion and Apply"). One order, one payment,
+ * one line per part in `onboarding_order_items` — the shape every multi-product bill already uses, so ownership reads
+ * it through the basket lines the entitlement facts already carry. A single part is ordered under its own code.
+ */
+export const HUB_PARTS_ORDER_KEY = 'COUPLE_HUB_PARTS';
+
+/** The `hub_parts` form field — "style,motion" — read strictly: known parts only, each once, in the table's order. */
+export function parseHubPartsField(raw: unknown): HubPartId[] {
+  if (typeof raw !== 'string') return [];
+  const asked = new Set(raw.split(',').map((s) => s.trim()));
+  return HUB_PART_IDS.filter((id) => asked.has(id));
+}
+
+/** "Style + Motion" — the parts' names, as the order and the buttons say them. */
+export function hubPartsLabel(parts: readonly HubPartId[]): string {
+  return parts.map((p) => hubPart(p).name).join(' + ');
+}
+
+export type HubPartsCharge =
+  | { ok: true; php: number; capped: boolean }
+  | { ok: false; why: 'already_owned' | 'nothing_to_buy' | 'unpriced' };
+
+/**
+ * WHAT A PURCHASE COSTS — pure, every figure handed in from the catalogue.
+ *
+ *   · everything (`parts` = 'full') → the rest: Full Pro less what the event has paid for parts;
+ *   · one or more parts → their catalogue sum, but NEVER above the rest (owner: "never charge above the rest") —
+ *     and a purchase that reaches the rest reaches the cap, so it unlocks everything anyway (`hubOwnershipFrom`).
+ *
+ * A part already held is refused (nobody pays twice); everything already held is refused; an unread price is
+ * refused — never a guessed figure.
+ */
+export function hubPartsCharge(input: {
+  parts: readonly HubPartId[] | 'full';
+  owned: HubOwnership;
+  prices: ReadonlyMap<string, number>;
+  fullPrice: number | null;
+}): HubPartsCharge {
+  if (input.owned.full) return { ok: false, why: 'already_owned' };
+  const rest = input.fullPrice === null ? null : Math.max(0, input.fullPrice - input.owned.paidPhp);
+  if (rest === null) return { ok: false, why: 'unpriced' };
+  if (input.parts === 'full') return { ok: true, php: rest, capped: false };
+  if (input.parts.length === 0) return { ok: false, why: 'nothing_to_buy' };
+  let sum = 0;
+  for (const id of input.parts) {
+    if (input.owned.parts.has(id)) return { ok: false, why: 'already_owned' };
+    const php = input.prices.get(hubPart(id).sku);
+    if (typeof php !== 'number' || !Number.isFinite(php) || php <= 0) return { ok: false, why: 'unpriced' };
+    sum += php;
+  }
+  return sum > rest ? { ok: true, php: rest, capped: true } : { ok: true, php: sum, capped: false };
+}

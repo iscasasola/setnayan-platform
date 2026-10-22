@@ -178,11 +178,11 @@ test('the buy page already names the invite link — and must keep naming it', (
   // says-what-it-includes.test.ts holds the harder claim (a benefit may only name
   // something a non-buyer is actually refused). This is the other direction: the
   // inclusion is now one of the eight, so the sentence may not quietly go away.
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(
-    read('app/dashboard/[eventId]/studio/website-pro/page.tsx'),
-  );
-  assert.ok(benefits, 'BENEFITS not found — the scan is blind');
-  assert.match(benefits[1]!, /invite link/i, 'the buy page stopped naming the one thing the eighth item is');
+  // 💎 RE-AIMED 2026-10-22: the buy page is the parts page — the themes are the Style part's line ("Pro themes").
+  const parts = read('lib/hub-parts.ts');
+  const style = /id: 'style',[^\n]*blurb: "([^"]*)"/.exec(parts);
+  assert.ok(style, 'the Style part line not found — the scan is blind');
+  assert.match(style[1]!, /Pro themes/i, 'the buy page stopped naming the one thing the eighth item is');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

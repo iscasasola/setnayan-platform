@@ -9,9 +9,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventHubOwnership } from '@/lib/couple-website-pro';
+import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { asViewedOwnership } from '@/lib/view-as-free.server';
-import { NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView } from '@/lib/hub-parts';
+import { HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -471,7 +471,8 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
     { data: prefs, error: prefsErr },
     ceremonyTime,
   ] = await Promise.all([
-    supabase.from('events').select(HUB_DRAFT_EVENT_READ_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
+    // 💎 + `slug` — the address guests use today, what a drafted custom address is compared with (2026-10-22).
+    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
@@ -489,9 +490,11 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
   if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
   // Unread is not "no picks" either — Apply would compare against a guess.
   if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
+  const { slug: liveSlug, ...evCols } = (ev ?? {}) as Record<string, unknown>;
   return {
+    slug: typeof liveSlug === 'string' ? liveSlug : null,
     events: {
-      ...((ev ?? {}) as HubLiveState['events']),
+      ...(evCols as HubLiveState['events']),
       ceremony_time: ceremonyTime,
       // 🎨 The five main colours the page wears live, by slot — what a drafted colour is compared with.
       main_colours: mainColourSlotsOf((ev as { role_palette?: unknown } | null)?.role_palette, (ev as { invite_theme?: unknown } | null)?.invite_theme),
@@ -543,6 +546,13 @@ export type HubDraftBarData = {
    * everything. Serializable for the client; the Apply re-reads it server-side.
    */
   ownership: HubOwnershipView;
+  /**
+   * 💎 Each on-sale part's catalogue price, and Full Pro's (owner 2026-10-22) — what the Apply sheet groups, prices and
+   * sums, and what "₱X more unlocks everything" is worked from. Read, never typed; empty in the store shell (no web
+   * price there) and when unreadable — then the sheet names the parts with no figure.
+   */
+  partPricePhp: Partial<Record<HubPartId, number>>;
+  fullPricePhp: number | null;
 };
 
 /**
@@ -605,6 +615,17 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
     readError = true;
   }
+  /* 💎 The parts' prices (one cached catalogue read) — never in any store shell. */
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  let fullPricePhp: number | null = null;
+  if (!storeShell) {
+    const read = await hubPartPrices(createAdminClient()).catch(() => null);
+    for (const p of HUB_PARTS) {
+      const php = read?.onSale.has(p.sku) ? read.parts.get(p.sku) : undefined;
+      if (php !== undefined) partPricePhp[p.id] = php;
+    }
+    fullPricePhp = read?.full ?? null;
+  }
   let priceLabel: string | null = null;
   if (!storeShell && summary.proCount > 0) {
     const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
@@ -624,6 +645,8 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     readError,
     ownsPro: !viewedAsFree && !proShell,
     ownership: hubOwnershipView(proShell ? NO_HUB_PARTS : ownedViewed),
+    partPricePhp,
+    fullPricePhp,
     appleIap: iap,
   };
 });

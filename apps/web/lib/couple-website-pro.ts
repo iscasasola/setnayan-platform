@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   eventActiveSkus,
-  eventOrderRowsFor,
+  eventSkuLinesFor,
   eventOwnsSku,
   eventSkuActive,
   orderStatusConfersAccess,
@@ -10,6 +10,7 @@ import {
 import { askedOnce } from '@/lib/request-once';
 import {
   FULL_PRO_SKU,
+  HUB_PARTS_ORDER_KEY,
   HUB_PART_SKUS,
   hubOwnershipFrom,
   hubPart,
@@ -127,13 +128,16 @@ export function eventHubOwnership(
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
     //    and an internal/founder host already answered in step 1 — so the ONE batch
     //    reader (orders + comps + promos, `eventActiveSkus`) answers all eleven.
+    //    💎 …and a part bought inside a multi-part order is a LINE of that order (`HUB_PARTS_ORDER_KEY`), read with the
+    //    order's own status (`eventSkuLinesFor`) — held, and counted toward the cap, exactly like its own order.
     const [batch, rows] = await Promise.all([
       eventActiveSkus(supabase, eventId),
-      eventOrderRowsFor(supabase, eventId, HUB_PART_SKUS),
+      eventSkuLinesFor(supabase, eventId, HUB_PART_SKUS, HUB_PARTS_ORDER_KEY),
     ]);
-    const heldSku = (sku: string) => batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku));
-    // 3. The cap: the parts PAID for, each at its catalogue (web) price.
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
+    const heldSku = (sku: string) =>
+      batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku)) || rows.some((r) => r.service_key === sku && counts(r.status));
+    // 3. The cap: the parts PAID for, each at its catalogue (web) price.
     const paidParts = rows
       .filter((r) => counts(r.status))
       .map((r) => hubPartOfSku(r.service_key))
@@ -155,7 +159,7 @@ export function eventHubOwnership(
  */
 export function hubPartPrices(
   supabase: SupabaseClient,
-): Promise<{ parts: ReadonlyMap<string, number>; full: number | null }> {
+): Promise<{ parts: ReadonlyMap<string, number>; full: number | null; onSale: ReadonlySet<string> }> {
   return askedOnce(supabase, 'hub-part-prices', [], async () => {
     const { data, error } = await supabase
       .from('platform_retail_catalog_v2')
@@ -163,17 +167,20 @@ export function hubPartPrices(
       .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU]);
     if (error || !data) {
       if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
-      return { parts: new Map(), full: null };
+      return { parts: new Map(), full: null, onSale: new Set<string>() };
     }
     const parts = new Map<string, number>();
+    const onSale = new Set<string>();
     let full: number | null = null;
-    for (const r of data as Array<{ service_code: string; retail_price_php: number | string | null }>) {
+    for (const r of data as Array<{ service_code: string; retail_price_php: number | string | null; is_active?: boolean | null }>) {
       const php = Number(r.retail_price_php);
       if (!Number.isFinite(php) || php <= 0) continue;
+      /* A part taken off sale still COUNTS toward the cap at its price (it was paid for); it just cannot be bought. */
+      if (r.is_active) onSale.add(r.service_code);
       if (r.service_code === FULL_PRO_SKU) full = php;
       else parts.set(r.service_code, php);
     }
-    return { parts, full };
+    return { parts, full, onSale };
   });
 }
 

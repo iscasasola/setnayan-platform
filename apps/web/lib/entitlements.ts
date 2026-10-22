@@ -1196,6 +1196,37 @@ export async function eventOrderRowsFor(
   return keep((data ?? []) as OrderRow[]);
 }
 
+/**
+ * 💎 Every line that buys one of `codes` on this event — its own order (`service_key`) AND a line inside a
+ * multi-product bill (`onboarding_order_items`, e.g. several Event Hub Pro parts bought in one press), each with its
+ * order's status. In a render it is the entitlement facts every gate already shares (orders + basket lines, one RPC);
+ * outside it, the orders read plus the basket RPC per code. Fails CLOSED to "no lines".
+ */
+export async function eventSkuLinesFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  codes: readonly string[],
+  /** The bill code whose lines can carry `codes` — outside a render the basket is asked only when such a bill exists. */
+  billKey?: string,
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const rows = await eventOrderRowsFor(supabase, eventId, billKey ? [...codes, billKey] : codes);
+  const direct = rows.filter((r) => r.service_key !== billKey);
+  const facts = insideRender() ? await entitlementFactsOnce(supabase, eventId) : null;
+  if (facts) {
+    return [
+      ...direct,
+      ...facts.basket.filter((b) => codes.includes(b.serviceCode)).map((b) => ({ service_key: b.serviceCode, status: b.status })),
+    ];
+  }
+  if (billKey && direct.length === rows.length) return direct;
+  const basket = await Promise.all(
+    codes.map(async (code) =>
+      (await eventBasketOrdersGranting(supabase, eventId, code)).map((r) => ({ service_key: code, status: r.status })),
+    ),
+  );
+  return [...direct, ...basket.flat()];
+}
+
 /** Does this status confer ACCESS (admin-approved) — the feature-gate rule? */
 export function orderStatusConfersAccess(status: string | null): boolean {
   return confersAccess(status);

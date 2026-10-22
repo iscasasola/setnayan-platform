@@ -205,7 +205,7 @@ const SAMPLE: Record<string, string> = {
   uuid: '6f1c2b8e-3a4d-4e5f-9a0b-1c2d3e4f5a6b',
   publicId: 'S89E-7K3M9QW2XR',
   slug: 'maria-and-jose-forever',
-  token: 'tk_9f8e7d6c5b4a39281706',
+  opaque: 'tk_9f8e7d6c5b4a39281706',
   number: '20261212',
 };
 function fill(route: string, kind: keyof typeof SAMPLE): string {

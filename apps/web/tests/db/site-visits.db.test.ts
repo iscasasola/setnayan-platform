@@ -29,6 +29,8 @@ let plainUser = '';
 
 const KEY_A = 'a'.repeat(64);
 const KEY_B = 'b'.repeat(64);
+/** A made-up account uuid — sent as the key to prove a raw id is never stored. */
+const RAW_USER_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
 async function setRole(role: string): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role]);
@@ -122,7 +124,7 @@ test('🔒 no raw id is stored — the aggregate has no visitor column; the seen
   // A key that is not a 64-hex hash (a raw IP, a user id) is never stored anywhere.
   const before = (await db.query<{ n: string }>(`SELECT count(*)::text AS n FROM public.site_visit_seen`)).rows[0]!.n;
   assert.equal(await visit({ path: '/', key: '203.177.42.19' }), true, 'the view still counts');
-  assert.equal(await visit({ path: '/', key: '0f8fad5b-d9cb-469f-a165-70867728950e' }), true);
+  assert.equal(await visit({ path: '/', key: RAW_USER_ID }), true);
   const afterN = (await db.query<{ n: string }>(`SELECT count(*)::text AS n FROM public.site_visit_seen`)).rows[0]!.n;
   assert.equal(afterN, before, 'a raw id reached site_visit_seen');
   const anyRaw = await db.query(`SELECT 1 FROM public.site_visit_seen WHERE visitor LIKE '%203.177%' OR visitor LIKE '0f8fad5b%'`);

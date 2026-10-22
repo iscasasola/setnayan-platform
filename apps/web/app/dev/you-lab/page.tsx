@@ -12,7 +12,8 @@
  *   ?state=returning  a returning account: photo on file, @name set, formal name filled (folded open)
  *   ?state=long       a brand-new account with a long display name
  *   ?door=picker      the couple's next screen after Done: the REAL event-type picker in the REAL app bar, for an
- *                     account with no event yet (no "Back to events" — `&behind=1` draws the way back)
+ *                     account with no event yet (no "Back to events" — `&behind=1` draws the way back);
+ *                     `&loved=1` gives the account one loved one on file, which draws the "For · You ▾" dropdown
  *   &dark=1           (a walk adds `html.dark`) — the card's dark rules are inert until the route is DARK_READY
  *
  * The photo's live moments (chosen and not saved yet · uploading · refused) are the REAL upload widget
@@ -28,7 +29,7 @@ import { NewEventHead } from '@/app/dashboard/(account)/create-event/_components
 import { EventTypePicker } from '@/app/dashboard/(account)/create-event/_components/event-type-picker';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
-import { buildSelfSubject, buildUnspecifiedSubject } from '@/lib/create-subjects';
+import { buildSelfSubject, buildUnspecifiedSubject, dependentSubjects } from '@/lib/create-subjects';
 import { manilaToday } from '@/lib/std-views';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +61,7 @@ const STATES: Record<string, { me: YouCardMe; email: string; photos: Record<stri
   },
 };
 
-export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string; behind?: string }> }) {
+export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string; behind?: string; loved?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
 
@@ -82,7 +83,17 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
           <EventTypePicker
             types={types}
             budgetBands={budgetBands}
-            subjects={[buildSelfSubject('Isabel', { birth_date: null }), buildUnspecifiedSubject()]}
+            subjects={[
+              buildSelfSubject('Isabel', { birth_date: null }),
+              // A fixture loved one (no database): the row a `dependents` read would hand the page.
+              ...(sp.loved === '1'
+                ? dependentSubjects(
+                    [{ dependent_id: 'lab-lola', name: 'Lola Rosa', dependent_kind: 'person', birth_date: '1946-05-01', sex: 'female' }],
+                    'lab-user',
+                  )
+                : []),
+              buildUnspecifiedSubject(),
+            ]}
             todayISO={manilaToday()}
           />
         </div>

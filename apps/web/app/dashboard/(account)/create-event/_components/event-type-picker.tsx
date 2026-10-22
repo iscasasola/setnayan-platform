@@ -27,26 +27,16 @@ import {
   gridHiddenTypes,
   subjectHonoreeDependentId,
   subjectHonoreeLabel,
+  forMenuHint,
+  forMenuLabel,
+  forMenuSubjects,
+  openingSubject,
   type CreateSubject,
 } from '@/lib/create-subjects';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
 import { stashCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { formatCount } from '@/lib/format-number';
-
-/**
- * The avatar glyph per subject kind. Only a PERSON (and "You") falls through to
- * a monogram — an initial is a human convention, and printing "A" for "Aling
- * Nena's Store" would quietly file a business under people. Keyed by kind so a
- * widened vocabulary lands here as a missing key, not as a wrong glyph.
- */
-const SUBJECT_GLYPH: Partial<Record<CreateSubject['kind'], string>> = {
-  pet: '🐾',
-  business: '🏪',
-  item: '🔑',
-  other: '✦',
-  // `self`, `person` and `unspecified` are deliberately ABSENT: they keep the
-  // monogram they ship with today ("Someone else" has always shown an S).
-};
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY; the action decides that
@@ -130,10 +120,14 @@ export function EventTypePicker({
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const [showAllTypes, setShowAllTypes] = useState(false);
-  // WHO comes before WHAT (prototype User_Home_REDESIGN_2026-07-30 · createSheet).
-  // Null = the question is still open; a chosen subject sorts the grid and
-  // pre-answers "who are we celebrating?" downstream.
-  const [subject, setSubject] = useState<CreateSubject | null>(null);
+  // WHO sorts WHAT — but is no longer a screen of its own (owner 2026-10-22, "Yes to all": Host 3 option B,
+  // prototype journey_fixes_2026-10-22.html). The grid OPENS sorted for "You" (`openingSubject`); a loved one on
+  // file turns the who into the "For · You ▾" dropdown above the grid. Null = no roster (samahan, the QR
+  // fast-lane) — the household reading, exactly as before. The subject still pre-answers "who are we
+  // celebrating?" downstream.
+  const [subject, setSubject] = useState<CreateSubject | null>(() =>
+    !samahanCommunityId && !preselect ? openingSubject(subjects) : null,
+  );
   // Soft planning-horizon advisory (council § 5 card 2 — never a block): set
   // when the typed party date sits beyond the selected life type's horizon.
   const [farHorizon, setFarHorizon] = useState(false);
@@ -260,11 +254,10 @@ export function EventTypePicker({
       : types.filter((t) => !hidden.includes(t.key));
   const hiddenCount = types.length - gridTypes.length;
 
-  // The who step runs only when there is a real roster to choose from and no
-  // other context has already settled the celebrant: a samahan event belongs to
-  // a community, not a person, and a QR fast-lane already knows the type.
-  const whoStep = (subjects ?? []).length > 0 && !samahanCommunityId && !preselect;
-  const askWho = whoStep && !subject;
+  // The "For · You ▾" dropdown — only when there is a real choice (a loved one on file) and no other context has
+  // already settled the celebrant: a samahan event belongs to a community, not a person, and a QR fast-lane
+  // already knows the type. `forMenuSubjects` returns null when there is nothing to choose → nothing is drawn.
+  const forMenu = !samahanCommunityId && !preselect ? forMenuSubjects(subjects) : null;
 
   // Soft horizon advisory — recompute from the form's date inputs on any form
   // change. Reads the CreateDatePicker's own field names (date_candidate /
@@ -297,82 +290,37 @@ export function EventTypePicker({
     ? Math.round((horizonDaysFor(selectedKey) ?? 0) / 30.44)
     : 0;
 
-  // The heading is the STEP's own question — "who" first, "what" second — so a
-  // sorted grid never arrives under a title that asks something else.
   const heading = (
     <header className="mb-8 space-y-2">
-      <h1 className="sn-h1">
-        {askWho ? 'Para kanino ito?' : 'What kind of event are you planning?'}
-      </h1>
-      <p className="text-base text-ink/65">
-        {askWho
-          ? 'Sabihin mo lang kung kanino — we’ll put what fits them first.'
-          : 'Tap a type to begin.'}
-      </p>
+      <h1 className="sn-h1">What kind of event are you planning?</h1>
+      <p className="text-base text-ink/65">Tap a type to begin.</p>
     </header>
   );
-
-  if (askWho) {
-    // STEP 1 — "Para kanino ito?" A grid of sixteen type tiles is a wall; the
-    // same sixteen sorted around one named person is a short, obvious list.
-    return (
-      <section aria-label="Who this event is for">
-        {heading}
-        {notice}
-        <p className="mb-4 max-w-lg text-sm leading-relaxed text-ink/65">
-          Nothing is locked in — “someone else” shows every type, and you can change
-          this on the next screen.
-        </p>
-        <ul className="grid max-w-lg grid-cols-[minmax(0,1fr)] gap-2">
-          {(subjects ?? []).map((s) => (
-            <li key={s.id}>
-              <button
-                className="flex w-full items-center gap-3 rounded-xl border border-ink/12 bg-cream/40 px-4 py-3 text-left transition-colors hover:border-gold/40 hover:bg-gold/[0.05]"
-                onClick={() => setSubject(s)}
-                type="button"
-              >
-                <span
-                  aria-hidden
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 font-sans text-sm text-ink/70"
-                >
-                  {SUBJECT_GLYPH[s.kind] ?? s.name.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-ink">{s.name}</span>
-                  <span className="block truncate text-xs text-ink/55">{s.subtitle}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  }
 
   return (
     <>
       <section aria-label="Event type">
         {heading}
         {notice}
-        {whoStep && subject ? (
-          /* The answer, kept visible and reversible — the type grid below is
-             sorted by it, so it must never be a decision the user can't see. */
-          <div className="mb-5 flex max-w-lg items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
-            <span className="min-w-0 text-sm text-ink/70">
-              For <span className="font-medium text-ink">{subject.name}</span>
-              <span className="block truncate text-xs text-ink/50">{subject.subtitle}</span>
-            </span>
-            <button
-              className="ml-auto shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
-              onClick={() => {
-                setSubject(null);
+        {forMenu && subject ? (
+          /* The answer, kept visible and changeable — the grid below is sorted by it. Picking a row re-sorts the
+             grid in place, exactly as the old step did. One dropdown, never a row of pills (owner 2026-09-28). */
+          <div className="mb-5">
+            <PickMenu
+              label="Who this event is for"
+              value={subject.id}
+              compact
+              buttonText={`For · ${forMenuLabel(subject)}`}
+              dataAttr="data-create-for"
+              options={forMenu.map((s) => ({ key: s.id, label: forMenuLabel(s), hint: forMenuHint(s) }))}
+              onPick={(key) => {
+                const next = forMenu.find((s) => s.id === key);
+                if (!next) return;
+                setSubject(next);
                 setSelectedKey(null);
                 setShowAllTypes(false);
               }}
-              type="button"
-            >
-              Change
-            </button>
+            />
           </div>
         ) : null}
         <EventTypePhotoPicker
@@ -388,8 +336,8 @@ export function EventTypePicker({
             onClick={() => setShowAllTypes(true)}
             type="button"
           >
-            May iba ka pang pinaplano? Planning for yourself or someone else —{' '}
-            <span className="font-medium text-ink">show all event types</span>
+            Planning for someone else?{' '}
+            <span className="font-medium text-ink">Show all event types</span>
           </button>
         ) : null}
       </section>

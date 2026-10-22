@@ -1001,7 +1001,7 @@ test('a folded event type is always one tap from being shown', () => {
   const src = read(PICKER);
   assert.match(
     src,
-    /show all event types/,
+    /[Ss]how all event types/,
     'The "show all event types" doorway is gone from the create grid. Hiding debut ' +
       'and christening then becomes a WALL — and a self-planning debutante or an ' +
       'aunt planning her niece\'s day has no record for us to match.',

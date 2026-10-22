@@ -282,7 +282,7 @@ export function SpotlightTour({
         setI(next);
       }, wait);
     },
-    [finish, steps.length, tourKey],
+    [finish, steps, tourKey],
   );
 
   /* Find, scroll and light the current step's element — every tick, so the ring follows a page that
@@ -465,7 +465,7 @@ export function SpotlightTour({
     };
     document.addEventListener('click', onTap, true);
     return () => document.removeEventListener('click', onTap, true);
-  }, [advance, litFor, steps.length, tourKey]);
+  }, [advance, litFor, steps, tourKey]);
 
   // Escape skips, as the old card did.
   useEffect(() => {

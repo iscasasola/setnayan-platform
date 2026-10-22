@@ -41,3 +41,6 @@ it back, a part twice counts once, a submitted order owns nothing yet).
 
 SPEC IMPACT: corpus `DECISION_LOG.md` row "EVENT HUB PRO, PART BY PART" (2026-10-22) — the
 owner's rulings; and the 2026-10-02 d14 "Event Hub Plus ₱2,500" line struck as superseded.
+
+- **The Discover / home cover asks each part it can turn on** — a saved Pro theme the Style part, the own-photo ground the
+  Background part (`CoverOwnership`, one ownership read answers both; the remembered home facts hold both).

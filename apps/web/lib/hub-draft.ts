@@ -2814,8 +2814,6 @@ export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPa
     case 'address':
       out.add('address'); // the custom address — the one part PRO-GATES.md had no row for (it was ungated)
       break;
-    case 'march':
-      break;
   }
   return [...out];
 }

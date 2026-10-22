@@ -153,9 +153,9 @@ function reportOnlyScriptSrc(): string {
 }
 
 /**
- * Does a CSP source list admit this host? Handles the `https://*.posthog.com`
+ * Does a CSP source list admit this host? Handles the `https://*.supabase.co`
  * wildcard form — a plain `.includes(host)` would say no for
- * `us-assets.i.posthog.com` and cry wolf on an origin that is genuinely allowed.
+ * `abc.supabase.co` and cry wolf on an origin that is genuinely allowed.
  */
 function allowsHost(directive: string, host: string): boolean {
   for (const source of directive.split(/\s+/)) {

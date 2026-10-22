@@ -1,6 +1,6 @@
 /**
  * the-maker-sample-shows-no-app-notices.test.ts — THE GUEST PAGE INSIDE THE MAKER'S SAMPLE FRAME DRAWS NONE OF THE
- * APP'S FLOATING NOTICES (the cookie consent, the stale-tab bar): the host answers them on the Maker's own page, once.
+ * APP'S FLOATING NOTICES (the stale-tab bar; the cookie consent until 2026-10-22): the host answers them on the Maker's own page, once.
  *
  * Seen on the review copy, 2026-10-09: "We use essential cookies…" lay over the foot of the sample in the Maker lab.
  * The REAL canvas has always hidden it (`app/[slug]/_components/site-body.tsx`: the notices wear `data-app-chrome`
@@ -22,12 +22,14 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../app/[slug]/_lib/editor-canvas
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('(1) the cookie notice wears the one mark the canvas hides', () => {
+test('(1) the app’s floating notice wears the one mark the canvas hides', () => {
   assert.equal(EDITOR_CANVAS_HIDES_APP_CHROME, '[data-app-chrome]{display:none!important}');
-  const banner = read('app/_components/cookie-consent-banner.tsx');
-  const at = banner.indexOf('aria-label="Cookie consent"');
-  assert.ok(at > 0, 'the cookie notice was not found');
-  assert.match(banner.slice(at - 120, at), /data-app-chrome=""/, 'the cookie notice lost the mark — the canvas would draw it');
+  /* (The cookie notice wore it too until it was removed, 2026-10-22 — essential cookies only. The stale-tab bar is
+     the floating notice that remains.) */
+  const notice = read('app/_components/stale-tab-notice.tsx');
+  const at = notice.indexOf('role="status"');
+  assert.ok(at > 0, 'the stale-tab notice was not found');
+  assert.match(notice.slice(at - 120, at), /data-app-chrome=""/, 'the stale-tab notice lost the mark — the canvas would draw it');
 });
 
 test('(2) the real canvas hides it — on the host’s canvas only, never on a guest’s page', () => {

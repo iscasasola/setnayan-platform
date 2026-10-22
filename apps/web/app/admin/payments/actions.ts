@@ -33,7 +33,6 @@ import {
 } from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
 import { fetchPlatformSettingsMeasured, getEffectiveVatRatePct } from '@/lib/platform-settings';
-import { captureEvent } from '@/lib/analytics';
 import { guestReceiptName } from '@/lib/papic-guest-buy';
 import {
   computePayoutBreakdown,
@@ -545,7 +544,7 @@ export async function approvePaymentCore(args: {
   }
 
   // Look up the order so the notification can link directly + name the order,
-  // and so the PostHog `order_paid` event below has `service_key` to slice on.
+  // and read its `service_key`.
   const { data: order } = await admin
     .from('orders')
     // `status` added 2026-09-22 (CTRL-B1 build 2): the promote below now has a
@@ -736,25 +735,6 @@ export async function approvePaymentCore(args: {
     // null id down two helpers that reasonably assume a buyer exists.
     if (payment.user_id) {
       after(() => qualifyReferralOnFirstPaidOrder(payment.user_id as string));
-    }
-
-    // Funnel event — fires the moment an order's status flips to paid.
-    // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
-    // joins with `signup_completed` / `event_created` for the same person.
-    // `sku_key` maps to the order's `service_key` column (closest existing
-    // analog; no schema change per the wiring scope).
-    try {
-      if (payment.user_id) await captureEvent({
-        distinctId: payment.user_id,
-        event: 'order_paid',
-        properties: {
-          order_id: payment.order_id,
-          amount_php: Number(payment.amount_php),
-          sku_key: order?.service_key ?? null,
-        },
-      });
-    } catch {
-      // analytics never breaks the admin reconciliation flow.
     }
 
     // Auto-issue an app transaction receipt — one per order. This is NOT a

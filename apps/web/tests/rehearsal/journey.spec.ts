@@ -142,23 +142,6 @@ async function phone(browser: Browser): Promise<BrowserContext> {
   return context;
 }
 
-/**
- * The cookie notice sits over the bottom of a phone screen — answer it once per
- * visitor, as a person would. Best effort: where it is not shown, or sits under
- * a sheet (the sign-in card covers it), there is nothing for a person to press
- * either, and the walk moves on.
- */
-async function answerCookieNotice(page: Page): Promise<void> {
-  const essential = page
-    .getByRole('region', { name: 'Cookie consent' })
-    .getByRole('button', { name: 'Essential only' });
-  try {
-    await essential.click({ timeout: 5_000 });
-  } catch {
-    /* not on this screen */
-  }
-}
-
 /** Park a page on nothing, so what it would keep asking is not billed to another visitor's step. */
 async function rest(page: Page): Promise<void> {
   await page.goto('about:blank').catch(() => {});
@@ -314,7 +297,6 @@ test('the launch-critical journey', async ({ browser }) => {
     await host.locator('#hr-si-password:visible').first().fill(PASSWORD);
     await host.getByRole('button', { name: 'Continue', exact: true }).first().click();
     await host.waitForURL((u) => u.pathname === eventUrl, { timeout: 45_000 });
-    await answerCookieNotice(host);
     check('the password is accepted and the host lands on their event');
   });
 
@@ -413,7 +395,6 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('B · Event Hub', 'The guest page shows the change', () => stranger, async (check) => {
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
     await expect(stranger.locator('h1[data-motion="arrive-names"]:visible').first()).toBeVisible({ timeout: 45_000 });
-    await answerCookieNotice(stranger);
     // The note lives under the page's Details tab — where a guest would look for it.
     await stranger.getByRole('link', { name: 'Details', exact: true }).first().click();
     await stranger.waitForURL((u) => u.searchParams.get('tab') === 'details', { timeout: 30_000 });
@@ -458,7 +439,6 @@ test('the launch-critical journey', async ({ browser }) => {
     await rest(host);
     await guest.goto(inviteLink);
     await guest.waitForURL((u) => u.pathname.includes('/invite/'), { timeout: 45_000 });
-    await answerCookieNotice(guest);
     const door = guest.locator('[data-door-header]:visible').first();
     await expect(door).toBeVisible();
     for (const name of FIXTURE.hostNames) await expect(door).toContainText(name);
@@ -518,7 +498,6 @@ test('the launch-critical journey', async ({ browser }) => {
     await stranger.goto(`${BASE}/${FIXTURE.slug}`);
     const names = stranger.locator('h1[data-motion="arrive-names"]:visible').first();
     await expect(names).toBeVisible({ timeout: 45_000 });
-    await answerCookieNotice(stranger);
     for (const name of FIXTURE.hostNames) await expect(names).toContainText(name);
     check(`the hosts' names are on the page (${FIXTURE.hostNames.join(' & ')})`);
     const date = stranger.locator('p[data-motion="arrive-date"]:visible').first();

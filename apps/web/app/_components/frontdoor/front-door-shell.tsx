@@ -1945,10 +1945,9 @@ export function FrontDoorShell({
               ALL to the download page. Same for Refunds. The rail is the only
               chrome those pages now have, so the rail has to carry them.
 
-              ⚠ Cookie settings is a real control, not a link: the consent
-              banner exposes a re-open handler and RA 10173 expects a standing
-              way to change the choice. It is rendered by the host page's own
-              banner, so this points at the page that hosts it.
+              🍪 There is no "Cookie settings" control any more (owner
+              2026-10-22): essential cookies only, so there is no choice to
+              change.
             */}
             <Link href="/refunds">Refunds</Link>
             <Link href="/download">Download</Link>

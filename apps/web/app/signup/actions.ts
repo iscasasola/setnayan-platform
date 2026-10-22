@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
-import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
@@ -59,12 +58,9 @@ export async function signUp(formData: FormData) {
   // explicit ?next= (deep-link/QR flows) still wins.
   const rawNext = safeNext(formData.get('next'));
   const next = accountType === 'vendor' && rawNext === '/' ? '/open-shop' : rawNext;
-  // Guest → host growth-loop attribution (no PII). Set by the guest-page CTA,
-  // carried through the form as hidden inputs. Only `ref=guest` with a present
-  // `src_event` (a public_id, text) is attributable.
+  // `ref=guest` — set by the guest-page CTA, carried through the form as a
+  // hidden input — marks a sign-up made from an invitation (below).
   const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
-  const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
-  const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
   // An account made FROM AN INVITATION (owner 2026-09-25): no You card, no
   // couple welcome email, straight back to the event. lib/signup-landing.ts.
   const fromEvent = accountType === 'customer' && isEventSignup({ ref: guestHostRef, next });
@@ -185,13 +181,6 @@ export async function signUp(formData: FormData) {
         console.warn('[signup/convert] public.users email update failed:', profileError.message);
       }
 
-      void captureEvent({
-        distinctId: userId,
-        event: 'signup_completed',
-        properties: { account_type: 'customer', via: 'anon_convert' },
-      }).catch(() => {
-        /* telemetry never blocks */
-      });
       void sendEmail({
         to: email,
         subject: 'Your Setnayan plan is secured',
@@ -425,40 +414,7 @@ export async function signUp(formData: FormData) {
   }
 
   if (autoConfirmed) {
-    // 2026-05-30 perceived-signup-lag fix — pre-fix this was
-    // `await captureEvent(...)` inside a try/catch with a comment
-    // saying "analytics is fire-and-forget; never block the signup
-    // redirect" — but the `await` blocked it for ~50-100ms anyway.
-    // Honor the documented intent by NOT awaiting: the promise
-    // continues executing in the Node server runtime background
-    // after the redirect response is sent. `.catch()` swallows
-    // any rejection so it doesn't become an unhandled-promise
-    // warning. `void` discards the returned promise so TypeScript's
-    // no-floating-promises rule stays satisfied.
     if (data.user?.id) {
-      void captureEvent({
-        distinctId: data.user.id,
-        event: 'signup_completed',
-        properties: { account_type: accountType },
-      }).catch(() => {
-        // Telemetry failure never blocks. Silent.
-      });
-      // Guest → host growth-loop north-star metric. Only fired when the signup
-      // was attributed to a guest-page CTA. Best-effort, never blocks (the
-      // existing `void … .catch` pattern above).
-      if (isGuestHostAttributed) {
-        void captureEvent({
-          distinctId: data.user.id,
-          event: 'guest_to_host_signup',
-          properties: {
-            attributed_to_event_public_id: guestHostSrcEvent,
-            ref: guestHostRef,
-          },
-        }).catch(() => {
-          // Telemetry failure never blocks. Silent.
-        });
-      }
-
       // 🔒 SIGNING UP BINDS NO SEAT (2026-09-30 — the owner's own wedding). This
       // used to run `linkGuestSessionToUser`, binding whatever guest pass this
       // browser held to the brand-new account — on a shared phone, somebody

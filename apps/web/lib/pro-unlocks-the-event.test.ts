@@ -260,6 +260,10 @@ const READERS = [
   'eventOwnsCustomQrGuest',
   'eventOwnsCoupleWebsitePro',
   'eventCoupleWebsiteProActive',
+  // 💎 Event Hub Pro, part by part (2026-10-22) — the same question, asked of one part.
+  'eventHubPartActive',
+  'eventOwnsHubPart',
+  'eventHubOwnership',
   'isEditorialProActive',
   'eventOwnsEditorialPro',
   'resolvePanoodTier',
@@ -293,6 +297,8 @@ const EVENT_LEVEL_BY_OWN_GATE: Record<string, string> = {
   'app/dashboard/[eventId]/seating/print/route.ts': 'GET route gated by its own read; service client',
   'app/dashboard/[eventId]/seating/export/route.ts': 'GET route gated by its own read; service client',
   'app/dashboard/[eventId]/invitation/print/page.tsx': 'print page gated by its own read; service client',
+  'app/dashboard/[eventId]/invitation/actions.ts':
+    'the rename’s Custom address gate (2026-10-22) — service client; the rename itself writes on the couple’s own session (RLS)',
 };
 
 /** A first argument that came from the one resolver. */

@@ -9,8 +9,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { asViewed } from '@/lib/view-as-free.server';
+import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
+import { asViewedOwnership } from '@/lib/view-as-free.server';
+import { HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -470,7 +471,8 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
     { data: prefs, error: prefsErr },
     ceremonyTime,
   ] = await Promise.all([
-    supabase.from('events').select(HUB_DRAFT_EVENT_READ_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
+    // 💎 + `slug` — the address guests use today, what a drafted custom address is compared with (2026-10-22).
+    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
@@ -488,9 +490,11 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
   if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
   // Unread is not "no picks" either — Apply would compare against a guess.
   if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
+  const { slug: liveSlug, ...evCols } = (ev ?? {}) as Record<string, unknown>;
   return {
+    slug: typeof liveSlug === 'string' ? liveSlug : null,
     events: {
-      ...((ev ?? {}) as HubLiveState['events']),
+      ...(evCols as HubLiveState['events']),
       ceremony_time: ceremonyTime,
       // 🎨 The five main colours the page wears live, by slot — what a drafted colour is compared with.
       main_colours: mainColourSlotsOf((ev as { role_palette?: unknown } | null)?.role_palette, (ev as { invite_theme?: unknown } | null)?.invite_theme),
@@ -530,11 +534,25 @@ export type HubDraftBarData = {
    */
   proEffects: HubProEffectView[];
   /**
-   * 👁 Does this viewer own Pro, AS SHOWN (the view switch applied) and outside
-   * the store shell — the toolbar's pick between the two halves of a save's
-   * answer (`hubDraftBarAfterSave`).
+   * 👁 Is this viewer shown the event's REAL ownership — not "viewing as a free
+   * couple", and outside the store shell — the toolbar's pick between the two
+   * halves of a save's answer (`hubDraftBarAfterSave`: `owned` is the event's
+   * real ownership, part by part; `free` is none).
    */
   ownsPro: boolean;
+  /**
+   * 💎 What the event holds of Event Hub Pro, AS SHOWN (owner 2026-10-22, part by
+   * part) — Full Pro, the parts one by one, and what it has paid toward
+   * everything. Serializable for the client; the Apply re-reads it server-side.
+   */
+  ownership: HubOwnershipView;
+  /**
+   * 💎 Each on-sale part's catalogue price, and Full Pro's (owner 2026-10-22) — what the Apply sheet groups, prices and
+   * sums, and what "₱X more unlocks everything" is worked from. Read, never typed; empty in the store shell (no web
+   * price there) and when unreadable — then the sheet names the parts with no figure.
+   */
+  partPricePhp: Partial<Record<HubPartId, number>>;
+  fullPricePhp: number | null;
 };
 
 /**
@@ -566,30 +584,47 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   /* ⚡ Read even with no draft yet: the toolbar needs it to pick which half of a
      save's answer (`hubDraftBarAfterSave`) is this viewer's — owner 2026-09-30,
      SPEED FIRST (a drawn pick brings no render any more). */
-  let ownsProViewed = false;
+  let ownedViewed: HubOwnership = NO_HUB_PARTS;
+  let viewedAsFree = false;
   try {
-    const [draft, ownsPro, me] = await Promise.all([
+    const realP = eventHubOwnership(createAdminClient(), eventId).catch(() => NO_HUB_PARTS);
+    const [draft, owned, real, me] = await Promise.all([
       readHubDraft(supabase, eventId),
       // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
       // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
-      // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
-      asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
+      // `hubDraftAction` asks `hubOwnershipForWrite`, which never reads the switch).
+      asViewedOwnership(realP),
+      realP,
       // ↺ Whose steps are whose (ruling B): the request's own account — the same cached read the page already made.
       getCurrentUser().then((u) => u?.id).catch(() => undefined),
     ]);
-    ownsProViewed = ownsPro;
+    ownedViewed = owned;
+    /* "As a free couple" — the switch handed back no parts for an event that holds some. */
+    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0);
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
-      summary = summarizeHubDraft(draft, live, ownsPro && !proShell, me);
-      if (!proShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
+      const forPlan = proShell ? NO_HUB_PARTS : owned;
+      summary = summarizeHubDraft(draft, live, forPlan, me);
+      if (!proShell) proEffects = hubDraftProEffects(draft, live, owned).map(hubProEffectView);
       // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
-      summary.changes = hubDraftChangeLines(draft, live, ownsPro && !proShell);
+      summary.changes = hubDraftChangeLines(draft, live, forPlan);
     }
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
     readError = true;
+  }
+  /* 💎 The parts' prices (one cached catalogue read) — never in any store shell. */
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  let fullPricePhp: number | null = null;
+  if (!storeShell) {
+    const read = await hubPartPrices(createAdminClient()).catch(() => null);
+    for (const p of HUB_PARTS) {
+      const php = read?.onSale.has(p.sku) ? read.parts.get(p.sku) : undefined;
+      if (php !== undefined) partPricePhp[p.id] = php;
+    }
+    fullPricePhp = read?.full ?? null;
   }
   let priceLabel: string | null = null;
   if (!storeShell && summary.proCount > 0) {
@@ -608,7 +643,10 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     proHref: iap ? `/dashboard/${eventId}/apple-pro?from=maker` : storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
     proEffects,
     readError,
-    ownsPro: ownsProViewed && !proShell,
+    ownsPro: !viewedAsFree && !proShell,
+    ownership: hubOwnershipView(proShell ? NO_HUB_PARTS : ownedViewed),
+    partPricePhp,
+    fullPricePhp,
     appleIap: iap,
   };
 });
@@ -636,6 +674,8 @@ export async function hubDraftBarAfterSave(
   try {
     const live = await readHubLiveState(supabase, eventId);
     // ↺ `me` — whose steps ↺ may take back (ruling B); absent: every step, as before.
+    // 💎 Part by part (2026-10-22): still nobody is asked who owns what — every held line and effect carries the PARTS
+    // it needs, so the toolbar derives its own half from the ownership the render drew with (`hubSummaryFor`).
     const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) };
     const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);

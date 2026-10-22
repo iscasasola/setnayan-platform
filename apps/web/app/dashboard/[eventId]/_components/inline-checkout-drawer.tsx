@@ -183,6 +183,11 @@ export type InlineCheckoutDrawerProps = {
    * preference must never block somebody from paying for the thing itself.
    */
   onBeforeOpen?: () => Promise<void> | void;
+  /**
+   * 💎 Several Event Hub Pro parts in one order (owner 2026-10-22) — sent as `hub_parts` ("style,motion") with the
+   * `COUPLE_HUB_PARTS` key; the server prices each from the catalogue. Every other caller omits it.
+   */
+  hubParts?: string;
 };
 
 /**
@@ -246,6 +251,7 @@ export function InlineCheckoutDrawer({
   triggerLabel,
   triggerClassName,
   onBeforeOpen,
+  hubParts,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -627,6 +633,7 @@ export function InlineCheckoutDrawer({
                     fd.set('event_id', eventId);
                     if (typeof cycles === 'number') fd.set('cycles', String(cycles));
                     fd.set('service_key', serviceKey);
+                    if (hubParts) fd.set('hub_parts', hubParts);
                     fd.set('display_name', displayName);
                     fd.set('original_centavos', originalPriceCentavos);
                     fd.set('channel', channel);

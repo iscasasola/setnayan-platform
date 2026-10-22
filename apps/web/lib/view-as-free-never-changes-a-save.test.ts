@@ -72,12 +72,13 @@ test('the scan sees the tree (a guard looking at nothing passes everything)', ()
 });
 
 test('every Maker surface shows Pro "as viewed" — and only render readers do', () => {
-  const callers = FILES.filter((f) => /\basViewed\(/.test(code(f)))
+  /* RE-AIMED 2026-10-22 (part by part): `asViewedOwnership` is the same switch for what an event holds part by part. */
+  const callers = FILES.filter((f) => /\basViewed(?:Ownership)?\(/.test(code(f)))
     .map(rel)
     .filter((r) => r !== 'lib/view-as-free.server.ts')
     .sort();
   for (const r of RENDER_READERS) {
-    const n = (read(r).match(/\basViewed\(/g) ?? []).length;
+    const n = (read(r).match(/\basViewed(?:Ownership)?\(/g) ?? []).length;
     console.log(`  asViewed( in ${r}: ${n}`);
     assert.ok(n > 0, `${r} reads Pro for the owner's view but does not pass it through asViewed — it would keep showing Pro`);
   }
@@ -128,8 +129,10 @@ test('the write gates read the REAL entitlement — Apply included', () => {
     }
   }
   // Apply's own Pro answer comes from the real look gate, not from anything the page drew.
-  assert.match(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'), /await lookProAllows\(/);
-  assert.match(read('lib/hub-look-gate.ts'), /await eventCoupleWebsiteProActive\(/);
+  // RE-AIMED 2026-10-22 (part by part): Apply asks what the event owns, part by part, from the real look gate's module.
+  assert.match(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'), /await hubOwnershipForWrite\(/);
+  assert.match(read('lib/hub-look-gate.ts'), /await eventHubPartActive\(/);
+  assert.match(read('lib/hub-look-gate.ts'), /eventHubOwnership\(createAdminClient\(\), eventId, 'active'\)/);
 });
 
 test('the switch itself writes nothing', () => {

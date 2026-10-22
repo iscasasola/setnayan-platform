@@ -63,6 +63,8 @@ import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
+import { FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
+import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 
 export {
   chargeOverchargesDisplayedPrice,
@@ -99,6 +101,11 @@ export type ChargeAuthorityInput = {
    * Getting this backwards would let anyone buy at the discount for ever.
    */
   priceContext?: AiPriceContext;
+  /**
+   * 💎 The parts a `COUPLE_HUB_PARTS` order buys (owner 2026-10-22) — read strictly from the form
+   * (`parseHubPartsField`); ignored for every other key. Each is priced HERE, from the catalogue.
+   */
+  hubParts?: readonly HubPartId[];
 };
 
 /**
@@ -150,6 +157,15 @@ export async function resolveOrderChargeCentavos(
   // it now falls through to (5) and is refused with `no_price_source`. The old
   // branch only refused when the catalog lookup missed — had anyone ever seeded
   // a `SETNAYAN_AI_SUB` retail row it would have started selling again.
+
+  // ── (1b) 💎 Event Hub Pro, part by part (owner 2026-10-22) ───────────────
+  // A part, several parts, or everything once a part is paid: priced from the catalogue against what THIS event
+  // already holds — never above the rest to everything, never twice. Full Pro with nothing paid toward it falls
+  // through to the catalogue exactly as before (and the onboarding price there).
+  if (eventId && (serviceKey === FULL_PRO_SKU || serviceKey === HUB_PARTS_ORDER_KEY || hubPartOfSku(serviceKey))) {
+    const hub = await resolveHubProCharge(admin, eventId, serviceKey, input.hubParts ?? []);
+    if (hub) return hub;
+  }
 
   // ── (2) The retail catalog ────────────────────────────────────────────────
   const retail = await resolveRetailChargeCentavos(eventId ?? '', serviceKey);
@@ -282,4 +298,37 @@ export async function resolveOrderChargeCentavos(
     refusal: 'no_price_source',
     detail: `no server-side price resolver owns service_key=${serviceKey.slice(0, 64)}`,
   };
+}
+
+/**
+ * 💎 The Event Hub Pro charge (owner 2026-10-22, "never charge above the rest"). Null = not ours to price: Full Pro on
+ * an event that has paid nothing toward it (the catalogue row, as before). Reads with the service-role client: what
+ * the EVENT holds, counting an order still under review (`'owned'`), so a couple mid-review is never charged twice.
+ */
+async function resolveHubProCharge(
+  admin: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+  asked: readonly HubPartId[],
+): Promise<OrderChargeAuthority | null> {
+  let owned;
+  let prices;
+  try {
+    [owned, prices] = await Promise.all([eventHubOwnership(admin, eventId, 'owned'), hubPartPrices(admin)]);
+  } catch (e) {
+    return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
+  }
+  if (serviceKey === FULL_PRO_SKU && !owned.full && owned.paidPhp === 0) return null;
+  const single = hubPartOfSku(serviceKey);
+  const parts: readonly HubPartId[] | 'full' = serviceKey === FULL_PRO_SKU ? 'full' : single ? [single] : asked;
+  if (parts !== 'full' && parts.some((p) => !prices.onSale.has(hubPart(p).sku))) {
+    return { ok: false, refusal: 'no_price_source', detail: 'a part asked for is not on sale' };
+  }
+  const charge = hubPartsCharge({ parts, owned, prices: prices.parts, fullPrice: prices.full });
+  if (!charge.ok) {
+    if (charge.why === 'already_owned') return { ok: false, refusal: 'already_owned', detail: serviceKey };
+    if (charge.why === 'unpriced') return { ok: false, refusal: 'read_error', detail: 'a part or Full Pro price was not read' };
+    return { ok: false, refusal: 'no_price_source', detail: 'no part named' };
+  }
+  return sealServerResolvedTotal(charge.php * 100, 'hub_parts');
 }

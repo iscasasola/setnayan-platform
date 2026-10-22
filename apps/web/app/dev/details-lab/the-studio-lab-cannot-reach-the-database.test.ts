@@ -36,8 +36,8 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
 test('(1) every write the context carries has a lab stand-in and a refusal — none is left real', () => {
   const ctx = read(join(LAUNCH, 'studio-actions-context.tsx'));
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_STUDIO_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]!).slice(0, 5);
-  assert.deepEqual([...real].sort(), ['hubDraftAction', 'qrUploadSend', 'saveEgiftMethod', 'savePabuyaMessage', 'setEgiftMethodEnabled'], 'the context’s names could not be read (or changed — add the new page’s writes here)');
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_STUDIO_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]!).slice(0, 6);
+  assert.deepEqual([...real].sort(), ['hubDraftAction', 'qrUploadSend', 'saveEgiftMethod', 'saveManualVenuePin', 'savePabuyaMessage', 'setEgiftMethodEnabled'], 'the context’s names could not be read (or changed — add the new page’s writes here)');
   const writes = real.filter((n) => n !== 'qrUploadSend');
   assert.deepEqual(Object.keys(LAB_STUDIO_ACTIONS).sort(), [...writes].sort(), 'a lab press can reach a real action');
   assert.deepEqual(Object.keys(LAB_STUDIO_REFUSALS).sort(), [...writes].sort(), 'a write has no refusal for ?refuse=1');
@@ -101,12 +101,14 @@ test('(4) the stand-ins answer like the real ones, locally — and ?refuse=1 ref
   assert.deepEqual(await a.savePabuyaMessage!(new FormData()), { ok: true });
   const drafted = await a.hubDraftAction!('e', new FormData());
   assert.ok(drafted.ok && drafted.intent === 'save');
+  assert.deepEqual(await a.saveManualVenuePin!({ eventId: 'e', vendorId: 'v', address: 'lab', pin: null }), { ok: true });
   const r = LAB_STUDIO_REFUSALS;
   const refused = [
     await r.setEgiftMethodEnabled!(new FormData()),
     await r.saveEgiftMethod!(new FormData()),
     await r.savePabuyaMessage!(new FormData()),
     await r.hubDraftAction!('e', new FormData()),
+    await r.saveManualVenuePin!({ eventId: 'e', vendorId: 'v', address: 'lab', pin: null }),
   ];
   for (const res of refused) {
     assert.ok(!res.ok && 'error' in res && typeof res.error === 'string', 'a refusal does not refuse');

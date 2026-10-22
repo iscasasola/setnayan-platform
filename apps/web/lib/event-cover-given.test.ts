@@ -24,6 +24,7 @@ import assert from 'node:assert/strict';
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import type { GuestLook } from '@/app/[slug]/_lib/loaders';
 import { dressEventCoverGiven, type CoverIo } from './event-cover-given';
+import type { CoverOwnership } from './hub-parts';
 import { ownershipCanChangeTheCover } from './hub-look-given';
 import type { CoverRow } from './home-public-reads-core';
 import { INVITE_THEMES, type InviteThemeId } from './invite-themes';
@@ -59,13 +60,13 @@ function row(over: Partial<CoverRow> = {}): CoverRow {
 type Asked = { ownsPro: number; words: number; logoAnimationOn: number };
 
 /** Readers that answer from fixed values and count each ask. */
-function readers(answers: { owned: boolean | 'refused'; words?: EventWords | null; animation?: boolean }) {
+function readers(answers: { owned: boolean | CoverOwnership | 'refused'; words?: EventWords | null; animation?: boolean }) {
   const asked: Asked = { ownsPro: 0, words: 0, logoAnimationOn: 0 };
   const io: CoverIo = {
     ownsPro: async () => {
       asked.ownsPro += 1;
       if (answers.owned === 'refused') throw new Error('orders read refused');
-      return answers.owned;
+      return typeof answers.owned === 'boolean' ? { style: answers.owned, background: answers.owned } : answers.owned;
     },
     words: async () => {
       asked.words += 1;
@@ -89,7 +90,7 @@ function fromFacts(facts: { websitePro: boolean; logoAnimation: boolean }) {
   const base = readers({ owned: false }).io;
   const io: CoverIo = {
     ...base,
-    ownsPro: () => Promise.resolve(facts.websitePro),
+    ownsPro: () => Promise.resolve({ style: facts.websitePro, background: facts.websitePro }),
     words: async () => WORDS,
     logoAnimationOn: () => Promise.resolve(facts.logoAnimation),
   };
@@ -170,4 +171,15 @@ test('a still mark never asks whether the animation is on', async () => {
   assert.ok(cover.paper, 'expected the paper invitation card for a plain event');
   assert.equal(cover.paper?.markPlays, false);
   assert.equal(asked.logoAnimationOn, 0);
+});
+
+test('💎 part by part (2026-10-22): the saved Pro theme asks the Style part, the own-photo ground the Background part', async () => {
+  const pro = IDS.filter((id) => INVITE_THEMES[id].tier === 'pro');
+  for (const id of pro) {
+    const r = row({ invite_theme: id });
+    const styleOnly = await dressEventCoverGiven(r, null, readers({ owned: { style: true, background: false } }).io);
+    assert.equal(styleOnly.theme, id, `${id}: the Style part did not wear its theme`);
+    const backgroundOnly = await dressEventCoverGiven(r, null, readers({ owned: { style: false, background: true } }).io);
+    assert.equal(backgroundOnly.theme, 'house', `${id}: the Background part wore a Pro theme it does not own`);
+  }
 });

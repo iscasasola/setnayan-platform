@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventHubPartActive, eventOwnsHubPart } from '@/lib/couple-website-pro';
 
 /**
  * apps/web/lib/animated-monogram.ts
@@ -69,7 +70,10 @@ export async function eventOwnsAnimatedMonogram(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventOwnsSku(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
+  // 💎 …or the Logo & QR part (owner 2026-10-22, gate 30 — it "replaces the standalone Animated Monogram"); Full Pro
+  // and the cap are inside that part's answer.
+  if (await eventOwnsSku(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY)) return true;
+  return eventOwnsHubPart(supabase, eventId, 'logo_qr');
 }
 
 /**
@@ -81,7 +85,9 @@ export async function eventAnimatedMonogramActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventSkuActive(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY);
+  // 💎 …or the Logo & QR part, active (owner 2026-10-22, gate 30).
+  if (await eventSkuActive(supabase, eventId, ANIMATED_MONOGRAM_SERVICE_KEY)) return true;
+  return eventHubPartActive(supabase, eventId, 'logo_qr');
 }
 
 /**
@@ -105,7 +111,8 @@ export async function eventGetsAnimatedMonogramFromHubPro(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventOwnsSku(supabase, eventId, HUB_PRO_SERVICE_KEY);
+  // 💎 Full Pro, the cap, or the Logo & QR part (owner 2026-10-22) — each includes the animation.
+  return eventOwnsHubPart(supabase, eventId, 'logo_qr');
 }
 
 /**

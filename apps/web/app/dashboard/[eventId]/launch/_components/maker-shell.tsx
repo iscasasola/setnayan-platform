@@ -89,7 +89,7 @@ import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type Low
 import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
-import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-context';
+import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
@@ -192,6 +192,7 @@ export function MakerShell({
   stagesStudio = false,
   desktopColumns = false,
   deskTitle = null,
+  proLine = null,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
@@ -224,6 +225,8 @@ export function MakerShell({
   desktopColumns?: boolean;
   /** 🖥 The event's name, for the desktop's top bar — handed in only with the columns on (`MakerDesk` draws it). */
   deskTitle?: string | null;
+  /** 💎 The quiet "₱X more unlocks everything" line's facts (`MakerProLine`) — null in the store shell. */
+  proLine?: MakerProLine | null;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -635,10 +638,11 @@ export function MakerShell({
       setLtWhere,
       stagesStudio: ss,
       deskTitle,
+      proLine,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle, proLine],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page

@@ -41,6 +41,9 @@
  */
 
 import { after } from 'next/server';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth';
+import { shellSearchHref } from '@/lib/shell-search';
 import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
@@ -226,7 +229,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro — whose Logo & QR part animates the couple's own logo — each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -249,7 +252,7 @@ const softwareAppJsonLd = {
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
-    'Animated Monogram — a bespoke monogram + animation across invites, the Event Hub, and signage (paid add-on)',
+    'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Hub Pro’s Logo & QR part animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',
     // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when
@@ -299,6 +302,17 @@ export default async function HomePage({
   */
   const qParam = params.q;
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  /*
+    🔄 SIGNED IN, A SEARCH ANSWERS INSIDE THE SHELL (owner 2026-10-22, *"I
+    tried to search for seda and brought me here away from our shell"*). This
+    page is a doorway — the public top bar, no account bar — so a member's
+    `?q=` (an old link, a paste, a bookmark) goes to the account shell's own
+    results page, which renders the same results view. Signed out, nothing
+    changes: the public box still answers here. `lib/shell-search.ts`.
+  */
+  if (q?.trim() && (await getCurrentUser().catch(() => null))) {
+    redirect(shellSearchHref(q));
+  }
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the

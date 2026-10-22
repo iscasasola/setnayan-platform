@@ -17,6 +17,7 @@ import {
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { publishedBlogArticles } from '@/lib/blog';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 
 // /realstories — THE single public stories hub. ONE SHELF, THREE VOICES
@@ -90,11 +91,13 @@ export const metadata: Metadata = {
     'wedding stories Philippines',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
     url: '/realstories',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,

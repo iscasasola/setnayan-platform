@@ -165,7 +165,7 @@ export default async function TourSeatingPage() {
           href="/tour/vendors"
           className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1B1A17] transition-opacity hover:opacity-80"
         >
-          &larr; The vendors
+          &larr; The suppliers
         </Link>
         <Link
           href="/tour"

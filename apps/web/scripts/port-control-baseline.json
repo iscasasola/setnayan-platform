@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23049e6aee",
-  "routeCount": 457,
-  "destinations": 1000,
+  "generatedFromRef": "7898857019",
+  "routeCount": 459,
+  "destinations": 1004,
   "actions": 667,
-  "blocks": 6801,
+  "blocks": 6822,
   "routes": {
     "/": {
       "files": [
@@ -565,7 +565,8 @@
       "destinations": [
         "/cookies",
         "/dashboard/profile",
-        "/help"
+        "/help",
+        "/privacy/google-access"
       ],
       "actions": [],
       "blocks": [
@@ -5370,6 +5371,19 @@
         "SubmitButton"
       ]
     },
+    "/dashboard/(account)/search": {
+      "files": [
+        "dashboard/(account)/search/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "FrontDoorResults",
+        "PageMasthead"
+      ]
+    },
     "/dashboard/(account)/year": {
       "files": [
         "dashboard/(account)/year/page.tsx"
@@ -5386,6 +5400,7 @@
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
         "dashboard/(launcher)/_components/incoming-requests.tsx",
+        "dashboard/(launcher)/_components/stance-chip.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
         "dashboard/(launcher)/_components/year-moments-list.tsx",
         "dashboard/(launcher)/_components/year-moments-strip.tsx",
@@ -5435,6 +5450,7 @@
         "EventScene",
         "EventsThumbRow",
         "Flash",
+        "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
         "Icon",
@@ -5682,6 +5698,7 @@
         "Fill",
         "FinalizeRow",
         "FinishedEventSummary",
+        "ForTagMark",
         "FormRow",
         "FormRows",
         "FourFlapEnvelope",
@@ -5707,6 +5724,7 @@
         "HomeDecisionRow",
         "HomeDoorways",
         "HomeFirstScreen",
+        "HomeForLine",
         "HomeGuide",
         "HomeLater",
         "HomeLoadingScreen",
@@ -5980,7 +5998,6 @@
         "InfoTip",
         "ListFilter",
         "ListPageSkeleton",
-        "MiniTour",
         "OrderGroup",
         "OrderRow",
         "OwedLine",
@@ -5994,6 +6011,7 @@
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
         "Sheet",
+        "Spotlight",
         "SuggestMilestonesResult",
         "SupplierGroup",
         "SupplierRow",
@@ -7431,6 +7449,7 @@
         "SlugField",
         "SoftPost",
         "SpecialMessageField",
+        "Spotlight",
         "Stack",
         "StageAbout",
         "StageAnimate",
@@ -8149,7 +8168,6 @@
         "MenuDivider",
         "MenuRow",
         "MetreSizeField",
-        "MiniTour",
         "MoveGuestSheet",
         "NotSharedWithYou",
         "OneOpenScope",
@@ -8178,6 +8196,7 @@
         "Section",
         "ShapeGlyph",
         "ShapePicker",
+        "Spotlight",
         "StatusLine",
         "Step",
         "StudioSeatPlanHead",
@@ -8698,6 +8717,7 @@
         "Sheet",
         "Slider",
         "SlotTile",
+        "Spotlight",
         "StudioDos",
         "StudioPopup",
         "StudioSheet",
@@ -8995,7 +9015,6 @@
         "LiveWallCard",
         "LiveWallControls",
         "MagazineCard",
-        "MiniTour",
         "PapicBuyForm",
         "PapicBuySheet",
         "PapicGalleryGrid",
@@ -9022,6 +9041,7 @@
         "ShowcaseToggle",
         "ShutterSection",
         "SourceRow",
+        "Spotlight",
         "StandingsStrip",
         "StatusBanners",
         "Stepper",
@@ -10700,6 +10720,7 @@
       "actions": [],
       "blocks": [
         "BudgetScreen",
+        "LabPageSpotlight",
         "LabShell",
         "TraditionNotes"
       ]
@@ -10767,6 +10788,7 @@
         "HubFontKey",
         "LabFontPick",
         "LabMoodBoardActions",
+        "LabPageSpotlight",
         "LabStudioActions",
         "LabStudioLoveStory",
         "LabStudioRsvp",
@@ -10859,15 +10881,21 @@
       "blocks": [
         "AppleProScreen",
         "ApplyProSheetLab",
+        "CollectionCard",
+        "CollectionGrid",
+        "EventPoster",
+        "EventPosterFacts",
         "HomeFirstScreen",
         "HomeWhatsNext",
         "HubProOffer",
+        "LabBoard",
         "LabShell",
         "LabSpotlight",
         "PapicTopBand",
         "ProLockPanel",
         "SiteMenuBar",
         "SpotlightMount",
+        "StanceChip",
         "YourShotsGallery"
       ]
     },
@@ -10896,6 +10924,7 @@
         "HubDraftToolbar",
         "LabDraftEngine",
         "LabLogoActions",
+        "LabPageSpotlight",
         "LabStudioActions",
         "LastSeenScope",
         "LogoActions",
@@ -11092,6 +11121,22 @@
         "ScheduleDay",
         "ScheduleLabClient",
         "Switch"
+      ]
+    },
+    "/dev/search-lab": {
+      "files": [
+        "dev/search-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]",
+        "/dashboard/[seg]/vendors"
+      ],
+      "actions": [],
+      "blocks": [
+        "AccountBarSlot",
+        "Avatar",
+        "FrontDoorResults",
+        "FrontDoorShell"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -11856,6 +11901,7 @@
         "FirstRunBrand",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HTMLInputElement",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",

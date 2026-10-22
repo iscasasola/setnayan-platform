@@ -202,13 +202,19 @@ test('the retired subdomain is gone from the rendered file', () => {
   );
 });
 
-test('the monogram no longer promises the LED background', () => {
+test('the monogram no longer promises the LED background — and is no longer sold on its own', () => {
   const out = renderLlmsTxt(INPUT);
+  // The standalone Animated Monogram was retired from sale on 2026-10-22 (#6781, migration
+  // 20271283592608): the animation is Event Hub PRO's Logo & QR part. Its last mention — the
+  // /palogo link label — read as a product a model would recommend buying (live check 2026-10-23).
+  // SABOTAGE: put "[Animated Monogram](…/palogo)" back in lib/llms-txt.ts → RED.
   assert.ok(
-    /Animated Monogram/.test(out),
-    'The Animated Monogram is still on sale and must still be listed — only its ' +
-      'LED claim was removed.',
+    !/Animated Monogram/.test(out),
+    'llms.txt still names the Animated Monogram, which is no longer sold — the animation is ' +
+      "Event Hub PRO's Logo & QR part. Name /palogo \"Logo Maker\".",
   );
+  assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
+  assert.match(out, /Logo & QR/, "the animation's real home (Event Hub PRO's Logo & QR part) must still be named");
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +

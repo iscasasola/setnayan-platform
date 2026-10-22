@@ -11,7 +11,7 @@ export type HomeCommandItem = {
   label: string;
   sublabel: string;
   href: string;
-  kind: 'event' | 'space' | 'action';
+  kind: 'event' | 'space' | 'action' | 'supplier';
   /** Searchable words that are never rendered — see `lib/command-match.ts`.
    *  This is how typing "kasal" finds a WEDDING-badged event. */
   terms?: string;

@@ -309,3 +309,11 @@ export async function resolveEventHonoree(
     ? { honoreeLabel: label, honoreeDependentId }
     : { honoreeLabel: null, honoreeDependentId: null };
 }
+
+/*
+ * READING IT BACK — who an event is FOR, for the account that holds the subject (the Events
+ * board's "For <name>" chip and the Home's line under the name, owner 22 Oct 2026) — lives in
+ * `lib/event-subjects.ts`, under the same `owner_user_id = <caller>` boundary as the write above.
+ * It is a separate file so the create pages that import this one do not also "read" the shop
+ * table on the root map (`lib/ugat/screens.generated.json` follows imports).
+ */

@@ -18,6 +18,7 @@ import {
   RevealSection,
 } from './_about-motion';
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,
@@ -59,6 +60,7 @@ export const metadata = {
     },
   },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     type: 'website',
     url: `${SITE_URL}/about`,
     title: PAGE_TITLE,
@@ -67,6 +69,7 @@ export const metadata = {
     locale: 'en_PH',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,

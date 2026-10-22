@@ -1,5 +1,6 @@
 import { localeAlternates } from '@/lib/marketing-i18n';
 import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /features — the deep-dive feature catalog page. Per iteration 0015 §
 // Routes, this is the "features deep-dive (each tab + service explained
@@ -36,12 +37,14 @@ export const metadata = {
     'wedding budget tracker',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Every Feature in Setnayan · Wedding & Life-Events Platform Philippines',
     description:
       'Guest list, seating, budget, mood board, schedule, supplier ledger, plus day-of apparatus (Live Watch, Papic, Pakulay).',
     url: '/features',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Every Feature in Setnayan · Wedding & Life-Events Platform Philippines',
     description:

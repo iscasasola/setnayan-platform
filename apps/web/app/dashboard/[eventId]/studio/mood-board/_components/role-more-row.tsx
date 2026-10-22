@@ -38,7 +38,7 @@ export function RoleMoreRow({
       aria-haspopup="dialog"
       aria-label={`${label} — ${said.join(' · ')}`}
       onClick={onOpen}
-      className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-ink/15 px-3 py-1.5 text-left text-[14px] text-ink lg:hidden"
+      className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-ink/15 px-3 py-1.5 text-left text-[14px] text-ink lg:hidden" // no-card-ok: this is the <button> itself — pressed, so it keeps its frame
       data-mood-board-more={rowKey}
     >
       {note !== undefined ? (

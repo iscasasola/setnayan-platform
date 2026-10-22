@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2dfa4e787d",
+  "generatedFromRef": "ec90efe04c",
   "routeCount": 456,
   "destinations": 997,
   "actions": 667,
-  "blocks": 6779,
+  "blocks": 6784,
   "routes": {
     "/": {
       "files": [
@@ -8551,6 +8551,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/role-more-row.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/save-notice.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/studio-dos.tsx",
@@ -8674,8 +8675,10 @@
         "RoleCard",
         "RoleColourDot",
         "RoleFigure",
+        "RoleMoreRow",
         "RolePalette",
         "RoomDressing",
+        "RowSheet",
         "SaveStatus",
         "ShareWithVendorsButton",
         "Sheet",
@@ -11176,6 +11179,7 @@
         "SupplierThumbRow",
         "SupplierToast",
         "SupplierTodayScreen",
+        "ThumbRow",
         "TodayEasyLab",
         "TodayLab"
       ]
@@ -13536,6 +13540,7 @@
         "SupplierToast",
         "Suspense",
         "SwitchTrack",
+        "ThumbRow",
         "TypedRow",
         "WaivedFeeRows"
       ]
@@ -14954,7 +14959,8 @@
         "ShopSegments",
         "SupplierThumbRow",
         "SwitchRow",
-        "SwitchTrack"
+        "SwitchTrack",
+        "ThumbRow"
       ]
     },
     "/vendor-invite/[slug]": {

@@ -1038,7 +1038,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               />
             </FormRows>
           </div>
-          <div className="flex flex-col gap-1.5 pb-1" data-mood-board-main-palette="">
+          <div className="flex flex-col gap-1.5 pb-1" data-mood-board-main-palette="" data-tour="mood-board-palette">
             <Heading title="Your main palette" tip="One palette with Look › Colours. Every part below follows them until you set it." />
             <div className="flex flex-wrap items-start justify-between" data-mood-board-five="">
               {five.map((hex, i) => {
@@ -1065,7 +1065,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
               : null}
           </div>
           <Heading title="The room — for your stylist" tip="Your booked stylist can change these — and your five main colours. You see every change." />
-          <div className={STUDIO_GROUP} data-mood-board-room="">
+          <div className={STUDIO_GROUP} data-mood-board-room="" data-tour="mood-board-reception">
             {ROOM_LANE_PARTS.map(partBlock)}
           </div>
           <Heading title="Flowers — for your florist" tip="Your booked florist can change the flowers. You see every change." />

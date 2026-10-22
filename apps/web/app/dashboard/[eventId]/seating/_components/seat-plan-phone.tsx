@@ -48,7 +48,7 @@ function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | nu
 /** Auto arrange — the screen's forward step: THE ONE ActionButton (a waiting button while it arranges), with the editor's own handler. */
 function AutoArrange({ onAutoArrange, disabled, busy }: { onAutoArrange: () => void; disabled: boolean; busy: boolean }) {
   return (
-    <span data-seat-plan-auto="" className="flex min-w-0 flex-1">
+    <span data-seat-plan-auto="" data-tour="seat-plan-auto" className="flex min-w-0 flex-1">
       <ActionButton tone="brand" main waiting={busy} disabled={disabled && !busy} icon={Sparkles} label={busy ? 'Arranging…' : 'Auto arrange'} onClick={onAutoArrange} className="w-full" />
     </span>
   );
@@ -191,6 +191,7 @@ export function PhoneSeatPlanHead({
           type="button"
           onClick={onUnseated}
           data-seat-plan-unseated=""
+          data-tour="seat-plan-unseated"
           className={`sn-press inline-flex h-9 items-center gap-1 rounded-full px-3 text-[12.5px] font-semibold ${
             unseated > 0 ? 'bg-terracotta/15 text-terracotta-800' : 'bg-success-50 text-success-700'
           }`}
@@ -199,7 +200,10 @@ export function PhoneSeatPlanHead({
           <ChevronRight aria-hidden className="h-3.5 w-3.5" />
         </button>
         <span className="flex-1" />
-        <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
+        {/* 🔦 The tour's stop 3 rides on a box of its own — PickMenu takes no attribute beyond its one data hook. */}
+        <span data-tour="seat-plan-view" className="inline-flex">
+          <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
+        </span>
       </div>
     </div>
   );
@@ -376,7 +380,9 @@ export function StudioSeatPlanTools({
         >
           {rules}
         </Pop>
-        <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+        <span data-tour="seat-plan-view" className="inline-flex">
+          <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+        </span>
       </div>
     </div>
   );

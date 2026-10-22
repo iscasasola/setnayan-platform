@@ -19,6 +19,7 @@ export async function Spotlight({
   after,
   replay = false,
   name = null,
+  inMaker = false,
 }: {
   tourKey: TourKey;
   /** The person's display name — a welcome step says "Welcome, {name}". */
@@ -30,8 +31,10 @@ export async function Spotlight({
   seenKeys?: ReadonlyArray<string> | null;
   /** Another spotlight that goes first — this one waits until that one is seen, so two never stack. */
   after?: TourKey;
-  /** This mount answers the account menu's "Show me around". */
-  replay?: boolean;
+  /** This mount answers the account menu's "Show me around"; `'page'`: in place of the layout's, on its page. */
+  replay?: boolean | 'page';
+  /** Drawn inside the Maker — the engine's Maker pause is not for this one (`lib/host-page-tours.ts`). */
+  inMaker?: boolean;
 }) {
   const script = TOURS[tourKey]?.spotlight;
   if (!script) return null;
@@ -47,6 +50,7 @@ export async function Spotlight({
       seen={seen.includes(tourKey)}
       replay={replay}
       name={name}
+      inMaker={inMaker}
       completeAction={completeTour}
     />
   );

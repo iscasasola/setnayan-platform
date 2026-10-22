@@ -184,7 +184,7 @@ export function BudgetScreen({
         </div>
       ) : null}
 
-      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="">
+      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="" data-tour="budget-list">
         <SupplierGroup
           rows={list.suppliers}
           shown={shown.suppliers}
@@ -311,7 +311,7 @@ function ThumbRow({
   };
 
   return (
-    <div ref={rowRef} className={`${styles.page} ${styles.lower}`} data-budget-thumb="">
+    <div ref={rowRef} className={`${styles.page} ${styles.lower}`} data-budget-thumb="" data-tour="budget-thumb">
       {canEdit ? (
         // Full colour at every width — on glass it is the one solid thing. `filled`
         // rather than `main`, so on a phone with the search open it may drop its

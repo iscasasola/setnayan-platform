@@ -5,7 +5,8 @@ import { ServiceParts } from '../_components/service-parts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import {
   AlertCircle,
   ArrowLeft,
@@ -1036,7 +1037,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           you pick the days" was false. The dates are a quiet "Change dates" in
           Coverage below; the band at the top says when the cameras are on. */}
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3" data-tour="papic-coverage">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Coverage</h2>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
           {/* The capture window — ALWAYS a row now (owner 2026-10-13): saved or
@@ -1122,7 +1123,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           it must not fall to the bottom with the dates it used to live beside. */}
       <div className={`flex flex-col gap-7 ${ord('cameras')}`}>
       {claimLinkUnclaimed > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
+        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface" data-tour="papic-qrs">
           <div className="h-[3px] w-full bg-mulberry" aria-hidden />
           <div className="space-y-3 p-5 sm:p-6">
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
@@ -1172,7 +1173,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           beyond the two questions the owner deleted (photo quality, "where your
           photos go"). The crew QRs, the off-list camera, the guest-camera tier
           and the uploads picker are behind these four rows, unredrawn. */}
-      <section className="space-y-3" id="ways-into-your-library">
+      <section className="space-y-3" id="ways-into-your-library" data-tour="papic-library">
         <h2 className="text-lg font-semibold tracking-tight text-ink">
           Four ways into your library
         </h2>
@@ -1588,7 +1589,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <MiniTour tourKey="customer_papic_v1" />
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. No price in any step. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.papic} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </section>
     </div>
   );

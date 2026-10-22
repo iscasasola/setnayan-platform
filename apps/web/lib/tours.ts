@@ -179,7 +179,17 @@ export type TourKey =
   // person who skipped the old carousel still meets the spotlight once.
   | 'host_spotlight_v1'
   | 'host_day_spotlight_v1'
-  | 'supplier_spotlight_v1';
+  | 'supplier_spotlight_v1'
+  // 🔦 The host's page tours (owner "yes to all" 2026-10-22, prototype
+  // `journey_fixes_later_2026-10-22.html` § Host 4): the Maker, Budget, Papic,
+  // Seat plan and Mood Board, each a first-visit spotlight AFTER the journey
+  // (`lib/host-page-tours.ts`), none repeating its stops. NEW keys, so a host
+  // who once dismissed the old carousel still meets the spotlight once.
+  | 'customer_event_hub_maker_v2'
+  | 'customer_budget_v2'
+  | 'customer_papic_v2'
+  | 'customer_seat_plan_v2'
+  | 'customer_mood_board_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -224,6 +234,11 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'host_spotlight_v1',
   'host_day_spotlight_v1',
   'supplier_spotlight_v1',
+  'customer_event_hub_maker_v2',
+  'customer_budget_v2',
+  'customer_papic_v2',
+  'customer_seat_plan_v2',
+  'customer_mood_board_v1',
 ];
 
 export type TourDefinition = {
@@ -1564,6 +1579,175 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔦 THE HOST'S PAGE TOURS (owner "yes to all" 2026-10-22, prototype
+  // `journey_fixes_later_2026-10-22.html` § Host 4 — the words are the
+  // prototype's, stop for stop). Each runs on the first visit to its page,
+  // only once `host_spotlight_v1` is seen (`lib/host-page-tours.ts`), and none
+  // lights an anchor the journey already lit. The old carousels' words for
+  // Budget, Papic and the Seat plan moved in here; their MiniTour mounts are gone.
+  customer_event_hub_maker_v2: {
+    key: 'customer_event_hub_maker_v2',
+    label: 'Event Hub Maker — first open',
+    blurb: 'The quiet line, the tools in the lower third, and Apply.',
+    slides: [],
+    // Option A: three stops, no Pro pitch (the 2 Oct cut stands). Mounted by the
+    // Maker's own page, inside the Maker — the one place the journey pauses.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'maker-hint',
+          title: 'Tap anything to change it',
+          body: 'Tap words on the page to type over them, or tap a scene for its settings. Your guests see nothing until you press Apply.',
+        },
+        {
+          anchor: 'maker-tools',
+          title: 'Page, Look and Event Details',
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+        },
+        {
+          anchor: 'maker-apply',
+          title: 'Apply when you like it',
+          body: 'Until then it is your draft — try anything. If a look is Pro, Apply says so there, and you can apply without it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Exit any time; your draft keeps. To see this again, open ⋯ › About the Maker.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_budget_v2: {
+    key: 'customer_budget_v2',
+    label: 'Budget — first visit',
+    blurb: 'The totals, the one list, and adding an expense.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'budget-summary',
+          title: 'Target · Agreed · Paid · Owed',
+          body: 'The numbers up top are the sum of the list below — nothing is typed here.',
+        },
+        {
+          anchor: 'budget-list',
+          title: 'One list, one truth',
+          body: 'Booked suppliers, what you bought here, and your own expenses. Tap a supplier to see every payment and record one — Owed moves the moment you do.',
+        },
+        {
+          anchor: 'budget-thumb',
+          title: 'Add anything else',
+          body: '＋ Add expense for what you pay outside Setnayan. No Save button — it keeps as you type.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'When a payment is due, the Next card on Home says so.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_papic_v2: {
+    key: 'customer_papic_v2',
+    label: 'Papic — first visit',
+    blurb: 'The band, the days, the camera QRs and the library — no price in any step.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'papic-band',
+          title: 'Your guests become the photographers',
+          body: 'Every guest’s phone can be a camera — no app to install. This band says when the cameras are on and how many shots are left.',
+        },
+        {
+          anchor: 'papic-coverage',
+          title: 'Pick the days first',
+          body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
+        },
+        {
+          anchor: 'papic-qrs',
+          title: 'Hand out your camera QRs',
+          body: 'Show them at the door or print them as cards. Each scan turns a phone into a camera, and you decide how many shots each guest gets.',
+        },
+        {
+          anchor: 'papic-library',
+          title: 'Everything lands in your library',
+          body: 'Filter by “Photos of us”, save any shot to your phone, or download everything at once. Guests find the photos they are in, too.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Your first event’s free credits are already on. When they run out, Buy more is the one button.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_seat_plan_v2: {
+    key: 'customer_seat_plan_v2',
+    label: 'Seat plan — first visit',
+    // Rewritten for the phone plan (`seat-plan-phone.tsx`): no drag — a guest is tapped, then moved.
+    blurb: 'Auto arrange, who still needs a seat, and the three views.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'seat-plan-auto',
+          title: 'Auto arrange',
+          body: 'One tap seats everyone by group and side. Don’t like it? Undo, or move anyone yourself.',
+        },
+        {
+          anchor: 'seat-plan-unseated',
+          title: 'Who still needs a seat',
+          body: 'Tap a name, then Move to a table. Rules ▾ keeps a group together or apart.',
+        },
+        {
+          anchor: 'seat-plan-view',
+          title: 'One plan, three views',
+          body: '2D here, the same room in 3D, or a list by table. ⋯ adds a table and shares or prints the plan.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'On the day, each guest’s own page shows their table.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_mood_board_v1: {
+    key: 'customer_mood_board_v1',
+    label: 'Mood Board — first visit',
+    blurb: 'Your colours, your reception design, sharing the board.',
+    slides: [],
+    // Stop 1's claim was re-read on 2026-10-22 before it shipped: the Event Hub's
+    // look IS the board's five main colours (`lib/main-colours.ts` — "one
+    // palette, not a copy"; the Studio's own tip says "One palette with Look ›
+    // Colours"), so "Your Event Hub's look … read from here" is true.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'mood-board-palette',
+          title: 'Your colours',
+          body: 'Up to five. Your Event Hub’s look, your prints and your dress code read from here — change one and they follow.',
+        },
+        {
+          anchor: 'mood-board-reception',
+          title: 'Your reception design',
+          body: 'Attire, flowers and cake, drawn in your colours. A booked supplier can agree a part with you here, so everyone works from one board.',
+        },
+        {
+          anchor: 'mood-board-share',
+          title: 'Share with your suppliers',
+          body: 'One link or a file of the whole board — the same one your booked suppliers see.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'The dress code your guests see is this board, in their invitation.',
         button: 'Done',
       },
     },

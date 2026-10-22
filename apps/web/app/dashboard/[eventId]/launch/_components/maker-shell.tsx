@@ -6,6 +6,8 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -177,6 +179,7 @@ export function MakerShell({
   storeShell,
   tourSlides,
   firstVisit,
+  tourHint = false,
   completeTourAction,
   renderStamp,
   more,
@@ -248,6 +251,8 @@ export function MakerShell({
   tourSlides: TourSlideView[];
   /** Never toured here: a first visit shows ONE quiet line instead (the Maker in 4). */
   firstVisit: boolean;
+  /** 🔦 The Maker's spotlight is due (`customer_event_hub_maker_v2`): the quiet line is its stop 1, so it shows. */
+  tourHint?: boolean;
   completeTourAction: (tourKey: TourKey) => Promise<void>;
   renderStamp: string;
   /** The "Your Event Hub" sheet (Page ▾ › the address · who can view): who and when, and the doors the controller kept. */
@@ -336,6 +341,13 @@ export function MakerShell({
   const studioCovers = studioHomeOn || studioFull;
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
+  /* 🔦 …and where the Maker's spotlight is mounted (the page's own tour, `lib/host-page-tours.ts`), About the Maker
+     replays THAT — the same three stops, never the old slides beside them. */
+  const aboutTheMaker = useCallback(() => {
+    if (document.documentElement.getAttribute('data-spotlight-page') === HOST_PAGE_TOURS.maker) {
+      window.dispatchEvent(new CustomEvent(SPOTLIGHT_REPLAY_EVENT, { detail: { tourKey: HOST_PAGE_TOURS.maker } }));
+    } else setTour(true);
+  }, []);
   /* 👁 SEE AS ▾ (PR-10) — the canvas as a sample guest, or null for the couple's
      own editing canvas. Kept across stages (a guest is a guest on every stage);
      never written anywhere — not the draft, not the tab's memory. */
@@ -501,7 +513,7 @@ export function MakerShell({
     lands in its frame, which blurs this window — that counts too. Pro is met
     where it is tried: a Pro thing tapped wears ◆ PRO, and Apply asks.
   */
-  const [hint, setHint] = useState(firstVisit && hasWork);
+  const [hint, setHint] = useState((firstVisit || tourHint) && hasWork);
   const recordedHint = useRef(false);
   useEffect(() => {
     if (!hint) return;
@@ -701,7 +713,7 @@ export function MakerShell({
       else if (act === 'prints') pressDoor('prints');
       else if (act === 'restore') {
         if (draft?.canRestore) draft.restore();
-      } else if (act === 'about') setTour(true);
+      } else if (act === 'about') aboutTheMaker();
       else setMoreOpen(true);
       return;
     }
@@ -867,7 +879,7 @@ export function MakerShell({
           ...(hasWork && applySlot !== null
             ? [{ key: 'reset', label: 'Reset this stage…', icon: <RotateCcw aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: false, onPick: () => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)) }]
             : []),
-          { key: 'about', label: 'About the Maker', icon: <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: tour, onPick: () => setTour(true) },
+          { key: 'about', label: 'About the Maker', icon: <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: tour, onPick: aboutTheMaker },
         ]
       : isStagePhase(ltPick)
         ? page.options
@@ -1188,6 +1200,7 @@ export function MakerShell({
             <p
               role="status"
               data-maker-first-hint=""
+              data-tour="maker-hint"
               className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
             >
               Tap anything to change it

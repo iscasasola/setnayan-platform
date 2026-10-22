@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { SpotlightStep, SpotlightFinale, TourKey } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
+import { missingGroups, nextKept, spotlightCount } from '@/lib/spotlight-drops';
 import { Wordmark } from './brand-marks';
 
 /**
@@ -28,6 +29,11 @@ import { Wordmark } from './brand-marks';
  * a sheet over it), the dim lifts and the tour waits — it comes back the moment the element is
  * there. If it stays away while a LATER step's element is on screen, the tour skips ahead to
  * that one (a host who already made their event never meets "Create your event").
+ *
+ * 🚪 A MISSING DOORWAY TAKES ITS PAGE WITH IT (owner 2026-10-22, `lib/spotlight-drops.ts`). While the page a step
+ * belongs to IS on screen, a step of it that is not drawn after DROP_GRACE_MS is dropped — a doorway with the page
+ * behind it — and "Step N of M" is counted from what is left; nothing left goes to the finale. A Simple event's
+ * hidden Guests and Suppliers tabs used to leave the journey sitting silent on Home, on every visit.
  */
 
 const PROGRESS = 'setnayan.spotlight.';
@@ -36,6 +42,9 @@ const GRACE_MS = 1400;
 const TICK_MS = 350;
 /** After a tap on a lit LINK, how long the tour waits for the next page before it gives up waiting. */
 const NAV_WAIT_MS = 15000;
+/** How long a step of the page on screen may be missing before it is dropped — longer than GRACE_MS, so a part
+    that streams in (a lazy piece, a Suspense boundary) arrives first. */
+const DROP_GRACE_MS = 3000;
 
 /** The address a tap on this element walks to, when it is (inside) a link to another page. */
 function linkTarget(el: Element): string | null {
@@ -138,6 +147,9 @@ function uncovered(el: HTMLElement): boolean {
   const x = r.left + r.width / 2;
   const y = r.top + Math.min(r.height / 2, 22);
   if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false;
+  /* A line that is not a tap target (`pointer-events: none`, the Maker's "Tap anything to change it") is never the
+     answer to a hit test, so it would read as covered for ever; on screen is all it can be. */
+  if (getComputedStyle(el).pointerEvents === 'none') return true;
   const hit = document.elementsFromPoint(x, y).find((n) => !isOurs(n));
   return !!hit && (el === hit || el.contains(hit) || hit.contains(el));
 }
@@ -196,9 +208,12 @@ export function SpotlightTour({
   name = null,
   completeAction,
   onClose,
+  inMaker = false,
 }: {
   tourKey: TourKey;
   steps: ReadonlyArray<SpotlightStep>;
+  /** Mounted INSIDE the Maker (its own tour, or a page drawn in it): the Maker pause is not for this one. */
+  inMaker?: boolean;
   /** The person's display name — a welcome step's "Welcome, {name}". */
   name?: string | null;
   finale: SpotlightFinale;
@@ -229,6 +244,12 @@ export function SpotlightTour({
   const keyboardRef = useRef(false);
   const iRef = useRef(i);
   iRef.current = i;
+  /** Steps dropped because their page is on screen without them (`lib/spotlight-drops.ts`). */
+  const [dropped, setDropped] = useState<ReadonlySet<number>>(() => new Set());
+  const droppedRef = useRef(dropped);
+  droppedRef.current = dropped;
+  /** When each missing group's first step was first seen missing on this page. */
+  const dropSince = useRef(new Map<number, number>());
 
   useEffect(() => {
     insets.current = safeInsets();
@@ -251,17 +272,17 @@ export function SpotlightTour({
       setFinger((f) => ({ ...f, on: false, tap: false }));
       window.setTimeout(() => {
         setBusy(false);
-        const cur = iRef.current;
-        if (cur >= steps.length - 1) {
+        const next = nextKept(steps, iRef.current, droppedRef.current);
+        if (next === null) {
           finish();
           return;
         }
-        writeProgress(tourKey, cur + 1);
+        writeProgress(tourKey, next);
         missingSince.current = null;
-        setI(cur + 1);
+        setI(next);
       }, wait);
     },
-    [finish, steps.length, tourKey],
+    [finish, steps, tourKey],
   );
 
   /* Find, scroll and light the current step's element — every tick, so the ring follows a page that
@@ -270,7 +291,7 @@ export function SpotlightTour({
     if (done || busy) return;
     /* The Maker is a full-screen editor with its own first-visit welcome: the journey waits
        under it and comes back the moment the host exits. */
-    if (document.querySelector('[data-maker-shell]')) {
+    if (!inMaker && document.querySelector('[data-maker-shell]')) {
       targetRef.current = null;
       setBox(null);
       setLitFor(-1);
@@ -284,6 +305,7 @@ export function SpotlightTour({
       lastHref.current = location.href;
       missingSince.current = null;
       navPending.current = null;
+      dropSince.current.clear();
     }
     // A lit link was pressed and its page is still on its way (a slow phone): hold the ring, skip nothing.
     if (navPending.current && Date.now() - navPending.current.at < NAV_WAIT_MS) {
@@ -292,12 +314,48 @@ export function SpotlightTour({
       return;
     }
     navPending.current = null;
+
+    /* 🚪 The page on screen is missing a step — or a doorway, and so the page behind it: drop them, once each has
+       stayed away DROP_GRACE_MS, and count from what is left. */
+    {
+      const now = Date.now();
+      const groups = missingGroups(steps, iRef.current, droppedRef.current, (j) => drawn(steps[j]!.anchor) !== null);
+      const firsts = new Set(groups.map((g) => g[0]!));
+      for (const k of [...dropSince.current.keys()]) if (!firsts.has(k)) dropSince.current.delete(k);
+      const ripe: number[] = [];
+      for (const g of groups) {
+        const since = dropSince.current.get(g[0]!);
+        if (since === undefined) dropSince.current.set(g[0]!, now);
+        else if (now - since > DROP_GRACE_MS) ripe.push(...g);
+      }
+      if (ripe.length > 0) {
+        const next = new Set(droppedRef.current);
+        for (const j of ripe) next.add(j);
+        droppedRef.current = next;
+        setDropped(next);
+        if (next.has(iRef.current)) {
+          const to = nextKept(steps, iRef.current, next);
+          if (to === null) {
+            finish();
+            return;
+          }
+          missingSince.current = null;
+          writeProgress(tourKey, to);
+          setI(to);
+          return;
+        }
+      }
+    }
+
     let el = drawn(step.anchor);
     if (el && !isFixedInside(el) && scrolledFor.current !== iRef.current) {
       const band = freeBand(el, insets.current);
       if (!inBand(el, band)) {
         scrolledFor.current = iRef.current;
-        el.scrollIntoView({ block: 'center', behavior: prefersReduced() ? 'auto' : 'smooth' });
+        /* Taller than the room between the bars: its TOP comes into view (centred, both ends were off screen and it
+           read as covered for ever). */
+        const tall = el.getBoundingClientRect().height > band.bottom - band.top - 16;
+        el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: prefersReduced() ? 'auto' : 'smooth' });
         return; // measure on the next tick, once the scroll has settled
       }
       scrolledFor.current = iRef.current;
@@ -315,6 +373,7 @@ export function SpotlightTour({
       if (now - missingSince.current > GRACE_MS) {
         // Skip ahead to a later step whose element IS on this screen.
         for (let j = iRef.current + 1; j < steps.length; j++) {
+          if (droppedRef.current.has(j)) continue;
           const later = drawn(steps[j]!.anchor);
           if (later && uncovered(later)) {
             missingSince.current = null;
@@ -356,7 +415,7 @@ export function SpotlightTour({
         ? Math.min(below, window.innerHeight - insets.current.bottom - tipH - 12)
         : above;
     setTipTop(Math.max(insets.current.top + 12, top));
-  }, [busy, done, steps, tourKey]);
+  }, [busy, done, finish, inMaker, steps, tourKey]);
 
   useEffect(() => {
     place();
@@ -404,12 +463,12 @@ export function SpotlightTour({
       if (busyRef.current || !el || !(e.target instanceof Node) || !el.contains(e.target)) return;
       if (linkTarget(el)) navPending.current = { from: location.href, at: Date.now() };
       // Record where they are first — a tap that navigates must still resume on the next step.
-      writeProgress(tourKey, Math.min(iRef.current + 1, steps.length - 1));
+      writeProgress(tourKey, nextKept(steps, iRef.current, droppedRef.current) ?? iRef.current);
       advance(450);
     };
     document.addEventListener('click', onTap, true);
     return () => document.removeEventListener('click', onTap, true);
-  }, [advance, litFor, steps.length, tourKey]);
+  }, [advance, litFor, steps, tourKey]);
 
   // Escape skips, as the old card did.
   useEffect(() => {
@@ -446,9 +505,9 @@ export function SpotlightTour({
 
   const step = steps[i];
   const style = <style>{CSS_TEXT}</style>;
-  /* 👋 A welcome step is not one of the steps: "Step N of M" counts the others only. */
-  const counted = steps.filter((s) => !s.welcome).length;
-  const shownN = steps.slice(0, i + 1).filter((s) => !s.welcome).length;
+  /* 👋 A welcome step is not one of the steps, nor is a dropped one: "Step N of M" counts what is left. */
+  const { n: shownN, of: counted } = spotlightCount(steps, i, dropped);
+  const last = nextKept(steps, i, dropped) === null;
   const title = step?.welcome
     ? name?.trim()
       ? step.title.replace('{name}', name.trim())
@@ -521,16 +580,16 @@ export function SpotlightTour({
         </div>
         <h4 id="sn-spot-title">{title}</h4>
         <p>{step.body}</p>
-        {step.welcome ? null : <div className="sn-spot-hint">Tap it yourself — or press Next</div>}
+        {step.welcome ? null : <div className="sn-spot-hint">{step.hint ?? 'Tap it yourself — or press Next'}</div>}
         <div className="sn-spot-row">
           <button type="button" className="sn-spot-skip" onClick={finish}>
             Skip
           </button>
           <div className="sn-spot-prog" aria-hidden>
-            <i style={{ width: `${((i + 1) / steps.length) * 100}%` }} />
+            <i style={{ width: `${(Math.max(1, shownN) / Math.max(1, counted)) * 100}%` }} />
           </div>
           <button ref={goRef} type="button" className="sn-spot-go" onClick={onNext} disabled={busy}>
-            {i === steps.length - 1 ? 'Finish' : 'Next'}
+            {last ? 'Finish' : 'Next'}
           </button>
         </div>
       </div>
@@ -538,11 +597,13 @@ export function SpotlightTour({
   );
 }
 
-/** A bottom tab or a top-bar button: it does not scroll into view, it is already there. */
+/** A bottom tab or a top-bar button: it does not scroll into view, it is already there. An element in a box that
+    scrolls INSIDE a fixed one (a Studio tool's editor in the Maker) does scroll — its own box moves it. */
 function isFixedInside(el: HTMLElement): boolean {
   for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
-    const p = getComputedStyle(n).position;
-    if (p === 'fixed' || p === 'sticky') return true;
+    const cs = getComputedStyle(n);
+    if (n !== el && /auto|scroll/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1) return false;
+    if (cs.position === 'fixed' || cs.position === 'sticky') return true;
   }
   return false;
 }

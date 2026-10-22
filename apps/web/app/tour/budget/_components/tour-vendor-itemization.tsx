@@ -85,10 +85,10 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-[#8C6932]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-[#8C6932]"
-        title="The vendor publishes this pricing in their catalog."
+        title="The supplier publishes this pricing in their catalog."
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        From vendor
+        From supplier
       </span>
     );
   }
@@ -156,7 +156,7 @@ function LineItemSection({
       {hasVendorControlled ? (
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#8C6932]/80">
-            From the vendor&rsquo;s catalog
+            From the supplier&rsquo;s catalog
           </p>
           <ul className="space-y-1.5">
             {vendorControlledItems.map((item) => (
@@ -181,7 +181,7 @@ function LineItemSection({
 
       {priceSource === 'pending' && !hasVendorControlled ? (
         <p className="rounded-md border border-dashed border-[#A9834B]/40 bg-[#FBF6EA] px-3 py-3 text-sm text-[#5F5E5A]">
-          This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear here once they publish it.
+          This supplier hasn&rsquo;t shared pricing yet. Their catalog will appear here once they publish it.
         </p>
       ) : null}
 

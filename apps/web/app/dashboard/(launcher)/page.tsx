@@ -15,9 +15,7 @@ import {
   Users,
   Clapperboard,
   Heart,
-  HeartHandshake,
   Baby,
-  Mail,
   CalendarClock,
   Plus,
 } from 'lucide-react';
@@ -111,6 +109,9 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
+import { readForTags } from '@/lib/event-for-tag.server';
+import { cardShowsForTag, type ForTag } from '@/lib/for-tag';
+import { StanceChip } from './_components/stance-chip';
 
 export const metadata = {
   title: 'Your events',
@@ -180,7 +181,7 @@ export const metadata = {
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
  *     (Profile · Setnayan AI), killing the old zone overlap.
- * Plus the deterministic SEARCH bar (HomeCommandBar, ⌘K): client-side jump-to
+ * The search is the Events thumb row ("Search events" · ＋ Create event, 2026-10-22); the retired top-bar palette was a client-side jump-to
  * over the user's own events/spaces/destinations — no LLM (Setnayan AI Rule 1).
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
@@ -848,6 +849,15 @@ export default async function LauncherPage({
     ownHeroByIdRead,
     user.id,
   );
+  // "FOR <NAME>" (owner 22 Oct 2026) — the Planning page's posters only, and only the
+  // viewer's OWN events: the subject resolves under `owner_user_id = viewer`, so asking
+  // about an invited or helping card would spend a read that can only come back empty.
+  // A failed read is an empty map — every card keeps its stance chip.
+  const forTagByIdRead = readForTags(
+    supabase,
+    user.id,
+    upcomingOnPage.filter((e) => e.member_type === 'couple').map((e) => e.event_id),
+  ).catch(() => new Map<string, ForTag>());
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -863,6 +873,7 @@ export default async function LauncherPage({
     eventTypeHero,
     ownHeroById,
     posterById,
+    forTagById,
   ] = await Promise.all([
     checklistRead,
     decisionRead,
@@ -876,6 +887,7 @@ export default async function LauncherPage({
     eventTypeHeroRead,
     ownHeroByIdRead,
     posterByIdRead,
+    forTagByIdRead,
   ]);
 
   const checklistByEvent = new Map(checklistEntries);
@@ -1316,6 +1328,7 @@ export default async function LauncherPage({
                 progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
                 poster={posterById.get(event.event_id)}
+                forTag={forTagById.get(event.event_id) ?? null}
               />
             </BoardCardWithMenu>
           ))}
@@ -1746,37 +1759,6 @@ function SectionLabel({
 }
 
 /**
- * THE STANCE CHIP — "You organise this" / "You're invited".
- *
- * The one thing a card has to answer before it is pressed, because it decides
- * what is behind it: an organiser opens the event dashboard, an invited person
- * opens the event's own public page (their photos, their table, their RSVP —
- * with the money and plan surfaces absent, not present-and-refused).
- *
- * Rendered on EVERY card, not just the invited ones. An unexplained difference
- * between two cards is worse than a label on both — and "you organise this" is
- * the sentence that makes the other one legible.
- */
-function StanceChip({ stance }: { stance: EventStance }) {
-  const invited = stance === 'invited';
-  // A helper's chip is the organiser's colour (both open the dashboard) with
-  // its own mark, so the two never read as the same sentence at a glance.
-  const Icon = invited ? Mail : stance === 'helper' ? Users : HeartHandshake;
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-[0_2px_8px_rgba(30,26,18,0.08)] ${
-        invited
-          ? 'bg-[color:var(--sn-mulberry-100,rgba(194,78,37,0.14))] text-mulberry'
-          : 'bg-white/85 text-[color:var(--sn-ink-500)]'
-      }`}
-    >
-      <Icon aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
-      {stanceLabel(stance)}
-    </span>
-  );
-}
-
-/**
  * One EVENTS glass card (owner-approved final design 2026-07-15). A frosted
  * panel over the warm paper — the Atelier + macOS-glass language (owner-locked
  * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
@@ -1805,6 +1787,7 @@ async function GlassEventCard({
   storyHref,
   poster,
   scenePoster,
+  forTag = null,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1855,9 +1838,16 @@ async function GlassEventCard({
    * (`sceneCoverFor`) — the Event Hub's cover, not the stock type photo.
    */
   scenePoster?: EventPosterFacts;
+  /**
+   * "FOR <NAME>" (owner 22 Oct 2026) — who this event is for, when the viewer holds that
+   * subject (`readForTags`). Drawn on a POSTER card only, in the stance chip's slot; absent
+   * or unread ⇒ the stance chip as before, never a guessed name.
+   */
+  forTag?: ForTag | null;
 }) {
   const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  const tagged = poster && forTag && cardShowsForTag(stance, forTag) ? forTag : null;
   // The score is an organiser's number for a plan still in motion: never on an
   // invited card (whose plan is somebody else's), never on a finished one
   // (whose day has happened — a planning score on a celebrated day is the
@@ -1922,7 +1912,7 @@ async function GlassEventCard({
       }
       /* Type badge + STANCE, one row: what kind of event this is, and which
          side of it you are on. */
-      kicker={stance ? [badge, <StanceChip stance={stance} key="stance" />] : [badge]}
+      kicker={stance ? [badge, <StanceChip stance={stance} forTag={tagged} key="stance" />] : [badge]}
       /* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
          lettered). Uploaded outranks custom per app-wide precedence;
          EventMonogram only reads monogram_custom_svg, so resolve it here. */
@@ -1953,7 +1943,7 @@ async function GlassEventCard({
       meta={
         poster
           ? [
-              stance ? `${badge}, ${stanceLabel(stance)}` : badge,
+              stance ? `${badge}, ${tagged ? `for ${tagged.name}` : stanceLabel(stance)}` : badge,
               poster.date ? `${poster.weekday} ${poster.date}` : 'Date to be set',
             ].join(' · ')
           : (dateLabel ?? 'Date to be set')

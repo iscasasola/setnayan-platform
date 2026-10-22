@@ -433,7 +433,7 @@ export function EventTypePicker({
             </p>
           </div>
 
-          {/* Life-event honoree ("Para kanino?") — the cardinality key (council
+          {/* Life-event honoree ("For whom?" — "Para kanino?" until 2026-10-22, the 7 Oct English ruling) — the cardinality key (council
               verdict 2026-07-17 § 2). OPTIONAL, first name only, ordinary PI:
               one in-planning celebration per celebrant per type, and typing a
               different name opens a new slot. Never asks a birthdate.
@@ -453,7 +453,7 @@ export function EventTypePicker({
           {pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
-                {isGatedLifeType(selected.key) ? 'Para kanino?' : 'Which business is this for?'}{' '}
+                {isGatedLifeType(selected.key) ? 'For whom?' : 'Which business is this for?'}{' '}
                 <span className="font-normal text-ink/45">— optional</span>
               </label>
               {/* Pre-answered by the who step when a NAMED alaga was picked.

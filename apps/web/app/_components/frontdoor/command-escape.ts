@@ -22,6 +22,7 @@
  */
 import type { HomeCommandItem } from './command-item';
 import { SEARCH_SCOPES, type SearchScope } from '@/lib/search-scope';
+import { shellSearchHref } from '@/lib/shell-search';
 
 /**
  * ⚠ NOT A FILTERED ROW — the caller appends it AFTER filtering, deliberately.
@@ -104,12 +105,21 @@ export function marketplaceEscapeItem(
         // there is another door.
         `You’re searching ${scope.placeholder.replace(/^Search /, '')} · this looks everywhere`,
     /*
-      ⚠ `/`, NOT `/explore`. The front door reads `?q=` and renders results in
-      its own body. Sending this to the marketplace again re-creates the defect
-      above; the marketplace is reached from a row ON the results page, which
-      is where a supplier-shaped query still gets the stronger search.
+      🔄 THE SHELL'S OWN RESULTS PAGE, NOT `/` (owner 2026-10-22: *"I tried to
+      search for seda and brought me here away from our shell"*). This row is
+      only ever drawn for somebody signed in (the palette never mounts for a
+      stranger), and `/` is a DOORWAY page — the old top bar, no account bar —
+      whose results then handed the words on to `/explore`, a second doorway.
+      In the store app `/` is not even a page (middleware bounces it to the
+      board), so the words were thrown away. `/dashboard/search` renders the
+      SAME results view (`FrontDoorResults`: suppliers, stories and guides,
+      plus your own things) inside the account shell. See `lib/shell-search.ts`.
+
+      ⚠ STILL NEVER `/explore`. The marketplace leads with its supplier verdict
+      ("No suppliers match exactly") above everything else — the 2026-08-20
+      defect — and it is outside the shell.
     */
-    href: `/?q=${encodeURIComponent(q)}`,
+    href: shellSearchHref(q),
     kind: 'action',
     icon: 'store',
   };

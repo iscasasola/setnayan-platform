@@ -36,7 +36,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
-import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { TraditionNotes } from './_components/tradition-notes';
 import { openDashboardEventRow } from '@/lib/event-row-once';
 
@@ -523,8 +524,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         </div>
       ) : null}
 
-      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
-      <MiniTour tourKey="customer_budget_v1" />
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.budget} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </section>
   );
 }

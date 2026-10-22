@@ -218,7 +218,8 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
     ['Prints', /key: 'prints'[\s\S]*?openSection\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
-    ['About the Maker', /key: 'about'[\s\S]*?setTour\(true\)/],
+    // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
+    ['About the Maker', /key: 'about'[\s\S]*?onPick: aboutTheMaker/],
   ];
   for (const [door, re] of DOORS) assert.match(settings, re, `${door} has no home in Settings`);
   // The address is Details › Your Event Hub (a Details item, on the Details door).

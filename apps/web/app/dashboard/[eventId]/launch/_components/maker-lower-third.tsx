@@ -227,6 +227,7 @@ export function MakerLowerThird({
       ref={rootRef}
       aria-label="Edit"
       data-maker-lower-third=""
+      data-tour="maker-tools"
       data-lt-tool={tool ? tool.key : undefined}
       data-phone-chrome="bottom"
       data-phone-chrome-name="the lower third"

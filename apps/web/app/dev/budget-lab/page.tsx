@@ -30,6 +30,9 @@ import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { TraditionNotes } from '@/app/dashboard/[eventId]/budget/_components/tradition-notes';
 import { labMoney, LAB_NOW, LAB_PAYMENTS } from './fixture';
+import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +41,7 @@ const E = '00000000-0000-4000-8000-000000000000';
 export default async function BudgetLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string; shell?: string }>;
+  searchParams: Promise<{ state?: string; shell?: string; spot?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -111,6 +114,10 @@ export default async function BudgetLabPage({
           ) : undefined
         }
       />
+      {/* 🔦 `&spot=1` — the Budget's first-visit spotlight (owner 2026-10-22), first run. */}
+      {q.spot === '1' && TOURS[HOST_PAGE_TOURS.budget].spotlight ? (
+        <LabPageSpotlight tourKey={HOST_PAGE_TOURS.budget} script={TOURS[HOST_PAGE_TOURS.budget].spotlight!} />
+      ) : null}
     </main>
   );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`) around the ledger. */

@@ -34,7 +34,7 @@ import {
   formatCelebrationDay,
   ordinal,
 } from '@/lib/anchor-celebration-dates';
-import { takeHonoree } from '@/lib/onboarding/honoree-handoff';
+import { takeHonoree, type HonoreeCarry } from '@/lib/onboarding/honoree-handoff';
 import { takeMoment } from '@/lib/onboarding/moment-handoff';
 import { birthdayWhoFromAge } from '@/lib/onboarding/birthday-who-from-age';
 import { birthdayMilestoneFromAge } from '@/lib/onboarding/birthday-milestone-from-age';
@@ -277,6 +277,15 @@ export function GenericOnboarding(props: Props) {
   // how a link ends up on the wrong person. A resumed draft keeps the name and
   // falls back to label-keyed capping, which is the shipped behaviour.
   const [honoreeDependentId, setHonoreeDependentId] = useState<string | null>(null);
+  /**
+   * WHO "For ▾" named, on a type that asks no honoree question (owner 2026-10-22:
+   * a SHOP is linked on every event created for it — a celebration, a trip, a
+   * tournament). Nothing is asked or drawn; the pair rides to the server, which
+   * reads the record's KIND and links it only when it is the caller's own
+   * business — a person carried onto a trip is dropped there, label and all.
+   * Not persisted in the draft, for the same reason as `honoreeDependentId`.
+   */
+  const [carriedLink, setCarriedLink] = useState<HonoreeCarry | null>(null);
   // Arrived from the reader's OWN moment on /dashboard/year (their birthday off
   // their own profile). Blank honoree has always meant "the account holder", so
   // there is nothing to prefill — only a question to stop asking as if we did
@@ -519,6 +528,9 @@ export function GenericOnboarding(props: Props) {
         // under `owner_user_id = you` and drops anything else.
         setHonoreeDependentId(carried.dependentId);
       }
+    } else {
+      const carried = takeHonoree();
+      if (carried?.dependentId) setCarriedLink(carried);
     }
     // Started from a row on /dashboard/year: that row was DERIVED from facts
     // this account already holds, so the day it falls on and "this one is mine"
@@ -980,8 +992,8 @@ export function GenericOnboarding(props: Props) {
     const payload: GenericOnboardingPayload = {
       eventType,
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
-      honoreeLabel: asksHonoree ? honoree.trim() || null : null,
-      honoreeDependentId: asksHonoree ? honoreeDependentId : null,
+      honoreeLabel: asksHonoree ? honoree.trim() || null : carriedLink?.name ?? null,
+      honoreeDependentId: asksHonoree ? honoreeDependentId : carriedLink?.dependentId ?? null,
       anchorDate: isAnniversary ? anchorDate || null : null,
       anchorOrigin: isAnniversary ? anchorOrigin : null,
       // Anniversary and birthday return every year by nature; the toggle types

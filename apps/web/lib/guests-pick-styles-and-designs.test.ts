@@ -361,3 +361,96 @@ test('7 · the stored ticks survive every other write, and paper says every allo
   assert.match(line!.line, /For men: Suit and tie or Barong Tagalog/);
   assert.match(line!.line, /For women: Long dress or Filipiniana/);
 });
+
+/* ── 8 · the Studio's strip draws the chosen designs ─────────────────────── */
+
+/** The Studio's guest strip for one column (`m` men, `f` women): each figure's design, garment and colour, in order. */
+function stripOf(html: string, who: 'm' | 'f'): Array<{ option: number; design: string | null; garment: string; colour: string; tie: string | null; body: string | null }> {
+  const at = html.indexOf(`data-mood-board-pick="${who}"`);
+  assert.ok(at >= 0, `the Studio draws no ${who} column`);
+  const next = html.indexOf('data-mood-board-pick="', at + 10);
+  /* Only the strip — never the Wear ▾ (whose design tiles also draw figures). */
+  const seg = html.slice(at, next < 0 ? undefined : next);
+  const strip = seg.slice(0, Math.max(0, seg.indexOf('data-mood-board-wear')) || undefined);
+  const out = [];
+  const re = /data-mood-board-option="(\d+)"(?: data-mood-board-design="([^"]*)")?[\s\S]*?data-garment="([^"]+)" data-colour="([^"]+)"([\s\S]*?)<\/span><\/span>/g;
+  for (let m = re.exec(strip); m; m = re.exec(strip)) {
+    out.push({
+      option: Number(m[1]),
+      design: m[2] ?? null,
+      garment: m[3]!,
+      colour: m[4]!,
+      tie: /data-zone="t" data-zone-colour="([^"]+)"/.exec(m[5]!)?.[1] ?? null,
+      body: /data-zone="a" data-zone-colour="([^"]+)"/.exec(m[5]!)?.[1] ?? null,
+    });
+  }
+  return out;
+}
+
+test('8 · the Studio’s strip draws the N chosen designs — colours in turn along them, each by its own zones', async () => {
+  /* The owner's first report (22 Oct): four suits ticked, four colours — four Classic two-button suits were drawn. */
+  const four = ['suit/classic', 'suit/double_breasted', 'suit/three_piece', 'suit/shawl'];
+  const s4 = stripOf(await studio(config(four, ['long_gown'])), 'm');
+  assert.deepEqual(s4.map((f) => f.design), four, 'the strip does not draw the four chosen suits');
+  assert.equal(new Set(s4.map((f) => f.garment)).size, 4, 'the strip draws one suit four times');
+  s4.forEach((f, i) => {
+    assert.equal(f.colour, COLOURS[i], `${f.design} does not wear colour ${i + 1}`);
+    assert.equal(f.tie, COLOURS[i], `${f.design}: the colour is not on the tie`);
+    assert.equal(f.body, GUEST_SUIT_BLACK, `${f.design}: the coat is not black`);
+  });
+
+  /* The owner's second report: across styles — 3 suits + a barong + smart casual = 5 designs, 4 colours. */
+  const mixed = ['suit/classic', 'suit/double_breasted', 'suit/shawl', 'barong_tagalog/jusi', 'smart_casual/blazer_tee'];
+  const html = await studio(config(mixed, ['long_gown', 'cocktail_dress/sheath', 'filipiniana/terno_gown']));
+  const sm = stripOf(html, 'm');
+  assert.deepEqual(sm.map((f) => f.design), mixed, 'the strip does not draw the five chosen designs across styles');
+  assert.deepEqual(sm.map((f) => f.garment), mixed.map((id) => designArt('guest_m', DESIGN_LIBRARY.guest_m!.find((d) => `${d.style}/${d.variant}` === id)!)));
+  sm.forEach((f, i) => {
+    assert.equal(f.colour, COLOURS[i % COLOURS.length], `${f.design}: colours are not worn in turn (cycling)`);
+    assert.equal(f.option, i % COLOURS.length, `${f.design}: its dot is not colour ${(i % COLOURS.length) + 1}`);
+  });
+  assert.equal(sm[3]!.body, COLOURS[3], 'the barong does not wear its colour on its body');
+  assert.equal(sm[4]!.body, COLOURS[0], 'smart casual does not wear its colour on its top');
+  assert.equal(sm[3]!.tie, null, 'a barong grew a tie');
+  /* Labels: each design's name, and what its colour colours. */
+  for (const id of mixed) {
+    const d = DESIGN_LIBRARY.guest_m!.find((x) => `${x.style}/${x.variant}` === id)!;
+    assert.ok(html.includes(`data-mood-board-design-name="${d.label}"`), `${d.label} is not named under its figure`);
+  }
+  /* Women: every allowed design (Long dress whole = its five, then two more), distinct, colours in turn. */
+  const sw = stripOf(html, 'f');
+  const wAllowed = allowedDesigns('guest_w', 'long_gown', sanitizeDesignTicks('guest_w', 'long_gown', ['long_gown', 'cocktail_dress/sheath', 'filipiniana/terno_gown']));
+  assert.deepEqual(sw.map((f) => f.design), wAllowed.map((d) => d.id), 'the women’s strip does not draw the chosen designs');
+  assert.equal(new Set(sw.map((f) => f.garment)).size, wAllowed.length, 'the women’s strip repeats one dress');
+  sw.forEach((f, i) => assert.equal(f.body, COLOURS[i % COLOURS.length], `${f.design}: a woman's dress does not wear colour ${(i % COLOURS.length) + 1}`));
+
+  /* More colours than designs: the designs cycle, every colour is worn. */
+  const s2 = stripOf(await studio(config(['suit/classic', 'barong_tagalog/polo'], ['long_gown'])), 'm');
+  assert.deepEqual(s2.map((f) => f.design), ['suit/classic', 'barong_tagalog/polo', 'suit/classic', 'barong_tagalog/polo']);
+  assert.deepEqual(s2.map((f) => f.colour), COLOURS);
+
+  /* A fuzz: for any ticks, the strip stands every allowed design once (cycled to the colours), never one design for all. */
+  const r = rng(22);
+  for (let i = 0; i < 40; i += 1) {
+    const men = fuzzTicks('guest_m', r);
+    const style = men[0]!.split('/')[0] as AttireStyle;
+    const allowed = allowedDesigns('guest_m', style, sanitizeDesignTicks('guest_m', style, men));
+    if (allowed.length < 2) continue;
+    const s = stripOf(await studio(config(men, ['long_gown'])), 'm');
+    assert.equal(s.length, Math.max(allowed.length, COLOURS.length), `seed ${i}: ${JSON.stringify(men)}`);
+    assert.deepEqual(new Set(s.map((f) => f.garment)), new Set(allowed.map((d) => d.art)), `seed ${i}: the strip does not draw the chosen designs`);
+  }
+});
+
+test('8 · a legacy single `style` keeps the shipped strip — one figure per colour, all in its design, no design names', async () => {
+  for (const [m, w] of [['suit', 'long_gown'], ['barong_tagalog', 'filipiniana']] as const) {
+    const html = await studio({ roles: { guest: { style: m } }, women: { roles: { guest: { style: w } } } });
+    for (const [who, role, style] of [['m', 'guest_m', m], ['f', 'guest_w', w]] as const) {
+      const s = stripOf(html, who);
+      assert.equal(s.length, COLOURS.length);
+      assert.deepEqual(new Set(s.map((f) => f.garment)), new Set([`${role}-${style}`]));
+      assert.ok(s.every((f) => f.design === null), 'a legacy column grew design attributes');
+    }
+    assert.doesNotMatch(html, /data-mood-board-design-name=|data-mood-board-looks=/);
+  }
+});

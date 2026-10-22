@@ -81,6 +81,7 @@ import {
   Wallet,
   WifiOff,
   FileWarning,
+  Footprints,
 } from 'lucide-react';
 
 import type { NavGroup } from '@/app/_components/nav/types';
@@ -771,6 +772,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/app-performance',
         icon: Activity,
         matchPrefix: '/admin/app-performance',
+      },
+      {
+        // Visits — site traffic counted in our own database, no cookies
+        // (owner 2026-10-22: "in our own admin, not Vercel").
+        key: 'visits',
+        label: 'Visits',
+        href: '/admin/app-performance?tab=visits',
+        icon: Footprints,
+        matchPrefix: '/admin/app-performance?tab=visits',
       },
       {
         key: 'growth',

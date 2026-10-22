@@ -64,7 +64,9 @@ import { jobPrefillIsRead } from './prefill-consumers';
  */
 // 144 since 2026-10-12: /admin/launch-offer is a new admin page (owner 2026-10-08
 // "ONE admin page" for the launch offer) — the rule above, raised by one.
-export const MODEL_CHOICE_CAP = 144;
+// 145 since 2026-10-22: Admin › App Performance › Visits joins the menu (owner
+// 2026-10-22, site traffic in our own admin) — the rule above, raised by one.
+export const MODEL_CHOICE_CAP = 145;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

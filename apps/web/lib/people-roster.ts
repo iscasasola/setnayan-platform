@@ -191,7 +191,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     samahan and alaga need nothing from each other — only the signed-in id — so
     they run side by side, and inside connections the three reads that need only
     the rows (names · which event asked · their accounts) run side by side too,
-    as does every partner's "do we share an event?". The roster used to be ten
+    as does every partner's "do we share an event?". The roster used to be nine
     database trips one after another; it is now four (me → my connections → the
     three → the partners). Every read, its scope, its refusal handling and the
     order of the rows it returns are unchanged — only WHEN each read starts moved.

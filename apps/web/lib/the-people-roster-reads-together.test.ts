@@ -6,11 +6,13 @@
  * REAL `getPeopleRoster` and the REAL `PeoplePage` against a database that
  * counts how deep each request ran:
  *
- *   · the roster was 10 trips one after another (me → my connections → names →
+ *   · the roster was 9 trips one after another (me → my connections → names →
  *     which event asked → their accounts → my samahan → its members → the
- *     partner's shared event → the loved-ones gate → loved ones);
+ *     partner's shared event → loved ones; the loved-ones gate is a remembered
+ *     platform read, warm in production) — 1,375 ms at 150 ms a trip, now 661;
  *   · the page then asked the follow list and the spouse rule AFTER the roster
- *     came back — three more trips on Connected, Requests and Loved ones.
+ *     came back — three more trips on Connected, Requests and Loved ones. The
+ *     page was 12 deep (1,838 ms simulated), now 5 (806 ms).
  *
  * Connections, samahan and loved ones need only the signed-in id, so they now
  * start together; inside connections the three reads that need only the rows
@@ -81,7 +83,7 @@ test('1 · the roster hands the screen the same rows it always did', () => {
 /** me → my connections → (names · which event asked · their accounts) → the partner's shared event. */
 const ROSTER_MAX_DEPTH = 4;
 
-test(`2 · the roster is at most ${ROSTER_MAX_DEPTH} trips deep (it was 10)`, () => {
+test(`2 · the roster is at most ${ROSTER_MAX_DEPTH} trips deep (it was 9)`, () => {
   assert.ok(REPORT.roster.depth <= ROSTER_MAX_DEPTH, `the roster waits on reads one after another again:\n${shape(REPORT.roster)}`);
 });
 

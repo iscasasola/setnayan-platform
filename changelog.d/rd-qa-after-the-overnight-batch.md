@@ -1,7 +1,7 @@
 ## 2026-10-22 · fix(features): /features names the bars that ship — Today · Customers · Shop · Hub, and Hub for the host
 
-QA regression walk after the 21→22 Oct overnight batch (≈35 merged PRs; findings in
-`shots-2026-10-22/qa-overnight/FINDINGS.md`). One small, safe fix from it:
+QA regression walk after the 21→22 Oct overnight batch (≈35 merged PRs; the findings list is in the PR
+body, evidence in `shots-2026-10-22/qa-overnight/`). One small, safe fix from it:
 
 - `/features` and `/tl/features` ("How it works · who's who") still said a supplier works in
   "Today · Customers · Shop · **More**" after the supplier bar became **Today · Customers · Shop · Hub** (#6748), and

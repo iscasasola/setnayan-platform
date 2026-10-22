@@ -65,7 +65,7 @@ import {
  * the accumulated client state object and writes events + event_members in one
  * shot — the prototype's "create the event row at the account gate, all data at
  * once" model. It mirrors createWeddingEvent's insert path exactly (same auth
- * gate → admin-client inserts → slug → event_members couple row → captureEvent)
+ * gate → admin-client inserts → slug → event_members couple row)
  * so the row lands in a state valid against the events_wedding_fields_consistency
  * CHECK constraint (migration 20260521080000: wedding events must populate
  * ceremony_type + venue_setting).

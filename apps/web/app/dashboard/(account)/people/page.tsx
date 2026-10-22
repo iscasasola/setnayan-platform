@@ -9,6 +9,7 @@ import {
   defaultPeopleView,
   peopleViewOptions,
   resolvePeopleView,
+  type PeopleView,
   type PeopleViewGates,
 } from '@/lib/people-views';
 import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib/people-add';
@@ -16,7 +17,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { PeopleRosterView } from './_components/people-roster-view';
-import { PeopleViewPicker } from './_components/people-view-picker';
+import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
 import { AddAlagaButton } from './_components/add-alaga-button';
 import { DependentsSection } from './_components/dependents-section';
@@ -51,6 +52,13 @@ const FENCE_ERROR: Record<string, string> = {
  * renders the roster (<PeopleRosterView>) — add first, label after — wiring the
  * shipped propose/confirm/decline actions. The preview + functional modes share
  * this one route so nothing repaints on the flip.
+ *
+ * ── 2026-10-22: THE TOP IS THE COUNTS LINE (owner: "remove it", of the view dropdown) ──
+ * People wears today's Guest list (prototypes/people_and_memories_template_2026-10-22.html). The view
+ * dropdown that headed the page is gone; the roster's counts line is the top and filters. Loved ones is a
+ * folded section of the list; Groups · Following · Followers sit under the ≡ button in the thumb row
+ * (`PeopleViewPicker`, moved). Every `?view=` still resolves — the rail's rows link to them — and lands on
+ * the same thing: requests → the list filtered to "asking you", alaga → the list with Loved ones open.
  *
  * ── ONE PAGE, ONE PICKER (owner 2026-09-28, the People redesign) ──────────
  * *"People is same as Alaga and Samahan."* The page is six views by URL —
@@ -120,7 +128,7 @@ export default async function PeoplePage({
   // No user (or connections off) → the not-married context, which is where a
   // failed read lands too: the chip can be hidden by a denial, never invented.
   const spouseCtx: SpouseContext =
-    user && view === 'connected'
+    user && (view === 'connected' || view === 'requests' || view === 'alaga')
       ? await getSpouseContext(user.id)
       : { civilStatus: null, weddingHasHappened: false };
 
@@ -142,8 +150,30 @@ export default async function PeoplePage({
     view,
   );
 
+  // THE ≡ LIST (owner 2026-10-22 — the dropdown at the top is removed; Groups, Following and Followers sit under
+  // the filter button in the thumb row, the seat Guests keeps its groups in). Requests and Loved ones are not
+  // in it: they are the "asking you" count and a folded section of the list.
+  const picker = {
+    view: (['connected', 'following', 'followers', 'samahan'] as PeopleView[]).includes(view) ? view : defaultPeopleView(gates),
+    options: options
+      .filter((o) => o.key !== 'requests' && o.key !== 'alaga')
+      .map((o) => (o.key === 'connected' ? { ...o, label: o.label.replace(/^Connected/, 'Your people') } : o)),
+    gates,
+  };
+
+  // LOVED ONES — "Add a loved one" at the head of its own section, its only home (owner 2026-09-28, and
+  // 2026-10-22: a folded section in the list, like Family and Friends — a business alaga included).
+  const lovedOnes = showDependents ? (
+    <div data-people-view="alaga" className="pb-3">
+      <div className="mb-3 mt-1" data-view-door="alaga">
+        <AddAlagaButton />
+      </div>
+      <DependentsSection />
+    </div>
+  ) : null;
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
       <PageMasthead title="People" />
       {/* First visit only — the shipped MiniTour (owner rule 2026-09-25: every
           feature gets a first-visit tour). */}
@@ -151,76 +181,62 @@ export default async function PeoplePage({
       {errorMsg ? (
         <p
           role="alert"
-          className="mb-6 rounded-md bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mb-4 rounded-md bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
           {errorMsg}
         </p>
       ) : null}
 
-      {/* THE HEADER HOLDS ONLY THE PICKER. */}
-      <div className="mb-6" data-people-header>
-        <PeopleViewPicker view={view} options={options} gates={gates} />
-      </div>
-
-      {view === 'requests' && roster ? (
-        <PeopleRosterView
-          mode="requests"
-          roster={roster}
-          relations={offerableRelations(spouseCtx)}
-          spouseNote={null}
-        />
-      ) : null}
-
-      {view === 'connected' && roster ? (
+      {/* THE TOP IS THE COUNTS LINE, inside the roster (owner 2026-10-22). No header block above it. */}
+      {(view === 'connected' || view === 'requests' || view === 'alaga') && roster && showConnections ? (
         <PeopleRosterView
           roster={roster}
           relations={offerableRelations(spouseCtx)}
           spouseNote={spouseAbsenceNote(spouseCtx)}
+          picker={picker}
+          initialFilter={view === 'requests' ? 'asking' : 'all'}
+          focus={view === 'alaga' ? 'alaga' : null}
+          extra={[
+            ...(lovedOnes
+              ? [{ key: 'alaga' as const, label: 'Loved ones', count: roster.counts.alaga, node: lovedOnes }]
+              : []),
+            // THE TREE. `kinship-derive.ts` shipped on 2026-07-31 and had NO CONSUMER until then. It is the
+            // last folded section — what the people above add up to (spec §6: "Do not build a new page").
+            ...(user
+              ? [{ key: 'tree' as const, label: 'Your connection tree', count: null, folded: true, node: <ConnectionTreeSection userId={user.id} bare /> }]
+              : []),
+          ]}
         />
       ) : null}
-      {/* THE TREE. `kinship-derive.ts` shipped on 2026-07-31 and had NO CONSUMER
-          until then — the derivation ran for nobody. It renders under the roster
-          because the roster is where you ADD someone and this is what those
-          additions add up to (spec §6: "Do not build a new page — the People
-          surface exists"). The redesign keeps it under Connected: the picker
-          has no Connection tree row. */}
-      {view === 'connected' && user ? <ConnectionTreeSection userId={user.id} /> : null}
+      {/* Loved ones with connections switched off (a dev/preview-only branch): the section on its own. */}
+      {view === 'alaga' && !showConnections ? lovedOnes : null}
 
       {(view === 'following' || view === 'followers') && followList ? (
         <FollowListView
           which={view}
           list={followList}
           total={view === 'following' ? followCounts.following : followCounts.followers}
+          picker={picker}
         />
       ) : null}
 
-      {/* ALAGA — "Add an alaga" at the head of its own view, its only home. */}
-      {view === 'alaga' ? (
-        <div data-people-view="alaga">
-          <div className="mb-5" data-view-door="alaga">
-            <AddAlagaButton />
-          </div>
-          <DependentsSection />
-        </div>
-      ) : null}
-
-      {/* SAMAHAN — "New samahan" at the head of its own view, its only home. It
-          goes to the page that already creates one; nothing here is a new
-          destination. Samahan is live product and never flag-gated. */}
+      {/* GROUPS — "New group" at the head of its own view, its only home. It goes to the page that already
+          creates one; nothing here is a new destination. Samahan is live product and never flag-gated. */}
       {view === 'samahan' ? (
-        <div data-people-view="samahan">
-          <div className="mb-5" data-view-door="samahan">
+        <div data-people-view="samahan" className="mx-auto w-full max-w-3xl pb-24">
+          <div className="mb-5 mt-2" data-view-door="samahan">
             <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center text-sm">
               New group
             </Link>
           </div>
           <SamahanPeopleSection heading={false} />
+          <PeopleThumb picker={picker} />
         </div>
       ) : null}
 
-      {/* Your story stays on the page — on its default view. */}
+      {/* Your story stays on the page — on its default view, after the list (shown only when it has items). */}
       {view === defaultPeopleView(gates) ? (
-        <div className="mt-10">
+        <div className="mx-auto mt-6 w-full max-w-3xl">
           <YourStorySection />
         </div>
       ) : null}

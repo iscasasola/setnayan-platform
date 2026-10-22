@@ -57,6 +57,8 @@ import {
 } from '@/lib/event-board';
 
 import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { OWN_SUPPLIER_COLUMNS, ownSupplierItems, type OwnSupplierRow } from '@/lib/own-supplier-items';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /*
   THE EVENT VOCABULARY MOVED to `lib/event-vocabulary.ts` and is re-exported
@@ -194,6 +196,28 @@ async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
             };
           }),
       ];
+
+      /*
+        🏪 THE SUPPLIERS ALREADY ON YOUR EVENTS (owner 2026-10-22: he searched
+        "seda", a supplier he had booked, and search could not find it). Every
+        supplier row on an event you organise — booked or hand-added, published
+        or not — is findable by its name, tagged "On your event". The decision
+        is `ownSupplierItems` (pure, guarded); this is only the read. RLS fences
+        it to the couple's own events; a refused read is logged and costs the
+        supplier rows, never the rest of the index.
+      */
+      if (organiser.length > 0) {
+        const { data: supplierRows, error: supplierErr } = await supabase
+          .from('event_vendors')
+          .select(OWN_SUPPLIER_COLUMNS)
+          .in('event_id', organiser.map((e) => e.event_id))
+          .order('created_at', { ascending: true });
+        if (supplierErr) {
+          logQueryError('app/_components/frontdoor/command-data.ts: own suppliers event_vendors', supplierErr);
+        } else {
+          items.push(...ownSupplierItems(organiser, (supplierRows ?? []) as OwnSupplierRow[]));
+        }
+      }
 
       /*
         WHAT YOU RUN — the same membership rule the rail uses, from the same

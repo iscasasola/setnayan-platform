@@ -452,6 +452,39 @@ async function folderOfService(key: string) {
   return TAXONOMY_MAP[key]?.folder ?? null;
 }
 
+/** The published articles as the front door's cards — newest first, capped for the grid. */
+function toFrontDoorArticles(raw: ReturnType<typeof publishedBlogArticles>): FrontDoorArticle[] {
+  return raw
+    .slice()
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .slice(0, 12)
+    .map((a) => ({
+      slug: a.slug,
+      title: a.title,
+      category: blogCategoryLabel(a.category),
+      publishedAt: a.publishedAt,
+      cover: a.cover,
+      coverAlt: a.coverAlt,
+      // The Journal's own reading time, imported — so a card cannot promise
+      // 5 minutes here and 6 on the article itself.
+      readingMinutes: readingMinutes(a.blocks),
+    }));
+}
+
+/**
+ * Just the articles — what the SHELL's results page (`/dashboard/search`) needs
+ * to give a reading hit its cover, without the front door's shelves, shops and
+ * showcase reads. The same mapper `loadFrontDoorData` uses, so a cover cannot
+ * differ between the two pages.
+ */
+export function loadFrontDoorArticles(): FrontDoorArticle[] {
+  try {
+    return toFrontDoorArticles(publishedBlogArticles());
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Everything the front door renders, loaded in parallel.
  *
@@ -493,21 +526,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
       getLiveBookingFeeSchedule(),
     ]);
 
-  const articles: FrontDoorArticle[] = (articlesRaw ?? [])
-    .slice()
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-    .slice(0, 12)
-    .map((a) => ({
-      slug: a.slug,
-      title: a.title,
-      category: blogCategoryLabel(a.category),
-      publishedAt: a.publishedAt,
-      cover: a.cover,
-      coverAlt: a.coverAlt,
-      // The Journal's own reading time, imported — so a card cannot promise
-      // 5 minutes here and 6 on the article itself.
-      readingMinutes: readingMinutes(a.blocks),
-    }));
+  const articles = toFrontDoorArticles(articlesRaw ?? []);
 
   const chapters: FrontDoorStory[] = storiesRaw.items.map((s) => ({
     href: s.href,

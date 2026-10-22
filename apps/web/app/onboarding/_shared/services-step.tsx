@@ -883,6 +883,8 @@ export function ServicesStep({
               labelClassName="text-sm text-ink/60"
             >
               {hubPro.detail}
+              {/* 💎 Owner 2026-10-22: sign-up keeps ONE offer — the parts are met later, in the Maker. */}
+              {hubPro.partsFromPhp ? ` Or buy it part by part later, from ${peso(hubPro.partsFromPhp)}.` : null}
             </InfoTip>
           ) : null}
 

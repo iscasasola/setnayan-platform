@@ -11,6 +11,8 @@ import { eventOwnsSku } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { iapProductById, papicCreditsMatch } from './products';
+import { eventHubOwnership, eventOwnsHubPart } from '@/lib/couple-website-pro';
+import { hubPartOfSku } from '@/lib/hub-parts';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
 import { startRefusal, type IapStartResult, type IapConfirmResult, type IapRestoreResult } from './iap-outcome';
@@ -93,7 +95,17 @@ export async function startAppStorePurchase(input: {
 
   // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits are
   // consumable and always buyable; Pro and Live Watch are one per event.
-  if (product.kind !== 'papic-credits' && (await eventOwnsSku(admin, eventId, product.serviceKey))) {
+  // 💎 Part by part (owner 2026-10-22): a part is owned by its own order, Full Pro or the cap — and "everything" is
+  // not sold in the app once ANY part is owned (it would charge the full Apple price for what is less on the web,
+  // and the app may not say so); the event finishes on the web.
+  if (product.kind === 'event-hub-part') {
+    const part = hubPartOfSku(product.serviceKey);
+    if (!part || (await eventOwnsHubPart(admin, eventId, part))) return startRefusal('owned');
+  } else if (product.kind === 'event-hub-pro') {
+    const own = await eventHubOwnership(admin, eventId, 'owned');
+    if (own.full) return startRefusal('owned');
+    if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
+  } else if (product.kind !== 'papic-credits' && (await eventOwnsSku(admin, eventId, product.serviceKey))) {
     return startRefusal('owned');
   }
 

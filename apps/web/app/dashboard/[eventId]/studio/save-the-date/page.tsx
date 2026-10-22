@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -266,7 +266,8 @@ export default async function SaveTheDatePage({ params }: Props) {
       // 2026-09-24). The one host-facing resolver (service client, host of THIS
       // event), as the save action's gate reads it, so a co-host who did not
       // place the order sees the same answer the save gives.
-      eventCoupleWebsiteProActive(ent, eventId),
+      // 💎 The Save-the-Date's own film is the Reveal part's (owner 2026-10-22, gate 3).
+      eventHubPartActive(ent, eventId, 'reveal'),
     ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
   const openingsStandaloneSellable = openingsSellability === 'sellable';

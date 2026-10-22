@@ -95,7 +95,8 @@ test('1 · each scene draws ONLY its own accent — the pick, else the look’s 
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(
     body,
-    /const artKit = artKitView\(\{ theme: sceneTheme, accents: sceneAccentsFromPreferences\(\(event as \{ style_preferences\?: unknown \}\)\.style_preferences\), ownsPro: proWatermarkHidden, tryOn: isEditorCanvas \}\);/,
+    /* RE-AIMED 2026-10-22 (part by part): Decorations are the Style part's (gate 16). */
+    /const artKit = artKitView\(\{ theme: sceneTheme, accents: sceneAccentsFromPreferences\(\(event as \{ style_preferences\?: unknown \}\)\.style_preferences\), ownsPro: ownsStyle, tryOn: isEditorCanvas \}\);/,
     'site-body no longer decides the kit from the resolved theme, the scenes’ picks and the event’s Pro',
   );
   assert.equal((body.match(/artKitView\(/g) ?? []).length, 1, 'the kit is decided more than once on the page');

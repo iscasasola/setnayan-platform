@@ -140,6 +140,8 @@ export function stageProps(c: StageCase, rows?: InvitationWidgetRow[], more: Par
     ourPhotoUrls: [STAGE_WORDS.photo, 'https://fixture.invalid/our-photos/two.jpg'],
     stdFilm: film,
     ownsStdReveal: film,
+    /* 💎 The film's own song, film and closing gallery are Music's, Reveal's and Photos' (owner 2026-10-22). */
+    ...(film ? { hubParts: ['reveal', 'photos', 'music'] as const } : {}),
     ...(c.reader === 'anonymous'
       ? { identity: { kind: 'anonymous', reason: null, publicCandidCameraActive: false, publicAlbumHref: null, signedInNotListed: false } as SiteBodyFixtureProps['identity'] }
       : {}),

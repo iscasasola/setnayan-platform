@@ -178,11 +178,11 @@ test('the buy page already names the invite link — and must keep naming it', (
   // says-what-it-includes.test.ts holds the harder claim (a benefit may only name
   // something a non-buyer is actually refused). This is the other direction: the
   // inclusion is now one of the eight, so the sentence may not quietly go away.
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(
-    read('app/dashboard/[eventId]/studio/website-pro/page.tsx'),
-  );
-  assert.ok(benefits, 'BENEFITS not found — the scan is blind');
-  assert.match(benefits[1]!, /invite link/i, 'the buy page stopped naming the one thing the eighth item is');
+  // 💎 RE-AIMED 2026-10-22: the buy page is the parts page — the themes are the Style part's line ("Pro themes").
+  const parts = read('lib/hub-parts.ts');
+  const style = /id: 'style',[^\n]*blurb: "([^"]*)"/.exec(parts);
+  assert.ok(style, 'the Style part line not found — the scan is blind');
+  assert.match(style[1]!, /Pro themes/i, 'the buy page stopped naming the one thing the eighth item is');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -215,7 +215,8 @@ test('the DOOR asks only for Pro — the one rule that protects an already-saved
   assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro \}\)/);
   assert.doesNotMatch(look, /resolveWeddingOnlyParts|proThemeGate/, 'the resolver asks the wedding fence again');
   // …and it costs a House event nothing: the ownership read sits behind `wantsPro`.
-  assert.match(look, /wantsPro \? await websiteProActiveFor\(event\.event_id\)/);
+  // 💎 RE-AIMED 2026-10-22: a Pro theme is the Style part's (gate 13) — still behind `wantsPro`.
+  assert.match(look, /wantsPro \? await hubPartActiveFor\(event\.event_id, 'style'\)/);
 });
 
 test('the theme rule is not a second copy of the reveal’s timing', () => {

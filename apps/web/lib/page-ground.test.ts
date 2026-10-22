@@ -95,7 +95,8 @@ test('every surface that paints the page ground asks the one rule', () => {
     /const mainGround = loop && loopShows \? loop\.ground : guestMainGround\(theme, ownsPro, heroConfig, event\);/,
     'the page no longer asks the one gated answer',
   );
-  assert.match(helper, /const loopShows = loop \? tryOn \|\| \(await websiteProActiveFor\(event\.event_id\)/, 'a moving background is drawn without the Pro read');
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.match(helper, /const loopShows = loop \? tryOn \|\| \(await hubPartActiveFor\(event\.event_id, 'background'\)/, 'a moving background is drawn without the Pro read');
   assert.doesNotMatch(helper, /resolveMainGround\(/, 'the page resolves the Main background itself, past the gate');
   // (`<MainGroundNone />` is "None — just the colour": no media, no gate needed — owner 2026-09-29.)
   assert.equal((helper.match(/<MainGround[\s>]/g) ?? []).length, 1, 'MainGround is mounted twice');

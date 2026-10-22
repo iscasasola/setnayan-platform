@@ -85,6 +85,13 @@
   --fd-chip-hover: #e9e1d2;
   --fd-quiet: #f0ede6;      /* the quiet ask pill */
   --fd-gold-press: #7b5c2c; /* the gold button under the pointer */
+  --fd-topglass: rgba(255, 255, 255, 0.55); /* the app's sticky top strip, over a blur */
+  --fd-chipglass: rgba(255, 255, 255, 0.92); /* a date chip over a photo */
+  --fd-invite: #fcf8f1;     /* the invite / empty-shelf panel */
+  --fd-invite-line: #dcd3c2;
+  --fd-warm: #fbf0e9;       /* the "W" kind tag */
+  --fd-warm-ink: #7a4a2e;
+  --fd-warm-line: #e6cdbc;
   --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
@@ -131,6 +138,13 @@ html.dark .fd {
   --fd-chip-hover: #34322b;
   --fd-quiet: #292822;
   --fd-gold-press: #d8b97f; /* the gold lifts under the pointer; its label is the page colour */
+  --fd-topglass: rgba(23, 22, 15, 0.72); /* the page, frosted — white at 55 % read as a grey band */
+  --fd-chipglass: rgba(35, 32, 25, 0.92); /* the card, frosted — its ink is near-white in dark */
+  --fd-invite: #1e1c15;
+  --fd-invite-line: rgba(251, 250, 247, 0.2);
+  --fd-warm: #3a2a22;
+  --fd-warm-ink: #f3b59a;
+  --fd-warm-line: rgba(243, 181, 154, 0.3);
 }
 
 .fd *,
@@ -1209,9 +1223,9 @@ html.dark .fd {
   background: var(--fd-note);
 }
 .fd-kindtag-w {
-  color: #7a4a2e;
-  border-color: #e6cdbc;
-  background: #fbf0e9;
+  color: var(--fd-warm-ink);
+  border-color: var(--fd-warm-line);
+  background: var(--fd-warm);
 }
 
 .fd-sechead {
@@ -1338,10 +1352,10 @@ h2.fd-sechead,
 
 /* An invitation, not an apology — the shape an empty rail takes. */
 .fd-invite {
-  border: 1px dashed #dcd3c2;
+  border: 1px dashed var(--fd-invite-line);
   border-radius: var(--m-r-md);
   padding: 20px 22px;
-  background: #fcf8f1;
+  background: var(--fd-invite);
 }
 .fd-invite h3 {
   margin: 0 0 7px;
@@ -1822,7 +1836,7 @@ h2.fd-sechead,
   position: absolute;
   left: 6px;
   top: 6px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--fd-chipglass);
   color: var(--fd-ink);
   border-radius: var(--m-r-xs);
   padding: 3px 7px;
@@ -2050,7 +2064,7 @@ button.fd-ask.quiet {
      (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
      transparent strip over scrolling content is unreadable; a solid one is the
      "generic header" band the owner struck down on 2026-07-30. */
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--fd-topglass);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border-bottom: 1px solid var(--fd-line);

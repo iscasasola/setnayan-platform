@@ -33,3 +33,7 @@ Guards: `lib/buying-pro-part-by-part.test.ts` (the charge, the sheet's groups an
 Go to, the rename gate, Apply's one rename, the authority's keys, no typed price). Lab: `/dev/pro-parts-lab`.
 
 SPEC IMPACT: corpus `DECISION_LOG.md` row "EVENT HUB PRO, PART BY PART" (2026-10-22, pushed with PR 1).
+
+- Guards re-aimed to the parts page (the buy page's claims are the Everything sentence + each part's line), the one
+  rename (`renameEventSlug`), and the drafted address field ("Available — ✓ Apply keeps it."); two unread Supabase
+  errors now logged; the ugat screens map regenerated.

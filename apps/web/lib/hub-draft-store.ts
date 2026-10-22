@@ -471,7 +471,8 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
     { data: prefs, error: prefsErr },
     ceremonyTime,
   ] = await Promise.all([
-    supabase.from('events').select(HUB_DRAFT_EVENT_READ_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
+    // 💎 + `slug` — the address guests use today, what a drafted custom address is compared with (2026-10-22).
+    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
@@ -489,9 +490,11 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
   if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
   // Unread is not "no picks" either — Apply would compare against a guess.
   if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
+  const { slug: liveSlug, ...evCols } = (ev ?? {}) as Record<string, unknown>;
   return {
+    slug: typeof liveSlug === 'string' ? liveSlug : null,
     events: {
-      ...((ev ?? {}) as HubLiveState['events']),
+      ...(evCols as HubLiveState['events']),
       ceremony_time: ceremonyTime,
       // 🎨 The five main colours the page wears live, by slot — what a drafted colour is compared with.
       main_colours: mainColourSlotsOf((ev as { role_palette?: unknown } | null)?.role_palette, (ev as { invite_theme?: unknown } | null)?.invite_theme),

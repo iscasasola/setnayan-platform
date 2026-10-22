@@ -134,6 +134,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
+  address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
 
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */

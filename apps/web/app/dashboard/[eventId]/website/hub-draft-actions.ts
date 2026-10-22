@@ -74,6 +74,7 @@ import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { hubOwnershipForWrite } from '@/lib/hub-look-gate';
 import { NO_HUB_PARTS } from '@/lib/hub-parts';
+import { renameEventSlug } from '@/lib/event-slug-rename.server';
 import { getIapGate } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
@@ -598,6 +599,14 @@ export async function hubDraftAction(
         held.push({ item, reason: 'empty_section' });
         continue;
       }
+      /* 💎 A CUSTOM ADDRESS (owner 2026-10-22) goes live through the ONE rename (`renameEventSlug` — conflict checks,
+         the old link forwarding), never through the events update below. Taken since it was typed → held, said why. */
+      if (item.kind === 'address') {
+        const renamed = await renameEventSlug(supabase, eventId, item.value, typeof me === 'string' ? me : null);
+        if (!renamed.ok) held.push({ item, reason: 'address_taken' });
+        else if (renamed.changed) revalidatePath(`/dashboard/${eventId}`, 'layout');
+        continue;
+      }
       toWrite.push(item);
     }
 
@@ -1100,6 +1109,9 @@ export async function hubDraftAction(
         // A style pick is free and never held; nothing to keep.
       } else if (item.kind === 'march') {
         // 🚶 A march that stopped keeps nothing: what was still queued is dropped (said by name).
+      } else if (item.kind === 'address') {
+        // 💎 A custom address held (for the part, or taken meanwhile) stays drafted, still picked.
+        remaining.address = item.value;
       } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {

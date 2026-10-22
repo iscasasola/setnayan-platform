@@ -427,6 +427,11 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     }
     // 🚶 …and so is every Wedding March move.
     if (item.kind === 'march') continue;
+    /* 💎 A custom address tried in Details (owner 2026-10-22) — named by the address; "Remove" takes the pick off. */
+    if (item.kind === 'address') {
+      push({ id: 'address', part: 'address', what: 'Custom address', where: item.value, jump: { kind: 'tool', key: 'details' }, remove: { address: null } });
+      continue;
+    }
     if (item.kind === 'event') {
       const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
       const draftAccents = { ...liveAccents, ...sceneAccentsFromPreferences(draft.events.style_preferences ?? null) };

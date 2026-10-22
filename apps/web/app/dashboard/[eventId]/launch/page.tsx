@@ -144,6 +144,7 @@ import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { eventHasRenamed } from '@/lib/event-slug-rename.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
 import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
@@ -592,6 +593,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     if (php !== undefined && php > 0) partPricePhp[p.id] = php;
   }
   const studioPro = proOwn ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
+  /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
+  const addressRenamed = await eventHasRenamed(eventId).catch(() => false);
   const proLine: MakerProLine | null =
     !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
       ? null
@@ -1223,9 +1226,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let qrPrefs: unknown = printEvent.style_preferences;
       // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
       let draftedMarch: MarchStep[][] | null = null;
+      // 💎 The custom address tried in the draft (owner 2026-10-22) — the Address field opens on it.
+      let draftedAddress: string | null = null;
       try {
         const d = await readHubDraft(supabase, eventId);
         draftedMarch = d?.march ?? [];
+        draftedAddress = d?.address ?? null;
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
@@ -1794,6 +1800,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             slug={printEvent.slug}
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            /* 💎 THE ADDRESS, PART BY PART (owner 2026-10-22): free = the address it has; renaming = the Custom address part. */
+            address={{
+              owns: Boolean(proOwn && (proOwn.full || proOwn.parts.has('address'))),
+              renamed: addressRenamed,
+              pricePhp: partPricePhp.address ?? null,
+              drafted: draftedAddress,
+              storeShell,
+            }}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
             qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}

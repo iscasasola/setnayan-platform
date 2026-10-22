@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
+import { formatPhp } from '@/lib/php';
+import { PaidMark } from '@/app/_components/paid-mark';
 
 type CheckResult =
   | { status: 'current' }
@@ -28,10 +30,18 @@ type Props = {
   eventId: string;
   initialSlug: string;
   saveAction: (formData: FormData) => Promise<void>;
+  /**
+   * 💎 TRY FREE, PAY AT APPLY (owner 2026-10-22): instead of saving, an available address is put in the DRAFT — the
+   * Custom address part is asked for at ✓ Apply. Absent: the shipped Save button.
+   */
+  onDraft?: (slug: string) => Promise<boolean>;
+  /** The address drafted already — the box opens on it. */
+  drafted?: string | null;
 };
 
-export function SlugField({ eventId, initialSlug, saveAction }: Props) {
-  const [value, setValue] = useState(initialSlug);
+export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted = null }: Props) {
+  const [value, setValue] = useState(drafted ?? initialSlug);
+  const [draftedNow, setDraftedNow] = useState<string | null>(drafted);
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -74,6 +84,23 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
   }, [value, eventId, initialSlug]);
 
   const canSave = check?.status === 'available' && value !== initialSlug;
+
+  /* 💎 In the draft: an address that is free goes into the draft by itself (a pick, like every Maker control) — and
+     one put back to the address in use takes the drafted one off. Nothing is saved on the page. */
+  useEffect(() => {
+    if (!onDraft) return;
+    const want = value === initialSlug ? null : canSave ? value : undefined;
+    if (want === undefined || want === draftedNow) return;
+    let gone = false;
+    void onDraft(want ?? '').then((ok) => {
+      if (!gone && ok) setDraftedNow(want);
+      if (!gone && !ok) setNotSaved(true);
+    });
+    return () => {
+      gone = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a pick is drafted once per settled answer
+  }, [canSave, value]);
 
   return (
     <form
@@ -129,6 +156,7 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
             </p>
           ) : null}
         </div>
+        {onDraft ? null : (
         <button
           type="submit"
           disabled={!canSave || pending}
@@ -136,11 +164,14 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
         >
           {pending ? 'Saving…' : 'Save address'}
         </button>
+        )}
       </div>
+      {onDraft ? null : (
       <p className="text-xs text-ink/50">
         3 to 32 characters: small letters, numbers and hyphens. Old links keep working for{' '}
         {slugForwardingLabel()}.
       </p>
+      )}
     </form>
   );
 }
@@ -186,9 +217,7 @@ function StatusBadge({
 function StatusLine({ check }: { check: CheckResult | null }) {
   if (!check) return null;
   if (check.status === 'available') {
-    return (
-      <p className="mt-1 text-xs text-success-700">Available — tap Save address to keep it.</p>
-    );
+    return <p className="mt-1 text-xs text-success-700">Available.</p>;
   }
   if (check.status === 'current') {
     return <p className="mt-1 text-xs text-ink/55">This is your address now.</p>;
@@ -235,5 +264,130 @@ function SuggestionsRow({
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * 💎 THE ADDRESS, PART BY PART (owner 2026-10-22; prototype `pro_part_by_part_2026-10-22.html` frame 5). The free
+ * address is SHOWN, not typed — with Copy and Share, the presses a free couple needs. "Pick your own · ◆ ₱500" is one
+ * row; it opens in place (no "edit elsewhere" link) and the pick lives in the draft: ✓ Apply asks for the Custom
+ * address part (or everything), and the old link keeps forwarding. An event that renamed before keeps its address
+ * free ("chosen before, kept free"); a further change asks for the part. An event that holds the part (or
+ * everything) sees "Change it" with no price, and saves as before.
+ *
+ * Every figure is a catalogue read handed in; in the app-store shell a couple without the part sees no paid row.
+ */
+export function AddressField({
+  eventId,
+  slug,
+  saveAction,
+  owns,
+  renamed,
+  pricePhp,
+  storeShell,
+  drafted,
+}: {
+  eventId: string;
+  slug: string;
+  saveAction: (formData: FormData) => Promise<void>;
+  /** The Custom address part (or everything) is held. */
+  owns: boolean;
+  /** The event renamed its address before — its row in `slug_change_log`. */
+  renamed: boolean;
+  /** The part's catalogue price, or null (unread, the shell). */
+  pricePhp: number | null;
+  storeShell: boolean;
+  drafted: string | null;
+}) {
+  const [open, setOpen] = useState(Boolean(drafted));
+  const [copied, setCopied] = useState(false);
+  const url = `https://setnayan.com/${slug}`;
+  const draftAddress = async (next: string): Promise<boolean> => {
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ address: next || null }));
+    const { hubDraftAction } = await import('../../website/hub-draft-actions');
+    const { makerSave } = await import('@/lib/maker-refresh');
+    const r = await makerSave(() => hubDraftAction(eventId, fd), () => undefined).catch(() => null);
+    return Boolean(r && (r as { ok?: boolean }).ok);
+  };
+  const price = pricePhp !== null ? formatPhp(pricePhp) : null;
+  const offered = owns || !storeShell;
+  return (
+    <div data-address-field={owns ? 'owned' : renamed ? 'kept' : 'free'} className="space-y-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Address</p>
+      <p className="break-all font-mono text-[15px] text-ink">
+        <span className="text-ink/55">setnayan.com/</span>
+        {slug}
+      </p>
+      <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-[12.5px] font-semibold text-success-700">
+        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+        {owns ? 'Yours' : renamed ? 'Yours · chosen before, kept free' : 'Free · made from your names and date'}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(url).then(() => setCopied(true));
+          }}
+          className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/25 px-4 text-sm font-semibold text-ink"
+        >
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (navigator.share) void navigator.share({ url }).catch(() => undefined);
+            else void navigator.clipboard?.writeText(url).then(() => setCopied(true));
+          }}
+          className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/25 px-4 text-sm font-semibold text-ink"
+        >
+          Share
+        </button>
+      </div>
+      {offered ? (
+        <div className="border-t border-ink/10 pt-1">
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            data-address-pick=""
+            className="flex min-h-11 w-full items-center gap-2 text-left"
+          >
+            <span className="flex-1 text-[15px] font-semibold text-ink">{renamed || owns ? 'Change it' : 'Pick your own'}</span>
+            {owns ? null : price ? (
+              <span className="inline-flex items-center gap-1.5 font-mono text-sm text-ink/70">
+                <PaidMark state="try" bare label="Event Hub Pro" size="xs" /> {price}
+              </span>
+            ) : null}
+            <span aria-hidden className={`text-ink/45 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
+          </button>
+          {open ? (
+            <div className="space-y-2 pb-2">
+              <SlugField eventId={eventId} initialSlug={slug} saveAction={saveAction} {...(owns ? {} : { onDraft: draftAddress, drafted })} />
+              <p className="text-xs leading-snug text-ink/55">
+                3 to 32 characters: small letters, numbers and hyphens.{' '}
+                {owns ? (
+                  <>Old links keep working for {slugForwardingLabel()}.</>
+                ) : (
+                  <>
+                    <b className="font-semibold text-ink">◆ Goes live when you Apply</b> — Custom address{price ? ` ${price}` : ''}, or everything.
+                    Until then guests use the link above, and it keeps forwarding for {slugForwardingLabel()} after.
+                  </>
+                )}
+              </p>
+            </div>
+          ) : (
+            <p className="pb-1 text-xs text-ink/55">
+              {owns
+                ? `Your old link keeps forwarding for ${slugForwardingLabel()}.`
+                : renamed
+                  ? `Your current address stays yours for free. Choosing a new one is the Custom address part, or everything. The old one keeps forwarding for ${slugForwardingLabel()}.`
+                  : `Part of everything, too. Your old link keeps forwarding for ${slugForwardingLabel()}.`}
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }

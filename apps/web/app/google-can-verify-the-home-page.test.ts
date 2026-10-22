@@ -46,7 +46,7 @@ function textOf(html: string): string {
     .trim();
 }
 function hrefsOf(html: string): string[] {
-  return [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map((m) => m[1]);
+  return [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map((m) => m[1] ?? '');
 }
 
 async function renderHero(): Promise<string> {
@@ -75,10 +75,10 @@ test('the signed-out home renders the hero as its heading', () => {
 
 test('the home <h1> contains the exact app name "Setnayan" as text', async () => {
   const html = await renderHero();
-  const h1s = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => textOf(m[1]));
+  const h1s = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => textOf(m[1] ?? ''));
   assert.equal(h1s.length, 1, `the hero must render exactly one <h1>; got ${h1s.length}`);
   assert.match(
-    h1s[0],
+    h1s[0] ?? '',
     /\bSetnayan\b/,
     `The home page's <h1> reads "${h1s[0]}" — it must contain "Setnayan", typed in title case. ` +
       "Google's OAuth review matches the consent-screen app name against the home page; refused 2026-10-22.",
@@ -93,7 +93,7 @@ test('the home <h1> contains the exact app name "Setnayan" as text', async () =>
 
 test('the home page says what the app does, in one sentence naming it', async () => {
   const html = await renderHero();
-  const paras = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => textOf(m[1]));
+  const paras = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => textOf(m[1] ?? ''));
   const PURPOSE = [/\bevents?\b/i, /\bguests?\b/i, /\bRSVPs?\b/, /\bsuppliers?\b/i, /\bEvent Hub\b/, /\bphotos?\b/i];
   const purpose = paras.find(
     (p) => /\bSetnayan is\b/.test(p) && PURPOSE.filter((re) => re.test(p)).length >= 4,
@@ -122,7 +122,7 @@ test("the home page's <title> starts with the app name", () => {
   const src = stripComments(readFileSync(path.join(APP, 'page.tsx'), 'utf8'));
   const m = /const HOME_TITLE\s*=\s*'([^']+)'/.exec(src);
   assert.ok(m, 'HOME_TITLE is gone from app/page.tsx');
-  assert.match(m[1], /^Setnayan\b/, `The home <title> "${m[1]}" must lead with "Setnayan".`);
+  assert.match(m[1] ?? '', /^Setnayan\b/, `The home <title> "${m[1]}" must lead with "Setnayan".`);
   assert.match(src, /title:\s*HOME_TITLE/, 'app/page.tsx metadata no longer uses HOME_TITLE as its title.');
 });
 
@@ -135,14 +135,14 @@ function googleSection(html: string): string {
     '/privacy has no <section id="google-user-data">. Google refused 2026-10-22 because the policy did not ' +
       'detail the Google user data we receive; that section is the answer and its anchor is what we hand them.',
   );
-  return m[1];
+  return m[1] ?? '';
 }
 
 test('/privacy has a "Google user data" section saying what we get, why, who sees it, and how to delete it', async () => {
   const html = await renderPrivacy();
   const sec = googleSection(html);
   const h2 = /<h2\b[^>]*>([\s\S]*?)<\/h2>/.exec(sec);
-  assert.ok(h2 && /Google user data/i.test(textOf(h2[1])), 'the section must be headed "Google user data"');
+  assert.ok(h2 && /Google user data/i.test(textOf(h2[1] ?? '')), 'the section must be headed "Google user data"');
 
   const text = textOf(sec);
   const needs: [RegExp, string][] = [
@@ -212,6 +212,6 @@ test('Sign in with Google asks for the default scopes only — the ones /privacy
     );
   }
   const sec = googleSection(await renderPrivacy());
-  const codes = [...sec.matchAll(/<code\b[^>]*>([\s\S]*?)<\/code>/g)].map((m) => textOf(m[1]));
+  const codes = [...sec.matchAll(/<code\b[^>]*>([\s\S]*?)<\/code>/g)].map((m) => textOf(m[1] ?? ''));
   for (const s of ['email', 'profile']) assert.ok(codes.includes(s), `the section must name the \`${s}\` scope`);
 });

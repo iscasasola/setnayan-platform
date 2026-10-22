@@ -111,7 +111,7 @@ export function AddressPreview({
   if (existingSlug) {
     return (
       <span className="flex items-baseline gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-        Your website
+        Your Setnayan page
         <span className="font-mono text-[12px] font-medium" style={{ color: 'var(--m-ink)' }}>
           setnayan.com/{existingSlug}
         </span>
@@ -124,7 +124,7 @@ export function AddressPreview({
   return (
     <span className="block space-y-1.5">
       <span className="flex items-baseline gap-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-        Your website
+        Your Setnayan page
         <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-slate-3)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
           you can&rsquo;t change this later

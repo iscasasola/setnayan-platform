@@ -888,13 +888,18 @@ export function OpenShopWizard({
 
           {/* One nav row for every step. Back appears from step 2; the primary
               button becomes the real submit only on the last one — a
-              SubmitButton on an earlier step would post a half-filled form. */}
+              SubmitButton on an earlier step would post a half-filled form.
+              🔘 THE HOUSE PRIMARY SHAPE IS A PILL (live check 2026-10-23): /signup's
+              Create is a pill and these read as 8 px rectangles on the other
+              sign-up door. `rounded-full` overrides `.button-primary`'s
+              `rounded-md`; Back is the round icon beside it. Held by
+              app/open-shop/both-sign-up-doors-wear-one-button.test.ts. */}
           <div className="flex items-center gap-2 pt-1">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={back}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-ink/60 hover:bg-ink/5"
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
                 style={{ borderColor: 'var(--m-line)' }}
                 aria-label="Back"
               >
@@ -905,14 +910,14 @@ export function OpenShopWizard({
               <button
                 type="button"
                 onClick={next}
-                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
               >
                 Continue
                 <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </button>
             ) : (
               <SubmitButton
-                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
                 pendingLabel="Opening your shop…"
               >
                 Open my shop — free

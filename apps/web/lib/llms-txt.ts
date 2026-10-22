@@ -570,7 +570,7 @@ ${featurePagesSection()}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 

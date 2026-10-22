@@ -1,7 +1,9 @@
 /**
- * /palogo — public marketing landing page for Logo Maker, the animated monogram
- * (the Animated Monogram) carried across the whole wedding
- * (www.setnayan.com/palogo).
+ * /palogo — public marketing landing page for Logo Maker, the couple's mark
+ * carried across the whole wedding (www.setnayan.com/palogo). Its animation is
+ * Event Hub Pro's Logo & QR part — the standalone "Animated Monogram" was
+ * retired from sale on 2026-10-22 (#6781), so this page never sells it by name
+ * (held by app/public-copy-says-the-house-words.test.ts).
  *
  * Part of the "Pa-" public-surface wave (owner-approved 2026-06-27; Pa- naming
  * LOCKED). Mirrors the /papic + /setnayan-ai pattern exactly: force-static
@@ -11,8 +13,8 @@
  * registered in NAV_ROUTES.
  *
  * ACCURACY GUARDRAIL (locked "AI-content disclosure" + public-surface hygiene):
- * the underlying image model is NEVER named — the brand-facing name is the
- * Animated Monogram. Sell the BENEFIT (one mark, your initials, alive across
+ * the underlying image model is NEVER named — the brand-facing name is Logo
+ * Maker. Sell the BENEFIT (one mark, your initials, alive across
  * everything) and quote NO price (admin-managed + provisional — links to
  * /pricing). A free no-signup monogram preview already lives at /monogram, so
  * the secondary CTA points there.
@@ -66,7 +68,6 @@ export const metadata = {
     'custom wedding monogram Philippines',
     'wedding initials design',
     'wedding monogram maker',
-    'animated monogram',
     'Logo Maker',
     'Setnayan',
   ],
@@ -126,7 +127,7 @@ const FAQ = [
   },
   {
     q: 'Can I try one first?',
-    a: 'Yes — you can preview a monogram for your initials free, no sign-up, before you decide. The animated version that follows you across the whole wedding is the upgrade.',
+    a: 'Yes — you can preview a monogram for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Hub Pro’s Logo & QR part.',
   },
 ];
 
@@ -217,7 +218,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Try it free',
     t: 'Preview yours before you decide',
-    d: 'You can preview a monogram for your initials free, no sign-up, before you decide. The animated version that follows you across the whole wedding is the upgrade.',
+    d: 'You can preview a monogram for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Hub Pro’s Logo & QR part.',
     media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A couple on a hillside terrace at golden hour, a lake and volcano behind them' },
   },
 ];
@@ -233,7 +234,7 @@ export default function LogoMakerLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Logo Maker looks like you — and it moves.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, Event Hub and videos. Start planning free, and add your animated monogram when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, Event Hub and videos. Start planning free, and animate your mark with Event Hub Pro’s Logo & QR when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection

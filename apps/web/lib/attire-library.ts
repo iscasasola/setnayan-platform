@@ -48,11 +48,11 @@ const x = (style: AttireStyle, variant: string, label: string, drawn: { art?: `$
 });
 
 /**
- * THE LIBRARY — the guests' six styles, five designs each (prototype § 2, its order). The six shipped drawings (#16 #17
- * #42–#45) and 23 of the 24 new ones (Higgsfield Nano Banana Pro, 2026-10-21, #46–#69 in `scripts/build-role-attire.py`)
- * are drawn. A role absent here keeps one drawing per design, as shipped.
- * ⏸ HELD — "Polo and slacks" (#55): the figure came back with white-grey skin and face, so it does not stand beside the
- * other five as the same person; it stays not drawn (no `w`) until it is regenerated. Its files are not shipped.
+ * THE LIBRARY — the guests' six styles, five designs each (prototype § 2, its order) — all 30 drawn: the six shipped
+ * drawings (#16 #17 #42–#45) and the 24 new ones (Higgsfield Nano Banana Pro, 2026-10-21; #46–#69 in
+ * `scripts/build-role-attire.py`). "Polo and slacks" (#55) was held a day for a figure drawn with white skin and was
+ * regenerated (2026-10-22); its light-grey slacks stay as drawn (the pants zone is empty). A role absent here keeps one
+ * drawing per design, as shipped.
  */
 export const DESIGN_LIBRARY: Readonly<Partial<Record<FigureRole, readonly LibraryDesign[]>>> = {
   guest_m: [
@@ -68,7 +68,7 @@ export const DESIGN_LIBRARY: Readonly<Partial<Record<FigureRole, readonly Librar
     x('barong_tagalog', 'coat', 'Barong with coat', { w: 81 }),
     x('smart_casual', 'shirt_chinos', 'Shirt and chinos', { art: 'guest_m-smart_casual' }),
     x('smart_casual', 'linen', 'Linen shirt', { w: 86 }),
-    x('smart_casual', 'polo_slacks', 'Polo and slacks'),
+    x('smart_casual', 'polo_slacks', 'Polo and slacks', { w: 78 }),
     x('smart_casual', 'blazer_tee', 'Blazer over tee', { w: 86 }),
     x('smart_casual', 'cuban', 'Cuban-collar shirt', { w: 83 }),
   ],

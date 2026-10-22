@@ -126,6 +126,8 @@ ANN = {
 #   shirt_head: the shirt zone stops at the head line (a champagne shirt meets the neck)
 #   never: boxes or polygons that are never a zone (arms drawn pale enough to read as fabric)
 #   pants ('khaki', poly): the chinos by their own colour inside the polygon (khaki reads as skin to the garment rule)
+#   pants ('none', None): the pants zone is empty — the slacks stay exactly as drawn
+#   a_only: the colour zone is only inside this polygon, and the rest of the garment is in NO zone (stays as drawn)
 #   a_poly: the garment's colour zone is only inside this polygon; the rest of the garment is pants (a grey coat over the
 #           barong wears what the pants wear — it never takes the palette)
 _M = dict(head=188, shirt='auto', shirt_head=True)
@@ -146,8 +148,9 @@ ANN.update({
     # hands and, for the blazer, between its flaps
     '54': dict(head=185, below=1068, pants=('khaki', [(345, 505), (558, 505), (560, 1066), (345, 1066)]),
                never=[(288, 500, 345, 665), (560, 500, 614, 665)]),
-    '55': dict(head=185, below=1068, pants=('poly', [(345, 470), (560, 470), (560, 1066), (345, 1066)]),
-               never=[(280, 360, 355, 640), (545, 360, 620, 640)]),
+    # (regenerated 2026-10-22, warm skin) the polo takes the colour; the light-grey slacks, belt and loafers stay as drawn
+    '55': dict(head=185, below=1080, pants=('none', None),
+               a_only=[(250, 180), (650, 180), (650, 362), (556, 362), (556, 482), (344, 482), (344, 362), (250, 362)]),
     '56': dict(head=185, below=1068, pants=('khaki', [(408, 515), (553, 515), (556, 600), (562, 640), (566, 1066), (345, 1066), (345, 600), (405, 600)])),
     '57': dict(head=185, below=1068, pants=('khaki', [(355, 478), (565, 478), (568, 1064), (352, 1064)]),
                never=[(292, 440, 352, 662), (568, 440, 618, 662)]),
@@ -366,6 +369,8 @@ def build(src, num):
             legs = cand & box(shp, 0, 950, shp[1], 1010)  # the legs, well under any hem
             p = flood(cand, legs)
             p = close(p, 5) & garment & below
+        elif kind == 'none':
+            p = np.zeros(shp, bool)
         elif kind == 'khaki':
             p = poly(shp, arg) & fig & (mn >= 110) & ((r - b) >= 12) & ~props
             p = close(p, 2) & poly(shp, arg) & fig & ~dark
@@ -378,6 +383,8 @@ def build(src, num):
     for k in zones:
         taken |= zones[k]
     zones['a'] = garment & ~taken
+    if 'a_only' in ann:
+        zones['a'] &= poly(shp, ann['a_only'])
     for k in list(zones):
         zones[k] &= fig
 

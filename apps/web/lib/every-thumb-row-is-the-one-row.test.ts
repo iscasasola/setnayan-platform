@@ -30,17 +30,14 @@ import { stripComments } from '@/lib/strip-comments';
    (the Discover card's test does the same) — set BEFORE the components are required. */
 (globalThis as unknown as { React: unknown }).React = React;
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   Mod._extensions['.css'] = (m: { exports: unknown }) => {
     m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
   };
 }
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { ThumbRow } = require('@/components/thumb-row') as typeof RowMod;
 const { findPlaceholder } = require('@/app/dashboard/[eventId]/vendors/_components/find-thumb-row') as typeof FindMod;
 const { searchRowHref } = require('@/app/_components/frontdoor/shell-thumb-rows') as typeof ShellMod;
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 /** A small `expect` over node:assert — this runner is `tsx --test`. */
 function expect(v: unknown, msg?: string) {

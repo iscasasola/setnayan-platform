@@ -173,6 +173,7 @@ test('resolveHonoreeDependentId: a refused read logs and still drops the link (r
       userId: 'user_1',
       dependentId: '11111111-2222-3333-4444-555555555555',
       honoreeLabel: 'Lola Nena',
+      eventType: 'birthday',
     });
   });
   assert.equal(out, null);

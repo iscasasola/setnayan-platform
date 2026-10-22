@@ -1,0 +1,33 @@
+/* account-thumb-row.module.css — the round tool's glass (44 × 44). Whatever sits in it — an ActionButton or a
+   PickMenu (≡ — any set of choices is a dropdown) — is drawn as the icon alone; its word stays its accessible name. */
+.tool {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--m-r-full);
+}
+.tool button,
+.tool a {
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  border-radius: var(--m-r-full) !important;
+  color: rgb(var(--color-ink) / 0.8);
+}
+.tool button > span:not([aria-hidden]),
+.tool button > svg:last-child:not(:first-child),
+.tool :global(.lbl) {
+  display: none !important;
+}
+.tool svg {
+  width: 20px;
+  height: 20px;
+}

@@ -187,11 +187,15 @@ export default async function FinalizeClaimPage({ params }: Props) {
   //    here can stop the claim. Same gates, same exactly-once key as open-shop.
   // ------------------------------------------------------------------
   {
-    const { data: shopRow } = await admin
+    const { data: shopRow, error: shopErr } = await admin
       .from('vendor_profiles')
       .select('user_id, business_name')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
+    // A refused read skips the record (never the claim) — and says so.
+    if (shopErr) {
+      console.error('[supabase-error] vendor/claim/finalize · from:vendor_profiles.select (alaga)', shopErr);
+    }
     const shop = shopRow as { user_id?: string | null; business_name?: string | null } | null;
     if (shop?.user_id === user.id) {
       await ensureBusinessAlaga(admin, {

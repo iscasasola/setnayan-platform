@@ -78,7 +78,8 @@ before(async () => {
   adminUser = (
     await db.query<{ id: string }>(`INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('visits-admin@visits.test', '{}'::jsonb) RETURNING id`)
   ).rows[0]!.id;
-  await db.query(`UPDATE public.users SET is_internal = TRUE WHERE user_id = $1`, [adminUser]);
+  // An admin the way is_admin() ACTUALLY reads it: public.users.account_type.
+  await db.query(`UPDATE public.users SET account_type = 'admin' WHERE user_id = $1`, [adminUser]);
   plainUser = (
     await db.query<{ id: string }>(`INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('visits-plain@visits.test', '{}'::jsonb) RETURNING id`)
   ).rows[0]!.id;

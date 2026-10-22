@@ -87,7 +87,7 @@ import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
-import type { MakerVenuePictures } from './_components/maker-context';
+import type { MakerProLine, MakerVenuePictures } from './_components/maker-context';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
@@ -135,12 +135,15 @@ import { readChapterOverrides } from '@/app/[slug]/_components/editorial/data';
 import { resolveHubProOffer } from '@/lib/event-hub-pro';
 import {
   eventCoupleWebsiteProActive,
+  eventHubOwnership,
   eventOwnsCoupleWebsitePro,
+  hubPartPrices,
 } from '@/lib/couple-website-pro';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
-import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { HUB_PARTS } from '@/lib/hub-parts';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
 import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
@@ -574,6 +577,26 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
+  /* 💎 THE QUIET LINE'S FACTS (owner 2026-10-22, part by part): what the event has paid toward everything, the parts it
+     holds, the cheapest part and Full Pro — catalogue reads, never typed; none in the store shell (no web price). */
+  const proLine: MakerProLine | null = storeShell
+    ? null
+    : await (async () => {
+        const [own, prices] = await Promise.all([
+          asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
+          hubPartPrices(createAdminClient()).catch(() => null),
+        ]);
+        if (!own || own.full || !prices?.full) return null;
+        const onSale = HUB_PARTS.flatMap((p) => (prices.onSale.has(p.sku) ? [prices.parts.get(p.sku) ?? 0] : [])).filter((n) => n > 0);
+        if (onSale.length === 0) return null;
+        return {
+          fromPhp: Math.min(...onSale),
+          fullPhp: prices.full,
+          paidPhp: own.paidPhp,
+          owned: [...own.parts],
+          href: `/dashboard/${eventId}/studio/website-pro?from=maker`,
+        };
+      })();
 
   /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
      read through the same per-request cache every Pro read above passed
@@ -1916,6 +1939,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       factEditors={factEditors}
       venuePictures={venuePictures}
       storeShell={storeShell}
+      proLine={proLine}
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}

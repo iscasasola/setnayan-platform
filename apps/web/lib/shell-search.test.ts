@@ -158,6 +158,14 @@ test('2 · in the shared view, the marketplace row lives only in the front-door 
   assert.ok(explore[0]! > branch + shellSide.length, 'the marketplace link moved into the shell branch');
 });
 
+test('2 · Clear on the shell results stays in the shell', () => {
+  const src = code(join(APP, '_components', 'frontdoor', 'front-door-results.tsx'));
+  const clear = /<Link href=\{([^}]*)\} className="fd-sechead-go">/.exec(src);
+  assert.ok(clear, 'the Clear link moved — re-anchor');
+  assert.match(clear[1]!, /^place === 'shell' \? SHELL_SEARCH_PATH : '\/'$/, 'Clear on the shell results leaves the shell (it went to `/`)');
+  assert.equal(landsInShell(SHELL_SEARCH_PATH).ok, true);
+});
+
 test('3 · a member’s /?q= goes to the shell; a stranger’s stays on the front door', () => {
   const src = code(join(APP, 'page.tsx'));
   const flat = src.replace(/\s+/g, ' ');

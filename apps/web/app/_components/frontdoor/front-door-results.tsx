@@ -54,6 +54,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
 import { ON_YOUR_EVENT } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
+import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -276,7 +277,8 @@ export async function FrontDoorResults({
           that can only be left by editing the address bar is a dead end, and
           this page has no other visible control that clears the query.
         */}
-        <Link href="/" className="fd-sechead-go">
+        {/* In the shell, clearing stays in the shell — `/` is the public front door. */}
+        <Link href={place === 'shell' ? SHELL_SEARCH_PATH : '/'} className="fd-sechead-go">
           Clear
         </Link>
       </h2>

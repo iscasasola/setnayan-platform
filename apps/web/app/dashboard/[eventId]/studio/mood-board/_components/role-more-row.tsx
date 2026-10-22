@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronRight, Image as ImageIcon, PenLine } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 👗 A ROLE ROW'S ONE QUIET "MORE" ROW, ON A PHONE (owner 2026-10-22, "Yes to all" to prototype
@@ -30,7 +31,7 @@ export function RoleMoreRow({
 }) {
   const said = [
     note === undefined ? null : note ? `note “${note}”` : 'add a note',
-    photos === null ? null : photos.count > 0 ? `${photos.count} ${photos.count === 1 ? 'photo' : 'photos'}` : 'no photos yet',
+    photos === null ? null : photos.count > 0 ? `${formatCount(photos.count)} ${photos.count === 1 ? 'photo' : 'photos'}` : 'no photos yet',
   ].filter(Boolean);
   return (
     <button
@@ -62,7 +63,7 @@ export function RoleMoreRow({
           ) : (
             <ImageIcon aria-hidden strokeWidth={1.9} className="h-4 w-4 flex-none text-ink/55" />
           )}
-          <span className="whitespace-nowrap text-ink/70">{photos.count > 0 ? `${photos.count} ${photos.count === 1 ? 'photo' : 'photos'}` : 'No photos yet'}</span>
+          <span className="whitespace-nowrap text-ink/70">{photos.count > 0 ? `${formatCount(photos.count)} ${photos.count === 1 ? 'photo' : 'photos'}` : 'No photos yet'}</span>
         </span>
       ) : null}
       <ChevronRight aria-hidden strokeWidth={1.9} className="ml-auto h-4 w-4 flex-none text-ink/45" />

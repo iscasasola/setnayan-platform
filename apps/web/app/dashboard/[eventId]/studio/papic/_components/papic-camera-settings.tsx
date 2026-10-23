@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, Clock, Sparkles } from 'lucide-react';
+import { ChevronRight, Clock } from 'lucide-react';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -143,22 +143,19 @@ export async function PapicCameraSettings({
       {/* (3) SETTINGS — his five, flat: every control on its line, every explanation in its ⓘ. */}
       <section className="flex flex-col gap-3" data-papic-settings="" data-tour="papic-settings">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Settings</h2>
-        {/* 🎨 THE FILTER IS A ROW (the shipped "Your Papic look" row, under the owner's word "Filter"): one look, chosen
-            once, months before the day — a row with its answer, opening the SHIPPED picker. Five tall cards inline made
-            Home's card a screen and a half long (walk 2026-10-24); `a-row-is-a-door-not-a-copy.test.ts` holds it. */}
-        <div className="divide-y divide-ink/10" data-papic-setting="filter">
-          <SettingRow
-            icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Filter"
-            value={papicStyleLabel}
-            sheetTitle="Filter"
-          >
-            <p className="mb-4 text-sm text-ink/65">
+        {/* 🎨 THE FILTER — the approved controller's Filter A (`style-picker.tsx` variant="strip"): five looks across
+            one row, the current one marked, one tap saves. Not the 2×3 cards (they made Home's card a screen and a half
+            long, walk 2026-10-24) and not a copy of the picker — the SAME forms, drawn small. The word for the current
+            look rides the line (derived from the style table). */}
+        <div className="flex flex-col gap-2" data-papic-setting="filter">
+          <div className="flex items-baseline justify-between gap-3">
+            <InfoTip label="Filter" labelClassName="text-[15px] font-semibold text-ink" align="start">
               One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
               Memories feel like one set. Guests cannot change it.
-            </p>
-            <StylePicker returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
-          </SettingRow>
+            </InfoTip>
+            <span className="truncate text-[12.5px] text-ink/60" data-papic-filter-now="">{papicStyleLabel} · every camera</span>
+          </div>
+          <StylePicker variant="strip" returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />

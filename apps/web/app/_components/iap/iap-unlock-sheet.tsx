@@ -2,7 +2,6 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { Sparkles, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -21,7 +20,8 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
  * Mounted ONLY where `getIapGate().iap` is true — each page swaps its existing pay step for this and nothing else.
  * It shows StoreKit's `displayPrice` and never a figure of ours; a product StoreKit did not return leaves the button
  * disabled with no price, never a web price. After Apple's sheet it says the one true outcome (frames 6–9), and once
- * the item is on, Done refreshes the page so it opens as owned.
+ * the item is on, the page already re-renders as owned: `confirmAppStorePurchase` revalidates the event's layout
+ * (one save, one render — no `router.refresh()` here, as in the Live Watch sheet).
  */
 export function IapUnlockSheet({
   eventId,
@@ -58,7 +58,6 @@ export function IapUnlockSheet({
   triggerClassName?: string;
 }) {
   const product = iapProductForServiceKey(serviceKey);
-  const router = useRouter();
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const prices = useAppStorePrices(product ? [product.productId] : [], open);
@@ -79,10 +78,8 @@ export function IapUnlockSheet({
   };
   const close = () => {
     if (buying) return;
-    const wasOn = screen?.kind === 'on';
     setOpen(false);
     setScreen(null);
-    if (wasOn) router.refresh();
   };
 
   const sheet = open ? (

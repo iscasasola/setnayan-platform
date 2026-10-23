@@ -143,8 +143,7 @@ test('🚨 the library strip says WHO shoots — never a count of seats (render)
       uploadsOpen: true,
       whoShoots: 'Every guest + you',
       addPhotosSlot: React.createElement('button', { type: 'button' }, 'Add photos'),
-      children: React.createElement('div', null, 'GALLERY'),
-    }),
+    } as never, React.createElement('div', null, 'GALLERY')),
   );
   assert.match(html, /Who shoots/);
   assert.match(html, /Every guest \+ you/);

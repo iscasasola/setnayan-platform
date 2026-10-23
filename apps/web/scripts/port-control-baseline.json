@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dba4116d13",
+  "generatedFromRef": "797e6c3e50",
   "routeCount": 461,
   "destinations": 1003,
   "actions": 667,
-  "blocks": 6850,
+  "blocks": 6853,
   "routes": {
     "/": {
       "files": [
@@ -5126,6 +5126,7 @@
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
+        "dashboard/(account)/people/_components/found-person-card.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5176,6 +5177,7 @@
         "FindResults",
         "FollowListView",
         "FollowRowItem",
+        "FoundPersonCard",
         "Frame",
         "GuestConfirmActions",
         "GuestPopup",
@@ -5281,8 +5283,8 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "PillButton",
-        "PillSelector",
         "PillTrack",
         "PrefixSelect",
         "ProfileShareButton",
@@ -11124,6 +11126,7 @@
       "blocks": [
         "AccountBottomNav",
         "FollowListView",
+        "FoundPersonCard",
         "PeopleRosterView",
         "RosterPerson",
         "TreeStandIn"
@@ -11181,7 +11184,8 @@
         "AccountBarSlot",
         "Avatar",
         "FrontDoorResults",
-        "FrontDoorShell"
+        "FrontDoorShell",
+        "RosterPerson"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {

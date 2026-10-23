@@ -655,7 +655,7 @@ function PhotoSheet({
                   <span className="ml-auto">
                     <PickMenu label="Why" value={reason} options={REPORT_REASONS} onPick={setReason} buttonText={reason ? undefined : 'Why'} compact />
                   </span>
-                  {reason ? <ActionButton tone="danger" type="submit" label="Send" /> : null}
+                  {reason ? <ActionButton tone="danger" type="submit" icon={Flag} label="Send" /> : null}
                 </form>
               ) : null}
 

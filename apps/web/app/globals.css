@@ -7821,6 +7821,9 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 [data-bottom-dock] { transition: transform 200ms ease-out, opacity 200ms ease-out; }
 html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+/* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
+ * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
+[data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }

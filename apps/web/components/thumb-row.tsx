@@ -38,11 +38,10 @@
  * it is up (`bottom-nav.tsx`). `rides={false}` opts out — only with a written
  * reason at the call (`every-bottom-input-rides-the-keyboard.test.ts` counts them).
  */
-import { useCallback, useLayoutEffect, useRef, useState, type FocusEvent, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Search, X } from 'lucide-react';
 import { ActionButton, type ActionButtonProps } from '@/components/action-button';
-import { TypingBand } from '@/app/_components/typing-band';
-import { useKeyboardRide } from '@/lib/keyboard-ride';
+import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
 
@@ -125,17 +124,8 @@ function Round({ r }: { r: ThumbRound }) {
   );
 }
 
-/** ⌨ The ONE decision (pure, so the guard can hold it): the field is typed into, the keyboard is up, the row is not
- *  a mode row (Select's buttons), and the call did not opt out. */
-export function thumbRowRides(s: { rides: boolean; typing: string | null; open: boolean; mode: boolean }): boolean {
-  return s.rides && s.typing !== null && s.open && !s.mode;
-}
-
-/** The fixed layer a row stands in (its host: Find's row, Guests' `.lower`) — the box the band's plate reaches behind. */
-function layerOf(el: HTMLElement | null): HTMLElement | null {
-  for (let n = el; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return n;
-  return null;
-}
+/** ⌨ The riding decision — the shared row's (`useRidingRow`, typing-band.tsx); kept under this name for the guard. */
+export const thumbRowRides = rowRides;
 
 /** Put words in a React-controlled input as a person would (its `onChange` / `onInput` hear it). */
 function setTyped(input: HTMLInputElement, value: string) {
@@ -175,42 +165,11 @@ export function ThumbRow({
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   const rowRef = useRef<HTMLDivElement>(null);
   const ownInput = useRef<HTMLInputElement | null>(null);
-  const [typing, setTyping] = useState<string | null>(null);
-  const kb = useKeyboardRide();
-  const riding = thumbRowRides({ rides, typing, open: kb.open, mode: Boolean(children) });
-  const onFieldFocus = useCallback(
-    (e: FocusEvent<HTMLElement>) => {
-      const t = e.target as HTMLInputElement | HTMLTextAreaElement;
-      if (!/^(INPUT|TEXTAREA)$/.test(t.tagName) || (t as HTMLInputElement).type === 'date') return;
-      const place = field && !('node' in field) ? field.placeholder : t.placeholder || t.getAttribute('aria-label') || 'Search';
-      setTyping(place);
-    },
-    [field],
-  );
-  const onFieldBlur = useCallback((e: FocusEvent<HTMLElement>) => {
-    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-    setTyping(null);
-  }, []);
-  /* Where the band's plate reaches: out to the screen's edges, and down past the row to its host's foot (the host's
-     own bottom padding) — measured, because each host pads its row its own way. */
-  const [over, setOver] = useState<{ left: number; width: number; below: number } | null>(null);
-  useLayoutEffect(() => {
-    if (!riding) return setOver(null);
-    const row = rowRef.current;
-    const layer = layerOf(row);
-    const read = () => {
-      if (!row) return;
-      const r = row.getBoundingClientRect();
-      const foot = layer ? layer.getBoundingClientRect().bottom : r.bottom;
-      const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)) };
-      setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below ? o : next));
-    };
-    read();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null;
-    ro?.observe(row!);
-    if (layer) ro?.observe(layer);
-    return () => ro?.disconnect();
-  }, [riding, kb.bottom, kb.height]);
+  /* ⌨ The ONE riding row (`useRidingRow`): the band's words are the field's placeholder. */
+  const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
+  const riding = ride.riding;
+  const onFieldFocus = ride.rowProps.onFocus;
+  const onFieldBlur = ride.rowProps.onBlur;
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;
@@ -307,9 +266,7 @@ export function ThumbRow({
           ) : null}
         </>
       )}
-      {riding && over ? (
-        <TypingBand over={over} place={typing} data-thumb-band={name} />
-      ) : null}
+      {ride.band}
     </div>
   );
 }

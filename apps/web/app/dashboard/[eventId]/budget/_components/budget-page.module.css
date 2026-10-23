@@ -431,6 +431,12 @@ button.row {
 .lower > * {
   pointer-events: auto;
 }
+/* ⌨ RIDING THE KEYBOARD (owner 2026-10-24; `useRidingRow`, typing-band.tsx): while the search is typed into with the
+   keyboard up, the field is the whole row — ＋ and Show fold — and it wears the accent ring on the band's plate. */
+.lower[data-riding] > :not([data-glass-row='budget-search'], [data-ride-band]) { display: none; }
+.lower[data-riding] > [data-glass-row='budget-search'] {
+  background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
+}
 .grow {
   flex: 1;
 }

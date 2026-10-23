@@ -21,7 +21,7 @@
  * globals.css, with a dark pair); inside it, it reads the Maker's (`STAGE_PANEL_VARS`) — so the Maker is unchanged.
  * This is the only typing band (`every-bottom-input-rides-the-keyboard.test.ts`).
  */
-import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type FocusEvent, type ReactNode, type Ref, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -138,4 +138,81 @@ export function TypingBand(
     </div>,
     document.body,
   );
+}
+
+/** The fixed layer a row stands in (its host: Find's row, Guests' `.lower`) — the box the band's plate reaches behind. */
+function layerOf(el: HTMLElement | null): HTMLElement | null {
+  for (let n = el; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return n;
+  return null;
+}
+
+/** ⌨ The ONE riding decision (pure, so the guard can hold it): a field of the row is typed into, the keyboard is up,
+ *  the row is not in a mode (Select's buttons), and the call did not opt out. */
+export function rowRides(s: { rides: boolean; typing: string | null; open: boolean; mode: boolean }): boolean {
+  return s.rides && s.typing !== null && s.open && !s.mode;
+}
+
+/**
+ * ⌨ THE RIDING ROW — any bottom row with a text field rides the keyboard through this ONE hook (owner 2026-10-24,
+ * *"Applies all textbox like that"*): `ThumbRow` uses it, and a bottom row that is not a ThumbRow (Budget's, the
+ * marketplace's, the admin music tools) uses it directly. Spread `rowProps` on the row (it must be a positioned,
+ * stacking box — the band's plate is drawn behind its seats), render `band` inside it, and fold what is not the field
+ * while `riding` (`data-riding`). The band's words are the focused field's own placeholder, else its accessible name.
+ */
+export function useRidingRow(
+  rowRef: RefObject<HTMLElement | null>,
+  opts: { rides?: boolean; mode?: boolean; place?: string } = {},
+): {
+  riding: boolean;
+  typing: string | null;
+  band: ReactNode;
+  rowProps: {
+    'data-ride-row': string;
+    'data-riding': string | undefined;
+    onFocus: (e: FocusEvent<HTMLElement>) => void;
+    onBlur: (e: FocusEvent<HTMLElement>) => void;
+  };
+} {
+  const { rides = true, mode = false, place } = opts;
+  const kb = useKeyboardRide();
+  const [typing, setTyping] = useState<string | null>(null);
+  const riding = rowRides({ rides, typing, open: kb.open, mode });
+  const onFocus = useCallback(
+    (e: FocusEvent<HTMLElement>) => {
+      const t = e.target as HTMLInputElement | HTMLTextAreaElement;
+      if (!/^(INPUT|TEXTAREA)$/.test(t.tagName) || ['date', 'checkbox', 'radio', 'file', 'range', 'color', 'hidden'].includes((t as HTMLInputElement).type)) return;
+      setTyping(place ?? (t.placeholder || t.getAttribute('aria-label') || 'Search'));
+    },
+    [place],
+  );
+  const onBlur = useCallback((e: FocusEvent<HTMLElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setTyping(null);
+  }, []);
+  /* Where the band's plate reaches: out to the screen's edges, and down past the row to its host's foot (the host's
+     own bottom padding) — measured, because each host pads its row its own way. */
+  const [over, setOver] = useState<{ left: number; width: number; below: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!riding) return setOver(null);
+    const row = rowRef.current;
+    if (!row) return;
+    const layer = layerOf(row);
+    const read = () => {
+      const r = row.getBoundingClientRect();
+      const foot = layer && layer !== row ? layer.getBoundingClientRect().bottom : r.bottom;
+      const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)) };
+      setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below ? o : next));
+    };
+    read();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null;
+    ro?.observe(row);
+    if (layer && layer !== row) ro?.observe(layer);
+    return () => ro?.disconnect();
+  }, [riding, kb.bottom, kb.height, rowRef]);
+  return {
+    riding,
+    typing,
+    band: riding && over ? <TypingBand over={over} place={typing} data-ride-band="" /> : null,
+    rowProps: { 'data-ride-row': '', 'data-riding': riding ? '' : undefined, onFocus, onBlur },
+  };
 }

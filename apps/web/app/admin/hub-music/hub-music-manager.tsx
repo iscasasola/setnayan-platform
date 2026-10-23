@@ -31,6 +31,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { formatCount } from '@/lib/format-number';
+import { useRidingRow } from '@/app/_components/typing-band';
 import {
   HUB_MUSIC_ACCEPT,
   HUB_MUSIC_MAX_BYTES,
@@ -182,6 +183,10 @@ export function HubMusicManager({
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /* ⌨ The tools row at the foot rides the keyboard while its search is typed into (owner 2026-10-24, "Applies all
+     textbox like that"): the ONE riding row (`useRidingRow`); Add folds. */
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const toolsRide = useRidingRow(toolsRef);
   const editHeadingId = useId();
   const addHeadingId = useId();
 
@@ -430,10 +435,13 @@ export function HubMusicManager({
       {/* The tools, under the list where a thumb reaches them. Sticky, so a
           long list never carries them off the screen. */}
       <div
+        ref={toolsRef}
+        {...toolsRide.rowProps}
         className="sticky z-10 mt-4 flex items-center gap-2 bg-cream py-2"
         style={{ bottom: 'calc(var(--sn-bottomdock-h, 0px) + 0.5rem)' }}
         data-hub-music-tools=""
       >
+        {toolsRide.band}
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search tracks</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/50" aria-hidden />
@@ -451,6 +459,7 @@ export function HubMusicManager({
           disabled={Boolean(readError)}
           className="button-primary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           data-hub-music-add=""
+          data-ride-fold=""
         >
           <Plus className="h-4 w-4" aria-hidden />
           Add

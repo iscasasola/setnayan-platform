@@ -20,6 +20,7 @@
 import { FIRST_BOOKING_ON_US } from './booking-fee-lock';
 import { formatPhp } from './php';
 import { planWord } from './vendor-plan-change-words';
+import { formatCount } from './format-number';
 
 /** The plans an invite may give — the paid ladder (the key `enterprise` is shown as Ultra). */
 export const PERSONAL_INVITE_TIERS = ['solo', 'pro', 'enterprise'] as const;
@@ -95,7 +96,7 @@ export function parsePersonalInviteOffer(
 export function offerPill(o: PersonalInviteOffer): string | null {
   const parts: string[] = [];
   if (o.tier && o.untilDay) parts.push(`${planWord(o.tier)} · free until ${offerDayWords(o.untilDay)}`);
-  if (o.photos) parts.push(`${o.photos} portfolio photos`);
+  if (o.photos) parts.push(`${formatCount(o.photos)} portfolio photos`);
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -103,7 +104,7 @@ export function offerPill(o: PersonalInviteOffer): string | null {
 export function offerResultLine(o: PersonalInviteOffer): string | null {
   const parts: string[] = [];
   if (o.tier && o.untilDay) parts.push(`${planWord(o.tier)}, free until ${offerDayWords(o.untilDay)}`);
-  if (o.photos) parts.push(`${o.photos} portfolio photos to keep`);
+  if (o.photos) parts.push(`${formatCount(o.photos)} portfolio photos to keep`);
   return parts.length ? `${parts.join(' · ')} — written when they claim.` : null;
 }
 
@@ -146,7 +147,7 @@ export function personalInviteMessage(input: {
 
   const gift: string[] = [];
   if (offer.tier && offer.untilDay) gift.push(`${planWord(offer.tier)}, free until ${offerDayWords(offer.untilDay)}`);
-  if (offer.photos) gift.push(`${offer.photos} portfolio photos, yours to keep`);
+  if (offer.photos) gift.push(`${formatCount(offer.photos)} portfolio photos, yours to keep`);
   if (gift.length) {
     const after = offer.tier
       ? ` After that it's up to you — ${planChoicesLine(prices)}. Nothing renews by itself.`

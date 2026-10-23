@@ -14,6 +14,7 @@
  */
 import { CREDIT_WARNING_WINDOW_DAYS } from './vendor-credit-warning';
 import { planWord } from './vendor-plan-change-words';
+import { formatCount } from './format-number';
 import { dayAfterWords, manilaDayOf, offerDayWords } from './personal-invite-offer';
 
 const PAID = new Set(['solo', 'pro', 'enterprise']);
@@ -51,7 +52,7 @@ export function giftEndsSoon(g: PlanGift): boolean {
 /** Today's Shop line for a gifted shop (frames B6 / C2). */
 export function giftShopLine(g: PlanGift): string {
   return giftEndsSoon(g)
-    ? `${g.plan} · ${g.daysLeft} ${g.daysLeft === 1 ? 'day' : 'days'} left on the gift`
+    ? `${g.plan} · ${formatCount(g.daysLeft)} ${g.daysLeft === 1 ? 'day' : 'days'} left on the gift`
     : `${g.plan} · free until ${offerDayWords(g.untilDay)} · from Setnayan`;
 }
 
@@ -90,8 +91,10 @@ export function portfolioPlanRowLine(input: {
   /** A plan gift that has ended (frame C3). */
   giftEnded: boolean;
 }): string {
-  const { held, cap, gifted, giftUntilDay, giftEnded } = input;
-  if (giftEnded || held > cap) {
+  const { gifted, giftUntilDay, giftEnded } = input;
+  const held = formatCount(input.held);
+  const cap = formatCount(input.cap);
+  if (giftEnded || input.held > input.cap) {
     return `${held} kept · ${cap} free${gifted ? ' (your gift)' : ''} · more with Papic credits soon`;
   }
   const until = giftUntilDay ? offerDayWords(giftUntilDay).replace(/ \d{4}$/, '') : null;

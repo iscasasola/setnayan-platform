@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { Phone, Sparkles, UserPlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { formatCount } from '@/lib/format-number';
 import { DoorShell } from '@/app/_components/door/door-shell';
 
 /**
@@ -215,7 +216,7 @@ export function TeamInviteDoor({
                 <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="photos">
                   <dt className="shrink-0 text-[13px] text-ink/60">Portfolio photos</dt>
                   <dd className="min-w-0 text-right text-sm text-ink">
-                    <strong className="font-semibold">{offer.photos}</strong> · yours to keep
+                    <strong className="font-semibold">{formatCount(offer.photos)}</strong> · yours to keep
                   </dd>
                 </div>
               ) : null}

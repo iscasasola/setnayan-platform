@@ -74,6 +74,18 @@ S9 daemon sends save-first items → daemon test red · S10 sweep raw-deletes �
 - Host Memories / library / zip / save-photo / magazine / teaser allowlist 'clean' (relay (a)). A classifier outage now
   HIDES from the couple until the re-screen sweep heals — and the phone keeps sending ("Sending …") until it does.
 
+## Walk notes (lab: /dev/papic-camera-lab, scripts + shots in ~/Documents/Claude/Projects/shots-2026-10-23/papic-save-first/)
+- serve: scripts/serve.sh (walk lane, port 3617, lab no-database env + 54321 stub); STOP by `touch scripts/STOP`.
+- walk: `ENGINES=chromium|webkit node scripts/walk.mjs` (route-intercepted server + R2; 2 Mbps up, 150 ms RTT).
+- Chromium (dev): shutter free 4–9 ms; on the phone ~0.8 s; 12 rows, 1 lost answer replayed as duplicate; 22 MB in 71 s.
+- WebKit (dev) traps: (1) Playwright's setOffline makes WebKit unable to READ its own Blobs (NotReadableError) — the walk
+  cuts the link at the network edge instead; (2) Safari ephemeral IndexedDB refuses Blob → store falls back to ArrayBuffer;
+  (3) dev-mode JSC runs the look ~20× slower (ORIG 15.6 s → 7.2 s after the row-major blur) while a production-style
+  bundle runs it in 255 ms (WebKit) / 310 ms (Chromium) — the dev number is not a phone number.
+- NEVER edit apps/web while a walk runs: Fast Refresh reloads the lab and resets the page's uploader mid-walk.
+- ⚠ Incident: I ran `pkill -f "node scripts/walk.mjs"` once (to stop my own walk) — a by-name kill that could have hit
+  another session's same-named script. Disclosed in the report.
+
 ## Left (for the report)
 - Seat camera onto the uploader: needs papic_photos.client_capture_id + idempotent recordSeatCapture + a seat sign op
   reusing /api/upload's seat gates. Seat bytes already go direct to R2 (no 413).

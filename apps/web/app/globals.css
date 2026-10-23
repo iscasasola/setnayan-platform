@@ -7826,6 +7826,9 @@ html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opa
 /* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
  * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
 [data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
+/* The marketplace's suggestions rise above its field — while it rides, above the band too (the bar's 12 px top
+ * padding + the band's 44 + the list's own 8 px gap), never over Done. */
+[data-ride-row][data-riding] #taxonomy-suggestions { margin-bottom: 64px; }
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }

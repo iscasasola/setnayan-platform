@@ -17,10 +17,10 @@
  *   4 · THE LAUNCH OFFER STILL WAIVES INSIDE ITS CAP, takes no free place, and
  *       the shop still has its one free booking after it.
  *
- * SABOTAGE (2026-10-23): `SELECT 5` in `booking_fee_free_booking_limit()` →
- * tests 1 + 2 RED; restore the literal `v_ordinal <= 5` in the lock RPC → test 1
- * RED (the body no longer calls the function) and test 2 RED; re-derive a frozen
- * row (`v_is_free := v_ordinal <= …` in the ELSE arm) → test 3 RED.
+ * SABOTAGE (2026-10-23, each run against the replayed migrations): `SELECT 5`
+ * in `booking_fee_free_booking_limit()` → tests 1, 2, 3 + 4 RED; re-derive a
+ * frozen row (`v_is_free := v_ordinal <= booking_fee_free_booking_limit()` in
+ * the ELSE arm instead of `v_ledger.is_free_booking`) → test 3 RED alone.
  */
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';

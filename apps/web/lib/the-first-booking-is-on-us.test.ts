@@ -20,7 +20,7 @@
  *       `app/` + `lib/` with comments removed by the one string-aware lexer, so
  *       prose explaining the history is not convicted — only what renders.
  *
- * SABOTAGE (2026-10-23): FREE_BOOKING_LIMIT back to 5 → tests 1 + 4 RED;
+ * SABOTAGE (2026-10-23): FREE_BOOKING_LIMIT back to 5 → tests 1, 2 + 4 RED;
  * restore `Your first 5 booked customers are free` on the booking-fees page →
  * test 3 RED naming that file; drop the `is_free_booking` read from
  * `resolveBookingFeeStanding` → test 2 RED.

@@ -56,7 +56,7 @@ export const POST_EVENT_SCENE_TYPE_LABEL: Readonly<Record<string, string>> = {
   'road-to-the-day': 'The Road to the Day',
   statistics: 'Statistics',
   schedule: 'Schedule',
-  gallery: 'Gallery',
+  gallery: 'Memories',
   'photo-notes': PHOTO_NOTES_LABEL,
   messages: 'Messages',
   'where-everyone-sat': 'Where Everyone Sat',

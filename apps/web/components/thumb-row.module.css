@@ -1,6 +1,14 @@
 /* ThumbRow (components/thumb-row.tsx) — the Find row's drawing, at 44 px.
    Glass per control (`.sn-glass-row`), no band; the field is the widest seat. */
-.row { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; pointer-events: auto; }
+.row { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; }
+/* 🫥 THE GAPS ARE NOT A PRESS (owner 2026-10-23, Your page › Look: "pressing on look does not expand"). The row is the
+   screen's full width, but only its controls are drawn — NO BAND — so only the controls take a press; between them the
+   page underneath is pressed, exactly as it is seen. A full-width `pointer-events: auto` here made a dead strip across
+   every list screen just above the dock: a row scrolled into it (Look, a guest, a supplier) took no press anywhere.
+   The attribute lifts this above a host's `.lower > * { pointer-events: auto }` (same specificity, load order decides).
+   Held by `app/vendor-dashboard/website/the-look-circle-opens-the-one-picker.test.ts`. */
+.row[data-thumb-row] { pointer-events: none; }
+.row[data-thumb-row] > :not(.gap) { pointer-events: auto; }
 .round { display: inline-flex; flex: 0 0 auto; border-radius: var(--m-r-full); }
 /* The glass edge is drawn INSIDE the round (a ring, not a border), so a round is 44 wide, not 46 — the two pixels a
    seat that is three rounds wide gives back to the field at 320. */

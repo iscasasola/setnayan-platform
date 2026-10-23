@@ -778,7 +778,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {showcaseError === 'missing_photo'
-            ? 'That snippet is no longer in your gallery.'
+            ? 'That snippet is no longer in your Memories.'
             : 'Could not change that — please try again.'}
         </p>
       ) : null}
@@ -809,8 +809,8 @@ function StatusBanners({
           <p className={ok}>
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {vendorMedia === 'hidden'
-              ? 'Your suppliers’ photos are hidden from your gallery.'
-              : 'Your suppliers’ photos are showing in your gallery.'}
+              ? 'Your suppliers’ photos are hidden from your Memories.'
+              : 'Your suppliers’ photos are showing in your Memories.'}
           </p>
         )
       ) : null}
@@ -835,7 +835,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {preserveSet === 'released'
-            ? 'Released — this one becomes a smaller copy after your event. It stays in your gallery.'
+            ? 'Released — this one becomes a smaller copy after your event. It stays in your Memories.'
             : 'Saved — this one stays at full size.'}
         </p>
       ) : null}
@@ -845,7 +845,7 @@ function StatusBanners({
           {preserveError === 'already_compressed'
             ? 'That one is already a smaller copy — its full-size original has been replaced, and that cannot be undone.'
             : preserveError === 'not_found'
-              ? 'That photo is no longer in your gallery.'
+              ? 'That photo is no longer in your Memories.'
               : 'Could not save that choice — please try again.'}
         </p>
       ) : null}
@@ -930,7 +930,7 @@ function StatusBanners({
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {uploadsOpenSet === '1'
             ? 'Photos can now be added by hand. Each one uses a credit, the same as a camera shot.'
-            : 'Adding photos by hand is off. Only what your cameras capture goes into the gallery.'}
+            : 'Adding photos by hand is off. Only what your cameras capture goes into your Memories.'}
         </p>
       ) : null}
 

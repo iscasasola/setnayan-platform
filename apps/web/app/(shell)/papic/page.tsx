@@ -80,7 +80,7 @@ import { formatCount } from '@/lib/format-number';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Papic — Guest Photo Gallery for Weddings · Setnayan';
+const PAGE_TITLE = 'Papic — Guest Photo Memories for Weddings · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -150,7 +150,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Papic — Guest Photo Gallery',
+    name: 'Papic — Guest Photo Memories',
     url: `${SITE_URL}/papic`,
     applicationCategory: 'MultimediaApplication',
     operatingSystem: 'Any (web browser)',
@@ -160,7 +160,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
       'Cameras are free and unlimited',
       'Guests become the photo crew — everyone contributes',
       'A QR scan tags who is in a photo — no typing',
-      'Each guest gets their own personal gallery',
+      'Each guest gets their own Memories',
       'Face tagging a guest opts into, and can delete',
       'Anyone can ask not to be shown — the photo itself is blurred',
       'Every photo is screened before it can appear',
@@ -188,7 +188,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, the galleries are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, Memories are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',
@@ -252,7 +252,7 @@ const STEPS = [
     t: 'Every photo finds its people',
     img: '/demo/maria-jose/details.webp',
     alt: 'A printed card on the table',
-    d: 'Hold a guest’s place card — or a table sign, for everyone at that table — in frame, and those photos sort straight into their own galleries.',
+    d: 'Hold a guest’s place card — or a table sign, for everyone at that table — in frame, and those photos sort straight into their own Memories.',
   },
   {
     n: '03',
@@ -266,7 +266,7 @@ const STEPS = [
 /** The comparison. These five rows are the shipped ones; the last is swapped
  *  for the privacy row, which is this page's entire privacy footprint in copy. */
 const VS: readonly (readonly [string, string])[] = [
-  ['A shared link everyone digs through', 'Each guest’s own gallery, sorted as you shoot'],
+  ['A shared link everyone digs through', 'Each guest’s own Memories, sorted as you shoot'],
   ['Photos only', 'Photos and Snippets — ten-second candid videos'],
   ['You scroll to find yourself', 'Your photos find you'],
   ['A separate site that expires', 'Lives on your own Event Hub'],
@@ -667,7 +667,7 @@ export default async function PapicLandingPage() {
                     free
                   </span>
                   <span className="mr-1.5">·</span>
-                  the cameras, the live wall, the galleries, and keeping it all
+                  the cameras, the live wall, Memories, and keeping it all
                 </li>
               </ul>
               <p className="mt-3 text-[0.82rem] text-[var(--m-slate-2)]">

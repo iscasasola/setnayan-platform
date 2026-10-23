@@ -73,7 +73,7 @@ const items = WEBSITE_PRO_ITEMS as readonly string[];
 const DRAWN = [
   'Cinematic Reveal',
   'Save-the-Date video',
-  'Photo gallery',
+  'Photos you add',
   'Background music',
   'Photo and video backgrounds',
   PRO_THEMES_ITEM,

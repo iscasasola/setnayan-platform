@@ -2845,7 +2845,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </h2>
         <p className="mt-1.5 text-xs text-ink/70">
           {displayName} marked their service complete. Confirm you received everything to
-          unlock your review and galleries — or let us know if something is missing.
+          unlock your review and photos — or let us know if something is missing.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <form action={coupleConfirmReceived}>

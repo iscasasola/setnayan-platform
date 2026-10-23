@@ -328,11 +328,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             <OpenUpScene
               kind="gallery"
               title="From the Day"
-              eyebrow="Maria · the gallery"
-              openLabel={`Open the gallery · ${n} ${n === 1 ? 'photo' : 'photos'}`}
+              eyebrow="Maria · Memories"
+              openLabel={`Open Memories · ${n} ${n === 1 ? 'photo' : 'photos'}`}
               preview={<GalleryPreview style={gstyle} photos={urls} total={n} names="Maria" words={{}} />}
             >
-              <p className="py-20 text-center text-sm text-ink/70">The whole gallery opens here.</p>
+              <p className="py-20 text-center text-sm text-ink/70">All of Memories opens here.</p>
             </OpenUpScene>
           </div>
           <div className="h-[120vh]" aria-hidden />

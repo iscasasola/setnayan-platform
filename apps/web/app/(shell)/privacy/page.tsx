@@ -1278,9 +1278,9 @@ export default function PrivacyPage() {
               <strong>6 months</strong> from the event&rsquo;s first photo (never
               less than <strong>3 months</strong> after the event ends), and are
               then replaced by a compressed copy. That{' '}
-              <strong>compressed gallery stays online, free, for life</strong> —
-              we do not delete your photos, and there is no end date on that
-              gallery. If you connect Google Drive, every original is also saved to a
+              <strong>compressed copy of your Memories stays online, free, for life</strong> —
+              we do not delete your photos, and there is no end date on those
+              Memories. If you connect Google Drive, every original is also saved to a
               folder you own, and that copy is yours to keep for as long as you want
               it.
             </li>
@@ -1422,7 +1422,7 @@ export default function PrivacyPage() {
               if a supplier working an event photographs you, you can ask for that
               photograph to be removed, and we remove it from the supplier&rsquo;s
               own copy too &mdash; including their portfolio album &mdash; not only
-              from the couple&rsquo;s gallery.
+              from the couple&rsquo;s Memories.
             </li>
           </ul>
         </Section>

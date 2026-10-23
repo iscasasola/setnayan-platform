@@ -1205,3 +1205,46 @@ async function linkedNameLocked(
   }
   return Boolean(profile && profileFormalName(profile as unknown as Record<string, string | null>));
 }
+
+/**
+ * 🙈 FACE BLOCKING, ONE GUEST AT A TIME — the Papic page's list (owner 2026-10-23: Papic holds *"face blocking"*,
+ * prototypes/papic_controller_one_page_2026-10-23.html: "Face blocking · N guests blurred" + one switch per guest —
+ * "the same writer as the guest card"). It writes ONE column, `guests.faceblock_enabled`, through the couple's own
+ * session (RLS is the gate, exactly as the card's save), and runs the card's own consequences of that column:
+ *   on  → the guest stops being a public Kwento author and the wall re-bakes its newest tiles blurred (after the
+ *         response — the wall's read path already hides un-baked tiles at once, fail-closed);
+ *   any → every cached copy that may show them is thrown away (`everyCopyIsNowStale`).
+ * No email either way (2026-10-02, the face-unblur notice is stopped). The card's full save stays the card's.
+ */
+export async function setGuestFaceblock(
+  eventId: string,
+  guestId: string,
+  on: boolean,
+): Promise<{ ok: true } | { ok: false; error: 'auth' | 'failed' }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'auth' };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ faceblock_enabled: on })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .select('guest_id');
+  // ⚠ A zero-row update is success-shaped — RLS refusing it returns no error and no row.
+  if (error || !data || data.length === 0) return { ok: false, error: 'failed' };
+  if (on) {
+    after(async () => {
+      try {
+        await createAdminClient().rpc('set_guest_messages_hidden_by_faceblock', { p_guest_id: guestId });
+      } catch {
+        /* best-effort, as on the card */
+      }
+      const { rebakeWallForEvent } = await import('@/lib/face-blur');
+      await rebakeWallForEvent(eventId);
+    });
+  }
+  await everyCopyIsNowStale(eventId);
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  return { ok: true };
+}

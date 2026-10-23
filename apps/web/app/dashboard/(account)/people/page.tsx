@@ -15,7 +15,7 @@ import {
 import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib/people-add';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
 import { PeopleRosterView } from './_components/people-roster-view';
 import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
@@ -206,9 +206,10 @@ export default async function PeoplePage({
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
       <PageMasthead title="People" />
-      {/* First visit only — the shipped MiniTour (owner rule 2026-09-25: every
-          feature gets a first-visit tour). */}
-      <MiniTour tourKey="customer_people_v1" />
+      {/* First visit only — the SPOTLIGHT (owner rule 2026-09-25: every feature gets a first-visit tour; 2026-10-10:
+          "our tour is a spotlight tour"). It replaces the carousel `customer_people_v1`, switched off since 2026-10-03,
+          whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}
+      <Spotlight tourKey="customer_people_v2" after="host_spotlight_v1" />
       {errorMsg ? (
         <p
           role="alert"

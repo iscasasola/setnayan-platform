@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cc63871952",
-  "routeCount": 462,
+  "generatedFromRef": "9402ec6c22",
+  "routeCount": 463,
   "destinations": 1005,
-  "actions": 664,
-  "blocks": 6866,
+  "actions": 663,
+  "blocks": 6889,
   "routes": {
     "/": {
       "files": [
@@ -5195,7 +5195,6 @@
         "Layer",
         "LifeStorySection",
         "Link",
-        "MiniTour",
         "PageMasthead",
         "PeopleFilter",
         "PeoplePreview",
@@ -5212,6 +5211,7 @@
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Spotlight",
         "SubmitButton",
         "T",
         "ThumbField",
@@ -5267,7 +5267,6 @@
         "updateDiscoverableByName",
         "updateLocalePreference",
         "updatePersonalInfo",
-        "updatePlannerMode",
         "updatePublicGreeting",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
@@ -5494,6 +5493,7 @@
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
+        "Spotlight",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -5566,6 +5566,8 @@
         "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
+        "dashboard/[eventId]/_components/papic-card-strip.tsx",
+        "dashboard/[eventId]/_components/papic-home-card.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
@@ -5727,6 +5729,9 @@
         "FourFlapEnvelope",
         "FreeVenueShortlistOffer",
         "GetHelpCard",
+        "GlanceDot",
+        "GlanceLineText",
+        "GlanceMeter",
         "Glyph",
         "GovernedFieldResult",
         "GroupIcon",
@@ -5800,6 +5805,10 @@
         "PageMasthead",
         "PaidServiceRow",
         "PapicBuySheet",
+        "PapicCameraSettings",
+        "PapicCardStrip",
+        "PapicCardStripView",
+        "PapicHomeCard",
         "PapicReadyNudge",
         "PapicSeePhotos",
         "PapicServiceRow",
@@ -7662,6 +7671,7 @@
         "MemoriesSettings",
         "PoolGalleryCard",
         "ServiceParts",
+        "Spotlight",
         "SubmitButton",
         "UploadsOpenChoice"
       ]
@@ -8710,6 +8720,7 @@
         "HubDraftField",
         "ISeg",
         "ISegmented",
+        "IapUnlockSheet",
         "ImageData",
         "IncDressCodeStarterNote",
         "InfoTip",
@@ -8811,6 +8822,7 @@
         "EventRow",
         "Field",
         "HTMLFormElement",
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "ListPageSkeleton",
@@ -8947,6 +8959,7 @@
       "files": [
         "dashboard/[eventId]/studio/papic/_components/add-photos-door.tsx",
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
+        "dashboard/[eventId]/studio/papic/_components/credit-need.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/drive-copy-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-blocking-list.tsx",
@@ -8964,6 +8977,7 @@
         "dashboard/[eventId]/studio/papic/_components/one-code.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-buy-sheet.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-see-photos.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-stage.tsx",
@@ -9036,6 +9050,7 @@
         "ChallengeRow",
         "CopyButton",
         "CoupleChallengesManager",
+        "CreditNeed",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
@@ -9068,6 +9083,7 @@
         "OneCodeRead",
         "PapicBuyForm",
         "PapicBuySheet",
+        "PapicCameraSettings",
         "PapicLightbox",
         "PapicSeePhotos",
         "PapicTopBand",
@@ -9091,6 +9107,7 @@
         "Spotlight",
         "StandingsStrip",
         "StatusBanners",
+        "StepperRung",
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
@@ -9254,6 +9271,7 @@
         "HTMLDivElement",
         "HTMLVideoElement",
         "HowItWorks",
+        "IapUnlockSheet",
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
@@ -9468,6 +9486,7 @@
       ],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
@@ -9485,6 +9504,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "PageMasthead",
         "PaidMark",
@@ -10947,6 +10967,8 @@
         "LabBoard",
         "LabShell",
         "LabSpotlight",
+        "PapicCameraSettings",
+        "PapicCardStripView",
         "PapicTopBand",
         "ProLockPanel",
         "SiteMenuBar",
@@ -10954,6 +10976,17 @@
         "StanceChip",
         "YourServices",
         "YourShotsGallery"
+      ]
+    },
+    "/dev/iap-doors-lab": {
+      "files": [
+        "dev/iap-doors-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "IapUnlockSheet",
+        "StudioBuyHero"
       ]
     },
     "/dev/maker-lab": {
@@ -11141,6 +11174,7 @@
     },
     "/dev/people-lab": {
       "files": [
+        "dev/people-lab/lab-tour.tsx",
         "dev/people-lab/page.tsx"
       ],
       "destinations": [],
@@ -11149,8 +11183,10 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "LabTour",
         "PeopleRosterView",
         "RosterPerson",
+        "SpotlightMount",
         "TreeStandIn"
       ]
     },

@@ -38,7 +38,7 @@ import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
 import { CohostWelcome, cohostWelcomeNotice } from './_components/cohost-welcome';
-import { resolveRailAccount, resolveRailStudioEvent } from '@/app/_components/frontdoor/rail-data';
+import { resolveRailAccount } from '@/app/_components/frontdoor/rail-data';
 import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
 import { AppPreload } from '@/app/_components/app-preload';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
@@ -229,8 +229,8 @@ export default async function EventLayout({ children, params }: Props) {
   /*
     ⚡ THE RAIL'S AND THE CO-HOST CARD'S READS START HERE TOO (measured 2026-10-20 in the lab,
     150 ms a trip). `<AppRailShell>` and `<CohostWelcome>` are server components that render only
-    AFTER this layout returns — so their reads (the rail's account, its search index, the Studio
-    event; the unread co-host notice) used to leave two trips later than everything else, and the
+    AFTER this layout returns — so their reads (the rail's account, its search index; the unread
+    co-host notice — the rail no longer reads a Studio event, 2026-10-23) used to leave two trips later than everything else, and the
     whole page waited for them before its first byte. Each is cache()d per render: started here,
     the component below finds its answer in hand. Not awaited here, and each fails soft exactly
     as it did (the rail to its signed-out slot / `[]`, the card to nothing) — the `.catch` only
@@ -238,7 +238,6 @@ export default async function EventLayout({ children, params }: Props) {
   */
   void resolveRailAccount().catch(() => undefined);
   void resolveCommandItems().catch(() => undefined);
-  void resolveRailStudioEvent(eventId).catch(() => undefined);
   void cohostWelcomeNotice(eventId, user.id).catch(() => undefined);
   const eventRead = (async () => {
     try {
@@ -630,10 +629,6 @@ export default async function EventLayout({ children, params }: Props) {
            the rail's 72-px strip comes down to 701 and the dock below goes with
            it — ONE boundary, given to both. `shell-boundary.tsx`. */
         boundary="tab"
-        /* The Studio group stays in the rail inside an event (owner
-           2026-08-21) and its rows open THIS wedding's tools. Verified against
-           the person's own organiser events inside the resolver. */
-        studioEventId={eventId}
         /*
           ─── ONE LIST, TWO CONSUMERS (2026-08-23) ──────────────────────────
           `eventRailInputs` is spread into the rendered menu AND turned into the

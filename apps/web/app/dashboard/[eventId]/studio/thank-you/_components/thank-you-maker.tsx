@@ -37,6 +37,7 @@ import {
   InlineCheckoutDrawer,
   type InlineCheckoutDrawerProps,
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 /**
  * What an UNOWNED film needs to be paid for at "Save to my phone" (2026-09-30).
@@ -51,6 +52,11 @@ export type ThankYouSaveCheckout = {
   pricePhp: number | null;
   vatRatePct: number;
   settings: InlineCheckoutDrawerProps['settings'];
+  /**
+   * 🍎 The iPhone app where Apple sells (`getIapGate().iap`, owner 2026-10-23) AND the item is on sale: "Save to my
+   * phone" is Apple's sheet (`IapUnlockSheet`) — no web price, no GCash / BDO. The web always passes false.
+   */
+  apple?: boolean;
 };
 
 const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
@@ -224,6 +230,22 @@ function SavePanel({ eventId, checkout }: { eventId: string; checkout: ThankYouS
         Your Thank-You Video payment is being confirmed. Once it is, come back and
         make the film again — it will save straight to your phone.
       </p>
+    );
+  }
+  if (checkout.apple) {
+    return (
+      <div className="space-y-2">
+        <IapUnlockSheet
+          eventId={eventId}
+          serviceKey={SKU_CODE}
+          name="Thank You"
+          line="Save your Thank-You Video to your phone."
+          info="Make the film here as often as you like. Once it’s on, make it again and it saves straight to your phone."
+          triggerLabel="Save to my phone"
+          triggerTestId="iap-thank-you-save"
+          triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+        />
+      </div>
     );
   }
   if (checkout.priceCentavos == null) {

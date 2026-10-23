@@ -12,6 +12,8 @@ import { formatCount } from '@/lib/format-number';
 import { getIapGate } from '@/lib/request-platform';
 import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
 import { claimUploadsCamera } from '@/app/dashboard/[eventId]/studio/papic/actions';
@@ -117,6 +119,7 @@ export default async function EventMemoriesPage({ params }: Props) {
   }
 
   return (
+    <>
     <EventMemoriesGallery
       eventId={eventId}
       items={items}
@@ -139,5 +142,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
     />
+    {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
+    <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
+    </>
   );
 }

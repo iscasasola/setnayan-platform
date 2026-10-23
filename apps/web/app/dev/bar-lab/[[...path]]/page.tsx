@@ -154,7 +154,7 @@ export default async function BarLab({
   if (where === '') {
     return (
       <>
-        <FrontDoorShell account={ACCOUNT} navLabels={{}} tools={[]}>
+        <FrontDoorShell account={ACCOUNT} navLabels={{}}>
           <div
             data-fd-page=""
             className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
@@ -172,7 +172,7 @@ export default async function BarLab({
   if (spoke) {
     return (
       <div className="sn-ambient min-h-dvh">
-        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} tools={[]}>
+        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
           <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
             <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
           </main>
@@ -193,7 +193,7 @@ export default async function BarLab({
     return (
       <>
         <div className="sn-ambient min-h-screen">
-          <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} tools={[]} insideEvent>
+          <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} insideEvent>
             <div className="sn-ambient min-h-screen">
               <main className="sn-vt-page">
                 <div data-shell-main="" className="px-4 pt-3 sm:px-6 sm:pt-6 lg:px-8">
@@ -225,7 +225,7 @@ export default async function BarLab({
   return (
     <>
       <div className="sn-ambient min-h-screen">
-        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} tools={[]} insideEvent={event}>
+        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
           <div className="sn-ambient min-h-screen">
             <main className="sn-vt-page">
               <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">

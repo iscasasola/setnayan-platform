@@ -38,11 +38,8 @@ const AA = 4.5;
 
 /** `selector` is the exact rule; `rendered` proves the markup still uses it. */
 const SMALL_PRINT = [
-  { selector: '.fd-rlabel small', file: 'front-door-shell.tsx', rendered: /className="fd-rlabel">\s*\w+ <small>/ },
   { selector: '.fd-smallprint', file: 'front-door-shell.tsx', rendered: /className="fd-smallprint"/ },
   { selector: '.fd-smallprint a', file: 'front-door-shell.tsx', rendered: /className="fd-smallprint"/ },
-  { selector: '.fd-sechead .fd-rule', file: 'front-door-feed.tsx', rendered: /className="fd-rule"/ },
-  { selector: '.fd-sechead .fd-rule', file: 'front-door-discover.tsx', rendered: /className="fd-rule"/ },
   { selector: '.fd-copy', file: 'front-door-shell.tsx', rendered: /className="fd-copy"/ },
   { selector: '.fd-tag2', file: 'front-door-shell.tsx', rendered: /className="fd-tag2"/ },
   { selector: '.fd-unknown', file: 'front-door-feed.tsx', rendered: /className="fd-unknown"/ },

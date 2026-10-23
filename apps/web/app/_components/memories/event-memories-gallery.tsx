@@ -297,7 +297,7 @@ export function EventMemoriesGallery({
         <span data-memories-albums="" className="shrink-0">
           <PickMenu label="Albums" value={album} options={albumOptions} onPick={(k) => isMemoriesAlbum(k) && setAlbum(k)} compact />
         </span>
-        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="">
+        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="" data-tour="memories-count">
           {unreadable || albumRefused ? 'couldn’t load' : <span className="font-medium text-ink">{countLine}</span>}
           {host && (needsCount > 0 || needsLook) ? (
             <>
@@ -333,6 +333,7 @@ export function EventMemoriesGallery({
       <div
         ref={gridRef}
         data-memories-grid=""
+        data-tour="memories-grid"
         className="-mx-4 touch-pan-y sm:-mx-6 lg:-mx-8"
         style={{ ['--mem-cols' as string]: String(cols) }}
       >
@@ -748,6 +749,7 @@ function MemoriesThumbRow({
             field={{
               placeholder: 'Search memories',
               label: 'Search memories — by who took them, a challenge, a place on your Event Hub',
+              tour: 'memories-search',
               input: { value: q, onChange: (e) => onSearch(e.target.value), 'data-memories-search': '' },
             }}
             action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: () => setAdding(true), testId: 'memories-add-photos' } : null}

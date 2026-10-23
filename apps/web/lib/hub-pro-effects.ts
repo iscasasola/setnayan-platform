@@ -58,6 +58,7 @@ import {
   blockMotionsGrowing,
   mainEffectChange,
   mainGroundChange,
+  mergeHubDraft,
   withoutEffect,
   cameraLookOfDraft,
   rsvpLookGrowing,
@@ -71,6 +72,7 @@ import {
   type CanvasLookFacet,
   type HubDraftEventColumn,
   type HubDraftItem,
+  type HubDraft,
   type HubDraftPatch,
   type HubDraftState,
   type HubDraftVenueChoices,
@@ -729,3 +731,27 @@ export function hubProEffectView(e: HubProEffect): HubProEffectView {
 /* The client's half (the effect's line, the view type, the Unlock-and-Apply
    return) lives in `lib/hub-pro-effect-view.ts` — see its docblock. */
 export { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView };
+
+/**
+ * ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked") — every held Pro effect off the draft, as ONE save: the
+ * same per-effect `remove` patches the Apply sheet's × writes, applied one after another to a working copy, and the
+ * result carries ONE undo step (the history of the first merge), so ↺ brings them all back together.
+ *
+ * Stops when the list of removable effects stops shrinking — a `remove` that does not take its own effect off can
+ * never spin. Null when there was nothing to remove (no save, no undo step).
+ */
+export function dropAllHubProEffects(current: HubDraft, live: HubLiveState, by?: string): HubDraft | null {
+  const removable = (d: HubDraftState) => hubDraftProEffects(d, live, false).filter((e) => e.remove);
+  let left = removable(current);
+  if (left.length === 0) return null;
+  let next = current;
+  let first: HubDraft | null = null;
+  while (left.length > 0) {
+    next = mergeHubDraft(next, left[0]!.remove!, by);
+    first ??= next;
+    const now = removable(next);
+    if (now.length >= left.length) break;
+    left = now;
+  }
+  return first ? { ...next, history: first.history } : null;
+}

@@ -26,7 +26,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+// 📍 The look's row moved with the camera settings (2026-10-23): ONE component draws them on Home's Papic card and on
+// this page, and the owner calls it "Filter". The rule below is unchanged — only its address and its label.
+const PAGE = readFileSync(join(PAPIC, '_components/papic-camera-settings.tsx'), 'utf8');
 const ROW = readFileSync(join(PAPIC, '_components/setting-row.tsx'), 'utf8');
 
 test('the row primitive still exists and still opens a sheet', () => {
@@ -36,12 +38,12 @@ test('the row primitive still exists and still opens a sheet', () => {
 });
 
 test('🚨 the look is a ROW, not five cards on the page', () => {
-  assert.ok(/<SettingRow[\s\S]{0,300}?label="Your Papic look"/.test(PAGE), 'the look is not rendered as a row');
+  assert.ok(/<SettingRow[\s\S]{0,300}?label="Filter"/.test(PAGE), 'the look is not rendered as a row');
   // The old card led with a large heading in the page body. If that shape is
   // back, five gradient cards are the first thing on the screen again.
   assert.ok(
-    !/Your Papic look\s*<\/p>/.test(PAGE),
-    'the look heading is back in the page body — the card returned',
+    !/<StylePicker\b/.test(PAGE.replace(/<SettingRow(?:(?!<\/SettingRow>)[\s\S])*?label="Filter"[\s\S]*?<\/SettingRow>/, '')),
+    'the five looks are drawn outside their row again — the cards returned',
   );
 });
 
@@ -52,10 +54,10 @@ test('🚨 the sheet renders the SHIPPED picker, never a copy of it', () => {
   // started reading the WRONG row's contents and reported the look's picker
   // missing. A guard keyed on position answers a question about position.
   const row =
-    /<SettingRow(?:(?!<\/SettingRow>)[\s\S])*?label="Your Papic look"[\s\S]*?<\/SettingRow>/.exec(
+    /<SettingRow(?:(?!<\/SettingRow>)[\s\S])*?label="Filter"[\s\S]*?<\/SettingRow>/.exec(
       PAGE,
     )?.[0] ?? '';
-  assert.ok(row, 'no SettingRow block labelled "Your Papic look" was found');
+  assert.ok(row, 'no SettingRow block labelled "Filter" was found');
   assert.ok(
     /<StylePicker\b/.test(row),
     'the sheet no longer renders StylePicker. A reimplementation of the five looks here is a SECOND COPY of a shipped control — the failure this file exists for.',

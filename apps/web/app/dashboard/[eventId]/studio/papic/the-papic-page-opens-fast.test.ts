@@ -145,8 +145,8 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   assert.ok(at(body, 'const freePoolHeal = (async () => {') > healsStart);
   assert.ok(at(body, 'const uploadsCameraHeal = provisionUploadsCameraAdmin(unlockAdmin, eventId') < healsAwait);
   // Every started read that must see the heals starts after them.
+  // (The uploads seat read left with + Add photos for Memories, 2026-10-23 — the heal that provisions it stays here.)
   for (const after of [
-    'const uploadsSeatRead = startRead(',
     'const standingsRead = startRead(readPapicStandings(',
   ]) {
     assert.ok(at(body, after) > healsAwait, `${after} starts before the self-heals it must see`);

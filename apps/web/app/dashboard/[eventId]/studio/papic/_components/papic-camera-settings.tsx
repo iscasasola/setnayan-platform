@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ChevronRight, Clock } from 'lucide-react';
+import { ChevronRight, Clock, Sparkles } from 'lucide-react';
+import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -12,7 +13,6 @@ import {
   formatPapicDayInWords,
   captureWindowState,
 } from '@/lib/papic-window';
-import { PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
 import PapicWindowPicker from '../papic-window-picker';
 import StylePicker from '../style-picker';
 import { CoupleChallengesManager } from '../couple-challenges-manager';
@@ -73,8 +73,13 @@ export async function PapicCameraSettings({
     const on = formatPapicDayInWords(win.startDate);
     if (!on) return 'Switches on when your date is set';
     const waits = captureWindowState(win.startDate, win.endIso) === 'not_started';
-    return `${waits ? 'Papic turns on' : 'On from'} ${on} · ${PAPIC_UNTIL_WORDS}`;
+    // 📏 The day only — "· until 12 hours after your day" ran the row past 375 px (the value never wraps); the
+    // end is fixed by rule and said in the Papic ⓘ above.
+    return `${waits ? 'Papic turns on' : 'On from'} ${on}`;
   })();
+  const papicStyle = ((ev.papic_style as string | null) ?? 'ORIG') as string;
+  // The look's human name for the row — DERIVED from the style table, never a second copy of the five words.
+  const papicStyleLabel = PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
   const total = credits?.total ?? null;
   const left = credits?.left ?? null;
   const used = total !== null && left !== null ? Math.max(0, total - left) : null;
@@ -138,12 +143,22 @@ export async function PapicCameraSettings({
       {/* (3) SETTINGS — his five, flat: every control on its line, every explanation in its ⓘ. */}
       <section className="flex flex-col gap-3" data-papic-settings="" data-tour="papic-settings">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Settings</h2>
-        <div className="flex flex-col gap-2" data-papic-setting="filter">
-          <InfoTip label="Filter" labelClassName="text-[15px] font-semibold text-ink" align="start">
-            One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
-            Memories feel like one set. Guests cannot change it.
-          </InfoTip>
-          <StylePicker returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={((ev.papic_style as string | null) ?? 'ORIG') as string} />
+        {/* 🎨 THE FILTER IS A ROW (the shipped "Your Papic look" row, under the owner's word "Filter"): one look, chosen
+            once, months before the day — a row with its answer, opening the SHIPPED picker. Five tall cards inline made
+            Home's card a screen and a half long (walk 2026-10-24); `a-row-is-a-door-not-a-copy.test.ts` holds it. */}
+        <div className="divide-y divide-ink/10" data-papic-setting="filter">
+          <SettingRow
+            icon={<Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Filter"
+            value={papicStyleLabel}
+            sheetTitle="Filter"
+          >
+            <p className="mb-4 text-sm text-ink/65">
+              One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
+              Memories feel like one set. Guests cannot change it.
+            </p>
+            <StylePicker returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
+          </SettingRow>
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />

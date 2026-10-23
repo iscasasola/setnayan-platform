@@ -32,7 +32,6 @@ import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import {
   provisionFreeCamerasAdmin,
   provisionUploadsCameraAdmin,
-  PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { papicIsOn } from '@/lib/event-answers';
@@ -298,15 +297,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const papicStyleLabel =
     PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
 
-  // Who may add photos by hand (owner 2026-08-26) — on the one event select.
-  //
-  // 🪤 THIS READ WAS MISSING ON THE FIRST CUT AND THE SWITCH GOVERNED NOTHING.
-  // `ev.papic_uploads_open` was read off the main select, which never named the
-  // column, so it was always `undefined` and `?? true` reported OPEN no matter
-  // what the couple had chosen. It saved, it showed the right state on its own
-  // control, and the picker ignored it. A stored value with no reader, in a
-  // feature whose entire point is the reader.
-  const uploadsRow = event as { papic_uploads_open?: boolean | null };
+  // (Who may add photos by hand is read where the door is now — Memories' + Add photos.)
 
   // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
   // fidelity tier was read here for one reason: to feed the "Photo quality"
@@ -426,35 +417,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // grant, seat 150), none reads another's, and each is best-effort and never throws — so one
   // trip for all three instead of one each. Every read below that must SEE them waits for all.
   await Promise.all([freeCamerasHeal, freePoolHeal, uploadsCameraHeal]);
-  // The uploads seat is read back now (it must see the heal above) and awaited further down, so
-  // it travels alongside the guest-list sync instead of in front of it.
-  const uploadsSeatRead = startRead(
-    unlockAdmin
-      .from('paparazzi_seats')
-      .select('claim_qr_token, claimer_user_id')
-      .eq('event_id', eventId)
-      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-      .is('revoked_at', null)
-      .maybeSingle(),
-  );
-
-  // …then read it back, so the studio can either offer the picker or offer to
-  // turn it on. Admin client on purpose: `paparazzi_seats_claimer_read` only
-  // returns a seat once you ARE its claimer, so a couple cannot see their own
-  // UNCLAIMED Uploads camera under RLS. Pinned to this event and the reserved
-  // index, so it can only ever return the one seat.
-  //
-  // ⚠ A REFUSED READ IS NOT "THERE IS NO CAMERA". Both stay null and the block
-  // renders nothing, rather than offering a picker that cannot work or a
-  // turn-on button for a camera we could not look for.
-  // ⚠ THE SWITCH IS READ DEFENSIVELY, AND ABSENT MEANS OPEN. The column lands
-  // in migration 20271170068924; on a pre-migration database the select would
-  // error and `?? true` keeps the library's most obvious door working rather
-  // than closing it on everybody because a column is not there yet. Same shape
-  // as papic_style above.
-  const uploadsOpen =
-    (((uploadsRow as { papic_uploads_open?: boolean | null } | null)?.papic_uploads_open) ?? true) !==
-    false;
+  /* 📍 The uploads seat is no longer read here: + Add photos lives in Memories (`memories/page.tsx` reads the seat
+     and checks it is THIS person's). The seat is still provisioned above — here and only here (security note). */
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
@@ -509,17 +473,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
      standings. Each is still awaited where it always was. */
   const standingsRead = startRead(readPapicStandings(createAdminClient(), eventId));
 
-  let uploadsToken: string | null = null;
-  let uploadsClaimed = false;
-  {
-    const { data: up, error: upErr } = await uploadsSeatRead;
-    if (upErr) {
-      logQueryError('PapicStudioPage.uploadsCamera', upErr, { eventId }, 'graceful_degrade');
-    } else if (up) {
-      uploadsClaimed = !!up.claimer_user_id && up.claimer_user_id === user.id;
-      uploadsToken = uploadsClaimed ? ((up.claim_qr_token as string) ?? null) : null;
-    }
-  }
 
   /* ⛔ NO SEAT IS COUNTED FOR THE COUPLE ANY MORE (owner 2026-10-23). The off-list extras count and the
      claim-link roster fed "N camera QRs are still in your pocket" and the crew-camera row — a camera per

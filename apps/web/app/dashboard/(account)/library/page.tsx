@@ -9,6 +9,7 @@ import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
+import { ChallengesTab } from './_components/challenges-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { formatCount } from '@/lib/format-number';
@@ -184,6 +185,7 @@ export default async function AlaalaPage({
             <PhotosTab userId={user.id} />
           </div>
         ) : null}
+        {active === 'challenges' ? <ChallengesTab albums={albums} /> : null}
         {active === 'editorials' ? <div className="pt-3"><EditorialsTab userId={user.id} /></div> : null}
         {active === 'vendors' ? (
           <div className="space-y-4 pt-3">

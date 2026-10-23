@@ -65,7 +65,8 @@ export function PapicTopBand({
         : null;
   const see =
     typeof photos === 'number' && photos > 0 ? (
-      <PapicSeePhotos wide label={`See your ${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`} />
+      /* The photos live in Memories now (owner 2026-10-23) — the band's door opens them there. */
+      <PapicSeePhotos wide href={`/dashboard/${eventId}/memories`} label={`See your ${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`} />
     ) : (
       <ActionButton
         tone="neutral"

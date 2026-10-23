@@ -358,28 +358,31 @@ export function PapicLightbox({
   timeZone?: string | null;
 }) {
   const [saving, setSaving] = useState(false);
-  const isClip = photo.kind === 'clip' && Boolean(photo.playUrl);
-  const src = isClip ? (photo.playUrl as string) : (photo.viewUrl ?? photo.url);
+  // ⚠ A CLIP IS A CLIP BY ITS KIND, NOT BY WHETHER IT CAN PLAY HERE (review of #6851). A clip with no web copy (every
+  // supplier clip, some older ones) opens on its still — and still carries its Download.
+  const isClip = photo.kind === 'clip';
+  const plays = isClip && Boolean(photo.playUrl);
+  const file = isClip ? (photo.downloadUrl ?? photo.playUrl ?? null) : null;
+  const src = plays ? (photo.playUrl as string) : (photo.viewUrl ?? photo.url);
   if (!src) return null;
 
   return (
     <GalleryLightbox
       src={src}
       posterSrc={photo.url}
-      kind={isClip ? 'clip' : 'photo'}
+      kind={plays ? 'clip' : 'photo'}
       capturedByName={photo.capturedBy}
       capturedAt={photo.capturedAt}
       timeZone={timeZone}
       onClose={onClose}
       actions={
-        isClip ? (
+        isClip && file ? (
           <button
             type="button"
             disabled={saving}
             onClick={async () => {
               // Memories hands a clip its explicit Download (the kept original, else the web copy); the Papic
               // page has none and downloads what it plays, as before.
-              const file = photo.downloadUrl ?? photo.playUrl;
               if (!file || saving) return;
               setSaving(true);
               // fetch→blob→download: a bare cross-origin <a download> is ignored

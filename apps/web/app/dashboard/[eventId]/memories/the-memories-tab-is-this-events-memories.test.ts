@@ -11,6 +11,10 @@
  *   5. ONE STEP PER GESTURE (owner, trying the prototype: *"The pinch changes too fast"*): mid-gesture the grid only
  *      scales; the columns change only where a gesture ENDS, through the one threshold (`gestureStep`).
  *
+ *   6. REVIEW (#6851): the count uses the grid's own filters (`countGalleryFrames`); ANY refused read is said as
+ *      "couldn't load" (`status.refused`); a non-couple fails closed on the hidden-suppliers read (`viewerIsCouple`);
+ *      ⌃-wheel is heard on the window; a frame with no compressed copy is a "Processing" tile, never blank.
+ *
  * Sabotage (2026-10-23): the tab's href → `/galleries` (1 red); the grid's `gridTemplateColumns` → a fixed
  * `repeat(3, …)` (2 red); the cover's label → "Event Details" (3 red); the See-photos door → `?gallery=open` (4 red).
  * Each restored → green.
@@ -127,4 +131,18 @@ test('5 · one step per gesture — the columns change only where a gesture ends
   assert.match(body('onWheel'), /WHEEL_GESTURE_GAP_MS/, 'a wheel event is treated as a whole gesture');
   // The snap honours reduced motion.
   assert.match(pinch, /prefers-reduced-motion: reduce/, 'the snap animates under reduced motion');
+});
+
+test('6 · the count matches the grid, a refused read is said, and a missing copy reads Processing', () => {
+  const page = code(PAGE);
+  assert.match(page, /countGalleryFrames\(supabase,\s*eventId\)/, 'the count is not the grid-filtered count');
+  assert.doesNotMatch(page, /countPapicCaptures/, 'the count counts hidden or blocked frames the grid never draws');
+  assert.match(page, /status\.refused\.length\s*>\s*0\s*\|\|/, 'a refused read can render as a smaller gallery');
+  assert.match(page, /viewerIsCouple:\s*isCouple/, 'a non-couple viewer does not fail closed on the hidden-suppliers read');
+  const lib = code('lib/papic-gallery.ts');
+  assert.match(lib, /hiddenSuppliersFailClosed\s*\?\s*\[\]|hiddenSuppliersFailClosed \? \[\]/, 'a failed hidden-suppliers read still shows supplier shots');
+  const lib2 = code('lib/papic-gallery.ts');
+  assert.match(lib2, /\.neq\('moderation_state',\s*'nsfw_blocked'\)[\s\S]*\.is\('hidden_at',\s*null\)|\.is\('hidden_at',\s*null\)[\s\S]*\.neq\('moderation_state',\s*'nsfw_blocked'\)/);
+  assert.match(code(PINCH), /window\.addEventListener\('wheel'/, '⌃-wheel is only heard over the tiles');
+  assert.match(code(GALLERY), /data-tile-processing=""[\s\S]{0,200}Processing/, 'a frame with no compressed copy draws a blank square');
 });

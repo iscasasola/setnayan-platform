@@ -150,8 +150,17 @@ export async function fetchPapicGallery(
      * screen withheld (to approve) — marked `held`, never shown to anyone else. Only with `compressedOnly`.
      */
     includeHeld?: boolean;
-    /** Filled in when a capture read was refused — so a caller can say "couldn't load" rather than "nothing yet". */
-    status?: { refused: boolean };
+    /**
+     * Filled in with WHICH reads were refused — a refusal is an empty list here, so without this a caller cannot tell
+     * "nothing yet" from "couldn't load" (review of #6851).
+     */
+    status?: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> };
+    /**
+     * false = the viewer is not the couple. Then a refused "which suppliers did the couple hide?" read fails CLOSED —
+     * no supplier's shots at all — because showing a hidden supplier's photos to someone else is the exposure.
+     * (The couple fails open: they see their own choice's subject and can retry.)
+     */
+    viewerIsCouple?: boolean;
   } = {},
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
@@ -201,7 +210,7 @@ export async function fetchPapicGallery(
   // query stumbled. This flag only ever REMOVES, so failing to apply it shows
   // too much rather than too little, and the couple can see that and retry.
   // A privacy flag that could EXPOSE something would need the other direction.
-  const { data: hiddenVendorRows } = await supabase
+  const { data: hiddenVendorRows, error: hiddenVendorError } = await supabase
     .from('event_vendors')
     .select('linked_vendor_profile_id')
     .eq('event_id', eventId)
@@ -214,10 +223,18 @@ export async function fetchPapicGallery(
   );
 
   // Graceful-degrade: a missing table/column (pre-migration) → empty, never crash.
-  if (opts.status) opts.status.refused = Boolean(seatRes.error || guestRes.error);
+  if (opts.status) {
+    const refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> = [];
+    if (seatRes.error) refused.push('seat');
+    if (guestRes.error) refused.push('guest');
+    if (vendorRes.error) refused.push('vendor');
+    if (hiddenVendorError) refused.push('hiddenSuppliers');
+    opts.status.refused = refused;
+  }
+  const hiddenSuppliersFailClosed = Boolean(hiddenVendorError) && opts.viewerIsCouple === false;
   const seatRows = seatRes.error ? [] : (seatRes.data ?? []);
   const guestRows = guestRes.error ? [] : (guestRes.data ?? []);
-  const vendorRows = vendorRes.error ? [] : (vendorRes.data ?? []);
+  const vendorRows = vendorRes.error || hiddenSuppliersFailClosed ? [] : (vendorRes.data ?? []);
 
   const visibleSeat = seatRows.filter(
     (r) =>
@@ -732,4 +749,31 @@ export async function fetchPreservationTotals(
     keptCredits:
       keptPhotos * PAPIC_POINTS_PER_PHOTO + keptClips * PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
   };
+}
+
+
+/**
+ * 🔢 THE MEMORIES COUNT, WITH THE GRID'S OWN FILTERS (review of #6851): crew + guest frames that are not hidden, not
+ * held back by the content screen, and (crew) not expired — so "N photos" and "N kept" never count a frame the grid
+ * will not draw, and an event whose only shots are hidden is not read as a refused read. null = refused.
+ */
+export async function countGalleryFrames(supabase: SupabaseClient, eventId: string): Promise<number | null> {
+  const nowIso = new Date().toISOString();
+  const [seat, guest] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .neq('moderation_state', 'nsfw_blocked') // NOT NULL (default 'unscreened')
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+    supabase
+      .from('papic_guest_captures')
+      .select('capture_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .neq('moderation_state', 'nsfw_blocked'), // NOT NULL (default 'unscreened')
+  ]);
+  if (seat.error || guest.error) return null;
+  return (seat.count ?? 0) + (guest.count ?? 0);
 }

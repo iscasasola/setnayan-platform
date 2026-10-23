@@ -1797,7 +1797,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'memories-grid',
           hint: 'Press Next',
           title: 'This event’s Memories',
-          body: 'Every photo and clip your guests, your cameras and your suppliers take. Pinch to see more at once — or one large.',
+          body: 'The photos and clips of this event that are yours to see. Pinch to see more at once — or one large.',
         },
         {
           anchor: 'memories-albums',

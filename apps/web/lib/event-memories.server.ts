@@ -39,11 +39,12 @@ export type EventMemoriesRead = {
 export async function readEventMemories(
   supabase: SupabaseClient,
   eventId: string,
-  { host }: { host: boolean },
+  { host, viewerIsCouple }: { host: boolean; viewerIsCouple?: boolean },
 ): Promise<EventMemoriesRead> {
-  const status = { refused: false };
+  // WHICH capture reads were refused (review of #6851) — any one makes the photos part "couldn't load".
+  const status: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> } = { refused: [] };
   const [photos, hubRes, missionsRes, completionsRes, reportsRes, blockedRes, suppliersRes, blocksRes] = await Promise.all([
-    fetchPapicGallery(supabase, eventId, { compressedOnly: true, includeHeld: host, status }),
+    fetchPapicGallery(supabase, eventId, { compressedOnly: true, includeHeld: host, status, viewerIsCouple }),
     Promise.all([
       supabase.from('events').select('landing_page_hero_image_url, our_photos').eq('event_id', eventId).maybeSingle(),
       supabase.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId),
@@ -171,7 +172,7 @@ export async function readEventMemories(
     suppliers: ((suppliersRes.data ?? []) as { vendor_id: string; linked_vendor_profile_id: string; vendor_name: string | null; papic_captures_hidden: boolean | null }[]).map(
       (v) => ({ vendorProfileId: v.linked_vendor_profile_id, vendorRowId: v.vendor_id, name: (v.vendor_name ?? '').trim() || 'Your supplier', hidden: v.papic_captures_hidden === true }),
     ),
-    refused: { photos: status.refused, hub: hubRefused, challenges: challengesRefused, reports: Boolean(reportsRes.error) },
+    refused: { photos: status.refused.length > 0, hub: hubRefused, challenges: challengesRefused, reports: Boolean(reportsRes.error) },
   };
 }
 

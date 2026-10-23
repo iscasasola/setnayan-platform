@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readEventMemories } from '@/lib/event-memories.server';
+import { countGalleryFrames } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
-import { countPapicCaptures } from '@/lib/papic-home-tile';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
@@ -32,11 +32,14 @@ type Props = { params: Promise<{ eventId: string }> };
  * grid of `prototypes/papic_controller_one_page_2026-10-23.html`).
  *
  * ONE read for every album (`readEventMemories`: Papic · Challenges · Event Hub · Suppliers · Your uploads, the
- * compressed copies only) and one honest count beside it (`countPapicCaptures`, Home's "See N photos" number). For the
+ * compressed copies only) and one honest count beside it (`countGalleryFrames` — counted with the GRID'S OWN filters, so the number never counts a frame the grid will not draw). For the
  * couple it also draws what is theirs to run: ⚙ Gallery settings (`MemoriesSettings` — the controls that left the
  * Papic page) and + Add photos (the shipped uploader; when adding by hand is off, the sheet offers to turn it on).
  *
  * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY — `memoriesUnreadable`, and each album's own read (`refused`).
+ * And `refused.photos` is set when ANY capture read errored — said as "couldn't load", never as a smaller gallery.
+ * 🔒 A non-couple viewer whose "which suppliers did the couple hide?" read failed sees NO supplier shots
+ * (`viewerIsCouple: false` → fail closed) — a refusal must never show what the couple chose to hide (review of #6851).
  */
 export default async function EventMemoriesPage({ params }: Props) {
   const { eventId } = await params;
@@ -54,7 +57,7 @@ export default async function EventMemoriesPage({ params }: Props) {
     // Asked separately, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no
     // error, indistinguishable from a day nobody shot.
     viewerSeesCoupleScopedPapic(supabase, eventId),
-    countPapicCaptures(supabase, eventId),
+    countGalleryFrames(supabase, eventId),
     getIapGate(),
   ]);
   if (eventRes.error) logQueryError('EventMemoriesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -71,13 +74,19 @@ export default async function EventMemoriesPage({ params }: Props) {
   if (!ev && !eventRes.error) notFound();
   const host = membershipRes.data?.member_type === 'couple';
 
-  const read = await readEventMemories(supabase, eventId, { host });
+  // `seesAll` = the couple's own sources reach this viewer; a viewer they do not fails closed on the hidden suppliers.
+  const isCouple = seesAll;
+  const read = await readEventMemories(supabase, eventId, { host, viewerIsCouple: isCouple });
   const items = read.items;
   const papicItems = items.filter((i) => i.memSource !== 'hub');
   const hubCount = items.length - papicItems.length;
   const vendorShown = papicItems.filter((p) => p.source === 'vendor').length;
   const papicTotal = seesAll ? (count === null ? null : count + vendorShown) : papicItems.length;
-  const unreadable = memoriesUnreadable(papicItems.length, papicTotal) && hubCount === 0;
+  const unreadable = read.refused.photos || (memoriesUnreadable(papicItems.length, papicTotal) && hubCount === 0);
+  if (read.refused.photos) {
+    // The reads themselves swallow their errors into [] — say so here, so the refusal reaches Sentry too.
+    logQueryError('EventMemoriesPage.gallery', { message: 'a capture read was refused' }, { event_id: eventId });
+  }
   const refusedParts: MemoriesAlbumKey[] = [
     ...(read.refused.hub ? (['hub'] as const) : []),
     ...(read.refused.challenges ? (['challenges'] as const) : []),
@@ -129,8 +138,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       totals={{ all: papicTotal === null ? null : papicTotal + hubCount, papic: papicTotal === null ? null : papicTotal - vendorShown - papicItems.filter((p) => p.uploads).length }}
       footLine={win ? memoriesCameraWords({ startIso: win.startIso, endIso: win.endIso, now: Date.now() }) : null}
       cappedLine={
-        papicTotal !== null && papicTotal > papicItems.length && papicItems.length > 0
-          ? `${formatCount(papicTotal)} kept · showing the newest ${formatCount(papicItems.length)}`
+        !unreadable && papicTotal !== null && papicTotal > papicItems.length && papicItems.length > 0
+          ? `${formatCount(papicTotal)} kept · the latest from each camera shown here`
           : null
       }
       emptyLine={seesAll ? 'Your photos land here as your guests and suppliers shoot.' : 'Nothing has been shared with you yet.'}

@@ -25,3 +25,9 @@ button (the Event Details door); Memories is this event's gallery.
 
 SPEC IMPACT: DECISION_LOG row 2026-10-23 "MEMORIES JOINS THE EVENT BAR; HOME CARRIES ⚙ SETTINGS; ONE ZOOM STEP PER
 GESTURE; MEMORIES DRAWS ONLY COMPRESSED COPIES" (Setnayan-specs).
+
+Review fixes (#6851): a clip with no web copy opens as a still with "Download snippet" whenever a file exists; the
+count is the grid-filtered `countGalleryFrames` (not hidden, not blocked, not expired); any refused read says
+"couldn't load"; a non-couple fails closed when the hidden-suppliers read fails; ⌃-wheel is heard on the window; a
+frame with no compressed copy is a "Processing" tile; tour copy is role-neutral. Clip originals are still presigned at
+render (a local HMAC, no network) — signing on the Download press would need a route; left for a follow-up.

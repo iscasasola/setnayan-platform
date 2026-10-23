@@ -40,7 +40,7 @@ import { isCaptureTier, type CaptureTier } from '@/lib/papic-upload/tiers';
 // a supplier's clip was allowed up to 25 MB). It now takes a small JSON body
 // with three ops, exactly like /api/papic/guest-capture:
 //   sign   — check the gate, the window, the consent and the budget, then mint
-//            one presigned PUT for one piece of one shot (lib/papic-upload/*).
+//            one presigned PUT for one piece of one shot (lib/papic-upload/).
 //   record — the shot's first piece landed: check it, write the row ONCE per
 //            shutter (client_capture_id, migration 20271285508020), screen it.
 //   attach — a later piece (tile + display, the original) landed: check it,

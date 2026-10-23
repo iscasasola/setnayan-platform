@@ -44,7 +44,7 @@ import { isCaptureTier, tiersFor, type CaptureTier } from '@/lib/papic-upload/ti
 // designed at ~12.5 MB, so EVERY normal clip failed. This route now takes a
 // small JSON body only; a multipart body is refused (415 bytes_not_accepted).
 // The phone saves a shot first (IndexedDB) and sends it later in pieces, each
-// PUT straight to R2 on a URL minted here (lib/papic-upload/*). Three ops:
+// PUT straight to R2 on a URL minted here (lib/papic-upload/). Three ops:
 //
 //   sign   — "may I upload this piece?" Checks the session, the terms, the
 //            window, put-away and the credits BEFORE minting one presigned PUT

@@ -179,36 +179,30 @@ test('the put-away sentence has readers — it is rendered, not merely declared'
   }
 });
 
-test('the guest camera asks about put-away BEFORE it reads 409 as "out of shots"', () => {
+test('the guest camera never reads put-away as "out of shots"', async () => {
   const src = code(GUEST_CAM);
   /*
-    Both refusals answer 409, so ORDER is the whole mechanism: the 409 branch
-    calls setRemaining(0), which disables the shutter for the session and paints
-    a thank-you over a photo that was thrown away — and auto-opens a sheet
-    selling shots that cannot be taken.
+    Both refusals answer 409, and the old camera told them apart by ORDER: a 409
+    branch above the put-away check called setRemaining(0), disabled the shutter
+    for the session and painted a thank-you over a photo that was thrown away.
 
-    Asserted per OCCURRENCE, not once globally: the file posts a capture from
-    two places, and a guard that only checks the first index passes while the
-    second is wrong. That is precisely how this shipped.
+    📮 Since 2026-10-23 (save first, send later) the camera hears the server
+    through the uploader's events, and the answer is classified by its CODE,
+    never by its HTTP status (lib/papic-upload/schedule.ts classifyAnswer): put-
+    away is a refusal for good, the credits are a wait. ONE handler, so there is
+    no second copy to get wrong.
   */
-  const putAway = [...src.matchAll(/if \(json\.status === 'event_put_away'\)/g)].map((m) => m.index!);
-  const quota = [...src.matchAll(/if \(res\.status === 409/g)].map((m) => m.index!);
-
-  assert.equal(
-    putAway.length,
-    quota.length,
-    `every 409 branch needs a put-away branch above it — found ${putAway.length} ` +
-      `put-away checks for ${quota.length} 409 branches`,
-  );
-  assert.ok(quota.length >= 2, 'the file should still post a capture from both sites');
-  quota.forEach((quotaAt, i) => {
-    const putAwayAt = putAway[i];
-    assert.ok(
-      putAwayAt !== undefined && putAwayAt < quotaAt,
-      `capture site ${i + 1}: the put-away check must come BEFORE the 409 branch, ` +
-        `or the refusal is read as "you are out of shots"`,
-    );
-  });
+  const { classifyAnswer } = await import('./papic-upload/schedule');
+  assert.equal(classifyAnswer(409, { status: 'event_put_away' }).verdict, 'drop');
+  assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
+  assert.equal((src.match(/papicUploader\(\)/g) ?? []).length, 1, 'one uploader handler in the camera');
+  const credits = src.indexOf("if (e.type === 'credits')");
+  const refused = src.indexOf("if (e.type === 'refused')");
+  assert.ok(credits > -1 && refused > -1, 'the two branches moved — re-point this guard');
+  const refusedBody = src.slice(refused, refused + 600);
+  assert.match(refusedBody, /e\.code === 'event_put_away'\) setSaveError\(EVENT_PUT_AWAY_CAPTURE_COPY\)/);
+  const creditsBody = src.slice(credits, refused);
+  assert.doesNotMatch(creditsBody, /event_put_away/, 'put-away must never reach the out-of-shots branch');
 });
 
 test('a put-away refusal is terminal, so the camera never promises a later upload', () => {

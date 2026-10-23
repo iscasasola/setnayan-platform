@@ -406,7 +406,11 @@ export async function eventKeepsFullRes(admin: SupabaseClient, eventId: string):
     .select('papic_quality_tier')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error || !data) return true;
+  if (error) {
+    console.error('[supabase-error] lib/papic-upload-intents.server.ts · from:events.select(papic_quality_tier)', error);
+    return true;
+  }
+  if (!data) return true;
   if ((data as { papic_quality_tier?: string | null }).papic_quality_tier !== 'high_efficiency') {
     return true;
   }

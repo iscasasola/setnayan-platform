@@ -18,6 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { stripComments as code } from '@/lib/strip-comments';
 
 const HERE = path.join(process.cwd(), 'app/dashboard/(account)/people');
 const ACTIONS = ['actions.ts', 'dependent-actions.ts'];
@@ -33,11 +34,6 @@ function exportedFunctions(src: string): Array<{ name: string; body: string }> {
     out.push({ name: m[1]!, body: src.slice(m.index, close === -1 ? src.length : close + 2) });
   }
   return out;
-}
-
-/** Strip // and /* *\/ comments so a comment can never satisfy a wiring check. */
-function code(s: string): string {
-  return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 }
 
 test('🔴 every People removal write returns its rows and is judged by removalWriteResult', () => {

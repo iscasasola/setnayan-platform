@@ -96,7 +96,11 @@ test('each URL lights the row a person would point at', () => {
     // re-adding a row without a resolver entry (or the reverse) fails here.
     ['/realstories', null],
     ['/realstories/a-wedding-in-cavite', null],
-    ['/explore', 'find'],
+    // 🧭 2026-10-23: "Find suppliers" is a signed-OUT row (owner 2026-10-01), so the
+    // signed-in rail lights nothing on /explore — pinned in the signed-out case below.
+    ['/explore', null],
+    ['/features', 'features'],
+    ['/features/papic', 'features'],
     ['/dashboard', 'events'],
     ['/dashboard/library', 'alaala'],
     // 🔁 `/dashboard/creator` LIGHTS NOTHING SINCE 2026-08-21. The owner retired
@@ -247,10 +251,20 @@ test('every rail row that can be a page is declared to the resolver', () => {
   // A row rendered but never declared can never light: silent, and it looks
   // exactly like a rail that simply does not highlight that page.
   const declared = new Set(ROWS.map((r) => r.href));
-  for (const href of ['/', '/explore', '/dashboard', '/dashboard/library',
+  for (const href of ['/', '/features', '/dashboard', '/dashboard/library',
     '/vendor-dashboard', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
+  // Signed out the rail renders Discover · Find suppliers · Features (owner 2026-10-01).
+  const out = new Set(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }).map((r) => r.href));
+  for (const href of ['/', '/explore', '/features']) {
+    assert.ok(out.has(href), `${href} is a signed-out row but never declared to the resolver`);
+  }
+  assert.equal(
+    activeRailKey(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }), '/explore'),
+    'find',
+    'signed out, /explore must light "Find suppliers"',
+  );
   // AND THE INVERSE, which is the half a hand-written list always forgets: a
   // declared row that nothing renders can never light either, and it reads as
   // a resolver bug rather than as a missing row. `/realstories` was retired as

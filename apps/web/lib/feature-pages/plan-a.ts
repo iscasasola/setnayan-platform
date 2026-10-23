@@ -406,4 +406,60 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
     moreHref: '/schedule',
     evidence: ['app/(shell)/schedule/page.tsx', 'lib/schedule.ts', 'lib/schedule-run-of-show.ts', 'lib/schedule-ros.ts', 'app/dashboard/[eventId]/schedule/page.tsx'],
   },
+  {
+    /*
+      ADDED 2026-10-23 — owner 2026-10-01 ("SIDEBAR COLLAPSE + FEATURES PAGE — OWNER
+      ANSWERS": /features "ALSO lists Date picker"), built with the rail's tool lists
+      leaving the menu. In-app only (no public try page), so no Try it.
+    */
+    slug: 'date-picker',
+    group: 'plan',
+    icon: 'date',
+    name: { en: 'Date picker', tl: 'Date picker' },
+    line: { en: 'Set your date, or let your suppliers’ calendars help you choose.', tl: 'I-set ang petsa mo, o hayaang tumulong ang kalendaryo ng supplier.' },
+    title: { en: 'Choose Your Event Date', tl: 'Pumili ng Petsa ng Event' },
+    description: {
+      en: 'Set your event date, or compare dates by which of your saved suppliers are free and which fall on a long weekend. Free.',
+      tl: 'I-set ang petsa ng event mo, o ikumpara ang mga petsa ayon sa kung aling na-save na supplier ang libre at alin ang long weekend. Libre.',
+    },
+    answer: {
+      en: 'The Setnayan date picker sets your event’s date or helps you choose one. Pick a date you already have in mind, or ask for help choosing: it ranks your candidate dates by how many of your shortlisted suppliers are free, and notes a date next to a holiday long weekend. Not ready yet is an answer too.',
+      tl: 'Ang Setnayan date picker ang nagse-set ng petsa ng event mo o tumutulong pumili nito. Piliin ang petsang nasa isip mo na, o humingi ng tulong sa pagpili: inaayos nito ang mga kandidatong petsa ayon sa dami ng supplier sa shortlist mo na libre, at sinasabi kung katabi ng holiday long weekend ang petsa. Puwede ring sabihing hindi ka pa handa.',
+    },
+    forWho: {
+      en: 'Hosts who have not set a date yet, or who want the date their suppliers can actually do.',
+      tl: 'Para sa mga host na wala pang petsa, o gustong petsang kaya talaga ng mga supplier nila.',
+    },
+    steps: {
+      en: ['Open your event’s date.', 'Pick the date you have in mind, or ask for help choosing.', 'Compare the dates side by side and keep the one that works.'],
+      tl: ['Buksan ang petsa ng event mo.', 'Piliin ang petsang nasa isip mo, o humingi ng tulong sa pagpili.', 'Ikumpara ang mga petsa nang magkatabi at piliin ang bagay.'],
+    },
+    different: {
+      en: ['Dates are ranked by your shortlisted suppliers’ own calendars, not by a guess.', 'A date next to a holiday is marked as a long weekend, so guests can travel.', '“Not ready yet” is a real answer — the rest of your planning keeps going.'],
+      tl: ['Inaayos ang mga petsa ayon sa sariling kalendaryo ng mga supplier sa shortlist mo, hindi hula.', 'Minamarkahan bilang long weekend ang petsang katabi ng holiday, para makabiyahe ang bisita.', 'Totoong sagot ang “hindi pa handa” — tuloy ang iba mong pagpaplano.'],
+    },
+    worksWith: [
+      { slug: 'marketplace', how: { en: 'Suppliers you save are the ones whose calendars rank your dates.', tl: 'Ang mga supplier na na-save mo ang kalendaryong nag-aayos ng mga petsa mo.' } },
+      { slug: 'suppliers', how: { en: 'Your Suppliers page shows who is free on the date you keep.', tl: 'Ipinapakita ng Suppliers page mo kung sino ang libre sa petsang pinili mo.' } },
+    ],
+    faq: {
+      en: [
+        { q: 'How do I choose a date?', a: 'Open your event’s date and ask for help choosing. Your candidate dates are ranked by how many of your shortlisted suppliers are free.' },
+        { q: 'What if I have no date yet?', a: 'Choose “I’m not ready yet”. You can plan everything else and come back to the date later.' },
+        { q: 'Is the date picker free?', a: 'Yes. It is included with every Setnayan account.' },
+      ],
+      tl: [
+        { q: 'Paano ako pipili ng petsa?', a: 'Buksan ang petsa ng event mo at humingi ng tulong sa pagpili. Inaayos ang mga kandidatong petsa ayon sa dami ng supplier sa shortlist mo na libre.' },
+        { q: 'Paano kung wala pa akong petsa?', a: 'Piliin ang “I’m not ready yet”. Maplano mo ang iba at balikan ang petsa mamaya.' },
+        { q: 'Libre ba ang date picker?', a: 'Oo. Kasama ito sa bawat Setnayan account.' },
+      ],
+    },
+    keywords: {
+      en: ['choose a wedding date', 'wedding date picker', 'best date for my event'],
+      tl: ['pumili ng petsa ng kasal', 'petsa ng event'],
+    },
+    shots: [],
+    price: { kind: 'free' },
+    evidence: ['app/dashboard/[eventId]/date-selection/page.tsx', 'app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx'],
+  },
 ];

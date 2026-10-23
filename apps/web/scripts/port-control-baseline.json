@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "8afa9f59",
+  "generatedFromRef": "4ebadc04",
   "routeCount": 462,
   "destinations": 1002,
-  "actions": 663,
+  "actions": 662,
   "blocks": 6865,
   "routes": {
     "/": {
@@ -5263,7 +5263,6 @@
         "updateDiscoverableByName",
         "updateLocalePreference",
         "updatePersonalInfo",
-        "updatePlannerMode",
         "updatePublicGreeting",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",

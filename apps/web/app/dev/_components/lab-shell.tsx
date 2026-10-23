@@ -30,7 +30,6 @@ import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
-import { builderRailItems, togetherRailItems } from '@/lib/free-tools-rail';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 
@@ -61,14 +60,7 @@ export function LabShell({
       <FrontDoorShell
         variant="app"
         boundary="tab"
-        insideEvent
         account={{ signedIn: true, initials: 'AM', shopName: null, isAdmin: false }}
-        tools={[]}
-        /* The tool groups the event layout hands the shell inside an event
-           (`app-rail-shell.tsx`: Studio empty, Planner empty, Builder and
-           Together from these two) — so the strip's tool rows can be walked. */
-        builderTools={builderRailItems(eventId)}
-        togetherTools={togetherRailItems(eventId)}
         navLabels={{}}
         topBarSlot={
           <div className="flex items-center gap-3" data-lab-cluster="">

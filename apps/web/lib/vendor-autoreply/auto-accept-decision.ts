@@ -16,7 +16,13 @@
 //     5. compat_score >= the vendor-configured threshold
 //     6. the lead is NOT trust-flagged — and an ERRORED trust check counts as
 //        flagged (fail-closed), never as a pass
-//     7. under the vendor's daily auto-accept cap (cap 0 = never)
+//     7. (retired 2026-10-23 — there was a per-day auto-accept cap here; the
+//        owner asked "why do we limit the auto reply?" and it is gone. An
+//        auto-accept only opens the chat; it never books. The supplier's OWN
+//        "bookings per day" is checked when a booking is made
+//        (vendor_agree_to_lock → daily_limit_reached), and the per-date couple
+//        ceiling refuses an accept past it (enforce_vendor_whitelist_per_date)
+//        — both in the database, for a hand accept and this one alike.)
 //     8. the vendor's tier can accept in-app inquiries at all (paid tiers only
 //        — mirrors unlock_vendor_event_hold's TIER_FREE_NO_INAPP gate)
 //     9. a token is AVAILABLE for the hold. No token → NO hold, ever — the bot
@@ -37,7 +43,6 @@ export type AutoAcceptSkipReason =
   | 'below_threshold'
   | 'trust_unknown'
   | 'trust_flagged'
-  | 'cap_reached'
   | 'tier_ineligible'
   | 'token_unknown'
   | 'no_token';
@@ -54,8 +59,6 @@ export type AutoAcceptGateInput = {
     autoAcceptEnabled: boolean;
     /** vendor_bot_config.auto_accept_threshold (0–100). */
     threshold: number;
-    /** vendor_bot_config.daily_auto_accept_cap. 0 = never auto-accept. */
-    dailyCap: number;
   } | null;
   /** chat_threads.inquiry_status — only 'pending' can auto-accept. */
   inquiryStatus: string | null;
@@ -70,9 +73,6 @@ export type AutoAcceptGateInput = {
   /** True = wallet minus outstanding holds covers the hold. Null = the probe
    *  ERRORED → no accept, no "out of tokens" flag. */
   tokenAvailable: boolean | null;
-  /** vendor_bot_replies rows with action='auto_accept' since start of the
-   *  Manila day (the auto-accept cap counter — separate from the reply cap). */
-  autoAcceptsToday: number;
 };
 
 const skip = (reason: AutoAcceptSkipReason, flagWaitingLead = false): AutoAcceptDecision => ({
@@ -89,7 +89,6 @@ export function evaluateAutoAccept(input: AutoAcceptGateInput): AutoAcceptDecisi
   if (input.compatScore < input.config.threshold) return skip('below_threshold');
   if (input.trustFlagged == null) return skip('trust_unknown');
   if (input.trustFlagged) return skip('trust_flagged');
-  if (input.autoAcceptsToday >= input.config.dailyCap) return skip('cap_reached');
   if (!input.tierEligible) return skip('tier_ineligible');
   if (input.tokenAvailable == null) return skip('token_unknown');
   if (!input.tokenAvailable) return skip('no_token', true);

@@ -364,7 +364,7 @@ export function PeopleRosterView({
           {REFUSED_COUNTS}
         </p>
       ) : (
-        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="">
+        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="" data-tour="people-counts">
           {nobody ? (
             <span className={gs.mute}>Nobody yet</span>
           ) : (
@@ -424,7 +424,13 @@ export function PeopleRosterView({
     const opened = open.has(key);
     const Icon = icon;
     return (
-      <section key={key} className={`${gs.sec} ${opened ? gs.open : ''}`} data-people-section={key} data-open={opened ? 'true' : 'false'}>
+      <section
+        key={key}
+        className={`${gs.sec} ${opened ? gs.open : ''}`}
+        data-people-section={key}
+        data-open={opened ? 'true' : 'false'}
+        data-tour={key === 'alaga' ? 'people-loved-ones' : undefined}
+      >
         <div className={gs.barWrap}>
           <button type="button" className={gs.bar} aria-expanded={opened} onClick={() => toggle(key)} data-section-head="">
             <span className={gs.ico} aria-hidden>

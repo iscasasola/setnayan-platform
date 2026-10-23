@@ -46,7 +46,7 @@ test('a clip plays its web copy only; Download is the kept original, or the web 
 
 test('the event Memories page reads the compressed-only refs', () => {
   const page = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/memories/page.tsx'), 'utf8'));
-  assert.match(page, /fetchPapicGallery\(\s*supabase,\s*eventId,\s*\{\s*compressedOnly:\s*true\s*\}\s*\)/, 'Memories reads the gallery with originals allowed');
+  assert.match(page, /fetchPapicGallery\(\s*supabase,\s*eventId,\s*\{\s*compressedOnly:\s*true\b[^}]*\}\s*\)/, 'Memories reads the gallery with originals allowed');
   const lib = stripComments(readFileSync(join(process.cwd(), 'lib/papic-gallery.ts'), 'utf8'));
   assert.match(lib, /memoriesRefs\(/, 'the compressed-only read does not go through memoriesRefs');
 });

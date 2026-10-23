@@ -90,7 +90,7 @@ export function EventMemoriesGallery({
   countLine: string | null;
   /** The cameras' state for the foot line: "opens in 51 days" · "cameras open now" · "cameras closed" · null. */
   footLine: string | null;
-  /** "1,284 kept · showing the newest 240" — only when the page holds fewer than there are. */
+  /** "1,284 kept · the latest from each camera shown here" — only when the page holds fewer than there are. */
   cappedLine: string | null;
   /** What an empty, readable gallery says. */
   emptyLine: string;
@@ -206,8 +206,9 @@ function Tile({ photo, dense, large, roomy, onOpen }: { photo: GalleryPhoto; den
   return (
     <button
       type="button"
-      onClick={onOpen}
-      aria-label={label}
+      onClick={src ? onOpen : undefined}
+      disabled={!src}
+      aria-label={src ? label : `${label} · processing`}
       data-memories-tile=""
       className="relative block aspect-square w-full overflow-hidden bg-ink/[0.06] p-0"
     >
@@ -215,7 +216,15 @@ function Tile({ photo, dense, large, roomy, onOpen }: { photo: GalleryPhoto; den
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-      ) : null}
+      ) : (
+        // No compressed copy yet — the original is never shown in its place, and a blank square reads as broken.
+        <span
+          data-tile-processing=""
+          className={`absolute inset-0 flex items-center justify-center text-center text-ink/50 ${dense ? 'text-[0px]' : roomy ? 'text-[11px]' : 'text-[9.5px]'}`}
+        >
+          Processing
+        </span>
+      )}
       {photo.kind === 'clip' ? (
         <span
           aria-hidden

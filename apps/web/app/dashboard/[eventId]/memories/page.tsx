@@ -2,9 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { countGalleryFrames, fetchPapicGallery } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
-import { countPapicCaptures } from '@/lib/papic-home-tile';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
@@ -23,12 +22,17 @@ type Props = { params: Promise<{ eventId: string }> };
  * this event's gallery, the same Apple-Photos grid as the approved Papic one-page prototype).
  *
  * One read of the photos (`fetchPapicGallery`, the Papic page's own: crew, guests and suppliers, newest first) and one
- * honest count beside it (`countPapicCaptures`, Home's "See N photos" number). The grid, the zoom and the thumb row
- * are `EventMemoriesGallery`.
+ * honest count beside it (`countGalleryFrames` — counted with the GRID'S OWN filters: not hidden, not blocked, not
+ * expired, so the number never counts a frame the grid will not draw). The grid, the zoom and the thumb row are
+ * `EventMemoriesGallery`.
  *
  * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY. `fetchPapicGallery` answers a refusal with `[]`, so an empty list
  * only means "nothing yet" when the count beside it read 0 — a null count, or a count above zero over an empty
- * list, is said as "couldn't load".
+ * list, is said as "couldn't load". And `status.refused` names every read that errored: ANY refused read is said as
+ * "couldn't load", never as a smaller gallery.
+ *
+ * 🔒 A non-couple viewer whose "which suppliers did the couple hide?" read failed sees NO supplier shots
+ * (`viewerIsCouple: false` → fail closed) — a refusal must never show what the couple chose to hide.
  */
 export default async function EventMemoriesPage({ params }: Props) {
   const { eventId } = await params;
@@ -36,18 +40,22 @@ export default async function EventMemoriesPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [eventRes, photos, seesAll, count] = await Promise.all([
+  // Asked first, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no error,
+  // indistinguishable from a day nobody shot. It also says whether a failed hidden-suppliers read fails closed.
+  const seesAllRead = viewerSeesCoupleScopedPapic(supabase, eventId);
+  const status: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> } = { refused: [] };
+  const [eventRes, seesAll, photos, count] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, papic_window_start, papic_window_end, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
+    seesAllRead,
     // 🗜 Memories always shows the compressed copy — never an original (owner 2026-10-23).
-    fetchPapicGallery(supabase, eventId, { compressedOnly: true }),
-    // Asked separately, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no
-    // error, indistinguishable from a day nobody shot.
-    viewerSeesCoupleScopedPapic(supabase, eventId),
-    countPapicCaptures(supabase, eventId),
+    seesAllRead.then((isCouple) =>
+      fetchPapicGallery(supabase, eventId, { compressedOnly: true, status, viewerIsCouple: isCouple }),
+    ),
+    countGalleryFrames(supabase, eventId),
   ]);
   if (eventRes.error) logQueryError('EventMemoriesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
   const ev = eventRes.data as
@@ -65,7 +73,11 @@ export default async function EventMemoriesPage({ params }: Props) {
   // The couple's count is every capture, crew and guests, plus the suppliers' shots on the page. A viewer who sees
   // only the suppliers' shots is shown what they can see.
   const total = seesAll ? (count === null ? null : count + vendorShown) : photos.length;
-  const unreadable = memoriesUnreadable(photos.length, total);
+  const unreadable = status.refused.length > 0 || memoriesUnreadable(photos.length, total);
+  if (status.refused.length > 0) {
+    // The reads themselves swallow their errors into [] — say which ones here, so the refusal reaches Sentry too.
+    logQueryError('EventMemoriesPage.gallery', { message: `refused: ${status.refused.join(', ')}` }, { event_id: eventId });
+  }
 
   const win = ev
     ? resolveStoredWindow({ windowStart: ev.papic_window_start, windowEnd: ev.papic_window_end, eventDate: ev.event_date })
@@ -78,8 +90,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       countLine={total === null ? null : memoriesCountWords(total)}
       footLine={win ? memoriesCameraWords({ startIso: win.startIso, endIso: win.endIso, now: Date.now() }) : null}
       cappedLine={
-        total !== null && total > photos.length && photos.length > 0
-          ? `${formatCount(total)} kept · showing the newest ${formatCount(photos.length)}`
+        !unreadable && total !== null && total > photos.length && photos.length > 0
+          ? `${formatCount(total)} kept · the latest from each camera shown here`
           : null
       }
       emptyLine={

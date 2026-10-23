@@ -28,6 +28,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bookingFeePhp } from '../../lib/booking-fee';
+import { FREE_BOOKING_LIMIT } from '../../lib/booking-fee-lock';
 import {
   GIFT_CAP_CREDITS,
   GIFT_SHARE_OF_FEE_PCT,
@@ -375,15 +376,15 @@ test('④ a card that said YES: the charge carries the gift BESIDE the fee, and 
   );
 });
 
-test('④ no gift: a card that said no · another shop’s card · no card · the first five · an import client', async () => {
+test('④ no gift: a card that said no · another shop’s card · no card · the free first booking · an import client', async () => {
   const { vendorProfileId } = await newVendor('no@gift.test');
   const other = await newVendor('other@gift.test');
   const noCard = await newCard(vendorProfileId, false);
   const theirs = await newCard(other.vendorProfileId, true);
   const mine = await newCard(vendorProfileId, true);
 
-  // THE FIRST FIVE ARE FREE — "no fee. no gift." — even on a card that said yes.
-  for (let i = 1; i <= 5; i += 1) {
+  // THE FIRST BOOKING IS FREE (one since 2026-10-23) — "no fee. no gift." — even on a card that said yes.
+  for (let i = 1; i <= FREE_BOOKING_LIMIT; i += 1) {
     const e = await newEvent(`no-free-${i}`);
     const ev = await newBooking(e, vendorProfileId, 50_000, { serviceId: mine });
     const o = await openCharge(ev);
@@ -409,7 +410,7 @@ test('④ no gift: a card that said no · another shop’s card · no card · th
     assert.equal(c.gift, 0, `${label}: nothing billed for a gift`);
   }
 
-  // Positive control: the same vendor, past its five, on its own yes card, DOES gift.
+  // Positive control: the same vendor, past its free booking, on its own yes card, DOES gift.
   const e = await newEvent('no-control');
   const ev = await newBooking(e, vendorProfileId, 50_000, { serviceId: mine });
   await openCharge(ev);

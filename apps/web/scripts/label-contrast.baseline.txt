@@ -2,8 +2,6 @@
 # added (2026-09-23). Keyed `file · selector` — NEVER a line number.
 # This list may only SHRINK. Regenerate with --write-baseline after fixing.
 app/[slug]/invite/_components/themes/capiz.module.css · .seal
-app/_components/frontdoor/front-door.css · .fd-ava
-app/_components/frontdoor/front-door.css · .fd-avatar
 app/_components/home/home-reskin.css · .home-reskin .hr-mcal .hr-on
 app/_components/home/home-reskin.css · .home-reskin .hr-mchip.hr-warn
 app/_components/home/home-reskin.css · .home-reskin .hr-pw-bar .hr-u

@@ -22,7 +22,8 @@ export const dynamic = 'force-dynamic';
  * free until then and ends at the end of that 4-week cycle; 50 free Papic
  * credits per booked event; *"ONE admin page, admin-editable, never
  * hard-coded."* ⚖ 2026-10-12 #3–#6: the 2,000 counts Setnayan-sourced bookings
- * at fee creation; launch bookings do not use up a supplier's free five; free
+ * at fee creation; launch bookings do not use up a supplier's free first booking
+ * (one since 2026-10-23, was five); free
  * Pro's end is ONE platform-wide date, shown here; the credits are granted once
  * per launch-waived charge.
  *

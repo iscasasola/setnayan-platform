@@ -88,7 +88,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Automated bookings', b: 'Inquiries flow into a live pipeline with quotes and milestones auto-attached.' },
           { n: 'One-tap RA 8792 contracts', soon: true, b: 'Pull a clause, fill, and both e-sign in-app. No printing.' },
           { n: 'Change-order trail', b: 'Mid-plan add-ons become logged, both-acknowledged change orders.' },
-          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the gallery delivered.' },
+          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the photos delivered.' },
         ],
       },
       {

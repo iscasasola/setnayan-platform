@@ -162,7 +162,7 @@ const WISHES_MAX = 12;
 
 const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: string }> = [
   { key: 'byTheNumbers', label: 'By the Numbers', help: 'Your day in stats — guests, suppliers, time saved.' },
-  { key: 'gallery', label: 'Photo gallery', help: 'The shared photos from the day.' },
+  { key: 'gallery', label: 'Memories', help: 'The shared photos from the day.' },
   { key: 'reviews', label: 'Guest wishes', help: 'What your guests, suppliers, and you said.' },
   { key: 'team', label: 'Supplier team', help: 'The suppliers who made the day.' },
   { key: 'fromVendors', label: 'From your suppliers', help: 'Day-of photos & clips your recommended supplier shared.' },
@@ -905,7 +905,7 @@ export function EditorialEditor({
         <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           {[
             { href: `/dashboard/${eventId}/website/living-hero`, label: 'Living hero', sub: 'Boomerang or photo' },
-            { href: `/dashboard/${eventId}/website/our-photos`, label: 'Photos', sub: 'The gallery' },
+            { href: `/dashboard/${eventId}/website/our-photos`, label: 'Photos', sub: 'Photos you add' },
             { href: `/dashboard/${eventId}/website/special-message`, label: 'Thank-you note', sub: 'From the couple' },
           ].map((l) => (
             <Link
@@ -1034,7 +1034,7 @@ export function EditorialEditor({
         <h2 className="font-display text-lg italic text-ink">Your photos</h2>
         <p className="mt-0.5 text-sm text-ink/60">
           Add a cover and a few favorites — no Papic needed. We optimize each image
-          for fast loading as you upload. Your cover leads the story; your gallery
+          for fast loading as you upload. Your cover leads the story; your photos
           shows under &ldquo;From the Day.&rdquo;
         </p>
         <div className="mt-4 space-y-5">
@@ -1054,8 +1054,8 @@ export function EditorialEditor({
             />
           </Field>
           <Field
-            label="Gallery photos"
-            help={`Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for the "From the Day" gallery.`}
+            label="From the Day photos"
+            help={`Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day".`}
           >
             <FileUpload
               bucket="media"
@@ -1821,7 +1821,7 @@ export function EditorialEditor({
                   Feature our story in Stories
                 </span>
                 <span className="block text-xs text-ink/55">
-                  Add our {noun} to the public Stories gallery, 30 days after
+                  Add our {noun} to the public Stories page, 30 days after
                   the day. You can turn this off anytime.
                 </span>
               </span>

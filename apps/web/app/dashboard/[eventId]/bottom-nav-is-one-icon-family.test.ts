@@ -27,7 +27,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { House, BookUser, Store, AppWindow, Heart, type LucideIcon } from 'lucide-react';
+import { House, BookUser, Store, AppWindow, Heart, Sparkles, type LucideIcon } from 'lucide-react';
 
 import { buildCustomerMenuTree, EVENT_MENU_ICONS, type CustomerMenuKey } from '@/lib/customer-menu';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
@@ -51,6 +51,8 @@ const FAMILY: ReadonlyArray<[CustomerMenuKey, LucideIcon, string]> = [
   ['explore', Store, 'lucide-store'],
   ['launch', AppWindow, 'lucide-app-window'],
   // `studio` (More, Grip) left the bar and the rail 22 Oct 2026 — owner, verbatim "Yes remove more".
+  // Memories joined after Hub 23 Oct 2026, wearing the account bar's Memories glyph (Sparkles).
+  ['memories', Sparkles, 'lucide-sparkles'],
 ];
 
 /** The slot map production serves when nobody has overridden anything —

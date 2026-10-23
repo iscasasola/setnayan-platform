@@ -27,6 +27,7 @@ import {
   MIN_SERVICES_PER_LEAF,
   PORTFOLIO_FREE_BASE,
   PORTFOLIO_OVER_BASE_MESSAGE,
+  portfolioOverCapMessage,
   TIER_CAPS,
   VENDOR_TIERS,
   WHITELIST_PER_DATE_ALL_PLANS,
@@ -157,7 +158,9 @@ test('3c · the gallery save goes through capPortfolioRefs and refuses out loud'
   const portfolioCase = src.slice(src.indexOf("case 'portfolio':"), src.indexOf("case 'gallery_videos':"));
   assert.ok(portfolioCase.length > 100, "the portfolio case of updateVendorProfileField moved — re-point this guard");
   assert.match(portfolioCase, /capPortfolioRefs\(/, 'the gallery save no longer goes through the grandfathered cap');
-  assert.match(portfolioCase, /PORTFOLIO_OVER_BASE_MESSAGE/, 'a refused photo is no longer refused with the owner’s words');
+  // The owner's words, with the shop's own number (`portfolioOverCapMessage` — a personal invite's 100, 2026-10-23).
+  assert.match(portfolioCase, /portfolioOverCapMessage\(portfolioMax\)|PORTFOLIO_OVER_BASE_MESSAGE/, 'a refused photo is no longer refused with the owner’s words');
+  assert.equal(portfolioOverCapMessage(PORTFOLIO_FREE_BASE), PORTFOLIO_OVER_BASE_MESSAGE, 'at the base the refusal is the owner’s sentence, byte for byte');
   // The old silent truncation must not come back inside the parser.
   const parser = src.slice(src.indexOf('function parsePortfolioRefs('), src.indexOf('function parseVideoLinks('));
   assert.doesNotMatch(parser, /out\.length\s*>=/, 'parsePortfolioRefs truncates by count again — that cut grandfathered shops');

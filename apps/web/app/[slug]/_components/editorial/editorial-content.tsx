@@ -607,7 +607,7 @@ export async function EditorialContent({
         ) : (
           <p className="max-w-prose text-base text-ink/70">
             {own.signedIn
-              ? 'Nothing of yours from the day is in the gallery yet — the photos you are in and the ones you took will show here.'
+              ? 'Nothing of yours from the day is in Memories yet — the photos you are in and the ones you took will show here.'
               : 'Open the story from your own Papic link and the photos you are in, and the ones you took, show here.'}
           </p>
         )
@@ -1060,8 +1060,8 @@ export async function EditorialContent({
                 <OpenUpScene
                   kind="gallery"
                   title={wordsOf('gallery').heading ?? 'From the Day'}
-                  eyebrow={`${data.firstNames} · the gallery`}
-                  openLabel={`Open the gallery · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
+                  eyebrow={`${data.firstNames} · Memories`}
+                  openLabel={`Open Memories · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
                   preview={
                     <GalleryPreview
                       style={styleOf('gallery')!}

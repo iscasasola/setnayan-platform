@@ -120,7 +120,7 @@ test('🍎 no event menu offers a door the app would refuse — in the shell, an
   }
 });
 
-test('🍎 the store-shell bar is the web\'s bar — the same four, none blank, none repeated', () => {
+test('🍎 the store-shell bar is the web\'s bar — the same five, none blank, none repeated', () => {
   /*
     Owner 2026-10-21 (TestFlight build 5): *"if all is at home already, then we
     can remove more"*. In the app the five services are all paid and dropped,
@@ -141,8 +141,9 @@ test('🍎 the store-shell bar is the web\'s bar — the same four, none blank, 
       web.map((m) => m.key),
       `${phase}: the app bar and the web bar differ`,
     );
-    assert.equal(web.length, 4, `${phase}: the web bar is not four`);
-    assert.equal(app.length, 4, `${phase}: ${app.length} tab(s) in the store shell`);
+    // Memories joined after Hub on 23 Oct 2026 — viewing your photos is free, so the app keeps it too.
+    assert.equal(web.length, 5, `${phase}: the web bar is not five`);
+    assert.equal(app.length, 5, `${phase}: ${app.length} tab(s) in the store shell`);
     for (const m of app) {
       assert.ok(m.label.trim().length > 0 && m.href.length > 0, `${phase}: a tab with no label or href`);
     }
@@ -158,7 +159,7 @@ test('the one filter answers the refusal list, and nothing else', () => {
   assert.equal(storeShellRefusesMenuRow(`${base}/studio/papic`, false), false);
   assert.equal(storeShellRefusesMenuRow(`${base}/studio/papic`, undefined), false);
   // Planning stays — that is what the store shell exists for.
-  for (const open of [base, `${base}/guests`, `${base}/vendors`, `${base}/launch`, `${base}/galleries`]) {
+  for (const open of [base, `${base}/guests`, `${base}/vendors`, `${base}/launch`, `${base}/galleries`, `${base}/memories`]) {
     assert.equal(storeShellRefusesMenuRow(open, true), false, `${open} was refused`);
   }
 });

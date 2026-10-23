@@ -336,7 +336,7 @@ export const MAKER_FIXED_SOURCE: Partial<
   /* 🎨 The day's own parts: their Style is picked in the panel; what fills them
      comes from here. */
   find_your_seat: { text: 'Each table comes from your seating plan.', page: 'seating', link: 'Open your seating plan', from: 'your seating plan' },
-  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
+  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your Memories', from: 'the photos taken on the day' },
   announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
   live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
   details: { text: 'Your date and venue come from the venue you booked.', page: 'schedule', link: 'Open your schedule', from: 'the venue you booked' },

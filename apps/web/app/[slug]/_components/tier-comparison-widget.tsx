@@ -56,7 +56,7 @@ export function TierComparisonWidget({
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
         </header>
         <p className="rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
-          You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
+          You&rsquo;re a +1 to your inviter. Your photos will appear in their Memories —
           ask them to show you. Want full access? You can register your own Setnayan account
           anytime — but for this {words.eventWord}, you&rsquo;re invited as their +1.
         </p>

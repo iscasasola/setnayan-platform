@@ -166,13 +166,16 @@ test('3 · the save refuses a yes without the number, with a sentence — and a 
 // ── 4 · NO "MAYBE" IN THE GUEST'S INTRO ─────────────────────────────────────
 
 test('4 · the intro tour and the guest help offer yes or no — there is no Maybe', () => {
-  for (const rel of ['lib/tours.ts', 'lib/help.ts']) {
-    const src = readFileSync(join(WEB, rel), 'utf8');
-    const line = src.split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
-    assert.ok(line, `${rel}: the RSVP line moved — re-point this guard`);
-    assert.doesNotMatch(line, /Maybe/i, `${rel} still offers a Maybe the guest is never shown`);
-    assert.match(line, /Yes or No/);
-  }
+  const tours = readFileSync(join(WEB, 'lib/tours.ts'), 'utf8').split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
+  assert.ok(tours, 'lib/tours.ts: the RSVP line moved — re-point this guard');
+  assert.doesNotMatch(tours, /Maybe/i, 'lib/tours.ts still offers a Maybe the guest is never shown');
+  assert.match(tours, /Yes or No/);
+  // Re-pointed ON PURPOSE (help-sync, 2026-10-23): the help answer now names the card the guest actually sees —
+  // "Reply" on "Will you join us?" — whose two answers the host words (Joyfully accepts / Regretfully declines by
+  // default), so it no longer says "Yes or No". The property is the same: no Maybe.
+  const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8').split('\n').find((l) => /Will you join us\?/.test(l) && /Reply/.test(l));
+  assert.ok(help, 'lib/help.ts: the RSVP answer moved — re-point this guard');
+  assert.doesNotMatch(help, /Maybe/i, 'lib/help.ts still offers a Maybe the guest is never shown');
 });
 
 // ── 5 · THE CAMERA CONSENT CARD IS FOR THE DAY ──────────────────────────────

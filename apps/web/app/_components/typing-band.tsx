@@ -115,7 +115,7 @@ export function TypingBand(
         // A press on the band never takes the focus from the field it is typing for (Done's own press blurs it).
         onPointerDown={holdFocus}
         onMouseDown={holdFocus}
-        className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-[18px] bg-[var(--tb-plate)]"
+        className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-2xl bg-[var(--tb-plate)]"
       >
         <div className={`pointer-events-auto !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
           {before}

@@ -225,7 +225,7 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
           place="Message"
           data-typing-band="app"
           data-chat-band=""
-          className="rounded-t-[18px] !border-t-0 !bg-[var(--tb-plate)]"
+          className="rounded-t-2xl !border-t-0 !bg-[var(--tb-plate)]"
         />
       ) : null}
       <div className="flex items-end gap-2">

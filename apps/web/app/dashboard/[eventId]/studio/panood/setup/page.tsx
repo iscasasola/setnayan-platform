@@ -39,6 +39,7 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
   savePanoodWatchUrl,
@@ -247,7 +248,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
+  // 💎 2026-10-22: the animation is sold as Event Hub Pro's Logo & QR part (the standalone row is retired) — its price.
+  const monogramSku = await formatV2Sku(hubPart('logo_qr').sku).catch(() => null);
   const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples
@@ -907,8 +909,8 @@ function StyleAndAddOns({
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Optional packs that elevate the broadcast and the post-event recap. Prices are
-          set in the Setnayan catalog; buy through the normal orders flow and refunds
-          follow the standard 24-hour SLA.
+          set in the Setnayan catalog; buy through the normal orders flow. No refunds:
+          a pack you cannot use becomes Papic credits for this event.
         </p>
       </div>
 
@@ -1022,7 +1024,7 @@ function PackCard({
           </span>
         ) : (
           <span className="text-xs text-ink/55">
-            Open the orders page to purchase. Refundable per the standard 24-hour SLA.
+            Open the orders page to purchase. No refunds: if you cannot use it, it becomes Papic credits for this event.
           </span>
         )}
       </div>

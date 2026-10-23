@@ -2,8 +2,9 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { asViewed } from '@/lib/view-as-free.server';
+import { eventCoupleWebsiteProActive, eventHubOwnership } from '@/lib/couple-website-pro';
+import { asViewed, asViewedOwnership } from '@/lib/view-as-free.server';
+import type { HubOwnership, HubPartId } from '@/lib/hub-parts';
 import {
   INVITE_THEMES,
   normalizeThemeId,
@@ -101,6 +102,22 @@ export const websiteProActiveFor = cache(
 );
 
 /**
+ * 💎 What this event holds of Event Hub Pro, PART BY PART (owner 2026-10-22) —
+ * asked once per request, as the viewer is shown it. The guest page's gates each
+ * ask for THEIR part (`hubPartActiveFor`); the footer alone asks
+ * `websiteProActiveFor` (everything).
+ */
+export const hubOwnershipFor = cache(
+  async (eventId: string): Promise<HubOwnership> => asViewedOwnership(eventHubOwnership(createAdminClient(), eventId)),
+);
+
+/** One part, for the guest page — Full Pro and the cap included (`hubOwnershipFor`). */
+export async function hubPartActiveFor(eventId: string, part: HubPartId): Promise<boolean> {
+  const own = await hubOwnershipFor(eventId);
+  return own.full || own.parts.has(part);
+}
+
+/**
  * WHICH theme is live — everything `resolveHubLook` answers except the photo.
  *
  * ⛔ THE GUEST-TREE LAYOUT CALLS THIS, NOT `resolveHubLook`, ON PURPOSE. The
@@ -118,7 +135,8 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
   const wanted = normalizeThemeId(saved);
   const wantsPro = wanted !== null && INVITE_THEMES[wanted].tier === 'pro';
 
-  const owned = wantsPro ? await websiteProActiveFor(event.event_id).catch(() => false) : false;
+  // 💎 A Pro theme is the Style part's (gate 13).
+  const owned = wantsPro ? await hubPartActiveFor(event.event_id, 'style').catch(() => false) : false;
   // 🎨 A host's theme tile shows the theme as it WOULD look — ownership is the
   // purchase question, not the look's.
   const ownsPro = owned || event.theme_try_on === true;
@@ -146,8 +164,9 @@ export async function resolveHubLook(event: HubLookEvent): Promise<HubLook> {
   // free theme (Modern, Cyber Neon) it shows only while the event OWNS Event
   // Hub Pro (owner 2026-09-29, "yes": a Pro couple keeps their own background
   // on every theme); a free or lapsed couple gets the theme's own ground.
+  // 💎 The couple's own photo as the page ground is the Background part's (gate 9).
   const ownsPro = heroGroundNeedsOwnership(look.theme)
-    ? await websiteProActiveFor(event.event_id).catch(() => false)
+    ? await hubPartActiveFor(event.event_id, 'background').catch(() => false)
     : false;
   if (!heroMayBePageGround(look.theme, ownsPro)) {
     // No presign — the ground is never drawn, and signing a URL nothing

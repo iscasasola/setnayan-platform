@@ -146,6 +146,7 @@ export function ServiceGlanceBand({
   buy,
   see,
   when,
+  tour,
 }: {
   /** The count, already formatted ("1,240"), or the status when there is none ("—"). */
   big: string;
@@ -162,9 +163,11 @@ export function ServiceGlanceBand({
   see?: ReactNode;
   /** "On from [date] · until 12 hours after your day". */
   when?: string | null;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
 }) {
   return (
-    <section className="sg-band" data-mood={mood} data-glance-band="" aria-label="Your credits and photos">
+    <section className="sg-band" data-mood={mood} data-glance-band="" data-tour={tour} aria-label="Your credits and photos">
       <div className="sg-row1">
         <div className="min-w-0">
           <div className="sg-big" data-mood={mood} data-glance-count="">

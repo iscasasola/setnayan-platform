@@ -37,7 +37,10 @@ function drawn(token: string): string[] {
   const lit = new RegExp(`(?:data-tour|\\btour)=["'{\`]+${token.replace(/[-]/g, '\\-')}["'}\`]`);
   // …or chosen inside a data-tour expression: `data-tour={key === 'share' ? 'guests-setup' : undefined}`.
   const chosen = new RegExp(`data-tour=\\{[^}]*['"]${token.replace(/[-]/g, '\\-')}['"]`);
-  return SOURCES.filter(({ src }) => lit.test(src) || chosen.test(src)).map(({ f }) => f);
+  // …or handed to the ONE thumb row as a seat's `tour: '…'` (2026-10-22) — `components/thumb-row.tsx` stamps it as
+  // `data-tour` (pinned below), so the token is drawn by a real element.
+  const seat = new RegExp(`\\btour: ['"]${token.replace(/[-]/g, '\\-')}['"]`);
+  return SOURCES.filter(({ src }) => lit.test(src) || chosen.test(src) || seat.test(src)).map(({ f }) => f);
 }
 
 const steps = TOUR_KEYS.flatMap((k) => (TOURS[k].spotlight?.steps ?? []).map((s) => ({ k, s })));
@@ -58,6 +61,13 @@ test('every spotlight anchor is drawn by a real element', () => {
     if (drawn(s.anchor).length === 0) missing.push(`${k} → ${s.anchor}`);
   }
   assert.deepEqual(missing, [], 'a spotlight step names a data-tour token no element carries');
+});
+
+test('the ONE thumb row stamps a seat’s tour token on a real element', () => {
+  const row = SOURCES.find(({ f }) => f === join('components', 'thumb-row.tsx'));
+  assert.ok(row, 'components/thumb-row.tsx moved');
+  assert.match(row.src, /data-thumb-seat="field" data-tour=\{field\.tour\}/, 'the field seat no longer draws its tour token');
+  assert.match(row.src, /tour: r\.tour,/, 'a round no longer draws its tour token');
 });
 
 test('the home doors draw home-<key> tokens, and launch is one of the keys', () => {

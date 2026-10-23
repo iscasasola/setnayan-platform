@@ -33,24 +33,41 @@ export function PlaylistPickRow({
   const [artist, setArtist] = useState(pick.artist ?? '');
   const [notes, setNotes] = useState(pick.notes ?? '');
   const [isPending, startTransition] = useTransition();
+  /** What the last save attempt did — "Saved" is said only after a save landed, never before any edit or after a refusal. */
+  const [saved, setSaved] = useState<'idle' | 'saved' | 'failed'>('idle');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* ⌨ THE LATEST TYPED VALUES, not the render's. The save runs 600 ms after the LAST keystroke, but it was built from
+     the state of the render that scheduled it — the value BEFORE that keystroke — so the band read "Perfec" while the
+     host's screen said "Perfect · Saved" (coordinator walk 2026-10-23). */
+  const latest = useRef({ songLabel: pick.song_label, artist: pick.artist ?? '', notes: pick.notes ?? '' });
   // In-app confirm replaces `window.confirm()` per pre-pilot audit cleanup
   // 2026-05-30. Render `{dialog}` at the row root so the modal can mount.
   const { confirm, dialog } = useConfirm();
 
+  function edit(field: 'songLabel' | 'artist' | 'notes', value: string) {
+    latest.current = { ...latest.current, [field]: value };
+    if (field === 'songLabel') setSongLabel(value);
+    else if (field === 'artist') setArtist(value);
+    else setNotes(value);
+    scheduleSave();
+  }
+
   function scheduleSave() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
+      const now = latest.current;
       const formData = new FormData();
       formData.set('event_id', eventId);
       formData.set('pick_id', pick.pick_id);
-      formData.set('song_label', songLabel.trim());
-      formData.set('artist', artist.trim());
-      formData.set('notes', notes.trim());
+      formData.set('song_label', now.songLabel.trim());
+      formData.set('artist', now.artist.trim());
+      formData.set('notes', now.notes.trim());
       startTransition(async () => {
         try {
           await updatePlaylistPick(formData);
+          setSaved('saved');
         } catch (err) {
+          setSaved('failed');
           onError(
             err instanceof Error
               ? err.message
@@ -99,10 +116,7 @@ export function PlaylistPickRow({
         <input
           type="text"
           value={songLabel}
-          onChange={(e) => {
-            setSongLabel(e.target.value);
-            scheduleSave();
-          }}
+          onChange={(e) => edit('songLabel', e.target.value)}
           maxLength={200}
           placeholder="Song title"
           autoFocus
@@ -111,10 +125,7 @@ export function PlaylistPickRow({
         <input
           type="text"
           value={artist}
-          onChange={(e) => {
-            setArtist(e.target.value);
-            scheduleSave();
-          }}
+          onChange={(e) => edit('artist', e.target.value)}
           maxLength={200}
           placeholder="Artist (optional)"
           className="rounded border border-ink/15 px-2 py-1.5 text-xs focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
@@ -122,10 +133,7 @@ export function PlaylistPickRow({
         <input
           type="text"
           value={notes}
-          onChange={(e) => {
-            setNotes(e.target.value);
-            scheduleSave();
-          }}
+          onChange={(e) => edit('notes', e.target.value)}
           maxLength={500}
           placeholder={
             isBannedSlot
@@ -135,7 +143,9 @@ export function PlaylistPickRow({
           className="rounded border border-ink/15 px-2 py-1.5 text-xs italic focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
         />
         <div className="flex items-center justify-end gap-2 text-xs">
-          <span className="text-ink/45">{isPending ? 'Saving…' : 'Saved'}</span>
+          <span className={saved === 'failed' && !isPending ? 'text-danger-700' : 'text-ink/45'} data-pick-save={isPending ? 'saving' : saved}>
+            {isPending ? 'Saving…' : saved === 'saved' ? 'Saved' : saved === 'failed' ? 'Not saved' : ''}
+          </span>
           <button
             type="button"
             onClick={() => setEditing(false)}

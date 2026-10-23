@@ -3,6 +3,8 @@ import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { MoodPart, MoodPartNote } from './mood-board-parts';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import {
@@ -1188,7 +1190,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
         <PaletteBoardProvider {...provider}>
           {parts.theme}
           {parts.inspiration}
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="mood-board-palette">
             {parts.paletteSection}
             {parts.peopleAgreed}
           </div>
@@ -1196,7 +1198,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
 
         <div className="border-t border-ink/10 pt-6">{parts.dressLists}</div>
 
-        <div className="space-y-4 border-t border-ink/10 pt-6">
+        <div className="space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-reception">
           {parts.reception}
           {parts.roomAgreed}
         </div>
@@ -1205,7 +1207,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
 
         {parts.makeItReal}
 
-        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-share">
           {parts.shareWords}
           {parts.shareButton}
         </section>
@@ -1215,6 +1217,8 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
       <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pl-[max(1.5rem,var(--sn-safe-l))] sm:pr-[max(1.5rem,var(--sn-safe-r))]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
       </div>
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </div>
   );
 }
@@ -1238,14 +1242,16 @@ export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
       <PaletteBoardProvider {...provider}>
         <MoodPart part="theme">{parts.theme}</MoodPart>
         <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
-        <MoodPart part="palette">{parts.paletteSection}</MoodPart>
+        <MoodPart part="palette"><div data-tour="mood-board-palette">{parts.paletteSection}</div></MoodPart>
       </PaletteBoardProvider>
       {/* ✅ Under the colours each role wears — where a couple dresses people. */}
       <MoodPart part="palette">{parts.dressLists}</MoodPart>
-      <MoodPart part="reception">{parts.reception}</MoodPart>
+      <MoodPart part="reception"><div data-tour="mood-board-reception">{parts.reception}</div></MoodPart>
       <MoodPart part="colours">{parts.colours}</MoodPart>
       {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}
       <MoodPart part="share">{parts.shareWords}</MoodPart>
+      {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
     </div>
   );
 }
@@ -1266,7 +1272,7 @@ export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
       <div className="contents group-data-[details-mode=guided]/ws:hidden" data-mood-board-note-wrap="">
         <MoodPartNote />
       </div>
-      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="">
+      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="" data-tour="mood-board-share">
         <p className="text-xs font-semibold text-ink/60">Download your board</p>
         <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
         {parts.lastSaved}
@@ -1371,6 +1377,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
     .map((r) => ({ key: r.psgc_code!, label: r.display_label }));
 
   return (
+    <>
     <MoodBoardStudio
       eventId={eventId}
       /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
@@ -1407,5 +1414,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
           : null
       }
     />
+    {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+    <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
+    </>
   );
 }

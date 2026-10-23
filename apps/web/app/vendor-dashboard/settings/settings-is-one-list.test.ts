@@ -98,5 +98,5 @@ test('Settings opens from the profile picture — for an owner, in the app shell
 
 test('Settings carries no sign-out; the account sheet carries the supplier rows', () => {
   assert.doesNotMatch(SETTINGS, /auth\/sign-out/);
-  assert.match(LAYOUT, /<AccountSwitcher data=\{switcherData\} shopRows=\{switcherShopRows\} \/>/);
+  assert.match(LAYOUT, /<AccountSwitcher\s+data=\{switcherData\}\s+shopRows=\{switcherShopRows\}[^>]*\/>/);
 });

@@ -32,6 +32,7 @@ import {
   cameraLookOfDraft,
   canvasLookFacets,
   hubDraftCountedChanges,
+  hubDraftItemParts,
   planHubDraftApply,
   printDetailsKeysChanged,
   rsvpAskFreePartMoves,
@@ -49,6 +50,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
+import { HUB_EVENT_COLUMN_PART, type HubOwnershipLike } from '@/lib/hub-parts';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -301,6 +303,9 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
        apply"): "Wedding March · 3 changes" — one per drop the couple made. */
     case 'march':
       return { place: MARCH_DRAFT_PLACE, what: marchChangesWord(item.value.length) };
+    /* 💎 A custom address (owner 2026-10-22): "Event Details · Address" — the Address is one fact. */
+    case 'address':
+      return { place: 'Event Details', what: 'Address' };
     case 'widget': {
       const place = scenePlace(item.widgetType);
       switch (item.field) {
@@ -351,13 +356,15 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
  * Every change Apply would publish (or hold), named — exactly
  * `summarizeHubDraft(...).changeCount` lines, in the same order.
  */
-export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: boolean): HubDraftChangeLine[] {
+export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: HubOwnershipLike): HubDraftChangeLine[] {
   if (!draft) return [];
-  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
-    ...hubDraftChangePlace(item, live, stage),
-    pro: item.pro,
-    held,
-  }));
+  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => {
+    /* 💎 The parts it needs (2026-10-22) — present only on a line that needs one. A held line that is not Pro itself is
+       the theme's board, held WITH a held Pro theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE")
+       — it needs what the theme needs. */
+    const parts = item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [];
+    return { ...hubDraftChangePlace(item, live, stage), pro: item.pro, held, ...(parts.length > 0 ? { parts } : {}) };
+  });
 }
 
 function isPlainObjectValue(v: unknown): v is Record<string, unknown> {

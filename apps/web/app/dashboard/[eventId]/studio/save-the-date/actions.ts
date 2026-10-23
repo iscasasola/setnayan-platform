@@ -34,7 +34,7 @@ import {
   stdMediaPolicy,
 } from '@/lib/r2-client-ref';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
-import { LOOK_PRO_REQUIRED, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
+import { LOOK_PRO_REQUIRED, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 
 /**
@@ -221,21 +221,20 @@ export async function saveAllStdContent(
       .maybeSingle();
     const stored = (storedRow as Record<string, unknown> | null) ?? null;
     const storedMedia = resolveStdMedia(stored?.std_media, eventId);
-    const changes: LookChange[] = [];
-    if (wantsMedia) {
-      changes.push(
-        refChange(
+    /* 💎 PART BY PART (owner 2026-10-22): the film is the Reveal part's (gate 3), the song the Music part's (gate 4) —
+       each asked of its own part, and a refusal of either refuses the save. */
+    const filmChange: LookChange = wantsMedia
+      ? refChange(
           storedMedia.type === 'video' ? (storedMedia.videoKey ?? null) : null,
           wantsMedia.type === 'video' ? (wantsMedia.videoKey ?? null) : null,
-        ),
-      );
-    }
-    if (wantsSong) {
-      changes.push(
-        refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong),
-      );
-    }
-    if (!(await lookProAllows(eventId, combineChanges(...changes)))) {
+        )
+      : 'none';
+    const songChange: LookChange = wantsSong ? refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong) : 'none';
+    const [filmOk, songOk] = await Promise.all([
+      lookProAllows(eventId, filmChange, 'reveal'),
+      lookProAllows(eventId, songChange, 'music'),
+    ]);
+    if (!filmOk || !songOk) {
       return { ok: false, error: LOOK_PRO_REQUIRED };
     }
   }

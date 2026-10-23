@@ -167,8 +167,21 @@ const REQUIRED_RETAIL = [
   // the `R('LIVE_WALL')` call throws MissingSkuError for the same result. That is
   // not theoretical — it happened in production hours earlier when
   // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
-  'ANIMATED_MONOGRAM',
+  // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
+  // Logo & QR part of Event Hub PRO now, quoted on the Pro line. 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22, migration 20271282742262) — each quoted on the Pro line below.
+  'COUPLE_HUB_PART_REVEAL',
+  'COUPLE_HUB_PART_BACKGROUND',
+  'COUPLE_HUB_PART_PHOTOS',
+  'COUPLE_HUB_PART_STYLE',
+  'COUPLE_HUB_PART_MOTION',
+  'COUPLE_HUB_PART_LOGO_QR',
+  'COUPLE_HUB_PART_MUSIC',
+  'COUPLE_HUB_PART_PRINTS',
+  'COUPLE_HUB_PART_POST_EVENT',
+  'COUPLE_HUB_PART_OWN_SCENES',
+  'COUPLE_HUB_PART_ADDRESS',
   // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
   // its prose line went with it. 🪤 THE DEACTIVATION ALONE WOULD HAVE BEEN A
   // NO-OP HERE: this list and the prose are hand-written, and only `activeRetail`
@@ -557,7 +570,7 @@ ${featurePagesSection()}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Animated Monogram](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -589,9 +602,10 @@ Pricing in PHP. All sales final on digital deliverables.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Live Photo Wall** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
-- **Animated Monogram** — ${R('ANIMATED_MONOGRAM')}. Bespoke monogram with animation, generated from the couple's inputs.
+- **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Hub PRO's Logo & QR part animates it.
 - **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks the Save-the-Date Cinematic Reveal across the whole site, and removes the Setnayan watermark.
+  Or part by part, each for the event and everyone on it: Reveal ${R('COUPLE_HUB_PART_REVEAL')} · Background ${R('COUPLE_HUB_PART_BACKGROUND')} · Photos ${R('COUPLE_HUB_PART_PHOTOS')} · Style ${R('COUPLE_HUB_PART_STYLE')} · Motion ${R('COUPLE_HUB_PART_MOTION')} · Logo & QR ${R('COUPLE_HUB_PART_LOGO_QR')} · Music ${R('COUPLE_HUB_PART_MUSIC')} · Prints ${R('COUPLE_HUB_PART_PRINTS')} · Post Event ${R('COUPLE_HUB_PART_POST_EVENT')} · Your own scenes ${R('COUPLE_HUB_PART_OWN_SCENES')} · Custom address ${R('COUPLE_HUB_PART_ADDRESS')}. Everything paid for parts counts toward Event Hub PRO; reaching its price unlocks everything, and only Event Hub PRO removes the watermark.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.
@@ -635,7 +649,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is free, and rehearsing with up to 12 cameras is free.
 - **What is Music Maker?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
-- **Does Setnayan support discount codes?** Yes — admins issue codes for promos, refunds, or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
+- **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith vendor compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
 - **Does Setnayan have a mobile app?** ${mobileAppAnswer()}

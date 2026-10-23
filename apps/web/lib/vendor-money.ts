@@ -55,6 +55,17 @@ export type MoneyTotals = {
   bookings: number;
 };
 
+/**
+ * What sits under Received · To come in: the meter, a count of payments with NO AMOUNT SET, or "no plans yet".
+ * Coordinator walk 2026-10-23: a shop whose bookings' instalments are all a % of a total that was never set has
+ * `bookedPhp` 0 → `pct` null, and was told "No payment plans yet" over its own Next-in rows. "Nothing booked" and
+ * "booked, amounts not set" are different facts; only the first is "no plans".
+ */
+export function moneyTopLine(t: Pick<MoneyTotals, 'pct' | 'unresolved'>): 'meter' | 'unset' | 'none' {
+  if (t.pct !== null) return 'meter';
+  return t.unresolved > 0 ? 'unset' : 'none';
+}
+
 /** One "Next in" row — an instalment still to come in. */
 export type MoneyRow = {
   key: string;

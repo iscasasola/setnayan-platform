@@ -1,5 +1,6 @@
 import { localeAlternates } from '@/lib/marketing-i18n';
 import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 // /tl/features — Taglish edition of /features. Thin route: it reuses the
 // exact same <FeaturesPageBody> as the English page, passing locale="tl".
@@ -25,6 +26,7 @@ export const metadata = {
     'wedding budget tracker Philippines',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',
     description:
       'Guest list, seating, budget, mood board, schedule, supplier ledger, plus day-of apparatus (Live Watch, Papic, Pakulay) — sa Taglish.',

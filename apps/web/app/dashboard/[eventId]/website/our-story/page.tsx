@@ -13,7 +13,7 @@ import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { eventCoupleWebsiteProActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
+import { eventHubPartActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
@@ -188,7 +188,7 @@ export default async function OurStoryEditorPage({
   const ent = await eventEntitlementClient(eventId);
   const [proActive, proOwned, proSku, iapGate, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
-    asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
+    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => false)),
     asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
     getIapGate(),

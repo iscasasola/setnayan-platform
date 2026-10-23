@@ -21,6 +21,7 @@
  * are read too — the UI, the server gate and the sales copy must say one thing.
  */
 import test from 'node:test';
+import { HUB_PARTS } from './hub-parts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -196,7 +197,8 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
   assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 0, 'Apply held a free couple’s button colour');
   // The live writer no longer feeds the button into the Pro decision.
   const action = code('app/dashboard/[eventId]/website/colors/actions.ts');
-  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf('ombreChange,', action.indexOf('siteLookChange(')));
+  // RE-AIMED 2026-10-22 (part by part): Candlelight/ombré (Style) and the travelling logo (Logo & QR) are asked apart — every call.
+  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf("'logo_qr');", action.indexOf('siteLookChange(')));
   assert.ok(call.length > 20, 'the siteLookChange call was not found — the scan is blind');
   assert.doesNotMatch(call, /button/, 'the live writer still asks Pro for the button colour');
   // The guest page paints it outside the Pro branch.
@@ -252,12 +254,13 @@ test('💎 no sales copy sells a colour; the Pro list names media backgrounds in
   assert.ok(items.length >= 8, 'the Pro list scanned short');
   assert.ok(!items.some((i) => /colou?r/i.test(i)), 'the Pro list still sells a colour');
   assert.ok(items.includes('Photo and video backgrounds'), 'the Pro list does not name media backgrounds');
-  const buy = code('app/dashboard/[eventId]/studio/website-pro/page.tsx');
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(buy);
-  assert.ok(benefits, 'BENEFITS not found — the scan is blind');
-  // Plural on purpose: "a Pro theme … in your colour" describes the THEME (Pro),
-  // while "your own colours for the page and its buttons" sold the colours.
-  assert.doesNotMatch(benefits[1]!, /colou?rs\b/i, 'the buy page still sells colours');
+  /* RE-AIMED 2026-10-22 (part by part): the buy page is the parts page — its lines are the parts' own (`HUB_PARTS`
+     blurbs) and the gate table, never a hand-written list. Plural on purpose, as before: "a part's font, colour and
+     size" describes a PART's Style (Pro since 2026-10-16), "your own colours for the page" would sell the free ones. */
+  const body = code('app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx');
+  assert.match(body, /HUB_PARTS/, 'the parts page no longer draws its lines from the parts table');
+  assert.doesNotMatch(body, /const BENEFITS = \[/, 'a hand-written benefits list came back');
+  for (const p of HUB_PARTS) assert.doesNotMatch(p.blurb, /colou?rs\b/i, `${p.name} still sells colours`);
   const catalog = code('lib/add-ons-catalog.ts');
   const blurb = /key: 'website-pro',[\s\S]*?blurb: '([^']*)'/.exec(catalog);
   assert.ok(blurb, 'the website-pro blurb was not found — the scan is blind');

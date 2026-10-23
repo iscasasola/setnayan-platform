@@ -114,6 +114,11 @@ export type HubProCardView = {
   headline: string;
   /** What Pro adds, behind the (i). Null ⇒ the (i) is not rendered. */
   detail: string | null;
+  /**
+   * 💎 The cheapest Event Hub Pro part, read from the catalogue (owner 2026-10-22) — the (i) adds "or buy it part by
+   * part later, from ₱500". Sign-up still sells ONE offer: Full Pro. Null ⇒ the sentence is not said.
+   */
+  partsFromPhp?: number | null;
 };
 
 export type ServicesStepView = {
@@ -204,6 +209,7 @@ export function buildServicesStepView(input: {
     pricePhp: number | null;
     listPricePhp?: number | null;
     copy: { label: string; blurb: string } | null;
+    partsFromPhp?: number | null;
   } | null;
 }): ServicesStepView {
   const {
@@ -300,6 +306,7 @@ function buildHubProCard(
         : pricePhp,
     headline,
     detail,
+    partsFromPhp: typeof input.partsFromPhp === 'number' && input.partsFromPhp > 0 ? input.partsFromPhp : null,
   };
 }
 

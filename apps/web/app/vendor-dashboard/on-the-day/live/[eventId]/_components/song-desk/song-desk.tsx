@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Ban, CircleAlert, Music, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchEventSongRequests, fetchVendorSongs } from '@/lib/songs';
+import { readEventSongRequests, readVendorSongs } from '@/lib/songs';
 import { fetchPlaylistPicks, fetchSlotVibes, PLAYLIST_VIBE_LABELS } from '@/lib/playlist';
 import { fetchSongRequestsPaused } from '@/lib/vendor-dayof-config';
 import { buildVendorSets, fetchVendorEventSets } from '@/lib/vendor-sets';
@@ -81,9 +81,9 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
   // booking + entitlement internally and reads as service_role, because the guest
   // request inbox is the paid part (owner 2026-07-30) and RLS cannot ask "did you
   // pay". Its own gate is the boundary; this component just renders the result.
-  const [requests, repertoire, picks, guestRequests, paused, vibes, setData] = await Promise.all([
-    fetchEventSongRequests(supabase, eventId),
-    fetchVendorSongs(supabase, vendorProfileId),
+  const [requestsRead, repertoireRead, picks, guestRequests, paused, vibes, setData] = await Promise.all([
+    readEventSongRequests(supabase, eventId),
+    readVendorSongs(supabase, vendorProfileId),
     fetchPlaylistPicks(supabase, eventId),
     fetchActSongRequests(eventId),
     fetchSongRequestsPaused(supabase, vendorProfileId, eventId),
@@ -94,6 +94,11 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
     fetchVendorEventSets(supabase, eventId, vendorProfileId),
   ]);
 
+  const requests = requestsRead.rows;
+  const repertoire = repertoireRead.rows;
+  /* A refused read of the couple's picks or of this act's repertoire is not "they haven't picked any songs" or
+     "N requests you don't play yet" — the match is not drawn at all; the desk says it could not load. */
+  const matchUnread = requestsRead.failed || repertoireRead.failed;
   const desk = buildSongDesk({ requests, repertoire });
   const playlist = buildHostPlaylist({ picks: picks.rows, repertoire, vibes });
   // Each set crossed against the couple's picks FOR ITS OWN MOMENT — the payoff
@@ -113,9 +118,16 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
       <RequestsInbox eventId={eventId} requests={guestRequests} paused={paused} />
 
       <ConsoleRule />
-      <Coverage desk={desk} coupleName={coupleName} />
+      {matchUnread ? (
+        <p role="status" data-song-desk-unread="" className="text-sm leading-relaxed text-ink/70">
+          We couldn’t load {requestsRead.failed ? `${coupleName}’s song picks` : 'your repertoire'} just now — that’s on
+          us, not on {coupleName}. Refresh before you plan the set.
+        </p>
+      ) : (
+        <Coverage desk={desk} coupleName={coupleName} />
+      )}
 
-      {desk.gaps.length > 0 ? (
+      {!matchUnread && desk.gaps.length > 0 ? (
         <Group
           tone="gap"
           title={desk.gaps.length === 1 ? '1 request you don’t play yet' : `${desk.gaps.length} requests you don’t play yet`}
@@ -124,7 +136,7 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
         />
       ) : null}
 
-      {desk.ready.length > 0 ? (
+      {!matchUnread && desk.ready.length > 0 ? (
         <Group
           tone="ready"
           title={desk.ready.length === 1 ? '1 request in your set' : `${desk.ready.length} requests in your set`}
@@ -140,7 +152,7 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
         readFailed={picks.failed}
       />
 
-      {desk.spare.length > 0 ? <Spare entries={desk.spare} /> : null}
+      {!matchUnread && desk.spare.length > 0 ? <Spare entries={desk.spare} /> : null}
 
       <ConsoleRule />
       {/* LAST, and collapsed. On the night the actionable things are the inbox and
@@ -195,6 +207,17 @@ function HostPlaylist({
   /** The read errored or was denied — say nothing about what the couple did. */
   readFailed: boolean;
 }) {
+  // A failed picks read with the vibes read is NOT "no songs named — they left the choices to you": the failure wins.
+  if (readFailed && !playlist.isEmpty) {
+    return (
+      <>
+        <ConsoleRule />
+        <p className="text-sm leading-relaxed text-ink/70" data-song-desk-playlist-unread="">
+          We couldn’t load the running order just now — that’s on us, not on {coupleName}.
+        </p>
+      </>
+    );
+  }
   if (playlist.isEmpty) {
     // A DENIED READ IS NOT AN EMPTY PLAYLIST, and this surface used to conflate
     // them. Two RLS gaps (crew and day-of grantees — migration 20271020710612)

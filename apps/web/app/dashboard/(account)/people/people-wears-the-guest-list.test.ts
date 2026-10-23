@@ -68,7 +68,7 @@ test('🔴 People draws with the Guest list’s own stylesheet and button — im
   }
 });
 
-test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Search or invite" · ＋ Invite — no band, each control its own glass', () => {
+test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Find or invite" · ＋ Invite — no band, each control its own glass', () => {
   // Every People row is the one row component — never a band of its own.
   for (const [name, src] of [['people-roster-view', ROSTER], ['people-thumb', THUMB]] as const) {
     assert.ok(src.includes(ROW_IMPORT), `${name} draws its own bottom row instead of the one row`);
@@ -77,13 +77,15 @@ test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Search or invite" · �
   const list = ROSTER.slice(ROSTER.indexOf("<AccountThumbRow data={{ 'data-people-thumb': 'list' }}"));
   assert.match(list, /^<AccountThumbRow data=\{\{ 'data-people-thumb': 'list' \}\} tools=\{filterPick\} field=\{<FindField f=\{find\} \/>\} action=\{<InviteAction f=\{find\} \/>\} \/>/, 'the list row is not ≡ · field · ＋');
   assert.match(THUMB, /field=\{<FindField f=\{find\} \/>\}\s*action=\{<InviteAction f=\{find\} \/>\}/, 'the other views lost the same row');
-  // The row paints nothing; each control is its own glass; the field keeps 60 %.
-  const band = ROW.slice(ROW.indexOf('data-one-thumb-row=""'), ROW.indexOf('{tools}'));
+  // The row paints nothing; the SHARED row (components/thumb-row.tsx) draws each seat's glass — swapped in
+  // 2026-10-22, as account-thumb-row.tsx planned. Its seats are tools · field · action, in that order.
+  const band = ROW.slice(ROW.indexOf('data-one-thumb-row=""'), ROW.indexOf('<ThumbRow'));
   assert.ok(!/sn-glass-row|border-t|shadow|bg-/.test(band), 'the row paints a band again');
-  assert.match(ROW, /sn-glass-row flex h-11 min-w-\[60%\] flex-1/, 'the field lost its glass or its 60 %');
+  assert.match(ROW, /<ThumbRow\s+name=\{`people-\$\{name\}`\}\s+left=\{tools \? \[\{ node: tools \}\] : \[\]\}\s+field=\{field \? \{ node: field \} : null\}\s+action=\{action \? \{ node: action \} : null\}/, 'People no longer draws through the shared row');
+  assert.ok(!/sn-glass-row/.test(ROW), 'a People seat paints a second glass under the shared row’s');
   // The placeholder is two or three words and never truncates.
   const words = (FIND.match(/placeholder="([^"]+)"/) ?? [])[1] ?? '';
-  assert.equal(words, 'Search or invite');
+  assert.equal(words, 'Find or invite'); // the owner's words for People (2026-10-22 ruling)
   assert.ok(words.split(' ').length <= 3);
   assert.ok(!ROSTER.includes('<FindOrInvite'), 'the old framed capture card is back above the list');
 });

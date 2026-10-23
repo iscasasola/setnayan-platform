@@ -19,6 +19,7 @@ import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/
 import { KeptNotesFold, OutsideClientRows, type OutsideClient } from '@/app/vendor-dashboard/customers/_components/people-more';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { rosterView } from '@/app/vendor-dashboard/customers/roster-view';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import { SearchBox } from '@/app/_components/search-box';
@@ -185,23 +186,34 @@ export function PeopleLab({
           {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
         </div>
       </main>
-      <SupplierThumbRow name="people" label="Customer tools">
-        <SearchBox placeholder="Search a customer" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" />
-        <OutsideClientAdd
-          pools={
-            variant === 'nopools'
-              ? []
-              : [
-                  { poolId: 'p1', label: 'Main team' },
-                  { poolId: 'p2', label: 'Second team' },
-                ]
-          }
-          action={importExternalClient}
-          startOpen={add}
-          today="2026-10-02"
-          setupHref={`${base}&seg=dates`}
-        />
-      </SupplierThumbRow>
+      <SupplierThumbRow
+        name="people"
+        label="Customer tools"
+        row={
+          <ThumbRow
+            name="customers"
+            field={{ node: <SearchBox placeholder="Search customers" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" /> }}
+            action={{
+              node: (
+                <OutsideClientAdd
+                  pools={
+                    variant === 'nopools'
+                      ? []
+                      : [
+                          { poolId: 'p1', label: 'Main team' },
+                          { poolId: 'p2', label: 'Second team' },
+                        ]
+                  }
+                  action={importExternalClient}
+                  startOpen={add}
+                  today="2026-10-02"
+                  setupHref={`${base}&seg=dates`}
+                />
+              ),
+            }}
+          />
+        }
+      />
     </div>
   );
 }

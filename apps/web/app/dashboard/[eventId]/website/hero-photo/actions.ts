@@ -99,6 +99,8 @@ export async function uploadHeroPhoto(formData: FormData) {
   await requireLookPro(
     eventId,
     refChange(current?.landing_page_hero_image_url as string | null | undefined, heroImageUrlRaw),
+    // 💎 Your cover photo is the Background part's (owner 2026-10-22, gate 5b).
+    'background',
   );
 
   await supabase

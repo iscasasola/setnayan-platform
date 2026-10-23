@@ -1,8 +1,9 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership, eventHubPartActive } from '@/lib/couple-website-pro';
 import { lookWriteAllowed, type LookChange } from '@/lib/hub-look-pro';
+import type { HubOwnership, HubPartId } from '@/lib/hub-parts';
 
 /**
  * apps/web/lib/hub-look-gate.ts
@@ -24,20 +25,35 @@ import { lookWriteAllowed, type LookChange } from '@/lib/hub-look-pro';
  * one write a free couple must always be able to make.
  */
 
-/** Is this write allowed? Reads Pro only when the answer depends on it. */
-export async function lookProAllows(eventId: string, change: LookChange): Promise<boolean> {
+/**
+ * Is this write allowed? Reads ownership only when the answer depends on it.
+ *
+ * 💎 PART BY PART (owner 2026-10-22): every look write names the ONE part it
+ * belongs to (`HUB_PRO_GATES` in `lib/hub-parts.ts`) — owning that part, Full
+ * Pro, or the cap allows it; owning another part does not.
+ */
+export async function lookProAllows(eventId: string, change: LookChange, part: HubPartId): Promise<boolean> {
   if (lookWriteAllowed(false, change)) return true;
-  const ownsPro = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-  return lookWriteAllowed(ownsPro, change);
+  const owns = await eventHubPartActive(createAdminClient(), eventId, part);
+  return lookWriteAllowed(owns, change);
 }
 
 /**
- * Refuse a look write a free couple may not make — to the one Event Hub Pro buy
- * surface, the same destination every existing Pro refusal uses. Returns only
- * when the write is allowed.
+ * Everything the event holds, for the Maker's ✓ Apply — the one write that
+ * carries many parts at once (`planHubDraftApply` asks each item of it).
+ * Admin client for the same co-host reason as above.
  */
-export async function requireLookPro(eventId: string, change: LookChange): Promise<void> {
-  if (!(await lookProAllows(eventId, change))) {
+export async function hubOwnershipForWrite(eventId: string): Promise<HubOwnership> {
+  return eventHubOwnership(createAdminClient(), eventId, 'active');
+}
+
+/**
+ * Refuse a look write a couple without its part may not make — to the one Event
+ * Hub Pro buy surface, the same destination every existing Pro refusal uses.
+ * Returns only when the write is allowed.
+ */
+export async function requireLookPro(eventId: string, change: LookChange, part: HubPartId): Promise<void> {
+  if (!(await lookProAllows(eventId, change, part))) {
     redirect(`/dashboard/${eventId}/studio/website-pro`);
   }
 }

@@ -19,7 +19,7 @@ import {
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
-import { computeRetimePatches } from '@/lib/schedule-ros';
+import { computeRetimePatches, isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import {
   FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
@@ -40,6 +40,8 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
+/** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
+const NOTHING_CHANGED = 'Nothing on the schedule changed — the moment is gone, or this account cannot edit it.';
 
 /**
  * Coordinator P1: is this user the event's EXTERNAL coordinator
@@ -655,12 +657,14 @@ export async function resolveScheduleSuggestion(formData: FormData) {
       if (suggestion.proposed_location) patch.location = suggestion.proposed_location;
       if (suggestion.proposed_label) patch.label = suggestion.proposed_label;
       if (Object.keys(patch).length > 0) {
-        const { error } = await supabase
+        const { data: changed, error } = await supabase
           .from('event_schedule_blocks')
           .update(patch)
           .eq('block_id', suggestion.block_id)
-          .eq('event_id', eventId);
+          .eq('event_id', eventId)
+          .select('block_id');
         if (error) throw new Error(error.message);
+        if (!changed?.length) throw new Error(NOTHING_CHANGED);
       }
       await flip();
     } else if (suggestion.kind === 'new') {
@@ -744,7 +748,9 @@ export async function resolveScheduleSuggestion(formData: FormData) {
           body: accepted
             ? suggestion.kind === 'remove'
               ? 'That moment is off their schedule.'
-              : 'Your proposed change is now on their schedule.'
+              : isNoteOnlySuggestion(suggestion)
+                ? 'They read your note — nothing on the schedule moved.'
+                : 'Your proposed change is now on their schedule.'
             : 'Your proposed change was not applied.',
           relatedUrl: `/vendor-dashboard/clients/${eventId}`,
         });
@@ -810,7 +816,7 @@ export async function setBlockResponsibleParty(formData: FormData) {
     vendorIds = [...new Set(requestedVendorIds)].filter((id) => valid.has(id));
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update({
       responsible_party: responsibleParty,
@@ -818,8 +824,11 @@ export async function setBlockResponsibleParty(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // An UPDATE that RLS filtered to nothing raises no error — read back what changed, so a refusal is not "saved".
+  if (!changed?.length) throw new Error(NOTHING_CHANGED);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -862,16 +871,20 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   // RLS-scoped read — rows only come back if the caller can see this event.
   const blocks = await fetchScheduleBlocks(supabase, eventId);
   const patches = computeRetimePatches(blocks, fromBlockId, deltaMinutes, toBlockId);
-  if (patches.length === 0) return;
+  // Nothing this caller can see to move is not a shift — the sheet must not close as if the day moved.
+  if (patches.length === 0) throw new Error(NOTHING_CHANGED);
 
   const now = new Date().toISOString();
   for (const patch of patches) {
-    const { error } = await supabase
+    const { data: changed, error } = await supabase
       .from('event_schedule_blocks')
       .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
       .eq('block_id', patch.block_id)
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .select('block_id');
     if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
+    // RLS answers a refused UPDATE with zero rows and no error: read it back, never a quiet "moved".
+    if (!changed?.length) throw new Error(NOTHING_CHANGED);
   }
 
   revalidateScheduleUnlessMaker(eventId, formData);
@@ -920,7 +933,12 @@ export async function loadScheduleTemplate(formData: FormData) {
     .eq('event_id', eventId)
     .limit(1);
   if (existingErr) throw new Error(existingErr.message);
-  if (existing && existing.length > 0) return;
+  // Never over rows that exist — but a screen still offering templates is stale (someone else added a moment):
+  // redraw it, so the host sees the schedule that is there instead of a press that did nothing.
+  if (existing && existing.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/schedule`);
+    return;
+  }
 
   const eventDate = (ev?.event_date as string | null | undefined) ?? null;
   if (template.id === FAITH_TEMPLATE_ID) {

@@ -1,0 +1,47 @@
+/* ThumbRow (components/thumb-row.tsx) — the Find row's drawing, at 44 px.
+   Glass per control (`.sn-glass-row`), no band; the field is the widest seat. */
+.row { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; pointer-events: auto; }
+.round { display: inline-flex; flex: 0 0 auto; border-radius: var(--m-r-full); }
+/* The glass edge is drawn INSIDE the round (a ring, not a border), so a round is 44 wide, not 46 — the two pixels a
+   seat that is three rounds wide gives back to the field at 320. */
+.round:global(.sn-glass-row) { border-width: 0; box-shadow: inset 0 0 0 1px var(--sn-glass-line); }
+.btn:global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; border-color: transparent; }
+.round:not([data-thumb-seat='action']) .btn:global(.ab) { background: transparent; }
+.field { display: flex; flex: 1 1 auto; min-width: 0; height: 44px; align-items: center; gap: 6px; padding: 0 10px 0 12px; border-radius: var(--m-r-full); color: rgb(var(--color-ink)); }
+.glyph { width: 16px; height: 16px; flex: 0 0 auto; opacity: 0.55; }
+.input { height: 100%; min-width: 0; flex: 1 1 auto; background: transparent; font-size: 14px; color: rgb(var(--color-ink)); outline: none; border: 0; padding: 0; }
+.input::placeholder { color: rgb(var(--color-ink) / 0.55); font-size: 14px; }
+/* The phone's typed text stays 16 px (globals.css — iOS zooms a smaller field on focus); the PLACEHOLDER is 14 px, the
+   Find row's size, so "Search guests" reads whole beside three rounds at 320 (measured in the PR's walk). */
+@media (max-width: 360px) {
+  .row { gap: 4px; }
+  .field { gap: 5px; padding: 0 6px 0 10px; }
+  .glyph { width: 14px; height: 14px; }
+  /* Four seats at 320 (Guests: ⇕ · field · ≡ · ＋): the magnifier gives its 19 px to the words — "Search guests" is
+     cut otherwise (measured: 118 px of words in 107). The words still say it is a search. */
+  .row:has(> :nth-child(4)) .glyph { display: none; }
+  .row:has(> :nth-child(4)) .field { padding-left: 8px; } /* Safari's face is 2 px wider (WebKit walk) */
+}
+.input::-webkit-search-cancel-button { margin-left: 4px; }
+.gap { flex: 1 1 auto; }
+/* ≡ — the PickMenu's button drawn as a 44 round: its current option's icon is the face. */
+.menu :global(button[aria-haspopup='listbox']) { width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; background: transparent; gap: 0; }
+.menu :global(button[aria-haspopup='listbox']) > span:not([aria-hidden]),
+.menu :global(button[aria-haspopup='listbox']) > svg { display: none; }
+/* ThumbDock (components/thumb-dock.tsx) — on the bottom dock below 1024; the column's first line from 1024. */
+.dock {
+  position: fixed; left: 0; right: 0; z-index: 25;
+  bottom: var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px));
+  padding: 10px max(16px, var(--sn-safe-r)) 10px max(16px, var(--sn-safe-l));
+  pointer-events: none; transform: translateY(140%); transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dock[data-on='true'] { transform: none; }
+@media (prefers-reduced-motion: reduce) { .dock { transition: none; } }
+.deskLine { margin: 0 0 16px; }
+/* A shipped component in a seat (ThumbNode): the field seat's glass draws the pill, so the component's own pill,
+   fill and ring give way; the main-verb seat draws its ActionButton as the 44 terracotta round, word as its name. */
+.fieldNode { padding: 0; }
+.fieldNode > * { flex: 1 1 auto; min-width: 0; height: 100%; background: transparent !important; box-shadow: none !important; border: 0 !important; }
+.actionNode :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; gap: 0; border-color: transparent; }
+.actionNode :global(.ab .lbl) { display: none; }
+.nodeRound :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; border-color: transparent; background: transparent; }

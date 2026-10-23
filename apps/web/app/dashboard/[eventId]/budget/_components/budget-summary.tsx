@@ -187,7 +187,7 @@ export function BudgetSummary({
   const left = targetPhp !== null && agreedPhp !== null ? targetPhp - agreedPhp : null;
 
   return (
-    <section className={`${styles.page} ${styles.sum}`} aria-label="Budget summary" data-budget-summary="">
+    <section className={`${styles.page} ${styles.sum}`} aria-label="Budget summary" data-budget-summary="" data-tour="budget-summary">
       <div className={styles.grid}>
         <div className={styles.cell} data-budget-cell="target">
           <div className={styles.k}>

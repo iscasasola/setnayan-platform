@@ -81,7 +81,6 @@ async function controls(page: Page): Promise<Box[]> {
   return page.evaluate(() => {
     const pick: Array<[string, string]> = [
       ['menu', '.fd-topbar button[aria-label="Menu"]'],
-      ['search', '.fd-searchwrap > button, .fd-searchwrap [data-guests-top-search]'],
       ['chat', '.fd-topright a[href$="/messages"]'],
       ['bell', '.fd-topright a[href="/dashboard/notifications"]'],
       ['avatar', '.fd-topright .fd-acct'],
@@ -90,9 +89,7 @@ async function controls(page: Page): Promise<Box[]> {
       const el = document.querySelector(sel) as HTMLElement | null;
       if (!el) return { name, w: 0, h: 0, cy: 0, radius: 0, border: 0, shown: false };
       const r = el.getBoundingClientRect();
-      // A [data-guests-top-search] wrapper paints nothing; its glass box does.
-      const painted = (el.querySelector(':scope > .sn-tile-glass') as HTMLElement | null) ?? el;
-      const cs = getComputedStyle(painted);
+      const cs = getComputedStyle(el);
       return {
         name,
         w: r.width,
@@ -127,9 +124,6 @@ for (const [w, hgt] of [
       // One row: every control sits on the same centre line.
       const cys = boxes.map((b) => b.cy);
       expect(Math.max(...cys) - Math.min(...cys), `centres ${cys.join(' / ')}`).toBeLessThanOrEqual(1);
-      // Round: the drawn search circle and the bar's own icons.
-      const search = boxes.find((b) => b.name === 'search')!;
-      expect(search.radius, 'the search icon is not round').toBeGreaterThanOrEqual(22);
 
       // The avatar: a plain round photo — no chevron, no pill border, no name.
       const avatar = await page.$eval('.fd-topright .fd-acct', (el) => ({
@@ -152,28 +146,14 @@ for (const [w, hgt] of [
     });
   }
 
-  test(`phone top bar · guests · ${w}px — a tap opens the SAME box over the whole bar`, async ({ page }) => {
+  test(`phone top bar · guests · ${w}px — no search on the bar (it lives in the thumb row, 2026-10-22)`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: hgt });
     await mount(page, BARS.guests);
-    await page.click('.fd-searchwrap [data-guests-top-search]');
-    const open = await page.evaluate(() => {
-      const input = document.querySelector('.fd-topbar input') as HTMLInputElement;
-      const box = document.querySelector('[data-guests-top-search]')!.getBoundingClientRect();
-      return {
-        focused: document.activeElement === input,
-        visible: Number(getComputedStyle(input).opacity) > 0.99,
-        width: box.width,
-        fontSize: parseFloat(getComputedStyle(input).fontSize),
-        inputs: document.querySelectorAll('.fd-topbar input').length,
-      };
-    });
-    expect(open.focused, 'the tap did not land in the search field').toBe(true);
-    expect(open.visible, 'the field stayed invisible after the tap').toBe(true);
-    expect(open.width, `the opened box is ${open.width}px of a ${w}px bar`).toBeGreaterThanOrEqual(w - 2);
-    // Below 16px iOS zooms the whole page on focus.
-    expect(open.fontSize).toBeGreaterThanOrEqual(16);
-    // The same search, not a second one.
-    expect(open.inputs).toBe(1);
+    const bar = await page.evaluate(() => ({
+      wraps: document.querySelectorAll('.fd-searchwrap, .fd-searchrow').length,
+      inputs: document.querySelectorAll('.fd-topbar input').length,
+    }));
+    expect(bar, 'the top bar carries a search again').toEqual({ wraps: 0, inputs: 0 });
   });
 }
 
@@ -233,6 +213,6 @@ test('desktop top bar · 1280px — unchanged', async ({ page }) => {
   expect(Math.abs(bar - 61), `the desktop bar is ${bar}px, not 61`).toBeLessThanOrEqual(1);
   const chevron = await page.$eval('.fd-topright .fd-acct svg', (s) => s.getBoundingClientRect().width);
   expect(chevron, 'the desktop account pill lost its chevron').toBeGreaterThan(0);
-  const search = await page.$eval('.fd-searchwrap > button', (b) => b.getBoundingClientRect().width);
-  expect(search, 'the desktop search collapsed').toBeGreaterThan(300);
+  // Search-free on the computer too (owner 2026-10-22, "One thumb row").
+  expect(await page.$$eval('.fd-searchwrap', (els) => els.length), 'the desktop bar carries a search again').toBe(0);
 });

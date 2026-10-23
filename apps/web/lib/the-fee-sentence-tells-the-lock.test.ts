@@ -59,7 +59,10 @@ test('3 · every shipped caller passes the gate’s own answer (`resolveFeeEnfor
   const view = src('lib/supplier-today-view.ts');
   assert.match(view, /feeDueCopy\(input\.feeBills\[0\], todayIso, input\.feeEnforced\)/, 'Today’s fee card is not handed the gate’s answer');
   const today = src('app/vendor-dashboard/page.tsx');
-  assert.match(today, /\[firstSteps, payoutReadiness, feeBillsRead, feeEnforced,[\s\S]*?= await Promise\.all\(\[[\s\S]*?resolveFeeEnforcement\(\)/, 'Today does not read `feeEnforced` from resolveFeeEnforcement()');
+  // ⚡ 2026-10-23 (speed pass): the gate's read is STARTED beside wave 1 and read in wave 2 — the value still comes
+  // from `resolveFeeEnforcement()` and nothing else, which is what both halves below hold.
+  assert.match(today, /const feeEnforcedP = resolveFeeEnforcement\(\);/, 'Today does not start `feeEnforced` from resolveFeeEnforcement()');
+  assert.match(today, /\[firstSteps, payoutReadiness, feeBillsRead, feeEnforced,[\s\S]*?= await Promise\.all\(\[[\s\S]*?\n\s*feeBillsP,\n\s*feeEnforcedP,\n/, 'Today does not read `feeEnforced` from resolveFeeEnforcement()');
   assert.match(today, /\n\s*feeEnforced,\n/, 'Today does not hand `feeEnforced` to the assembly');
   assert.ok(callers.length >= 2, `only ${callers.length} shipped callers found — the scan is blind`);
   for (const rel of callers) {

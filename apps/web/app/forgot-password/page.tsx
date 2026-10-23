@@ -87,7 +87,7 @@ export default async function ForgotPasswordPage({
             type="email"
             autoComplete="email"
             inputMode="email"
-            placeholder="you@setnayan.com"
+            placeholder="you@email.com"
             required
             className="input-field"
           />

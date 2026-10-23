@@ -6,6 +6,8 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -89,7 +91,7 @@ import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type Low
 import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
-import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-context';
+import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
@@ -177,6 +179,7 @@ export function MakerShell({
   storeShell,
   tourSlides,
   firstVisit,
+  tourHint = false,
   completeTourAction,
   renderStamp,
   more,
@@ -192,6 +195,7 @@ export function MakerShell({
   stagesStudio = false,
   desktopColumns = false,
   deskTitle = null,
+  proLine = null,
   studio = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
@@ -224,6 +228,8 @@ export function MakerShell({
   desktopColumns?: boolean;
   /** 🖥 The event's name, for the desktop's top bar — handed in only with the columns on (`MakerDesk` draws it). */
   deskTitle?: string | null;
+  /** 💎 The quiet "₱X more unlocks everything" line's facts (`MakerProLine`) — null in the store shell. */
+  proLine?: MakerProLine | null;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -248,6 +254,8 @@ export function MakerShell({
   tourSlides: TourSlideView[];
   /** Never toured here: a first visit shows ONE quiet line instead (the Maker in 4). */
   firstVisit: boolean;
+  /** 🔦 The Maker's spotlight is due (`customer_event_hub_maker_v2`): the quiet line is its stop 1, so it shows. */
+  tourHint?: boolean;
   completeTourAction: (tourKey: TourKey) => Promise<void>;
   renderStamp: string;
   /** The "Your Event Hub" sheet (Page ▾ › the address · who can view): who and when, and the doors the controller kept. */
@@ -336,6 +344,13 @@ export function MakerShell({
   const studioCovers = studioHomeOn || studioFull;
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
+  /* 🔦 …and where the Maker's spotlight is mounted (the page's own tour, `lib/host-page-tours.ts`), About the Maker
+     replays THAT — the same three stops, never the old slides beside them. */
+  const aboutTheMaker = useCallback(() => {
+    if (document.documentElement.getAttribute('data-spotlight-page') === HOST_PAGE_TOURS.maker) {
+      window.dispatchEvent(new CustomEvent(SPOTLIGHT_REPLAY_EVENT, { detail: { tourKey: HOST_PAGE_TOURS.maker } }));
+    } else setTour(true);
+  }, []);
   /* 👁 SEE AS ▾ (PR-10) — the canvas as a sample guest, or null for the couple's
      own editing canvas. Kept across stages (a guest is a guest on every stage);
      never written anywhere — not the draft, not the tab's memory. */
@@ -501,7 +516,7 @@ export function MakerShell({
     lands in its frame, which blurs this window — that counts too. Pro is met
     where it is tried: a Pro thing tapped wears ◆ PRO, and Apply asks.
   */
-  const [hint, setHint] = useState(firstVisit && hasWork);
+  const [hint, setHint] = useState((firstVisit || tourHint) && hasWork);
   const recordedHint = useRef(false);
   useEffect(() => {
     if (!hint) return;
@@ -635,10 +650,11 @@ export function MakerShell({
       setLtWhere,
       stagesStudio: ss,
       deskTitle,
+      proLine,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle, proLine],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -701,7 +717,7 @@ export function MakerShell({
       else if (act === 'prints') pressDoor('prints');
       else if (act === 'restore') {
         if (draft?.canRestore) draft.restore();
-      } else if (act === 'about') setTour(true);
+      } else if (act === 'about') aboutTheMaker();
       else setMoreOpen(true);
       return;
     }
@@ -867,7 +883,7 @@ export function MakerShell({
           ...(hasWork && applySlot !== null
             ? [{ key: 'reset', label: 'Reset this stage…', icon: <RotateCcw aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: false, onPick: () => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)) }]
             : []),
-          { key: 'about', label: 'About the Maker', icon: <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: tour, onPick: () => setTour(true) },
+          { key: 'about', label: 'About the Maker', icon: <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: tour, onPick: aboutTheMaker },
         ]
       : isStagePhase(ltPick)
         ? page.options
@@ -1188,6 +1204,7 @@ export function MakerShell({
             <p
               role="status"
               data-maker-first-hint=""
+              data-tour="maker-hint"
               className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
             >
               Tap anything to change it

@@ -97,6 +97,7 @@ export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[
                     </>
                   ),
                 }}
+                pro={t.pro ?? null}
                 onOpen={() => onOpen(t.key)}
                 attrs={{ 'data-studio-tile': t.key, 'data-studio-done': t.done === undefined ? 'unread' : t.done ? 'yes' : 'no' }}
               />

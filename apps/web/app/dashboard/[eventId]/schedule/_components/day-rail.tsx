@@ -81,6 +81,7 @@ import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
+import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 
@@ -292,6 +293,16 @@ export function ScheduleDay({
     }
     overridesRef.current = next;
     setOverrides(next);
+  }
+
+  /** A shift that LANDED is on the rail at once: in the Maker the write is quiet, so no render brings the new times
+   *  (the sheet closed over the old ones). On the standalone page the render that follows supersedes these. */
+  function landShift(patches: readonly RetimePatch[]) {
+    for (const p of patches) {
+      const patch = { start_at: p.start_at, end_at: p.end_at };
+      override(p.block_id, patch);
+      confirm(p.block_id, patch);
+    }
   }
 
   /** Run a write; on a refusal, undo the guess and say so. */
@@ -632,6 +643,7 @@ export function ScheduleDay({
           eventId={eventId}
           moments={merged}
           fromId={sheet?.kind === 'shift' ? sheet.fromId : null}
+        onShifted={landShift}
         />
         <RequestsSheet
           open={sheet?.kind === 'requests'}
@@ -1116,6 +1128,7 @@ export function ScheduleDay({
         eventId={eventId}
         moments={merged}
         fromId={sheet?.kind === 'shift' ? sheet.fromId : null}
+        onShifted={landShift}
       />
       <RequestsSheet
         open={sheet?.kind === 'requests'}

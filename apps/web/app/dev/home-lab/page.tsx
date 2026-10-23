@@ -57,6 +57,10 @@
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
+import { PapicCardStripView } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
+import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { labEventBar } from '@/app/dev/bar-lab/lab-event';
 import { DayOfModeGrid } from '@/app/dashboard/[eventId]/_components/day-of-mode/grid';
@@ -164,10 +168,34 @@ const STATES: Record<string, HomeNextInput> = {
   plan: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: false },
 };
 
+/* 📷 PAPIC'S CARD (owner 2026-10-23, "expanding opens the rest of the settings under it") — `?card=1[&cardphase=before|live|after]`:
+   the REAL card and coverage words on fixture dates, a strip of fixture frames (the real view), and the REAL camera
+   settings (in a lab with no database they say "couldn't load" — the failed-read state, drawn as it ships). */
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean): PapicCardInput {
+  const startIso = '2026-12-10T16:00:00.000Z';
+  const endIso = '2026-12-13T04:00:00.000Z';
+  const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
+  const ph = papicCardPhase(startIso, endIso, now);
+  const tones = [['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'], ['#B8788D', '#6D3F50']];
+  const frames = tones.map(([a, b], i) => ({
+    id: `f${i}`,
+    url:
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="160" height="160" fill="url(#g)"/></svg>`),
+  }));
+  return {
+    coverage: papicCoverageWords({ startIso, endIso, now }),
+    phase: ph,
+    strip: <PapicCardStripView eventId={eventId} frames={failed ? null : ph === 'before' ? [] : frames} total={failed ? null : ph === 'before' ? 0 : 1284} phase={ph} />,
+    thankYouHref: '#thank-you',
+    settings: <PapicCameraSettings eventId={eventId} credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }} />,
+  };
+}
+
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -425,6 +453,7 @@ export default async function HomeLab({
         }
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {

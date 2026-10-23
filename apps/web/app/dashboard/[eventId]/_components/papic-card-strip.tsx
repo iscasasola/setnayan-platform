@@ -44,13 +44,7 @@ export async function PapicCardStrip({
   ]);
   if (seat.error) logQueryError('PapicCardStrip.seat', seat.error, { eventId }, 'graceful_degrade');
   if (guest.error) logQueryError('PapicCardStrip.guest', guest.error, { eventId }, 'graceful_degrade');
-  if (seat.error || guest.error) {
-    return (
-      <p role="status" className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="refused">
-        Couldn’t load your photos — nothing has changed
-      </p>
-    );
-  }
+  if (seat.error || guest.error) return <PapicCardStripView eventId={eventId} frames={null} total={total} phase={phase} />;
   type Row = { id: string; at: string; ref: string | null };
   const rows: Row[] = [
     ...(seat.data ?? []).map((r) => ({ id: r.photo_id as string, at: r.captured_at as string, ref: memoriesRefs(r as Parameters<typeof memoriesRefs>[0]).grid })),
@@ -59,14 +53,36 @@ export async function PapicCardStrip({
     .filter((r) => r.ref)
     .sort((a, b) => (a.at < b.at ? 1 : -1))
     .slice(0, 5);
-  if (rows.length === 0) {
+  const frames = await Promise.all(rows.map(async (r) => ({ id: r.id, url: await displayUrlForStoredAsset(r.ref!) })));
+  return <PapicCardStripView eventId={eventId} frames={frames} total={total} phase={phase} />;
+}
+
+/** The strip as drawn — `frames` null = the read was refused (said, never an empty strip). */
+export function PapicCardStripView({
+  eventId,
+  frames,
+  total,
+  phase,
+}: {
+  eventId: string;
+  frames: { id: string; url: string | null }[] | null;
+  total: number | null;
+  phase: PapicCardPhase | null;
+}) {
+  if (frames === null) {
+    return (
+      <p role="status" className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="refused">
+        Couldn’t load your photos — nothing has changed
+      </p>
+    );
+  }
+  if (frames.length === 0) {
     return (
       <p className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="empty">
         {phase === 'before' ? 'Frames fill as your guests shoot' : 'No photos yet'}
       </p>
     );
   }
-  const frames = await Promise.all(rows.map(async (r) => ({ id: r.id, url: await displayUrlForStoredAsset(r.ref!) })));
   const memories = `/dashboard/${eventId}/memories`;
   const more = total !== null ? Math.max(0, total - frames.length) : 0;
   const drawn = frames.slice(0, more > 0 ? 4 : 5);

@@ -34,5 +34,18 @@ desktop are exactly as before.
   `lib/the-app-never-steers-to-the-web.test.ts` reads every string in app/ and lib/ (and every Help answer the app
   shows through `helpBodyFor`).
 
+- ✦ **Setnayan AI = four Apple products, one per web tier** (owner 23 Oct): `com.setnayan.app.setnayan_ai` stays Tier
+  A; `setnayan_ai_tier_b` · `_tier_c` · `_tier_d` added. All sell the one `SETNAYAN_AI` order; each is floored on its
+  tier's catalogue row (`iapPriceRowFor` → `AI_TIER_SKU`). The tier is read the way the web's charge reads it
+  (`resolveAiBandForEventType`, same per-event switch; off ⇒ Tier A for all); Tier E not offered. The intent refuses a
+  product of another tier (`iapProductFitsAiTier`). The door says "One purchase · yours for this event." — never
+  "wedding", never a sign-up or comeback price.
+- Review fixes: the steering guard now also reads every page the app opens with the gate ON; a Sai lights up / is
+  offered in the app only where Apple sells THIS event's tier; "Remove Pro changes" is one save and one undo step
+  (`dropAllHubProEffects`); Music Maker, Patiktok and the Mood Board pack draw Apple's door only while the catalogue
+  (and, for the pack, the 50-render config) still sells it; no web price, VAT or GCash / BDO details are read or
+  shipped to the app's client components (`STORE_SHELL_NO_PAY_SETTINGS`); Patiktok's "custom reel template … our
+  team will quote" is `data-web-only`.
+
 SPEC IMPACT: DECISION_LOG.md row "23 Oct: five more Apple products" (corpus) — the second wave of In-App Purchase,
 the product ids, and the Setnayan AI band question left open for the owner.

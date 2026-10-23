@@ -127,7 +127,10 @@ export function railMatchRows(who: {
       the gap — that is the exact defect this file already records, a row lit
       on a URL that is not its own.
     */
-    ...(who.signedIn ? [{ key: 'find', href: '/explore' }] : []),
+    // 🧭 2026-10-23: "Find suppliers" is a SIGNED-OUT row now (owner 2026-10-01);
+    // Features is a row for everyone. Both match only their own pages.
+    ...(who.signedIn ? [] : [{ key: 'find', href: '/explore' }]),
+    { key: 'features', href: '/features' },
     ...(who.signedIn
       ? [
           // EXACT: every account spoke lives under /dashboard, so a prefix

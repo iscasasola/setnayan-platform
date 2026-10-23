@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d04577bb8a",
-  "routeCount": 462,
+  "generatedFromRef": "014cc6d0b5",
+  "routeCount": 463,
   "destinations": 1003,
-  "actions": 667,
-  "blocks": 6863,
+  "actions": 666,
+  "blocks": 6873,
   "routes": {
     "/": {
       "files": [
@@ -5191,7 +5191,6 @@
         "Layer",
         "LifeStorySection",
         "Link",
-        "MiniTour",
         "PageMasthead",
         "PeopleFilter",
         "PeoplePreview",
@@ -5208,6 +5207,7 @@
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Spotlight",
         "SubmitButton",
         "T",
         "ThumbField",
@@ -5263,7 +5263,6 @@
         "updateDiscoverableByName",
         "updateLocalePreference",
         "updatePersonalInfo",
-        "updatePlannerMode",
         "updatePublicGreeting",
         "updatePublicProfileEnabled",
         "updateRemindersEnabled",
@@ -5490,6 +5489,7 @@
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
+        "Spotlight",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -8690,6 +8690,7 @@
         "HubDraftField",
         "ISeg",
         "ISegmented",
+        "IapUnlockSheet",
         "ImageData",
         "IncDressCodeStarterNote",
         "InfoTip",
@@ -8791,6 +8792,7 @@
         "EventRow",
         "Field",
         "HTMLFormElement",
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "ListPageSkeleton",
@@ -9246,6 +9248,7 @@
         "HTMLDivElement",
         "HTMLVideoElement",
         "HowItWorks",
+        "IapUnlockSheet",
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
@@ -9460,6 +9463,7 @@
       ],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
@@ -9477,6 +9481,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "PageMasthead",
         "PaidMark",
@@ -10948,6 +10953,17 @@
         "YourShotsGallery"
       ]
     },
+    "/dev/iap-doors-lab": {
+      "files": [
+        "dev/iap-doors-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "IapUnlockSheet",
+        "StudioBuyHero"
+      ]
+    },
     "/dev/maker-lab": {
       "files": [
         "dev/maker-lab/lab-draft.ts",
@@ -11133,6 +11149,7 @@
     },
     "/dev/people-lab": {
       "files": [
+        "dev/people-lab/lab-tour.tsx",
         "dev/people-lab/page.tsx"
       ],
       "destinations": [],
@@ -11141,8 +11158,10 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "LabTour",
         "PeopleRosterView",
         "RosterPerson",
+        "SpotlightMount",
         "TreeStandIn"
       ]
     },

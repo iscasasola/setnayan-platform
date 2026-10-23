@@ -52,8 +52,9 @@ const LAB_ENGINE = 'app/dev/maker-lab/lab-draft.ts';
  *   HUB_DRAFT_FIELD · HUB_RESET_NEVER_TOUCHES  constants (a form field's name; the reset sheet's words)
  *   hubDraftOutcome · hubDraftAnswer          read an answer the server already gave (a few lines each)
  *   isHubDraftIntent                          one membership test
+ *   HUB_DROP_ALL_PRO                          a constant — the `effect` "Remove Pro changes" sends (2026-10-23)
  */
-const WIRE = ['HUB_DRAFT_FIELD', 'HUB_RESET_NEVER_TOUCHES', 'hubDraftAnswer', 'hubDraftOutcome', 'isHubDraftIntent'];
+const WIRE = ['HUB_DRAFT_FIELD', 'HUB_RESET_NEVER_TOUCHES', 'hubDraftAnswer', 'hubDraftOutcome', 'isHubDraftIntent', 'HUB_DROP_ALL_PRO'];
 /** The engine's own files: its reducers' callers and its readers. */
 const ENGINE_FILES = ['lib/hub-draft-change-lines.ts', 'lib/hub-pro-effects.ts', 'lib/hub-draft-store.ts', LAB_ENGINE];
 

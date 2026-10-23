@@ -49,7 +49,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { railToolsSignedIn, railToolsSignedOut } from '@/lib/studio-rail';
+import { railToolsSignedIn } from '@/lib/studio-rail';
 import { STUDIO_HUB_ALL_LABEL, studioHubHref } from '@/lib/studio-hub';
 import { STUDIO_APPS } from '@/lib/studio-apps';
 import { STUDIO_ABSORBED } from '@/lib/customer-menu';
@@ -122,18 +122,16 @@ test('inside an event every Studio product is still reached, and its page lights
 
 test('the shell does not ALSO draw the Studio group inside an event', () => {
   /*
-    Listed once. The event layout names its event (`studioEventId`), and the
-    rail's caller hands the group an EMPTY list for it — said by the list, per
-    `the-rail-renders-what-it-is-handed.test.ts`, never by a second gate at the
-    group's render boundary.
+    Listed once — at its moment in the event's own menu. Since 2026-10-23 the
+    rail draws no Studio group ANYWHERE (owner 2026-10-01: one Features row), so
+    the caller hands the shell no tool list at all.
   */
   const shellHost = code(read('app', '_components', 'frontdoor', 'app-rail-shell.tsx'));
-  assert.match(
+  assert.doesNotMatch(
     shellHost,
-    /tools=\{\s*studioEventId\s*\?\s*\[\]\s*:/,
-    'inside an event the shell draws the Studio group again — every product ' +
-      'would be listed twice, once at its moment and once under a heading the ' +
-      'owner dissolved (2026-09-24)',
+    /\btools=\{/,
+    'the rail is handed a Studio list again — inside an event every product ' +
+      'would be listed twice, and outside one the owner ruled it off (2026-10-01)',
   );
 });
 
@@ -149,14 +147,9 @@ test('"Browse by category" is not drawn inside an event', () => {
 
 /* ── 2 · THE ROWS OPEN *THAT* EVENT ───────────────────────────────────────── */
 
-test('the event layout tells the rail which wedding is open', () => {
-  assert.match(
-    LAYOUT,
-    /studioEventId=\{eventId\}/,
-    'the event layout stopped naming its own event, so the Studio rows fall ' +
-      'back to guessing — and somebody with two weddings gets sent to the ' +
-      'board to pick while already standing inside one.',
-  );
+test('the event layout builds the product rows for the wedding that is open', () => {
+  // (It no longer names its event to the rail: the rail has no Studio group
+  // since 2026-10-23. The ✦ rows below are the event menu's own.)
   assert.match(
     LAYOUT,
     /railToolsSignedIn\(\{\s*eventId,\s*count:\s*1,\s*profile\s*\}\)/,
@@ -234,10 +227,6 @@ test('with no event there is no shelf row, because there is no shelf', () => {
       'an "All services" row with no event to open would be a fake door',
     );
   }
-  assert.ok(
-    railToolsSignedOut().every((r) => r.name !== STUDIO_HUB_ALL_LABEL),
-    'a stranger is offered a door into somebody else’s services shelf',
-  );
 });
 
 test('the event menu has exactly one door to the shelf, and it is called Suite or Studio once', () => {

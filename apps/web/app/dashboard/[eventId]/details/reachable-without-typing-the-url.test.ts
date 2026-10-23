@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import { PEOPLE_GROUP_COPY } from '@/lib/event-people-roster';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -160,7 +161,10 @@ function hasDoor(segment: string, railHrefs: string[]): boolean {
 
 test('the pages people go to are linked from the event rail, not just addressable', () => {
   const hrefs = drawnRailHrefs();
-  assert.ok(hrefs.length >= 5, 'the rail lost destinations — every check below would pass vacuously');
+  // The floor is the ruled bar (owner 22 Oct 2026, "Yes remove more"): every tab's page is a drawn rail destination.
+  const bar = buildCustomerMenuTree('EVT123', { websiteEnabled: true }).map((m) => m.href.split('?')[0]!);
+  assert.ok(bar.length >= 4, 'the bar lost a ruled tab — every check below would pass vacuously');
+  for (const tab of bar) assert.ok(hrefs.includes(tab), `the rail lost ${tab} — every check below would pass vacuously`);
 
   const unreachable = MUST_HAVE_A_DOOR.filter(({ segment }) => !hasDoor(segment, hrefs)).map(({ segment, whatIsLost }) => `${segment} — ${whatIsLost}`);
 

@@ -230,6 +230,30 @@ test('the invite refuses what it cannot carry: a couple-made offer, a plan with 
   await assert.rejects(db.query(`SELECT public.claim_ready_the_invited_shop($1, 'anything')`, [uid]), /permission denied/);
 });
 
+test('only an admin writes a Setnayan invite: a signed-in non-admin cannot create one carrying an offer, nor see one', async () => {
+  // The offer columns inherit vendor_invites' table-level grants (exposure baseline). What keeps a free plan out of
+  // a non-admin's reach is the ROW: source = 'admin' rows pass only vendor_invites_admin_write_all, and the couple
+  // policies need a vendor_id that the admin CHECK forbids. If either is ever relaxed, this goes red.
+  const { token } = await adminInvites(adminUid, 'Hidden Offer', 'caterer', { tier: 'enterprise', untilDays: 60 });
+  const uid = await signUp('plain-user@example.ph', 'customer');
+  await asUser(uid);
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_invites (vendor_id, email, business_name, claim_token, status, source, expires_at, offer_tier, offer_until)
+       VALUES (NULL, 'plain-user@example.ph', 'Self Gift', 'self-gift-1', 'pending', 'admin', now() + interval '9 days', 'enterprise', now() + interval '999 days')`,
+    ),
+    /row-level security/,
+  );
+  const seen = await db.query(`SELECT 1 FROM public.vendor_invites WHERE claim_token = $1`, [token]);
+  assert.equal(seen.rows.length, 0, 'a non-admin can read a Setnayan invite and its offer');
+  const changed = await db.query(
+    `UPDATE public.vendor_invites SET offer_until = now() + interval '999 days' WHERE claim_token = $1 RETURNING 1`,
+    [token],
+  );
+  assert.equal(changed.rows.length, 0, 'a non-admin moved a Setnayan invite\'s gift date');
+  await asOwner();
+});
+
 test('the shop can read its allowance but never write it; a stranger cannot read it', async () => {
   const { token, email } = await adminInvites(adminUid, 'Self Grant', 'hmua', { photos: 100 });
   const uid = await signUp(email, 'vendor');

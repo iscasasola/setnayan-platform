@@ -26,6 +26,10 @@ admin invite and claim flow.
   Solo — paid or given — now returns to verified/free on the next dashboard visit, credit rule unchanged. Found by the
   new db test ("Solo free until <day>" never ended). Prod, measured read-only 2026-10-23: 2 Solo shops, both admin
   comps, ₱0 credit; one already past its day — the only row it changes.
+- **Exposure baseline** — the four new columns are added to `supabase/security/exposure-surface.baseline.txt`
+  deliberately: they inherit `vendor_invites`' table-level grants, but an offer only lives on a `source = 'admin'` row,
+  which only `vendor_invites_admin_write_all` admits (the couple policies need a `vendor_id` the admin CHECK forbids).
+  Proven by the db test "only an admin writes a Setnayan invite" (red under a sabotage open policy).
 - **Door (B1)** — `TeamInviteDoor`: "Your invite · Your shop is ready, <name>." + **Your offer** rows.
 - **Landing (B4)** — the claim lands on Shop › Your details; staged rows read "from your invite".
 - **Today (B6 · C2)** — "Add to the inspiration library" is a counted first step for trades that supply a part

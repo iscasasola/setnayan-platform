@@ -34,7 +34,7 @@ type SubscriptionRow = {
 };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
-const TIER_LABEL: Record<string, string> = { pro: 'Pro', enterprise: 'Enterprise' };
+const TIER_LABEL: Record<string, string> = { pro: 'Pro', enterprise: 'Ultra' };
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleString('en-PH', {
@@ -176,7 +176,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
           }
         />
         <p className="max-w-prose text-sm text-ink/70">
-          Suppliers upgrade to Pro / Enterprise apply-then-pay: they pay our BDO /
+          Suppliers upgrade to Pro / Ultra apply-then-pay: they pay our BDO /
           GCash account with the reference code, then you confirm here. Confirming
           activates the plan and nothing else — it is safe to press twice, a
           repeat is a no-op.

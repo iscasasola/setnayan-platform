@@ -28,7 +28,7 @@ import {
   VENDOR_TIER_SECTIONS,
   customTierDialLabels,
 } from '@/app/_components/home/vendor-benefits';
-import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
 
 /*
  * ⚠ CUSTOM'S "FROM" PRICE IS NOW A PROP, AND THE REGEX THAT USED TO FIND IT IS
@@ -184,19 +184,14 @@ function buildLimitsGroup(): Group {
       row('Team seats', (c, col) =>
         col === 'custom' ? CUSTOM : c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)),
       ),
-      row('Bookable slots / day', (c, col) =>
-        col === 'custom' ? CUSTOM : c.slotsPerDay === 0 ? NO : val(num(c.slotsPerDay)),
-      ),
-      row('Portfolio photos', (c, col) =>
-        col === 'custom' ? CUSTOM : val(num(c.portfolioPhotos)),
-      ),
-      row('Answer matched couples / week', (c) =>
-        c.inAppCustomersPerWeek === Infinity
-          ? val('Unlimited')
-          : c.inAppCustomersPerWeek === 0
-            ? NO
-            : val(`${c.inAppCustomersPerWeek}`),
-      ),
+      // ⛔ "Bookable slots / day", "Portfolio photos" and "Answer matched couples /
+      // week" were rows here until 2026-10-23. The owner ruled that plans price
+      // REACH, never the things that earn a booking fee ("We want everybody to be
+      // able to give us booking fee"): every plan now takes as many bookings a day
+      // as the supplier sets, answers every couple, and gets the same free photo
+      // base. Three columns of identical cells are not a comparison — the same
+      // treatment as the reviews row below. They are said once, on Free, in
+      // vendor-benefits.ts and the "What each plan adds" deltas. Do not re-add them.
       // ⛔ "Full written reviews shown" was a row here until 2026-08-09. It
       // advertised a vendor's own reviews as something they could BUY, which is
       // the opposite of the merit-first ranking lock. Reviews are now shown on
@@ -314,7 +309,7 @@ export function VendorTierMatrix({
     verified: { name: 'Free · Verified', price: '₱0', unit: 'forever' },
     solo: { name: 'Solo', ...tierTag(prices.soloMonthly, '/ 28d') },
     pro: { name: 'Pro', ...tierTag(prices.proMonthly, '/ 28d') },
-    enterprise: { name: 'Enterprise', ...tierTag(prices.enterpriseMonthly, '/ 28d') },
+    enterprise: { name: TIER_LABEL.enterprise, ...tierTag(prices.enterpriseMonthly, '/ 28d') },
     custom: {
       name: 'Custom',
       price: prices.customFrom ?? 'Custom',
@@ -347,7 +342,7 @@ export function VendorTierMatrix({
           Every benefit as a row, every plan as a column. Free · Verified is the
           whole ops spine; each paid tier adds more and includes everything
           before it — and <strong style={{ color: 'var(--m-ink)' }}>Custom</strong>{' '}
-          is built for franchises and chains that need more than Enterprise. Tap a
+          is built for franchises and chains that need more than Ultra. Tap a
           plan to highlight its column.
         </p>
 
@@ -538,7 +533,7 @@ export function VendorTierMatrix({
         <p className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-slate-3)', marginTop: 14, lineHeight: 1.5, maxWidth: 760 }}>
           Every benefit, every tier &mdash; ~90 in all.{' '}
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
-          are billed per 28-day cycle. Enterprise is a bounded plan; franchises &amp;
+          are billed per 28-day cycle. Ultra is a bounded plan; franchises &amp;
           multi-location go Custom.{' '}
           {/* 🔴 "0% commission while we launch" plus a HAND-TYPED schedule:
               two ways to go stale in one sentence, and the launch half was
@@ -580,7 +575,7 @@ export function VendorTierMatrix({
               }}
             >
               <span aria-hidden style={{ width: 24, height: 1, background: 'var(--m-orange)' }} />
-              Custom · beyond Enterprise
+              Custom · beyond Ultra
               {prices.customFrom ? <> &middot; {prices.customFrom}</> : null}
             </span>
             <h3 className="m-serif" style={{ fontSize: 28, fontWeight: 600, margin: '14px 0 8px', color: '#fff' }}>
@@ -588,7 +583,7 @@ export function VendorTierMatrix({
             </h3>
             <p style={{ fontSize: 14, color: '#c7bca4', margin: 0, maxWidth: '46ch', lineHeight: 1.55 }}>
               Franchises, chains and multi-location houses compose their own plan
-              &mdash; Enterprise as the base, then only the units they need, with a
+              &mdash; Ultra as the base, then only the units they need, with a
               dedicated account team.
             </p>
           </div>

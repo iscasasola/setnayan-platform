@@ -26,7 +26,7 @@ const peso = (n: number) =>
 
 const TIER_LABEL: Record<string, string> = {
   pro: 'Pro',
-  enterprise: 'Enterprise',
+  enterprise: 'Ultra',
 };
 
 /**

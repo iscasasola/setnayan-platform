@@ -472,25 +472,18 @@ async function resolveBranchId(
 
 /**
  * Parse the vendor-declared daily booking capacity (#2). Empty → null (unset →
- * no per-service daily cap). Capped by the tier's slotsPerDay: FREE 0 (can't
- * set), VERIFIED 1, PRO 3, ENTERPRISE ∞.
+ * no per-service daily cap; the schedule decides).
+ *
+ * ⚖ NO PLAN LIMIT (owner 2026-10-23, "plans price reach, not income"): the
+ * supplier's own number governs on every plan. This used to refuse Free ("need a
+ * paid plan") and cap the rest at the plan's `slotsPerDay` (Verified/Solo 1 ·
+ * Pro 3 · Enterprise 8). The column's own CHECK (> 0) is the only rule left.
  */
-function parseDailyCapacityOrThrow(
-  raw: FormDataEntryValue | null,
-  slotsCap: number,
-): number | null {
+function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   const n = Number(raw.trim());
   if (!Number.isInteger(n) || n < 1) {
     throw new Error('Daily capacity must be a positive whole number.');
-  }
-  if (slotsCap === 0) {
-    throw new Error('Daily bookings need a paid plan — upgrade to set a capacity.');
-  }
-  if (n > slotsCap) {
-    throw new Error(
-      `Your plan allows up to ${slotsCap} booking${slotsCap === 1 ? '' : 's'} per day for a service. Upgrade for more.`,
-    );
   }
   return n;
 }
@@ -725,13 +718,10 @@ export async function createVendorService(formData: FormData) {
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
       : baseCaps;
 
-  // (0) Per-service daily capacity (#2), capped by the tier's slotsPerDay.
+  // (0) Per-service daily capacity (#2) — the supplier's own number, no plan limit (2026-10-23).
   let daily_capacity: number | null;
   try {
-    daily_capacity = parseDailyCapacityOrThrow(
-      formData.get('daily_capacity'),
-      caps.slotsPerDay,
-    );
+    daily_capacity = parseDailyCapacityOrThrow(formData.get('daily_capacity'));
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
@@ -1020,19 +1010,10 @@ export async function updateVendorService(formData: FormData) {
   }
   const branch_id = branchPick.branchId;
 
-  // Per-service daily capacity (#2), capped by the tier's slotsPerDay.
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
+  // Per-service daily capacity (#2) — the supplier's own number, no plan limit (2026-10-23).
   let daily_capacity: number | null;
   try {
-    daily_capacity = parseDailyCapacityOrThrow(
-      formData.get('daily_capacity'),
-      tierCaps(asVendorTier((tierRow as { tier_state?: string | null } | null)?.tier_state))
-        .slotsPerDay,
-    );
+    daily_capacity = parseDailyCapacityOrThrow(formData.get('daily_capacity'));
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
@@ -1540,10 +1521,7 @@ export async function commitVendorService(formData: FormData) {
       last_minute_surcharge_pct: parseSurchargePctOrNull(
         formData.get('last_minute_surcharge_pct'),
       ),
-      daily_capacity: parseDailyCapacityOrThrow(
-        formData.get('daily_capacity'),
-        caps.slotsPerDay,
-      ),
+      daily_capacity: parseDailyCapacityOrThrow(formData.get('daily_capacity')),
       // ⛔ `exclusive_perk_text` IS DELIBERATELY ABSENT FROM THIS PAYLOAD.
       // `save_vendor_service` reads a missing key as "leave the stored value
       // alone" (migration 20271216515644) and a PRESENT key as set-or-clear.

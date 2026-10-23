@@ -73,7 +73,7 @@ before(async () => {
   adminUser = (await db.query<{ id: string }>(`INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('photos-admin@photos.test', '{}'::jsonb) RETURNING id`)).rows[0]!.id;
   await db.query(`UPDATE public.users SET account_type = 'admin' WHERE user_id = $1`, [adminUser]);
   for (const name of ['old', 'theme', 'video', 'foreign', 'copied', 'compressed', 'changed']) {
-    ev[name] = (await db.query<{ event_id: string }>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'wedding') RETURNING event_id`, [`Photos ${name}`])).rows[0]!.event_id;
+    ev[name] = (await db.query<{ event_id: string }>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id`, [`Photos ${name}`])).rows[0]!.event_id;
   }
   const hero = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.invitation_widgets WHERE widget_type = 'hero' AND event_id = ANY($1::uuid[])`, [Object.values(ev)]);
   assert.equal(hero.rows[0]!.n, Object.keys(ev).length, 'every fixture event was seeded a hero row — or the fixtures below are about nothing');

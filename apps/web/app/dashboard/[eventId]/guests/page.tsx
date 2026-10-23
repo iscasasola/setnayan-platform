@@ -74,7 +74,7 @@ import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle } from 
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { GuestPapicCamera } from './_components/guest-papic-camera';
-import { forTheCouple, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
+import { forTheCouple, papicAnswerOffered, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
 import { guestCardErrorCopy } from './_components/guest-card-error-copy';
@@ -889,7 +889,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // onto their card (F2). Couple only; one more read, only when a card is open.
   const inspectedHelper =
     inspectedGuest && inspectedCard?.canManageAccess && inspectedHelperP ? await inspectedHelperP : null;
-  const inspectedPapic = inspectedGuest && inspectedCard && inspectedPapicP ? forTheCouple(await inspectedPapicP, inspectedCard.canManageAccess) : null;
+  const inspectedPapic = inspectedGuest && inspectedCard && inspectedPapicP ? forTheCouple(await inspectedPapicP, inspectedCard.canManageAccess, papicAnswerOffered(eventProfile)) : null;
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;

@@ -17,7 +17,8 @@ import { GuestCardBody } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
 import { GuestPapicCamera } from '../_components/guest-papic-camera';
-import { forTheCouple, readGuestPapic } from '../_components/guest-papic-read';
+import { forTheCouple, papicAnswerOffered, readGuestPapic } from '../_components/guest-papic-read';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
 import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
@@ -62,7 +63,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [data, inviteSetup, papicRead, storeShell] = await Promise.all([
+  const [data, inviteSetup, papicRead, storeShell, profile] = await Promise.all([
     loadGuestCard(supabase, eventId, guestId),
     // Send invite · Copy message — the event's words + the couple's wording.
     loadInviteSetup(supabase, eventId),
@@ -70,10 +71,12 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     readGuestPapic(eventId, guestId),
     // 🍎 The app never names Papic (a paid service): there the group stays the shipped "Photos" row.
     isStoreShellRequest(),
+    // 🚪 Does this type ask "Photos from your guests?" — whether "Papic is off" may carry a door there (one cached read).
+    resolveProfileByEvent(eventId),
   ]);
   if (!data) notFound();
   const { guest } = data;
-  const papic = forTheCouple(papicRead, data.canManageAccess);
+  const papic = forTheCouple(papicRead, data.canManageAccess, papicAnswerOffered(profile));
   // A limited helper's grants, colours and record (the Hosts fold, F2) — couple only.
   const helper = data.canManageAccess
     ? await loadGuestHelperCard({ eventId, guestId, viewerUserId: user.id, displayName: guestDisplayName(guest) })

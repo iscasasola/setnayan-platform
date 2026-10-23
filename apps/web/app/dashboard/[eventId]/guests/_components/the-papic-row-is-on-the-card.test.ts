@@ -175,6 +175,14 @@ test('2c · "Turn on ›" lands on the switch — the Event Details answer when 
   const state: GuestPapicState = { access: 'off', ceiling: 40, door: '/dashboard/e1/studio/papic' };
   assert.deepEqual(forTheCouple(state, true), state);
   assert.deepEqual(forTheCouple(state, false), { access: 'off', ceiling: undefined, door: null }, 'a non-couple is handed the camera or the door');
+  // The host's "No" is turned back on in Event Details — only where that event type asks the question.
+  const no: GuestPapicState = { access: 'off', ceiling: null, door: '/dashboard/e1/details/field/papic-answer', answeredNo: true };
+  assert.equal(forTheCouple(no, true, true)?.door, '/dashboard/e1/details/field/papic-answer');
+  assert.equal(forTheCouple(no, true, false)?.door, null, 'a door to an Event Details answer this event type never asks');
+  assert.equal(forTheCouple(state, true, false)?.door, '/dashboard/e1/studio/papic', 'the Papic page door depends on the Event Details question');
+  for (const page of [join(HERE, '..', 'page.tsx'), join(HERE, '..', '[guestId]', 'page.tsx')]) {
+    assert.match(stripComments(readFileSync(page, 'utf8')), /forTheCouple\([^;]*papicAnswerOffered\((?:eventProfile|profile)\)\)/, `${page}: the door is not gated on the event type asking the question`);
+  }
   const src = read('guest-papic-read.ts');
   assert.match(src, /eventPapicGuestAccessWhy\(createAdminClient\(\), eventId\)/, 'the card asks why Papic is off with a read of its own');
   assert.match(src, /door: why\.access === 'off' \? papicSwitchHref\(eventId, why\.answeredNo\) : null/);

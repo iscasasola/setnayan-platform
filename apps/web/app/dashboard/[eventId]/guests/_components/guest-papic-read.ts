@@ -2,6 +2,7 @@ import 'server-only';
 
 import { eventPapicGuestAccess, eventPapicGuestAccessWhy, type PapicGuestAccess } from '@/lib/papic-guest';
 import { recordFieldHref } from '@/lib/event-details-record';
+import { profileSetup, surfaceEnabled, type EventTypeProfile } from '@/lib/event-type-profile';
 import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -50,16 +51,32 @@ export async function readGuestPapic(eventId: string, guestId: string): Promise<
     eventPapicGuestAccessWhy(createAdminClient(), eventId).catch(() => ({ access: 'unknown' as const, answeredNo: false })),
     readCeiling(eventId, guestId),
   ]);
-  return { access: why.access, ceiling, door: why.access === 'off' ? papicSwitchHref(eventId, why.answeredNo) : null };
+  return {
+    access: why.access,
+    ceiling,
+    door: why.access === 'off' ? papicSwitchHref(eventId, why.answeredNo) : null,
+    answeredNo: why.access === 'off' && why.answeredNo,
+  };
+}
+
+/**
+ * Does this event type ASK "Photos from your guests?" in Event Details — an Event Hub, and a camera it offers (the same
+ * test `details/page.tsx` draws the `papic-answer` row by)? Where it does not, there is no answer to turn back on there.
+ */
+export function papicAnswerOffered(profile: EventTypeProfile): boolean {
+  return surfaceEnabled(profile, 'website') && profileSetup(profile).cameraDefault !== 'off';
 }
 
 /**
  * What the card may show: the camera — and the door to turn Papic on — are the couple's (the same people who may change
- * the answer and set a camera); anyone else gets the event's Papic only, with no door they could not walk through.
+ * the answer and set a camera); anyone else gets the event's Papic only, with no door they could not walk through. And a
+ * door to the Event Details answer only where that event type asks it (`answerOffered`, `papicAnswerOffered`).
  */
-export function forTheCouple(papic: GuestPapicState | null, couple: boolean): GuestPapicState | null {
+export function forTheCouple(papic: GuestPapicState | null, couple: boolean, answerOffered = true): GuestPapicState | null {
   if (!papic) return null;
-  return couple ? papic : { access: papic.access, ceiling: undefined, door: null };
+  if (!couple) return { access: papic.access, ceiling: undefined, door: null };
+  // The host's "No" lives in Event Details — a door there only where that type asks the question (`papicAnswerOffered`).
+  return papic.answeredNo && !answerOffered ? { ...papic, door: null } : papic;
 }
 
 async function readCeiling(eventId: string, guestId: string): Promise<number | null | undefined> {

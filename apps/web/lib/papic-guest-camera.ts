@@ -30,6 +30,8 @@ export type GuestPapicState = {
    * cannot turn Papic on, and the row says "Papic is off" with no door.
    */
   door?: string | null;
+  /** Papic is off because the host answered "Photos from your guests? — No" (Event Details) — where `door` then lands. */
+  answeredNo?: boolean;
 };
 
 export const GUEST_CAMERA_CHOICES: readonly GuestCamera[] = ['share', 'set', 'none'];

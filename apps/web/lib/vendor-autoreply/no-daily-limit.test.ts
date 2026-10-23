@@ -30,15 +30,14 @@ import { fileURLToPath } from 'node:url';
 import { evaluateAutoReplyGate } from './inbox-decision';
 import { evaluateAutoAccept } from './auto-accept-decision';
 import { parseAutoReplyConfigForm } from './config';
+import { stripComments } from '../strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
-/** Code only: block and line comments removed, so a docblock that EXPLAINS the retirement never trips it. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
-}
+/** Code only — the house stripper — so a docblock that EXPLAINS the retirement never trips it. */
+const code = stripComments;
 
 const RUNTIME_FILES = [
   ...readdirSync(HERE)

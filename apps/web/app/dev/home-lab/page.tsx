@@ -28,6 +28,8 @@
  *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
  *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=papic&need=1               🧮 the sheet reads its sizes AND "How many do I need?" on the tap, as the page does
+ *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
  *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
@@ -326,7 +328,7 @@ export default async function HomeLab({
     const band = (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
-          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} apple={q.apple === '1'} />
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={q.need === '1' ? undefined : LAB_SIZES} apple={q.apple === '1'} />
         </div>
       </div>
     );

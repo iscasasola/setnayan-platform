@@ -1178,13 +1178,34 @@ export async function setPapicWindow(formData: FormData) {
  */
 export async function papicBuySizes(
   rawEventId: string,
-): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
+): Promise<
+  | {
+      ok: true;
+      rungs: PoolRung[];
+      /**
+       * 🧮 "How many do I need?" (owner 2026-10-23) — the event's own inputs, never a guess: the head count the
+       * allotment rule divides by (`papic_event_guest_headcount`; null = the read was refused) and the per-guest
+       * number only when the couple has set one (null = none — the sheet asks).
+       */
+      need: { coming: number | null; perGuest: number | null };
+    }
+  | { ok: false; reason: 'not_couple' | 'over' | 'none' }
+> {
   const who = await getCoupleEventId(rawEventId);
   if (!who.ok) return { ok: false, reason: 'not_couple' };
   const admin = createAdminClient();
   if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
-  const rungs = await loadPoolRungs(admin);
-  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
+  const [rungs, headRes, capRes] = await Promise.all([
+    loadPoolRungs(admin),
+    admin.rpc('papic_event_guest_headcount', { p_event_id: who.eventId }),
+    admin.from('events').select('papic_guest_spend_ceiling_on, papic_guest_spend_ceiling_points').eq('event_id', who.eventId).maybeSingle(),
+  ]);
+  if (headRes.error) logQueryError('papicBuySizes.headcount', headRes.error, { event_id: who.eventId }, 'graceful_degrade');
+  if (capRes.error) logQueryError('papicBuySizes.ceiling', capRes.error, { event_id: who.eventId }, 'graceful_degrade');
+  const coming = headRes.error || typeof headRes.data !== 'number' ? null : headRes.data;
+  const cap = capRes.data as { papic_guest_spend_ceiling_on?: boolean | null; papic_guest_spend_ceiling_points?: number | null } | null;
+  const perGuest = cap?.papic_guest_spend_ceiling_on === true && typeof cap.papic_guest_spend_ceiling_points === 'number' ? cap.papic_guest_spend_ceiling_points : null;
+  return rungs.length > 0 ? { ok: true, rungs, need: { coming, perGuest } } : { ok: false, reason: 'none' };
 }
 
 /**

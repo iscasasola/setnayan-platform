@@ -6,6 +6,7 @@ import { CreditStepper, type StepperRung } from './credit-stepper';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { purchasePapicPoolTopUp } from '../actions';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
+import { CreditNeed } from './credit-need';
 
 /**
  * THE ONE CREDIT FORM — the shipped − / + stepper, the one added line "After
@@ -20,14 +21,22 @@ export function PapicBuyForm({
   eventId,
   rungs,
   left,
+  need = null,
 }: {
   eventId: string;
   rungs: readonly PoolRung[];
   /** Credits left now — null when not measured (then "After this" is not said). */
   left: number | null;
+  /** 🧮 The event's own inputs for "How many do I need?" — absent in a caller that has none (the helper is not drawn). */
+  need?: { coming: number | null; perGuest: number | null } | null;
 }) {
   const [adds, setAdds] = useState<number | null>(rungs[0]?.points ?? null);
-  const onRung = useCallback((r: StepperRung) => setAdds(r.points), []);
+  const [shown, setShown] = useState<StepperRung | null>(rungs[0] ?? null);
+  const onRung = useCallback((r: StepperRung) => {
+    setAdds(r.points);
+    setShown(r);
+  }, []);
+  const [jump, setJump] = useState<{ index: number; seq: number } | null>(null);
   if (rungs.length === 0) return null;
   return (
     <form action={purchasePapicPoolTopUp}>
@@ -36,7 +45,9 @@ export function PapicBuyForm({
       {/* ⚠ A DROPDOWN MADE THE PERSON READ SIXTEEN SENTENCES TO FIND ONE
           NUMBER. Owner 2026-08-28: *"we want a +- value and they will see how
           much will be added."* The stepper walks the SAME rungs. */}
-      <CreditStepper rungs={rungs} onRungChange={onRung} />
+      {need ? <CreditNeed need={need} left={left} rungs={rungs} onJump={(index) => setJump((j) => ({ index, seq: (j?.seq ?? 0) + 1 }))} /> : null}
+
+      <CreditStepper rungs={rungs} onRungChange={onRung} jump={jump} />
 
       {left !== null && adds !== null ? (
         <div className="sg-after" data-papic-after="">
@@ -55,7 +66,8 @@ export function PapicBuyForm({
           pendingLabel="Opening payment…"
           className="ab ab-brand ab-main sg-pay inline-flex min-h-11 w-full items-center justify-center"
         >
-          Continue to payment
+          {/* ONE Buy button that names the result (owner 2026-10-23). */}
+          {shown ? `Add ${shown.points.toLocaleString('en-PH')} credits · ${shown.priceLabel ?? `₱${shown.pricePhp.toLocaleString('en-PH')}`}` : 'Continue to payment'}
         </SubmitButton>
         <PayStep />
       </div>

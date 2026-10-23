@@ -728,8 +728,11 @@ export function useInBottomDock(): boolean {
  * turns into the page's bottom padding (`[data-shell-main]`), so the last row
  * of content always clears the dock whether or not a strip is up.
  *
- * 🔒 The fill is the bar's locked frosted paper (`rgba(248, 246, 240, 0.92)`,
- * NAV-9 — the white press light reads against it). It moved from the pill to
+ * 🔒 The fill is the bar's locked frosted paper (`--sn-dock-bg`, which is
+ * `rgba(248, 246, 240, 0.92)` in light — NAV-9, the white press light reads
+ * against it; `lint-bottom-nav.mjs` pins that light value in globals.css).
+ * 🌗 It is a TOKEN so dark has a pair (dark B1, 2026-10-23): painted inline,
+ * the bar stayed light under html.dark and its labels read 1.15:1. It moved from the pill to
  * the dock so the strip and the bar are one surface. No border: depth (blur +
  * shadow) separates chrome from page (house style 2026-09-24).
  *
@@ -793,7 +796,7 @@ export function BottomDock({
         }
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
-          background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
+          background: 'var(--sn-dock-bg)', // the frosted paper @ 92% — dark pair in globals.css
           // Cast UPWARD: the page is above the dock, not below it.
           boxShadow: '0 -10px 30px -14px rgba(30, 34, 41, 0.28)',
         }}
@@ -888,7 +891,7 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
           marginInline: 'auto',
           width: 'min(52px, calc(100% - 8px))',
           borderRadius: 'var(--m-r-full)',
-          background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
+          background: 'var(--sn-dock-pill)', // ink @ 15% — bolder so the active tab reads at a glance
         }}
       />
     </span>
@@ -930,7 +933,7 @@ function PressFlash({
           width: 'min(64px, calc(100% - 2px))',
           height: 90,
           borderRadius: 'var(--m-r-full)',
-          background: 'rgba(255, 255, 255, 0.95)',
+          background: 'var(--sn-dock-press)', // white @ 95% in light; a softer bloom in dark
           filter: 'blur(12px)',
           opacity: 0,
           transform: 'translate(-50%, -50%)',

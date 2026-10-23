@@ -475,7 +475,7 @@ export function SamahanStories({
           type="button"
           onClick={() => void openCamera()}
           disabled={busy !== 'idle' || myHourUsed}
-          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white dark:text-cream disabled:opacity-50"
         >
           {busy !== 'idle' ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -519,7 +519,7 @@ export function SamahanStories({
               <button
                 type="button"
                 onClick={() => goTo(0)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white"
+                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white dark:text-cream"
               >
                 <Play className="h-3.5 w-3.5" aria-hidden /> Play the day
               </button>

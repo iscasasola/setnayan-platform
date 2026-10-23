@@ -1,5 +1,6 @@
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import 'server-only';
+import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -181,7 +182,12 @@ async function loadAttendedAlbum(
   return { count: gallery.total, refs };
 }
 
-export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData> {
+/**
+ * ⚡ ONE READ PER REQUEST (2026-10-23, the speed pass): `cache()`d by user, so the Memories page can START it
+ * beside the wall it waits on (`library/page.tsx`), and the shelf and the Albums view — both drawn on the Albums
+ * view — share one answer instead of reading it twice.
+ */
+export const getPhotosAlbums = cache(async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData> {
   const { events, eventsMeasured } = await getSwitcherData(userId);
 
   // Public-landing slugs (for the Facebook share link) — best-effort under the
@@ -282,4 +288,4 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
     : null;
 
   return { albums: ordered, shareEvent, albumsMeasured: eventsMeasured };
-}
+});

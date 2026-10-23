@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { getPhotosAlbums } from './_data/photos-albums';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
 import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
@@ -10,7 +12,6 @@ import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { formatCount } from '@/lib/format-number';
-import { getPhotosAlbums } from './_data/photos-albums';
 import { MemoriesChapters } from './_components/memories-chapters';
 import { MemoriesThumb } from './_components/memories-thumb';
 import {
@@ -92,10 +93,9 @@ export default async function AlaalaPage({
   const sp = await searchParams;
   const active: ViewKey = resolveLibraryView(sp.tab);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The account layout already asked the auth server who this is (`getCurrentUser`, remembered per request) —
+  // asking again here was a second auth round trip on every open of Memories (2026-10-23, the speed pass).
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // ONE read, whichever lens is open — the same wall the home renders, opened
@@ -163,7 +163,7 @@ export default async function AlaalaPage({
             eventId={keep}
             lifeFlash={lifeStoryEnabled()}
             blocksFor={async (id) =>
-              (await fetchScheduleBlocks(supabase, id)).map((b) => ({
+              (await fetchScheduleBlocks(await createClient(), id)).map((b) => ({
                 blockId: b.block_id,
                 label: b.label,
                 startAt: b.start_at,

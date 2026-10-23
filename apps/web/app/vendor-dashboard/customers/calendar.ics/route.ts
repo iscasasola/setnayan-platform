@@ -4,6 +4,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorBlocksDetailed, fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { icsDocument, icsEscape } from '@/lib/ics-text';
 
 /**
  * PHONE CALENDAR — every booking as one .ics file (owner 2026-10-14 ✅ "APPROVE", prototype Dates › More settings
@@ -16,9 +17,6 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * one was given). From 30 days back, so last month's work is still there; never a couple's contact or note.
  */
 
-function icsEscape(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-}
 const ymd = (d: string) => d.replace(/-/g, '');
 const nextDay = (d: string) => {
   const [y, m, day] = d.split('-').map(Number);
@@ -42,6 +40,13 @@ export async function GET() {
     fetchVendorPoolBookings(supabase, vendorProfileId),
     fetchVendorBlocksDetailed(supabase, vendorProfileId),
   ]);
+  // A read that did not reach the end is said, never a file that imports "fine" with bookings missing from it.
+  if (!blocksRead.complete) {
+    return new NextResponse('Your bookings could not all be read just now, so no file was made. Please try again.', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
 
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Setnayan//Supplier bookings//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Setnayan bookings',
@@ -88,7 +93,7 @@ export async function GET() {
   }
   lines.push('END:VCALENDAR');
 
-  return new NextResponse(lines.join('\r\n'), {
+  return new NextResponse(icsDocument(lines), {
     status: 200,
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',

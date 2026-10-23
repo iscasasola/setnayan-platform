@@ -9,6 +9,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { reachableShops } from '@/lib/active-shop';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -49,6 +50,22 @@ export type SwitcherContext = {
    * (a second shooter, an assistant), even though the cap allows them one.
    */
   canOpenShop: boolean;
+  /**
+   * EVERY shop this login can open — one avatar-sheet row each (Direction 2, owner 2026-10-22). It used to be
+   * `vendorName` alone (`vendorProfiles[0]`), so a helper in two shops saw one. `reachableShops` decides the list
+   * (every shop this login owns AND every shop it helps in — owner 2026-10-22; lib/active-shop.ts).
+   */
+  shops: SwitcherShop[];
+};
+
+export type SwitcherShop = {
+  id: string;
+  name: string;
+  /** Display URL of the shop's logo (presigned), or null → the sheet draws its initials. */
+  logoUrl: string | null;
+  /** Public page address `/v/<slug>` — the "View page ↗" row. Null → no row. */
+  publicHref: string | null;
+  owned: boolean;
 };
 
 export type SwitcherData = {
@@ -213,14 +230,25 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     }));
   }
 
-  // Presign profile photo (kicked off in parallel above).
-  const photoUrl = await photoUrlPromise;
+  // Presign profile photo (kicked off in parallel above) and each listed shop's logo, together.
+  const listed = reachableShops(roles.vendorProfiles);
+  const [photoUrl, logoUrls] = await Promise.all([
+    photoUrlPromise,
+    Promise.all(listed.map((v) => displayUrlForStoredAsset(v.logo_url ?? null).catch(() => null))),
+  ]);
 
   const context: SwitcherContext = {
     hasVendor: roles.hasVendorAccess,
     vendorName: roles.vendorProfiles[0]?.business_name ?? null,
     isAdmin: roles.hasAdminAccess,
     canOpenShop: roles.canOpenShop,
+    shops: listed.map((v, i) => ({
+      id: v.vendor_profile_id,
+      name: v.business_name,
+      logoUrl: logoUrls[i] ?? null,
+      publicHref: v.business_slug ? `/v/${encodeURIComponent(v.business_slug)}` : null,
+      owned: v.owned,
+    })),
   };
 
   return {
@@ -245,7 +273,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
       photoUrl: null,
       events: [],
       eventsMeasured: false,
-      context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+      context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
     };
   }
 }

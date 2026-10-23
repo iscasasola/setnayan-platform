@@ -1,30 +1,36 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   LogOut,
   Store,
   ShieldCheck,
-  Home,
   UserRound,
   ChevronDown,
   ChevronRight,
-  Wand2,
+  Check,
+  Plus,
+  ExternalLink,
+  Images,
+  Users,
+  CreditCard,
+  Settings,
   Clapperboard,
   Gift,
   Info,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
 
 type Props = {
   data: SwitcherData;
   /** When provided, shown next to the avatar in the trigger pill (e.g. event display name). */
   currentEventName?: string | null;
-  /** Panel "Home" item label override (couple surfaces pass
-   *  "Home · all your events" — see SwitcherPanelBody). */
+  /** RETIRED 2026-10-22 (Direction 2): the Home button became the "Your events" row, whose words are fixed by the
+   *  approved drawing. Still accepted so a caller passing it compiles; nothing reads it. */
   homeLabel?: string;
   /**
    * "Refer a couple" — the event's referral page, handed in by the event
@@ -42,6 +48,10 @@ type Props = {
    * shell) is step 6's — built in the vendor layout.
    */
   shopRows?: readonly ShopRow[] | null;
+  /** Which "Switch to" row wears the ✓ — the layout knows where it is. Default: Your events. */
+  here?: SheetPlace;
+  /** The vendor layout's open shop, so its row (of several) wears the ✓. */
+  activeShopId?: string | null;
 };
 
 export type ShopRow = { key: string; href: string; label: string; sub: string };
@@ -65,274 +75,454 @@ export type SwitcherShopRow = ShopRow;
  *   – Desktop: drawer slides in from left (translateX -100% → 0) + backdrop fades in
  *   Both: CSS transitions 0.3s ease
  */
+/** Where the person is standing when they open the sheet — that row wears the ✓. null = none of the three
+ *  (the front door, Discover): every row is a › . */
+export type SheetPlace = 'events' | 'shop' | 'admin' | null;
+
 /**
- * SwitcherPanelBody — the ONE shared interior of the mobile bottom-sheet, the
- * launcher avatar drawer, and the desktop-rail plaque drawer. Kept in ONE
- * place so the triggers can never drift.
- *
- * Slimmed to a home-hub jump (owner 2026-07-10); identity header added by the
- * 2026-07-16 council verdict (the retired desktop email pill was the only
- * signed-in-account disclosure on the couple rail — that disclosure now lives
- * here, one click away on every surface).
- *
- *   1. Identity header — avatar + "Signed in as {name} · {email}".
- *   2. Home — /dashboard (the home hub: events, add-event, Collection).
- *      ⚠ LOAD-BEARING on mobile: event/vendor/admin mobile top bars have NO
- *      wordmark, so this item is mobile's ONLY path home. Do not remove in a
- *      future slimming pass.
- *   3. Console rail (conditional) — vendor / Setnayan-team only. Home already
- *      covers the User console, so the rail only offers Shop / HQ.
- *   4. Footer — Profile & settings (→ /dashboard/profile) · Setnayan AI ·
- *      Your Story (→ /dashboard/creator, the Storyteller chapters surface —
- *      doorway added per the 2026-07-16 creator readiness verdict B4) ·
- *      Secure-your-plan (anonymous) / Sign out. (The Hosts link moved to the
- *      event Overview's Hosts card, owner 2026-07-12.)
- *
- * Home / Shop / HQ are real <Link>s (not router.push buttons) so middle-click
- * / new-tab work and screen readers announce navigation semantics.
+ * THE SHEET'S OWN LOOK — Direction 2 "Profile header" (owner 2026-10-22: "Direction 2"; prototype
+ * `prototypes/avatar_sheet_uniform_2026-10-22.html` · d2). Tokens only, so dark is the app's dark set: the sheet's
+ * ground is a step off the card (paper-2 in light, the page in dark), cards are the paper, hairlines are the line.
+ * The rows are what you press, so a row has no frame — the card is a filled surface, not a border.
  */
-function SwitcherPanelBody({
+const SHEET_CSS = `
+.sn-sheet{background:var(--m-paper-2);--sn-new:rgb(var(--color-mulberry))}
+html.dark .sn-sheet{background:rgb(var(--color-cream));--sn-new:var(--m-orange)}
+.sn-sheet-card>*+*{position:relative}
+.sn-sheet-card>*+*::before{content:"";position:absolute;left:68px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none}
+.sn-sheet-card>.sn-row-sm+*::before,.sn-sheet-card>*+.sn-row-sm::before{left:60px}
+.sn-sheet-card>[data-on]+*::before,.sn-sheet-card>[data-on]::before{display:none}
+.sn-sheet-cover{background:radial-gradient(90% 120% at 100% 0%,color-mix(in srgb,var(--m-orange) 28%,transparent),transparent 60%),var(--m-paper)}
+`;
+
+/** The round mark at the start of a row. */
+function RowMark({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[15px] font-bold ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** "• N new" — drawn ONLY for a real positive count (`newLabel`); a failed read or a zero draws nothing. */
+function NewCount({ n }: { n: number | null | undefined }) {
+  const label = newLabel(n);
+  if (!label) return null;
+  return (
+    <>
+      <span aria-hidden>·</span>
+      <span data-sheet-count="" className="inline-flex items-center gap-[5px] font-semibold text-[var(--sn-new)]">
+        <i aria-hidden className="inline-block h-[7px] w-[7px] rounded-full bg-[var(--sn-new)]" />
+        {label}
+      </span>
+    </>
+  );
+}
+
+/** The pill tag — SHOP · ADMIN. On the row you stand in it turns gold, as drawn. */
+function Tag({ children, on = false }: { children: ReactNode; on?: boolean }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-[9px] py-1 font-mono text-[9.5px] uppercase tracking-[0.14em] ${
+        on ? 'bg-[var(--m-nav-active)] text-[rgb(var(--color-cream))]' : 'bg-[var(--m-ivory)] text-[var(--m-slate-2)]'
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** ✓ in a filled gold circle where you are; › everywhere else. */
+function Trail({ on }: { on: boolean }) {
+  return on ? (
+    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[var(--m-nav-active)] text-[rgb(var(--color-cream))]">
+      <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={3} />
+      <span className="sr-only">(you are here)</span>
+    </span>
+  ) : (
+    <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
+  );
+}
+
+/** A shop's initials for its round mark when it has no logo ("SetnaProd" → "SP"). */
+function shopInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) return (words[0]!.charAt(0) + words[1]!.charAt(0)).toUpperCase();
+  const w = words[0] ?? '?';
+  const caps = w.replace(/[^A-Z]/g, '');
+  return (caps.length >= 2 ? caps.slice(0, 2) : w.slice(0, 2)).replace(/^./, (c) => c.toUpperCase());
+}
+
+const ROW = 'flex min-h-[62px] w-full items-center gap-3 py-2 pl-3 pr-3.5 text-left transition-colors hover:bg-[var(--m-paper-2)]';
+const ROW_SM = 'sn-row-sm flex min-h-[52px] w-full items-center gap-3 py-1.5 pl-3 pr-3.5 text-left transition-colors hover:bg-[var(--m-paper-2)]';
+const NAME = 'block truncate text-base font-semibold leading-tight text-ink';
+const SUB = 'mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-[var(--m-slate-2)]';
+const TILE = 'flex min-h-[44px] flex-1 basis-0 flex-col items-center gap-[7px] rounded-card bg-[var(--m-paper)] px-1 pb-2.5 pt-3 text-center text-[11.5px] font-medium leading-[1.15] text-ink';
+const TILE_MARK = 'flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--m-ivory)]';
+
+const SHOP_ROW_ICON: Record<string, typeof Store> = {
+  details: UserRound,
+  page: Store,
+  collections: Images,
+  helpers: Users,
+  plan: CreditCard,
+  settings: Settings,
+};
+
+/**
+ * SwitcherPanelBody — the ONE shared interior of the account sheet (mobile bottom sheet · desktop card under the
+ * pill · the desktop-rail plaque drawer). Kept in ONE place so the triggers can never drift.
+ *
+ * DIRECTION 2 · PROFILE HEADER (owner 2026-10-22, "Direction 2"; reference: Facebook's account switcher):
+ *   1. THE COVER — photo · name · email · "Profile & settings ›". The whole band is the link to /dashboard/profile,
+ *      and it is the signed-in disclosure on every surface (council verdict 2026-07-16: name AND email, here).
+ *   2. SWITCH TO — ONE card, every place this login can be, one row each:
+ *        Your events (→ /dashboard?hub=1) · each shop (SHOP tag; "View page ↗" under it) · Setnayan HQ (ADMIN tag,
+ *        team only) · Create your shop (canOpenShop). ✓ on the row you are standing in, › on the rest, "• N new"
+ *        from the bell's own read split by place (lib/avatar-sheet-counts.ts — a failed read draws nothing).
+ *   3. YOUR SHOP — the supplier's own rows, vendor layout only, same row anatomy.
+ *   4. QUICK TILES — Your Story · Refer a couple (programme on) · Show me around (a tour is mounted) · Sign out.
+ *   5. "Sign out of all accounts" — the one quiet line. Until other logins can live on this phone it signs out the
+ *      only one there is, so today it is the same form as Sign out.
+ *
+ * ⚠ `?hub=1` on Your events IS LOAD-BEARING: plain `/dashboard` re-fires the launcher's auto-jump for a
+ * single-event person and lands them back in the event they were leaving (owner 2026-08-11: the board is "the
+ * user's collection of events"). On mobile event/vendor/admin bars this row is the ONLY way home — never drop it.
+ *
+ * Every destination is a real <Link> (middle-click, new tab, screen readers announce navigation). The shop switch
+ * and the sign-outs are POST forms — a link on another site cannot change which shop or account you are in.
+ */
+export function SwitcherPanelBody({
   data,
   close,
-  homeLabel = 'Home',
   referHref = null,
   shopRows = null,
+  here = 'events',
+  activeShopId = null,
+  unread = null,
 }: {
   data: SwitcherData;
   close: () => void;
-  homeLabel?: string;
   referHref?: string | null;
   shopRows?: readonly ShopRow[] | null;
+  here?: SheetPlace;
+  activeShopId?: string | null;
+  /** The per-row counts — null until read, and null for good when the read failed (nothing is drawn). */
+  unread?: SheetUnread | null;
 }) {
-  const showShop = data.context.hasVendor;
+  const shops = data.context.shops ?? [];
   const showHQ = data.context.isAdmin;
-  const showContextRail = showShop || showHQ;
-  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
+  const name = data.displayName?.trim() || data.email || 'Guest — draft plan';
+  const initial = (data.displayName?.trim() || data.email)?.charAt(0).toUpperCase() ?? '?';
+  // The shop the supplier pages are reading right now: the layout says, else the only one listed.
+  const currentShopId = here === 'shop' ? (activeShopId ?? (shops.length === 1 ? shops[0]!.id : null)) : null;
+  const me = data.photoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" />
+  ) : (
+    initial
+  );
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {/* ── Identity header — who is signed in ── */}
-      <div className="flex items-center gap-2.5 border-b border-ink/10 px-4 py-3">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
-          {data.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photoUrl} alt="" width={36} height={36} className="h-full w-full object-cover" />
-          ) : (
-            initial
-          )}
-        </span>
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-            Signed in as
-          </p>
-          <p className="truncate text-sm font-semibold text-ink">
-            {data.displayName ?? (data.email || 'Guest — draft plan')}
-          </p>
-          {data.displayName && data.email ? (
-            <p className="truncate text-xs text-ink/50">{data.email}</p>
-          ) : null}
-        </div>
-      </div>
+    <div className="flex-1 overflow-y-auto pb-1" data-avatar-sheet="d2">
+      <style>{SHEET_CSS}</style>
 
-      {/* ── Home — the switcher jumps back to the home hub ──
-          🔑 `?hub=1` IS LOAD-BEARING, not a tidy-up. Plain `/dashboard` re-fires
-          the launcher's auto-jump for a single-event non-console user, so this
-          button landed them straight back in the event they were trying to leave
-          — the hub was unreachable for the core persona, permanently. The owner
-          ruled 2026-08-11 that the board is "the user's collection of events, on
-          going and completed", and this parameter is what makes Home mean the
-          collection from anywhere. Removing it silently restores the trap. */}
-      <div className="px-4 pt-4 pb-2">
+      {/* ── 1 · The cover — who you are; the band is Profile & settings ── */}
+      <div className="px-3 pt-1">
         <Link
-          href="/dashboard?hub=1"
+          href="/dashboard/profile"
           onClick={close}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta-700 px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800"
+          data-sheet-cover=""
+          className="sn-sheet-cover relative flex items-center gap-3 overflow-hidden rounded-tile py-3.5 pl-3 pr-3.5"
         >
-          <Home aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-          {homeLabel}
+          <span
+            aria-hidden
+            className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-[19px] font-bold text-cream"
+          >
+            {me}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-[family-name:var(--font-editorial-display)] text-[22px] font-semibold leading-[1.1] text-ink">{name}</span>
+            {data.displayName && data.email ? (
+              <span className="mt-[3px] block truncate text-[12.5px] text-[var(--m-slate-2)]">{data.email}</span>
+            ) : null}
+            <span className="mt-1 flex items-center gap-[3px] text-xs font-semibold text-[var(--m-nav-active)]">
+              Profile &amp; settings <ChevronRight aria-hidden className="h-[13px] w-[13px]" strokeWidth={2.5} />
+            </span>
+          </span>
+          <Tag>You</Tag>
         </Link>
       </div>
 
-      {/* ── The supplier's own rows — vendor layout only (step 5) ── */}
-      {shopRows && shopRows.length > 0 ? (
-        <nav aria-label="Your shop" className="border-t border-ink/10 px-2 py-1" data-switcher-shop-rows="">
-          {shopRows.map((r) => (
-            <Link
-              key={r.key}
-              href={r.href}
-              onClick={close}
-              data-switcher-shop-row={r.key}
-              className="flex min-h-[52px] items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-ink/5"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-ink">{r.label}</span>
-                <span className="block truncate text-[12.5px] text-ink/55">{r.sub}</span>
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-            </Link>
-          ))}
-        </nav>
-      ) : null}
-
-      {/* ── Console rail — vendor / Setnayan-team only ── */}
-      {showContextRail ? (
-        <div className="border-t border-ink/10 px-4 pt-3 pb-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-            Switch to
+      {/* ── 2 · Switch to — every place this login can be, one card ── */}
+      <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+        Switch to
+      </span>
+      <nav aria-label="Switch to" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-switch="">
+        <Link
+          href="/dashboard?hub=1"
+          onClick={close}
+          data-sheet-place="events"
+          {...(here === 'events' ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
+          className={`${ROW} ${here === 'events' ? 'bg-[var(--m-paper-2)]' : ''}`}
+        >
+          <RowMark className="bg-ink text-cream">{me}</RowMark>
+          <span className="min-w-0 flex-1">
+            <span className={NAME}>Your events</span>
+            <span className={SUB}>
+              <span className="truncate">{name}</span>
+              <NewCount n={unread?.events} />
+            </span>
           </span>
-          <div className="mt-2 flex gap-1.5">
-            {showShop ? (
-              <Link
-                href="/vendor-dashboard"
-                onClick={close}
-                className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-terracotta/10"
-              >
-                <Store aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
-                <span>Shop</span>
-                {data.context.vendorName ? (
-                  <span className="max-w-full truncate text-[10px] font-normal text-ink/50">
-                    {data.context.vendorName}
-                  </span>
-                ) : null}
-              </Link>
-            ) : null}
+          <Trail on={here === 'events'} />
+        </Link>
 
-            {showHQ ? (
-              <Link
-                href="/admin"
-                onClick={close}
-                className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50"
-              >
-                <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
-                {/* "Admin" — the owner's own word for it (21 Oct, and 2026-09-21
-                    "… Shop · Admin"). Admin is never a tab on the account bar
-                    (lib/account-bar.ts); THIS tile is how an internal account
-                    reaches it from the phone. */}
-                <span>Admin</span>
-                <span className="text-[10px] font-normal text-ink/50">Setnayan HQ</span>
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        {shops.map((shop) => {
+          const on = currentShopId === shop.id;
+          const mark = shop.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shop.logoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
+          ) : (
+            shopInitials(shop.name)
+          );
+          const body = (
+            <>
+              <RowMark className="bg-[linear-gradient(135deg,#8a6b39,#5a3b28)] font-[family-name:var(--font-editorial-display)] text-[17px] tracking-[0.02em] text-[#FFFDF8]">
+                {mark}
+              </RowMark>
+              <span className="min-w-0 flex-1">
+                <span className={NAME}>{shop.name}</span>
+                <span className={SUB}>
+                  <span className="truncate">{shop.owned ? 'Your shop' : 'Helper'}</span>
+                  <NewCount n={unread?.shop} />
+                </span>
+              </span>
+              <Tag on={on}>Shop</Tag>
+              <Trail on={on} />
+            </>
+          );
+          return (
+            <Fragment key={shop.id}>
+              {/* 🔀 One row per shop. With more than one, the row posts its id to the shop switch, which checks it
+                  against this login's own shops before the supplier pages read it (lib/active-shop.ts). */}
+              {shops.length > 1 ? (
+                <form
+                  action="/vendor-dashboard/switch-shop"
+                  method="post"
+                  data-sheet-place="shop"
+                  data-sheet-shop={shop.id}
+                  {...(on ? { 'data-on': '' } : {})}
+                  className={on ? 'bg-[var(--m-paper-2)]' : ''}
+                >
+                  <input type="hidden" name="shop" value={shop.id} />
+                  <button type="submit" className={ROW} {...(on ? { 'aria-current': 'page' as const } : {})}>
+                    {body}
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href="/vendor-dashboard"
+                  onClick={close}
+                  data-sheet-place="shop"
+                  data-sheet-shop={shop.id}
+                  {...(on ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
+                  className={`${ROW} ${on ? 'bg-[var(--m-paper-2)]' : ''}`}
+                >
+                  {body}
+                </Link>
+              )}
+              {/* View page ↗ — the shop's public page; its owner sees it even before it is verified (self-preview). */}
+              {shop.publicHref ? (
+                <Link href={shop.publicHref} onClick={close} data-sheet-view-page={shop.id} className={ROW_SM}>
+                  <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
+                    <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">View page ↗</span>
+                </Link>
+              ) : null}
+            </Fragment>
+          );
+        })}
+
+        {showHQ ? (
+          /* Admin — the owner's own word (21 Oct; 2026-09-21 "… Shop · Admin"). Never a tab on the account bar
+             (lib/account-bar.ts); THIS row is how a team account reaches it from the phone. */
+          <Link
+            href="/admin"
+            onClick={close}
+            data-sheet-place="admin"
+            {...(here === 'admin' ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
+            className={`${ROW} ${here === 'admin' ? 'bg-[var(--m-paper-2)]' : ''}`}
+          >
+            <RowMark className="bg-ink font-[family-name:var(--font-editorial-display)] text-[26px] font-semibold text-[var(--m-orange-3)]">S</RowMark>
+            <span className="min-w-0 flex-1">
+              <span className={NAME}>Setnayan HQ</span>
+              <span className={SUB}>
+                <span className="truncate">Team</span>
+                <NewCount n={unread?.admin} />
+              </span>
+            </span>
+            <Tag on={here === 'admin'}>Admin</Tag>
+            <Trail on={here === 'admin'} />
+          </Link>
+        ) : null}
+
+        {/* Create your shop — gated on `canOpenShop` (shops they OWN vs the cap), NOT `!hasVendor`: a helper in
+            someone else's shop owns nothing and may still open one. A refused shops read keeps it closed (a duplicate
+            shop is permanent). Hidden for anon-drafts. */}
+        {!data.isAnonymous && data.context.canOpenShop ? (
+          <Link href="/open-shop" onClick={close} data-sheet-place="open-shop" className={ROW}>
+            <RowMark className="border-[1.5px] border-dashed border-[var(--m-line)] text-[var(--m-slate-2)]">
+              <Plus className="h-5 w-5" strokeWidth={2} />
+            </RowMark>
+            <span className="min-w-0 flex-1">
+              <span className={NAME}>Create your shop</span>
+            </span>
+            <Trail on={false} />
+          </Link>
+        ) : null}
+      </nav>
+
+      {/* ── 3 · Your shop — the supplier's own rows, vendor layout only ── */}
+      {shopRows && shopRows.length > 0 ? (
+        <>
+          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+            Your shop
+          </span>
+          <nav
+            aria-label="Your shop"
+            className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]"
+            data-switcher-shop-rows=""
+          >
+            {shopRows.map((r) => {
+              const Icon = SHOP_ROW_ICON[r.key] ?? ChevronRight;
+              return (
+                <Link key={r.key} href={r.href} onClick={close} data-switcher-shop-row={r.key} className={ROW_SM}>
+                  <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-medium text-ink">{r.label}</span>
+                    <span className="block truncate text-[12.5px] text-[var(--m-slate-2)]">{r.sub}</span>
+                  </span>
+                  <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
+                </Link>
+              );
+            })}
+          </nav>
+        </>
       ) : null}
 
-      {/* ── Footer — Profile & settings (left) · Secure-your-plan (anon) /
-          Sign out (pushed right, set apart) ── */}
-      <div className="border-t border-ink/10 px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {/* Profile & settings — the account-level personal profile
-              (/dashboard/profile). Restored here 2026-07-13 after the panel was
-              slimmed to a home-hub jump on 2026-07-10 and lost it. */}
-          <Link
-            href="/dashboard/profile"
-            className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
-            onClick={close}
-          >
-            <UserRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile &amp; settings
+      {/* ── 4 · Quick tiles ── */}
+      <div className="mx-3 mt-2.5 flex gap-2" data-sheet-tiles="">
+        {/* Your Story — the Storyteller chapters (/dashboard/creator); a page ships with its doorway (2026-07-16 B4). */}
+        {!data.isAnonymous ? (
+          <Link href="/dashboard/creator" onClick={close} className={TILE}>
+            <span aria-hidden className={TILE_MARK}>
+              <Clapperboard className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Your Story
           </Link>
-          {/* 🔒 Setnayan AI link REMOVED 2026-08-01. It pointed at
-              /dashboard/setnayan-ai — the ACCOUNT-level per-USER subscription
-              surface — which is deleted. Owner decision: "it is per event", so
-              there is no account-scoped Setnayan AI to link to. The live surface
-              is /dashboard/[eventId]/studio/setnayan-ai, reached from an event.
-              Do not re-add an account-level doorway here. */}
-          {/* Your Story — the Storyteller chapters surface (/dashboard/creator).
-              The authoring funnel had NO doorway anywhere (creator readiness
-              verdict 2026-07-16 · B4 — the wayfinding rule: a page ships with
-              its doorway). Hidden for anon-drafts, matching Setnayan AI. */}
-          {!data.isAnonymous ? (
-            <Link
-              href="/dashboard/creator"
-              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
-              onClick={close}
-            >
-              <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
-            </Link>
-          ) : null}
-          {/* Refer a couple — its home since Stage D (owner 2026-09-29:
-              "Refer a couple → account menu"). Handed in by the event layout
-              only while the referral programme is on; hidden for anon-drafts,
-              matching Your Story. */}
-          {!data.isAnonymous && referHref ? (
-            <Link
-              href={referHref}
-              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
-              onClick={close}
-            >
-              <Gift aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Refer a couple
-            </Link>
-          ) : null}
-          {/* Create your shop — the SAME defect as Your Story above, in the same
-              panel, found 2026-08-10: /open-shop is a finished wizard whose only
-              doorways in the entire app were the PUBLIC /vendors marketing page
-              and /vendor-dashboard/shop — which you can only reach if you
-              already have a shop. A signed-in customer had no way in.
-              (The `no-vendor → /open-shop` redirect in shop/page.tsx is dead
-              code: the vendor-dashboard LAYOUT bounces a non-vendor to
-              /dashboard before that page ever runs.)
-
-              This link — not the launcher tile — is what reaches a couple with
-              exactly ONE event: they are redirected straight into that event and
-              never see the launcher at all. The switcher is on every surface.
-
-              Gated on `canOpenShop` (shops they OWN vs the cap), NOT on
-              `!hasVendor`. `hasVendor` is also true for a TEAM MEMBER of
-              someone else's shop who owns nothing — gating on it hid this door
-              from exactly the people most likely to want their own shop (a
-              second shooter, an assistant), even though the cap allows them
-              one. A vendor who already owns one gets `canOpenShop === false`
-              and sees the "Shop" console tile in the rail above instead.
-              Hidden for anon-drafts, matching Your Story. */}
-          {!data.isAnonymous && data.context.canOpenShop ? (
-            <Link
-              href="/open-shop"
-              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
-              onClick={close}
-            >
-              <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Create your shop
-            </Link>
-          ) : null}
-          {/* 🔦 ⓘ Show me around — plays this surface's spotlight tour again (`spotlight-mount.tsx` listens
-              for the event). Drawn only where a tour is mounted: the mount marks <html data-spotlight>, so on a
-              page with none this is not a dead button. A replay never re-writes `tour_seen_keys`. */}
-          <button
-            type="button"
-            className="hidden items-center gap-1 font-medium text-ink/70 hover:text-terracotta [html[data-spotlight]_&]:inline-flex"
-            onClick={() => {
-              close();
-              window.dispatchEvent(new Event('sn:spotlight'));
-            }}
+        ) : null}
+        {/* Refer a couple — handed in by the event layout ONLY while the referral programme is on (Stage D, owner
+            2026-09-29: "Refer a couple → account menu"). */}
+        {!data.isAnonymous && referHref ? (
+          <Link
+            href={referHref}
+            onClick={close}
+            className={TILE}
           >
-            <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Show me around
-          </button>
-          {data.isAnonymous ? (
-            <Link
-              href="/signup"
-              className="ml-auto inline-flex items-center gap-1 font-medium text-mulberry hover:text-mulberry-600"
-              onClick={close}
-            >
-              <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Secure your plan
-            </Link>
-          ) : (
-            <form action="/auth/sign-out" method="post" className="ml-auto">
-              <button type="submit" className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
-                <LogOut aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Sign out
-              </button>
-            </form>
-          )}
-        </div>
+            <span aria-hidden className={TILE_MARK}>
+              <Gift className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Refer a couple
+          </Link>
+        ) : null}
+        {/* 🔦 Show me around — replays this surface's spotlight tour (`spotlight-mount.tsx`). Drawn only where a tour
+            is mounted (<html data-spotlight>), so it is never a dead button. */}
+        <button
+          type="button"
+          className={`${TILE} hidden [html[data-spotlight]_&]:flex`}
+          onClick={() => {
+            close();
+            window.dispatchEvent(new Event('sn:spotlight'));
+          }}
+        >
+          <span aria-hidden className={TILE_MARK}>
+            <Info className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          Show me around
+        </button>
+        {data.isAnonymous ? (
+          <Link href="/signup" onClick={close} className={`${TILE} text-[var(--m-mulberry-deep)]`}>
+            <span aria-hidden className={TILE_MARK}>
+              <ShieldCheck className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Secure your plan
+          </Link>
+        ) : (
+          <form action="/auth/sign-out" method="post" className="flex flex-1 basis-0">
+            <button type="submit" className={`${TILE} text-red-600 dark:text-red-400`}>
+              <span aria-hidden className={`${TILE_MARK} bg-red-600/10`}>
+                <LogOut className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              Sign out
+            </button>
+          </form>
+        )}
       </div>
+
+      {/* ── 5 · Sign out of all accounts — one quiet line. One login lives on this phone today, so it is the same
+          sign-out; "Other accounts on this phone" is the account-switch PR's. ── */}
+      {!data.isAnonymous ? (
+        <form action="/auth/sign-out" method="post" className="flex justify-center pt-1.5">
+          <button
+            type="submit"
+            data-sheet-sign-out-all=""
+            className="min-h-[44px] px-4 text-[12.5px] font-medium text-[var(--m-slate-2)] hover:text-ink"
+          >
+            Sign out of all accounts
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, shopRows }: Props) {
+export function AccountSwitcher({ data, currentEventName, referHref, shopRows, here = 'events', activeShopId = null }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [unread, setUnread] = useState<SheetUnread | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // SSR-safe portal
   useEffect(() => setMounted(true), []);
+
+  /*
+    "• N new" per row — read when the sheet OPENS (never on page load: the sheet is on every page), in the browser,
+    through the bell's own read split by place (lib/avatar-sheet-counts.ts). A refused or partial read leaves
+    `unread` null and every row draws no count — never a 0.
+  */
+  const shopCount = data.context.shops?.length ?? 0;
+  useEffect(() => {
+    if (!open || !data.userId || data.isAnonymous) return;
+    let live = true;
+    void (async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const urls = await readSheetUnreadUrls(createClient(), data.userId);
+        if (live) setUnread(urls ? splitSheetUnread(urls, shopCount) : null);
+      } catch {
+        if (live) setUnread(null);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [open, data.userId, data.isAnonymous, shopCount]);
 
   function close() {
     setOpen(false);
@@ -390,7 +580,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, 
         className={[
           'focus:outline-none',
           // Mobile: bottom sheet — inset-x + fixed bottom, slides up
-          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 bg-[var(--m-paper)] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
+          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
           /*
             ⚠ ON DESKTOP THIS USED TO BE A FULL-HEIGHT DRAWER PINNED TO THE FAR
             LEFT, AND THE OWNER ASKED WHY (2026-08-17): *"sign in is a pop up on
@@ -448,9 +638,17 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, 
         `}</style>
 
         {/* Drag handle (mobile only) */}
-        <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
+        <div aria-hidden className="mx-auto mb-1.5 mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--m-line)] lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} shopRows={shopRows} />
+        <SwitcherPanelBody
+          data={data}
+          close={close}
+          referHref={referHref}
+          shopRows={shopRows}
+          here={here}
+          activeShopId={activeShopId}
+          unread={unread}
+        />
       </div>
     );
   }
@@ -597,7 +795,6 @@ export function SwitcherPlaqueTrigger({
   title,
   metaLine,
   ariaLabel,
-  homeLabel,
 }: {
   data: SwitcherData;
   /** Content of the 36px identity chip — text initials ("C&I"), a
@@ -610,7 +807,7 @@ export function SwitcherPlaqueTrigger({
   /** Honest menu semantics, e.g. `"Cale & Ice — account menu"` — never
    *  "switch events": the slimmed panel holds no event list. */
   ariaLabel: string;
-  /** Panel "Home" label override (couple: "Home · all your events"). */
+  /** RETIRED 2026-10-22 — see Props.homeLabel. */
   homeLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -642,7 +839,10 @@ export function SwitcherPlaqueTrigger({
           background:
             'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.18), transparent 60%), var(--sn-glass-dark-bg, rgba(23,22,15,.82))',
           borderColor: 'var(--sn-glass-dark-line, rgba(255,255,255,.18))',
-          color: 'var(--sn-gold-100, #F3ECDF)',
+          // 🌗 A literal, on purpose: the plaque is DARK GLASS in both themes, so its words
+          // stay light in both. `--sn-gold-100` is the gold WASH, which goes dark (#413827)
+          // under html.dark — it painted the plaque's name dark-on-dark (dark B1, 2026-10-23).
+          color: '#F3ECDF',
           outlineColor: 'var(--sn-gold-500, #CBA766)',
         }}
       >
@@ -707,10 +907,10 @@ export function SwitcherPlaqueTrigger({
                 role="dialog"
                 aria-modal="true"
                 aria-label="Account menu"
-                className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-[calc(20rem+var(--sn-safe-l))] flex-col pl-[var(--sn-safe-l)] overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
+                className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-[calc(20rem+var(--sn-safe-l))] flex-col pl-[var(--sn-safe-l)] pt-3 overflow-hidden rounded-r-2xl border-r border-ink/10 sn-sheet shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
-                <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} />
+                <SwitcherPanelBody data={data} close={close} />
               </div>
             </>,
             document.body,

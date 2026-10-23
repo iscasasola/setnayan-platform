@@ -78,7 +78,7 @@ export default async function SamahanIndexPage({
           <div aria-hidden className="my-2 h-px bg-ink/10" />
           <Link
             href="/dashboard/samahan/new"
-            className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70"
+            className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70 dark:hover:bg-raised"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-ink/20 text-ink/45">
               <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -101,7 +101,7 @@ function CommunityRow({ community }: { community: CommunityWithRole }) {
   return (
     <Link
       href={`/dashboard/samahan/${community.community_id}`}
-      className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70"
+      className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70 dark:hover:bg-raised"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-base font-semibold text-mulberry">
         {initial}

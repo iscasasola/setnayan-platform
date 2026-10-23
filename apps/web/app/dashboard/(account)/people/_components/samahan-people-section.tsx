@@ -91,7 +91,7 @@ export async function SamahanPeopleSection({
             {secondDegree.map((p) => (
               <li
                 key={p.member_row_id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 py-1 pl-3 pr-1.5 text-xs text-ink/70"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 dark:bg-raised py-1 pl-3 pr-1.5 text-xs text-ink/70"
               >
                 <span>{p.display_name}</span>
                 <span className="text-ink/40">· {p.via.join(', ')}</span>

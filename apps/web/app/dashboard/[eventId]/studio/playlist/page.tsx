@@ -108,11 +108,10 @@ export default async function PlaylistPage({ params }: Props) {
 
   if (!eventRow.data) redirect('/dashboard');
 
-  // `.rows` because a failed read is now distinguishable from an empty one
-  // (lib/playlist.ts). This surface behaves the same either way — the couple's
-  // own editor shows empty slots to fill — so it reads through to the rows; the
-  // distinction exists for the vendor song desk, which otherwise turns a denied
-  // read into a claim about what the couple did.
+  // `.rows` because a failed read is distinguishable from an empty one
+  // (lib/playlist.ts). On a failed read this page says so and draws neither the
+  // slots nor the tray (below): empty slots and a tray of "unplaced" songs over
+  // a list that could not be read invited the host to add every song twice.
   const unsorted = buildUnsortedTray({ flatPicks, placed: picksRaw.rows });
   const grouped = groupPicksBySlot(picksRaw.rows);
 
@@ -208,22 +207,33 @@ export default async function PlaylistPage({ params }: Props) {
       {/* What they're playing reads before what's still unfiled. */}
       <HostSetlistPanel acts={hostActs} failed={hostSets.failed} />
 
-      <UnsortedTray eventId={eventId} entries={unsorted} />
+      {picksRaw.failed ? (
+        /* A failed picks read is NOT eight empty moments and a tray of "unplaced" songs to add again — every one of
+           them would be a duplicate (coordinator walk 2026-10-23). Said, with nothing drawn to add over it. */
+        <p role="alert" data-playlist-unread="" className="sn-row mb-6 p-4 text-sm leading-relaxed text-ink/75">
+          We couldn&rsquo;t load your picks just now &mdash; nothing is lost. Refresh the page before you add songs, so
+          nothing is added twice.
+        </p>
+      ) : (
+        <>
+          <UnsortedTray eventId={eventId} entries={unsorted} />
 
-      <div className="space-y-5">
-        {PLAYLIST_SLOT_TYPES.map((slot) => (
-          <PlaylistSlotSection
-            key={slot}
-            eventId={eventId}
-            slotType={slot}
-            label={PLAYLIST_SLOT_LABELS[slot]}
-            hint={PLAYLIST_SLOT_HINTS[slot]}
-            picks={grouped[slot]}
-            vibe={vibes[slot] ?? null}
-            isBannedSlot={slot === 'banned_songs'}
-          />
-        ))}
-      </div>
+          <div className="space-y-5">
+            {PLAYLIST_SLOT_TYPES.map((slot) => (
+              <PlaylistSlotSection
+                key={slot}
+                eventId={eventId}
+                slotType={slot}
+                label={PLAYLIST_SLOT_LABELS[slot]}
+                hint={PLAYLIST_SLOT_HINTS[slot]}
+                picks={grouped[slot]}
+                vibe={vibes[slot] ?? null}
+                isBannedSlot={slot === 'banned_songs'}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -189,7 +189,7 @@ export function Flash({ beats }: { beats: FlashBeatView[]; scopeKind: string }) 
         ref={launcherRef}
         type="button"
         onClick={() => void play()}
-        className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink p-5 text-left transition-transform hover:-translate-y-0.5"
+        className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink dark:bg-raised p-5 text-left transition-transform hover:-translate-y-0.5"
       >
         <span>
           <span className="block text-sm font-semibold text-white">▶ Play your Life-Flash</span>

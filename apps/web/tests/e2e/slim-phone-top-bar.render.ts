@@ -64,7 +64,6 @@ const router = { push() {}, replace() {}, refresh() {}, back() {}, forward() {},
 
 void (async () => {
   const { FrontDoorShell } = await import('../../app/_components/frontdoor/front-door-shell');
-  const { HomeCommandBar } = await import('../../app/dashboard/(launcher)/_components/home-command-bar');
   const { UnreadMessagesBadge } = await import('../../app/_components/unread-messages-badge');
   const { UnreadBellBadge } = await import('../../app/_components/unread-bell-badge');
   const { AccountSwitcher } = await import('../../app/_components/account-switcher/account-switcher');
@@ -94,7 +93,7 @@ void (async () => {
             photoUrl: null,
             events: [],
             eventsMeasured: true,
-            context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+            context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
           },
         }),
       ),
@@ -105,7 +104,8 @@ void (async () => {
       tools: [],
       navLabels: {},
       topBarSlot: cluster,
-      search: h(HomeCommandBar, { items: [], variant: 'rail' }),
+      // 2026-10-22 ("One thumb row"): a signed-in tree hands the bar no search — the thumb row has it.
+      search: false,
       children: h('h1', { 'data-page-title': '' }, 'Guests'),
     });
     return renderToStaticMarkup(
@@ -138,7 +138,7 @@ void (async () => {
         photoUrl: null,
         events: [],
         eventsMeasured: true,
-        context: { ...context, vendorName: context.hasVendor ? 'Ana Florals' : null, canOpenShop: false },
+        context: { ...context, vendorName: context.hasVendor ? 'Ana Florals' : null, canOpenShop: false, shops: [] },
       },
     });
   const bell = (href: string) =>
@@ -169,7 +169,8 @@ void (async () => {
         children: h('h1', { 'data-page-title': '' }, 'Page'),
       }),
     );
-  const palette = h(HomeCommandBar, { items: [], variant: 'rail' });
+  // 2026-10-22: the board and the shop hand the bar no search ("One thumb row").
+  const palette = false;
 
   const board = tree(h(React.Fragment, null, bell('/dashboard/notifications'), account({ hasVendor: false, isAdmin: false })), palette, false);
   const shop = tree(

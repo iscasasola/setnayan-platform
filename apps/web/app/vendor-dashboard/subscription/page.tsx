@@ -152,7 +152,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
     .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state')
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   const currentTier = asVendorTier(
     (tierRow as { tier_state?: string | null } | null)?.tier_state,
@@ -175,7 +175,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   const { data: planChangeRow } = await supabase
     .from('vendor_profiles')
     .select('pending_tier, subscription_credit_php')
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   const pendingTier =
     (planChangeRow as { pending_tier?: string | null } | null)?.pending_tier ?? null;

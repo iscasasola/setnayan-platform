@@ -123,8 +123,13 @@ function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = N
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-/** The Next card's markup — from its marker up to the doorway row under it. */
-const nextCard = (html: string) => html.slice(html.indexOf('data-home-next='), html.indexOf('data-home-doors'));
+/** The Next card's markup — from its marker up to what follows it (the one-QR card or the numbers; the doorway row
+ *  under it is gone, owner 2026-10-23). */
+const nextCard = (html: string) => {
+  const at = html.indexOf('data-home-next=');
+  const ends = ['data-home-one-qr', 'data-home-numbers'].map((m) => html.indexOf(m, at)).filter((i) => i > at);
+  return html.slice(at, ends.length ? Math.min(...ends) : undefined);
+};
 /** True when one `<a>` carries both this href and this label (attribute order is React's). */
 const linkTo = (html: string, href: string, label: string) =>
   (html.match(/<a [^>]*>/g) ?? []).some((t) => t.includes(`href="${href}"`) && t.includes(`aria-label="${label}"`));
@@ -169,18 +174,17 @@ test('a · the plan branch IS the first screen — the dashboard appears only as
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
-test('b · the three doors — Guests · Suppliers · Event Hub — are drawn in every state', () => {
+test('b · Home draws NO door pills — Guests · Suppliers · Event Hub are the event bar’s (owner 2026-10-23)', () => {
+  // Owner, 23 Oct: "remove Home's three pills (Guests · Suppliers · Event Hub)". The bar carries all three; Home leads
+  // with the Next card and the service widgets. In no state may the row come back.
   const states: Array<[string, string]> = [
     ...EVERY_STATE.map((s): [string, string] => [pickHomeNext(s).kind, draw({}, s)]),
     ['nothing measured', draw({ coming: glanceCount(0, false), noReply: glanceCount(0, false), money: { paid: glanceMoney(null), owing: glanceMoney(null) }, days: glanceDays(null) })],
     ['budget not shared', draw({ money: null })],
   ];
   for (const [label, html] of states) {
-    assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the doorway row is missing`);
-    // Words: owner 2026-10-22 (HOME_DOOR_LABELS, `home-doors-say-their-words.test.ts`).
-    assert.ok(linkTo(html, '/dashboard/e1/guests', 'Guests'), `${label}: the Guests door must open Guests`);
-    assert.ok(linkTo(html, '/dashboard/e1/vendors', 'Suppliers'), `${label}: the Suppliers door must open Suppliers`);
-    assert.ok(linkTo(html, '/dashboard/e1/launch', 'Event Hub'), `${label}: the Event Hub door must open the Maker`);
+    assert.equal(count(html, 'data-home-doors'), 0, `${label}: the doorway row is back`);
+    assert.equal(count(html, 'data-home-edit-hub'), 0, `${label}: the doorway row is back`);
     assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });
@@ -308,8 +312,8 @@ test('e · desktop is the same single column, only wider — no second section',
   assert.doesNotMatch(html, /grid-cols-(?:3|4)\b[^"]*lg:|lg:grid-cols|lg:flex-row/, 'the first screen must not turn into a wide multi-column layout on desktop');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
   assert.equal(count(html, '>See all<'), 0);
-  // The ONLY blocks: cover · Next · Edit your Event Hub · numbers · money · services.
-  for (const marker of ['data-home-event-details', 'data-home-next=', 'data-home-edit-hub', 'data-home-numbers', 'data-home-money', 'data-home-services']) {
+  // The ONLY blocks: cover · Next · numbers · money · services (the door row went, owner 2026-10-23).
+  for (const marker of ['data-home-event-details', 'data-home-next=', 'data-home-numbers', 'data-home-money', 'data-home-services']) {
     assert.equal(count(html, marker), 1, `${marker} must be drawn exactly once`);
   }
   assert.equal(count(html, '<section'), 1, 'one section — a second one is a second block');

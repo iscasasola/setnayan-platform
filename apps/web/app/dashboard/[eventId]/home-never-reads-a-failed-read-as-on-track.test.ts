@@ -120,7 +120,10 @@ test('1 · a thrown guest read is said on the Next card, with Reload — never "
   // Whatever else is waiting (Papic, the AI offer), an unread list comes first.
   assert.equal(pickHomeNext({ ...UNREAD, papicReady: true, aiOffer: true }).kind, 'unread');
   const html = draw(true);
-  const card = html.slice(html.indexOf('data-home-next='), html.indexOf('data-home-doors'));
+  // The card runs up to what follows it (the doorway row under it is gone, owner 2026-10-23).
+  const at = html.indexOf('data-home-next=');
+  const ends = ['data-home-one-qr', 'data-home-numbers'].map((m) => html.indexOf(m, at)).filter((i) => i > at);
+  const card = html.slice(at, ends.length ? Math.min(...ends) : undefined);
   assert.match(card, /We couldn’t read your guest list/);
   assert.match(card, /data-next-bad=""/, 'the card is drawn in the failure wash');
   assert.match(card, /aria-label="Reload"/, 'the card offers the read again');

@@ -14,7 +14,7 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
-import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { HomeLater, HomeNextFold, HomeReload, HomeWhatsNext } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
@@ -164,7 +164,7 @@ export type HomeFirstScreenProps = {
   services: HomeService[];
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
-  /** 🧭 The bottom bar's registry slots — the doorways read their tabs' icons from them (`getNavSlotMap`). */
+  /** 🧭 The bottom bar's registry slots — read by nothing since the door row went (owner 2026-10-23); kept so callers stand. */
   navSlots?: Record<string, NavSlotLite> | null;
   /** 📋 What's next — the decisions, unfolding in place (`EventDashboard only="whatsnext"`). */
   whatsNext?: ReactNode;
@@ -203,16 +203,6 @@ export type HomeFirstScreenProps = {
   } | null;
 };
 
-/** Only the three slots the doorways read cross to the client — not the whole registry. */
-function doorSlots(all: Record<string, NavSlotLite> | null): Record<string, NavSlotLite> | null {
-  if (!all) return null;
-  const out: Record<string, NavSlotLite> = {};
-  for (const k of ['guests', 'explore', 'launch']) {
-    const slot = all[`customer.bottom-nav.${k}`];
-    if (slot) out[`customer.bottom-nav.${k}`] = slot;
-  }
-  return out;
-}
 
 /** A number the Home counts, or its word ("—", "Today") when it is not a number. */
 function Figure({ n, word, id }: { n: number | null | undefined; word: string; id: string }) {
@@ -231,7 +221,6 @@ export function HomeFirstScreen({
   figures,
   services,
   ground = null,
-  navSlots = null,
   whatsNext,
   papicLeft = null,
   papicSizes = null,
@@ -241,7 +230,6 @@ export function HomeFirstScreen({
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const noSuppliers = needs?.suppliers === false;
-  const doorsHidden = [...(noList ? ['guests'] : []), ...(noSuppliers ? ['explore'] : [])];
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
   const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
@@ -272,32 +260,34 @@ export function HomeFirstScreen({
 
         {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
             the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
-        <NextCard
-          marker="data-home-next"
-          kind={next.kind}
-          title={next.title}
-          body={next.body}
-          action={next.action}
-          href={nextHref(next.kind, eventId)}
-          bad={next.kind === 'unread'}
-          actions={
-            <>
-              {nextMain}
-              {next.offer ? (
-                /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
-                <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                  <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
-                </form>
-              ) : next.kind !== 'unread' ? (
-                <HomeLater eventId={eventId} kind={next.kind} />
-              ) : null}
-            </>
-          }
-        />
+        {/* 📅 "Later" folds the card to "Back tomorrow · Undo" (owner 2026-10-23) — `HomeNextFold` owns the fold. */}
+        <HomeNextFold eventId={eventId} kind={next.kind}>
+          <NextCard
+            marker="data-home-next"
+            kind={next.kind}
+            title={next.title}
+            body={next.body}
+            action={next.action}
+            href={nextHref(next.kind, eventId)}
+            bad={next.kind === 'unread'}
+            actions={
+              <>
+                {nextMain}
+                {next.offer ? (
+                  /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
+                  <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
+                    <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
+                  </form>
+                ) : next.kind !== 'unread' ? (
+                  <HomeLater />
+                ) : null}
+              </>
+            }
+          />
+        </HomeNextFold>
 
-        {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons") — the bottom bar's icons,
-            named Guests · Suppliers · Event Hub (owner 2026-10-22, `HOME_DOOR_LABELS`). */}
-        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} hide={doorsHidden} />
+        {/* ② THE THREE DOORS ARE GONE (owner 2026-10-23: "remove Home's three pills (Guests · Suppliers · Event Hub)") —
+            the event bar already carries all three, one tap away; Home leads with the Next card and the widgets. */}
 
         {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
             (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}

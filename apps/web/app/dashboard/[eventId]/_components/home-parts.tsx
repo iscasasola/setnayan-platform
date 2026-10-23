@@ -6,129 +6,19 @@
  * `?frame=1&page=home`, `HOME_AND_GUESTS_CHECK_2026-10-07_fable.md` H1–H8).
  * Everything else on the Home stays a server component (`home-first-screen.tsx`).
  *
- *   HomeDoorways   — the three doorway buttons (H1a, owner: *"on home, there will
- *                    be 3 buttons to edit guests, suppliers and event hub"*), each
- *                    wearing THE BOTTOM BAR'S OWN ICON for the tab it opens (owner:
- *                    *"it will have an icon that should be similar to the bottom
- *                    nav"*): `homeDoorwayIcon` (PR 4g, lib/nav-line-icon.ts) —
- *                    the same registry slot (`customer.bottom-nav.<key>`) and the
- *                    same line-only rule the bar uses, so whatever icon the bar
- *                    wears, the door wears, with no second list. The row changes
- *                    state AS ONE (BUTTON_RULE 3a): icon + word → word → icon.
- *   HomeLater      — "Later": hides today's next step for today, on this device.
+ *   (HomeDoorways — the three door pills Guests · Suppliers · Event Hub — are GONE, owner 2026-10-23: "remove
+ *    Home's three pills". The event bar carries all three.)
+ *   HomeNextFold / HomeLater — "Later" folds the Next card to "Back tomorrow · Undo", for today, on this device.
  *                    No server write (opening never writes; +0 server actions).
  *   HomeReload     — "⟳ Reload": re-runs the page's reads (`router.refresh()`).
  *   HomeWhatsNext  — the What's next row: pop, then unfold IN PLACE under it (H7)
  *                    — no `?sheet=next` portal, no URL change.
  */
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { homeDoorwayIcon, type HomeDoorwayKey } from '@/lib/nav-line-icon';
-import type { NavSlotLite } from '@/lib/nav-registry-types';
-
-const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-
-/* ─── The doorway row ─────────────────────────────────────────────────────── */
-
-/** The three bottom-bar tabs a doorway opens — the bar's own keys (4g's `HomeDoorwayKey`). */
-export type HomeDoorKey = HomeDoorwayKey;
-
-/**
- * The three doors — `href:` literals, so the port-controls scan sees each destination.
- * 🚪 A door whose need this event switched off is ABSENT (owner 2026-10-08, Level 1 —
- * `needsHiddenNavKeys`, the bar's own keys).
- *
- * 🏷 A DOOR SAYS WHAT IS BEHIND IT (owner 2026-10-22, "Yes to all" —
- * `prototypes/journey_fixes_2026-10-22.html` § Host 2): **Guests · Suppliers · Event Hub**,
- * the thing behind the door, never the verb. "Edit your Guest list · Edit your Suppliers ·
- * Edit your Event Hub" pushed the row (BUTTON_RULE 3a, below) all the way to icon-only at
- * 375 px, so a first-timer's first screen was three unlabelled pills. The short words keep
- * icon + word at 375 and word-only at 320. A "cover + photos only" Hub reads "Event Hub"
- * too — the Hub page says what is in it. Held by `home-doors-say-their-words.test.ts`.
- */
-export const HOME_DOOR_LABELS: Readonly<Record<HomeDoorKey, string>> = {
-  guests: 'Guests',
-  explore: 'Suppliers',
-  launch: 'Event Hub',
-};
-
-export function doorsFor(
-  eventId: string,
-  hide: readonly string[] = [],
-): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
-  return [
-    { key: 'guests' as const, label: HOME_DOOR_LABELS.guests, href: `/dashboard/${eventId}/guests` },
-    { key: 'explore' as const, label: HOME_DOOR_LABELS.explore, href: `/dashboard/${eventId}/vendors` },
-    { key: 'launch' as const, label: HOME_DOOR_LABELS.launch, href: `/dashboard/${eventId}/launch` },
-  ].filter((d) => !hide.includes(d.key));
-}
-
-/**
- * One fit pass over a row that changes state AS ONE (BUTTON_RULE 3a, owner
- * 2026-10-07: *"the 3 buttons will all be icons at the same time, or text at the
- * same time or icon with text at the same time. not each"*). Icon + word first;
- * if any button (or the row) overflows, every button drops its icon; if that
- * still overflows, every button drops its word. Returns the state it settled on.
- */
-export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
-  const buttons = Array.from(row.querySelectorAll<HTMLElement>('.ab'));
-  const set = (c: '' | 'text-only' | 'icon-only') =>
-    buttons.forEach((b) => {
-      b.classList.remove('text-only', 'icon-only');
-      if (c) b.classList.add(c);
-    });
-  const tight = () => row.scrollWidth > row.clientWidth + 1 || buttons.some((b) => b.scrollWidth > b.clientWidth + 1);
-  set('');
-  if (!tight()) return '';
-  set('text-only');
-  if (!tight()) return 'text-only';
-  set('icon-only');
-  return 'icon-only';
-}
-
-export function HomeDoorways({
-  eventId,
-  navSlots,
-  hide = [],
-}: {
-  eventId: string;
-  /** The bar's registry slots (plain data from the server; null = the code icons). */
-  navSlots: Record<string, NavSlotLite> | null;
-  /** 🚪 The bar keys this event drops (`needsHiddenNavKeys`) — their doors are absent too. */
-  hide?: readonly string[];
-}) {
-  const row = useRef<HTMLDivElement | null>(null);
-  const run = useCallback(() => {
-    if (row.current) row.current.dataset.fit = fitAsOne(row.current) || 'full';
-  }, []);
-  useIsoLayoutEffect(() => {
-    run();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
-    if (row.current) ro?.observe(row.current);
-    return () => ro?.disconnect();
-  }, [run]);
-  return (
-    <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
-      {doorsFor(eventId, hide).map((d) => {
-        const Icon = homeDoorwayIcon(d.key, navSlots);
-        return (
-          <ActionButton
-            key={d.key}
-            tone="neutral"
-            icon={Icon}
-            label={d.label}
-            href={d.href}
-            data-testid={`home-door-${d.key}`}
-            tour={`home-${d.key}`}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 /* ─── Later · Reload ──────────────────────────────────────────────────────── */
 
@@ -139,38 +29,64 @@ function todayKey(eventId: string, kind: string): string {
 }
 
 /**
- * Hides today's next step for today, on this device ("Later" — the prototype's
- * "Hides this step for today"). Device storage only: a private window or a
- * cleared site simply shows the step again, which is the safe direction.
+ * 📅 "LATER" FOLDS THE NEXT CARD TO ONE LINE (owner 2026-10-23: *"Later collapses to 'Back tomorrow · Undo'"*). The
+ * card is not hidden without a word any more: it becomes "Back tomorrow · Undo" in its place, for today, on this
+ * device. Undo brings it straight back. Device storage only: a private window or a cleared site simply shows the
+ * step again, which is the safe direction.
+ *
+ * `HomeNextFold` wraps the card and owns the fold; `HomeLater` is the card's own Later button and asks it to fold.
  */
-export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) {
-  const btn = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null);
-  const hide = useCallback(() => {
-    const card = btn.current?.closest<HTMLElement>('[data-home-next]');
-    if (card) card.hidden = true;
-  }, []);
+const LaterFold = createContext<(() => void) | null>(null);
+
+export function HomeNextFold({ eventId, kind, children }: { eventId: string; kind: string; children: ReactNode }) {
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(todayKey(eventId, kind)) === '1') hide();
+      if (window.localStorage.getItem(todayKey(eventId, kind)) === '1') setFolded(true);
     } catch {
       /* storage refused — the step stays, which is the honest default */
     }
-  }, [eventId, kind, hide]);
+  }, [eventId, kind]);
+  const fold = useCallback(() => {
+    try {
+      window.localStorage.setItem(todayKey(eventId, kind), '1');
+    } catch {
+      /* storage refused — folded for this visit only */
+    }
+    setFolded(true);
+  }, [eventId, kind]);
+  const undo = () => {
+    try {
+      window.localStorage.removeItem(todayKey(eventId, kind));
+    } catch {
+      /* nothing stored — nothing to clear */
+    }
+    setFolded(false);
+  };
+  if (folded) {
+    return (
+      <p className="flex items-center gap-1.5 px-1 text-[13px] text-ink/60" data-home-next-later="" role="status">
+        <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+        <span>Back tomorrow</span>
+        <span aria-hidden>·</span>
+        <button type="button" onClick={undo} className="font-medium text-mulberry" data-testid="home-next-undo">
+          Undo
+        </button>
+      </p>
+    );
+  }
+  return <LaterFold.Provider value={fold}>{children}</LaterFold.Provider>;
+}
+
+export function HomeLater() {
+  const fold = useContext(LaterFold);
   return (
     <ActionButton
-      ref={btn}
       tone="neutral"
       icon={CalendarDays}
       label="Later"
       data-testid="home-next-later"
-      onClick={() => {
-        try {
-          window.localStorage.setItem(todayKey(eventId, kind), '1');
-        } catch {
-          /* storage refused — hide for this visit only */
-        }
-        hide();
-      }}
+      onClick={() => fold?.()}
     />
   );
 }

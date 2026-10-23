@@ -122,8 +122,8 @@ export type EventMenuIconName =
  *     Home → House · Guests → BookUser · Suppliers → Store ·
  *     Hub → AppWindow · More → Grip
  *
- * The phone bar, the desktop rail and the Home doorway row
- * (`HOME_DOORWAY_ICONS`) all draw these. Before, the bar's Home was the FILLED
+ * The phone bar and the desktop rail
+ * all draw these. Before, the bar's Home was the FILLED
  * Setnayan mark among four line icons and Suppliers was a compass; the mark
  * stays in the top bar only. `bottom-nav-is-one-icon-family.test.ts` holds it.
  */
@@ -170,21 +170,6 @@ export const PILLAR_TAB_ICON: Readonly<Record<CustomerMenuKey, EventMenuIconName
   studio: 'suite',
   memories: 'memories',
 };
-
-/**
- * 🚪 THE HOME DOORWAY ROW WEARS THE TABS' OWN ICONS (owner 2026-10-07: *"make
- * the logo of guests, supplier and event hub consistent"*). "Guests ·
- * Suppliers · Event Hub" (`HOME_DOOR_LABELS`) open the Guests, Suppliers
- * and Hub tabs, so each button draws exactly that tab's glyph — these three
- * constants, never a second pick. With the nav registry in hand, resolve through
- * `homeDoorwayIcon(key, navSlots)` (`lib/nav-line-icon.ts`) so an admin re-icon
- * of a tab moves its doorway too. `home-doorways-wear-the-nav-icons.test.ts`.
- */
-export const HOME_DOORWAY_ICONS = {
-  guests: EVENT_MENU_ICONS[PILLAR_TAB_ICON.guests],
-  explore: EVENT_MENU_ICONS[PILLAR_TAB_ICON.explore],
-  launch: EVENT_MENU_ICONS[PILLAR_TAB_ICON.launch],
-} as const satisfies Partial<Record<CustomerMenuKey, LucideIcon>>;
 
 export type EventMenuRow = {
   key: string;

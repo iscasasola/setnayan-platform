@@ -1,15 +1,24 @@
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { readEventMemories } from '@/lib/event-memories.server';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { countPapicCaptures } from '@/lib/papic-home-tile';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
+import { getIapGate } from '@/lib/request-platform';
+import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
-import { memoriesCameraWords, memoriesCountWords, memoriesUnreadable } from '@/lib/event-memories-words';
+import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
+import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
+import { claimUploadsCamera } from '@/app/dashboard/[eventId]/studio/papic/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-words';
+import type { MemoriesAlbumKey } from '@/lib/event-memories';
+import { MemoriesSettings } from './_components/memories-settings';
 
 export const metadata = { title: 'Memories' };
 
@@ -17,16 +26,15 @@ type Props = { params: Promise<{ eventId: string }> };
 
 /**
  * /dashboard/[eventId]/memories — THIS EVENT'S MEMORIES, the event bar's fifth tab (owner 2026-10-23, "Yes", on
- * `prototypes/event_bar_memories_tab_2026-10-23.html`: *"Home · Guests · Suppliers · Hub · Memories"* — Memories is
- * this event's gallery, the same Apple-Photos grid as the approved Papic one-page prototype).
+ * `prototypes/event_bar_memories_tab_2026-10-23.html` — Memories is this event's gallery, the approved Apple-Photos
+ * grid of `prototypes/papic_controller_one_page_2026-10-23.html`).
  *
- * One read of the photos (`fetchPapicGallery`, the Papic page's own: crew, guests and suppliers, newest first) and one
- * honest count beside it (`countPapicCaptures`, Home's "See N photos" number). The grid, the zoom and the thumb row
- * are `EventMemoriesGallery`.
+ * ONE read for every album (`readEventMemories`: Papic · Challenges · Event Hub · Suppliers · Your uploads, the
+ * compressed copies only) and one honest count beside it (`countPapicCaptures`, Home's "See N photos" number). For the
+ * couple it also draws what is theirs to run: ⚙ Gallery settings (`MemoriesSettings` — the controls that left the
+ * Papic page) and + Add photos (the shipped uploader; when adding by hand is off, the sheet offers to turn it on).
  *
- * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY. `fetchPapicGallery` answers a refusal with `[]`, so an empty list
- * only means "nothing yet" when the count beside it read 0 — a null count, or a count above zero over an empty
- * list, is said as "couldn't load".
+ * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY — `memoriesUnreadable`, and each album's own read (`refused`).
  */
 export default async function EventMemoriesPage({ params }: Props) {
   const { eventId } = await params;
@@ -34,18 +42,18 @@ export default async function EventMemoriesPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [eventRes, photos, seesAll, count] = await Promise.all([
+  const [eventRes, membershipRes, seesAll, count, iap] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, papic_window_start, papic_window_end, venue_latitude, venue_longitude')
+      .select('event_id, event_date, papic_window_start, papic_window_end, papic_uploads_open, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
-    // 🗜 Memories always shows the compressed copy — never an original (owner 2026-10-23).
-    fetchPapicGallery(supabase, eventId, { compressedOnly: true }),
+    supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
     // Asked separately, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no
     // error, indistinguishable from a day nobody shot.
     viewerSeesCoupleScopedPapic(supabase, eventId),
     countPapicCaptures(supabase, eventId),
+    getIapGate(),
   ]);
   if (eventRes.error) logQueryError('EventMemoriesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
   const ev = eventRes.data as
@@ -53,39 +61,83 @@ export default async function EventMemoriesPage({ params }: Props) {
         event_date: string | null;
         papic_window_start: string | null;
         papic_window_end: string | null;
+        papic_uploads_open: boolean | null;
         venue_latitude: number | null;
         venue_longitude: number | null;
       }
     | null;
   if (!ev && !eventRes.error) notFound();
+  const host = membershipRes.data?.member_type === 'couple';
 
-  const vendorShown = photos.filter((p) => p.source === 'vendor').length;
-  // The couple's count is every capture, crew and guests, plus the suppliers' shots on the page. A viewer who sees
-  // only the suppliers' shots is shown what they can see.
-  const total = seesAll ? (count === null ? null : count + vendorShown) : photos.length;
-  const unreadable = memoriesUnreadable(photos.length, total);
+  const read = await readEventMemories(supabase, eventId, { host });
+  const items = read.items;
+  const papicItems = items.filter((i) => i.memSource !== 'hub');
+  const hubCount = items.length - papicItems.length;
+  const vendorShown = papicItems.filter((p) => p.source === 'vendor').length;
+  const papicTotal = seesAll ? (count === null ? null : count + vendorShown) : papicItems.length;
+  const unreadable = memoriesUnreadable(papicItems.length, papicTotal) && hubCount === 0;
+  const refusedParts: MemoriesAlbumKey[] = [
+    ...(read.refused.hub ? (['hub'] as const) : []),
+    ...(read.refused.challenges ? (['challenges'] as const) : []),
+  ];
 
   const win = ev
     ? resolveStoredWindow({ windowStart: ev.papic_window_start, windowEnd: ev.papic_window_end, eventDate: ev.event_date })
     : null;
+  const appleIap = iap.iap;
+
+  // + ADD PHOTOS — the shipped uploader on the uploads camera (owner 2026-10-23: the one upload door, in the thumb
+  // row). "Adding photos by hand" folds into it: when it is off, the sheet offers the same switch to turn it on.
+  let addPhotos: React.ReactNode = null;
+  if (host) {
+    const uploadsOpen = ev?.papic_uploads_open ?? true;
+    const { data: seat, error: seatErr } = await createAdminClient()
+      .from('paparazzi_seats')
+      .select('claim_qr_token, claimer_user_id')
+      .eq('event_id', eventId)
+      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
+    const token = seat?.claimer_user_id === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
+    addPhotos = !uploadsOpen ? (
+      <UploadsOpenChoice eventId={eventId} open={false} variant="row" />
+    ) : token ? (
+      <AddToLibrary token={token} />
+    ) : (
+      <form action={claimUploadsCamera} className="space-y-3">
+        <input type="hidden" name="event_id" value={eventId} />
+        <p className="max-w-prose text-sm text-ink/65">
+          Add photos and clips from your phone or laptop — older memories too. They land in your Memories with everything
+          your guests take, and cost the same: one credit a photo.
+        </p>
+        <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
+      </form>
+    );
+  }
 
   return (
     <EventMemoriesGallery
-      photos={photos}
-      countLine={total === null ? null : memoriesCountWords(total)}
+      eventId={eventId}
+      items={items}
+      host={host}
+      challenges={read.challenges}
+      chapters={read.chapters}
+      totals={{ all: papicTotal === null ? null : papicTotal + hubCount, papic: papicTotal === null ? null : papicTotal - vendorShown - papicItems.filter((p) => p.uploads).length }}
       footLine={win ? memoriesCameraWords({ startIso: win.startIso, endIso: win.endIso, now: Date.now() }) : null}
       cappedLine={
-        total !== null && total > photos.length && photos.length > 0
-          ? `${formatCount(total)} kept · showing the newest ${formatCount(photos.length)}`
+        papicTotal !== null && papicTotal > papicItems.length && papicItems.length > 0
+          ? `${formatCount(papicTotal)} kept · showing the newest ${formatCount(papicItems.length)}`
           : null
       }
-      emptyLine={
-        seesAll
-          ? 'Your photos land here as your guests and suppliers shoot.'
-          : 'Nothing has been shared with you yet.'
-      }
+      emptyLine={seesAll ? 'Your photos land here as your guests and suppliers shoot.' : 'Nothing has been shared with you yet.'}
       unreadable={unreadable}
+      refusedParts={refusedParts}
       timeZone={ev ? eventTimezoneFromCoords(ev.venue_latitude, ev.venue_longitude) : null}
+      settings={host ? <MemoriesSettings eventId={eventId} loginEmail={user.email ?? null} appleIap={appleIap} /> : null}
+      addPhotos={addPhotos}
+      blockedGuests={read.blockedGuests}
+      suppliers={read.suppliers}
     />
   );
 }

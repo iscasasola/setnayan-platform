@@ -7,6 +7,7 @@ import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
 import type { MemoriesChallenge, MemoriesItem, MemoriesLook, MemoriesSource } from '@/lib/event-memories';
 export type { MemoriesItem } from '@/lib/event-memories';
+import { hubImageRefs } from '@/lib/event-memories';
 
 /**
  * event-memories.server.ts — ONE READ FOR AN EVENT'S MEMORIES, every album at once (owner 2026-10-23; the albums and
@@ -34,38 +35,6 @@ export type EventMemoriesRead = {
   /** Per part — true when that part's read was refused. */
   refused: { photos: boolean; hub: boolean; challenges: boolean; reports: boolean };
 };
-
-/** Folders of this event's media that the Event Hub draws as pictures (`events/<id>/<folder>/…`). */
-const HUB_IMAGE_FOLDERS: Readonly<Record<string, string>> = {
-  'landing-page-hero': 'Cover photo',
-  'main-background': 'Background',
-  'std-background': 'Background',
-  'scene-background': 'Scene photo',
-  'our-photos': 'Our photos',
-  'love-story': 'Love story',
-};
-const IMAGE_EXT = /\.(jpe?g|png|webp|avif|gif|heic)$/i;
-
-/** Every image ref in a JSON value that sits in THIS event's own Hub folders — nothing else is ever presigned. */
-export function hubImageRefs(value: unknown, eventId: string): { ref: string; use: string }[] {
-  const out = new Map<string, string>();
-  const prefix = `/events/${eventId}/`;
-  const walk = (v: unknown) => {
-    if (typeof v === 'string') {
-      if (!v.startsWith('r2://') || !IMAGE_EXT.test(v.split('?')[0]!)) return;
-      const at = v.indexOf(prefix);
-      if (at < 0) return;
-      const folder = v.slice(at + prefix.length).split('/')[0] ?? '';
-      const use = HUB_IMAGE_FOLDERS[folder];
-      if (use && !out.has(v)) out.set(v, use);
-      return;
-    }
-    if (Array.isArray(v)) for (const x of v) walk(x);
-    else if (v && typeof v === 'object') for (const x of Object.values(v)) walk(x);
-  };
-  walk(value);
-  return [...out].map(([ref, use]) => ({ ref, use }));
-}
 
 export async function readEventMemories(
   supabase: SupabaseClient,
@@ -204,4 +173,31 @@ export async function readEventMemories(
     ),
     refused: { photos: status.refused, hub: hubRefused, challenges: challengesRefused, reports: Boolean(reportsRes.error) },
   };
+}
+
+/**
+ * The booked suppliers who have shot at this event, each with its whole-delivery switch — for the supplier's own row
+ * in Event Details › Event access (owner 2026-10-23: "a supplier's whole delivery is hidden from the supplier's own
+ * row"). Keyed by `event_vendors.vendor_id`. Null when either read was refused — the rows then draw no switch.
+ */
+export async function readSupplierShots(supabase: SupabaseClient, eventId: string): Promise<Record<string, { hidden: boolean }> | null> {
+  const [vendors, shots] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, linked_vendor_profile_id, papic_captures_hidden')
+      .eq('event_id', eventId)
+      .not('linked_vendor_profile_id', 'is', null),
+    supabase.from('vendor_papic_captures').select('vendor_profile_id').eq('event_id', eventId),
+  ]);
+  if (vendors.error || shots.error) {
+    if (vendors.error) logQueryError('readSupplierShots.vendors', vendors.error, { event_id: eventId }, 'graceful_degrade');
+    if (shots.error) logQueryError('readSupplierShots.shots', shots.error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  const shooters = new Set((shots.data ?? []).map((r) => (r as { vendor_profile_id: string | null }).vendor_profile_id).filter(Boolean));
+  const out: Record<string, { hidden: boolean }> = {};
+  for (const v of (vendors.data ?? []) as { vendor_id: string; linked_vendor_profile_id: string | null; papic_captures_hidden: boolean | null }[]) {
+    if (v.linked_vendor_profile_id && shooters.has(v.linked_vendor_profile_id)) out[v.vendor_id] = { hidden: v.papic_captures_hidden === true };
+  }
+  return out;
 }

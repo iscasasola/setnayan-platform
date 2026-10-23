@@ -57,11 +57,13 @@ test('2 · the page is the shared, frameless, zoomable grid — and a refused re
   const page = code(PAGE);
   assert.match(page, /<EventMemoriesGallery\b/, 'the page does not draw the shared Memories grid');
   assert.match(page, /memoriesUnreadable\(/, 'the page decides "empty" without the count beside it');
-  assert.match(page, /fetchPapicGallery\(/, 'the page does not read this event’s photos');
+  assert.match(page, /readEventMemories\(/, 'the page does not read this event’s photos (every album, one read)');
 
   const g = code(GALLERY);
   // Columns from the zoom state — never a fixed number.
-  assert.match(g, /gridTemplateColumns:\s*`repeat\(\$\{cols\},/, 'the grid’s columns no longer follow the zoom');
+  // One wrapper carries the zoom as \`--mem-cols\`; every grid under it (moments, challenges) reads it.
+  assert.match(g, /'--mem-cols' as string\]:\s*String\(cols\)/, 'the grid’s columns no longer follow the zoom');
+  assert.match(g, /repeat\(var\(--mem-cols\),minmax\(0,1fr\)\)/, 'a grid does not read the zoom');
   assert.doesNotMatch(g, /grid-cols-\d/, 'a fixed column count crept in');
   // Edge to edge: the grid cancels the layout gutter, and nothing frames it.
   assert.match(g, /data-memories-grid=""[\s\S]{0,200}-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the grid sits inside the gutter');

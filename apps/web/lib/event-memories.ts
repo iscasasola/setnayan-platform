@@ -102,14 +102,36 @@ export function albumCountWords(n: number, album: MemoriesAlbumKey, format: (n: 
   return `${format(n)} ${n === 1 ? 'photo' : 'photos'}`;
 }
 
-/** The label a Hub file wears, from where the Hub uses it. */
-export const HUB_USE_WORDS: Readonly<Record<string, string>> = {
-  hero: 'Cover photo',
-  main: 'Background',
-  love_story: 'Love story',
-  our_photos: 'Our photos',
-};
 
-export function hubUseWords(where: string): string {
-  return HUB_USE_WORDS[where] ?? 'Your Event Hub';
+/** Folders of this event's media that the Event Hub draws as pictures (`events/<id>/<folder>/…`). */
+const HUB_IMAGE_FOLDERS: Readonly<Record<string, string>> = {
+  'landing-page-hero': 'Cover photo',
+  'main-background': 'Background',
+  'std-background': 'Background',
+  'scene-background': 'Scene photo',
+  'our-photos': 'Our photos',
+  'love-story': 'Love story',
+};
+const IMAGE_EXT = /\.(jpe?g|png|webp|avif|gif|heic)$/i;
+
+/** Every image ref in a JSON value that sits in THIS event's own Hub folders — nothing else is ever presigned. */
+export function hubImageRefs(value: unknown, eventId: string): { ref: string; use: string }[] {
+  const out = new Map<string, string>();
+  const prefix = `/events/${eventId}/`;
+  const walk = (v: unknown) => {
+    if (typeof v === 'string') {
+      if (!v.startsWith('r2://') || !IMAGE_EXT.test(v.split('?')[0]!)) return;
+      const at = v.indexOf(prefix);
+      if (at < 0) return;
+      const folder = v.slice(at + prefix.length).split('/')[0] ?? '';
+      const use = HUB_IMAGE_FOLDERS[folder];
+      if (use && !out.has(v)) out.set(v, use);
+      return;
+    }
+    if (Array.isArray(v)) for (const x of v) walk(x);
+    else if (v && typeof v === 'object') for (const x of Object.values(v)) walk(x);
+  };
+  walk(value);
+  return [...out].map(([ref, use]) => ({ ref, use }));
 }
+

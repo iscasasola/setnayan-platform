@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { startRead } from '@/lib/start-read';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DriveSafetyPanel, DriveReconnectBanner } from '@/app/_components/drive-connect-card';
+import { PAPIC_DRIVE_SUBFOLDERS } from '@/lib/papic-drive';
 
 /**
  * drive-copy-card.tsx — Google Drive as a COPY, moved out of the Papic page (owner 2026-10-23: "Google Drive" is a

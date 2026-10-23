@@ -399,7 +399,8 @@ export function ShiftSheet({
     startTransition(async () => {
       try {
         await bulkRetimeScheduleBlocks(
-          toFormData({ event_id: eventId, from_block_id: from, to_block_id: to, delta_minutes: String(delta) }),
+          // `shift_notice`: this is a shift of the DAY — every booked supplier is told once (a drag is not).
+          toFormData({ event_id: eventId, from_block_id: from, to_block_id: to, delta_minutes: String(delta), shift_notice: '1' }),
         );
         onShifted?.(patches);
         onClose();

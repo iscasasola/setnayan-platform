@@ -1,0 +1,23 @@
+-- notification_type_schedule_shifted
+-- ============================================================================
+-- ⏱ "SCHEDULE MOVED +30 MIN FROM 4:00 PM" — TO EVERY BOOKED SUPPLIER
+-- (owner, tracker 2026-10-23: YES — when the couple shifts the schedule, couple
+-- side and the day-of floor, every booked supplier on the event gets an IN-APP
+-- notice; one per shift, never one per block; no email).
+--
+-- A shift reached only a supplier who already had the day open (Realtime on
+-- event_schedule_blocks). Everyone else learned it at the venue. No existing
+-- type says it truthfully: `schedule_suggestion` reads "Schedule suggestion" and
+-- is the register of answers to a supplier's own request; `date_moved` is the
+-- event's DATE. Written by `notifyScheduleShifted`
+-- (apps/web/lib/schedule-shift-notify.server.ts); declared app-only in
+-- apps/web/lib/couple-supplier-notices.ts.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it. Same shape as
+-- 20271267016300_notification_types_quote_answer_and_change_order.sql: a bare
+-- ADD VALUE IF NOT EXISTS, no row written, no function created.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'schedule_shifted';

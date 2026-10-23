@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
@@ -885,6 +886,20 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
     if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
     // RLS answers a refused UPDATE with zero rows and no error: read it back, never a quiet "moved".
     if (!changed?.length) throw new Error(NOTHING_CHANGED);
+  }
+
+  /* ⏱ A SHIFT OF THE DAY TELLS EVERY BOOKED SUPPLIER — once, after every block landed (owner 2026-10-23). Only the
+     Running-late sheet sends `shift_notice`: a drag of one moment rides this same action and is not a shift of the
+     day. Best-effort — the shift is written; a failed notice never undoes it. */
+  if (formData.get('shift_notice') === '1') {
+    const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
+    await notifyScheduleShifted({
+      eventId,
+      deltaMinutes,
+      fromStartAt: anchor?.start_at ?? null,
+      fromLabel: anchor?.label ?? null,
+      actorUserId: user.id,
+    });
   }
 
   revalidateScheduleUnlessMaker(eventId, formData);

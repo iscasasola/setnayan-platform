@@ -37,3 +37,42 @@ Built on (merged locally, not yet on main): #6791 · #6838 · #6839.
 ## Known reds that are NOT this branch's
 - From #6839 (merged in locally): `supplier-never-vendor.test.ts` ("Off in Your info" at studio/papic/page.tsx) and
   `the-couple-books-never-locks.test.ts` (allowlist row `studio/papic/` stale). #6839's builder owns them.
+
+## PR-B (rd/papic-camera-only-and-memories-albums, worktree wt-event-memories-b) — status: building
+- Papic page = the camera (`studio/papic/page.tsx`, `data-papic-page="camera"`): ← Home · the one line (Papic switch =
+  the existing `papic_on` answer through `AnswerPicker as="switch"` — no new column; dates = the shipped window picker)
+  · PapicTopBand (credits · meter · Add more; its "See your N photos" → Memories) · Settings (Filter = StylePicker
+  inline, When guests can shoot, Credits per guest, Face tagging, Face blocking) · Challenges · Magazine/Recap/
+  Life-Flash (kept, see calls) · Setup & help.
+- Memories (PR-A page) gains: Albums ▾ (All · Papic · Challenges · Event Hub · Suppliers · Your uploads), Needs a
+  look N, ⚙ Gallery settings sheet (Follow the moments in order · Photo wall · Thank-You · Guests see all · Google Drive
+  · Keep full res), + Add photos (thumb row), the photo sheet (View · Approve/Hide · Report why ▾ · Stop/Let shoot ·
+  Delete forever with confirm; supplier file: hide that supplier's photos; Hub file: Save to phone).
+  Read: `lib/event-memories.server.ts` (one read, every album; per-part refusals). Pure: `lib/event-memories.ts`.
+- Challenges: the link that exists — `papic_mission_completions.capture_id`; board order (board_slot, created_at);
+  supplier name in the ⓘ; In All a "Challenge" tag. Account Memories › Show ▾ › Also kept › Challenges
+  (`challenges-tab.tsx`, hosted events that had challenges only; screened/hidden frames never drawn).
+- How guests get in: `OneCodeUnderGetIn` under the Event Details row (QR · Copy link · Print poster · "N ready").
+- Supplier hide: `SupplierPhotosSwitch` on each supplier row in Event access (`setVendorCapturesHidden`, back=details).
+- Guests: "Setup" → "Settings" (`guests-screen.tsx`).
+- Face blocking: `FaceBlockingList` + new action `setGuestFaceblock` (writes faceblock_enabled + the card's consequences);
+  the action budget kept at 1,225 by deleting `dismissVendorRecommendation` (no caller).
+- Moderation actions + `setVendorCapturesHidden` accept a fixed `back` (memories / details).
+
+## PR-B calls (not covered by a ruling)
+- Face tagging opt-in: NO `face_tagging_opted_in` column — #6826 (DPO rulings) already makes it opt-in by flipping
+  `face_tagging_declined_by_couple` default (CLAUDE.md rule 8: one fact, one column). No migration in PR-B.
+- "When guests can shoot" (GuestCamerasChoice) KEPT: the prototype calls it a half-duplicate "see Q1", but Q1 does not
+  rule it, and retiring `papic_guest_capture_early` needs the capture gate changed.
+- Magazine / Recap / Life-Flash cards stay on the Papic page (in neither of the owner's two lists).
+- "Adding photos by hand" folds into + Add photos: when off, the sheet offers the same switch (UploadsOpenChoice).
+- Report is offered on guest captures only (the shipped `reportCapture` names a guest capture); a camera seat's photo is
+  hidden or deleted instead.
+- The moderation PAGE stays (it also moderates Kwento messages); the Papic page no longer links to it.
+- ThumbRow + Add photos: the shipped one-thumb-row rule (icon-only round, the word is the accessible name) over the
+  prototype's visible "Add photos" label.
+- "Follow the moments in order" is remembered per device (a way of looking, like the zoom), not a shared setting.
+- Event Hub album: image files the APPLIED Hub points at in this event's own folders (cover, background, scene photos,
+  our photos, love story), read-only, "Used on your Event Hub".
+- NOT built (left): the Home Papic widget redesign (coverage line + strip + "N in your Memories · latest first ·
+  See all"); the widget-grows-into-the-page animation; the photo wall's "saves on change" (its Save stays).

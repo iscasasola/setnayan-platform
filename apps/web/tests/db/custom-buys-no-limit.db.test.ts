@@ -323,7 +323,7 @@ test('CONTROL: the same read DOES answer for a capped Custom shop', async () => 
       [t.rows[0]!.thread_id],
     );
     assert.equal(r.rows.length, 1, 'the silence above must be the AXIS, not a broken read');
-    assert.equal(Number(r.rows[0]!.cap), 10);
+    assert.equal(Number(r.rows[0]!.cap), WL);
   } finally {
     await db.exec(`RESET ROLE`).catch(() => {});
     await setAuthUid(db, null).catch(() => {});

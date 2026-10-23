@@ -593,7 +593,10 @@ export function TypeBar(p: TypeBarProps) {
         fixed
         barRef={bar}
         bottom={readKeyboard().bottom}
-        attrs={{ role: 'toolbar', 'aria-label': `${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`, 'data-type-bar': el, 'data-type-bar-keys': '' }}
+        role="toolbar"
+        aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`}
+        data-type-bar={el}
+        data-type-bar-keys=""
         place={field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}
         onDone={p.onClose}
       >

@@ -220,14 +220,7 @@ export function ThumbRow({
   /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger). */
   const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
-    <div
-      ref={rowRef}
-      role="toolbar"
-      aria-label={`${name} tools`}
-      data-thumb-row={name}
-      data-riding={riding ? '' : undefined}
-      className={`${styles.row} ${className}`}
-    >
+    <div ref={rowRef} role="toolbar" aria-label={`${name} tools`} data-riding={riding ? '' : undefined} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {children ?? (
         <>
           {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
@@ -243,15 +236,7 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label
-              data-glass-row="thumb-row-field"
-              className={`sn-glass-row ${styles.field}`}
-              data-thumb-seat="field"
-              data-tour={field.tour}
-              data-rides={rides ? '' : undefined}
-              onFocus={onFieldFocus}
-              onBlur={onFieldBlur}
-            >
+            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
@@ -320,7 +305,7 @@ export function ThumbRow({
         </>
       )}
       {riding && over ? (
-        <TypingBand over={over} place={typing} attrs={{ 'data-thumb-band': name }} />
+        <TypingBand over={over} place={typing} data-thumb-band={name} />
       ) : null}
     </div>
   );

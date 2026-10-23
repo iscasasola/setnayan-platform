@@ -223,7 +223,8 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
           inline
           keepFocus
           place="Message"
-          attrs={{ 'data-typing-band': 'app', 'data-chat-band': '' }}
+          data-typing-band="app"
+          data-chat-band=""
           className="rounded-t-[18px] !border-t-0 !bg-[var(--tb-plate)]"
         />
       ) : null}

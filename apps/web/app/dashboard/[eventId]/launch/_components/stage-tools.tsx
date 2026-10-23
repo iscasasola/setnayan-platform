@@ -1780,7 +1780,7 @@ export function StageTools({
       <StageAbout />
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
-      <TypingBand inline attrs={{ 'data-stage-keys': '' }} className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
+      <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">

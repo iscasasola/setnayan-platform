@@ -41,8 +41,8 @@ type Common = {
   children?: ReactNode;
   /** Drawn first inside the bar (a `<style>` the bar carries). */
   before?: ReactNode;
-  /** data-* / role / aria on the bar itself. */
-  attrs?: Record<string, string | undefined>;
+  /** The bar's own role (`toolbar`); `aria-*` and `data-*` given at the call land on the bar itself too. */
+  role?: string;
   barRef?: Ref<HTMLDivElement>;
   /** A press on the band never takes the focus from the field it types for (a band that lives only while the field
    *  is focused would close under the finger). Always on for `over`. */
@@ -72,19 +72,20 @@ export function TypingBand(props: Common & { over: { bottom: number; under: numb
 export function TypingBand(
   props: Common & { inline?: true; fixed?: true; over?: { bottom: number; under: number }; bottom?: number; className?: string; style?: CSSProperties },
 ): ReactNode {
-  const { place, onDone, children, before, attrs, barRef, keepFocus } = props;
+  const { place, onDone, children, before, barRef, keepFocus, inline, fixed, over, bottom: atBottom, className, style, ...attrs } = props as typeof props & Record<string, unknown>;
+  void fixed;
   const k = useKeyboardRide();
   const [here, setHere] = useState(false);
   useEffect(() => setHere(true), []);
 
-  if (props.inline) {
+  if (inline) {
     return (
       <div
         ref={barRef}
         {...attrs}
         onPointerDown={keepFocus ? holdFocus : undefined}
         onMouseDown={keepFocus ? holdFocus : undefined}
-        className={`${props.className ?? ''} ${SP_KEY_BAR}`.trim()}
+        className={`${(className as string | undefined) ?? ''} ${SP_KEY_BAR}`.trim()}
       >
         {before}
         <Face place={place} onDone={onDone} />
@@ -93,14 +94,17 @@ export function TypingBand(
     );
   }
   if (!here) return null;
-  if (props.over) {
-    const { bottom, under } = props.over;
+  if (over) {
+    const { bottom, under } = over as { bottom: number; under: number };
     return createPortal(
       <div
         ref={barRef}
         role="toolbar"
         aria-label={typeof place === 'string' ? `${place} — typing` : 'Typing'}
         data-typing-band="app"
+        // The plate runs edge to edge (under a side safe area, as the bottom bar does); its words keep inside the
+        // insets by the app's one rule (globals.css `[data-safe-x]`).
+        data-safe-x=""
         {...attrs}
         // The plate is the band (44) AND the row under it: one cream surface from the band's top to the keyboard.
         style={{ bottom, height: 44 + under }}
@@ -109,7 +113,7 @@ export function TypingBand(
         onMouseDown={holdFocus}
         className="pointer-events-none fixed inset-x-0 z-[24] flex flex-col rounded-t-[18px] bg-[var(--tb-plate)]"
       >
-        <div className={`pointer-events-auto !border-t-0 !bg-transparent ${SP_KEY_BAR_FIXED}`}>
+        <div className={`pointer-events-auto !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
           {before}
           <Face place={place} onDone={onDone} />
           {children}
@@ -122,8 +126,8 @@ export function TypingBand(
     <div
       ref={barRef}
       {...attrs}
-      style={{ ...props.style, bottom: props.bottom ?? k.bottom }}
-      className={`fixed inset-x-0 z-[85] ${props.className ?? ''} ${SP_KEY_BAR_FIXED}`.replace(/\s+/g, ' ')}
+      style={{ ...(style as CSSProperties | undefined), bottom: (atBottom as number | undefined) ?? k.bottom }}
+      className={`fixed inset-x-0 z-[85] ${(className as string | undefined) ?? ''} ${SP_KEY_BAR_FIXED}`.replace(/\s+/g, ' ')}
     >
       {before}
       <Face place={place} onDone={onDone} />

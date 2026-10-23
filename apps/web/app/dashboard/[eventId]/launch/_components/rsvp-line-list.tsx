@@ -380,7 +380,10 @@ export function RsvpPanelTypingBar({ name }: { name: string }) {
   return (
     <TypingBand
       fixed
-      attrs={{ role: 'toolbar', 'aria-label': `${name} — words`, 'data-type-bar': 'rsvp-panel', 'data-rsvp-panel-keys': '' }}
+      role="toolbar"
+      aria-label={`${name} — words`}
+      data-type-bar="rsvp-panel"
+      data-rsvp-panel-keys=""
       before={<style>{PANEL_KEYS_RULE}</style>}
       place={name}
     />

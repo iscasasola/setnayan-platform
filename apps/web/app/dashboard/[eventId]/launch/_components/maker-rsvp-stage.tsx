@@ -481,7 +481,10 @@ export function MakerRsvpStage({
             <TypingBand
               fixed
               bottom={keysTop}
-              attrs={{ role: 'toolbar', 'aria-label': `${RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'} — words`, 'data-type-bar': 'rsvp', 'data-type-bar-keys': '' }}
+              role="toolbar"
+              aria-label={`${RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'} — words`}
+              data-type-bar="rsvp"
+              data-type-bar-keys=""
               place={RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}
               onDone={doneTyping}
             />

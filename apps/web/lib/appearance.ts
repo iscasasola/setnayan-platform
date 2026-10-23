@@ -24,12 +24,13 @@
 /**
  * 🌗 AUTOMATIC (owner 2026-10-23, verbatim: "yes add automatic" … "set it to automatic") — supersedes call 1
  * of 2026-10-13 ("no follow the phone"). Three choices: Light · Dark · Automatic, where Automatic follows the
- * phone / OS (`prefers-color-scheme`, live). Automatic is the DEFAULT: no cookie, no choice → follow the phone.
+ * phone / OS (`prefers-color-scheme`, live). LIGHT is the DEFAULT (owner 2026-10-23: "make light the default first"
+ * until dark covers every screen): no cookie, no choice → Light. Automatic is a choice a person makes.
  * It still only paints on a DARK_READY route, for a signed-in person; signed out is always Light (call 4).
  */
 export type Appearance = 'light' | 'dark' | 'auto';
 export const APPEARANCES: readonly Appearance[] = ['light', 'dark', 'auto'];
-export const DEFAULT_APPEARANCE: Appearance = 'auto';
+export const DEFAULT_APPEARANCE: Appearance = 'light';
 
 export function isAppearance(value: unknown): value is Appearance {
   return value === 'light' || value === 'dark' || value === 'auto';
@@ -95,7 +96,7 @@ export function appearanceSwitchShown(ready: readonly string[] = DARK_READY): bo
 }
 
 
-/** The person's choice from `document.cookie` — `light` / `dark` / `auto`; no (or an unknown) value is the default, Automatic. */
+/** The person's choice from `document.cookie` — `light` / `dark` / `auto`; no (or an unknown) value is the default, Light. */
 export function appearanceFromCookie(cookie: string): Appearance {
   const m = /(?:^|;\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(cookie);
   return m ? (m[1] as Appearance) : DEFAULT_APPEARANCE;

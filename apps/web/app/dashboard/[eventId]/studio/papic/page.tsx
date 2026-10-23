@@ -192,6 +192,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     preserve_set: preserveSet,
     preserve_error: preserveError,
   } = search;
+  // 🖼 OLD LINKS STILL WORK (contract 2026-10-24): "?gallery=open" opened the library that lived here — it lives in
+  // the event's Memories tab now, so the link goes there. (Every other old Papic link lands on this camera page.)
+  if (search.gallery === 'open') redirect(`/dashboard/${eventId}/memories`);
 
   const supabase = await createClient();
   // ⏱ The SAME ask the dashboard layout makes (`getCurrentUser` is cache()d per render), so the

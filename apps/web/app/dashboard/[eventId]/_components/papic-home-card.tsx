@@ -116,21 +116,21 @@ export function PapicHomeCard({
         ) : actions ? (
           <div className="sg-acts">{actions}</div>
         ) : null}
-      </div>
-
-      {/* THE SETTINGS, UNDER THE CARD — the height grows, the settings fade in; folded, they are inert. */}
-      <div
-        id={regionId}
-        role="region"
-        aria-label="Papic settings"
-        inert={!open}
-        data-papic-home-settings={open ? 'open' : 'closed'}
-        className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="pt-5">{settings}</div>
+        {/* THE SETTINGS, INSIDE THE CARD'S OWN FRAME (the approved controller: "the card's own frame expands") — the
+            height grows, the settings fade in; folded, they are inert. */}
+        <div
+          id={regionId}
+          role="region"
+          aria-label="Papic settings"
+          inert={!open}
+          data-papic-home-settings={open ? 'open' : 'closed'}
+          className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
+            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="mt-4 border-t border-ink/10 pt-5">{settings}</div>
+          </div>
         </div>
       </div>
     </div>

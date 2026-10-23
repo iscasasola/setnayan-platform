@@ -411,10 +411,8 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
           autoReplyBody={
             <AutoReplyCard
               initialEnabled
-              initialDailyCap={30}
               initialAutoAcceptEnabled={false}
               initialAutoAcceptThreshold={80}
-              initialDailyAutoAcceptCap={5}
             />
           }
         />

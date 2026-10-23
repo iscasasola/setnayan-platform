@@ -123,7 +123,7 @@ test('the trap is real: a vendor sign-up opens an empty shop before finalize run
     [uid],
   );
   assert.equal(r.rows.length, 1, 'no empty shop was opened at sign-up — the fixture no longer models the trap');
-  assert.equal(r.rows[0]!.business_name ?? null, null);
+  assert.equal(r.rows[0]!.business_name || null, null, 'the sign-up shop already has a name');
 });
 
 test('the supplier lands in a shop carrying the name, category and email the admin staged — and the staged row is gone', async () => {
@@ -176,10 +176,14 @@ test('the 100 photos: written on claim, and still there after the plan gift has 
   const uid = await signUp(email, 'vendor');
   const shop = await finalize(uid, token);
   assert.equal((await shopOf(shop))?.portfolio_photo_allowance, 100);
-  // The gift runs out — the shipped lapse writes the tier back to free; the allowance is not the plan's.
+  // The gift runs out: its day passes and the SHIPPED lapse (`sweep_vendor_tier_expiry`, login-driven) writes the
+  // shop back to Free. The allowance is not the plan's, so it stays.
   await asOwner();
-  await db.query(`UPDATE public.vendor_profiles SET tier_state = 'free', tier_expires_at = NULL WHERE vendor_profile_id = $1`, [shop]);
-  assert.equal((await shopOf(shop))?.portfolio_photo_allowance, 100, 'the photos ended with the plan');
+  await db.query(`UPDATE public.vendor_profiles SET tier_expires_at = now() - interval '1 minute' WHERE vendor_profile_id = $1`, [shop]);
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+  const after = await shopOf(shop);
+  assert.equal(after?.tier_state, 'free', 'the lapse did not run — the fixture no longer models the gift ending');
+  assert.equal(after?.portfolio_photo_allowance, 100, 'the photos ended with the plan');
 });
 
 test('the offer never lowers a shop: an existing Ultra shop keeps Ultra, and a gift already past its date grants nothing', async () => {

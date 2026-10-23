@@ -19,7 +19,7 @@ import { join } from 'node:path';
 type View = { calls: number; depth: number; ms: number; steps: string[] };
 const WEB = join(__dirname, '..', '..', '..', '..');
 
-function measure(): { host: View; guest: View; stranger: View } {
+function measure(): { host: View; guest: View; stranger: View; beforeTheGate: View } {
   const out = execFileSync(
     join(WEB, '..', '..', 'node_modules', '.bin', 'tsx'),
     [join(WEB, 'app', '[slug]', '_components', 'editorial', 'editorial-reads.harness.ts')],
@@ -60,4 +60,14 @@ test(`1 · the story is at most ${STORY_MAX_DEPTH} trips deep for the couple and
 test('2 · a viewer the gate turns away starts nothing past it', () => {
   const past = VIEWS.stranger.steps.filter((s) => PAST_THE_GATE.test(s));
   assert.deepEqual(past, [], `reads past the story's gate were started for a stranger:\n${shape(VIEWS.stranger)}`);
+  /* …and not only the spine's: the stranger reads EXACTLY what is read before the gate (the words, the role names,
+     the story's loader, run alone) — the same reads, the same number of each. Any read started ahead of the gate,
+     whatever table it touches, is one more here. */
+  const what = (v: View) => v.steps.map((s) => s.replace(/^\d+ /, '')).sort();
+  assert.ok(VIEWS.beforeTheGate.calls >= 15, `the before-the-gate run made only ${VIEWS.beforeTheGate.calls} reads — it measures nothing:\n${shape(VIEWS.beforeTheGate)}`);
+  assert.deepEqual(
+    what(VIEWS.stranger),
+    what(VIEWS.beforeTheGate),
+    `a stranger the gate turns away was started reads beyond the ones before the gate:\n${shape(VIEWS.stranger)}\n— before the gate —\n${shape(VIEWS.beforeTheGate)}`,
+  );
 });

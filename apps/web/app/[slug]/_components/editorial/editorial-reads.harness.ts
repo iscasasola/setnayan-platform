@@ -181,7 +181,29 @@ async function main() {
   /* A passer-by: the fixture's story is shared with the EVENT only, so the one gate turns them away — and
      nothing past the gate may have been started for them. */
   const stranger = await view({ isHost: false, belongsToEvent: false }, false);
-  process.stdout.write(`STORY_READS ${JSON.stringify({ host, guest, stranger })}\n`);
+  /* 🔒 WHAT IS READ BEFORE THE GATE, alone: the three reads `EditorialContent` starts ahead of it (the words, the role
+     names, the story's loader), with nothing of the component around them. A turned-away viewer may read exactly
+     these and nothing more — whatever table a past-the-gate read touches (held by the guard's test 2). */
+  const { eventWordsForEvent } = await import('../../_lib/event-words');
+  const { loadRoleNames } = await import('@/lib/role-names.server');
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const { loadEditorialData } = await import('./data');
+  viewMemo = new Map();
+  dataCache.clear();
+  sent = [];
+  returned = 0;
+  await Promise.all([
+    eventWordsForEvent(EVENT_ID),
+    loadRoleNames(createAdminClient(), EVENT_ID, 'EditorialContent.roleNames'),
+    loadEditorialData(EVENT_ID),
+  ]);
+  const beforeTheGate: ViewReport = {
+    calls: sent.length,
+    depth: Math.max(0, ...sent.map((s) => s.step)),
+    ms: 0,
+    steps: sent.map((s) => `${s.step} ${s.what}`),
+  };
+  process.stdout.write(`STORY_READS ${JSON.stringify({ host, guest, stranger, beforeTheGate })}\n`);
 }
 
 main().then(

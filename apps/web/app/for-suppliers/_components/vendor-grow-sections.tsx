@@ -13,7 +13,7 @@
  */
 import Link from 'next/link';
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
@@ -164,10 +164,10 @@ export function VendorGrowThesis({ fee }: FeeProp) {
     // applied to the file.
     { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
     {
-      b: 'First 5 free',
+      b: 'First booking free',
       s: fee
-        ? `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
-        : 'the bookings we bring you are on us — after that a booking fee, only on couples we source',
+        ? `${FIRST_BOOKING_ON_US_CLAUSE} — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
+        : `${FIRST_BOOKING_ON_US_CLAUSE} — after that a booking fee, only on couples we source`,
     },
   ];
   return (
@@ -410,7 +410,7 @@ export function VendorGrowFairPay({ fee }: FeeProp) {
               While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
-          Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
+          Your first booking from Setnayan is on us —{' '}
           {fee ? (
             <>
               {feeLive ? 'after that the booking fee is ' : 'after that, '}

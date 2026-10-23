@@ -17,7 +17,7 @@ import {
   isReusableSourceBooking,
   REUSE_REQUEST_STATUSES,
 } from './reusable-bookings';
-import { isFreeBooking, decideLockFee } from './booking-fee-lock';
+import { FREE_BOOKING_LIMIT, isFreeBooking, decideLockFee } from './booking-fee-lock';
 
 // ── flag gate (dark by default) ──────────────────────────────────────────────
 
@@ -136,27 +136,28 @@ test('only committed marketplace bookings are reusable sources', () => {
   assert.ok(!isReusableSourceBooking({ status: 'contracted', marketplaceVendorId: null })); // off-platform
 });
 
-// ── new-lock-new-fee: a reuse booking rides the UNCHANGED free-5 rule ─────────
+// ── new-lock-new-fee: a reuse booking rides the UNCHANGED free-booking rule ────
 // A reuse into a new event is the vendor's Nth DISTINCT (vendor,event) lock, so
-// the frozen free-5 ordinal advances exactly like any booking. Proof: simulate
-// 6 distinct-event locks (5 originals + 1 reuse as the 6th) and assert the 6th
-// is charged. The fee is NOT re-implemented for reuse — this pins that reuse
-// gets no free ride and no carry-over of a prior lock's paid state.
+// the frozen ordinal advances exactly like any booking. Proof: simulate 2
+// distinct-event locks (1 original + 1 reuse as the 2nd) and assert the 2nd is
+// charged (owner 2026-10-23: one free booking, not five). The fee is NOT
+// re-implemented for reuse — this pins that reuse gets no free ride and no
+// carry-over of a prior lock's paid state.
 
-test('the 6th distinct booking (a reuse) is CHARGED, first 5 free', () => {
+test('the 2nd distinct booking (a reuse) is CHARGED, only the first is free', () => {
   const agreedTotalPhp = 50000;
-  for (let ordinal = 1; ordinal <= 5; ordinal++) {
+  for (let ordinal = 1; ordinal <= FREE_BOOKING_LIMIT; ordinal++) {
     const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: ordinal, agreedTotalPhp });
     assert.equal(d.free, true, `booking ${ordinal} should be free`);
     assert.equal(d.createOrder, false);
     assert.equal(d.feePhp, 0);
   }
-  // The reuse lands as the 6th distinct (vendor,event) lock → new charge.
-  const reuse = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp });
-  assert.equal(reuse.free, false, 'the 6th (reuse) booking must not be free');
-  assert.equal(reuse.createOrder, true, 'the 6th (reuse) booking must mint a fee order');
+  // The reuse lands as the 2nd distinct (vendor,event) lock → new charge.
+  const reuse = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 2, agreedTotalPhp });
+  assert.equal(reuse.free, false, 'the 2nd (reuse) booking must not be free');
+  assert.equal(reuse.createOrder, true, 'the 2nd (reuse) booking must mint a fee order');
   assert.equal(reuse.feePhp, 2500); // 5% of 50,000
-  assert.ok(!isFreeBooking(6));
+  assert.ok(!isFreeBooking(2));
 });
 
 test('a reuse charges on its OWN re-quoted price, not the source price', () => {

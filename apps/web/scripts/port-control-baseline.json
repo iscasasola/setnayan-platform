@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d017a3876d",
+  "generatedFromRef": "965e0f986f",
   "routeCount": 463,
   "destinations": 1005,
   "actions": 662,
-  "blocks": 6888,
+  "blocks": 6885,
   "routes": {
     "/": {
       "files": [
@@ -8979,7 +8979,6 @@
         "dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-see-photos.tsx",
-        "dashboard/[eventId]/studio/papic/_components/papic-stage.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
@@ -9054,9 +9053,7 @@
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
-        "EmptyRoll",
         "FaceTaggingChoice",
-        "Fact",
         "FilterChip",
         "FilterId",
         "Fragment",
@@ -9065,6 +9062,7 @@
         "GalleryPhoto",
         "GridPageSkeleton",
         "GuestAllotmentPicker",
+        "GuestAllotmentsChoice",
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLInputElement",
@@ -9099,7 +9097,6 @@
         "ShutterSection",
         "SourceRow",
         "Spotlight",
-        "StandingsStrip",
         "StatusBanners",
         "StepperRung",
         "StudioBuyHero",
@@ -9107,7 +9104,6 @@
         "SubmitButton",
         "SupplierWayInRow",
         "SwitchTrack",
-        "Unmeasured",
         "VendorChallengesApproval",
         "WallTileLayout"
       ]

@@ -131,26 +131,8 @@ test('🚨 the Papic page draws no seat count, no "in your pocket" card, and no 
   assert.match(print, /redirect\(`\/dashboard\/\$\{eventId\}\/studio\/papic\/crew\/poster`\)/, 'the per-seat print pack is back');
 });
 
-test('🚨 the library strip says WHO shoots — never a count of seats (render)', async () => {
-  // The stage file uses the automatic JSX runtime under Next; under tsx it compiles to `React.createElement`.
-  (globalThis as { React?: typeof React }).React = React;
-  const { PapicStage } = await import('@/app/dashboard/[eventId]/studio/papic/_components/papic-stage');
-  const html = renderToStaticMarkup(
-    React.createElement(PapicStage, {
-      standings: { inLibrary: 12, cameras: 5, credits: 900 } as never,
-      windowWords: 'On from Saturday, 12 June',
-      opensInDays: null,
-      uploadsOpen: true,
-      whoShoots: 'Every guest + you',
-      addPhotosSlot: React.createElement('button', { type: 'button' }, 'Add photos'),
-    } as never, React.createElement('div', null, 'GALLERY')),
-  );
-  assert.match(html, /Who shoots/);
-  assert.match(html, /Every guest \+ you/);
-  assert.doesNotMatch(html, /\b5 cameras?\b|Ways in/, 'the strip counts seats again');
-  // The one upload door rides the library's top bar once there is something in it.
-  assert.match(html, /Add photos/);
-});
+// (The library strip's render test went with `papic-stage.tsx`, deleted 2026-10-24 — unmounted once the library moved
+// to Memories, whose count line names no seat either.)
 
 test('one door to the uploader — Memories’ + Add photos, never a second entry', () => {
   // 🗂 2026-10-23 (owner, PR-B): the library is the event's Memories tab — "+ Add photos" in its thumb row is the one

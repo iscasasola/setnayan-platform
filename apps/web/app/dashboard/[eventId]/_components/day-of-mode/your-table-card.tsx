@@ -9,7 +9,21 @@ type Props = {
   nearbyTables: EventTableRow[];
 };
 
+/**
+ * 🪑 Does this event have a seat plan at all? True when it has ANY table — a head table or any
+ * other. A debut, a hangout or a wedding nobody seated has none, and on the day their Home must
+ * not lead with "Head table · No head table set up yet" (audit 2026-10-23, owner "yes").
+ *
+ * The signal is the tables themselves (`fetchTables` on the page) — no new flag: a seat plan IS
+ * its tables. A failed table read arrives here as no tables, so the card hides rather than
+ * claiming none were set up.
+ */
+export function eventHasSeatPlan(headTable: EventTableRow | null, nearbyTables: readonly EventTableRow[]): boolean {
+  return headTable !== null || nearbyTables.length > 0;
+}
+
 export function YourTableCard({ eventId, headTable, nearbyTables }: Props) {
+  if (!eventHasSeatPlan(headTable, nearbyTables)) return null;
   return (
     <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
       <header className="flex items-center justify-between">

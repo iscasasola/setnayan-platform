@@ -95,6 +95,7 @@ import {
   hubDraftItemLabel,
   hubResetPatch,
   isHubDraftIntent,
+  HUB_DROP_ALL_PRO,
   isHubResetScope,
   mergeHubDraft,
   heldStageShow,
@@ -121,7 +122,7 @@ import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-wri
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { HUB_DRAFT_EXPECT_FIELD } from '@/lib/maker-drawn-undo';
 import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
-import { hubDraftProEffects } from '@/lib/hub-pro-effects';
+import { dropAllHubProEffects, hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
@@ -358,6 +359,17 @@ export async function hubDraftAction(
        Undo takes it back. */
     if (intent === 'drop') {
       const id = formData.get('effect');
+      /* ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked"): every held Pro effect off the draft in one step —
+         the same per-effect `remove` patches as the ×, recomputed on the draft as the write lands — ONE save, ONE
+         undo step (`dropAllHubProEffects`). */
+      if (id === HUB_DROP_ALL_PRO) {
+        const live = await readHubLiveState(supabase, eventId);
+        await updateHubDraft(supabase, eventId, (cur, by) => {
+          const next = dropAllHubProEffects(cur ?? emptyHubDraft(), live, by);
+          return next ? { next } : null;
+        }, undefined, me);
+        return done();
+      }
       const live = await readHubLiveState(supabase, eventId);
       const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
       if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
@@ -386,7 +398,7 @@ export async function hubDraftAction(
 
     const held: Array<{ item: HubDraftItem; reason: HubDraftRefusal }> = plan.refused.map((item) => ({
       item,
-      reason: storeShell ? 'apply_on_the_web' : 'needs_pro',
+      reason: storeShell ? 'waits_for_pro' : 'needs_pro',
     }));
 
     /* 🔒 A DRAFTED BACKGROUND (or slot picture) MUST STILL BE THIS COUPLE'S OWN

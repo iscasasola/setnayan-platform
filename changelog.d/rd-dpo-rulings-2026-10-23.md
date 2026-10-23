@@ -15,6 +15,11 @@ Corpus DECISION_LOG row "OWNER ANSWERS ON THE BUILD TRACKER" (commit aedbf233).
   - The `same_date_demand` risk note and its test now name the opt-out.
   - Guard: `lib/couples-may-leave-the-same-date-count.test.ts`.
 
+- **Exposure baseline:** `col public.events.same_date_count_opt_out anon=- authenticated=S` recorded with the
+  generator (`pnpm --filter @setnayan/web exposure:baseline`) — the one deliberate widening. SELECT to
+  `authenticated` only, so the couple's own privacy page can read their answer; no UPDATE grant (written through
+  the host-checked service-role action); no anon grant. `lint-events-column-grants` passes.
+
 SPEC IMPACT: Applies the DPO rulings recorded in corpus `DECISION_LOG.md` (aedbf233). These follow-ups belong in the NPC pack at its next regeneration:
 - ROPA DPS-17 (opt-out now exists)
 - DPS-25 (LanguageTool removed)

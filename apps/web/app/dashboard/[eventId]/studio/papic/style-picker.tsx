@@ -52,17 +52,15 @@ export default function StylePicker({
       <div className="grid grid-cols-5 gap-2" data-papic-filter-strip="">
         {PAPIC_STYLES.map((s) => {
           const isActive = s.id === active;
+          const ring = isActive ? 'border-mulberry ring-2 ring-mulberry/30' : 'border-ink/10';
+          const swatch = `relative block aspect-square w-full overflow-hidden rounded-lg border ${ring}`; // no-card-ok: the face of the look's own submit button
           return (
             <form key={s.id} action={setPapicStyle} className="min-w-0">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="style" value={s.id} />
               {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
               <button type="submit" aria-pressed={isActive} aria-label={`Set event look to ${s.label} — ${s.blurb}`} className="block w-full min-w-0 text-center">
-                <span
-                  className={`relative block aspect-square w-full overflow-hidden rounded-lg border ${
-                    isActive ? 'border-mulberry ring-2 ring-mulberry/30' : 'border-ink/10'
-                  }`}
-                >
+                <span className={swatch}>
                   <span aria-hidden className="absolute inset-0" style={{ background: SWATCH_BG, filter: cssPreviewFilter(s.id) }} />
                   {isActive ? (
                     <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-mulberry text-cream">

@@ -284,10 +284,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       // Asked of ChatGPT/Gemini, "Setnayan's weaknesses" came back as four
       // generic event-app worries: venue signal, older guests, upload load, and
       // free spreadsheets. Each answer below states only what ships, checked
-      // against code on this date: both Papic cameras queue a shot on the phone
-      // when the upload fails (enqueuePapicSeatCapture / enqueuePapicGuestCapture
-      // in lib/offline/service-handlers/papic-drain.ts) and compress before
-      // sending (compressImageForWeb / compressVideoForWeb); the door desk has a
+      // against code on this date: the guest and supplier cameras save every
+      // shot on the phone FIRST and send it in pieces when there is signal
+      // (lib/papic-upload/, 2026-10-23), the seat camera queues a shot on the
+      // phone when its upload fails (enqueuePapicSeatCapture in
+      // lib/offline/service-handlers/papic-drain.ts), and both send small copies
+      // (lib/papic-upload/prepare.ts · compressVideoForWeb); the door desk has a
       // name search (CheckinMethod 'manual_search'); a couple sets any guest's
       // RSVP from the guest card; guest import takes CSV.
       // ⚠ DELIBERATELY NOT CLAIMED: that door check-in works offline — marking

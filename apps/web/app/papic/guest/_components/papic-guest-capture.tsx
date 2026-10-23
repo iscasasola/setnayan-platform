@@ -30,19 +30,15 @@ import {
 } from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
-import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
-import { CLIENT_CAPTURE_ID_FIELD, newClientCaptureId } from '@/lib/papic-client-capture-id';
-import { triggerSyncNow } from '@/lib/offline/sync-daemon';
-import {
-  compressVideoForWeb,
-  canCompressVideo,
-  WEB_COPY_MIN_BYTES,
-} from '@/lib/video-compress';
+import { newClientCaptureId } from '@/lib/papic-client-capture-id';
+import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
+import { markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
+import { papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
 import {
   getPapicQualityTier,
   photoJpegQuality,
   clipVideoBitsPerSecond,
-  recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
 import { formatPapicDayInWords } from '@/lib/papic-window';
@@ -80,21 +76,6 @@ function tagErrorMessage(error: string): string {
     default:
       return 'Couldn’t tag that — try again.';
   }
-}
-
-/**
- * Is a non-OK guest-capture upload a PERMANENT reject that will fail identically
- * on every retry? A 4xx from the route (413 too_large, 400 bad_request, 415
- * bad_type, …) means the bytes themselves are unacceptable — re-sending the
- * same bytes later can NEVER succeed, so the shot must NOT go into the offline
- * retry queue with a reassuring "will upload when you're back online" message
- * (that was silent data loss). Only TRANSIENT failures are worth queuing:
- * a network throw, a 5xx, or a 429 rate-limit (a 4xx by number, but genuinely
- * retryable). 409 (pool exhausted) and 403 (blocked / terms) are handled by the
- * callers before this runs, so they never reach here.
- */
-function isPermanentUploadReject(status: number): boolean {
-  return status >= 400 && status < 500 && status !== 429;
 }
 
 /**
@@ -342,7 +323,9 @@ export function PapicGuestCapture({
   const startedAtRef = useRef<number>(0);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const posterBlobRef = useRef<Blob | null>(null);
+  // The id of the newest shot this visit — Kwento + scan-to-tag anchor on it
+  // once the uploader records it.
+  const latestShotRef = useRef<string | null>(null);
   // Gesture shutter: a hold-timer tells a TAP (photo) from a HOLD (record).
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didHoldRef = useRef(false);
@@ -484,11 +467,11 @@ export function PapicGuestCapture({
     total > 0 &&
     remaining <= Math.floor((total * (100 - DEFAULT_EVENT_POOL_CONFIG.softStopPct)) / 100);
 
-  // ⚠ THE OFFLINE QUEUE RE-SPENDS LATER. A shot queued while offline
-  // (enqueuePapicGuestCapture, drained by lib/offline/service-handlers/
-  // papic-drain.ts) posts to this same route minutes after this counter last
-  // moved, and spends against whichever ceiling binds AT DRAIN TIME. This
-  // pill is advisory; papic_record_guest_capture is the truth.
+  // ⚠ EVERY SHOT SPENDS LATER. A shot is saved on this phone at the shutter
+  // and recorded by the uploader (lib/papic-upload/) when there is signal —
+  // seconds later online, hours later after a dead link — and it spends against
+  // whichever ceiling binds AT RECORD TIME. This pill is advisory;
+  // papic_record_guest_capture is the truth.
 
   const acceptTerms = useCallback(async () => {
     if (acceptBusy || !agreeChecked) return;
@@ -511,282 +494,6 @@ export function PapicGuestCapture({
       setAcceptBusy(false);
     }
   }, [acceptBusy, agreeChecked]);
-
-  const capture = useCallback(async () => {
-    if (busy || !ready || switching || exhausted || !accepted || blocked) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    if (!w || !h) return;
-
-    setBusy(true);
-    setSaveError(null);
-
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setBusy(false);
-      return;
-    }
-    ctx.drawImage(video, 0, 0, w, h);
-
-    // 🕐 THE SHUTTER — stamped on the frame itself, before the on-device face
-    // pass, the look and the JPEG encode, and long before any of the network.
-    // Everything after this line can take seconds or, on the offline queue,
-    // hours; none of it is allowed to be the minute this photograph is filed
-    // under. Never shown to the guest and never asked of them (owner ruling,
-    // 2026-09-07) — the camera simply knows.
-    const capturedAtMs = Date.now();
-    // 🔁 …and the shutter's own id, minted HERE and sent unchanged by the POST
-    // below, by any retry and by the offline queue — so a shot whose "saved"
-    // answer was lost on bad signal lands ONCE and is paid for once
-    // (lib/papic-client-capture-id.ts).
-    const clientCaptureId = newClientCaptureId();
-
-    // FACE auto-tag runs on the CLEAN frame, BEFORE the look is applied — the
-    // event style (mono / cross-process / etc.) would otherwise wreck face-api's
-    // 128-d descriptors. ON-DEVICE: only the tiny vectors leave the phone, never
-    // the face image. Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL)
-    // → []; the 'saved' feedback never waits on it failing.
-    let faceVectors: number[][] = [];
-    // Dominant-face center (normalized) from the SAME on-device pass — feeds
-    // Stories Tier-2 auto-reframe (persisted as papic_guest_captures.subject_center_*).
-    let subjectCenter: { x: number; y: number } | null = null;
-    // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
-    // called — no 128-d descriptor is computed and none is transmitted (the
-    // offline path below also carries nothing, since faceVectors stays []).
-    // Only mode_a (a consented custom-QR roster) reaches the embedder.
-    if (faceMode === 'mode_a') {
-      try {
-        const { embedFaces } = await import('@/lib/face-embed');
-        const fe = await embedFaces(canvas);
-        faceVectors = fe.vectors;
-        subjectCenter = fe.subjectCenter;
-      } catch {
-        // best-effort — a face-tag miss never affects the saved photo
-      }
-    }
-
-    // Bake the LOCKED event look into the delivered photo (after the clean embed).
-    applyPapicStyle(canvas, styleRef.current);
-
-    // Adaptive: the delivered photo shrinks on a weak link (the clean face
-    // embed above already ran at full fidelity).
-    const tier = getPapicQualityTier();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality(tier)),
-    );
-    if (!blob) {
-      setBusy(false);
-      setSaveError('Could not grab that frame — try again.');
-      return;
-    }
-
-    // Link effectively unusable — skip the doomed POST, queue the (reduced) shot.
-    if (tier === 'queue_only') {
-      const queued = await enqueuePapicGuestCapture({
-        eventId,
-        mediaType: 'photo',
-        contentType: 'image/jpeg',
-        filename: `papic-${Date.now()}.jpg`,
-        blob,
-        sharePublicly,
-        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
-        capturedAtMs,
-        clientCaptureId,
-        reason: 'low_bandwidth',
-      });
-      setBusy(false);
-      setSaveError(
-        queued
-          ? "Weak signal — this shot will upload once you're back online."
-          : "That shot didn't save — check your signal and try again.",
-      );
-      return;
-    }
-
-    try {
-      const form = new FormData();
-      form.append('file', blob, `papic-${Date.now()}.jpg`);
-      form.append('captured_at_ms', String(capturedAtMs));
-      form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
-      // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
-      // the guest opted in; the server sets consent_to_public from it.
-      if (sharePublicly) form.append('share_publicly', '1');
-      if (faceVectors.length > 0) form.append('face_vectors', JSON.stringify(faceVectors));
-      if (subjectCenter) {
-        form.append('subject_center_x', String(subjectCenter.x));
-        form.append('subject_center_y', String(subjectCenter.y));
-      }
-      const postStart = Date.now();
-      const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-      if (res.ok) recordUploadSample(blob.size, Date.now() - postStart);
-      const json = (await res.json().catch(() => ({}))) as {
-        status?: string;
-        remaining?: number;
-        error?: string;
-        captureId?: string | null;
-        /** Set on a capture-window refusal, so the copy can name the date. */
-        eventDay?: string | null;
-        /**
-         * Set on `quota_exhausted` (S2, migration 20271184624871):
-         * `'guest_spend_ceiling'` when the COUPLE's own ceiling refused this
-         * shot, `'per_guest_credits'` for the platform's flat 150, undefined
-         * pre-migration. Server-authoritative — only the RPC knows which limit
-         * actually bound; this is never inferred client-side.
-         */
-        reason?: string;
-      };
-
-      /*
-        🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
-        and the branch below reads EVERY 409 as "you are out of shots": it calls
-        `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-        rest of the session, then paints "That's all {total} photos!
-        … They'll treasure these." over a photo that was refused before it was ever
-        stored. A guest with credits left is congratulated for a shot that was
-        thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
-        offers to sell them more shots that also cannot be taken.
-      
-        🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
-        The status field is what separates them, so it has to be asked FIRST.
-      */
-      if (json.status === 'event_put_away') {
-        setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
-        return;
-      }
-      if (json.status === 'quota_exhausted') {
-        setRemaining(0);
-        setCapReached(true);
-        setCapReason(json.reason ?? null);
-        setSaveError(null);
-        announceOutOfShots();
-        return;
-      }
-      // Every OTHER 409 on this route is the shared pot refusing
-      // (camera_points_exhausted). It is the CELEBRATION that is out, not this
-      // guest — so it gets its own latch and its own sentence. Offering more
-      // shots stays right here: that is exactly what an empty pot is for.
-      if (res.status === 409 || json.status === 'camera_points_exhausted') {
-        setPoolEmpty(true);
-        setSaveError(null);
-        announceOutOfShots();
-        return;
-      }
-      // UGC moderation gates enforced server-side in the capture RPC.
-      if (json.status === 'blocked') {
-        setBlocked(true);
-        setSaveError(null);
-        return;
-      }
-      if (json.status === 'terms_required') {
-        setAccepted(false);
-        setSaveError(null);
-        return;
-      }
-      if (!res.ok || json.status !== 'ok') {
-        // PERMANENT 4xx reject (413 too_large, 400, 415, …) — the bytes are
-        // unacceptable and a retry can never succeed, so do NOT queue it for
-        // offline retry (that told the guest it was saved while it was lost).
-        // Name the real cause instead. Transient failures fall through to throw.
-        if (isPermanentUploadReject(res.status)) {
-          setSaveError(
-            guestWindowRejectMessage(json.error, json.eventDay) ??
-              (res.status === 413 || json.error === 'too_large'
-                ? 'That shot was too large to save — try again.'
-                : "That shot couldn't be saved — please try again."),
-          );
-          return;
-        }
-        throw new Error(json.error ?? 'record');
-      }
-
-      setRemaining(typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1));
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 900);
-      setAdded((n) => n + 1);
-      setThumb((was) => {
-        if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
-        return URL.createObjectURL(blob);
-      });
-      if (json.captureId) {
-        setKwentoCaptureId(json.captureId);
-        setKwentoFlashText('');
-        setKwentoStoryText('');
-        setKwentoConsent(false);
-        // Open the Flash prompt immediately — but only when the event owns
-        // Kwento. Unowned events stay 'idle' so the prompt never appears (the
-        // submit route would 403). Tag-arming below still runs either way.
-        setKwentoPhase(canKwento ? 'flash' : 'idle');
-        setFlashCountdown(5);
-        setKwentoError(null);
-        setSentMessageId(null);
-        setDeletePhase('idle');
-        // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
-        setLastCaptureId(json.captureId);
-        setLastCaptureKind('photo');
-        setTagging(false);
-        setTagCount(0);
-        setTaggedNames([]);
-        setTagNotice(null);
-        lastScanRef.current = '';
-      }
-    } catch {
-      // Infrastructure failure (no signal / 5xx). Persist to the offline queue so
-      // the shot uploads on reconnect instead of being lost. Terminal states
-      // (quota / blocked / terms) returned earlier, so they never reach here.
-      const queued = await enqueuePapicGuestCapture({
-        eventId,
-        mediaType: 'photo',
-        contentType: 'image/jpeg',
-        filename: `papic-${Date.now()}.jpg`,
-        blob,
-        sharePublicly,
-        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
-        // The shot the guest watched themselves take, with the minute they took
-        // it. Without this the queue stamps the moment the upload FAILED.
-        capturedAtMs,
-        clientCaptureId,
-        reason: 'network',
-      });
-      setSaveError(
-        queued
-          ? "No signal — this shot will upload once you're back online."
-          : "That shot didn't save — check your signal and try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    busy,
-    ready,
-    switching,
-    exhausted,
-    accepted,
-    blocked,
-    sharePublicly,
-    canKwento,
-    videoRef,
-    eventId,
-    faceMode,
-  ]);
-
-  // Drain any guest captures persisted to the offline queue (a signal drop, or a
-  // prior session that closed before reconnecting). Foreground + flag-independent
-  // (iOS Safari has no Background Sync) so queued shots upload on reconnect.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const drain = () => {
-      void triggerSyncNow();
-    };
-    drain();
-    window.addEventListener('online', drain);
-    return () => window.removeEventListener('online', drain);
-  }, []);
 
   // Stop any in-flight recording + clear its timers when the component unmounts.
   useEffect(() => {
@@ -811,9 +518,6 @@ export function PapicGuestCapture({
   // affordances anchored on the new capture id. Shared so both paths behave the
   // same. Photos open the Flash prompt; clips skip it (the moment is recorded).
   const onSavedCapture = useCallback((captureId: string, openFlash: boolean) => {
-    setAdded((n) => n + 1);
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 900);
     setKwentoCaptureId(captureId);
     setKwentoFlashText('');
     setKwentoStoryText('');
@@ -835,6 +539,180 @@ export function PapicGuestCapture({
     lastScanRef.current = '';
   }, [canKwento]);
 
+  const capture = useCallback(async () => {
+    if (busy || !ready || switching || exhausted || !accepted || blocked) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return;
+
+    markShutter();
+    setBusy(true);
+    setSaveError(null);
+
+    // 📸 SAVE FIRST, SEND LATER (owner 2026-10-23: "each phone can shoot
+    // continuously while uploading online works on the background"). A FRESH
+    // canvas per shot, so the next shot never waits for this one's encode; the
+    // only awaits below are local — the encode and the write to this phone.
+    // Nothing here touches the network: lib/papic-upload/ sends it, in pieces,
+    // when there is signal.
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setBusy(false);
+      return;
+    }
+    ctx.drawImage(video, 0, 0, w, h);
+
+    // 🕐 THE SHUTTER — stamped on the frame itself, before the look and the
+    // encode, and long before any of the network. Everything after this line
+    // can take seconds or, in the queue, hours; none of it is allowed to be the
+    // minute this photograph is filed under. Never shown to the guest and never
+    // asked of them (owner ruling, 2026-09-07) — the camera simply knows.
+    const capturedAtMs = Date.now();
+    // 🔁 …and the shutter's own id, minted HERE and carried unchanged by every
+    // piece, every retry and every record — so a shot whose "saved" answer was
+    // lost on bad signal lands ONCE and is paid for once
+    // (lib/papic-client-capture-id.ts).
+    const clientCaptureId = newClientCaptureId();
+
+    // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
+    // called — no 128-d descriptor is computed and none is transmitted. Only
+    // mode_a (a consented custom-QR roster) keeps a CLEAN copy of the frame
+    // (before the look, which would wreck face-api's descriptors) for the
+    // on-device face pass — which now runs in the upload queue, OFF the shutter.
+    // ON-DEVICE: only the tiny vectors ever leave the phone, never the face.
+    let faceSource: Blob | null = null;
+    if (faceMode === 'mode_a') {
+      try {
+        const { resizeTo } = await import('@/lib/papic-upload/prepare');
+        faceSource = await resizeTo(canvas, 1280, 0.85);
+      } catch {
+        faceSource = null; // best-effort — a face-tag miss never affects the photo
+      }
+    }
+
+    // Bake the LOCKED event look into the delivered photo (after the clean copy).
+    applyPapicStyle(canvas, styleRef.current);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality('full')),
+    );
+    canvas.width = 0;
+    canvas.height = 0;
+    if (!blob) {
+      setBusy(false);
+      setSaveError('Could not grab that frame — try again.');
+      return;
+    }
+
+    try {
+      await saveShot({
+        id: clientCaptureId,
+        lane: 'guest',
+        eventId,
+        media: 'photo',
+        capturedAtMs,
+        // Public-sharing consent for THIS shot (Alaala orb gate) — only true
+        // when the guest opted in; the server sets consent_to_public from it.
+        sharePublicly,
+        primary: blob,
+        faceSource,
+      });
+    } catch {
+      // The phone could not keep it (storage full / private mode). Say so —
+      // never a "saved" over a shot that exists nowhere.
+      setBusy(false);
+      setSaveError("That shot didn't save on this phone — free up some space and try again.");
+      return;
+    }
+    latestShotRef.current = clientCaptureId;
+    // The countdown moves at the shutter (advisory); the server's figure
+    // replaces it as each shot is recorded.
+    if (capApplies) setRemaining((r) => Math.max(0, r - papicCaptureCost('photo')));
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 900);
+    setThumb((was) => {
+      if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
+      return URL.createObjectURL(blob);
+    });
+    setBusy(false);
+    markShutterReady();
+  }, [
+    busy,
+    ready,
+    switching,
+    exhausted,
+    accepted,
+    blocked,
+    sharePublicly,
+    capApplies,
+    videoRef,
+    eventId,
+    faceMode,
+  ]);
+
+  // 📮 WHAT THE UPLOADER HEARS BACK. A shot is recorded minutes — or, after a
+  // dead hour, hours — after it was taken, so the camera reacts to the
+  // uploader's events rather than to a request it made. Two copies of each rule
+  // used to live in the photo and clip handlers; there is one now.
+  useEffect(() => {
+    const uploader = papicUploader();
+    return uploader.on((e) => {
+      if (e.shot.lane !== 'guest' || e.shot.eventId !== eventId) return;
+      if (e.type === 'recorded') {
+        const b = e.body as { remaining?: number; captureId?: string | null };
+        setAdded((n) => n + 1);
+        if (typeof b.remaining === 'number') {
+          // The server's figure, less what this phone has shot but not yet sent.
+          const unsent = uploader
+            .snapshot()
+            .shots.filter((s) => s.lane === 'guest' && s.eventId === eventId && !s.settled.record && s.id !== e.shot.id)
+            .reduce((n, s) => n + papicCaptureCost(s.media, s.durationMs ?? null), 0);
+          setRemaining(Math.max(0, b.remaining - unsent));
+        }
+        // Kwento + scan-to-tag anchor on the LATEST shot only.
+        if (b.captureId && e.shot.id === latestShotRef.current) {
+          onSavedCapture(b.captureId, e.shot.media === 'photo');
+        }
+        return;
+      }
+      if (e.type === 'credits') {
+        /*
+          TWO REFUSALS, TWO SENTENCES — `quota_exhausted` is THIS guest's own
+          ceiling; every other credit refusal is the shared pot. A refusal that
+          reuses another refusal's status code inherits its copy. The shot is
+          KEPT on the phone either way, and the chip says how many wait.
+        */
+        if (e.code === 'quota_exhausted') {
+          setRemaining(0);
+          setCapReached(true);
+          setCapReason(typeof e.body?.reason === 'string' ? e.body.reason : null);
+        } else {
+          setPoolEmpty(true);
+        }
+        setSaveError(null);
+        announceOutOfShots();
+        return;
+      }
+      if (e.type === 'refused') {
+        // 🚨 PUT-AWAY FIRST — it is not "out of shots".
+        if (e.code === 'event_put_away') setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+        else if (e.code === 'blocked') setBlocked(true);
+        else if (e.code === 'terms_required') setAccepted(false);
+        else {
+          setSaveError(
+            guestWindowRejectMessage(e.code, e.body?.eventDay) ??
+              "A shot couldn't be saved — the event didn't accept it.",
+          );
+        }
+      }
+    });
+  }, [eventId, onSavedCapture]);
+
   // Draw the current frame to the hidden canvas → JPEG poster (the NSFW proxy).
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
     const video = videoRef.current;
@@ -851,190 +729,44 @@ export function PapicGuestCapture({
     return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
   }, [videoRef]);
 
-  // CLIP WEB-COPY (Papic storage PR-1) — a BACKGROUND follow-up, fired only after
-  // the raw clip has ALREADY recorded (we have its capture_id). It transcodes a
-  // ~0.5 MB H.264 web copy off the main thread (ffmpeg.wasm runs in its own
-  // worker) and POSTs it back as `mode=web_copy` to update clip_web_r2_key by
-  // capture_id. Deliberately NOT awaited by the capture path: it must NEVER block
-  // the raw upload/record or the next capture. Best-effort end-to-end — on
-  // unsupported / transcode-skip / any failure it just returns, the column stays
-  // NULL, and the raw remains the only playable copy (delivery is never gated on
-  // it). The heavy ffmpeg core is lazy-loaded inside compressVideoForWeb, so this
-  // import costs nothing until a clip actually records.
-  const uploadClipWebCopy = useCallback(async (clip: Blob, captureId: string) => {
-    try {
-      if (!canCompressVideo()) return;
-      const src = new File([clip], `papic-web-${Date.now()}.mp4`, { type: 'video/mp4' });
-      const web = await compressVideoForWeb(src, { profile: 'web720' });
-      // Reference-equality: compressVideoForWeb returns the INPUT unchanged on
-      // skip/failure (or when the copy wasn't smaller) → nothing worth storing.
-      if (web === src || web.size <= WEB_COPY_MIN_BYTES || web.size >= clip.size) return;
-      const form = new FormData();
-      form.append('mode', 'web_copy');
-      form.append('capture_id', captureId);
-      form.append('clip_web', web, `papic-${Date.now()}-web.mp4`);
-      await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-    } catch {
-      // best-effort — the raw stays the playable copy
-    }
-  }, []);
-
-  const uploadClip = useCallback(
-    async (clip: Blob, durationMs: number, capturedAtMs: number) => {
-      setBusy(true);
+  // A finished clip goes to the phone's queue with its poster — the web copy
+  // (~0.5 MB, ffmpeg.wasm) is made in the queue's background step, never here,
+  // and never blocks the next shot (lib/papic-upload/prepare.ts).
+  const saveClip = useCallback(
+    async (clip: Blob, durationMs: number, capturedAtMs: number, poster: Blob | null) => {
       setSaveError(null);
-      // 🔁 One id for this clip, live POST and offline queue alike — see the photo path.
+      // 🔁 One id for this clip, every piece and every record — see the photo path.
       const clientCaptureId = newClientCaptureId();
-      // Link effectively unusable — skip the doomed POST, queue the clip.
-      if (getPapicQualityTier() === 'queue_only') {
-        const queued = await enqueuePapicGuestCapture({
+      const clamped = Math.min(durationMs, MAX_CLIP_MS);
+      try {
+        await saveShot({
+          id: clientCaptureId,
+          lane: 'guest',
           eventId,
-          mediaType: 'clip',
-          contentType: clip.type || 'video/mp4',
-          filename: `papic-${Date.now()}.mp4`,
-          blob: clip,
-          posterBlob: posterBlobRef.current,
-          posterFilename: `papic-${Date.now()}.jpg`,
-          durationMs: Math.min(durationMs, MAX_CLIP_MS),
-          sharePublicly,
+          media: 'clip',
           capturedAtMs,
-          clientCaptureId,
-          reason: 'low_bandwidth',
+          durationMs: clamped,
+          // Same public-sharing opt-in as photos (Alaala orb gate).
+          sharePublicly,
+          primary: clip,
+          poster,
         });
-        setSaveError(
-          queued
-            ? "Weak signal — this clip will upload once you're back online."
-            : "That clip didn't save — check your signal and try again.",
-        );
-        setBusy(false);
+      } catch {
+        setSaveError("That clip didn't save on this phone — free up some space and try again.");
         return;
       }
-      try {
-        const form = new FormData();
-        form.append('media_type', 'clip');
-        form.append('file', clip, `papic-${Date.now()}.mp4`);
-        if (posterBlobRef.current) {
-          form.append('poster', posterBlobRef.current, `papic-${Date.now()}.jpg`);
-        }
-        form.append('duration_ms', String(Math.min(durationMs, MAX_CLIP_MS)));
-        form.append('captured_at_ms', String(capturedAtMs));
-        form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
-        // Same public-sharing opt-in as photos (Alaala orb gate). Only sent when
-        // the guest opted in; the server sets consent_to_public from it.
-        if (sharePublicly) form.append('share_publicly', '1');
-
-        const postStart = Date.now();
-        const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-        if (res.ok) recordUploadSample(clip.size, Date.now() - postStart);
-        const json = (await res.json().catch(() => ({}))) as {
-          status?: string;
-          remaining?: number;
-          error?: string;
-          captureId?: string | null;
-          /** Set on a capture-window refusal, so the copy can name the date. */
-          eventDay?: string | null;
-          /** Set on `quota_exhausted` — see the photo handler's copy of this type. */
-          reason?: string;
-        };
-
-        /*
-          🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
-          and the branch below reads EVERY 409 as "you are out of shots": it calls
-          `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-          rest of the session, then paints "That's all {total} photos!
-          … They'll treasure these." over a photo that was refused before it was ever
-          stored. A guest with credits left is congratulated for a shot that was
-          thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
-          offers to sell them more shots that also cannot be taken.
-        
-          🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
-          The status field is what separates them, so it has to be asked FIRST.
-        */
-        if (json.status === 'event_put_away') {
-          setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
-          return;
-        }
-        if (json.status === 'quota_exhausted') {
-          setRemaining(0);
-          setCapReached(true);
-          setCapReason(json.reason ?? null);
-          setSaveError(null);
-          announceOutOfShots();
-          return;
-        }
-        // The pot, not this guest — see the photo handler. Two copies of one
-        // rule, and a fix applied to one of them is not a fix.
-        if (res.status === 409 || json.status === 'camera_points_exhausted') {
-          setPoolEmpty(true);
-          setSaveError(null);
-          announceOutOfShots();
-          return;
-        }
-        if (json.status === 'blocked') {
-          setBlocked(true);
-          setSaveError(null);
-          return;
-        }
-        if (json.status === 'terms_required') {
-          setAccepted(false);
-          setSaveError(null);
-          return;
-        }
-        if (!res.ok || json.status !== 'ok') {
-          // PERMANENT 4xx reject (413 too_large, 400, 415, …). A 413 means the
-          // clip is too big for the route ceiling and will 413 identically on
-          // every retry — queuing it (with a "will upload when you're back
-          // online" message) silently loses it. So do NOT queue: name the real
-          // cause. Only transient failures fall through to the catch (which
-          // queues with the honest offline message).
-          if (isPermanentUploadReject(res.status)) {
-            setSaveError(
-              guestWindowRejectMessage(json.error, json.eventDay) ??
-                (res.status === 413 || json.error === 'too_large'
-                  ? 'That snippet was too long or heavy to save — try a shorter one.'
-                  : "That clip couldn't be saved — please try again."),
-            );
-            return;
-          }
-          throw new Error(json.error ?? 'record');
-        }
-
-        setRemaining(
-          typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1),
-        );
-        // Clips skip the Flash prompt (the moment's already captured as video).
-        if (json.captureId) onSavedCapture(json.captureId, false);
-        // Kick the web-copy transcode in the BACKGROUND (not awaited) — the raw
-        // is already recorded, so this never blocks the capture path.
-        if (json.captureId) void uploadClipWebCopy(clip, json.captureId);
-      } catch {
-        // Infra failure — persist so the clip uploads on reconnect.
-        const queued = await enqueuePapicGuestCapture({
-          eventId,
-          mediaType: 'clip',
-          contentType: clip.type || 'video/mp4',
-          filename: `papic-${Date.now()}.mp4`,
-          blob: clip,
-          posterBlob: posterBlobRef.current,
-          posterFilename: `papic-${Date.now()}.jpg`,
-          durationMs: Math.min(durationMs, MAX_CLIP_MS),
-          sharePublicly,
-          // The moment the clip opened. Without it the queue would stamp the
-          // moment the upload gave up.
-          capturedAtMs,
-          clientCaptureId,
-          reason: 'network',
+      latestShotRef.current = clientCaptureId;
+      if (capApplies) setRemaining((r) => Math.max(0, r - papicCaptureCost('clip', clamped)));
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 900);
+      if (poster) {
+        setThumb((was) => {
+          if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
+          return URL.createObjectURL(poster);
         });
-        setSaveError(
-          queued
-            ? "No signal — this clip will upload once you're back online."
-            : "That clip didn't save — check your signal and try again.",
-        );
-      } finally {
-        setBusy(false);
       }
     },
-    [sharePublicly, onSavedCapture, eventId, uploadClipWebCopy],
+    [sharePublicly, eventId, capApplies],
   );
 
   const stopRecording = useCallback(() => {
@@ -1101,10 +833,10 @@ export function PapicGuestCapture({
         setSaveError('That recording came back empty — try again.');
         return;
       }
-      posterBlobRef.current = await grabPoster(); // last live frame ≈ NSFW proxy
+      const poster = await grabPoster(); // last live frame ≈ NSFW proxy
       // 🕐 The clip's minute is when it OPENED, not when it closed — the same
       // instant `durationMs` is measured from, so the two can never disagree.
-      void uploadClip(clip, durationMs, startedAtRef.current || Date.now() - durationMs);
+      void saveClip(clip, durationMs, startedAtRef.current || Date.now() - durationMs, poster);
     };
 
     startedAtRef.current = Date.now();
@@ -1124,7 +856,7 @@ export function PapicGuestCapture({
     tickRef.current = setInterval(() => {
       setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
     }, 100);
-  }, [ready, switching, exhausted, busy, accepted, blocked, grabPoster, uploadClip, stopRecording, streamRef]);
+  }, [ready, switching, exhausted, busy, accepted, blocked, grabPoster, saveClip, stopRecording, streamRef]);
 
   // ---- gesture shutter -----------------------------------------------------
   // TAP = photo, HOLD = record (release / 5s cap stops it). One button, no mode
@@ -1619,6 +1351,9 @@ export function PapicGuestCapture({
             number is the READER'S OWN allowance — her 150, or the ceiling the
             couple set on her — and hiding a guest's own number from that guest
             would be a second bug wearing this one's clothes. */}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
+        <PapicUploadChip />
         {capApplies ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -1631,6 +1366,7 @@ export function PapicGuestCapture({
             Running low for everyone
           </span>
         ) : null}
+        </div>
       </header>
 
       {/* In-camera "add your face" fallback — catches the guest who jumped

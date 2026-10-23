@@ -34,12 +34,6 @@ export type LocalPiece = CaptureTier | 'face' | 'source';
 const shotItemId = (id: string) => `ps:${id}`;
 const blobItemId = (id: string, piece: LocalPiece) => `pb:${id}:${piece}`;
 
-/** True for every item this module owns — the sync daemon leaves them alone. */
-export function isSaveFirstItem(item: Pick<OfflineItem, 'payload'>): boolean {
-  const mode = item.payload?.mode;
-  return mode === SHOT_MODE || mode === BLOB_MODE;
-}
-
 export async function saveShot(shot: QueuedShot): Promise<void> {
   const item: OfflineItem = {
     item_id: shotItemId(shot.id),

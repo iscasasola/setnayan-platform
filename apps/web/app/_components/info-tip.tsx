@@ -54,6 +54,8 @@ export type InfoTipProps = {
   /** Which edge the popover hangs from. `start` near a left edge, `end` near a right one. */
   align?: 'center' | 'start' | 'end';
   className?: string;
+  /** The `(i)` sits on a dark ground (the Papic camera): cream circle, not ink. */
+  onDark?: boolean;
 };
 
 export function InfoTip({
@@ -65,6 +67,7 @@ export function InfoTip({
   ariaLabel,
   align = 'center',
   className,
+  onDark = false,
 }: InfoTipProps) {
   const [state, dispatch] = useReducer(tipReducer, TIP_CLOSED);
   const rootRef = useRef<HTMLElement>(null);
@@ -124,7 +127,7 @@ export function InfoTip({
         onClick={() => dispatch({ type: 'click' })}
         onFocus={() => dispatch({ type: 'focus' })}
         onBlur={() => dispatch({ type: 'blur' })}
-        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+        className={`sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold leading-none transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta ${onDark ? 'border-cream/50 text-cream/80' : 'border-ink/25 text-ink/55'}`}
       >
         <span aria-hidden="true">i</span>
       </button>

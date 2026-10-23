@@ -28,6 +28,7 @@ export function Fold({
   line,
   aside,
   lead,
+  leadPress,
   anchor,
   popovers = false,
 }: {
@@ -45,6 +46,12 @@ export function Fold({
   /** A mark at the LEFT of the head — a list row's avatar, so a row that opens in place lines up with the rows that go
    *  somewhere. Never something pressable. Absent → the head is exactly as it was. */
   lead?: ReactNode;
+  /**
+   * A PRESSABLE mark at the LEFT, BESIDE the head rather than inside it — a row's colour circle that opens its own
+   * picker (Your page › Look). The head keeps its own press (open / shut), the mark keeps its own; a button is never
+   * nested in the head. Absent → the head is exactly as it was.
+   */
+  leadPress?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
   /** `data-fold="<data>"`. */
@@ -91,6 +98,31 @@ export function Fold({
     window.addEventListener('hashchange', apply);
     return () => window.removeEventListener('hashchange', apply);
   }, [anchor]);
+  const head = (
+    <button
+      type="button"
+      data-fold-head=""
+      aria-expanded={open}
+      aria-controls={id}
+      onClick={() => setOpen((o) => !o)}
+      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress ? 'min-w-0 flex-1' : 'w-full'}`}
+    >
+      {lead}
+      {line !== undefined ? (
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{title}</span>
+          {line ? <span className="block truncate text-[13px] font-normal text-ink/60">{line}</span> : null}
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1">
+          {title}
+          {summary ? <small className="text-[12.5px] font-normal text-ink/55"> · {summary}</small> : null}
+        </span>
+      )}
+      {aside}
+      <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+    </button>
+  );
   return (
     <div
       ref={box}
@@ -99,29 +131,14 @@ export function Fold({
       data-fold-open={open ? '' : undefined}
       className={anchor ? `scroll-mt-24 ${className}` : className}
     >
-      <button
-        type="button"
-        data-fold-head=""
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen((o) => !o)}
-        className="sn-press flex min-h-[52px] w-full items-center gap-2 text-left text-[15px] font-semibold text-ink"
-      >
-        {lead}
-        {line !== undefined ? (
-          <span className="min-w-0 flex-1">
-            <span className="block truncate">{title}</span>
-            {line ? <span className="block truncate text-[13px] font-normal text-ink/60">{line}</span> : null}
-          </span>
-        ) : (
-          <span className="min-w-0 flex-1">
-            {title}
-            {summary ? <small className="text-[12.5px] font-normal text-ink/55"> · {summary}</small> : null}
-          </span>
-        )}
-        {aside}
-        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
-      </button>
+      {leadPress ? (
+        <div className="flex items-center gap-2" data-fold-row="">
+          {leadPress}
+          {head}
+        </div>
+      ) : (
+        head
+      )}
       <div
         id={id}
         data-fold-body=""

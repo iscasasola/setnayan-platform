@@ -19,6 +19,7 @@ import {
 } from '@/lib/patiktok';
 import {
   patiktokBoothCookieName,
+  patiktokBoothLegacyCookieName,
   resolveBoothTemplates,
 } from '@/lib/patiktok-booth-templates';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -180,7 +181,7 @@ export default async function PatiktokBoothDashboard({
   const { primary: primaryTemplate, backup: backupTemplate } = resolveBoothTemplates({
     primaryParam: primary,
     backupParam: backup,
-    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null,
+    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? jar.get(patiktokBoothLegacyCookieName(eventId))?.value ?? null,
   });
 
   return (

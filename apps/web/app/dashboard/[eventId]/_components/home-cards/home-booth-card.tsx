@@ -5,6 +5,10 @@ import { readHomeBoothCard } from '@/lib/home-booth-card.server';
 import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
 import { HomeCardRow, HomeServiceCard } from '../home-service-card';
+import { cookies } from 'next/headers';
+import { PATIKTOK_TEMPLATES } from '@/lib/patiktok';
+import { patiktokBoothCookieName, resolveBoothTemplates } from '@/lib/patiktok-booth-templates';
+import { BoothTemplatePick } from './booth-template-pick';
 
 const opens = (href: string, label: string, marker: string) => (
   <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-booth-door={marker}>
@@ -21,8 +25,8 @@ const opens = (href: string, label: string, marker: string) => (
  *   OPEN         Your renders · N › · TikTok (Connected · @handle / Connect TikTok, owned only) · not owned: Save & share
  *                (its page sells it — no price on Home) · "Open Patiktok ›".
  *
- * The booth's Primary / Backup template is remembered per device on the booth's own pages (a cookie scoped to them),
- * so Home cannot read it honestly — it stays on the booth.
+ * Primary / Backup template — the booth's own per-device pick (`lib/patiktok-booth-templates.ts`, a cookie scoped to the
+ * event since 2026-10-24 so Home reads the same one), one dropdown each, posting the booth's own action.
  */
 export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: string; name: string; brand?: string; owned: boolean }) {
   const supabase = await createClient();
@@ -33,6 +37,8 @@ export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: 
   const marker = { 'data-home-service': 'booth' };
   if (!read.ok) return <HomeServiceCard name={name} brand={brand} icon={icon} dots={[]} door={door} failed marker={marker} />;
 
+  const jar = await cookies();
+  const templates = resolveBoothTemplates({ saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null });
   const left = Math.max(0, read.cap - read.today);
   const over = read.today >= read.cap;
   return (
@@ -50,6 +56,12 @@ export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: 
       actions={<ActionButton tone="brand" icon={<Video aria-hidden="true" strokeWidth={1.9} />} label="Open booth" href={`${page}/booth`} />}
       settings={
         <>
+          <BoothTemplatePick
+            eventId={eventId}
+            primary={templates.primary.slug}
+            backup={templates.backup.slug}
+            templates={PATIKTOK_TEMPLATES.map((t) => ({ slug: t.slug, name: t.name }))}
+          />
           <HomeCardRow label={`Your renders · ${formatCount(read.renders)}`} marker="renders" control={opens(page, 'See', 'renders')} />
           {owned && read.tiktok !== null ? (
             <HomeCardRow

@@ -9,8 +9,9 @@ import { HomeCardRow, HomeServiceCard } from '../home-service-card';
  *
  *   QUICK VIEW   Active · the briefing sentence ("You're 73% booked, 2 decisions need you, next deadline in 6 days.")
  *                with the booked meter (a true total) · See decisions › (Suppliers, ranked — the page's own door).
- *   OPEN         the four figures the Planner page draws (`AI_LIVE_FIGURES`, one list) · "Open Planner ›". The page has
- *                no settings (it is a buy + showcase page), so none are drawn.
+ *                + the four figures the Planner page draws (`AI_LIVE_FIGURES`, one list), IN the quick view (owner: "Planner
+ *                = quick view with its four figures"). It does not grow: the page has no settings (a buy + showcase page),
+ *                so the card's head is the door to it.
  *
  * 🔒 HONEST — the prototype's NEW guard: `loadAiActivity` fail-softs every read to zeros, which would say "nothing needs
  * a decision" over a refusal. It now says whether it measured (`measured`); unmeasured → "couldn't load".
@@ -49,12 +50,14 @@ export async function HomePlannerCard({ eventId, name, brand }: { eventId: strin
       actions={
         <ActionButton tone="neutral" icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="See decisions" href={`/dashboard/${eventId}/vendors`} />
       }
-      settings={
-        <>
+      body={
+        /* The four figures ARE the quick view (owner 2026-10-23, answering the prototype's question: "Planner = quick
+           view with its four figures") — no grow: the page has no settings, so the head is the door to it. */
+        <div className="divide-y divide-ink/10" data-home-planner-figures="">
           {AI_LIVE_FIGURES.map(({ label, of }) => (
             <HomeCardRow key={label} label={label} hint={of(activity)} marker={`ai-${label.toLowerCase()}`} />
           ))}
-        </>
+        </div>
       }
       door={door}
       marker={marker}

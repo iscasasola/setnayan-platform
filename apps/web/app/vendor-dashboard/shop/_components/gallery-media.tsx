@@ -8,7 +8,7 @@ import { InstagramConnectCard } from '@/app/vendor-dashboard/_components/instagr
 import { VideoLinksEditor } from '@/app/vendor-dashboard/_components/video-links-editor';
 import type { VendorIgConnectionStatus, VendorIgMediaRow } from '@/lib/vendor-instagram-status';
 import { updateVendorProfileField } from '../../actions';
-import { portfolioOverCapMessage } from '@/lib/vendor-tier-caps';
+import { portfolioOverCapMessage, PORTFOLIO_ALLOWANCE_UNREAD, PORTFOLIO_ALLOWANCE_UNREAD_SAVE } from '@/lib/vendor-tier-caps';
 import { CouldNotLoad } from './could-not-load';
 
 /*
@@ -34,6 +34,7 @@ export function GalleryMedia({
   portfolioRefs,
   portfolioDisplayMap,
   portfolioMax,
+  portfolioAllowanceUnread = false,
   galleryVideoLinks,
   igConfigured,
   igConnection,
@@ -45,6 +46,8 @@ export function GalleryMedia({
   portfolioRefs: string[];
   portfolioDisplayMap: Record<string, string>;
   portfolioMax: number;
+  /** The shop's own allowance could not be read: say so — never "first 50 free" in its place. */
+  portfolioAllowanceUnread?: boolean;
   galleryVideoLinks: string[];
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
@@ -79,7 +82,7 @@ export function GalleryMedia({
         toast={toast}
         successToast="Portfolio saved."
         title="Portfolio photos"
-        hint={`first ${portfolioMax} free, 5 MB each`}
+        hint={portfolioAllowanceUnread ? `${PORTFOLIO_ALLOWANCE_UNREAD}, 5 MB each` : `first ${portfolioMax} free, 5 MB each`}
       >
         <FileUpload
           bucket="media"
@@ -92,7 +95,7 @@ export function GalleryMedia({
           // 📸 The free base, GRANDFATHERED (owner 2026-10-23): a shop already past it keeps every photo, so the
           // widget never holds fewer than are on the page — it only stops a NEW one past the base.
           maxFiles={Math.max(portfolioMax, portfolioRefs.length)}
-          limitMessage={portfolioOverCapMessage(portfolioMax)}
+          limitMessage={portfolioAllowanceUnread ? PORTFOLIO_ALLOWANCE_UNREAD_SAVE : portfolioOverCapMessage(portfolioMax)}
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"

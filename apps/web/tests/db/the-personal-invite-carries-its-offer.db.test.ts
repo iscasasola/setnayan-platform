@@ -129,20 +129,109 @@ test('the trap is real: a vendor sign-up opens an empty shop before finalize run
   assert.equal(r.rows[0]!.business_name || null, null, 'the sign-up shop already has a name');
 });
 
-test('the supplier lands in a shop carrying the name, category and email the admin staged — and the staged row is gone', async () => {
+test('the usual case: the empty sign-up shop is deleted and the PREPARED shop is handed over whole — gift tier, founder, published and all', async () => {
   const { token, email, stagedId } = await adminInvites(adminUid, 'Tita Nena’s Catering', 'caterer');
+  // What an admin can set on the prepared shop before the claim (setVendorTier, the founder flag, publishing).
+  await asOwner();
+  await db.query(
+    `UPDATE public.vendor_profiles SET tier_state = 'pro', tier_expires_at = now() + interval '40 days',
+       is_founder = TRUE, is_published = TRUE WHERE vendor_profile_id = $1`,
+    [stagedId],
+  );
   const uid = await signUp(email, 'vendor');
+  await asOwner();
+  const empty = await db.query<{ id: string }>(`SELECT vendor_profile_id AS id FROM public.vendor_profiles WHERE user_id = $1`, [uid]);
   const shop = await finalize(uid, token);
+  assert.equal(shop, stagedId, 'the prepared shop was not the one handed over');
+  assert.equal(await shopOf(empty.rows[0]!.id), null, 'the empty sign-up shop was left behind');
   const row = await shopOf(shop);
   assert.equal(row?.user_id, uid);
   assert.equal(row?.business_name, 'Tita Nena’s Catering');
   assert.deepEqual(row?.services, ['caterer']);
   assert.equal(row?.contact_email, email);
-  assert.equal(await shopOf(stagedId), null, 'the staged, unowned row was left behind');
+  assert.equal(row?.tier_state, 'pro', 'the prepared gift tier was lost');
+  await asOwner();
+  const flags = await db.query<{ f: boolean; p: boolean }>(
+    `SELECT is_founder AS f, is_published AS p FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [shop],
+  );
+  assert.equal(flags.rows[0]!.f, true, 'the founder flag was lost');
+  assert.equal(flags.rows[0]!.p, true, 'is_published was lost');
   const inv = await db.query<{ c: string }>(`SELECT claimed_vendor_profile_id AS c FROM public.vendor_invites WHERE claim_token = $1`, [token]);
   assert.equal(inv.rows[0]!.c, shop);
   const seat = await db.query(`SELECT 1 FROM public.vendor_team_members WHERE vendor_profile_id = $1 AND user_id = $2 AND role = 'admin'`, [shop, uid]);
   assert.equal(seat.rows.length, 1, 'the claimant has no admin seat');
+});
+
+test('a REAL existing shop is kept, never deleted: blanks filled, and the prepared founder · published · gift tier · allowance copied', async () => {
+  const { token, email, stagedId } = await adminInvites(adminUid, 'Bakeshop Prepared', 'cake', { photos: 100 });
+  await asOwner();
+  await db.query(
+    `UPDATE public.vendor_profiles SET tier_state = 'solo', tier_expires_at = now() + interval '20 days',
+       is_founder = TRUE, is_published = TRUE WHERE vendor_profile_id = $1`,
+    [stagedId],
+  );
+  const uid = await signUp(email, 'vendor');
+  await asOwner();
+  const own = await db.query<{ id: string }>(`SELECT vendor_profile_id AS id FROM public.vendor_profiles WHERE user_id = $1`, [uid]);
+  // Something of the supplier's: a name they typed. The shop is real now and must survive.
+  await db.query(`UPDATE public.vendor_profiles SET business_name = 'Her Own Bakeshop' WHERE vendor_profile_id = $1`, [own.rows[0]!.id]);
+  const shop = await finalize(uid, token);
+  assert.equal(shop, own.rows[0]!.id, 'the supplier\'s own shop was replaced');
+  assert.equal(await shopOf(stagedId), null, 'the prepared row was left behind');
+  const row = await shopOf(shop);
+  assert.equal(row?.business_name, 'Her Own Bakeshop', 'a name the supplier set was overwritten');
+  assert.deepEqual(row?.services, ['cake'], 'a blank service was not filled');
+  assert.equal(row?.tier_state, 'solo', 'the prepared gift tier was not copied onto a Free shop');
+  assert.equal(row?.portfolio_photo_allowance, 100);
+  await asOwner();
+  const flags = await db.query<{ f: boolean; p: boolean }>(
+    `SELECT is_founder AS f, is_published AS p FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [shop],
+  );
+  assert.equal(flags.rows[0]!.f, true, 'the founder flag was not copied');
+  assert.equal(flags.rows[0]!.p, true, 'is_published was not copied');
+});
+
+test('a shop with anything pointing at it is not "empty": a team mate on the sign-up shop keeps it from being deleted', async () => {
+  const { token, email, stagedId } = await adminInvites(adminUid, 'Crewed Shop', 'photographer');
+  const uid = await signUp(email, 'vendor');
+  const mate = await signUp('mate@example.ph', 'customer');
+  await asOwner();
+  const own = await db.query<{ id: string }>(`SELECT vendor_profile_id AS id FROM public.vendor_profiles WHERE user_id = $1`, [uid]);
+  await db.query(`INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role) VALUES ($1, $2, 'viewer')`, [own.rows[0]!.id, mate]);
+  const shop = await finalize(uid, token);
+  assert.equal(shop, own.rows[0]!.id, 'a shop with a team mate was deleted');
+  assert.equal(await shopOf(stagedId), null);
+  assert.equal((await shopOf(shop))?.business_name, 'Crewed Shop', 'the blank name was not filled from the prepared shop');
+});
+
+test('a link past its expires_at claims nothing, whatever the page did', async () => {
+  const { token, email } = await adminInvites(adminUid, 'Too Late Co', 'florist', { tier: 'pro', untilDays: 30 });
+  await asOwner();
+  await db.query(`UPDATE public.vendor_invites SET expires_at = now() - interval '1 minute' WHERE claim_token = $1`, [token]);
+  const uid = await signUp(email, 'vendor');
+  await asOwner();
+  await assert.rejects(db.query(`SELECT public.claim_ready_the_invited_shop($1, $2)`, [uid, token]), /this link has expired/);
+  await asOwner();
+  const r = await db.query<{ t: string }>(`SELECT tier_state::text AS t FROM public.vendor_profiles WHERE user_id = $1`, [uid]);
+  assert.equal(r.rows[0]!.t, 'free');
+});
+
+test('a plan gift runs a year at most from the day it is offered', async () => {
+  await asOwner();
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_invites (vendor_id, email, business_name, claim_token, status, source, expires_at, offer_tier, offer_until)
+       VALUES (NULL, 'long@example.ph', 'Long Gift', 'too-long-1', 'pending', 'admin', now() + interval '9 days', 'pro', now() + interval '400 days')`,
+    ),
+    /vendor_invites_offer_until_within_a_year/,
+  );
+  // A full year from today (the form's last day, stored as its end-of-day instant) is allowed.
+  await db.query(
+    `INSERT INTO public.vendor_invites (vendor_id, email, business_name, claim_token, status, source, expires_at, offer_tier, offer_until)
+     VALUES (NULL, 'year@example.ph', 'Year Gift', 'a-year-1', 'pending', 'admin', now() + interval '9 days', 'pro', now() + interval '1 year' + interval '12 hours')`,
+  );
 });
 
 test('no shop yet (a sign-up that arrived as a customer): the staged row itself is handed over', async () => {

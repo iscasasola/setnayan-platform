@@ -29,6 +29,20 @@ export type PersonalInviteTier = (typeof PERSONAL_INVITE_TIERS)[number];
 /** The owner's number (2026-10-23: "normal is 50. we can make it 100"). The switch gives exactly this. */
 export const PERSONAL_INVITE_PHOTO_ALLOWANCE = 100;
 
+/**
+ * The furthest a plan gift may run: one year from the day it is offered (owner review 2026-10-23: "cap offer_until,
+ * max 1 year ahead"). The same rule is a CHECK on `vendor_invites` (`offer_until <= created_at + 1 year`), so a
+ * hand-written row cannot carry a longer one either.
+ */
+export const PERSONAL_INVITE_MAX_DAYS = 365;
+
+/** The last day a gift offered on `todayDay` may run to (`YYYY-MM-DD`, Manila). */
+export function lastOfferDay(todayDay: string): string {
+  const d = new Date(`${todayDay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + PERSONAL_INVITE_MAX_DAYS);
+  return d.toISOString().slice(0, 10);
+}
+
 export type PersonalInviteOffer = {
   tier: PersonalInviteTier | null;
   /** `YYYY-MM-DD`, the last free day (Manila). Set exactly when `tier` is. */
@@ -89,6 +103,7 @@ export function parsePersonalInviteOffer(
     return { ok: false, message: 'Pick the day the free plan ends.' };
   }
   if (until <= todayDay) return { ok: false, message: 'The free plan has to end after today.' };
+  if (until > lastOfferDay(todayDay)) return { ok: false, message: 'A free plan can run for a year at most.' };
   return { ok: true, offer: { tier: tierRaw as PersonalInviteTier, untilDay: until, photos } };
 }
 
@@ -117,7 +132,7 @@ function planWithPrice(tier: PersonalInviteTier, prices: PlanPrices): string {
   return typeof p === 'number' && Number.isFinite(p) ? `${planWord(tier)} ${formatPhp(p)}` : planWord(tier);
 }
 
-/** "Free, Solo ₱1,000, Pro ₱2,500 or Ultra ₱8,000 / 28 days" — the four choices after the gift. */
+/** "Free, Solo ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / 28 days" — the four choices after the gift (prices read). */
 export function planChoicesLine(prices: PlanPrices): string {
   const paid = PERSONAL_INVITE_TIERS.map((t) => planWithPrice(t, prices));
   return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} / 28 days`;

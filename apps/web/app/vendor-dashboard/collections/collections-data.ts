@@ -8,7 +8,7 @@ import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
-import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
 import {
@@ -40,6 +40,8 @@ export type CollectionsData = {
   portfolioRefs: string[];
   portfolioDisplayMap: Record<string, string>;
   portfolioMax: number;
+  /** The shop's own allowance could not be read — the widget says so instead of "first 50 free". */
+  portfolioAllowanceUnread: boolean;
   galleryVideoLinks: string[];
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
@@ -207,9 +209,10 @@ export async function loadCollectionsData(
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
+  const allowance = await allowanceRead;
   const portfolioCap = portfolioPhotoCap(
     (own?.tier_state as string | null | undefined) ?? null,
-    await allowanceRead,
+    allowanceForCap(allowance),
   );
 
   return {
@@ -235,6 +238,7 @@ export async function loadCollectionsData(
     portfolioRefs,
     portfolioDisplayMap,
     portfolioMax: portfolioCap,
+    portfolioAllowanceUnread: !allowance.ok,
     galleryVideoLinks,
     igConfigured,
     igConnection: ig.connection,

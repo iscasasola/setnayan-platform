@@ -8,8 +8,8 @@ import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
-import { planGiftOf, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
-import { offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
+import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
+import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
 import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -21,6 +21,7 @@ import {
   isTierAtLeast,
   portfolioPhotoCap,
   PORTFOLIO_FREE_BASE,
+  PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import {
@@ -458,14 +459,16 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
-  const photoCap = portfolioPhotoCap(currentTier, allowance);
-  const photosLine = portfolioPlanRowLine({
-    held: (profile.portfolio_r2_keys ?? []).length,
-    cap: photoCap,
-    gifted: (allowance ?? 0) > PORTFOLIO_FREE_BASE,
-    giftUntilDay: gift ? gift.untilDay : null,
-    giftEnded: Boolean(giftEnded),
-  });
+  // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
+  const photosLine = allowance.ok
+    ? portfolioPlanRowLine({
+        held: (profile.portfolio_r2_keys ?? []).length,
+        cap: portfolioPhotoCap(currentTier, allowance.allowance),
+        gifted: (allowance.allowance ?? 0) > PORTFOLIO_FREE_BASE,
+        giftUntilDay: gift ? gift.untilDay : null,
+        giftEnded: Boolean(giftEnded),
+      })
+    : PORTFOLIO_ALLOWANCE_UNREAD;
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
@@ -520,7 +523,13 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             action={startSubscriptionPurchase}
             gift={
               gift
-                ? { untilShort: offerDayWords(gift.untilDay).replace(/ \d{4}$/, ''), untilFull: offerDayWords(gift.untilDay) }
+                ? {
+                    untilShort: offerDayWords(gift.untilDay).replace(/ \d{4}$/, ''),
+                    untilFull: offerDayWords(gift.untilDay),
+                    // Last week: Pay comes back on the current plan, starting the day after — no forced Free gap.
+                    endsSoon: giftEndsSoon(gift),
+                    startsShort: dayAfterWords(gift.untilDay),
+                  }
                 : null
             }
           />

@@ -144,6 +144,14 @@ export function portfolioPhotoCap(tier: string | null | undefined, allowance: nu
   return Math.max(base, own);
 }
 
+/**
+ * What the shop reads when its own allowance could not be read. 🔑 Never "50 free" in its place: a shop holding a
+ * personal invite's 100 would be told a smaller number that is not true. Saves stay inside the base while it is
+ * unread (withholding, never granting) and refuse with these words rather than the over-cap ones.
+ */
+export const PORTFOLIO_ALLOWANCE_UNREAD = "Couldn't read your photo allowance";
+export const PORTFOLIO_ALLOWANCE_UNREAD_SAVE = `${PORTFOLIO_ALLOWANCE_UNREAD}. Nothing was saved — try again.`;
+
 /** The refusal past the cap — the owner's words, with the shop's own number (100 for a personal invite's gift). */
 export function portfolioOverCapMessage(cap: number): string {
   return cap === PORTFOLIO_FREE_BASE

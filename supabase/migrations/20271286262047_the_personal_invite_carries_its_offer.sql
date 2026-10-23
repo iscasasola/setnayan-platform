@@ -35,9 +35,15 @@
 --       left orphaned with user_id NULL, and the supplier arrived nameless.
 --       This function is the admin-source twin of `claim_ready_the_shop`:
 --         · no shop yet → the staged row is handed over (user_id := claimant);
---         · a shop already → its BLANKS are filled from the staged row (a name
---           or a service the supplier set is theirs), and the staged row — still
---           unclaimed, user_id NULL — is deleted, exactly as a revoke deletes it;
+--         · a shop already → see the next two lines;
+--         · the claimant's shop is PICKED, never "the first row": the prepared
+--           one if already theirs, else their oldest;
+--         · when that shop is the EMPTY one the sign-up just opened (proved by
+--           `vendor_shop_is_untouched` against every table that references a
+--           shop), it is deleted and the PREPARED shop is handed over whole —
+--           gift tier, founder flag, is_published and all; a REAL shop is kept
+--           and the prepared one folded in (the function lists what is copied);
+--         · a link past its `expires_at` is refused here, not only by the page;
 --         · the admin seat is ensured;
 --         · THE OFFER is applied — the same three columns `setVendorTier`
 --           writes (tier_state · tier_expires_at · tier_source = 'admin_comp')
@@ -78,6 +84,13 @@ ALTER TABLE public.vendor_invites ADD CONSTRAINT vendor_invites_offer_tier_has_a
 ALTER TABLE public.vendor_invites DROP CONSTRAINT IF EXISTS vendor_invites_offer_photo_allowance_positive;
 ALTER TABLE public.vendor_invites ADD CONSTRAINT vendor_invites_offer_photo_allowance_positive
   CHECK (offer_photo_allowance IS NULL OR offer_photo_allowance BETWEEN 1 AND 1000);
+
+-- A plan gift runs a year at most from the day it is offered (owner review 2026-10-23: "cap offer_until, max 1 year
+-- ahead"; the form says the same — PERSONAL_INVITE_MAX_DAYS in lib/personal-invite-offer.ts). The extra day is the
+-- end-of-day instant: the form's last allowed DAY is stored as that Manila day's last second.
+ALTER TABLE public.vendor_invites DROP CONSTRAINT IF EXISTS vendor_invites_offer_until_within_a_year;
+ALTER TABLE public.vendor_invites ADD CONSTRAINT vendor_invites_offer_until_within_a_year
+  CHECK (offer_until IS NULL OR offer_until <= created_at + interval '1 year' + interval '1 day');
 
 -- Only Setnayan's own invite carries an offer — a couple's link never does.
 ALTER TABLE public.vendor_invites DROP CONSTRAINT IF EXISTS vendor_invites_offer_is_setnayans;
@@ -183,16 +196,154 @@ CREATE TRIGGER guard_vendor_portfolio_photo_allowance
   FOR EACH ROW EXECUTE FUNCTION public.guard_vendor_portfolio_photo_allowance();
 
 -- ═══ 3 · the claim ═══════════════════════════════════════════════════════════
+
+-- Is this shop the EMPTY one `handle_new_vendor_user` opened at sign-up — safe to delete so the admin-prepared shop
+-- can be handed over instead? Proven, never guessed: ~100 tables cascade from `vendor_profiles`, so "empty" means
+--   · the row itself carries nothing a person or the platform put there (no name, service, contact, place, photo,
+--     plan, credit, scheduled change, founder flag or allowance; never published), AND
+--   · NO row in ANY table that references `vendor_profiles` points at it — read from the catalogue, so a table added
+--     later is covered without anyone remembering this function — except the claimant's own admin seat.
+-- Any doubt answers FALSE (a read it cannot make, a multi-column key): the claim then keeps that shop and fills its
+-- blanks instead, which can never lose anything.
+CREATE OR REPLACE FUNCTION public.vendor_shop_is_untouched(p_shop uuid, p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_p   public.vendor_profiles%ROWTYPE;
+  v_fk  record;
+  v_hit boolean;
+BEGIN
+  SELECT * INTO v_p FROM public.vendor_profiles WHERE vendor_profile_id = p_shop;
+  IF NOT FOUND OR v_p.user_id IS DISTINCT FROM p_user_id THEN
+    RETURN FALSE;
+  END IF;
+  IF NULLIF(btrim(v_p.business_name), '') IS NOT NULL
+     OR COALESCE(cardinality(v_p.services), 0) > 0
+     OR v_p.is_published
+     OR v_p.is_founder
+     OR v_p.tier_state::text <> 'free'
+     OR v_p.tier_expires_at IS NOT NULL
+     OR COALESCE(v_p.subscription_credit_php, 0) <> 0
+     OR v_p.pending_tier IS NOT NULL
+     OR v_p.portfolio_photo_allowance IS NOT NULL
+     OR COALESCE(cardinality(v_p.portfolio_r2_keys), 0) > 0
+     OR v_p.contact_phone IS NOT NULL
+     OR v_p.tagline IS NOT NULL
+     OR v_p.location_city IS NOT NULL
+     OR v_p.hq_address IS NOT NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  FOR v_fk IN
+    SELECT c.conrelid::regclass AS tbl, c.conkey, a.attname AS col
+      FROM pg_constraint c
+      LEFT JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+     WHERE c.contype = 'f' AND c.confrelid = 'public.vendor_profiles'::regclass
+  LOOP
+    IF array_length(v_fk.conkey, 1) <> 1 OR v_fk.col IS NULL THEN
+      RETURN FALSE;
+    END IF;
+    IF v_fk.tbl = 'public.vendor_team_members'::regclass THEN
+      SELECT EXISTS (SELECT 1 FROM public.vendor_team_members
+                      WHERE vendor_profile_id = p_shop AND user_id IS DISTINCT FROM p_user_id) INTO v_hit;
+    ELSE
+      EXECUTE format('SELECT EXISTS (SELECT 1 FROM %s WHERE %I = $1)', v_fk.tbl, v_fk.col) INTO v_hit USING p_shop;
+    END IF;
+    IF v_hit THEN
+      RETURN FALSE;
+    END IF;
+  END LOOP;
+  RETURN TRUE;
+EXCEPTION WHEN OTHERS THEN
+  RETURN FALSE;
+END;
+$$;
+
+COMMENT ON FUNCTION public.vendor_shop_is_untouched(uuid, uuid) IS
+  'TRUE only for the empty shop the vendor sign-up opened: nothing on the row, and no row in any table that references '
+  'vendor_profiles points at it (read from pg_constraint) except the claimant''s own admin seat. Any doubt is FALSE. '
+  'Used by claim_ready_the_invited_shop to decide whether that shop may be deleted. Service role only.';
+
+REVOKE ALL ON FUNCTION public.vendor_shop_is_untouched(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vendor_shop_is_untouched(uuid, uuid) TO service_role;
+
+-- The last-admin guard gains ONE named exception for the hand-over below. It is re-declared from its latest body
+-- (20271126915299) with only the `v_handover` lines added. Why not reuse the erasure flag: that one means "remove
+-- this person", and one flag doing two jobs is how a rule's exception spreads. Why not exempt every cascade: this
+-- guard is also what keeps an owner from deleting their own shop over the REST API today.
+CREATE OR REPLACE FUNCTION public.vendor_team_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_actor        UUID := auth.uid();
+  v_approved     BOOLEAN := COALESCE(current_setting('app.vendor_admin_change_approved', true), '') = 'true';
+  -- Set ONLY by public.erase_vendor_seats below, which is the RA 10173 erasure
+  -- path. Deliberately a separate flag from v_approved: that one means "the
+  -- team voted to remove another admin" and must NOT also mean "it is fine to
+  -- leave this shop with no admin at all". One flag doing both jobs would let a
+  -- team vote empty a shop by accident.
+  v_erasing      BOOLEAN := COALESCE(current_setting('app.vendor_seat_erasure', true), '') = 'true';
+  -- Set ONLY by public.claim_ready_the_invited_shop (20271286262047), transaction-local, to the id of the ONE empty
+  -- sign-up shop it is deleting so the admin-prepared shop can be handed over. Honoured only for that shop's seats
+  -- and only once that shop row is already gone — a shop being deleted cannot be "left without an admin". A third
+  -- named flag, not v_erasing: erasure means "remove this person", this means "remove this empty shop".
+  v_handover     TEXT := NULLIF(current_setting('app.vendor_empty_shop_handover', true), '');
+  v_other_admins INT;
+BEGIN
+  IF TG_OP = 'DELETE' AND OLD.role = 'admin' THEN
+    SELECT count(*) INTO v_other_admins FROM public.vendor_team_members
+      WHERE vendor_profile_id = OLD.vendor_profile_id AND role = 'admin'
+        AND vendor_team_member_id <> OLD.vendor_team_member_id;
+    IF v_other_admins < 1 AND NOT v_erasing
+       AND NOT (v_handover IS NOT NULL AND v_handover = OLD.vendor_profile_id::text
+                AND NOT EXISTS (SELECT 1 FROM public.vendor_profiles WHERE vendor_profile_id = OLD.vendor_profile_id)) THEN
+      RAISE EXCEPTION 'VENDOR_LAST_ADMIN: a store must keep at least one admin';
+    END IF;
+    -- Removing ANOTHER admin needs the approved flag; self-removal is allowed.
+    -- Erasure is self-removal by definition (the seat belongs to the subject),
+    -- so this arm is left exactly as it was.
+    IF v_actor IS NOT NULL AND OLD.user_id <> v_actor AND NOT v_approved THEN
+      RAISE EXCEPTION 'VENDOR_ADMIN_CHANGE_NEEDS_VOTE: removing another admin needs a team vote';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND OLD.role = 'admin' AND NEW.role <> 'admin' THEN
+    SELECT count(*) INTO v_other_admins FROM public.vendor_team_members
+      WHERE vendor_profile_id = OLD.vendor_profile_id AND role = 'admin'
+        AND vendor_team_member_id <> OLD.vendor_team_member_id;
+    -- NOT exempted. Erasure DELETES a seat; it never demotes one. A demotion
+    -- that empties a shop is still the mistake this guard was written to stop.
+    IF v_other_admins < 1 THEN
+      RAISE EXCEPTION 'VENDOR_LAST_ADMIN: a store must keep at least one admin';
+    END IF;
+    IF v_actor IS NOT NULL AND OLD.user_id <> v_actor AND NOT v_approved THEN
+      RAISE EXCEPTION 'VENDOR_ADMIN_CHANGE_NEEDS_VOTE: demoting another admin needs a team vote';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.claim_ready_the_invited_shop(p_user_id uuid, p_claim_token text)
 RETURNS uuid
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
 DECLARE
-  v_inv      public.vendor_invites%ROWTYPE;
-  v_staged   public.vendor_profiles%ROWTYPE;
-  v_shop     uuid;
-  v_now      public.vendor_profiles%ROWTYPE;
+  v_inv    public.vendor_invites%ROWTYPE;
+  v_staged public.vendor_profiles%ROWTYPE;
+  v_own    public.vendor_profiles%ROWTYPE;
+  v_shop   uuid;
+  v_now    public.vendor_profiles%ROWTYPE;
 BEGIN
   IF p_user_id IS NULL OR p_claim_token IS NULL OR length(p_claim_token) = 0 THEN
     RAISE EXCEPTION 'claim_ready_the_invited_shop: a user and a claim token are required'
@@ -214,24 +365,36 @@ BEGIN
   IF v_inv.status::text <> 'pending' THEN
     RAISE EXCEPTION 'claim_ready_the_invited_shop: this link is %', v_inv.status USING ERRCODE = '55000';
   END IF;
+  -- 🔒 The link's own end, checked HERE — not only by the page that called. A link past `expires_at` claims nothing.
+  IF v_inv.expires_at IS NOT NULL AND v_inv.expires_at <= NOW() THEN
+    RAISE EXCEPTION 'claim_ready_the_invited_shop: this link has expired' USING ERRCODE = '55000';
+  END IF;
 
-  -- The staged row the admin filled — only while nobody owns it.
+  -- The shop the admin prepared — only while nobody owns it.
   IF v_inv.claimed_vendor_profile_id IS NOT NULL THEN
     SELECT * INTO v_staged FROM public.vendor_profiles
      WHERE vendor_profile_id = v_inv.claimed_vendor_profile_id AND user_id IS NULL
      FOR UPDATE;
   END IF;
 
-  SELECT vendor_profile_id INTO v_shop FROM public.vendor_profiles WHERE user_id = p_user_id;
+  -- 🔒 THE CLAIMANT'S SHOP, PICKED EXPLICITLY — never "whichever row came first". The invite's prepared shop if it is
+  -- already theirs, else their OLDEST shop. (`vendor_profiles.user_id` is UNIQUE today, so this is one row; the
+  -- order is written down so the day a person can own two, this cannot silently pick the wrong one.)
+  SELECT * INTO v_own FROM public.vendor_profiles
+   WHERE user_id = p_user_id
+   ORDER BY (vendor_profile_id = v_inv.claimed_vendor_profile_id) DESC NULLS LAST, created_at, vendor_profile_id
+   LIMIT 1
+   FOR UPDATE;
 
-  IF v_shop IS NULL AND v_staged.vendor_profile_id IS NOT NULL THEN
-    -- No shop yet: the staged row becomes theirs.
+  IF v_own.vendor_profile_id IS NULL AND v_staged.vendor_profile_id IS NOT NULL THEN
+    -- No shop yet: the prepared shop becomes theirs, whole.
     UPDATE public.vendor_profiles
        SET user_id = p_user_id, updated_at = NOW()
      WHERE vendor_profile_id = v_staged.vendor_profile_id AND user_id IS NULL;
     v_shop := v_staged.vendor_profile_id;
-  ELSIF v_shop IS NULL THEN
-    -- Nothing staged (an old invite, or the row was removed): open one from the invite.
+
+  ELSIF v_own.vendor_profile_id IS NULL THEN
+    -- Nothing prepared (an old invite, or the row was removed): open one from the invite.
     INSERT INTO public.vendor_profiles (user_id, business_name, contact_email, services, is_published)
     VALUES (
       p_user_id,
@@ -242,9 +405,35 @@ BEGIN
       FALSE
     )
     RETURNING vendor_profile_id INTO v_shop;
+
+  ELSIF v_staged.vendor_profile_id IS NOT NULL
+        AND public.vendor_shop_is_untouched(v_own.vendor_profile_id, p_user_id) THEN
+    -- 🔁 THE USUAL CASE: the vendor sign-up opened an EMPTY shop a moment ago. That shop is deleted (it holds nothing
+    -- — `vendor_shop_is_untouched` proved it against every table that points at a shop; the only row that goes with
+    -- it is the claimant's own admin seat, re-made below) and the PREPARED shop is handed over WHOLE — everything the
+    -- admin set on it travels with it: name, service, contact, place, the gift tier, the founder flag, is_published,
+    -- the photo allowance. Nothing is copied, so nothing can be forgotten.
+    PERFORM set_config('app.vendor_empty_shop_handover', v_own.vendor_profile_id::text, true);
+    DELETE FROM public.vendor_profiles WHERE vendor_profile_id = v_own.vendor_profile_id;
+    PERFORM set_config('app.vendor_empty_shop_handover', '', true);
+    UPDATE public.vendor_profiles
+       SET user_id = p_user_id, updated_at = NOW()
+     WHERE vendor_profile_id = v_staged.vendor_profile_id AND user_id IS NULL;
+    v_shop := v_staged.vendor_profile_id;
+
   ELSE
-    -- A shop already (the sign-up trigger opened an empty one): fill ITS blanks
-    -- from what the admin staged, or from the invite when nothing was staged.
+    -- A REAL shop already (it holds something of the supplier's): it is kept, and the prepared shop is folded into
+    -- it. WHAT IS COPIED from the prepared shop, and how:
+    --   · business_name · services · contact_email · contact_phone · tagline · location_city · hq_address with its
+    --     hq_latitude/hq_longitude — BLANKS ONLY: a value the supplier set is theirs;
+    --   · is_founder    — TRUE if either shop is (never cleared);
+    --   · is_published  — TRUE if either shop is (a published shop is never hidden by a claim);
+    --   · portfolio_photo_allowance — the larger of the two (never lowered);
+    --   · the GIFT TIER — tier_state · tier_expires_at · tier_source, only when the prepared shop holds a running
+    --     admin comp AND this shop is Free/Verified with no credit and no scheduled change (the same rule as the
+    --     invite's own offer below: a shop on a plan is never shortened, its credit never put at risk).
+    -- Nothing else is copied. The prepared row is then deleted, still unowned — exactly as a revoke deletes it.
+    v_shop := v_own.vendor_profile_id;
     UPDATE public.vendor_profiles vp
        SET business_name = COALESCE(NULLIF(btrim(vp.business_name), ''),
                                     NULLIF(btrim(v_staged.business_name), ''),
@@ -260,11 +449,30 @@ BEGIN
            hq_latitude   = CASE WHEN vp.hq_address IS NULL THEN v_staged.hq_latitude ELSE vp.hq_latitude END,
            hq_longitude  = CASE WHEN vp.hq_address IS NULL THEN v_staged.hq_longitude ELSE vp.hq_longitude END,
            hq_address    = COALESCE(vp.hq_address, v_staged.hq_address),
+           is_founder    = vp.is_founder OR COALESCE(v_staged.is_founder, FALSE),
+           is_published  = vp.is_published OR COALESCE(v_staged.is_published, FALSE),
+           portfolio_photo_allowance = CASE
+             WHEN v_staged.portfolio_photo_allowance IS NULL THEN vp.portfolio_photo_allowance
+             ELSE GREATEST(COALESCE(vp.portfolio_photo_allowance, 0), v_staged.portfolio_photo_allowance) END,
            updated_at    = NOW()
      WHERE vp.vendor_profile_id = v_shop;
 
-    -- The staged row is spent. Still unowned, so this is the revoke's own delete.
-    IF v_staged.vendor_profile_id IS NOT NULL AND v_staged.vendor_profile_id <> v_shop THEN
+    IF v_staged.vendor_profile_id IS NOT NULL
+       AND v_staged.tier_source = 'admin_comp'
+       AND v_staged.tier_state::text IN ('solo', 'pro', 'enterprise')
+       AND v_staged.tier_expires_at > NOW()
+       AND v_own.tier_state::text IN ('free', 'verified')
+       AND COALESCE(v_own.subscription_credit_php, 0) = 0
+       AND v_own.pending_tier IS NULL THEN
+      UPDATE public.vendor_profiles
+         SET tier_state      = v_staged.tier_state,
+             tier_expires_at = v_staged.tier_expires_at,
+             tier_source     = 'admin_comp',
+             updated_at      = NOW()
+       WHERE vendor_profile_id = v_shop;
+    END IF;
+
+    IF v_staged.vendor_profile_id IS NOT NULL THEN
       UPDATE public.vendor_invites SET claimed_vendor_profile_id = v_shop WHERE invite_id = v_inv.invite_id;
       DELETE FROM public.vendor_profiles
        WHERE vendor_profile_id = v_staged.vendor_profile_id AND user_id IS NULL;
@@ -327,12 +535,13 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) IS
-  'Finalize step 1 of a supplier claiming a Setnayan (admin) invite: hand over the staged shop, or fill the '
-  'user''s own shop''s blanks from it and drop the staged row; ensure the admin seat; apply the personal '
-  'invite''s offer (plan + until, as an admin comp, only to a Free/Verified shop with no credit and no scheduled '
-  'change -- a plan is never shortened and a credit never put at risk; the photo allowance, kept); mark the invite '
-  'claimed under its row lock, so a link is spent once (the same claimant again gets their shop back). Refuses a '
-  'link that is not a pending admin invite. Service role only.';
+  'Finalize step 1 of a supplier claiming a Setnayan (admin) invite. Refuses a link that is not a pending admin invite '
+  'or is past expires_at. Picks the claimant''s shop explicitly (the prepared one, else the oldest). The empty shop the '
+  'sign-up opened is deleted and the prepared shop handed over whole; a real existing shop is kept and the prepared '
+  'one folded in (blanks · founder · published · allowance · a running gift tier onto Free/Verified — listed in the '
+  'body). Ensures the admin seat; applies the invite''s offer only to a Free/Verified shop with no credit and no '
+  'scheduled change; marks the invite claimed under its row lock (the same claimant again gets their shop back). '
+  'Service role only.';
 
 REVOKE ALL ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) TO service_role;

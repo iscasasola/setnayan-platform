@@ -60,9 +60,14 @@ export function PlanPicker({
   /**
    * 🎁 The current plan is a gift from Setnayan (prototype `supplier_personal_invite_2026-10-23` C1): while the
    * current plan is picked its rows say so — "Free until 31 Jan · then you choose", the cycle paid only if they keep
-   * it, and "What you pay" ₱0 with no Pay button (there is nothing to pay). Picking another plan shows it as shipped.
+   * it, and "What you pay" ₱0 with no Pay button (there is nothing to pay yet). Picking another plan shows it as shipped.
+   *
+   * 🔑 IN THE GIFT'S LAST WEEK (`endsSoon`, the same seven days as Today's "Your free Pro ends" door) the current
+   * plan's Pay comes BACK: the door says "Keep Pro", and hiding Pay there left only one way to keep it — let the gift
+   * lapse to Free, then buy — a forced Free gap. A same-plan purchase is a renewal, `GREATEST(now(), tier_expires_at)
+   * + period` (20271177335213), so paid now it starts the day after the gift: no gap, no day paid twice.
    */
-  gift?: { untilShort: string; untilFull: string } | null;
+  gift?: { untilShort: string; untilFull: string; endsSoon?: boolean; startsShort?: string } | null;
 }) {
   const [picked, setPicked] = useState(plans.some((p) => p.key === current) ? current : 'free');
   const [cycle, setCycle] = useState<Cycle>(startCycle);
@@ -73,6 +78,8 @@ export function PlanPicker({
   const price = plan.price[cycle];
   const tooShort = plan.tooShort[cycle] ?? null;
   const onGift = Boolean(gift) && plan.key === current;
+  // The gift's last week: the current plan can be paid for now, starting when the gift ends.
+  const keepGift = onGift && gift?.endsSoon === true && price !== undefined && !tooShort;
 
   const options = plans.map((p) => ({
     key: p.key,
@@ -132,7 +139,9 @@ export function PlanPicker({
         lead={lead(Wallet)}
         title="What you pay"
         line={
-          onGift && gift
+          keepGift && gift && price !== undefined
+            ? `${formatPhp(price)} / ${CYCLE_WORD[cycle]} · starts ${gift.startsShort ?? `after ${gift.untilShort}`}, no gap`
+            : onGift && gift
             ? `${formatPhp(0)} until ${gift.untilFull} · nothing renews by itself`
             : isFree
             ? 'Nothing to pay · nothing renews by itself'
@@ -142,9 +151,9 @@ export function PlanPicker({
               ? 'Not sold on this cycle right now'
               : tooShort ?? `${formatPhp(price)} / ${CYCLE_WORD[cycle]} · Setnayan confirms your payment`
         }
-        badge={onGift ? { tone: 'ok', word: formatPhp(0) } : undefined}
+        badge={onGift && !keepGift ? { tone: 'ok', word: formatPhp(0) } : undefined}
         end={
-          onGift || isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
+          (onGift && !keepGift) || isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
             <form action={action} data-plan-pay-form="">
               <input type="hidden" name="sku_code" value={`${plan.key}_vendor_${cycle}`} />
               <SupplierSubmit

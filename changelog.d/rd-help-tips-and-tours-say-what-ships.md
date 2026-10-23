@@ -6,8 +6,10 @@ fragments; the full table (missing · stale · OK, per surface, per feature) is
 `shots-2026-10-22/help-sync/HELP-SYNC.md`.
 
 - **Tours.** Two new first-visit SPOTLIGHTS (dim + gliding ring — never the centred card), each after the host's
-  journey so none stack: `customer_account_bar_v1` on the Events board (Events · Memories · People, lit on the bar's
-  own tab tokens; Discover is not a stop — the app drops it and `/` stamps no segment) and `customer_people_v2` on
+  journey so none stack, neither repeating #6799's five page tours: `customer_account_bar_v1` on the Events board
+  (Events · Memories · People, lit on the bar's own tab tokens, then **Switch to** on the avatar — `data-tour=
+  "account-avatar"`, drawn at every width, so a laptop's tour lands there; Discover is not a stop — the app drops it
+  and `/` stamps no segment) and `customer_people_v2` on
   People (the counts · Loved ones · the find-or-invite field). People's switched-off carousel mount is replaced by the
   spotlight. Stale words fixed: the supplier Today tour's "The bar is Today, Customers, Shop and More…" (More left
   the bar 21 Oct), People's carousel ("The picker at the top…", removed 22 Oct), the couple welcome's "18 roles" and
@@ -19,9 +21,11 @@ fragments; the full table (missing · stale · OK, per surface, per feature) is
   no other one names a removed thing. An "About loved ones" ⓘ was built and walked, then DROPPED: People's folds
   (`.fold > div { overflow: clip }`, the Guest list's own CSS) cut its popover off at the section's edge. What it said
   — a shop you own is one of your loved ones — is the People tour's second stop and the `loved-ones` Help answer.
-- **Help.** New: the tabs at the bottom (account bar, event bar; the app's answer without Discover) · one account for
-  a shop and events · the supplier dashboard's four tabs · People · Loved ones · Memories · the dress code by role ·
-  cookies (essential only) · the guest's "What should I wear?". Updated: privacy (essential cookies only), roles
+- **Help.** 13 new: the tabs at the bottom (account bar, event bar; the app's answer without Discover) · switching
+  between your events and your shops · what search finds · one account for a shop and events · the supplier
+  dashboard's four tabs · People · Loved ones (with the For tag) · Memories · the dress code by role · the venue pin ·
+  Event Hub Pro part by part (web only; no figure; the app's answer is `HELP_NOT_IN_THE_APP`) · cookies (essential
+  only) · the guest's "What should I wear?". Updated: the theme (your screens can be light or dark, #6809/#6811), privacy (essential cookies only), roles
   (man of honor, best woman, grandparents, several roles per guest), plus-ones (named / no name yet, Release seat,
   no +1 of a +1), supplier sign-up (one account does both). Older stale lines found by the sweep are fixed where the
   shipped UI was confirmed (table).
@@ -31,9 +35,9 @@ fragments; the full table (missing · stale · OK, per surface, per feature) is
   labels are READ from their source; the app's help too). `spotlight-anchors-exist` now also reads the account bar's
   tabs and a spread `'data-tour'` mark. `people-redesign-holds` + `people-wears-the-guest-list` re-aimed ON PURPOSE
   from the MiniTour mount to the spotlight (same property: People has a first-visit tour).
-- **Not on main yet, so not written into the product** (their words are in HELP-SYNC.md for the PR that ships them):
-  the avatar sheet's Switch to (#6783/#6784), the venue pin in Studio (#6787), search inside the shell
-  (#6782/#6792), Event Hub Pro by part (#6775/#6780/#6781), the For tag (#6797), the web event bar without More
-  (#6791 — it rewrites the event-menu slide itself), Memories' new page (#6778).
+- **Still open on 23 Oct, so not written into the product** (words in HELP-SYNC.md): other accounts on this phone
+  (#6784), people in search (#6792), the web event bar without More (#6791 — it rewrites the event-menu slide itself),
+  Memories' new page (#6778). The venue pin (#6787) gets Help but no tour — one field on an existing screen, inside the
+  Maker, whose first load is at its ceiling and whose own tour runs there.
 
 SPEC IMPACT: None — words only, every one checked against the shipped UI; no ruling changed.

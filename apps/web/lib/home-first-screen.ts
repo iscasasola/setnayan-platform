@@ -354,10 +354,9 @@ export const EVENT_HUB_NAME = 'Event Hub';
  * event holds when Full Pro is not on. Never a price: the Maker's Apply is where Pro is asked for.
  */
 export function hubProLine(row: PaidRow | null, parts: { full: boolean; count: number } | null = null): string {
-  if (!row) return '◆ Free';
-  if (row.state === 'unread') return '◆ —';
-  if (row.state === 'owned' || parts?.full) return '◆ Pro on · themes, photo and video backgrounds';
-  if (row.state === 'pending') return '◆ Pro · payment sent · switches on once approved';
+  if (row?.state === 'unread') return '◆ —';
+  if (row?.state === 'owned' || parts?.full) return '◆ Pro on · themes, photo and video backgrounds';
+  if (row?.state === 'pending') return '◆ Pro · payment sent · switches on once approved';
   if (parts && parts.count > 0) return `◆ Pro · ${formatCount(parts.count)} ${parts.count === 1 ? 'part' : 'parts'} on`;
   return '◆ Free';
 }

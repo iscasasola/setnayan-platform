@@ -10,23 +10,34 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
-import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
-import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
-import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
+import {
+  VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+  VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+} from '@/lib/vendor-papic-credits';
+import { formatCount } from '@/lib/format-number';
 
 /**
- * Buy ONE Papic credit pack for a booked event — apply-then-pay, the same
+ * Buy ONE Papic credit pack INTO THE SHOP WALLET — apply-then-pay, the same
  * shape every vendor add-on order uses (mirrors booth-addon-actions.ts /
- * photo-challenge-actions.ts). The activation hook that grants the credits
- * already shipped in G2 (`grantVendorPapicPortfolioPack`, lib/sku-activation.ts)
- * — this action's whole job is minting the order + payment row correctly so
- * that hook has something to approve.
+ * photo-challenge-actions.ts). The activation hook (`grantVendorPapicPortfolioPack`,
+ * lib/sku-activation.ts) writes the credits to `shop_papic_wallet_entries` on
+ * admin approval; this action's whole job is minting the order + payment row
+ * correctly so that hook has something to approve.
  *
- * No tier or verification gate (G2's PR body, and the activation hook's own
- * comment): the owner priced this for the import case — a supplier who paid
- * no booking fee — which is any booked supplier, on any tier.
+ * 🔁 A SHOP PURCHASE SINCE 2026-10-23 (owner, option A — one shop wallet). It
+ * used to require a booked `event_id` and landed the credits in that ONE
+ * event. The order now carries the shop only (`eventId: null`), so there is no
+ * "booked on this event" check and no event fee lock to consult: the wallet is
+ * spendable on the portfolio or on any event the shop is booked on. An
+ * `event_id` posted by an older form is used only to refresh that page.
+ *
+ * ⚠ SAME NAME ON PURPOSE. The server-action budget is at its ceiling, and the
+ * prototype names this export as the anchor; reusing it keeps every guard
+ * that lists this file (order-price authority, every-buy-button, closed-rail)
+ * pointed at the one place a pack is minted.
+ *
+ * No tier or verification gate: any shop with an open rail may buy.
  */
 
 export type BuyVendorPapicPortfolioPackState =
@@ -56,8 +67,8 @@ export async function buyVendorPapicPortfolioPack(
   _prev: BuyVendorPapicPortfolioPackState,
   formData: FormData,
 ): Promise<BuyVendorPapicPortfolioPackState> {
-  const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) return err('Missing event.');
+  // Only used to refresh the page the form sat on — never to scope the order.
+  const fromEventId = String(formData.get('event_id') ?? '').trim();
 
   const supabase = await createClient();
   const {
@@ -74,29 +85,6 @@ export async function buyVendorPapicPortfolioPack(
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can buy Papic credits.');
-  }
-
-  // ── AUTHORIZATION: is this shop actually booked on this event? ────────────
-  // `orders` INSERT runs on the service-role money-writer client (SEC-4b), so
-  // nothing downstream re-checks booking the way vendor_papic_portfolio_photos'
-  // own RLS insert policy does — this IS the check for the order.
-  const booked = (await fetchVendorRoomEvents(supabase, vendorProfileId)).some(
-    (b) => b.eventId === eventId,
-  );
-  if (!booked) {
-    return err('You are not booked on this event.');
-  }
-  // The booking fee unlocks the event (owner, 2026-09-20). No-op while the
-  // flag is off; a refused or missing fee read returns null (fail OPEN).
-  const feeBlocked = await eventFeeBlocksAction(vendorProfileId, eventId);
-  if (feeBlocked) return err(feeBlocked);
-
-  // ── Feature-availability gate (defence in depth) ───────────────────────────
-  // The whole vendor Papic lane — camera, album, this pack — lives behind the
-  // same admin control. If it is off there is nowhere for the credits to be
-  // spent; never take money for them.
-  if (!(await isVendorPapicCaptureEnabled())) {
-    return err('Papic is switched off right now, so credits can’t be spent — you won’t be charged.');
   }
 
   // Re-read the authoritative price from the admin-managed catalog — the
@@ -118,10 +106,12 @@ export async function buyVendorPapicPortfolioPack(
     .from('orders')
     .insert(
       orderRowFor(
-        { userId: user.id, eventId, vendorProfileId },
+        { userId: user.id, eventId: null, vendorProfileId },
         {
           service_key: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
-          description: 'Papic credit pack — for your private portfolio',
+          // The /pay page's title (lib/payable-by-reference.ts reads
+          // orders.description) — the prototype's pay-page words.
+          description: `Papic credit pack — ${formatCount(VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS)} credits for your shop`,
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,
@@ -154,6 +144,7 @@ export async function buyVendorPapicPortfolioPack(
     return err('Could not start the payment. Please try again.');
   }
 
-  revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}/papic`);
+  revalidatePath('/vendor-dashboard/customers');
+  if (fromEventId) revalidatePath(`/vendor-dashboard/on-the-day/live/${fromEventId}/papic`);
   redirect(payPath(referenceCode));
 }

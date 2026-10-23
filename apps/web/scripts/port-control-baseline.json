@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d04577bb8a",
+  "generatedFromRef": "670c1194a9",
   "routeCount": 462,
-  "destinations": 1003,
-  "actions": 667,
-  "blocks": 6863,
+  "destinations": 1002,
+  "actions": 663,
+  "blocks": 6860,
   "routes": {
     "/": {
       "files": [
@@ -8925,6 +8925,7 @@
     },
     "/dashboard/[eventId]/studio/papic": {
       "files": [
+        "dashboard/[eventId]/studio/papic/_components/add-photos-door.tsx",
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
@@ -8949,13 +8950,12 @@
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/setting-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
+        "dashboard/[eventId]/studio/papic/_components/supplier-way-in-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
-        "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
-        "dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx",
         "dashboard/[eventId]/studio/papic/guest-window-actions.ts",
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
@@ -8972,7 +8972,6 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
-        "/dashboard/[seg]/studio/papic/crew/print",
         "/dashboard/[seg]/studio/papic/gallery-zip",
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
@@ -8982,13 +8981,11 @@
       ],
       "actions": [
         "action",
-        "activatePapicLimited",
         "addLibraryChallengeAction",
         "armChallengeAction",
         "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
-        "purchasePapicExtras",
         "purchasePapicPoolTopUp",
         "releaseTheRest",
         "reviewVendorChallengeAction",
@@ -9007,6 +9004,7 @@
       "blocks": [
         "ActionButton",
         "ActionResult",
+        "AddPhotosDoor",
         "AddToLibrary",
         "AllotmentsCouldNotLoad",
         "Blob",
@@ -9021,7 +9019,6 @@
         "DriveSafetyPanel",
         "DslrBridgeSection",
         "EmptyRoll",
-        "ExtraCamerasPicker",
         "FaceTaggingChoice",
         "Fact",
         "FilterChip",
@@ -9034,15 +9031,14 @@
         "GridPageSkeleton",
         "GuestAllotmentPicker",
         "GuestAllotmentsChoice",
-        "GuestCameraTierPicker",
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLInputElement",
         "IapPapicSheet",
+        "InfoTip",
         "InlineCheckoutDrawer",
         "LegendDot",
         "LifeFlashCard",
-        "LimitedCard",
         "Link",
         "LiveWallCard",
         "LiveWallControls",
@@ -9076,12 +9072,11 @@
         "Spotlight",
         "StandingsStrip",
         "StatusBanners",
-        "Stepper",
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
+        "SupplierWayInRow",
         "SwitchTrack",
-        "TierOption",
         "Unmeasured",
         "UploadsOpenChoice",
         "VendorChallengesApproval",
@@ -9113,16 +9108,12 @@
       "destinations": [
         "/dashboard/[seg]/website"
       ],
-      "actions": [
-        "provisionPapicSeats",
-        "reissuePapicSeat"
-      ],
+      "actions": [],
       "blocks": [
         "CopyButton",
         "GridPageSkeleton",
         "Link",
-        "PageMasthead",
-        "SubmitButton"
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew/poster": {

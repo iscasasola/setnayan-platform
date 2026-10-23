@@ -1662,7 +1662,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_papic_v2: {
     key: 'customer_papic_v2',
     label: 'Papic — first visit',
-    blurb: 'The band, the days, the camera QRs and the library — no price in any step.',
+    blurb: 'The band, the days, the one shared code and the library — no price in any step.',
     slides: [],
     spotlight: {
       steps: [
@@ -1679,8 +1679,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'papic-qrs',
-          title: 'Hand out your camera QRs',
-          body: 'Show them at the door or print them as cards. Each scan turns a phone into a camera, and you decide how many shots each guest gets.',
+          title: 'One code for everyone',
+          body: 'Print it or show it at the door — each scan turns a phone into a camera. Every guest’s invite QR is a camera too, and every shot comes out of one shared pot of credits.',
         },
         {
           anchor: 'papic-library',

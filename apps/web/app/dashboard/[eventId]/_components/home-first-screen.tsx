@@ -459,7 +459,7 @@ export function YourServices({
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
   return (
     <nav aria-label="Your services" id="your-services" data-home-services className="flex flex-col">
-      <p className="home-k2 !mt-1">Your services</p>
+      <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
       <div className="home-svc">
         {apple?.papic ? (
           <AppleServiceRow

@@ -198,7 +198,8 @@ export type TourKey =
   | 'customer_papic_v2'
   | 'customer_seat_plan_v2'
   | 'customer_mood_board_v1'
-  | 'customer_memories_v1';
+  | 'customer_memories_v1'
+  | 'customer_home_widgets_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -251,6 +252,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_seat_plan_v2',
   'customer_mood_board_v1',
   'customer_memories_v1',
+  'customer_home_widgets_v1',
 ];
 
 export type TourDefinition = {
@@ -1784,6 +1786,39 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     },
   },
   /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
+  // 🧩 HOME'S SERVICES GROW IN PLACE (owner 2026-10-23, `home_service_widgets_2026-10-23.html` build plan: "One
+  // first-visit spotlight tour on the first card"). Three stops; no price.
+  customer_home_widgets_v1: {
+    key: 'customer_home_widgets_v1',
+    label: 'Home services — first visit',
+    blurb: 'Each service you added is a card on Home that opens in place.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'home-services',
+          hint: 'Press Next',
+          title: 'Your services, on Home',
+          body: 'Each one shows where it stands. Tap a card to open its settings right here — Home moves down.',
+        },
+        {
+          anchor: 'home-papic-card',
+          title: 'Papic opens here',
+          body: 'Your dates, credits, filter and challenges — under the card. Tap again to fold it.',
+        },
+        {
+          anchor: 'home-hub-card',
+          title: 'Your Event Hub',
+          body: 'Switch parts of the page on or off. Guests see a change after you press Apply.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Every card folds back with one tap.',
+        button: 'Done',
+      },
+    },
+  },
   customer_memories_v1: {
     key: 'customer_memories_v1',
     label: 'Memories — first visit',

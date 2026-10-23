@@ -92,6 +92,7 @@ import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offe
 import { EventDashboard } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
@@ -1143,6 +1144,9 @@ export default async function EventHomePage({
       {/* 🔦 The event day and Post Event spotlight — on Home once the day has come, after the planning
           journey (the layout's `host_spotlight_v1`), so two tours never stack. */}
       {dayOfActive || afterActive ? <Spotlight tourKey="host_day_spotlight_v1" after="host_spotlight_v1" /> : null}
+      {/* 🧩 Home's services grow in place (owner 2026-10-23) — their first-visit spotlight, after the journey; only
+          where the cards are drawn (the couple, on the web). No price in any step. */}
+      {serviceCards && !(dayOfActive || afterActive) ? <Spotlight tourKey={HOST_PAGE_TOURS.home} after={HOST_PAGE_TOURS_AFTER} replay="page" /> : null}
       {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
           its own window is T-3d..T+1d and it never asked whether the day had
           been and gone. It is TOLD, from the one resolver, rather than given a

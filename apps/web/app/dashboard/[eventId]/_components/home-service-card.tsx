@@ -42,6 +42,7 @@ export function HomeServiceCard({
   door,
   failed = false,
   marker,
+  tour,
 }: {
   name: string;
   brand?: string;
@@ -63,6 +64,8 @@ export function HomeServiceCard({
   /** The card's read failed: it says so and draws nothing it does not know. */
   failed?: boolean;
   marker?: Record<string, string>;
+  /** The first-visit spotlight's anchor for this card (`lib/tours.ts`), on its head. */
+  tour?: string;
 }) {
   const [open, setOpen] = useState(false);
   const regionId = useId();
@@ -148,11 +151,12 @@ export function HomeServiceCard({
             onClick={() => setOpen((v) => !v)}
             className="block w-full min-w-0 text-left"
             data-home-card-head=""
+            data-tour={tour}
           >
             {head}
           </button>
         ) : (
-          <Link href={door.href} className="block min-w-0" data-home-card-head="">
+          <Link href={door.href} className="block min-w-0" data-home-card-head="" data-tour={tour}>
             {head}
           </Link>
         )}

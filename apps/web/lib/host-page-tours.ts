@@ -22,6 +22,7 @@ export const HOST_PAGE_TOURS = {
   seatPlan: 'customer_seat_plan_v2',
   moodBoard: 'customer_mood_board_v1',
   memories: 'customer_memories_v1',
+  home: 'customer_home_widgets_v1',
 } as const satisfies Record<string, TourKey>;
 
 /** The journey goes first; a page tour waits until it is seen. */

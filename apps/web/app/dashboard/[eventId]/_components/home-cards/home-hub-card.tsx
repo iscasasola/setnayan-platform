@@ -78,6 +78,7 @@ export async function HomeHubCard({ eventId, name, pro }: { eventId: string; nam
       }
       door={door}
       marker={marker}
+      tour="home-hub-card"
     />
   );
 }

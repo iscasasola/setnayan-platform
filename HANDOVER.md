@@ -3,7 +3,7 @@
 Contract: `prototypes/event_bar_memories_tab_2026-10-23.html` (corpus 984518d7) + `prototypes/papic_controller_one_page_2026-10-23.html` (9fa5b271).
 Built on (merged locally, not yet on main): #6791 · #6838 · #6839.
 
-## PR-A (this branch) — status: building
+## PR-A (this branch) — #6851, DRAFT, do-not-auto-merge
 - 5th tab **Memories** (key `memories`, Sparkles = the account bar's Memories glyph) after Hub — `lib/customer-menu.ts`;
   registry slots `customer.bottom-nav.memories` + `customer.sidebar.memories`; rail slot key; preload set.
 - `/dashboard/[eventId]/memories` — `app/_components/memories/event-memories-gallery.tsx` (edge-to-edge grid, count,
@@ -37,3 +37,17 @@ Built on (merged locally, not yet on main): #6791 · #6838 · #6839.
 ## Known reds that are NOT this branch's
 - From #6839 (merged in locally): `supplier-never-vendor.test.ts` ("Off in Your info" at studio/papic/page.tsx) and
   `the-couple-books-never-locks.test.ts` (allowlist row `studio/papic/` stale). #6839's builder owns them.
+
+
+## PR-B — moved to a cloud session (controller, 23 Oct)
+Local start pushed as `rd/papic-prb-local-start` (4b2219a6e9, on top of this branch + #6839 merged in). It holds:
+Papic page camera-only via the shared `PapicCameraSettings` (seat 'page' | 'home'); Memories Albums ▾ (All · Papic ·
+Challenges · Event Hub · Suppliers · Your uploads), Needs a look, ⚙ "Memories settings" sheet (moved shipped controls),
++ Add photos, the photo sheet (Approve · Hide · Report · Stop · Delete; supplier hide; Hub save); account Memories ›
+Challenges; Home's Papic card opening its event-wide settings UNDER itself (guest-card ruling: no per-guest rows there);
+Add more › "How many do I need?" (named set numbers + rest × each − left → the covering pack; one Buy names it);
+How guests get in → Event Details (one code + guests' own QRs + suppliers' way in); supplier photos switch on Event
+access rows; Guests "Setup" → "Settings"; `setGuestFaceblock` (budget kept by deleting `dismissVendorRecommendation`).
+Guards with sabotage: papic-is-the-camera, event-memories, papic-credit-need, papic-opens-on-home, papic-home-card.
+Full tsc on that branch: 2 errors when parked — both fixed in it (Send icon; lab prop) except it needs origin/main merged.
+NOT done there: preflight, the app's IapPapicSheet helper, the Papic page's dead reads (keep-full-res/drive/settings).

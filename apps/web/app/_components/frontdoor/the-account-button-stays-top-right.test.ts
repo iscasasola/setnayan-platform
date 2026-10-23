@@ -10,8 +10,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
-const css = readFileSync(join(__dirname, 'front-door.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = stripComments(readFileSync(join(__dirname, 'front-door.css'), 'utf8'));
 
 function rulesFor(selector: string): string {
   const re = new RegExp(`(^|[}\\s])${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'g');

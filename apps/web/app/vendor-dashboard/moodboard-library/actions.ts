@@ -385,7 +385,7 @@ export async function uploadStylistAsset(
       // allow it. Passing 0 here would have read as "none used" and lifted the
       // cap entirely.
       throw new Error(
-        "We couldn't check your gallery allowance just now — please try that upload again in a moment.",
+        "We couldn't check your Inspiration allowance just now — please try that upload again in a moment.",
       );
     }
     const quota = backCatalogueQuotaVerdict({
@@ -563,7 +563,7 @@ export async function importEditorialMediaToGallery(input: {
   if (row.vendor_profile_id !== profile.vendor_profile_id) {
     throw new Error('That photo belongs to another shop.');
   }
-  if (row.media_type !== 'photo') throw new Error('Only photos can join the gallery.');
+  if (row.media_type !== 'photo') throw new Error('Only photos can join Inspiration.');
   if (row.moderation_state !== 'clean') {
     throw new Error('That photo has not cleared review yet.');
   }

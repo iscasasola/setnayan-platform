@@ -555,7 +555,7 @@ export function MakeItReal({
                   {consented ? ' ✓' : ''}
                 </span>
                 <span className="block text-xs text-ink/60">
-                  We may show your renders in our own galleries and marketing. You can turn this
+                  We may show your renders in Inspiration and our marketing. You can turn this
                   off any time, which un-features anything already shown — the bonus render stays
                   yours. Setnayan can always see and keep your renders for quality and to build
                   our own design library; this choice is only about showing them publicly.

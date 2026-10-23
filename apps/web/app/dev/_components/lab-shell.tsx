@@ -50,7 +50,10 @@ export function LabShell({
   children,
   gutter = true,
   eventBar,
+  homeAt,
 }: {
+  /** The lab address that stands for the event's Home — lit as Home on the real bar. */
+  homeAt?: string;
   eventId: string;
   children: ReactNode;
   /** The REAL event tab list for a type's gates (`/dev/bar-lab`'s `labEventBar`) in place of the stand-in labels. */
@@ -92,7 +95,12 @@ export function LabShell({
       </FrontDoorShell>
       <BottomDock boundary="tab">
         {eventBar ? (
-          <BottomNav items={labEventBarItems(eventId, eventBar)} />
+          <BottomNav
+            items={labEventBarItems(eventId, eventBar).map((i) =>
+              /* The lab draws Home at its own address (`/dev/home-lab`), so Home lights there too. */
+              i.key === 'home' && homeAt ? { ...i, activeMatchAlsoExact: [...(i.activeMatchAlsoExact ?? []), homeAt] } : i,
+            )}
+          />
         ) : (
         <nav className="flex h-16 items-center justify-around text-xs text-ink/70" data-lab-dock="">
           <span>Home</span>

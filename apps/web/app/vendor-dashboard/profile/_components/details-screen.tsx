@@ -63,7 +63,8 @@ export function DetailsScreen({
     );
   };
   const pct = Math.round((p.done / p.of) * 100);
-  const line = detailsLine(p);
+  // 🎁 Frame B4: a shop from Setnayan's own invite reads "2 of 6 done · from your invite" until it is all in.
+  const line = d.fromInvite && p.done < p.of ? `${formatCount(p.done)} of ${formatCount(p.of)} done · from your invite` : detailsLine(p);
   const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
@@ -100,7 +101,7 @@ export function DetailsScreen({
             lead={<RowIcon icon={Pencil} />}
             data="details-name"
             title="Name and logo"
-            line={d.businessName}
+            line={d.fromInvite && !d.hasLogo ? `${d.businessName} · add a logo` : d.businessName}
             aside={badge('name')}
           >
             <div className="space-y-3 pb-4">
@@ -140,7 +141,7 @@ export function DetailsScreen({
             lead={<RowIcon icon={ListChecks} />}
             data="details-what"
             title="What you do"
-            line={services.length ? services.join(' · ') : 'Not set yet'}
+            line={services.length ? `${services.join(' · ')}${d.fromInvite ? ' · from your invite' : ''}` : 'Not set yet'}
             aside={badge('what')}
           >
             <div className="space-y-3 pb-4">

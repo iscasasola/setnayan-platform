@@ -213,7 +213,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'removes the page from the index immediately', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/website/privacy/actions.ts', has: /export async function updateLandingPageVisibility\b/ } } },
   // ── /privacy · THE RETENTION SCHEDULE (every line is a promise) ──
   { page: 'privacy', quote: 'the full-resolution originals are kept for 6 months', m: { kind: 'job', job: 'papic-fullres-drop', where: { file: 'lib/papic-fullres-drop.ts', has: /runClaimedJob\(\s*'papic-fullres-drop'/ } } },
-  { page: 'privacy', quote: 'That compressed gallery stays online, free, for life', m: { kind: 'kept', why: 'No job deletes the compressed copy (retention-copy-is-true.test.ts).' } },
+  { page: 'privacy', quote: 'That compressed copy of your Memories stays online, free, for life', m: { kind: 'kept', why: 'No job deletes the compressed copy (retention-copy-is-true.test.ts).' } },
   { page: 'privacy', quote: 'If you connect Google Drive, every original is also saved', m: { kind: 'kept', why: 'The Drive copy is the couple’s; we never delete it.' } },
   { page: 'privacy', quote: 'Face-recognition data — for the one event only', m: { kind: 'kept', why: 'Heading of the face line; its clocks are the next rows.' } },
   { page: 'privacy', quote: 'You can end it sooner at any time', m: { kind: 'code', where: { file: 'app/[slug]/actions.ts', has: /eraseGuestFaceData/ } } },

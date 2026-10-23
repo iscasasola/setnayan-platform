@@ -57,13 +57,13 @@ export function YourPhotosWidget({
           Make sure a shutterbug snaps you on the {eventNoun} day
         </p>
         <p className="sn-gal-soft mt-1">
-          Your first tagged photo automatically becomes your profile picture in the gallery.
+          Your first tagged photo automatically becomes your profile picture in Memories.
         </p>
       </div>
 
       {limited ? (
         <p className="sn-gal-soft text-xs">
-          Your photos will be visible in your inviter&rsquo;s gallery.
+          Your photos will be visible in your inviter&rsquo;s Memories.
         </p>
       ) : (
         <div className="rounded-lg border border-[rgb(203_167_102/0.35)] bg-[rgb(203_167_102/0.10)] p-5 text-sm">

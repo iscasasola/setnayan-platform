@@ -15,7 +15,7 @@ export const POST_EVENT_SCENE_NAMES: Readonly<Record<string, string>> = {
   cover: 'Front Page',
   before: 'The Road to the Day',
   numbers: 'Statistics',
-  gallery: 'Gallery',
+  gallery: 'Memories',
   film: 'Watch Live',
   videos: 'Videos',
   you: 'Were you there?',

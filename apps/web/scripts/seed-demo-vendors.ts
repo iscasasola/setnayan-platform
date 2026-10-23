@@ -380,7 +380,7 @@ function priceProfileFor(service: string): PricingProfile {
             '4 hours of coverage',
             '1 lead photographer',
             '200+ edited high-res photos',
-            'online gallery for 6 months',
+            'online album for 6 months',
           ],
         },
         {
@@ -391,7 +391,7 @@ function priceProfileFor(service: string): PricingProfile {
             '8 hours of coverage',
             '1 lead + 1 assistant',
             '500+ edited high-res photos',
-            'online gallery for 12 months',
+            'online album for 12 months',
             'pre-nup discount voucher',
           ],
         },
@@ -803,7 +803,7 @@ function priceProfileFor(service: string): PricingProfile {
           maxCentavos: 4_500_000,
           inclusions: [
             '6 hours of booth',
-            'unlimited prints + digital gallery',
+            'unlimited prints + digital album',
             '360° spin-cam upgrade',
             'props + premium backdrop',
             '2 attendants',

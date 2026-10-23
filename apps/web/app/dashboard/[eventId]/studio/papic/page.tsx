@@ -754,7 +754,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <input type="hidden" name="event_id" value={eventId} />
       <p className="max-w-prose text-sm text-ink/65">
         Add photos and clips from your phone or laptop — older memories too. They land in the same
-        gallery as everything your guests take, and cost the same: one credit a photo.
+        Memories as everything your guests take, and cost the same: one credit a photo.
       </p>
       <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
     </form>
@@ -971,7 +971,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           >
             <p className="mb-4 text-sm text-ink/65">
               Choose one look for your whole event. Every photo your crew and
-              guests capture gets it automatically, so your gallery feels like
+              guests capture gets it automatically, so your Memories feel like
               one beautiful set.
             </p>
             <StylePicker eventId={eventId} current={papicStyle} />
@@ -1238,7 +1238,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 dormant screen with a stale number is a landmine for whenever
                 the owner flips the SKU back on. */}
             <p className="text-xs text-ink/60">
-              Your online gallery stays free, for life. After 6 months we keep a
+              Your Memories stay online free, for life. After 6 months we keep a
               beautiful compressed copy, and your full-resolution originals live in
               your own Google Drive. Want us to keep every pristine original too?
             </p>
@@ -1437,7 +1437,7 @@ function StatusBanners({
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           {showcaseError === 'missing_photo'
-            ? 'That snippet is no longer in your gallery.'
+            ? 'That snippet is no longer in your Memories.'
             : 'Could not change that — please try again.'}
         </p>
       ) : null}
@@ -1468,8 +1468,8 @@ function StatusBanners({
           <p className={ok}>
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {vendorMedia === 'hidden'
-              ? 'Your suppliers’ photos are hidden from your gallery.'
-              : 'Your suppliers’ photos are showing in your gallery.'}
+              ? 'Your suppliers’ photos are hidden from your Memories.'
+              : 'Your suppliers’ photos are showing in your Memories.'}
           </p>
         )
       ) : null}
@@ -1494,7 +1494,7 @@ function StatusBanners({
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {preserveSet === 'released'
-            ? 'Released — this one becomes a smaller copy after your event. It stays in your gallery.'
+            ? 'Released — this one becomes a smaller copy after your event. It stays in your Memories.'
             : 'Saved — this one stays at full size.'}
         </p>
       ) : null}
@@ -1504,7 +1504,7 @@ function StatusBanners({
           {preserveError === 'already_compressed'
             ? 'That one is already a smaller copy — its full-size original has been replaced, and that cannot be undone.'
             : preserveError === 'not_found'
-              ? 'That photo is no longer in your gallery.'
+              ? 'That photo is no longer in your Memories.'
               : 'Could not save that choice — please try again.'}
         </p>
       ) : null}
@@ -1589,7 +1589,7 @@ function StatusBanners({
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {uploadsOpenSet === '1'
             ? 'Photos can now be added by hand. Each one uses a credit, the same as a camera shot.'
-            : 'Adding photos by hand is off. Only what your cameras capture goes into the gallery.'}
+            : 'Adding photos by hand is off. Only what your cameras capture goes into your Memories.'}
         </p>
       ) : null}
 
@@ -1688,7 +1688,7 @@ function DriveCopyCard({
         <p className="max-w-prose text-sm text-ink/60">
           Every photo lands in your own Drive too, as it arrives — so you keep
           the originals at full size, on a drive you control. We keep your
-          gallery either way.
+          Memories either way.
         </p>
       </div>
 
@@ -1793,7 +1793,7 @@ async function DriveConnectedPanel({
           <p className="font-medium">Your Drive is full.</p>
           <p className="mt-0.5 text-amber-800">
             Some full-resolution originals couldn&rsquo;t be saved to Drive — your
-            online gallery is safe, but the full-res copies are waiting. Free up
+            online Memories are safe, but the full-res copies are waiting. Free up
             space{overflowGrant ? ' on either Drive' : ''}, or{' '}
             <a
               href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
@@ -2010,8 +2010,8 @@ async function GalleryPreviewCard({
         <h2 className="text-lg font-semibold tracking-tight">
           {seesAll
             ? hasPhotos
-              ? 'Your gallery'
-              : 'What your gallery looks like'
+              ? 'Your Memories'
+              : 'What your Memories look like'
             : 'Photos shared with you'}
         </h2>
         {seesAll ? (
@@ -2042,7 +2042,7 @@ async function GalleryPreviewCard({
         <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">
             {seesAll
-              ? 'Your gallery fills up as your crew shoots — the first photos land here in real time.'
+              ? 'Your Memories fill up as your crew shoots — the first photos land here in real time.'
               : 'Nothing has been shared with you yet.'}
           </p>
         </div>

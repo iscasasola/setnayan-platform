@@ -61,7 +61,7 @@ export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'editorial',
     name: PUBLIC_STAGE_LABELS.editorial,
-    blurb: 'The after-story — your gallery and recap, kept for the guests who were there.',
+    blurb: 'The after-story — your Memories and recap, kept for the guests who were there.',
     phaseParam: 'editorial',
     Icon: Newspaper,
   },

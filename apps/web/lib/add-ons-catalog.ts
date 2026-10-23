@@ -472,7 +472,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
+    blurb: 'After the day — your event told as a story, with your Memories and a thank-you note.',
     cta: 'Edit your editorial',
     // STANDALONE CARD RETIRED 2026-08-14 — now the "Editorial" chip on the Your
     // Website card. Same `utility` mechanism as `event` above; the entry and
@@ -517,7 +517,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // 2026-09-28: "and colours" came out — colours are free for every couple
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
     // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own photos and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -667,7 +667,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0012',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your guests become the photographers — every candid and clip in your gallery by morning.',
+    blurb: 'Your guests become the photographers — every candid and clip in your Memories by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
     freeTrial: 'Free to start',
@@ -828,7 +828,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0009',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Your photographer’s full-resolution gallery, handed straight to your Google Drive.',
+    blurb: 'Your photographer’s full-resolution photos, handed straight to your Google Drive.',
     cta: 'Set up',
     // Delivered THROUGH Papic (owner 2026-07-22: "Photo Delivery on Papic"), so
     // it is not a standalone free card. `utility` keeps the /studio/photo-delivery

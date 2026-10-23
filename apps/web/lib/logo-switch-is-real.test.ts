@@ -147,7 +147,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/admin/studio/_surfaces/social-queue-surface.tsx': ['host', 'the admin console'],
   'app/api/og/realstory-slug/[slug]/route.ts': ['carries', "the link preview — the Event Hub's og:image (owner 2026-10-20)"],
   'app/api/social/card/[postId]/route.ts': ['carries', 'the shareable social card'],
-  'app/dashboard/(account)/library/_components/album-shelf.tsx': ['host', "the host's own library"],
+  'app/dashboard/(account)/library/_components/memories-chapters.tsx': ['host', "the host's own library — each event chapter's empty tile"],
   'app/dashboard/(account)/library/_components/photos-tab.tsx': ['host', "the host's own library"],
   'app/dashboard/(launcher)/page.tsx': ['host', "the host's launcher"],
   'app/dashboard/[eventId]/_components/event-rail-context.tsx': ['host', "the host's rail"],

@@ -36,6 +36,7 @@ import { resolveRailStudioEvent } from '@/app/_components/frontdoor/rail-data';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
+import { searchShellPeople } from '@/lib/shell-people-search';
 
 export const metadata = { title: 'Search' };
 
@@ -64,10 +65,12 @@ export default async function ShellSearchPage({
     );
   }
 
-  const [commandItems, studioEvent, storeShell] = await Promise.all([
+  const [commandItems, studioEvent, storeShell, people] = await Promise.all([
     resolveCommandItems(),
     resolveRailStudioEvent(),
     isStoreShellRequest(),
+    // PEOPLE (owner 2026-10-22): your people, then people on Setnayan you could ask — each opens their card.
+    searchShellPeople(query, user.id),
   ]);
 
   /*
@@ -92,6 +95,7 @@ export default async function ShellSearchPage({
         commandItems={commandItems}
         place="shell"
         findSuppliers={findSuppliers}
+        people={people}
       />
     </div>
   );

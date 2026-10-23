@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 321 jobs, 205 of them form-driven, as of 06296992.
+// that performs it. 321 jobs, 205 of them form-driven, as of a467fe03a2e.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2479,9 +2479,12 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "launch_offer_papic_credits",
       "launch_offer_cycle_days",
       "booking_fee_free_from",
-      "booking_fee_free_until"
+      "booking_fee_free_until",
+      "booking_fee_free_reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "booking_fee_free_reason"
+    ],
     "destructive": false
   },
   {

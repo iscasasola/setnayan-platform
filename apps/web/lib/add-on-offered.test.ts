@@ -155,10 +155,11 @@ test('add-ons-catalog imports event-type-profile TYPE-ONLY', () => {
 
 test('BOTH surfaces call the shared predicate', () => {
   // The split is what let the About route go ungated for as long as it did.
-  // The Suite page left 2026-10-02 (tracker d1); the More menu is built in
-  // layout.tsx, which calls the predicate too.
+  // The Suite page left 2026-10-02 (tracker d1); the More menu was built in layout.tsx until it left the
+  // menu (owner 22 Oct 2026, "Yes remove more") — the services are listed on Home › Your services now,
+  // built in the event page, which calls the predicate.
   for (const rel of [
-    'app/dashboard/[eventId]/layout.tsx',
+    'app/dashboard/[eventId]/page.tsx',
     'app/dashboard/[eventId]/studio/about/[addon]/page.tsx',
   ]) {
     assert.match(

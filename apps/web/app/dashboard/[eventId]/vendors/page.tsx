@@ -22,7 +22,8 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -255,8 +256,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // type where the assistant is not offered at all (owner lock 2026-07-27).
   // Gated on the COLUMN, never the type name, so a future vendor-free type is
   // covered without editing this file.
+  //
+  // 🧭 …AND IT IS A TAB ON EVERY EVENT NOW (owner 22 Oct 2026, "Fix both": every event wears the
+  // wedding's bar — `lib/event-menu-gates.ts`). A redirect here made the Suppliers tab of a vendor-free
+  // type a door that re-opened Home — the dead-tab shape the owner removed from the app's More
+  // (#6725). So the page answers in its own place, in the words Find a supplier already uses, and still
+  // renders NO bench and NO upsell.
   const profile = await resolveProfileByEvent(eventId);
-  if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
+  if (profile.marketplaceEnabled !== true) {
+    return (
+      <section className="sn-col space-y-6" data-suppliers-not-listed="">
+        <PageMasthead title="Suppliers" />
+        <p className="text-[15px] text-ink/65">Suppliers aren&rsquo;t listed for this kind of event yet.</p>
+      </section>
+    );
+  }
 
   // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
   // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget
@@ -422,6 +436,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (`suppliers-opens-fast.test.ts`).
   const paywallRead = startRead(resolveSetnayanAiPaywallEnabled());
   const storeShellRead = startRead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startRead(getIapGate().then((g) => g.iap, () => false));
   const taxonomyRead = startRead(getTaxonomy());
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
   const buildPicksRead = startRead(
@@ -1271,12 +1287,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const paywallEnabled = await paywallRead;
   const aiGateOpts = { paywallEnabled };
   const storeShell = await storeShellRead;
+  const appleIap = storeShell && (await appleIapRead) === true;
+  // ✦ …and Apple sells Setnayan AI for THIS event's tier (one product per web tier, owner 2026-10-23) — only then
+  // may a Sai bought anywhere be used here, or offered (3.1.3(b)).
+  const appleSai = appleIap && paywallEnabled && (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable';
   // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
+  // 🍎 …or Apple sells it in this app (2026-10-23): then a Sai bought on the web OR in the app lights up.
   const aiActive =
     isSetnayanAiActiveForEvent(ev, aiGateOpts) &&
-    storeShellAllowsPaidFeature(storeShell, paywallEnabled);
+    storeShellAllowsPaidFeature(storeShell, paywallEnabled, appleSai);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -1351,7 +1372,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // checkout). Renders in both the takeover shortlist slot and the bare return.
   // Never in the App Store / Play Store shell: it advertises a paid purchase and
   // links to a route the store shell is refused (lib/store-shell.ts).
-  const aiOffer = !storeShell && shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
+  // 🍎 Where Apple sells Setnayan AI for THIS event (lib/iap/setnayan-ai-in-app.server.ts), the banner shows in the
+  // app too — it carries no price, and its page's pay step is Apple's sheet.
+  const aiOffer =
+    shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
+    (!storeShell || appleSai);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

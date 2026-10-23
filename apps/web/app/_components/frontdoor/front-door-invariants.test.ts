@@ -18,7 +18,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { railToolsSignedOut } from '@/lib/studio-rail';
+import { STUDIO_APPS } from '@/lib/studio-apps';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
@@ -149,31 +149,31 @@ test('sign out is submitted as a form, not linked', () => {
    Owner 2026-08-12: the Marketplace is signed-in only. The category group is
    the SAME destination by another door, so hiding the group while leaving the
    row would defeat the instruction with a label. */
-test('the Marketplace row is gated on the same condition as its category group', () => {
+test('the Find suppliers row is a SIGNED-OUT row, and no category group comes back', () => {
   /*
-    🔑 The first cut looked backwards from the row for the nearest
-    `account.signedIn` — which an INVERTED gate (`!account.signedIn ?`) also
-    satisfies, because the string is still there. Match the gate INCLUDING its
-    polarity, and require the Marketplace group to carry the identical one.
+    🔄 POLARITY REVERSED 2026-10-23 BY A LATER RULING. This pinned the 2026-08-12
+    "Marketplace is signed-in only" lock. The owner's 2026-10-01 ruling ("THE
+    SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR") names the
+    signed-out rail: Discover · Find suppliers · Features · How it works · Sign in.
+    Signed in the rail has no find row (the one it had drew only inside an
+    event, where the rail is focused and never drew it).
+
+    🔑 THE NEAREST GATE, NOT ANY EARLIER ONE — the window is the code
+    immediately before the row, so a gate inherited from a block above cannot
+    satisfy it.
   */
   const linkIdx = SHELL_CODE.indexOf('<Link href="/explore"');
-  assert.ok(linkIdx > -1, 'the Marketplace row is missing');
-
-  /*
-    🔑 THE NEAREST GATE, NOT ANY EARLIER ONE. A first rewrite scanned BACKWARDS
-    for the last `account.signedIn` — and the account slot above supplies one,
-    so replacing this row's own gate with `{true ?` still passed. Mutation
-    proved it decorative. Look only at the code IMMEDIATELY before the row.
-  */
+  assert.ok(linkIdx > -1, 'the Find suppliers row is missing');
+  assert.equal(
+    SHELL_CODE.indexOf('<Link href="/explore"', linkIdx + 1),
+    -1,
+    'the rail draws two rows into /explore',
+  );
   const window = SHELL_CODE.slice(Math.max(0, linkIdx - 160), linkIdx);
   assert.ok(
-    /\{\s*account\.signedIn\s*\?[^{}]*$/.test(window),
-    'the Marketplace row must be gated directly by account.signedIn — its own ' +
-      `nearest gate, not one inherited from a block above. Saw: ...${window.slice(-90)}`,
-  );
-  assert.ok(
-    !/!\s*account\.signedIn/.test(window),
-    'the Marketplace row is gated on NOT signed in — it must show only when signed IN',
+    /\{\s*account\.signedIn\s*\?\s*null\s*:\s*\(\s*<>\s*$/.test(window),
+    'the Find suppliers row must be gated directly as `account.signedIn ? null : (` — ' +
+      `signed OUT only. Saw: ...${window.slice(-90)}`,
   );
 
   /*
@@ -220,7 +220,8 @@ test('the Marketplace row is gated on the same condition as its category group',
    ONE row cannot see the next row make the same mistake — the table is the
    fix, and a row added to `RAIL_SLOT` without a line here is the next gap. */
 const REGISTRY_NAMED_ROWS = [
-  { railKey: 'find', slot: 'customer.account.marketplace' },
+  // `find` left this table 2026-10-23: the signed-out "Find suppliers" row is the
+  // owner's 2026-10-01 words and renders only signed out, where no registry applies.
   { railKey: 'events', slot: 'customer.account.events' },
   { railKey: 'alaala', slot: 'customer.account.library' },
 ] as const;
@@ -370,30 +371,25 @@ test('the shops heading is derived from the shared composer, not hardcoded', () 
    was decoration for its whole life, and the rule it names is real, which is
    the worst combination: a rule everybody believed was enforced. It now reads
    the rows themselves and the filesystem. */
-test('every Studio row leads to a page that exists', () => {
+test('every Studio product still has its public page', () => {
+  /*
+    🧭 The rail no longer lists the products (owner 2026-10-01, built
+    2026-10-23) — /features does, and each feature's "Try it" lands on the
+    product's own page. The rule this slot always held still holds: a product
+    whose page is deleted is a fake door wherever it is listed.
+  */
   const doorways = join(APP, '(shell)');
-  const rows = railToolsSignedOut();
-  assert.ok(rows.length > 0, 'the Studio group is empty — this check is vacuous');
-
+  const rows = STUDIO_APPS.filter((a) => (a.railGroup ?? 'studio') === 'studio');
+  assert.ok(rows.length > 0, 'STUDIO_APPS lists no Studio product — this check is vacuous');
   const missing = rows
     .filter((r) => !existsSync(join(doorways, r.href.replace(/^\//, ''), 'page.tsx')))
     .map((r) => `${r.name} → ${r.href}`);
-  assert.deepEqual(
-    missing,
-    [],
-    `a signed-out Studio row points at a page that does not exist — a fake door: ${missing.join(', ')}`,
-  );
+  assert.deepEqual(missing, [], `a Studio product points at a page that does not exist: ${missing.join(', ')}`);
 });
 
 test('Music Maker (was Pakanta) is one of them', () => {
-  /*
-    Named on its own because it is the one that was deliberately held OUT for
-    three months, and because the check above would go quiet about it the
-    moment somebody removed the row: an empty promise is caught, a missing
-    product is not.
-  */
-  const row = railToolsSignedOut().find((r) => r.name === 'Music Maker');
-  assert.ok(row, 'Music Maker is sold and must have a Studio row (owner 2026-08-21)');
+  const row = STUDIO_APPS.find((r) => r.name === 'Music Maker');
+  assert.ok(row, 'Music Maker is sold and must stay a Studio product (owner 2026-08-21)');
   assert.equal(row?.href, '/pakanta');
 });
 
@@ -961,7 +957,7 @@ test('Trending explains itself when it is honestly empty, and never fakes a rank
       'Trending spot, not decide inline',
   );
 
-  const heading = FEED_CODE.indexOf('>Trending<');
+  const heading = FEED_CODE.indexOf('label="Trending"');
   assert.ok(heading > -1, 'the Trending heading is missing');
   const section = FEED_CODE.slice(heading);
 
@@ -974,14 +970,14 @@ test('Trending explains itself when it is honestly empty, and never fakes a rank
   );
   assert.match(
     section,
-    /className="fd-go"/,
+    /<EmptyShelf[\s\S]{0,300}href="\/realstories"/,
     'the empty Trending state has no way onward — an apology with no door',
   );
   assert.match(
     section,
     /never seeded, padded, or sold/,
     'Trending must state its own "earned, never sold" rule where a visitor ' +
-      'reads it, not only in a code comment',
+      'reads it (its ⓘ since 2026-10-23), not only in a code comment',
   );
 });
 
@@ -1013,7 +1009,7 @@ test('Trending never admits an editorial, even structurally', () => {
 test('the sections render in claim-then-proof order: Shops, New uploads, Trending', () => {
   const shops = FEED_CODE.indexOf('Open your shop');
   const uploads = FEED_CODE.indexOf('New uploads');
-  const trending = FEED_CODE.indexOf('>Trending<');
+  const trending = FEED_CODE.indexOf('label="Trending"');
   assert.ok(shops > -1 && uploads > -1 && trending > -1, 'a section heading is missing');
   assert.ok(
     shops < uploads && uploads < trending,

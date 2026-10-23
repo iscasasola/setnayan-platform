@@ -93,7 +93,7 @@ waits	orders	app/admin/payments/actions.ts	4
 waits	orders	app/dashboard/[eventId]/checkout/actions.ts	3
 waits	orders	app/dashboard/[eventId]/delete-actions.ts	1
 waits	orders	app/dashboard/[eventId]/orders/actions.ts	1
-waits	orders	app/dashboard/[eventId]/studio/papic/actions.ts	5
+waits	orders	app/dashboard/[eventId]/studio/papic/actions.ts	1
 waits	orders	app/papic/buy/actions.ts	1
 waits	orders	app/pay/[reference]/actions.ts	1
 waits	orders	app/vendor-dashboard/branches/actions.ts	1

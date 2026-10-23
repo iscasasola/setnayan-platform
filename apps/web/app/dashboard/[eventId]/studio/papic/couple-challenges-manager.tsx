@@ -19,6 +19,8 @@ import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
   boardIsTrustworthy,
+  boardLaneCounts,
+  boardShowingWords,
   boardOccupancyClaim,
   coupleSlots,
   displayChallengePrompt,
@@ -384,9 +386,12 @@ export async function CoupleChallengesManager({
           <p className="mt-3 text-sm text-ink/80">
             <span className="font-semibold tabular-nums">{formatCount(chosen)}</span> of{' '}
             <span className="tabular-nums">{formatCount(ceiling)}</span> chosen
+            {/* 🧮 ONE TRUE SENTENCE (2026-10-23): "10 showing to guests" beside "3 of 8 chosen" read as a
+                bug. The board is always filled to its size — suppliers' and Setnayan's suggestions fill
+                what the couple did not pick — so the card names the parts (`boardShowingWords`). */}
             {onBoard.length > 0 ? (
               <>
-                {' '}&middot; <span className="tabular-nums">{onBoard.length}</span> showing to guests
+                {' '}&middot; {boardShowingWords(boardLaneCounts(missions))}
               </>
             ) : null}
             .

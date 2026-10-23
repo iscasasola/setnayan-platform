@@ -21,6 +21,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
+import { measuredOr } from '@/lib/measured-read';
 import type { EventMoney } from '@/lib/budget-truth';
 import { readBudgetLiveSummary } from '@/lib/budget-live-read';
 import { homeFacts, type HomeMoneyRead } from '@/lib/home-facts';
@@ -28,6 +29,7 @@ import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
+  dayPapicFace,
   HOME_PAID_SKU,
   homeGuestsRead,
   homeServices,
@@ -73,7 +75,7 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
-import { HomeFirstScreen } from './_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -365,6 +367,8 @@ export default async function EventHomePage({
     let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
     let dayOfHeadTable: EventTableRow | null = null;
     let dayOfNearbyTables: EventTableRow[] = [];
+    // A refused table read must not read as "no seat plan" — the card says it could not load.
+    let dayOfTablesFailed = false;
     let dayOfSameDayVendors: SameDayVendor[] = [];
     // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
     // /wall/[eventId] gates on, so the card and the destination can never disagree.
@@ -436,7 +440,9 @@ export default async function EventHomePage({
 
       const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes] = await Promise.all([
         blocksRead,
-        fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
+        measuredOr(fetchTables(supabase, eventId), [] as EventTableRow[], (e) =>
+          logQueryError('dashboard/day-of.tables', e),
+        ),
         // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
         // + paid vendors who opted into same-day work, nearest the venue first.
         // Best-effort: a query error just leaves the escalation-only floor.
@@ -450,7 +456,8 @@ export default async function EventHomePage({
       ]);
       dayOfBlocks = blocksRes;
       dayOfSameDayVendors = sameDayRes;
-      const tables = tablesRes;
+      const tables = tablesRes.value;
+      dayOfTablesFailed = !tablesRes.measured;
       // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
       // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
       // a single "head table" by picking the first family_head_* row found.
@@ -463,6 +470,7 @@ export default async function EventHomePage({
       dayOfBlocks,
       dayOfHeadTable,
       dayOfNearbyTables,
+      dayOfTablesFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -679,6 +687,7 @@ export default async function EventHomePage({
       dayOfBlocks,
       dayOfHeadTable,
       dayOfNearbyTables,
+      dayOfTablesFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -816,7 +825,7 @@ export default async function EventHomePage({
             : null,
       })
     : null;
-  const homeServiceRow = homeServices({
+  const homeServicesInput: Parameters<typeof homeServices>[0] = {
     next: homeNext.kind,
     storeShell,
     eventId,
@@ -864,7 +873,14 @@ export default async function EventHomePage({
             : null,
         )
       : null,
-  });
+  };
+  const homeServiceRow = homeServices(homeServicesInput);
+  // 🧾 On the day and after it no Next card is on screen, so no service stands down for one: the
+  // console and the after page draw the whole list (`next: 'plan'` names no service).
+  const homeServiceRowAll = homeServices({ ...homeServicesInput, next: 'plan' });
+  // 📷 Papic on the event day (owner 22 Oct 2026) — the console draws Your services' OWN Papic entry,
+  // so the day and the plan Home can never say two things about one pool. None in the store shell.
+  const dayPapicSvc = homeServiceRowAll.find((s) => s.key === 'papic');
   // The cover's words — the ONE function the event layout also hands the loading screen.
   const homeFor = await homeForRead;
   const homeCover0 = homeCoverWords({
@@ -1108,10 +1124,24 @@ export default async function EventHomePage({
           }))}
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
+          tablesFailed={dayOfTablesFailed}
           sameDayVendors={dayOfSameDayVendors}
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
+          papic={
+            <DayPapicRow
+              eventId={eventId}
+              face={dayPapicFace({
+                svc: dayPapicSvc,
+                papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
+                permitted: canViewPapicCounts,
+                tile: papicTile,
+              })}
+              svc={dayPapicSvc}
+              left={papicNow.count}
+            />
+          }
         />
       ) : null}
 
@@ -1144,6 +1174,14 @@ export default async function EventHomePage({
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
           </Link>
           )}
+
+          {/* 🧾 The rest of Your services on the day — More left the bar (owner 22 Oct 2026, "Yes remove
+              more"), so every service keeps its door here; Papic is already at the top of the console. */}
+          <YourServices
+            eventId={eventId}
+            services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
+            papicLeft={papicNow.count}
+          />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70" data-tour="day-planning">
@@ -1191,6 +1229,10 @@ export default async function EventHomePage({
             summary={afterSummary}
             storeShell={storeShell}
           />
+
+          {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
+              the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
+          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

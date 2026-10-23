@@ -1,5 +1,6 @@
 /**
- * 🚪 WHAT THE EVENT LEFT OFF IS ABSENT — NEVER GREYED (owner 2026-10-08, DECISION_LOG "ONBOARDING
+ * 🚪 WHAT THE EVENT LEFT OFF IS ABSENT — NEVER GREYED (owner 2026-10-08; the BAR left this list
+ * 22 Oct 2026 — see the bar test below; DECISION_LOG "ONBOARDING
  * FOLLOWS WHAT THE EVENT NEEDS"; matrix §2 "A need that is OFF is not greyed out; it is absent (bottom
  * bar, Home rows, Maker stages, Studio tiles). Home keeps one 'Switch on more' row").
  *
@@ -38,10 +39,17 @@ test('Home’s Next card never says "Finish your Event Hub" to cover + photos on
   assert.notEqual(pickHomeNext({ ...BASE, guide, needs: { guestList: true, hubDetails: false } }).kind, 'guide');
 });
 
-test('the bottom bar drops what is off — the layout hands the needs to the ONE menu tree', () => {
+/*
+  ⚖ THE BAR IS NOT ONE OF THE PLACES ANY MORE (owner 22 Oct 2026, "Fix both", on a Simple event whose bar
+  read "Home · Hub · More"): every event wears the wedding's bar — `lib/event-menu-gates.ts`, held for EVERY
+  type × preset × phase × shell by `lib/every-event-wears-the-one-bar.test.ts` and, over the migrations' own
+  rows, `tests/db/every-event-type-wears-the-one-bar.db.test.ts`. Home, the Maker and Studio still drop
+  what is off (the tests around this one).
+*/
+test('the bottom bar keeps every tab — the layout hands no switched-off need to the menu tree', () => {
   const layout = read('app/dashboard/[eventId]/layout.tsx');
-  assert.match(layout, /\.\.\.needsHiddenNavKeys\(eventNeeds\)/, 'the layout no longer hides a switched-off tab');
-  assert.match(layout, /readEventNeedsFor\(supabase, eventId, 'EventLayout'\)/);
+  assert.doesNotMatch(layout, /needsHiddenNavKeys\(/, 'the layout hides a switched-off tab from the bar again');
+  assert.match(layout, /eventMenuGates\(profile\)/, 'the layout no longer reads the one menu rule');
 });
 
 test('Home drops the doors, the numbers and the money of what is off, and keeps ONE Switch on more', () => {

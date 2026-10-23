@@ -22,6 +22,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { getIapGate } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
+import { iapSetnayanAiProductForTier } from '@/lib/iap/products';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -154,16 +159,33 @@ export default async function SetnayanAiPage({ params }: Props) {
 
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn;
-  const settings = showBuy ? await fetchPlatformSettings(supabase) : null;
+
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"). The page
+     opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`) and its ONE pay step is Apple's sheet: no web price, no
+     GCash / BDO, no web link. One Apple product per web tier (owner 2026-10-23): the event's tier, read the way the
+     web's charge reads it (lib/iap/setnayan-ai-in-app.server.ts), picks the product. Tier E — not offered, as on the
+     web — or a failed read sends the unowned event Home, as an unowned Live Watch is from the controller. With `iap`
+     false nothing below changes. */
+  const appleIap = (await getIapGate()).iap;
+  const appleTier = appleIap && paywallOn ? await setnayanAiTierInApp(createAdminClient(), eventId) : null;
+  const appleProduct =
+    appleTier?.status === 'sellable' && (await resolveServiceSellability(SKU_CODE)) === 'sellable'
+      ? iapSetnayanAiProductForTier(appleTier.tier)
+      : null;
+  const appleSells = appleProduct !== null;
+  // Paid Sai (paywall on) is shown in the app — bought, owned or for sale — only where Apple sells this event's tier
+  // (3.1.3(b)); a free Sai (paywall off) is planning and stays.
+  if (appleIap && paywallOn && !appleSells) redirect(`/dashboard/${eventId}`);
+  const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (
     <section className="space-y-6">
       <Link
-        href={studioHubHref(eventId)}
+        href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
+        {appleIap ? 'Back to Home' : 'Back to add-ons'}
       </Link>
 
       {/* OPENED-STATE = OUTCOME/ACTION FIRST for anyone who already has access;
@@ -232,14 +254,27 @@ export default async function SetnayanAiPage({ params }: Props) {
                catalog figure this page's own checkout charges, so the hero and
                the till cannot quote different numbers. Absent ⇒ the hero simply
                carries no figure, which is what the tile below already does. */
-            price={pricePhp != null ? priceLabel : undefined}
+            price={pricePhp != null && !appleIap ? priceLabel : undefined}
             priceNote={
-              pricePhp != null
+              pricePhp != null && !appleIap
                 ? 'One-time purchase · yours for the whole wedding'
                 : undefined
             }
             action={
-              pricePhp != null && settings ? (
+              appleProduct && showBuy ? (
+                <IapUnlockSheet
+                  eventId={eventId}
+                  serviceKey={SKU_CODE}
+                  productId={appleProduct.productId}
+                  name="Setnayan AI"
+                  line="One purchase · yours for this event."
+                  info="Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this event and everyone on it."
+                  triggerLabel="Unlock Setnayan AI"
+                  buyVerb="Unlock"
+                  triggerTestId="iap-setnayan-ai-unlock"
+                  triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
+                />
+              ) : pricePhp != null && settings ? (
                 <InlineCheckoutDrawer
                   eventId={eventId}
                   serviceKey={SKU_CODE}

@@ -254,7 +254,9 @@ test('🔑 a tapped fact opens the SAME component its Details item shows — one
   assert.equal((launch.match(/detailsFactEditors\(/g) ?? []).length, 1, 'the fact editors are built more than once');
   assert.match(launch, /factEditors = detailsFactEditors\(\{/);
   assert.match(launch, /facts=\{factEditors\}/, 'Details is not handed the fact editors');
-  assert.match(launch, /factEditors=\{factEditors\}/, 'the stage is not handed the fact editors');
+  /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`). */
+  assert.match(launch, /return \{[^}]*\bfactEditors,[^}]*opensOnGuide:/s, 'the stage is not handed the fact editors');
+  assert.match(launch, /late=\{late\}/, 'the stage is not handed the fact editors');
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /'special-message': \(\s*<SpecialMessageField\b/, 'the special message editor is not the shared component');
   assert.match(details, /'special-message': facts\['special-message'\],/, 'the Words item draws its own copy');

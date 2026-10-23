@@ -49,6 +49,8 @@ export function PapicStage({
   uploadsOpen,
   children,
   firstMemorySlot,
+  addPhotosSlot,
+  whoShoots,
 }: {
   standings: PapicStandings;
   /**
@@ -64,6 +66,17 @@ export function PapicStage({
   children: React.ReactNode;
   /** The lit frame's control — the upload door. Omitted when uploads are shut. */
   firstMemorySlot?: React.ReactNode;
+  /**
+   * 📍 "+ Add photos" on the library's top bar once it holds something (owner 2026-10-23, "this is the
+   * gallery") — the SAME uploader as the empty roll's lit frame. Not drawn while uploads are shut.
+   */
+  addPhotosSlot?: React.ReactNode;
+  /**
+   * Who can shoot into this library, in words — "Every guest + you". ⛔ NEVER A SEAT COUNT: this fact
+   * read "Ways in · 5 cameras", counting `paparazzi_seats` (the free cameras, the couple's own uploads
+   * seat), a camera-per-seat model the one shared pot retired (owner 2026-10-23).
+   */
+  whoShoots: string;
 }) {
   const { inLibrary } = standings;
   // ⚠ null is NOT empty. An unread count draws the gallery's own unmeasured
@@ -75,22 +88,28 @@ export function PapicStage({
   return (
     <section
       aria-label="Your library"
+      data-tour="papic-library"
       className="overflow-hidden rounded-2xl"
       style={{ backgroundColor: '#17160F' }}
     >
       <div className="space-y-4 p-5 sm:p-6">
         <div className="space-y-1">
-          <p
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]"
-            style={{ color: '#A9834B' }}
-          >
-            Your library
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{ color: '#A9834B' }}
+            >
+              Your library
+            </p>
+            {/* The top bar's one door — only on a library that has something in it; the empty roll
+                carries its own lit "Add the first memory" instead, so there is never a second one. */}
+            {!isEmpty && uploadsOpen && addPhotosSlot ? <div className="-mt-2 shrink-0">{addPhotosSlot}</div> : null}
+          </div>
           <h2 className="text-lg font-semibold tracking-tight text-white">
             Every photo of your day lands here
           </h2>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.68)' }}>
-            From your crew, your guests, your suppliers, and you.
+            From your guests, your suppliers, and you.
           </p>
         </div>
 
@@ -111,7 +130,7 @@ export function PapicStage({
           celebration, and still come before anything asks them to decide — the
           rule that survived from the approved 08-25 drawing. What changed is
           only that they now sit on the thing they describe. */}
-      <StandingsStrip standings={standings} windowWords={windowWords} />
+      <StandingsStrip standings={standings} windowWords={windowWords} whoShoots={whoShoots} />
     </section>
   );
 }
@@ -177,16 +196,14 @@ function EmptyRoll({
 function StandingsStrip({
   standings,
   windowWords,
+  whoShoots,
 }: {
   standings: PapicStandings;
   windowWords: string;
+  whoShoots: string;
 }) {
-  const { inLibrary, cameras, credits } = standings;
-  // ⚠ ONE SOURCE FOR THE CAMERA COUNT. A guest camera is also a seat, so adding
-  // a separate guest-camera count to this would double-count every guest who has
-  // one. Counting the seats once is the honest number.
-  const waysIn =
-    cameras !== null && cameras > 0 ? `${cameras} camera${cameras === 1 ? '' : 's'}` : null;
+  // ⛔ `standings.cameras` (a count of `paparazzi_seats`) is NOT drawn here any more — see `whoShoots`.
+  const { inLibrary, credits } = standings;
 
   return (
     <div
@@ -203,12 +220,8 @@ function StandingsStrip({
         )}
       </Fact>
 
-      <Fact icon={<Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Ways in">
-        {cameras === null ? (
-          <Unmeasured />
-        ) : (
-          (waysIn ?? <span style={{ color: 'rgba(255,255,255,0.72)' }}>Just you, for now</span>)
-        )}
+      <Fact icon={<Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Who shoots">
+        {whoShoots}
       </Fact>
 
       <Fact icon={<Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Cameras">

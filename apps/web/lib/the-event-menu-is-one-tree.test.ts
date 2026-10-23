@@ -45,7 +45,6 @@ import { railToolsSignedIn } from './studio-rail';
 import { NAV_SLOT_DEFAULTS } from './nav-registry-defaults';
 import { toProfile, type ProfileRow, type EventTypeProfile } from './event-type-profile';
 import { stripComments } from './strip-comments';
-import { SUITE_NAV_ON } from './studio-hub';
 import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
 
 const WEB = join(import.meta.dirname, '..');
@@ -100,9 +99,7 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-const OUR_SERVICES = SUITE_NAV_ON ? 'More Services' : 'Studio';
-
-test('the rail is the owner’s five — nothing more — in every phase', () => {
+test('the rail is the owner’s four — no More Services (owner 22 Oct 2026, "Yes remove more") — in every phase', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
@@ -113,7 +110,7 @@ test('the rail is the owner’s five — nothing more — in every phase', () =>
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub', OUR_SERVICES],
+      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub'],
       `${phase}: ${labels.join(' · ')}`,
     );
   }
@@ -135,18 +132,18 @@ test('the rows that left are gone from every phase — their homes hold them', (
 /** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
   ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'], ['studio', OUR_SERVICES],
+  ['launch', 'Hub'],
 ] as const;
 /** The phone bar's words — the rail's, save "More" (owner 2026-10-01: "Home -
  *  Guests - Suppliers - Hub - More"). */
 const BAR_FIVE = [
   ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'], ['studio', SUITE_NAV_ON ? 'More' : 'Studio'],
+  ['launch', 'Hub'],
 ] as const;
 const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
-  test(`the ${phase} phone bar is the owner's five, in the tree's own words`, () => {
+  test(`the ${phase} phone bar is the owner's four, in the tree's own words`, () => {
     const bar = buildCustomerMenuTree(EVENT_ID, {
       phase,
       websiteEnabled: true,
@@ -251,15 +248,15 @@ test('a thin kind drops its rows, and an empty section is never drawn', () => {
   assert.ok(groups.every((g) => g.items.length > 0), 'a section renders over nothing');
 });
 
-test('an unknown future product lights Our Services — never nowhere', () => {
+test('an unknown future product lights Home (Your services) — never nowhere', () => {
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, {
       websiteEnabled: true,
       studioRows: [...studioRowsFor(WEDDING), { key: 'panew', href: `${BASE}/studio/panew`, name: 'Panew' }],
     }),
   );
-  const studio = rows.find((r) => r.key === 'studio')!;
-  assert.ok(eventMenuRowClaims(studio).includes(`${BASE}/studio/panew`), 'an unplaced product was dropped');
+  const home = rows.find((r) => r.key === 'home')!;
+  assert.ok(eventMenuRowClaims(home).includes(`${BASE}/studio/panew`), 'an unplaced product was dropped');
   assert.ok(!rows.some((r) => r.key === 'panew'), 'a product became a menu row again');
 });
 
@@ -278,9 +275,10 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
     ['/schedule', 'launch'], ['/studio/mood-board', 'launch'], ['/monogram', 'launch'],
     // `/suite` left 2026-10-02 (owner, tracker d1): the page is gone and its
     // address forwards to the More menu (lib/legacy-redirects.ts) — never rendered.
-    ['/studio', 'studio'], ['/galleries', 'studio'],
-    ['/studio/papic', 'studio'], ['/studio/patiktok', 'studio'], ['/studio/pakanta', 'studio'],
-    ['/studio/setnayan-ai', 'studio'],
+    // More left the menu (owner 22 Oct 2026): the services live on Home › Your services, so their pages light Home.
+    ['/studio', 'home'], ['/galleries', 'home'],
+    ['/studio/papic', 'home'], ['/studio/patiktok', 'home'], ['/studio/pakanta', 'home'],
+    ['/studio/setnayan-ai', 'home'],
     // Train n: the Seat plan row left — /seating is Details › Your event ›
     // Seat plan, so it lights the Maker (the page lands the couple there).
     ['/seating', 'launch'],
@@ -337,14 +335,14 @@ test('the 3D pages light the Maker tab on the phone, as /seating does', () => {
   assert.ok(!bar.some((m) => (m.key as string) === 'seat'), 'the phone bar grew a Seat plan tab');
 });
 
-test('with no Maker, /seating and the 3D pages light Our Services — never nowhere', () => {
+test('with no Maker, /seating and the 3D pages light Home — never nowhere', () => {
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { websiteEnabled: false, seatingEnabled: true, studioRows: studioRowsFor(WEDDING) }),
   );
   assert.ok(!rows.some((r) => r.key === 'launch' || r.key === 'seat'), 'a Maker or Seat plan row with no Maker');
-  const studio = eventMenuRowClaims(rows.find((r) => r.key === 'studio')!);
+  const home = eventMenuRowClaims(rows.find((r) => r.key === 'home')!);
   for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.ok(studio.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
+    assert.ok(home.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
   }
 });
 
@@ -359,8 +357,8 @@ test('the pa3d key survives — still offered, absorbed by rule, and never silen
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { seatingEnabled: false, studioRows: studioRowsFor(WEDDING) }),
   );
-  const studio = rows.find((r) => r.key === 'studio')!;
-  assert.ok(eventMenuRowClaims(studio).includes(`${BASE}/plan3d`), 'the 3D Plan is lost with no Maker row');
+  const home = rows.find((r) => r.key === 'home')!;
+  assert.ok(eventMenuRowClaims(home).includes(`${BASE}/plan3d`), 'the 3D Plan is lost with no Maker row');
 });
 
 test('the seat plan still opens the 3D view, and the 3D view opens /plan3d', () => {

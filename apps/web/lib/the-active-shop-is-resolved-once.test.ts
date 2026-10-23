@@ -178,7 +178,9 @@ test('the helpers the supplier pages lean on all take the shop from the resolver
     return src.slice(at, at + 2500);
   };
   assert.match(body(read('lib/vendor-profile.ts'), 'export const fetchOwnVendorProfile'), /await resolveActiveShop\(supabase, userId\)/);
-  assert.match(body(read('lib/vendor-role.ts'), 'export const resolveVendorRole'), /resolveActiveShop\(supabase, userId\)[\s\S]*resolveVendorRoleForProfile\(supabase, userId, active\.vendorProfileId\)/);
+  // ⚡ 2026-10-23: the role is read for the resolver's shop AND told the resolver's own proof of ownership (its
+  // `vendor_profiles … user_id = <login>` read) — so the founding-owner fallback asks nothing twice. Both halves held.
+  assert.match(body(read('lib/vendor-role.ts'), 'export const resolveVendorRole'), /resolveActiveShop\(supabase, userId\)[\s\S]*resolveVendorRoleForProfile\(supabase, userId, active\.vendorProfileId, \{ ownsIt: active\.owned \}\)/);
   assert.match(body(read('lib/vendor-team.ts'), 'export async function fetchAdminVendorContext'), /resolveActiveShopId\(supabase, userId\)[\s\S]*\.eq\('vendor_profile_id', activeShopId\)/);
   assert.match(body(read('lib/vendor-corrections.ts'), 'export async function fetchVerifiedLock'), /vendorProfileId: string/);
 });

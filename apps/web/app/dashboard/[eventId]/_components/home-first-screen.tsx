@@ -1,6 +1,12 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { PapicHomeCard } from './papic-home-card';
+import { HomeHubCard } from './home-cards/home-hub-card';
+import { HomeLiveCard } from './home-cards/home-live-card';
+import { HomeMusicCard } from './home-cards/home-music-card';
+import { HomeBoothCard } from './home-cards/home-booth-card';
+import { HomePlannerCard } from './home-cards/home-planner-card';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 
 import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
@@ -178,6 +184,8 @@ export type HomeFirstScreenProps = {
    * Absent = the shipped row (a lab, the app).
    */
   papicCard?: PapicCardInput | null;
+  /** 🧩 Every service as a card that grows in place (the couple's, on the web) — `YourServices` `cards`. */
+  serviceCards?: boolean;
   /**
    * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
    * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
@@ -225,6 +233,7 @@ export function HomeFirstScreen({
   papicLeft = null,
   papicSizes = null,
   papicCard = null,
+  serviceCards = false,
   needs = null,
   apple = null,
 }: HomeFirstScreenProps) {
@@ -384,7 +393,7 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicCard={papicCard} />
+        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicCard={papicCard} cards={serviceCards} />
 
         {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
             "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -432,6 +441,7 @@ export function YourServices({
   papicLeft,
   papicSizes = null,
   papicCard = null,
+  cards = false,
 }: {
   eventId: string;
   services: HomeService[];
@@ -439,6 +449,12 @@ export function YourServices({
   papicLeft: number | null;
   papicSizes?: PoolRung[] | null;
   papicCard?: PapicCardInput | null;
+  /**
+   * 🧩 EVERY SERVICE AS A WIDGET (owner 2026-10-23, `home_service_widgets_2026-10-23.html`): each row becomes the card
+   * that grows in place, drawn by the server behind the row it replaces (streamed — the first paint is today's row).
+   * The couple's alone (the controls write as the couple); a coordinator and the app keep the rows.
+   */
+  cards?: boolean;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
   return (
@@ -479,10 +495,35 @@ export function YourServices({
           if (svc.key === 'papic' && svc.papic) {
             return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} card={papicCard} />;
           }
+          if (svc.key === 'hub' && svc.hub) {
+            /* 💎 The Event Hub, right after Papic — its Pro folded in as the card's ◆ line (owner 2026-10-23). */
+            const row = (
+              <ServiceGlanceRow
+                href={`/dashboard/${eventId}/launch`}
+                name={svc.name}
+                icon={<Icon aria-hidden strokeWidth={1.9} />}
+                mood="plain"
+                pct={0}
+                meter={false}
+                line={{ lead: svc.status }}
+                meterLabel=""
+                marker={{ 'data-home-service': 'hub' }}
+              />
+            );
+            return cards ? (
+              <Suspense key={svc.key} fallback={row}>
+                <HomeHubCard eventId={eventId} name={svc.name} pro={svc.hub.pro} />
+              </Suspense>
+            ) : (
+              <span key={svc.key} className="contents">
+                {row}
+              </span>
+            );
+          }
           if (svc.paid) {
             /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
             const firstSlim = svc.paid.state === 'add' && services[i - 1]?.paid?.state !== 'add';
-            return (
+            const row = (
               <PaidServiceRow
                 key={svc.key}
                 svc={svc}
@@ -490,6 +531,15 @@ export function YourServices({
                 glyph={Icon}
                 heading={firstSlim}
               />
+            );
+            /* 🧩 The service's own card, streamed behind its row (the row is the first paint). */
+            const card = cards ? paidCard(eventId, svc, svc.paid) : null;
+            return card ? (
+              <Suspense key={svc.key} fallback={row}>
+                {card}
+              </Suspense>
+            ) : (
+              row
             );
           }
           return (
@@ -648,6 +698,20 @@ export function DayPapicRow({
       {body}
     </nav>
   );
+}
+
+/**
+ * 🧩 WHICH PAID SERVICE GROWS INTO A CARD (owner 2026-10-23, `home_service_widgets_2026-10-23.html`): the ones that
+ * are the couple's — Planner, Live stream (where the controller exists), Music — and the Video booth, which also
+ * records free. "Payment sent" and "Not added" stay the shipped rows (nothing to control yet).
+ */
+function paidCard(eventId: string, svc: HomeService, row: PaidRow): ReactNode {
+  const named = { eventId, name: svc.name, brand: svc.brand };
+  if (svc.key === 'ai' && row.state === 'owned') return <HomePlannerCard {...named} />;
+  if (svc.key === 'live' && row.state === 'owned' && liveStudioRoamEnabled()) return <HomeLiveCard {...named} />;
+  if (svc.key === 'music' && row.state === 'owned') return <HomeMusicCard {...named} />;
+  if (svc.key === 'booth' && (row.state === 'owned' || row.state === 'open')) return <HomeBoothCard {...named} owned={row.state === 'owned'} />;
+  return null;
 }
 
 /**

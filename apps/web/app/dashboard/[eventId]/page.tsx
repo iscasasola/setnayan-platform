@@ -856,6 +856,9 @@ export default async function EventHomePage({
           ),
         }
       : null;
+  /* 🧩 EVERY SERVICE AS A WIDGET (owner 2026-10-23): the couple's, on the web — the controls write as the couple, and
+     the app keeps its own rows (Apple sells there). Each card streams in behind the row it replaces. */
+  const serviceCards = viewerMemberType === 'couple' && !storeShell && !appleFacts;
   const homeServicesInput: Parameters<typeof homeServices>[0] = {
     next: homeNext.kind,
     storeShell,
@@ -942,6 +945,7 @@ export default async function EventHomePage({
       services={homeServiceRow}
       papicLeft={papicNow.count}
       papicCard={papicCard}
+      serviceCards={serviceCards}
       apple={
         appleFacts
           ? {
@@ -1213,6 +1217,7 @@ export default async function EventHomePage({
             eventId={eventId}
             services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
             papicLeft={papicNow.count}
+            cards={serviceCards}
           />
 
           <details className="sn-tile">
@@ -1264,7 +1269,7 @@ export default async function EventHomePage({
 
           {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
               the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
-          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} />
+          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} cards={serviceCards} />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

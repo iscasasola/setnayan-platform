@@ -593,7 +593,7 @@ export function PapicGuestCapture({
       } catch {
         // The phone could not keep it (storage full / private mode). Say so —
         // never a "saved" over a shot that exists nowhere.
-        setSaveError("That shot didn't save on this phone — free up some space and try again.");
+        setSaveError("Couldn't save that shot on this phone — free up some space and try again.");
         return;
       }
       markSavedOnPhone(meta.capturedAtMs);
@@ -727,7 +727,7 @@ export function PapicGuestCapture({
         else {
           setSaveError(
             guestWindowRejectMessage(e.code, e.body?.eventDay) ??
-              "A shot couldn't be saved — the event didn't accept it.",
+              "Couldn't save a shot — the event didn't accept it.",
           );
         }
       }
@@ -773,7 +773,7 @@ export function PapicGuestCapture({
           poster,
         });
       } catch {
-        setSaveError("That clip didn't save on this phone — free up some space and try again.");
+        setSaveError("Couldn't save that clip on this phone — free up some space and try again.");
         return;
       }
       latestShotRef.current = clientCaptureId;

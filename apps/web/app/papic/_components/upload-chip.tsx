@@ -29,15 +29,15 @@ function refusedDetail(reason: string): string {
     case 'guest_capture_closed':
     case 'guest_capture_not_open_yet':
     case 'event_over':
-      return 'The event’s cameras were closed when these tried to send, so they were not saved.';
+      return 'Couldn’t save these — the event’s cameras were closed when they tried to send.';
     case 'event_put_away':
       return EVENT_PUT_AWAY_CAPTURE_COPY;
     case 'expired':
-      return 'These waited more than a week without signal and were removed from this phone.';
+      return 'Couldn’t save these — they waited more than a week without signal and were removed from this phone.';
     case 'lost_on_phone':
-      return 'This phone cleared its storage before these could send.';
+      return 'Couldn’t save these — this phone cleared its storage before they could send.';
     default:
-      return 'The event did not accept these shots.';
+      return 'Couldn’t save these — the event did not accept them.';
   }
 }
 

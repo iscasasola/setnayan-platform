@@ -156,7 +156,7 @@ test('the chip never says "All saved" while anything waits', () => {
   );
   assert.equal(
     chipLabel(chipState({ shots: [], online: true, doneThisVisit: 3, refused: { count: 2, reason: 'guest_capture_closed' } })),
-    '2 not saved',
+    'Couldn’t save 2',
   );
 });
 

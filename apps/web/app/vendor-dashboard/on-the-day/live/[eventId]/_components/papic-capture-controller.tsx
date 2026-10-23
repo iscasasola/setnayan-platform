@@ -111,7 +111,7 @@ export function PapicCaptureController({
         setSpent((s) => Math.max(0, s - cost));
         if (e.code === 'video_not_allowed') flash('This tier is photos only.');
         else if (e.code === 'consent_required') flash('Consent is required before capturing.');
-        else if (e.code === 'event_over') flash('This event is over — that shot wasn’t saved.');
+        else if (e.code === 'event_over') flash('Couldn’t save that shot — this event is over.');
         else flash('Couldn’t save that one.');
       }
     });

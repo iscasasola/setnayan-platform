@@ -293,6 +293,7 @@ export function chipLabel(state: ChipState): string | null {
     case 'credits':
       return `Credits ran out · ${formatCount(state.waiting)} not sent`;
     case 'refused':
-      return `${formatCount(state.count)} not saved`;
+      // A failure says so in words ("couldn't"), never in a shape that reads as done.
+      return `Couldn’t save ${formatCount(state.count)}`;
   }
 }

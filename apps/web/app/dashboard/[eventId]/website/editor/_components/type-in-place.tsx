@@ -5,7 +5,6 @@ import type { UndoStep } from '@/lib/maker-drawn-undo';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, forgetCanvasSent, noteDraftedCanvas, noteDraftedOwnWords, sendCanvasBase } from '@/lib/maker-draft-store';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
@@ -25,7 +24,6 @@ import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
 import { TypingBand } from '@/app/_components/typing-band';
 import { readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 

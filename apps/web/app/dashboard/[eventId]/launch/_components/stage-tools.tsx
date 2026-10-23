@@ -33,30 +33,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import {
-  STAGE_BAR_FOOT_CSS,
-  STAGE_BAR_GRID_CSS,
-  STAGE_BAR_HANDLE,
-  STAGE_BAR_LINE,
-  STAGE_BAR_LINE_ABOUT,
-  STAGE_BAR_LINE_LEAD,
-  SP_KEY_BAR,
-  SP_KEY_DONE,
-  SP_ROWS,
-  STAGE_BAR_ROW_VARS,
-  STAGE_GUEST_TAB,
-  STAGE_ICON_BUTTON,
-  STAGE_ICON_FACE,
-  STAGE_PANEL_MS,
-  STAGE_PANEL_VARS,
-  STAGE_ROW,
-  STAGE_TOOL_BUTTON,
-  STAGE_TOOL_INSET,
-  STAGE_TOOL_PILL,
-  stageBarPx,
-  stageEditingLine,
-  partPickScroll,
-} from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -1166,7 +1143,6 @@ export function StageTools({
       document.removeEventListener('pointerdown', tap, true);
     };
   }, [playing, stopPlay]);
-
 
   /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
      Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that

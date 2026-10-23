@@ -8,7 +8,7 @@ import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { keepRsvpPictureUrl } from './rsvp-picture-urls';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_KEY_BAR_FIXED, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,

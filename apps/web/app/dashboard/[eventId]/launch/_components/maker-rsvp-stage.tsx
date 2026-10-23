@@ -2,7 +2,6 @@
 
 import { StageStyle } from './stage-panel/stage-style';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { createPortal } from 'react-dom';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
 import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
@@ -38,11 +37,9 @@ import {
   RSVP_TYPING_MESSAGE,
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
-import { SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
+
 import { readRsvpLook, rsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SCENE_PART, arrangeRsvpScreen } from './rsvp-canvas-arrange';
-import { Check } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import { useStagePanelNow, useStageTool } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,

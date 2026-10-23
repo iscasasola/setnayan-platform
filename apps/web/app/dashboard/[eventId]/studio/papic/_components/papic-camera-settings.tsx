@@ -19,9 +19,7 @@ import { CoupleChallengesManager } from '../couple-challenges-manager';
 import { VendorChallengesApproval } from '../vendor-challenges-approval';
 import { SettingRow } from './setting-row';
 import { GuestCamerasChoice } from './guest-cameras-choice';
-import { GuestAllotmentsChoice } from './guest-allotments-choice';
 import { FaceTaggingChoice } from './face-tagging-choice';
-import { FaceBlockingList } from './face-blocking-list';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -29,12 +27,17 @@ import { FaceBlockingList } from './face-blocking-list';
  *
  *   the one line — Papic [switch] · the dates
  *   (credits: Total · Used · Remaining — when the caller hands them over)
- *   Settings — Filter · When guests can shoot · Credits per guest · Face tagging · Face blocking
+ *   Settings — Filter · When guests can shoot · Face tagging · "Each guest's camera is on their guest card ›"
  *   Challenges
  *
  * ONE component, two seats: Home's Papic card draws it UNDER the card when it opens (owner, 23 Oct: *"expanding opens
  * the rest of the settings under it not open a new page"*), and `/studio/papic` draws it for old links. The switch is
  * the event's own `papic_on` answer (the capture gate reads it) — never a second on/off.
+ *
+ * 👥 BOTH SEATS DRAW THE SAME, EVENT-WIDE SETTINGS (controller contract 2026-10-24, from the owner's guest-card ruling,
+ * approved `prototypes/guest_card_groups_and_papic_2026-10-23.html`): no Credits per guest, no per-guest face list —
+ * each guest's camera (their share, their face switches) is on their guest card, and one quiet line points there.
+ * The seat only decides where a save lands (Home or this page).
  */
 export async function PapicCameraSettings({
   eventId,
@@ -42,11 +45,7 @@ export async function PapicCameraSettings({
   seat = 'page',
 }: {
   eventId: string;
-  /**
-   * 'home' — under Home's Papic card: EVENT-WIDE only (owner 2026-10-23, approved
-   * `prototypes/guest_card_groups_and_papic_2026-10-23.html`: per-guest Papic lives on each guest card) — no Credits
-   * per guest, no per-guest face blocking; one quiet line points at the guest cards. 'page' — `/studio/papic`, as is.
-   */
+  /** 'home' — under Home's Papic card (saves land back on Home); 'page' — `/studio/papic` (saves land there). */
   seat?: 'home' | 'page';
   /** What the pot holds and has left — null when not measured (the counter then says "—", never 0). */
   credits?: { total: number | null; left: number | null } | null;
@@ -148,19 +147,15 @@ export async function PapicCameraSettings({
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />
-          {seat === 'page' ? <GuestAllotmentsChoice eventId={eventId} variant="row" /> : null}
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
-          {seat === 'page' ? <FaceBlockingList eventId={eventId} /> : null}
-          {seat === 'home' ? (
-            <Link
-              href={`/dashboard/${eventId}/guests`}
-              className="flex min-h-11 items-center justify-between gap-3 py-2 text-[14px] text-ink/70"
-              data-papic-guest-card-door=""
-            >
-              <span>Each guest’s camera is on their guest card</span>
-              <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
-            </Link>
-          ) : null}
+          <Link
+            href={`/dashboard/${eventId}/guests`}
+            className="flex min-h-11 items-center justify-between gap-3 py-2 text-[14px] text-ink/70"
+            data-papic-guest-card-door=""
+          >
+            <span>Each guest’s camera is on their guest card</span>
+            <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
+          </Link>
         </div>
       </section>
 

@@ -41,12 +41,15 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
     /<AnswerPicker[\s\S]{0,120}column="papic_on"[\s\S]{0,200}as="switch"/,
     /<PapicWindowPicker\b/,
     /<StylePicker\b/,
-    /<GuestAllotmentsChoice\b/,
     /<FaceTaggingChoice\b/,
-    /<FaceBlockingList\b/,
     /<CoupleChallengesManager\b/,
   ]) {
     assert.match(cam, must, `the camera settings lost ${must}`);
+  }
+  // 👥 Event-wide only, on BOTH seats (contract 2026-10-24, the guest-card ruling): each guest's share and face
+  // switches live on their guest card — the page draws exactly what Home's card opens.
+  for (const perGuest of ['<GuestAllotmentsChoice', '<FaceBlockingList', "seat === 'page' ?"]) {
+    assert.ok(!cam.includes(perGuest), `the camera settings draw a per-guest control again (${perGuest}) — it lives on the guest card`);
   }
   for (const gone of [
     '<LiveWallCard',

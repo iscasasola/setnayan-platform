@@ -41,13 +41,21 @@
 --         · the admin seat is ensured;
 --         · THE OFFER is applied — the same three columns `setVendorTier`
 --           writes (tier_state · tier_expires_at · tier_source = 'admin_comp')
---           so `/admin/gifts` lists it, only when it raises the shop (a shop
---           already on an equal or better running plan keeps it) and only while
---           the gift date is still ahead; the photo allowance is raised to the
---           invite's, never lowered; and one `admin_audit_log` row
---           ('vendor_tier_set', actor = the admin who made the invite, reason
---           "Personal invite <public_id>") — the same log line the Plan page
---           writes.
+--           so `/admin/gifts` lists it — ONLY to a Free or Verified shop that
+--           carries no credit and no scheduled plan change, and only while the
+--           gift date is still ahead. 🔒 A shop on any plan (paid or given,
+--           running or past its day) is left exactly as it is: writing the
+--           gift's day over a paid term would SHORTEN it, and the gift's own
+--           lapse would ZERO a carried credit (owner 2026-08-28: the credit
+--           goes with the plan). The photo allowance is raised to the invite's,
+--           never lowered; and one `admin_audit_log` row ('vendor_tier_set',
+--           actor = the admin who made the invite, reason "Personal invite
+--           <public_id>") — the same log line the Plan page writes;
+--         · 🔒 THE INVITE IS MARKED CLAIMED HERE, under the row lock taken at
+--           the top — so a shared link is spent exactly once. A second
+--           claimant waits on the lock, then finds it claimed and is refused;
+--           the SAME user retrying (a double tap, a refresh) gets their shop
+--           back and nothing is applied twice.
 --       Service role only: the finalize page calls it after proving the session.
 --
 -- Proven by tests/db/the-personal-invite-carries-its-offer.db.test.ts.
@@ -184,10 +192,7 @@ DECLARE
   v_inv      public.vendor_invites%ROWTYPE;
   v_staged   public.vendor_profiles%ROWTYPE;
   v_shop     uuid;
-  v_tier     text;
-  v_expires  timestamptz;
-  v_rank_now integer;
-  v_rank_new integer;
+  v_now      public.vendor_profiles%ROWTYPE;
 BEGIN
   IF p_user_id IS NULL OR p_claim_token IS NULL OR length(p_claim_token) = 0 THEN
     RAISE EXCEPTION 'claim_ready_the_invited_shop: a user and a claim token are required'
@@ -200,6 +205,11 @@ BEGIN
   END IF;
   IF v_inv.source <> 'admin' THEN
     RAISE EXCEPTION 'claim_ready_the_invited_shop: not a Setnayan invite' USING ERRCODE = '22023';
+  END IF;
+  -- The same claimant again (a double tap, a refresh after the first call won): their shop, nothing re-applied.
+  IF v_inv.status::text = 'claimed' AND v_inv.claimed_by_user_id = p_user_id
+     AND v_inv.claimed_vendor_profile_id IS NOT NULL THEN
+    RETURN v_inv.claimed_vendor_profile_id;
   END IF;
   IF v_inv.status::text <> 'pending' THEN
     RAISE EXCEPTION 'claim_ready_the_invited_shop: this link is %', v_inv.status USING ERRCODE = '55000';
@@ -267,14 +277,12 @@ BEGIN
 
   -- ── THE OFFER ──────────────────────────────────────────────────────────────
   IF v_inv.offer_tier IS NOT NULL AND v_inv.offer_until > NOW() THEN
-    SELECT tier_state::text, tier_expires_at INTO v_tier, v_expires
-      FROM public.vendor_profiles WHERE vendor_profile_id = v_shop;
-    -- A plan that has run out counts as Free (the sweep may not have run yet).
-    v_rank_now := CASE WHEN v_expires IS NOT NULL AND v_expires <= NOW() THEN 0 ELSE
-      CASE v_tier WHEN 'solo' THEN 2 WHEN 'pro' THEN 3 WHEN 'enterprise' THEN 4 WHEN 'custom' THEN 5 ELSE 0 END
-    END;
-    v_rank_new := CASE v_inv.offer_tier WHEN 'solo' THEN 2 WHEN 'pro' THEN 3 WHEN 'enterprise' THEN 4 ELSE 0 END;
-    IF v_rank_new > v_rank_now THEN
+    SELECT * INTO v_now FROM public.vendor_profiles WHERE vendor_profile_id = v_shop FOR UPDATE;
+    -- 🔒 FREE OR VERIFIED ONLY. A plan of any kind — even one past its day that the login-driven sweep has not
+    -- reached yet — is never overwritten: its term and its credit are the shop's, and only its own lapse ends them.
+    IF v_now.tier_state::text IN ('free', 'verified')
+       AND COALESCE(v_now.subscription_credit_php, 0) = 0
+       AND v_now.pending_tier IS NULL THEN
       UPDATE public.vendor_profiles
          SET tier_state      = v_inv.offer_tier::public.vendor_tier_state,
              tier_expires_at = v_inv.offer_until,
@@ -288,9 +296,9 @@ BEGIN
         v_inv.invited_by_user_id,
         jsonb_build_object(
           'public_id', (SELECT public_id FROM public.vendor_profiles WHERE vendor_profile_id = v_shop),
-          'from_tier', v_tier,
+          'from_tier', v_now.tier_state::text,
           'to_tier', v_inv.offer_tier,
-          'from_expires_at', v_expires,
+          'from_expires_at', v_now.tier_expires_at,
           'to_expires_at', v_inv.offer_until,
           'reason', 'Personal invite ' || v_inv.public_id,
           'invite_id', v_inv.invite_id
@@ -306,6 +314,14 @@ BEGIN
      WHERE vendor_profile_id = v_shop;
   END IF;
 
+  -- 🔒 Spent, under the lock taken at the top: nobody else can claim this link now.
+  UPDATE public.vendor_invites
+     SET status = 'claimed',
+         claimed_by_user_id = p_user_id,
+         claimed_vendor_profile_id = v_shop,
+         claimed_at = NOW()
+   WHERE invite_id = v_inv.invite_id;
+
   RETURN v_shop;
 END;
 $$;
@@ -313,8 +329,10 @@ $$;
 COMMENT ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) IS
   'Finalize step 1 of a supplier claiming a Setnayan (admin) invite: hand over the staged shop, or fill the '
   'user''s own shop''s blanks from it and drop the staged row; ensure the admin seat; apply the personal '
-  'invite''s offer (plan + until, as an admin comp, only when it raises the shop; the photo allowance, kept). '
-  'Refuses a link that is not a pending admin invite. Service role only.';
+  'invite''s offer (plan + until, as an admin comp, only to a Free/Verified shop with no credit and no scheduled '
+  'change -- a plan is never shortened and a credit never put at risk; the photo allowance, kept); mark the invite '
+  'claimed under its row lock, so a link is spent once (the same claimant again gets their shop back). Refuses a '
+  'link that is not a pending admin invite. Service role only.';
 
 REVOKE ALL ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_ready_the_invited_shop(uuid, text) TO service_role;

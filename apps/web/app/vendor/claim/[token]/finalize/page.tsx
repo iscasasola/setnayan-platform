@@ -183,30 +183,13 @@ export default async function FinalizeClaimPage({ params }: Props) {
   //    approve — owner 2026-10-20), and inserts vendor_follows for the couple
   //    members (per 0019 § Booking-implies-follow auto-insert).
   //
-  //    2026-05-21 — Admin-source invites (no event_vendors parent) skip
-  //    this step. We just flip the invite to 'claimed' so it can't be
-  //    re-used; there's no event to follow.
+  //    Admin-source invites (no event_vendors parent) skip this step: there's no
+  //    event to follow, and `claim_ready_the_invited_shop` above has ALREADY
+  //    marked the invite claimed — inside the call, under the invite's row lock,
+  //    so a shared link is spent exactly once (a separate write here left a window
+  //    in which two people could both claim it, and both get the offer).
   // ------------------------------------------------------------------
-  if (data.invite.source === 'admin') {
-    const { error: claimErr } = await admin
-      .from('vendor_invites')
-      .update({
-        status: 'claimed',
-        claimed_by_user_id: user.id,
-        claimed_vendor_profile_id: vendorProfileId,
-        claimed_at: new Date().toISOString(),
-      })
-      .eq('invite_id', data.invite.invite_id)
-      .eq('status', 'pending');
-    if (claimErr) {
-      return (
-        <ErrorShell
-          title="Couldn't finish claim."
-          body={claimErr.message}
-        />
-      );
-    }
-  } else {
+  if (data.invite.source !== 'admin') {
     const linked = await applyClaimAutoLink({
       claimToken: token,
       claimedByUserId: user.id,

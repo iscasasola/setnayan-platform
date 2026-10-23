@@ -19,8 +19,12 @@ admin invite and claim flow.
   so finalize's "already has a shop" branch won and the shop the admin filled was orphaned — the supplier arrived
   nameless (the couple-link twin was fixed 2026-10-19). The new RPC hands the staged row over, or fills the empty
   shop's blanks from it and drops it; seats the admin; applies the offer as an admin comp (`tier_state` ·
-  `tier_expires_at` · `tier_source = 'admin_comp'`, one `vendor_tier_set` audit row "Personal invite <id>") only when it
-  raises the shop and only while its day is ahead; raises the photo allowance (never lowers it).
+  `tier_expires_at` · `tier_source = 'admin_comp'`, one `vendor_tier_set` audit row "Personal invite <id>") **only to a
+  Free or Verified shop with no credit and no scheduled change**, and only while its day is ahead — a shop on any plan
+  is left exactly as it is, so a paid term is never shortened and a carried credit is never put at risk by the gift's
+  lapse; raises the photo allowance (never lowers it); and **marks the invite claimed inside the same call, under the
+  invite's row lock**, so a forwarded link is refused (the finalize page's separate write, which left a two-claimant
+  window, is gone) and the same supplier retrying gets their shop back with nothing applied twice.
 - **🐛 Fixed on the way: a Solo plan never lapsed.** Migration `20271286893359_a_solo_plan_lapses_too` adds `'solo'`
   to `sweep_vendor_tier_expiry`'s lapse list (it predated Solo and named only pro · enterprise · custom), so an expired
   Solo — paid or given — now returns to verified/free on the next dashboard visit, credit rule unchanged. Found by the

@@ -71,17 +71,20 @@ async function adminInvites(adminUid: string, business: string, category: string
   return { token, email, stagedId: staged.rows[0]!.id };
 }
 
-/** Step 3 — the finalize page's admin branch. */
+/** Step 3 — the finalize page's admin branch: ONE call, which also spends the link (nothing is written after it). */
 async function finalize(uid: string, token: string): Promise<string> {
   await asOwner();
   const r = await db.query<{ id: string }>(`SELECT public.claim_ready_the_invited_shop($1, $2) AS id`, [uid, token]);
-  const shop = r.rows[0]!.id;
-  await db.query(
-    `UPDATE public.vendor_invites SET status = 'claimed', claimed_by_user_id = $1, claimed_vendor_profile_id = $2,
-       claimed_at = now() WHERE claim_token = $3 AND status = 'pending'`,
-    [uid, shop, token],
+  return r.rows[0]!.id;
+}
+
+async function giftLogCount(shop: string): Promise<number> {
+  await asOwner();
+  const r = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.admin_audit_log WHERE action = 'vendor_tier_set' AND target_id::text = $1`,
+    [shop],
   );
-  return shop;
+  return r.rows[0]!.n;
 }
 
 async function shopOf(id: string) {
@@ -186,27 +189,96 @@ test('the 100 photos: written on claim, and still there after the plan gift has 
   assert.equal(after?.portfolio_photo_allowance, 100, 'the photos ended with the plan');
 });
 
-test('the offer never lowers a shop: an existing Ultra shop keeps Ultra, and a gift already past its date grants nothing', async () => {
-  const a = await adminInvites(adminUid, 'Grand Hall', 'reception', { tier: 'solo', untilDays: 30 });
+test('a shop on a plan is never touched: its term is not shortened, its credit is not put at risk, no gift is logged', async () => {
+  // A paying Solo shop with most of a year left and a carried credit, offered Pro for 30 days. Writing the gift
+  // would have cut the paid year to 30 days, and the gift's own lapse would have zeroed the credit.
+  const a = await adminInvites(adminUid, 'Grand Hall', 'reception', { tier: 'pro', untilDays: 30 });
   const uidA = await signUp(a.email, 'vendor');
   await asOwner();
   const own = await db.query<{ id: string }>(`SELECT vendor_profile_id AS id FROM public.vendor_profiles WHERE user_id = $1`, [uidA]);
+  const paidUntil = new Date(Date.now() + 300 * 86_400_000).toISOString();
   await db.query(
-    `UPDATE public.vendor_profiles SET business_name = 'Grand Hall Events', tier_state = 'enterprise', tier_expires_at = now() + interval '60 days'
-      WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_profiles SET business_name = 'Grand Hall Events', tier_state = 'solo', tier_expires_at = $2,
+       subscription_credit_php = 750 WHERE vendor_profile_id = $1`,
+    [own.rows[0]!.id, paidUntil],
+  );
+  const before = await db.query<{ s: string | null }>(
+    `SELECT tier_source AS s FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
     [own.rows[0]!.id],
   );
   const shopA = await finalize(uidA, a.token);
-  const rowA = await shopOf(shopA);
-  assert.equal(rowA?.tier_state, 'enterprise');
-  assert.equal(rowA?.business_name, 'Grand Hall Events', 'a name the supplier set was overwritten');
+  await asOwner();
+  const rowA = await db.query<{ t: string; e: string; c: string; s: string | null; n: string }>(
+    `SELECT tier_state::text AS t, tier_expires_at::text AS e, subscription_credit_php::text AS c, tier_source AS s,
+            business_name AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [shopA],
+  );
+  assert.equal(rowA.rows[0]!.t, 'solo', 'the paid plan was replaced by the gift');
+  assert.equal(Date.parse(rowA.rows[0]!.e), Date.parse(paidUntil), 'the paid term was shortened to the gift day');
+  assert.equal(Number(rowA.rows[0]!.c), 750, 'the carried credit moved');
+  assert.equal(rowA.rows[0]!.s, before.rows[0]!.s, 'the claim relabelled the plan\'s source');
+  assert.equal(rowA.rows[0]!.n, 'Grand Hall Events', 'a name the supplier set was overwritten');
+  assert.equal(await giftLogCount(shopA), 0, 'a gift was logged that was never given');
 
+  // An Ultra shop is left on Ultra; a plan past its day that the sweep has not reached yet is not overwritten either.
+  for (const [name, tier, interval] of [
+    ['Ultra Hall', 'enterprise', "60 days"],
+    ['Lapsed Lights', 'pro', "-2 days"],
+  ] as const) {
+    const inv = await adminInvites(adminUid, name, 'lights_sound', { tier: 'solo', untilDays: 30 });
+    const u = await signUp(inv.email, 'vendor');
+    await asOwner();
+    await db.query(
+      `UPDATE public.vendor_profiles SET tier_state = $2::public.vendor_tier_state, tier_expires_at = now() + $3::interval
+        WHERE user_id = $1`,
+      [u, tier, interval],
+    );
+    const shop = await finalize(u, inv.token);
+    assert.equal((await shopOf(shop))?.tier_state, tier, `${name}: the gift was written over a plan`);
+    assert.equal(await giftLogCount(shop), 0);
+  }
+
+  // A gift already past its date grants nothing, even to a Free shop.
   const b = await adminInvites(adminUid, 'Late Claim', 'cake', { tier: 'pro', untilDays: 1 });
   await asOwner();
   await db.query(`UPDATE public.vendor_invites SET offer_until = now() - interval '1 day' WHERE claim_token = $1`, [b.token]);
   const uidB = await signUp(b.email, 'vendor');
   const shopB = await finalize(uidB, b.token);
   assert.equal((await shopOf(shopB))?.tier_state, 'free');
+});
+
+test('a link is spent once: the claim itself marks it claimed; a second person is refused; the same person again gets their shop and nothing twice', async () => {
+  const { token, email } = await adminInvites(adminUid, 'Shared Link Co', 'caterer', { tier: 'pro', untilDays: 60, photos: 100 });
+  const first = await signUp(email, 'vendor');
+  const shop = await finalize(first, token);
+  await asOwner();
+  const inv = await db.query<{ status: string; by: string; shop: string; at: string | null }>(
+    `SELECT status::text AS status, claimed_by_user_id::text AS by, claimed_vendor_profile_id::text AS shop,
+            claimed_at::text AS at FROM public.vendor_invites WHERE claim_token = $1`,
+    [token],
+  );
+  assert.equal(inv.rows[0]!.status, 'claimed', 'the call left the link pending — a second person could still use it');
+  assert.equal(inv.rows[0]!.by, first);
+  assert.equal(inv.rows[0]!.shop, shop);
+  assert.ok(inv.rows[0]!.at);
+
+  // Someone the link was forwarded to.
+  const second = await signUp('forwarded@example.ph', 'vendor');
+  await asOwner();
+  await assert.rejects(
+    db.query(`SELECT public.claim_ready_the_invited_shop($1, $2)`, [second, token]),
+    /this link is claimed/,
+  );
+  await asOwner();
+  const secondShop = await db.query<{ t: string }>(
+    `SELECT tier_state::text AS t FROM public.vendor_profiles WHERE user_id = $1`,
+    [second],
+  );
+  assert.equal(secondShop.rows[0]?.t, 'free', 'the forwarded link handed out the gift a second time');
+
+  // The first supplier tapping twice (or refreshing): their shop back, the gift logged once.
+  assert.equal(await finalize(first, token), shop);
+  assert.equal(await giftLogCount(shop), 1, 'a retry applied the gift twice');
 });
 
 test('the invite refuses what it cannot carry: a couple-made offer, a plan with no end, a non-admin claim', async () => {

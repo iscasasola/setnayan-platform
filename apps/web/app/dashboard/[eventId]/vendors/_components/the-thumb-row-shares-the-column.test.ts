@@ -66,6 +66,7 @@ test('1 · from 701 every Suppliers bottom row takes its edges from the column, 
   const lower = /@media \(min-width: 701px\) \{\s*\.lower \{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.match(lower, /left:\s*var\(--gs-left/, "Guests' dock: its left is not the column's");
   assert.match(lower, /right:\s*var\(--gs-right/, "Guests' dock: its right is not the column's");
+  assert.match(lower, /padding-left:\s*0;[\s\S]*padding-right:\s*0;/, "Guests' dock: its controls sit inside a gutter of their own, off the column's edges");
 });
 
 test('2 · the Suppliers column hands followColumn ITSELF, under the names the rows read', () => {

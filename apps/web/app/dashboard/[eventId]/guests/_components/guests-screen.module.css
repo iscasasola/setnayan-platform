@@ -541,6 +541,10 @@ button.ico {
     bottom: 16px;
     left: var(--gs-left, 0px);
     right: var(--gs-right, 0px);
+    /* The controls themselves start and end on the column's edges, like Suppliers' row (owner 2026-10-23: one
+       column — one left edge for the list and the row under it). The phone's 16-px gutters stay below 701. */
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 .thumb {

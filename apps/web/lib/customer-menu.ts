@@ -67,7 +67,7 @@ import { isStoreShellWebOnlyPath } from './store-shell';
  * SILENTLY on a rename. Only the WORDS moved (Overview → Home, Guests → Guest
  * list, Suite → Our Services).
  */
-export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'launch' | 'studio';
+export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'launch' | 'studio' | 'memories';
 
 export type CustomerMenu = {
   key: CustomerMenuKey;
@@ -104,6 +104,8 @@ export type EventMenuIconName =
   | 'guests' | 'hosts' | 'hub'
   | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
   | 'ai' | 'suite' | 'refer' | 'details' | 'product'
+  /* Memories — the account bar's own glyph (`account-bottom-nav.tsx`: Sparkles), owner 2026-10-23. */
+  | 'memories'
   /* The desktop rail's tool rows (Planner · Builder · Together · Studio) — see
      `RailTool.icon`. Named here so the rail draws from the SAME vocabulary as
      the event menu, not a second, private icon map. */
@@ -155,6 +157,7 @@ export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
   'event-chat': MessagesSquare,
   compare: Scale,
   contracts: FileSignature,
+  memories: Sparkles,
 };
 
 /** Each of the five tabs' icon NAME — the one place a tab key meets its glyph.
@@ -165,6 +168,7 @@ export const PILLAR_TAB_ICON: Readonly<Record<CustomerMenuKey, EventMenuIconName
   explore: 'team',
   launch: 'hub',
   studio: 'suite',
+  memories: 'memories',
 };
 
 /**
@@ -326,8 +330,12 @@ export function eventMenuRowClaims(r: EventMenuRow): string[] {
   );
 }
 
-/** THE FIVE, in the owner's order. */
-const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio'] as const;
+/**
+ * THE FIVE, in the owner's order — Memories joined after Hub (owner 2026-10-23, the approved
+ * `prototypes/event_bar_memories_tab_2026-10-23.html`: "Home · Guests · Suppliers · Hub · Memories").
+ * `studio` stays in the list for an admin override that still names it; the tree never builds it.
+ */
+const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio', 'memories'] as const;
 
 /**
  * THE tree. Every event-menu surface reads this — the rail, the ☰ drawer and
@@ -365,7 +373,6 @@ export function buildEventMenuSections(
     matchPrefix: '__home__',
     alsoMatch: [
       `${base}/studio`,
-      `${base}/galleries`,
       ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
       ...(maker ? [] : seatPages),
     ],
@@ -415,6 +422,18 @@ export function buildEventMenuSections(
       ],
     });
   }
+
+  // MEMORIES — this event's photos and clips, the SAME gallery as account-level Memories
+  // (owner 2026-10-23: *"Memories = this event's gallery"*, prototypes/event_bar_memories_tab_2026-10-23.html).
+  // A fifth tab after Hub, every phase, every event type. It holds `/galleries` (the after-day hub of
+  // this event's photo sources), which Home held only because nothing else did.
+  put({
+    key: 'memories',
+    label: 'Memories',
+    href: `${base}/memories`,
+    icon: PILLAR_TAB_ICON.memories,
+    alsoMatch: [`${base}/galleries`],
+  });
 
   // MORE SERVICES — the menu of the five services (it was a page, /suite,
   // until the owner removed it 2026-10-02: "the More menu is the one place").

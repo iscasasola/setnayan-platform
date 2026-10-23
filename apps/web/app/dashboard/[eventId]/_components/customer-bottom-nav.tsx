@@ -5,12 +5,13 @@
  * owner 2026-09-29: *"on mobile mode. we do not want that sub bottom nav
  * anymore. we want it to be simple and easy to manage"*).
  *
- *     Home · Guests · Suppliers · Hub
+ *     Home · Guests · Suppliers · Hub · Memories
  *
- * The same four in every phase, for every event type, on the web and in the app
+ * The same five in every phase, for every event type, on the web and in the app
  * (owner 22 Oct 2026: every event wears the wedding's bar, then *"Yes remove
- * more"* — the 2026-10-01 fifth tab and its chooser sheet are gone; every
- * service lives on Home › Your services). In the rail's own words, picked out of
+ * more"* — the 2026-10-01 More tab and its chooser sheet are gone; every
+ * service lives on Home › Your services. Owner 23 Oct 2026: Memories — this
+ * event's photos — is the fifth, after Hub, wearing the account bar's glyph). In the rail's own words, picked out of
  * the one tree in `lib/customer-menu.ts` (`buildCustomerMenuTree`) — the desktop
  * rail draws the same rows under the same words. Nothing docks above this bar; a
  * pillar's parts are chosen inside its page.
@@ -18,9 +19,9 @@
  * NAV REGISTRY: `navSlots` (`customer.bottom-nav.<key>`) overlays the
  * admin-managed label + icon on each tab; a slot marked hidden drops its tab.
  * The icon is LINE-ONLY (`navLineIcon`, owner 2026-10-07): House ·
- * BookUser · Store · AppWindow · Grip by default, another lucide icon by
+ * BookUser · Store · AppWindow · Sparkles (Memories) by default, another lucide icon by
  * override, never the Setnayan mark, an image or an emoji.
- * Keys `home` · `guests` · `explore` · `launch` · `studio` — each has its slot
+ * Keys `home` · `guests` · `explore` · `launch` · `memories` (and the retired `studio`) — each has its slot
  * in NAV_SLOT_DEFAULTS. href + activeMatch always stay in code.
  *
  * Renders via the shared <BottomNav> primitive — traveling-pill + press-light

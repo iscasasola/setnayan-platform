@@ -227,7 +227,7 @@ export default function PakantaLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Your day should sound like you',
-        body: 'Music Maker lives inside your free Setnayan wedding — beside your gallery, your Event Hub and your guest list. Start planning free, and add your song when you are ready.',
+        body: 'Music Maker lives inside your free Setnayan wedding — beside your Memories, your Event Hub and your guest list. Start planning free, and add your song when you are ready.',
         href: '/onboarding/wedding?from=pakanta',
         label: 'Start planning · free',
       }}

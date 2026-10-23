@@ -365,7 +365,7 @@ export function DemoJoinFlow({
         </button>
         {capped && (
           <p className="mt-2 text-xs text-[var(--m-grey,#8c8884)]">
-            The real Papic is unlimited — every guest, all day, one gallery.
+            The real Papic is unlimited — every guest, all day, all in your Memories.
           </p>
         )}
         {photos.length > 0 && (

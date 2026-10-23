@@ -63,14 +63,15 @@ test('after the event, the rail carries the editorial maker and the galleries', 
   /* 🔄 Stage D (2026-09-29): Galleries is the Gallery card on Our Services, no
      longer a row of its own. Since More left the menu (owner 22 Oct 2026, "Yes remove more")
      the HOME row claims /galleries (a person on the galleries sees where they are), and the
-     summary's own Galleries card is its door. */
-  const home = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
+     summary's own Galleries card is its door. Since 23 Oct 2026 the event's MEMORIES row holds it — the
+     galleries are this event's photos (prototypes/event_bar_memories_tab_2026-10-23.html). */
+  const memories = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
     .flatMap((g) => g.items)
-    .find((i) => i.key === 'home');
-  assert.ok(home, 'the After rail must carry Home');
+    .find((i) => i.key === 'memories');
+  assert.ok(memories, 'the After rail must carry Memories');
   assert.ok(
-    home!.alsoMatch?.includes('/dashboard/EVT123/galleries'),
-    'Home must claim /galleries so the galleries are never unlit',
+    memories!.alsoMatch?.includes('/dashboard/EVT123/galleries'),
+    'Memories must claim /galleries so the galleries are never unlit',
   );
 });
 

@@ -99,7 +99,7 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-test('the rail is the owner’s four — no More Services (owner 22 Oct 2026, "Yes remove more") — in every phase', () => {
+test('the rail is the owner’s five — no More Services, Memories after Hub (23 Oct 2026) (owner 22 Oct 2026, "Yes remove more") — in every phase', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
@@ -110,7 +110,7 @@ test('the rail is the owner’s four — no More Services (owner 22 Oct 2026, "Y
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub'],
+      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub', 'Memories'],
       `${phase}: ${labels.join(' · ')}`,
     );
   }
@@ -132,18 +132,18 @@ test('the rows that left are gone from every phase — their homes hold them', (
 /** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
   ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'],
+  ['launch', 'Hub'], ['memories', 'Memories'],
 ] as const;
 /** The phone bar's words — the rail's, save "More" (owner 2026-10-01: "Home -
  *  Guests - Suppliers - Hub - More"). */
 const BAR_FIVE = [
   ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'],
+  ['launch', 'Hub'], ['memories', 'Memories'],
 ] as const;
 const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
 for (const phase of ['plan', 'dayof', 'after'] as const) {
-  test(`the ${phase} phone bar is the owner's four, in the tree's own words`, () => {
+  test(`the ${phase} phone bar is the owner's five, in the tree's own words`, () => {
     const bar = buildCustomerMenuTree(EVENT_ID, {
       phase,
       websiteEnabled: true,
@@ -276,7 +276,9 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
     // `/suite` left 2026-10-02 (owner, tracker d1): the page is gone and its
     // address forwards to the More menu (lib/legacy-redirects.ts) — never rendered.
     // More left the menu (owner 22 Oct 2026): the services live on Home › Your services, so their pages light Home.
-    ['/studio', 'home'], ['/galleries', 'home'],
+    ['/studio', 'home'],
+    // This event's photos — Memories, the fifth tab (owner 23 Oct 2026) — and the after-day sources hub with them.
+    ['/memories', 'memories'], ['/galleries', 'memories'],
     ['/studio/papic', 'home'], ['/studio/patiktok', 'home'], ['/studio/pakanta', 'home'],
     ['/studio/setnayan-ai', 'home'],
     // Train n: the Seat plan row left — /seating is Details › Your event ›

@@ -416,7 +416,7 @@ export function PaymentDetailsBlock({
                 download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
                 className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
               >
-                Save image · scan from gallery
+                Save image · scan from your photos
               </a>
             </>
           ) : (

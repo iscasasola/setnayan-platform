@@ -96,11 +96,11 @@ const PAPIC_SCENES: RichFrame[] = [
     ),
   },
   {
-    caption: 'Every shot lands in your gallery, instantly.',
+    caption: 'Every shot lands in your Memories, instantly.',
     hint: 'You never lift a finger — it just fills up.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
-        <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your gallery</div>
+        <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your Memories</div>
         <div className="flex flex-wrap gap-1 px-3">
           <span className="rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Photos of us</span>
@@ -562,7 +562,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
           <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
         </button>
-        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your event gallery</span>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your Memories</span>
       </div>
     ),
   },
@@ -896,7 +896,7 @@ const MUSIC_CREATOR_SCENES: RichFrame[] = [
   },
   {
     caption: 'Backs every wedding video you make.',
-    hint: 'Reels, save-the-date, your gallery.',
+    hint: 'Reels, save-the-date, your Memories.',
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
         <div className="flex h-20 w-32 items-end justify-center rounded-lg p-2 text-white" style={{ background: PURPLE }}>

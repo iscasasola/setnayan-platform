@@ -64,7 +64,7 @@ export type HubPart = {
 export const HUB_PARTS: readonly HubPart[] = [
   { id: 'reveal', sku: 'COUPLE_HUB_PART_REVEAL', size: 'big', name: 'Reveal', blurb: 'Cinematic openings and effects, your own Save-the-Date film.' },
   { id: 'background', sku: 'COUPLE_HUB_PART_BACKGROUND', size: 'big', name: 'Background', blurb: 'Your photo or video behind the page or a scene, effects, 500 MB.' },
-  { id: 'photos', sku: 'COUPLE_HUB_PART_PHOTOS', size: 'big', name: 'Photos', blurb: 'Gallery, photos and clips in scenes, Love Story photos, crop and zoom.' },
+  { id: 'photos', sku: 'COUPLE_HUB_PART_PHOTOS', size: 'big', name: 'Photos', blurb: 'Photos you add, photos and clips in scenes, Love Story photos, crop and zoom.' },
   { id: 'style', sku: 'COUPLE_HUB_PART_STYLE', size: 'big', name: 'Style', blurb: "Pro themes, Candlelight, every part's font, colour and size, decorations." },
   { id: 'motion', sku: 'COUPLE_HUB_PART_MOTION', size: 'big', name: 'Motion', blurb: 'Part and scene animation, Scrub and Auto-scroll, the RSVP \u201cWhen yes\u201d moment.' },
   { id: 'logo_qr', sku: 'COUPLE_HUB_PART_LOGO_QR', size: 'small', name: 'Logo & QR', blurb: 'Your logo animated, travelling to the bar, and on every QR code.' },
@@ -136,7 +136,7 @@ export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubG
   { id: '4', gate: 'Your own song on the Save-the-Date', home: 'music' },
   { id: '5a', gate: 'Your own film at the top of the Hub', home: 'reveal' },
   { id: '5b', gate: 'Your cover photo', home: 'background' },
-  { id: '6', gate: 'Photo gallery', home: 'photos' },
+  { id: '6', gate: 'Photos you add', home: 'photos' },
   { id: '7', gate: 'Your own background music', home: 'music' },
   { id: '8', gate: 'A photo or clip behind one scene', home: 'background' },
   { id: '9', gate: 'Your photo or clip behind the whole page', home: 'background' },

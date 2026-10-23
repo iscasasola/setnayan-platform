@@ -11,6 +11,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+import { GUEST_CAMERA_BATCH } from '@/lib/papic-guest-camera';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
@@ -2080,8 +2081,8 @@ export async function setGuestAllotments(formData: FormData) {
  * one under its ceiling, and two writers of one ceiling is how a card and a sheet come to disagree.
  *   · `quiet=1` — answered IN PLACE: `{ ok: true }` or `{ refused: <code> }`, never a redirect (a redirect would
  *     navigate the card away). The guest list is revalidated with the Papic page.
- *   · several `guest_id` — one RPC call per guest, the SAME target for each (never a delta), in order; the first
- *     refusal stops the run and says how many were set before it.
+ *   · several `guest_id` (at most GUEST_CAMERA_BATCH) — one RPC call per guest, the SAME target for each (never a delta),
+ *     in order; the first refusal stops the run, says how many were set before it, and a partial save is revalidated.
  */
 export async function setGuestAllotment(formData: FormData): Promise<void | { ok: true; set: number } | { refused: string; set: number }> {
   const quiet = formData.get('quiet') === '1';
@@ -2100,6 +2101,11 @@ export async function setGuestAllotment(formData: FormData): Promise<void | { ok
   if (guestIds.length === 0) {
     if (quiet) return { refused: 'unknown_guest', set: 0 };
     fail('unknown_guest');
+  }
+  // One request sets at most GUEST_CAMERA_BATCH guests — the bulk sheet sends a bigger selection in batches.
+  if (guestIds.length > GUEST_CAMERA_BATCH) {
+    if (quiet) return { refused: 'too_many', set: 0 };
+    fail('bad_number');
   }
 
   const supabase = await createClient();

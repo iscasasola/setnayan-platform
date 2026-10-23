@@ -74,7 +74,7 @@ import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle } from 
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { GuestPapicCamera } from './_components/guest-papic-camera';
-import { forTheCouple, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
+import { forTheCouple, papicSwitchHref, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
 import { guestCardErrorCopy } from './_components/guest-card-error-copy';
@@ -920,6 +920,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         papic={inspectedPapic}
         PapicCamera={GuestPapicCamera}
         storeShell={storeShell}
+        papicSwitch={papicSwitchHref(eventId, eventProfile, inspectedCard.canManageAccess)}
         kit={TEMPLATE_KIT}
         ticketVersion={inspectedTicketVP}
         helperAccess={

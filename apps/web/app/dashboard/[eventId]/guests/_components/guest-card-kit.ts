@@ -43,8 +43,8 @@ export type CardToggleProps = {
 };
 /**
  * 🚪 ONE LINE WITH ONE DOOR — a row that is a fact and the one place it is changed, nothing to open (owner 2026-10-23: the
- * guest card's Papic row reads "Papic is off · Turn on ›" while the event's Papic is off). Never a go-edit-elsewhere for
- * something the card itself holds — only for a switch that is the whole event's.
+ * guest card's Papic group says "Papic is off · Turn on ›" in place of the camera while the event's Papic is off). Never a
+ * go-edit-elsewhere for something the card itself holds — only for a switch that is the whole event's.
  */
 export type CardDoorProps = { label: string; value: string; href: string; action: string; data: string };
 export type CardFoldProps = {

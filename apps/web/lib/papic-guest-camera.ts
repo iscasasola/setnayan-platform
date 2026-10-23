@@ -27,6 +27,12 @@ export type GuestPapicState = {
   ceiling: number | null | undefined;
 };
 
+/** The most guests ONE `setGuestAllotment` call sets — the bulk sheet sends the selection in batches of this many. */
+export const GUEST_CAMERA_BATCH = 50;
+
+/** What a "set number" says while it has no figure yet. */
+export const GUEST_CAMERA_NEEDS_NUMBER = 'Enter a number';
+
 export const GUEST_CAMERA_CHOICES: readonly GuestCamera[] = ['share', 'set', 'none'];
 
 export const GUEST_CAMERA_WORDS: Record<GuestCamera, string> = {
@@ -83,6 +89,8 @@ export function guestCameraRefusal(code: string): string {
       return 'That guest is no longer on this event — refresh and try again.';
     case 'bad_number':
       return 'A whole number, 1 or more.';
+    case 'too_many':
+      return `At most ${GUEST_CAMERA_BATCH} guests at a time — nothing was changed. Try again.`;
     default:
       return 'Couldn’t save just now — nothing was changed. Try again.';
   }

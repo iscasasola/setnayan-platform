@@ -17,7 +17,8 @@ import { GuestCardBody } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
 import { GuestPapicCamera } from '../_components/guest-papic-camera';
-import { forTheCouple, readGuestPapic } from '../_components/guest-papic-read';
+import { forTheCouple, papicSwitchHref, readGuestPapic } from '../_components/guest-papic-read';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
 import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
@@ -62,7 +63,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [data, inviteSetup, papicRead, storeShell] = await Promise.all([
+  const [data, inviteSetup, papicRead, storeShell, profile] = await Promise.all([
     loadGuestCard(supabase, eventId, guestId),
     // Send invite · Copy message — the event's words + the couple's wording.
     loadInviteSetup(supabase, eventId),
@@ -70,6 +71,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     readGuestPapic(eventId, guestId),
     // 🍎 The app never names Papic (a paid service): there the group stays the shipped "Photos" row.
     isStoreShellRequest(),
+    // 🚪 Who may switch Papic on decides whether "Papic is off" carries its door (`papicSwitchHref`) — one cached read.
+    resolveProfileByEvent(eventId),
   ]);
   if (!data) notFound();
   const { guest } = data;
@@ -150,6 +153,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         papic={papic}
         PapicCamera={GuestPapicCamera}
         storeShell={storeShell}
+        papicSwitch={papicSwitchHref(eventId, profile, data.canManageAccess)}
         kit={TEMPLATE_KIT}
         // 🎟 The ticket at its versioned, year-long cached address (streamed — the card never waits).
         ticketVersion={passCardTicketVersion(createAdminClient(), guestId).catch(() => null)}

@@ -13,10 +13,14 @@ Owner-approved design `Setnayan-specs/prototypes/guest_card_groups_and_papic_202
   backed by the SHIPPED ceiling (`papic_set_guest_spend_ceiling`, `papic_guest_spend_ceilings`) through the shipped
   `setGuestAllotment`, which now also answers in place (`quiet=1`) and takes several `guest_id` (one RPC per guest, the
   same target) — **no new server action** (the budget sits 1 under its 1225 ceiling). The three face switches moved in
-  from Photos. Event Papic off → one line "Papic is off · Turn on ›" (door to Home), the switches hidden and their answers
-  still carried. A check or a camera read that did not answer says so and offers no control.
+  from Photos ("Wants to be tagged in photos" — the guest's own words). Event Papic off → "Papic is off · Turn on ›"
+  replaces ONLY the camera choice (owner review, "Always show them": the three consent switches always show and save — they
+  also govern the public story / recap and the withdrawal blur); the door goes to the Papic switch (Event Details ›
+  papic-answer) and only for those who may turn it on. A check or a camera read that did not answer says so and offers no
+  control; "A set number" with no figure says "Enter a number".
 - **Guests list**: with guests selected, Set… ▾ gains a Papic group (couple only, while Papic is on) → one sheet
-  "Papic · set N each" with the same three choices.
+  "Papic · set N each" with the same three choices — sent in batches of ≤50 (the writer refuses more), with an honest
+  "X of N set" when a run stops part-way, and the guests that were set redrawn.
 - Passed Away posts with the autosave form by `form=` (it sits below Access, whose own forms cannot nest); the autosave
   now hears a field of its form drawn outside it.
 - New guard `the-papic-row-is-on-the-card.test.ts`; layout tests re-aimed to the owner's order (each marked RE-AIMED).

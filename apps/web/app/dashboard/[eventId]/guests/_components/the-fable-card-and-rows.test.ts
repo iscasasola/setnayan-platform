@@ -102,9 +102,9 @@ test('card body: the owner’s groups, in his order — every one folds, one ope
   const at = ORDER.map((g) => CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : `<K.Fold summary="${g}"`));
   ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
   for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
-  // The Papic group's one line while the event's Papic is off sits in Papic's own place.
+  // The Papic group's one line while the event's Papic is off sits INSIDE the Papic group, in the camera's place.
   const door = CARD.indexOf('<K.Door label="Papic"');
-  assert.ok(door > at[3]! && door < at[4]!, 'the "Papic is off" line is not where the Papic group is');
+  assert.ok(door > at[4]! && door < at[5]!, 'the "Papic is off" line is not inside the Papic group');
   // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
   assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
   const basic = CARD.slice(at[0]!, at[1]!);
@@ -112,7 +112,7 @@ test('card body: the owner’s groups, in his order — every one folds, one ope
   assert.match(basic, /<K\.Field id="mobile"/, 'the mobile is not in Basic Info');
   assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
   assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
-  assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
+  assert.match(CARD.slice(at[3]!, at[4]!), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
   assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');
   // …and on the Guests pages the shared Fold is one-open-at-a-time too (`useOneOpen`).
   assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the templated card’s rows are not the shared Fold');

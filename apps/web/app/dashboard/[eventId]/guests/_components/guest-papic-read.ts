@@ -4,6 +4,8 @@ import { eventPapicGuestAccess, type PapicGuestAccess } from '@/lib/papic-guest'
 import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { profileSetup, surfaceEnabled, type EventTypeProfile } from '@/lib/event-type-profile';
+import { recordFieldHref } from '@/lib/event-details-record';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 
 export type { GuestPapicState };
@@ -38,6 +40,16 @@ export async function readEventPapicAccess(eventId: string): Promise<PapicGuestA
 export async function readGuestPapic(eventId: string, guestId: string): Promise<GuestPapicState> {
   const [access, ceiling] = await Promise.all([readEventPapicAccess(eventId), readCeiling(eventId, guestId)]);
   return { access, ceiling };
+}
+
+/**
+ * 🚪 WHERE THE EVENT'S PAPIC IS SWITCHED ON — Event Details › "Photos from your guests?" (`papic-answer`), the same door Home's
+ * day card opens while Papic is off (`dayPapicView`). Only for the people who may switch it there — the couple, on an event
+ * whose type has an Event Hub and offers the camera (`details/page.tsx` `opens('papic-answer')`); anyone else gets null and
+ * the card says "Papic is off" with no door.
+ */
+export function papicSwitchHref(eventId: string, profile: EventTypeProfile, couple: boolean): string | null {
+  return couple && surfaceEnabled(profile, 'website') && profileSetup(profile).cameraDefault !== 'off' ? recordFieldHref(eventId, 'papic-answer') : null;
 }
 
 /** What the card may show: the camera is the couple's to see and set — anyone else gets the event's Papic only. */

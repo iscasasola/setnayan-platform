@@ -94,7 +94,8 @@ import { displayPersonName } from '@/lib/person-name-case';
  *     1 Basic Info (the name + mobile; the mobile is in its summary)  · 2 Details (side, group, role)
  *     3 Additional Guests (extra seats + one line per +1)              · 4 RSVP Status (reply, to what, meal +
  *       dietary, and the guest's own note — it opens by itself when there is one)
- *     5 Papic (their camera + the three face switches; ONE line "Papic is off · Turn on ›" while the event's is off)
+ *     5 Papic (their camera + the three face switches; while the event's is off, ONE line "Papic is off · Turn on ›"
+ *       replaces the camera only — the switches always show, owner review "Always show them")
  *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 9 Passed Away  · 10 Delete.
  *   One open at a time (a native exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
  *   choice = one dropdown, several = a dropdown with checkmarks. TAGS ARE GONE: their words were the eyebrow and the
@@ -221,6 +222,7 @@ export function GuestCardBody({
   papic,
   PapicCamera,
   storeShell = false,
+  papicSwitch = null,
   helperAccess,
   actions,
   kit,
@@ -279,6 +281,8 @@ export function GuestCardBody({
    * (`lib/the-app-names-no-paid-service.test.ts`), so there the group stays the shipped "Photos" row — the three face switches.
    */
   storeShell?: boolean;
+  /** 🚪 Where the event's Papic is switched on (`papicSwitchHref`) — null for anyone who may not switch it: no door, just the words. */
+  papicSwitch?: string | null;
   /**
    * A limited helper's grants, colour domains and activity — the Hosts pieces
    * that moved under the Access line (build F2, `guest-helper-access.tsx`).
@@ -410,7 +414,9 @@ export function GuestCardBody({
   const cameraUnread = papicRow?.access === 'on' && papicRow.ceiling === undefined && canManageAccess;
   const papicSummary = storeShell || !papicRow
     ? faceWords
-    : papicRow.access === 'unknown'
+    : papicRow.access === 'off'
+      ? `Off · ${faceWords}`
+      : papicRow.access === 'unknown'
       ? 'Couldn’t check Papic'
       : cameraUnread
         ? 'Couldn’t read their camera'
@@ -853,58 +859,59 @@ export function GuestCardBody({
           </K.Fold>
 
           {/* ══ 5 · PAPIC — their camera and their face (owner 2026-10-23; today's "Photos" folds in here) ════════════════
-              The event's Papic OFF → ONE line with its door (nothing is captured, so the face switches govern nothing and are
-              hidden — their answers are still CARRIED, because `updateGuest` writes every column it reads). */}
-          {!storeShell && papicRow?.access === 'off' ? (
-            <>
-              <K.Door label="Papic" value="Papic is off" href={`/dashboard/${eventId}`} action="Turn on" data="card-papic-off" />
-              {guest.photo_consent ? <input type="hidden" name="photo_consent" value="on" /> : null}
-              {guest.faceblock_enabled ? <input type="hidden" name="faceblock_enabled" value="on" /> : null}
-              {guest.face_recognition_excluded ? <input type="hidden" name="face_recognition_excluded" value="on" /> : null}
-            </>
-          ) : (
-            <K.Fold summary={papicRow ? 'Papic' : 'Photos'} value={papicSummary}>
-              {!storeShell && papicRow?.access === 'unknown' ? (
-                <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-unknown="">
-                  Couldn’t check whether Papic is on — refresh to see their camera.
+              ⚖ "ALWAYS SHOW THEM" (owner review, 2026-10-23): the event's Papic OFF replaces ONLY the camera choice — with ONE line
+              "Papic is off · Turn on ›" (the door to the Papic switch, for those who may switch it). The three consent switches
+              always show and save: they also govern the public story / recap and the withdrawal blur, not only the camera. */}
+          <K.Fold summary={papicRow ? 'Papic' : 'Photos'} value={papicSummary}>
+            {!storeShell && papicRow?.access === 'off' ? (
+              papicSwitch ? (
+                <K.Door label="Papic" value="Papic is off" href={papicSwitch} action="Turn on" data="card-papic-off" />
+              ) : (
+                <p className="text-sm text-ink/70" data-card-papic-off="">
+                  Papic is off
                 </p>
-              ) : cameraUnread ? (
-                <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-camera-unread="">
-                  Couldn’t read their camera — refresh to set it.
-                </p>
-              ) : papicRow?.access === 'on' && papicRow.ceiling !== undefined && PapicCamera ? (
-                /* "Their camera ▾" — Shares with everyone · A set number · No camera (`papic_set_guest_spend_ceiling`). */
-                <PapicCamera eventId={eventId} guestId={guest.guest_id} ceiling={papicRow.ceiling} />
-              ) : null}
+              )
+            ) : !storeShell && papicRow?.access === 'unknown' ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-unknown="">
+                Couldn’t check whether Papic is on — refresh to see their camera.
+              </p>
+            ) : cameraUnread ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-camera-unread="">
+                Couldn’t read their camera — refresh to set it.
+              </p>
+            ) : papicRow?.access === 'on' && papicRow.ceiling !== undefined && PapicCamera ? (
+              /* "Their camera ▾" — Shares with everyone · A set number · No camera (`papic_set_guest_spend_ceiling`). */
+              <PapicCamera eventId={eventId} guestId={guest.guest_id} ceiling={papicRow.ceiling} />
+            ) : null}
+            {/* The guest's own words for their consent (owner review: "Wants to be tagged in photos", never "Tag them"). */}
+            <K.Toggle
+              name="photo_consent"
+              defaultChecked={guest.photo_consent}
+              label="Wants to be tagged in photos"
+              note="Their consent (RA 10173)"
+            />
+            {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
+                server-baked blur on EVERY projected photo, fail-closed.
+                🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
+                iPhone app does not offer (its page is refused there), so the app
+                does not name it. The switch stays in the form, so its saved
+                answer still posts. Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+            <div data-web-only="">
               <K.Toggle
-                name="photo_consent"
-                defaultChecked={guest.photo_consent}
-                label="Tag them in photos"
-                note="Their consent (RA 10173)"
+                name="faceblock_enabled"
+                defaultChecked={guest.faceblock_enabled}
+                label="Blur their face on the Live Wall"
+                note="FaceBlock — blurs every face in the shot"
               />
-              {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
-                  server-baked blur on EVERY projected photo, fail-closed.
-                  🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
-                  iPhone app does not offer (its page is refused there), so the app
-                  does not name it. The switch stays in the form, so its saved
-                  answer still posts. Held by `lib/the-app-names-no-paid-service.test.ts`. */}
-              <div data-web-only="">
-                <K.Toggle
-                  name="faceblock_enabled"
-                  defaultChecked={guest.faceblock_enabled}
-                  label="Blur their face on the Live Wall"
-                  note="FaceBlock — blurs every face in the shot"
-                />
-              </div>
-              {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
-              <K.Toggle
-                name="face_recognition_excluded"
-                defaultChecked={guest.face_recognition_excluded}
-                label="Keep out of face recognition"
-                note="e.g. a minor"
-              />
-            </K.Fold>
-          )}
+            </div>
+            {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
+            <K.Toggle
+              name="face_recognition_excluded"
+              defaultChecked={guest.face_recognition_excluded}
+              label="Keep out of face recognition"
+              note="e.g. a minor"
+            />
+          </K.Fold>
 
           {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
           <K.Fold summary="Seat Plan" value={seatSummary}>
@@ -1212,10 +1219,10 @@ function OldLocked({ label, value, note }: CardLockedProps) {
     </div>
   );
 }
-/** 🚪 One line with one door ("Papic is off · Turn on ›") — the row's look, no fold (there is nothing in it to open). */
+/** 🚪 One line with one door ("Papic is off · Turn on ›") — a row inside its group, its door at the right. */
 function OldDoor({ label, value, href, action, data }: CardDoorProps) {
   return (
-    <div className="flex min-h-[48px] items-center gap-3 border-b border-ink/[0.06] px-3.5 text-sm" data-card-door={data}>
+    <div className="flex min-h-[44px] items-center gap-3 text-sm" data-card-door={data}>
       <span className="font-medium text-ink">{label}</span>
       <span className="ml-auto min-w-0 truncate text-ink/55">{value}</span>
       <Link href={href} className="shrink-0 font-medium text-sn-accent underline-offset-2 hover:underline">

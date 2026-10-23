@@ -568,8 +568,10 @@ export default async function GuestsLabPage({
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
                   DeleteControl={GuestDeleteControl}
-                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
+                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone.
+                     Off: "Turn on ›" flips the lab to on; &noswitch=1 draws it for someone who may not switch Papic (no door). */
                   papic={labPapic}
+                  papicSwitch={sp.noswitch === '1' ? null : '/dev/guests-lab?part=card&papic=on'}
                   PapicCamera={GuestPapicCamera}
                   kit={TEMPLATE_KIT}
                 />

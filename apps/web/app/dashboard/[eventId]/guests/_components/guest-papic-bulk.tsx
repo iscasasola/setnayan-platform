@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Camera, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FORM_PICK_CLASS, FormRow, FormRows } from '@/app/_components/form-row';
@@ -8,7 +9,9 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { formatCount } from '@/lib/format-number';
 import {
   GUEST_CAMERA_ABOUT,
+  GUEST_CAMERA_BATCH,
   GUEST_CAMERA_CHOICES,
+  GUEST_CAMERA_NEEDS_NUMBER,
   GUEST_CAMERA_LINES,
   GUEST_CAMERA_WORDS,
   checkGuestCredits,
@@ -37,6 +40,10 @@ export const PAPIC_SET_OPTIONS = [
  * 🔑 IT ASKS FIRST, EVEN FOR ONE TAP'S CHOICE: there is no Undo for it (each guest had their own number before), so the
  * sheet says how many and to what before anything changes. A refusal is said in the sheet, with how many were set before
  * it stopped — never the look of success.
+ *
+ * 📦 IN BATCHES of `GUEST_CAMERA_BATCH` (owner review): a big selection is several requests, one after another, never one
+ * request the server refuses. The sheet counts across them — "X of N set" is the whole selection's — and a run that stops
+ * part-way asks the page again (`router.refresh()`), so the guests that WERE set are drawn as set.
  */
 export function GuestPapicBulkSheet({
   eventId,
@@ -55,6 +62,7 @@ export function GuestPapicBulkSheet({
   onDone: () => void;
 }) {
   const { setGuestAllotment } = useGuestActions();
+  const router = useRouter();
   const [camera, setCamera] = useState<GuestCamera>(start);
   const [credits, setCredits] = useState('');
   const [busy, setBusy] = useState(false);
@@ -63,7 +71,7 @@ export function GuestPapicBulkSheet({
   const creditsId = useId();
   const n = ids.length;
   const typed = credits.trim();
-  const creditsWrong = camera === 'set' ? (typed === '' ? 'Add a number.' : checkGuestCredits(typed)) : null;
+  const creditsWrong = camera === 'set' ? (typed === '' ? GUEST_CAMERA_NEEDS_NUMBER : checkGuestCredits(typed)) : null;
   const each = camera === 'set' && !creditsWrong ? Number(typed) : null;
   const button =
     camera === 'set' ? `Papic · set ${each === null ? 'N' : formatCount(each)} each` : `Papic · ${GUEST_CAMERA_WORDS[camera].toLowerCase()}`;
@@ -71,23 +79,38 @@ export function GuestPapicBulkSheet({
 
   const apply = async () => {
     if (busy || creditsWrong) return;
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    for (const id of ids) fd.append('guest_id', id);
-    fd.set('allotment', guestCameraPost(camera, each ?? undefined));
-    fd.set('quiet', '1');
+    const allotment = guestCameraPost(camera, each ?? undefined);
     setBusy(true);
     setProblem(null);
+    /** Guests set so far, across every batch. */
+    let set = 0;
+    /** The run stopped part-way: say how far it got, and draw the ones that were set. */
+    const stopped = (why: string) => {
+      setProblem(set > 0 ? `${formatCount(set)} of ${formatCount(n)} set — then: ${why}` : why);
+      if (set > 0) router.refresh();
+    };
     try {
-      const res = await setGuestAllotment(fd);
-      if (res && 'refused' in res) {
-        setProblem(res.set > 0 ? `${formatCount(res.set)} of ${formatCount(n)} were set, then: ${guestCameraRefusal(res.refused)}` : guestCameraRefusal(res.refused));
-        return;
+      for (let at = 0; at < ids.length; at += GUEST_CAMERA_BATCH) {
+        const batch = ids.slice(at, at + GUEST_CAMERA_BATCH);
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        for (const id of batch) fd.append('guest_id', id);
+        fd.set('allotment', allotment);
+        fd.set('quiet', '1');
+        let res: Awaited<ReturnType<typeof setGuestAllotment>>;
+        try {
+          res = await setGuestAllotment(fd);
+        } catch {
+          return stopped('Couldn’t save — check your connection and try again.');
+        }
+        if (res && 'refused' in res) {
+          set += res.set;
+          return stopped(guestCameraRefusal(res.refused));
+        }
+        set += res?.set ?? batch.length;
       }
-      guestToast.success(`${formatCount(n)} ${n === 1 ? 'guest' : 'guests'} · ${camera === 'set' && each !== null ? `${formatCount(each)} credits each` : GUEST_CAMERA_WORDS[camera]}`);
+      guestToast.success(`${formatCount(set)} ${set === 1 ? 'guest' : 'guests'} · ${camera === 'set' && each !== null ? `${formatCount(each)} credits each` : GUEST_CAMERA_WORDS[camera]}`);
       onDone();
-    } catch {
-      setProblem('Couldn’t save — check your connection and try again.');
     } finally {
       setBusy(false);
     }
@@ -122,7 +145,7 @@ export function GuestPapicBulkSheet({
             />
           </FormRow>
           {camera === 'set' ? (
-            <FormRow name="Credits each" line="The most each may take" data="papic-bulk-credits" problem={typed !== '' ? creditsWrong : null}>
+            <FormRow name="Credits each" line={typed === '' ? GUEST_CAMERA_NEEDS_NUMBER : 'The most each may take'} data="papic-bulk-credits" problem={typed !== '' ? creditsWrong : null}>
               <input
                 id={creditsId}
                 aria-label="Credits each"

@@ -174,9 +174,9 @@ const NAME_ROWS = ['first_name', 'middle_name', 'last_name', 'name_suffix', 'dis
 test('2 · the card’s Tab order IS its row order: Title → First → … → Mobile, then the open section’s rows; shut sections skipped', async () => {
   /* A guest who left a note: the card opens on RSVP Status (`open={Boolean(guest.guest_note)}`) — every other group is shut,
      Basic Info too (owner 2026-10-23: closed by default, the mobile in its summary). RE-AIMED 2026-10-23: Passed Away left the
-     form's box (it sits below Access and posts by `form=`), so the form holds one row fewer. */
+     form's box (it sits below Access and posts by `form=`), so the form holds ONE row fewer — the floor moves by one, no more. */
   const rows = paintedRows(await paintCard({ guest_note: 'See you!', mobile: '0917 555 0101' }));
-  assert.ok(rows.length >= 18, `only ${rows.length} rows were read — the reader is blind`);
+  assert.ok(rows.length >= 19, `only ${rows.length} rows were read — the reader is blind`);
   assert.ok(rows.some((r) => !r.reachable) && rows.some((r) => r.reachable), 'no shut section on the card — nothing proves the skip');
   assert.deepEqual(walk(rows, 'rsvp_status', 1), [
     'rsvp_status', // RSVP Status's Reply dropdown

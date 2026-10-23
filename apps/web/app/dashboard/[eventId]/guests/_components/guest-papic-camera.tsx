@@ -7,6 +7,7 @@ import {
   GUEST_CAMERA_ABOUT,
   GUEST_CAMERA_CHOICES,
   GUEST_CAMERA_LINES,
+  GUEST_CAMERA_NEEDS_NUMBER,
   GUEST_CAMERA_WORDS,
   checkGuestCredits,
   guestCameraOf,
@@ -90,7 +91,8 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
       <FormRow
         name="Their camera"
         about={{ words: GUEST_CAMERA_ABOUT }}
-        line={GUEST_CAMERA_LINES[camera]}
+        /* A set number with no figure yet says so — never the look of a saved choice. */
+        line={camera === 'set' && !(saved !== null && saved > 0) ? GUEST_CAMERA_NEEDS_NUMBER : GUEST_CAMERA_LINES[camera]}
         problem={problem}
         data="card-papic-camera"
         attrs={{ 'data-card-field': 'papic_camera' }}
@@ -107,7 +109,7 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
         <TypedRow
           name="Credits"
           value={saved !== null && saved > 0 ? String(saved) : ''}
-          empty="Add a number"
+          empty={GUEST_CAMERA_NEEDS_NUMBER}
           placeholder="e.g. 50"
           inputMode="numeric"
           maxLength={6}

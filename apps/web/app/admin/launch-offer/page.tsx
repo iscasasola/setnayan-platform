@@ -35,7 +35,7 @@ export const dynamic = 'force-dynamic';
  *   · the three numbers, editable;
  *   · the free-fee window (`booking_fee_free_from/until`) — it worked in SQL
  *     and had no screen (audit 2026-10-12, C9) — and its required reason
- *     (`booking_fee_free_reason`, DECISION_LOG 2026-09-23 #3).
+ *     (DECISION_LOG 2026-09-23 #3), kept only in `admin_audit_log.reason`.
  *
  * ⚠ A FAILED READ SAYS SO. It never renders as "off" or "0 used".
  */
@@ -45,15 +45,24 @@ export default async function AdminLaunchOfferPage() {
   const offer = await readLaunchOffer(admin);
   const { data: win, error: winErr } = await admin
     .from('platform_settings')
-    .select('booking_fee_free_from, booking_fee_free_until, booking_fee_free_reason')
+    .select('booking_fee_free_from, booking_fee_free_until')
     .eq('id', 1)
     .maybeSingle();
   if (winErr) logQueryError('admin/launch-offer.window', winErr);
-  const w = (win ?? {}) as {
-    booking_fee_free_from?: string | null;
-    booking_fee_free_until?: string | null;
-    booking_fee_free_reason?: string | null;
-  };
+  const w = (win ?? {}) as { booking_fee_free_from?: string | null; booking_fee_free_until?: string | null };
+  // The window's reason lives only in the admin-only audit log — the latest window edit's row.
+  // A failed read just leaves the box empty: saving an open window still demands a reason.
+  const { data: lastWindowEdit, error: reasonErr } = await admin
+    .from('admin_audit_log')
+    .select('reason')
+    .eq('action', 'booking_fee_free_window_edit')
+    .eq('target_id', 'launch_offer')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (reasonErr) logQueryError('admin/launch-offer.window-reason', reasonErr);
+  const windowOpen = Boolean(w.booking_fee_free_from || w.booking_fee_free_until);
+  const storedReason = windowOpen ? ((lastWindowEdit as { reason?: string | null } | null)?.reason ?? '') : '';
 
   const now = Date.now();
   const open = offer ? launchOfferIsOpen(offer, now) : false;
@@ -137,7 +146,7 @@ export default async function AdminLaunchOfferPage() {
         <FreeFeeWindowForm
           from={isoToManilaLocal(w.booking_fee_free_from ?? null)}
           until={isoToManilaLocal(w.booking_fee_free_until ?? null)}
-          reason={w.booking_fee_free_reason ?? ''}
+          reason={storedReason}
         />
       )}
     </div>

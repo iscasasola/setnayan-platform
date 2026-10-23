@@ -26,6 +26,8 @@ type Props = {
   blocks: Block[];
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
+  /** The table read was refused — the Head table card says so instead of hiding. */
+  tablesFailed?: boolean;
   sameDayVendors?: SameDayVendor[];
   /** LIVE_WALL ownership — resolved server-side (eventSkuActive), same predicate
    *  /wall/[eventId] gates on. When false the card hides. Defaults false so a
@@ -42,6 +44,7 @@ export function DayOfModeGrid({
   blocks,
   headTable,
   nearbyTables,
+  tablesFailed = false,
   sameDayVendors = [],
   liveWallActive = false,
   broadcast,
@@ -86,6 +89,7 @@ export function DayOfModeGrid({
           eventId={eventId}
           headTable={headTable}
           nearbyTables={nearbyTables}
+          tablesFailed={tablesFailed}
         />
         {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
         <LiveScheduleCard eventId={eventId} blocks={blocks} />

@@ -163,7 +163,7 @@ export function isoToManilaLocal(iso: string | null): string {
   return new Date(t + 8 * 3_600_000).toISOString().slice(0, 16);
 }
 
-/** The free-fee window reason's longest form — mirrors the SQL length CHECK. */
+/** The free-fee window reason's longest form (stored in `admin_audit_log.reason`). */
 export const FREE_FEE_REASON_MAX = 500;
 
 /**

@@ -238,38 +238,3 @@ test('the promo arm sits BELOW the free-5 arm in both charge functions', async (
     'the promo arm is ABOVE the free-5 arm — a promotion would spend a courtesy',
   );
 });
-
-/* ── 5 · THE WINDOW CARRIES ITS REASON (DECISION_LOG 2026-09-23 #3) ─────── */
-
-test('the reason column holds 1–500 characters or nothing — and is NOT required in SQL', async () => {
-  /*
-    The admin action requires a reason to OPEN a window. SQL only bounds its
-    length: a "window needs a reason" CHECK would make every later
-    platform_settings update fail if prod already held a window opened before
-    the column existed. So an open window with a NULL reason must still save.
-  */
-  const n = await db.query<{ n: number }>(
-    'SELECT count(*)::int AS n FROM public.platform_settings WHERE id = 1',
-  );
-  assert.equal(n.rows[0]!.n, 1, 'anti-vacuity: the settings row is missing, every UPDATE below hits 0 rows');
-
-  await setWindow('2026-11-01T00:00:00Z', '2026-11-21T00:00:00Z');
-  await db.query("UPDATE public.platform_settings SET booking_fee_free_reason = 'Sinulog week' WHERE id = 1");
-  const r = await db.query<{ reason: string | null }>(
-    'SELECT booking_fee_free_reason AS reason FROM public.platform_settings WHERE id = 1',
-  );
-  assert.equal(r.rows[0]!.reason, 'Sinulog week');
-
-  for (const bad of ['', 'x'.repeat(501)]) {
-    await assert.rejects(
-      db.query('UPDATE public.platform_settings SET booking_fee_free_reason = $1 WHERE id = 1', [bad]),
-      /platform_settings_booking_fee_free_reason_length/,
-      `a reason of length ${bad.length} was accepted`,
-    );
-  }
-
-  // An open window with no reason still saves (the app, not SQL, refuses it).
-  await db.query('UPDATE public.platform_settings SET booking_fee_free_reason = NULL WHERE id = 1');
-  await db.query("UPDATE public.platform_settings SET updated_at = now() WHERE id = 1");
-  await setWindow(null, null);
-});

@@ -51,7 +51,6 @@ async function paint(variant: 'app' | 'front-door', slot: Slot, pathname = '/das
     {
       variant,
       account: { signedIn: true, initials: 'AM', shopName: null, isAdmin: false },
-      tools: [],
       navLabels: {},
       ...slot,
     } as unknown as React.ComponentProps<typeof FrontDoorShell>,

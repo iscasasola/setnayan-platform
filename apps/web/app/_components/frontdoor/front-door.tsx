@@ -23,14 +23,7 @@ import { DiscoverThumbRow } from './shell-thumb-rows';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
-import {
-  railToolsSignedIn,
-  railToolsSignedOut,
-  resolveRailStudioEvent,
-  resolveRailAccount,
-} from './rail-data';
-import { togetherRailItems } from '@/lib/free-tools-rail';
-import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
+import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
 
 export async function FrontDoor({ q }: { q?: string }) {
@@ -39,15 +32,9 @@ export async function FrontDoor({ q }: { q?: string }) {
     when the feed is what renders — a typed query pays nothing for them.
   */
   const searchQuery = (q ?? '').trim();
-  const [account, data, studioEvent, commandItems, discover] = await Promise.all([
+  const [account, data, commandItems, discover] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
-    /*
-      `/` is already dynamic (measured live: MISS, private, no-store), and every
-      read below is React cache()d and shared with the account resolver, so
-      asking which event a signed-in visitor holds costs nothing here.
-    */
-    resolveRailStudioEvent(),
     /*
       💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. This returns `[]` on the
       first line without a session, so a stranger — which is every visitor to
@@ -94,51 +81,10 @@ export async function FrontDoor({ q }: { q?: string }) {
       */
       heading={account.signedIn ? undefined : <FrontDoorAnchor />}
       /*
-        THE SAME BRANCH THE APP MOUNT MAKES — see the note there. This handed
-        every visitor the signed-OUT rows, so a signed-in person on `/` was sent
-        to the page that SELLS a product they already own, and the group then
-        changed shape the moment they opened one.
+        🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
+        is Discover · Find suppliers · Features · How it works · Sign in signed
+        out, and your own rows + Features signed in. /features lists the tools.
       */
-      tools={
-        account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
-      }
-      /*
-        ─── PLANNER + TOGETHER ON `/` (rewritten 2026-09-06) ─────────────────
-        This note used to read *"Together only — Planner/Builder stay unset …
-        because `insideEvent` is never true on `/`"*. That was true while
-        Planner held only in-event rows, and it is now the opposite of the
-        code below it, so it is replaced rather than left to disagree.
-
-        The owner split the rail by KIND rather than price, and the five free
-        planning tools — Marketplace · Guest list · Seat plan · Budget ·
-        Schedule — moved out of Studio into Planner as DOORWAY rows. Those
-        exist precisely for the state this page is in: nobody is inside an
-        event on `/`, so `plannerDoorwayRows(false)` returns all five, pointing
-        at the pages that explain them. Inside an event it returns nothing,
-        because the event's own rail carries the real tools.
-
-        BUILDER still stays unset here, and that part of the old note stands:
-        its rows (Compare, Contracts) are in-event only and `insideEvent` is
-        never true on `/`.
-
-        TOGETHER carries EXACTLY ONE of two things, never both. Signed out it is
-        the public Samahan doorway — what a samahan is, for somebody who has
-        none. Signed in it is that person's own Samahan rows, and the doorway
-        steps aside.
-
-        🔴 THEY ARE MUTUALLY EXCLUSIVE BECAUSE BOTH ARE CALLED "Samahan groups".
-        Caught on the live front door before this shipped: rendering both put
-        the identical label in one group twice, pointing at `/samahan` and
-        `/dashboard/samahan` — the doubling the owner had just ruled out for the
-        Marketplace. Neither is event-gated (Samahan is account-level);
-        `studioEvent.eventId` is the same honestly-resolved value the Studio
-        rows above already use.
-      */
-      plannerTools={plannerDoorwayRows(false)}
-      togetherTools={[
-        ...togetherDoorwayRows(account.signedIn),
-        ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
-      ]}
       /*
         🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
         the owner's second screenshot. `/` handed in no cluster, so a signed-in

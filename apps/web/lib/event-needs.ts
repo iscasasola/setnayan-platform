@@ -15,9 +15,10 @@
  * everyone" is NOT stored here: it is the reply/entry the setup already writes (`rsvp_ask_config`,
  * `setupColumns`), so this module only maps the row onto those answers.
  *
- * 🔒 A NEED THAT IS OFF IS ABSENT, NEVER GREYED (matrix §2): the bottom bar, Home, the Maker's stages
- * and the Studio tiles each drop what is off (the helpers at the bottom), and Home keeps ONE
- * "Switch on more" row so nothing is lost.
+ * 🔒 A NEED THAT IS OFF IS ABSENT, NEVER GREYED (matrix §2): Home, the Maker's stages and the Studio
+ * tiles each drop what is off (the helpers at the bottom), and Home keeps ONE "Switch on more" row so
+ * nothing is lost. ⚖ NOT THE BOTTOM BAR (owner 22 Oct 2026, "Fix both"): every event wears the
+ * wedding's bar, whatever it left off — `lib/event-menu-gates.ts`.
  *
  * Pure and client-safe: no I/O, no React.
  */
@@ -230,7 +231,10 @@ export function readEventNeeds(row: EventNeedsRow | null | undefined): EventNeed
   };
 }
 
-/** The bottom bar's keys this event drops (`buildEventMenuSections` hideKeys): Guests · Suppliers. */
+/**
+ * The menu keys of what this event left off: Guests · Suppliers. ⚖ The BAR no longer drops them (owner
+ * 22 Oct 2026 — `lib/event-menu-gates.ts`); only `/dev/bar-lab?was=1` replays the old rule with this.
+ */
 export function needsHiddenNavKeys(n: EventNeedsRead): string[] {
   return [...(n.guestList ? [] : ['guests']), ...(n.suppliers ? [] : ['explore'])];
 }

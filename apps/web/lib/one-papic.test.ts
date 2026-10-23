@@ -71,11 +71,16 @@ test('no migration re-activates a paid rung', () => {
   );
 });
 
-test('the buy picker still filters on the active flag', () => {
-  // FLOOR + the actual mechanism: deactivating the row only removes the buy
-  // button because the picker filters on it. If that filter is ever dropped,
+test('the Papic page sells no camera rung — and a rung list that comes back filters on the active flag', () => {
+  // FLOOR + the actual mechanism: deactivating the row only removed the buy
+  // button because the picker filtered on it. If that filter is ever dropped,
   // switching a rung off stops hiding anything — the exact bug that put two
   // retired rungs on live buy buttons before.
+  //
+  // 2026-10-23 (rd/papic-sells-only-credits): Papic sells credits only, so the
+  // extra-cameras picker is deleted and the page offers no rung at all
+  // (lib/papic-sells-only-credits.test.ts holds the deletion). This keeps the
+  // old floor for the day a rung list is drawn here again: it must filter.
   const page = fs.readFileSync(
     path.join(process.cwd(), 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx'),
     'utf8',
@@ -85,9 +90,12 @@ test('the buy picker still filters on the active flag', () => {
     .split('\n')
     .filter((l) => !l.trim().startsWith('//'))
     .join('\n');
-  assert.match(
-    stripped,
-    /PAPIC_RUNGS\.filter\(\s*\(\s*rung\s*\)\s*=>\s*papicTierConfig\[rung\]\.isActive\s*\)/,
-    'the extra-cameras picker no longer filters rungs on is_active',
-  );
+  assert.ok(!/<ExtraCamerasPicker\b/.test(stripped), 'the extra-cameras picker is back on the Papic page');
+  if (/\bPAPIC_RUNGS\b/.test(stripped)) {
+    assert.match(
+      stripped,
+      /PAPIC_RUNGS\.filter\(\s*\(\s*rung\s*\)\s*=>\s*papicTierConfig\[rung\]\.isActive\s*\)/,
+      'the Papic page lists camera rungs without filtering them on is_active',
+    );
+  }
 });

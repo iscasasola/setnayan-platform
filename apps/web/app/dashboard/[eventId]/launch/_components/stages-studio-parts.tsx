@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { Check, ChevronDown, Eye } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
+import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -343,12 +344,24 @@ export function StudioToolMenu({
   );
 }
 
-/** Studio's home over the work area — its tiles, or a read that failed, SAID. */
-export function StudioCover({ tiles, onOpen }: { tiles: readonly StudioTileModel[] | null; onOpen: (key: StudioTileKey) => void }) {
+/** Studio's home over the work area — its tiles, still on their way (`pending`, the Maker's `late`), or a read that failed, SAID. */
+export function StudioCover({
+  tiles,
+  pending = false,
+  onOpen,
+}: {
+  tiles: readonly StudioTileModel[] | null;
+  pending?: boolean;
+  onOpen: (key: StudioTileKey) => void;
+}) {
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-cream" data-maker-studio-layer="">
       {tiles ? (
         <StudioHome tiles={tiles} onOpen={onOpen} />
+      ) : pending ? (
+        <div className="w-full px-4 pt-6" data-maker-late-pending="studio">
+          <TimelineRowsLoading label="Loading your Studio" rows={5} />
+        </div>
       ) : (
         <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
           Studio could not be loaded just now. Nothing was changed — please reopen this in a moment.

@@ -34,7 +34,9 @@ import { fileURLToPath } from 'node:url';
 const PAGE = join(dirname(dirname(fileURLToPath(import.meta.url))), 'page.tsx');
 const SRC = readFileSync(PAGE, 'utf8');
 
-const WAYS_IN = 'Four ways into your library';
+// The section's heading — "Four ways into your library" until 2026-10-23, when the crew-camera and
+// uploads rows came off (the uploader moved onto the library itself) and three ways were left.
+const WAYS_IN = 'label="Ways into your library"';
 
 /** Everything the page renders BEFORE the four ways in. */
 function aboveTheWaysIn(): string {
@@ -46,7 +48,7 @@ function aboveTheWaysIn(): string {
 }
 
 test('the page still HAS the ways-in section — otherwise every rule here is vacuous', () => {
-  assert.ok(SRC.includes(WAYS_IN), 'the four ways in are gone; this guard would pass on nothing');
+  assert.ok(SRC.includes(WAYS_IN), 'the ways in are gone; this guard would pass on nothing');
   assert.ok(aboveTheWaysIn().length > 500, 'the region above the ways in came back suspiciously short');
 });
 

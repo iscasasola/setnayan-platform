@@ -28,7 +28,6 @@ import {
   Users,
   BatteryWarning,
   QrCode,
-  Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -67,38 +66,23 @@ import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
 import {
-  fetchCameraRates,
-  papicRungRate,
-  papicRungSku,
-  isPapicUncapped,
   provisionFreeCamerasAdmin,
   provisionUploadsCameraAdmin,
-  PAPIC_MIN_PAID_CAMERAS,
-  PAPIC_FREE_CAMERA_COUNT,
-  PAPIC_MINI_CAP_FALLBACK_PHP,
-  PAPIC_LTD_CAP_FALLBACK_PHP,
-  PAPIC_UNLI_CAP_FALLBACK_PHP,
-  PAPIC_RUNGS,
   PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { papicIsOn } from '@/lib/event-answers';
-import { fetchPapicOneTiers } from '@/lib/papic-one';
-// Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
-// (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
-// papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
-// guest-camera picker's capacity copy and the extra-cameras rung ladder.
-import { fetchPapicTierConfig } from '@/lib/papic-tier-copy';
 import {
   countLimitedGuests,
-  computeLimitedQuote,
   fetchActiveLimitedSnapshot,
   reconcileLimitedSnapshot,
   syncGuestCameras,
   type LimitedSnapshotStatus,
 } from '@/lib/papic-limited';
-import ExtraCamerasPicker from './extra-cameras-picker';
-import GuestCameraTierPicker from './guest-camera-tier-picker';
+import { AddPhotosDoor } from './_components/add-photos-door';
+import { SupplierWayInRow } from './_components/supplier-way-in-row';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PAPIC_CAMERA_SALE_REFUSED, PAPIC_CAMERA_SALE_REFUSED_WORDS } from '@/lib/papic-sells-only-credits';
 import { LiveWallCard } from './_components/live-wall-card';
 import { PoolGalleryCard } from './_components/pool-gallery-card';
 import { MagazineCard } from './_components/magazine-card';
@@ -121,7 +105,6 @@ import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { LifeFlashCard } from './_components/life-flash-card';
-import { formatCount } from '@/lib/format-number';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -319,22 +302,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .then((r) => r.data ?? null),
   );
   const driveConfigRead = startRead(getDriveOAuthConfig());
-  const cameraRatesRead = startRead(fetchCameraRates(supabase));
-  const papicTierConfigRead = startRead(fetchPapicTierConfig(supabase));
-  const papicOneTiersRead = startRead(fetchPapicOneTiers(supabase));
+  /* ⛔ THE CAMERA RATES, THE TIER CONFIG AND THE ONE TIERS ARE NOT ASKED ANY MORE (owner 2026-10-23,
+     "why do i have these?"): they priced the guest-camera tiers and the crew-camera ladder, and Papic
+     sells credits only (`lib/papic-sells-only-credits.ts`). */
   // The entitlement client is asked ONCE (it is cache()d per event); each SKU waits on it alone.
   const entitlementClientRead = startRead(eventEntitlementClient(eventId));
   const ownsSkuRead = (sku: string) =>
     startRead(entitlementClientRead.then((ent) => eventSkuActive(ent, eventId, sku)));
-  const unlockPkgRead = startRead(
-    unlockAdmin
-      .from('platform_package_catalog')
-      .select('retail_price_php, is_active')
-      .eq('package_code', 'PAPIC_UNLOCK')
-      .maybeSingle(),
-  );
-  const ownsPapicUnlockRead = ownsSkuRead('PAPIC_UNLOCK');
-  const ownsPapicUnlockLtdRead = ownsSkuRead('PAPIC_UNLOCK_LTD');
   const papicPlatformSettingsRead = startRead(fetchPlatformSettings(supabase));
   const keepFullResRowRead = startRead(
     unlockAdmin
@@ -417,57 +391,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // referenced NOWHERE in 1,785 lines. Splitting the page into three rooms would
   // only have made it easier to keep paying for an answer nobody asks for.
   // (asked above, with the page's other independent reads)
-  const [grantRaw, driveConfig, cameraRates, papicTierConfig, papicOneTiers] = await Promise.all([
-    driveGrantRead,
-    driveConfigRead,
-    // Live admin-managed rates + per-tier caps.
-    cameraRatesRead,
-    papicTierConfigRead,
-    // The LIFETIME bucket each per-camera rung actually grants. Read from
-    // papic_one_tiers because that is the table papic_grant_camera_points()
-    // reads on approval — see the comment on `rungPoints` below.
-    papicOneTiersRead,
-  ]);
+  const [grantRaw, driveConfig] = await Promise.all([driveGrantRead, driveConfigRead]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
   const driveOAuthReady = driveConfig.ready;
-  // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
-  // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
-  // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
-  // diverges from the bill. The guest-list Limited tier IS the roll/Mini tier,
-  // so it reads the MINI cap — not the (dormant) Ltd cap.
-  const uncappedEvent = isPapicUncapped(
-    (event as Record<string, unknown>).event_type as string | null,
-  );
-
-  // The couple's word for their own event. Papic ships on all 16 event types
-  // (owner-locked 2026-07-27), but this page still greeted every one of them
-  // with "Wedding photo capture" and offered "unlimited cameras for the whole
-  // wedding" — read by a birthday host, a reunion organiser, or the host of a
-  // Simple Event, whose type exists precisely BECAUSE it is not a wedding.
-  // `terminology.event_word` is the shipped per-type noun; nothing new.
-  const papicEventWord =
-    ((event as Record<string, unknown>).event_type as string | null) === 'wedding'
-      ? 'wedding'
-      : 'event';
-  const papicMiniCapPhp = uncappedEvent
-    ? Number.MAX_SAFE_INTEGER
-    : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
-      PAPIC_MINI_CAP_FALLBACK_PHP;
-  const papicLtdCapPhp = uncappedEvent
-    ? Number.MAX_SAFE_INTEGER
-    : Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) ||
-      PAPIC_LTD_CAP_FALLBACK_PHP;
-  const papicUnliCapPhp = uncappedEvent
-    ? Number.MAX_SAFE_INTEGER
-    : Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) ||
-      PAPIC_UNLI_CAP_FALLBACK_PHP;
-  // Per-rung cap the extra-cameras ladder quotes against (titles + point
-  // budgets come from the single papicTierConfig read above).
-  const papicRungCapPhp: Record<(typeof PAPIC_RUNGS)[number], number> = {
-    mini: papicMiniCapPhp,
-    ltd: papicLtdCapPhp,
-    unlimited: papicUnliCapPhp,
-  };
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -608,20 +534,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   // (each started above, with the page's other independent reads)
   const [
-    { data: unlockPkg, error: unlockPkgError },
-    ownsPapicUnlock,
-    ownsPapicUnlockLtd,
     papicPlatformSettings,
     { data: keepFullResRow, error: keepFullResRowError },
     ownsKeepFullRes,
     { data: cameraBridgeRow, error: cameraBridgeRowError },
   ] = await Promise.all([
-    unlockPkgRead,
-    ownsPapicUnlockRead,
-    // The ₱9,000 twin frees the ₱30 rung it was sold against — today's Mini
-    // (legacy 'roll'). It does NOT cover the new ₱50 Ltd rung. See
-    // lib/papic-cameras.ts CameraQuoteOpts.
-    ownsPapicUnlockLtdRead,
     papicPlatformSettingsRead,
     // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
     keepFullResRowRead,
@@ -631,9 +548,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     // 20270828170000), so today this resolves to "no price, nothing to buy".
     cameraBridgeRowRead,
   ]);
-  if (unlockPkgError) {
-    logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');
-  }
   if (keepFullResRowError) {
     logQueryError('PapicPage.keepFullResRow', keepFullResRowError, { event_id: eventId }, 'graceful_degrade');
   }
@@ -642,9 +556,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   }
   const cameraBridgePricePhp = cameraBridgeRow?.is_active
     ? Number(cameraBridgeRow.retail_price_php)
-    : null;
-  const papicUnlockPricePhp = unlockPkg?.is_active
-    ? Number(unlockPkg.retail_price_php)
     : null;
   const keepFullResPricePhp = keepFullResRow?.is_active
     ? Number(keepFullResRow.retail_price_php)
@@ -791,40 +702,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       }
     }
   }
-  const limitedQuote = computeLimitedQuote(
-    limitedGuestCount,
-    cameraRates.roll,
-    papicMiniCapPhp,
-    papicDays,
-  );
-  // The Unlimited-tier option for the same guest list (owner 2026-06-26) — same
-  // capture-window day multiplier as the Limited quote.
-  const unlimitedQuote = computeLimitedQuote(
-    limitedGuestCount,
-    cameraRates.unlimited,
-    papicUnliCapPhp,
-    papicDays,
-  );
-  const limitedTier = (limitedSnapshot?.tier ?? null) as 'roll' | 'unlimited' | null;
+  /* ⛔ NO QUOTE IS WORKED OUT HERE ANY MORE. The Limited / Unlimited per-guest quotes fed the guest-camera
+     tier sheet, retired 2026-10-23. The snapshot sync above STAYS: it keeps the cameras of a couple who
+     already paid for that tier in step with their RSVPs — historical money keeps working. */
 
   /* ⏱ THE LAST WAVE — every read that must see the self-heals AND the guest sync above, started
      together: the uploads seat (started above), the extra cameras, the claim-link seats and the
      standings. Each is still awaited where it always was. */
-  const extraCameraCountRead = startRead(
-    supabase
-      .from('paparazzi_seats')
-      .select('seat_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('tier', 'unlimited')
-      .is('revoked_at', null),
-  );
-  const claimSeatRowsRead = startRead(
-    supabase
-      .from('paparazzi_seats')
-      .select('claimer_user_id')
-      .eq('event_id', eventId)
-      .is('revoked_at', null),
-  );
   const standingsRead = startRead(readPapicStandings(createAdminClient(), eventId));
 
   let uploadsToken: string | null = null;
@@ -839,38 +723,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     }
   }
 
-  // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
-  let extraCameraCount: number | null = 0;
-  {
-    const { count, error: extraCameraCountError } = await extraCameraCountRead;
-    if (extraCameraCountError) {
-      logQueryError(
-        'PapicPage.extraCameraCount',
-        extraCameraCountError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-    }
-    extraCameraCount = extraCameraCountError ? null : count ?? 0;
-  }
-
-  // Claim-link cameras — every seat that carries its own QR (the free pool
-  // cameras, the free Papic One, and any paid extras). Counted here so the QR
-  // tile below can say how many are ready and how many are still unclaimed,
-  // rather than sending the couple to a page to find out.
-  let claimLinkTotal = 0;
-  let claimLinkUnclaimed = 0;
-  {
-    const { data: seatRows, error: seatRowsError } = await claimSeatRowsRead;
-    // ⚠ THE CAMERAS THE COUPLE HANDED OUT. Refused, the crew list empties and every
-    // ⚠ seat they set up reads as never claimed — their own setup, gone.
-    if (seatRowsError) {
-      logQueryError('PapicStudioPage.seatRows', seatRowsError, { eventId }, 'graceful_degrade');
-    }
-    const rows = seatRows ?? [];
-    claimLinkTotal = rows.length;
-    claimLinkUnclaimed = rows.filter((r) => !r.claimer_user_id).length;
-  }
+  /* ⛔ NO SEAT IS COUNTED FOR THE COUPLE ANY MORE (owner 2026-10-23). The off-list extras count and the
+     claim-link roster fed "N camera QRs are still in your pocket" and the crew-camera row — a camera per
+     seat, which the one shared pot retired. The seats themselves stay: a seat is the camera CLAIM. */
 
   // 📍 Read AFTER every self-heal above (the free pool grant, the cameras, the
   // guest sync): the pool status is asked once per render now (`askedOnce`), so
@@ -890,6 +745,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     window: { startDate: papicWindow.startDate, endIso: papicWindow.endIso },
     papicOn: true,
   });
+
+  /* 📤 THE UPLOADER, BUILT ONCE and handed to the library's one door (empty: "Add the first memory";
+     with photos: "Add photos"). Same picker, same seat, same credit cost as every camera. */
+  const uploadsSheetBody = uploadsToken ? (
+    <AddToLibrary token={uploadsToken} />
+  ) : (
+    <form action={claimUploadsCamera} className="space-y-3">
+      <input type="hidden" name="event_id" value={eventId} />
+      <p className="max-w-prose text-sm text-ink/65">
+        Add photos and clips from your phone or laptop — older memories too. They land in the same
+        gallery as everything your guests take, and cost the same: one credit a photo.
+      </p>
+      <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
+    </form>
+  );
 
   return (
     /*
@@ -1071,7 +941,18 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           credits, and an allotment is what one guest is allowed of them. */}
       <div className={`flex flex-col gap-7 ${ord('guests')}`}>
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Allotment</h2>
+        {/* 🏷 "WHO SHOOTS, AND WHEN" — was "Allotment" (owner 2026-10-23, "we can improve these"). Each row
+            says its title and its value; what the value MEANS sits behind this ⓘ, one line per row. */}
+        <InfoTip
+          label="Who shoots, and when"
+          labelAs="h2"
+          labelClassName="text-lg font-semibold tracking-tight text-ink"
+          align="start"
+        >
+          When guests can shoot: on your event day, or from now if you open it early. Credits per
+          guest: shared with no limit, unless you turn on a limit — then each guest may take up to the
+          number shown, an equal share of your credits unless you typed a lower one.
+        </InfoTip>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
           <GuestCamerasChoice eventId={eventId} variant="row" />
           <GuestAllotmentsChoice eventId={eventId} variant="row" />
@@ -1116,242 +997,54 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <LiveWallCard eventId={eventId} appleIap={appleIap} />
       </div>
       {/* ══ CAMERAS ══════════════════════════════════════════════════
-          📍 YOUR CAMERAS, RIGHT UNDER THE BAND (owner "Yes", 2026-10-13 — band ·
-          your cameras · guests' cameras · photos · Settings with Change dates
-          last; walk-b6 F2/F3). The "Right now · N camera QRs still in your
-          pocket" prompt rides with them — it is the next real thing to do, so
-          it must not fall to the bottom with the dates it used to live beside. */}
+          📍 HOW PHOTOS GET IN, RIGHT UNDER THE BAND (owner "Yes", 2026-10-13).
+
+          ⛔ NO CAMERA IS SOLD, COUNTED OR HANDED OUT HERE (owner 2026-10-23, over his own page:
+          "why do i have these?"). Four things came off together, because each sold or dealt out a
+          camera of its own and the 2026-09-16 ruling retired that model — *"we do not have papic
+          seat. we only have papic with credits and shared amongst everybody"*:
+            · "Right now · N camera QRs are still in your pocket" — a count of seats;
+            · the crew-camera tier ladder ("Add a camera that isn't on the guest list … pick their
+              tier") and the guest-camera tier sheet (Limited / Unlimited per guest, with a live
+              "activate N guest cameras · ₱…" button);
+            · the per-seat "Free camera 1 / 2 / 3" cards (now off `/crew`, which shows the one code);
+            · the "Your uploads" row — the uploader moved INTO the library below, one door.
+          What a couple sees now is the whole model: one code for everyone, every guest's invite QR,
+          their suppliers — and everything draws from the one pot the band above shows.
+          `lib/papic-sells-only-credits.test.ts` keeps all of it gone. */}
       <div className={`flex flex-col gap-7 ${ord('cameras')}`}>
-      {claimLinkUnclaimed > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface" data-tour="papic-qrs">
-          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
-          <div className="space-y-3 p-5 sm:p-6">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
-              Right now
-            </p>
-            <h2 className="text-lg font-semibold tracking-tight text-ink">
-              {claimLinkUnclaimed} camera QR{claimLinkUnclaimed === 1 ? '' : 's'}{' '}
-              {claimLinkUnclaimed === 1 ? 'is' : 'are'} still in your pocket
-            </h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              Show them at the door — each one is a camera. They scan, they shoot,
-              and it all lands in your library.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
-              >
-                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Show the QR codes
-              </Link>
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew/print`}
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-              >
-                Print cards
-              </Link>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
-          🔑 THIS SECTION IS WHAT REPLACED THE THREE TABS.
-
-          The page used to open by asking a person to choose between Photos ·
-          Cameras & shots · Set up — a question about our filing, asked before
-          anything had been said about their celebration. The approved drawing
-          (prototypes/papic_control_center_2026-08-25.html) replaces that choice
-          with the thing itself: the four ways media gets into the library, each
-          reporting what it has contributed and what it is waiting on.
-
-          ⚠ EVERY CONTROL FROM ALL THREE ROOMS STILL EXISTS — the drawing's own
-          port contract itemises where each one went, and nothing was dropped
-          beyond the two questions the owner deleted (photo quality, "where your
-          photos go"). The crew QRs, the off-list camera, the guest-camera tier
-          and the uploads picker are behind these four rows, unredrawn. */}
-      <section className="space-y-3" id="ways-into-your-library" data-tour="papic-library">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">
-          Four ways into your library
-        </h2>
+      <section className="space-y-3" id="ways-into-your-library" data-tour="papic-qrs">
+        <InfoTip
+          label="Ways into your library"
+          labelAs="h2"
+          labelClassName="text-lg font-semibold tracking-tight text-ink"
+          align="start"
+        >
+          One code for everyone: print it or show it at the door. Guest cameras: each invited
+          guest&rsquo;s invite QR opens their camera. Suppliers: what a booked supplier shoots on the
+          day lands here. Every shot, from anyone, comes out of your one shared pot of credits.
+        </InfoTip>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
           <SourceRow
             icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Crew cameras"
-            blurb="Friends with a QR — free, add any number"
-            state={
-              papicBand.phase === 'waits'
-                ? papicBand.onFrom
-                  ? `Papic turns on ${papicBand.onFrom}`
-                  : 'Switches on before your day'
-                : claimLinkUnclaimed > 0
-                  ? `${claimLinkUnclaimed} to hand out`
-                  : claimLinkTotal > 0
-                    ? `${formatCount(claimLinkTotal)} claimed`
-                    : 'None yet'
-            }
-            attention={claimLinkUnclaimed > 0}
-            sheetTitle="Crew cameras"
-          >
-            <p className="mb-4 text-sm text-ink/65">
-              Each camera has its own QR and link — show it, they scan, they
-              shoot. Every shot draws from your shared credits.
-            </p>
-            <div className="mb-5 flex flex-wrap items-center gap-2">
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
-              >
-                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Show the QR codes
-              </Link>
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew/print`}
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-              >
-                Print cards
-              </Link>
-            </div>
-
-            {/* The ONLY off-list path — a videographer friend, a hired second
-                shooter. Unchanged; it simply lives behind this row now.
-                🍎 Sold on the web only (apply-then-pay) — not drawn in the app. */}
-            {appleIap ? null : (
-            <div className="border-t border-ink/10 pt-4">
-              <p className="text-sm font-semibold text-ink">
-                Add a camera that isn&rsquo;t on the guest list
-              </p>
-              <p className="mb-3 text-xs text-ink/60">
-                A videographer friend, a hired second shooter — pick their tier.
-                {extraCameraCount !== null && extraCameraCount > 0
-                  ? ` ${formatCount(extraCameraCount)} active.`
-                  : ''}
-              </p>
-              <div className="max-w-sm">
-                <ExtraCamerasPicker
-                  eventId={eventId}
-                  // ⚠ FILTER BEFORE MAP. PAPIC_RUNGS is a static vocabulary of every
-                  // rung the code can SPEAK, not a list of what is on SALE — the
-                  // sale list is `papic_tier_config.is_active`, which an admin
-                  // edits without a deploy. Mapping the constant straight to the
-                  // picker put both RETIRED rungs on a live buy button.
-                  rungs={PAPIC_RUNGS.filter((rung) => papicTierConfig[rung].isActive).map(
-                    (rung) => ({
-                      rung,
-                      title: papicTierConfig[rung].displayTitle,
-                      ratePhp: papicRungRate(cameraRates, rung),
-                      // ⚠ THE BUCKET, FROM THE TABLE THE GRANT READS —
-                      // papic_one_tiers, which papic_grant_camera_points() reads
-                      // on approval. The old per-camera-per-DAY meter is NULL for
-                      // 'mini' on prod, and NULL reads as "unlimited" to every
-                      // copy helper, so the picker advertised no limit on a
-                      // camera the reserve stops at 50.
-                      points:
-                        papicOneTiers.find((t) => t.serviceCode === papicRungSku(rung))
-                          ?.points ?? null,
-                      capPhp: papicRungCapPhp[rung],
-                      // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the Mini
-                      // rung. Nothing frees the Ltd rung today.
-                      free:
-                        rung === 'unlimited'
-                          ? ownsPapicUnlock
-                          : rung === 'mini'
-                            ? ownsPapicUnlockLtd
-                            : false,
-                    }),
-                  )}
-                  days={papicDays}
-                  windowSummary={papicWindowSummary}
-                />
-              </div>
-            </div>
-            )}
-          </SourceRow>
-
+            label="One code for everyone"
+            blurb="Anyone who scans it shoots from your shared credits"
+            state="Show"
+            href={`/dashboard/${eventId}/studio/papic/crew`}
+          />
+          {/* ⚠ INERT ON PURPOSE — nothing to set and nothing to buy: the guest's own invite QR IS the
+              camera, and "When guests can shoot" below is the one control over it. */}
           <SourceRow
             icon={<Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
             label="Guest cameras"
-            blurb="Every invited guest — their invitation QR is the camera"
-            state={
-              limitedStatus === 'active'
-                ? guestCameraCount === null
-                  ? '—'
-                  : `${formatCount(guestCameraCount)} ready`
-                : limitedStatus === 'pending_payment'
-                  ? 'Payment under review'
-                  : 'Your event day'
-            }
-            sheetTitle="Guest cameras"
-          >
-            <LimitedCard
-              eventId={eventId}
-              guestCount={limitedGuestCount}
-              guestCameraCount={guestCameraCount}
-              status={limitedStatus}
-              currentTier={limitedTier}
-              limitedQuote={limitedQuote}
-              unlimitedQuote={unlimitedQuote}
-              limitedPointsPerDay={papicTierConfig.roll.pointsPerDay}
-              unlimitedPointsPerDay={papicTierConfig.unlimited.pointsPerDay}
-              days={papicDays}
-              windowSummary={papicWindowSummary}
-              appleIap={appleIap}
-            />
-          </SourceRow>
-
-          {/* ⚠ THE UPLOAD ROW IS GOVERNED BY THE COUPLE'S OWN SWITCH, and the
-              switch is read on its own round trip (see `uploadsRow` above) —
-              the first cut read it off the main event select, which never named
-              the column, so it reported OPEN whatever the couple had chosen. */}
-          <SourceRow
-            icon={<Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Your uploads"
-            blurb="Older memories from your phone or laptop"
-            state={uploadsOpen ? 'Open now' : 'Off'}
-            sheetTitle="Add to your library"
-          >
-            {!uploadsOpen ? (
-              <p className="max-w-prose text-sm text-ink/65">
-                Adding photos by hand is switched off for this event — only
-                what your cameras capture goes into the gallery. You can turn it
-                back on under &ldquo;Set once, change any time&rdquo;.
-              </p>
-            ) : uploadsToken ? (
-              <AddToLibrary token={uploadsToken} />
-            ) : (
-              <form action={claimUploadsCamera} className="space-y-3">
-                <input type="hidden" name="event_id" value={eventId} />
-                <p className="max-w-prose text-sm text-ink/65">
-                  Add photos and clips from your phone or laptop — older memories
-                  too. They land in the same gallery as everything your cameras
-                  take, and cost the same: one credit a photo.
-                </p>
-                <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
-              </form>
-            )}
-          </SourceRow>
-
-          {/* ⚠ INERT ON PURPOSE — NO SHEET, NO PRESS. The supplier capture lane
-              is built and switched off behind the outstanding privacy ruling
-              about a supplier collecting guests' photographs, so today a booked
-              photographer can only hand over a link to their own gallery.
-              Giving this row a door would be a control that cannot do the thing
-              it names. It stays visible because the gap is real and the couple
-              should be able to see where it closes. */}
-          <SourceRow
-            icon={<Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Suppliers"
-            blurb="Your photographer's finished work, straight into your library"
-            state="Not open yet"
+            blurb="Each guest's invite QR is their camera"
+            state="Every guest"
           />
+          {/* The Suppliers lane, with the TRUE reason when it is not open — read, never assumed. */}
+          <SupplierWayInRow eventId={eventId} />
         </div>
         <p className="px-1 text-xs text-ink/55">
-          Everything lands in the same library and is screened before anyone sees it.
+          Every shot draws from your one shared pot of credits, and is screened before anyone sees it.
         </p>
       </section>
       </div>
@@ -1373,18 +1066,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         opensInDays={papicOpensInDays}
         uploadsOpen={uploadsOpen}
         firstMemorySlot={
-          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
-             "Your uploads" way-in below; putting the picker here too would be a
-             second copy of a control, which is the failure this codebase pays
-             for most. This scrolls to it. */
-          <a
-            href="#ways-into-your-library"
-            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
-            style={{ backgroundColor: '#C24E25' }}
-          >
-            Add the first memory
-          </a>
+          /* 📍 ONE DOOR TO THE UPLOADER, ON THE LIBRARY ITSELF (owner 2026-10-23: "i think this can
+             be integrated on the gallery" — and, of this card, "this is the gallery"). It used to
+             scroll to a "Your uploads" row further down; that row is gone, and this opens the SAME
+             uploader (`AddToLibrary`, same credit costs) in a sheet. */
+          <AddPhotosDoor label="Add the first memory" tone="lit">
+            {uploadsSheetBody}
+          </AddPhotosDoor>
         }
+        addPhotosSlot={
+          <AddPhotosDoor label="Add photos" tone="quiet">
+            {uploadsSheetBody}
+          </AddPhotosDoor>
+        }
+        whoShoots={papicAnsweredNo ? 'Off in Your info' : 'Every guest + you'}
       >
         <GalleryPreviewCard
           eventId={eventId}
@@ -1517,36 +1212,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           to open a room — the unlock bundle was the first thing in Cameras &
           shots. They are true and they are for sale; they are not what a person
           came here to do. */}
-      {/* 🍎 Both offers are sold on the web only (apply-then-pay) — neither is drawn in the app. */}
-      {!appleIap && papicUnlockPricePhp && !ownsPapicUnlock ? (
-        <section className="flex flex-col gap-3 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">
-              Everything Papic, one price
-            </h2>
-            <p className="max-w-prose text-sm text-ink/70">
-              Unlimited cameras for the whole {papicEventWord} + every add-on (Photo Notes,
-              Photo Wall, Thank You, Stories, Camera Bridge).
-            </p>
-          </div>
-          {papicPlatformSettings ? (
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey="PAPIC_UNLOCK"
-              displayName="Unlock all of Papic"
-              originalPriceCentavos={String(Math.round(papicUnlockPricePhp * 100))}
-              settings={papicPlatformSettings}
-              triggerLabel={`Unlock all · ${formatPhp(papicUnlockPricePhp)}`}
-              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
-            />
-          ) : (
-            <span className="shrink-0 font-mono text-sm text-ink/60">
-              {formatPhp(papicUnlockPricePhp)}
-            </span>
-          )}
-        </section>
-      ) : null}
-
+      {/* ⛔ "EVERYTHING PAPIC, ONE PRICE" IS GONE (2026-10-23). It sold PAPIC_UNLOCK — "Unlimited cameras for
+          the whole wedding" — a camera bundle the shared-credit model retired, and its catalogue row has been
+          empty since September, so it never drew. An owner of an old unlock keeps it (the entitlement read
+          and its activation hook are untouched). 🍎 Keep Full-Res is sold on the web only. */}
       {appleIap ? null : ownsKeepFullRes ? (
         <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
           ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
@@ -1597,150 +1266,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 }
 
 // -----------------------------------------------------------------------------
-// LIMITED (guest-list) card
+// ⛔ `LimitedCard` (the guest-camera tier sheet: "A camera for every guest", Limited / Unlimited per guest,
+// "activate N guest cameras · ₱…") WAS HERE — retired 2026-10-23 with the per-guest tier it sold. A guest's
+// invite QR is their camera and costs nothing on its own; every shot draws from the shared pot.
 // -----------------------------------------------------------------------------
-
-function LimitedCard({
-  eventId,
-  guestCount,
-  guestCameraCount,
-  status,
-  currentTier,
-  limitedQuote,
-  unlimitedQuote,
-  limitedPointsPerDay,
-  unlimitedPointsPerDay,
-  days,
-  windowSummary,
-  appleIap = false,
-}: {
-  eventId: string;
-  guestCount: number;
-  guestCameraCount: number | null;
-  status: LimitedSnapshotStatus | null;
-  currentTier: 'roll' | 'unlimited' | null;
-  limitedQuote: ReturnType<typeof computeLimitedQuote>;
-  unlimitedQuote: ReturnType<typeof computeLimitedQuote>;
-  /** Daily capture-POINT budgets from papic_tier_config (null = unlimited). */
-  limitedPointsPerDay: number | null;
-  unlimitedPointsPerDay: number | null;
-  days: number;
-  windowSummary: string;
-  /** 🍎 The iPhone app where Apple sells: the tiers are sold on the web only — counts, never a picker or a ₱. */
-  appleIap?: boolean;
-}) {
-  const dayLabel = windowSummary || `${days} day${days === 1 ? '' : 's'}`;
-  const active = status === 'active';
-  const pending = status === 'pending_payment';
-  const live = active || pending;
-  const tierLabel = currentTier === 'unlimited' ? 'Unlimited' : 'Limited';
-
-  return (
-    <div className="sn-tile border border-terracotta/30 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <Users aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            A camera for every guest
-          </p>
-          <p className="max-w-prose text-xs text-ink/60">
-            Everyone who hasn&rsquo;t declined gets their own camera + gallery —
-            their invite QR is the camera.{appleIap ? null : ' Pick Limited or Unlimited for the whole list.'}
-          </p>
-        </div>
-        {live ? (
-          <span
-            className={
-              active
-                ? 'inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900'
-                : 'inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800'
-            }
-          >
-            {active ? (
-              <>
-                <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-                {tierLabel} · active
-              </>
-            ) : (
-              <>
-                <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-                Payment under review
-              </>
-            )}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span className="text-3xl font-semibold tracking-tight tabular-nums text-ink">
-          {formatCount(guestCount)}
-        </span>
-        <span className="text-sm text-ink/60">
-          guest{guestCount === 1 ? '' : 's'} → {formatCount(guestCount)} camera
-          {guestCount === 1 ? '' : 's'}
-        </span>
-      </div>
-
-      {live ? (
-        <p className="mt-2 text-sm text-ink/70">
-          {guestCameraCount === null ? (
-            <>
-              We couldn&rsquo;t count your guests&rsquo; cameras just now &mdash;
-              this does not mean there are none, and nobody has lost one.
-            </>
-          ) : (
-            <>
-              {formatCount(guestCameraCount)} camera{guestCameraCount === 1 ? '' : 's'} ready.
-              New &ldquo;yes&rdquo; RSVPs are added automatically &mdash; no
-              extra charge.
-            </>
-          )}
-        </p>
-      ) : null}
-
-      {appleIap && live ? null : appleIap || (!live && guestCount < PAPIC_MIN_PAID_CAMERAS) ? (
-        <div className="mt-4 sn-row p-4 text-center">
-          <p className="text-sm text-ink/65">
-            {guestCount < 1
-              ? appleIap
-                ? 'Add your guests first — guest cameras come from your guest list.'
-                : 'Add your guests first — Limited cameras come from your guest list.'
-              : appleIap
-                ? `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free.`
-                : `Your first ${formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/guests`}
-            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
-          >
-            {guestCount < 1 ? 'Go to guest list' : 'Add more guests'}
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        </div>
-      ) : (
-        <GuestCameraTierPicker
-          eventId={eventId}
-          guestCount={guestCount}
-          live={live}
-          currentTier={currentTier}
-          dayLabel={dayLabel}
-          limited={{
-            billPhp: limitedQuote.frozenBillPhp,
-            ratePhp: limitedQuote.ratePhp,
-            cameraCap: limitedQuote.cameraCap,
-            pointsPerDay: limitedPointsPerDay,
-          }}
-          unlimited={{
-            billPhp: unlimitedQuote.frozenBillPhp,
-            ratePhp: unlimitedQuote.ratePhp,
-            cameraCap: unlimitedQuote.cameraCap,
-            pointsPerDay: unlimitedPointsPerDay,
-          }}
-        />
-      )}
-    </div>
-  );
-}
 
 // -----------------------------------------------------------------------------
 // Status banners
@@ -1852,28 +1381,15 @@ function StatusBanners({
           banner to describe. Deleted rather than left unreachable: a
           confirmation nothing can trigger reads to the next person as a live
           screen with a broken trigger. */}
-      {papicUnlockProvisioned ? (
-        <p className={ok}>
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {papicUnlockProvisioned} Unlimited camera
-          {papicUnlockProvisioned === '1' ? '' : 's'} added{appleIap ? '.' : ' — free with Unlock all.'}
-        </p>
-      ) : null}
-
-      {limitedSynced !== undefined ? (
-        <p className={ok}>
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {Number(limitedSynced) > 0
-            ? `${formatCount(Number(limitedSynced))} new guest camera${limitedSynced === '1' ? '' : 's'} added from your list.`
-            : 'Your guest cameras are up to date.'}
-        </p>
-      ) : null}
+      {/* ⛔ "N Unlimited cameras added — free with Unlock all" and "N new guest cameras added from your
+          list" were the two confirmations of camera sales that no longer exist (2026-10-23). Nothing sets
+          their params any more; an old link carrying one shows nothing rather than a camera count. */}
 
       {papicWindowSaved !== undefined ? (
         <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Capture window saved — {papicWindowSaved} day
-          {papicWindowSaved === '1' ? '' : 's'}.{appleIap ? null : ' Your camera prices reflect it.'}
+          {papicWindowSaved === '1' ? '' : 's'}.
         </p>
       ) : null}
 
@@ -1996,39 +1512,22 @@ function StatusBanners({
         </p>
       ) : null}
 
-      {papicError === 'min_extras' ? (
-        <p className={bad}>
-          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Add at least one extra camera.
-        </p>
-      ) : papicError === 'min_cameras' ? (
-        <p className={bad}>
-          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Please pick at least {PAPIC_MIN_PAID_CAMERAS} camera
-          {PAPIC_MIN_PAID_CAMERAS === 1 ? '' : 's'}.
+      {/* ⛔ A RETIRED CAMERA SALE, REFUSED (2026-10-23) — an old page posting the guest-camera tier or a crew
+          camera lands here, told in one sentence what Papic sells now, and is told nothing was charged. */}
+      {papicError === PAPIC_CAMERA_SALE_REFUSED || limitedError === PAPIC_CAMERA_SALE_REFUSED ? (
+        <p className={neutral}>
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          {PAPIC_CAMERA_SALE_REFUSED_WORDS}
         </p>
       ) : papicError ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           Something went wrong — please try again.
         </p>
-      ) : null}
-
-      {limitedError === 'no_guests' ? (
-        <p className={bad}>
-          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Add your guests first — Limited cameras come from the guest list.
-        </p>
-      ) : limitedError === 'below_min' ? (
-        <p className={neutral}>
-          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          Your first {formatCount(PAPIC_FREE_CAMERA_COUNT)} cameras are free — you&rsquo;re
-          covered. Paid Limited starts at a {PAPIC_MIN_PAID_CAMERAS}-guest list.
-        </p>
       ) : limitedError ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Could not activate Limited — please try again.
+          Something went wrong — please try again.
         </p>
       ) : null}
 

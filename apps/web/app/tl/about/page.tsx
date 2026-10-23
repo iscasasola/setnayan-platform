@@ -7,6 +7,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -44,6 +45,7 @@ export const metadata = {
     languages: LANGUAGES,
   },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     type: 'website',
     url: `${SITE_URL}/tl/about`,
     title: PAGE_TITLE,
@@ -52,6 +54,7 @@ export const metadata = {
     locale: 'tl_PH',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,

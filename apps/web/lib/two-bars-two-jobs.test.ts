@@ -31,11 +31,10 @@ const code = (rel: string) =>
     .join('\n');
 
 const TAXONOMY = code('app/(shell)/explore/_components/taxonomy-search.tsx');
-const TOPBAR = code('app/dashboard/(launcher)/_components/home-command-bar.tsx');
 
 test('the guards read real source, not a stub', () => {
   assert.ok(TAXONOMY.length > 1000, 'taxonomy-search.tsx is missing or a stub');
-  assert.ok(TOPBAR.length > 1000, 'home-command-bar.tsx is missing or a stub');
+  // (The top-bar palette retired 2026-10-22; the scope placeholders below are the words the search still speaks.)
 });
 
 /**

@@ -105,6 +105,8 @@ export type YourEventInput = {
      * against a march that is not the one the couple drafted.
      */
     draftUnread?: boolean;
+    /** 🚶 The march itself could not be read — its row says so instead of "Nobody walks yet". */
+    marchUnread?: boolean;
     /** 🪪 The dev Maker lab only: its stand-in for reading a tapped name's guest card (a server action that reaches no database). */
     openCard?: (eventId: string, guestId: string) => Promise<MarchCardResult>;
   };
@@ -155,7 +157,11 @@ export function yourEventParts({
         ? `${parents.length} parent${parents.length === 1 ? '' : 's'}`
         : 'No parents yet'
       : `${hosts.length} host${hosts.length === 1 ? '' : 's'}`,
-    march: marchWalks ? `${marchWalks} walk${marchWalks === 1 ? '' : 's'}` : 'Nobody walks yet',
+    march: input.march.marchUnread
+      ? 'Couldn’t load the march'
+      : marchWalks
+        ? `${marchWalks} walk${marchWalks === 1 ? '' : 's'}`
+        : 'Nobody walks yet',
   };
   const rows: Partial<Record<EventItemKey, NavRow>> = {};
   for (const k of keys) {

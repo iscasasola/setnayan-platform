@@ -107,8 +107,9 @@ test('the story source exists in the server half and is wired to the public pool
   );
 });
 
-test('the placeholder is built from the promise, and still reads as it shipped', () => {
-  assert.equal(publicSearchPlaceholder(), 'Search suppliers, stories and guides');
+test('the placeholder is built from the promise', () => {
+  // Shortened 2026-10-23 so it fits a 320 px phone (lib/the-search-placeholder-fits-a-phone.test.ts).
+  assert.equal(publicSearchPlaceholder(), 'Suppliers, stories, guides');
 });
 
 test('the shell renders the derived placeholder, not a typed copy of it', () => {
@@ -120,7 +121,7 @@ test('the shell renders the derived placeholder, not a typed copy of it', () => 
     /placeholder=\{publicSearchPlaceholder\(\)\}/,
     'the search box went back to a hand-typed placeholder',
   );
-  const hardcoded = (shell.match(/Search suppliers, stories and guides/g) ?? []).length;
+  const hardcoded = (shell.match(new RegExp(publicSearchPlaceholder(), 'g')) ?? []).length;
   assert.equal(
     hardcoded,
     0,

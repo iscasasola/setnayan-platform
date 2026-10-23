@@ -8,9 +8,10 @@ import { ACTIVE_SHOP_COOKIE, reachableShops } from '@/lib/active-shop';
  * shop"). Writes `sn_shop` naming the chosen shop, then opens the supplier dashboard.
  *
  * 🔒 THE ID IS CHECKED BEFORE IT IS WRITTEN: it must be one of `reachableShops(...)` for the signed-in login, read
- * fresh here — never trusted from the form. Anything else (signed out, a forged id, a shop this login only reaches
- * through ownership of another) writes nothing and opens the dashboard as it was. RLS is still the fence underneath:
- * `fetchOwnVendorProfile` loads the shop through the member-read policy.
+ * fresh here — never trusted from the form: every shop this login OWNS and every shop it helps in (owner 2026-10-22,
+ * "every account switches between all of its shops"). Anything else (signed out, a forged id, a removed seat) writes
+ * nothing and opens the dashboard as it was. The resolver re-checks the cookie on EVERY read (`resolveActiveShop`,
+ * lib/active-shop.ts), so a seat removed after the switch falls back rather than opening; RLS is the fence under both.
  *
  * POST only (a form in the sheet), so a link on another site cannot flip which shop a person is standing in.
  */

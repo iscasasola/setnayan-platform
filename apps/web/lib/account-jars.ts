@@ -136,3 +136,28 @@ export function jarNamesIn(names: readonly string[]): string[] {
 export function isSessionCookie(name: string): boolean {
   return /^sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?$/.test(name) || /^sb-[A-Za-z0-9]+-auth-token-code-verifier$/.test(name);
 }
+
+/**
+ * 🔒 ONE ACCOUNT ON THIS PHONE = EXACTLY THE OLD SIGN-OUT. The cookies `/auth/sign-out` writes for the account
+ * switch, decided here so a test can hold it: when the request carries NO accounts list (one login on this device —
+ * every account that never pressed "+ Add another account", the App Store reviewer's demo account among them) this
+ * answers NOTHING, and the sign-out response is the one it was before the switch existed. Only with other accounts
+ * parked does it drop the leaving account's row and expire any jar by its name.
+ */
+export function accountCookiesOnSignOut(
+  listCookie: string | null | undefined,
+  leavingUid: string | null | undefined,
+  secure: boolean,
+): Array<{ name: string; value: string; options: Record<string, unknown> }> {
+  if (!listCookie || !leavingUid) return [];
+  const out: Array<{ name: string; value: string; options: Record<string, unknown> }> = [
+    { name: ACCOUNTS_LIST_COOKIE, value: encodeParkedList(unparkFromList(decodeParkedList(listCookie), leavingUid)), options: listCookieOptions(secure) },
+  ];
+  if (isUid(leavingUid)) out.push({ name: jarCookieName(leavingUid), value: '', options: { ...jarCookieOptions(secure), maxAge: 0 } });
+  return out;
+}
+
+/** Where "Sign out of all accounts" posts: with nobody else on the phone it is the plain sign-out, unchanged. */
+export function signOutAllAction(others: readonly ParkedAccount[] | null | undefined): '/auth/sign-out' | '/auth/accounts/sign-out-all' {
+  return others && others.length > 0 ? '/auth/accounts/sign-out-all' : '/auth/sign-out';
+}

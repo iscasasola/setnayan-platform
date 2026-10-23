@@ -77,6 +77,7 @@ export function PapicTopBand({
     );
   return (
     <ServiceGlanceBand
+      tour="papic-band"
       big={big}
       word={word}
       mood={mood}

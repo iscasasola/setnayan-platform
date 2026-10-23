@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { startAhead } from '@/lib/start-ahead';
 import { needsHidesStage, needsHidesStudioTile } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import Link from 'next/link';
@@ -78,6 +79,8 @@ import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
 import { MAKER_PAGE_STAGES, MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { makerTourSlideViews } from './_components/maker-tour-slides';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
@@ -311,6 +314,20 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   if (!isHostMemberType((membership as { member_type?: string | null } | null)?.member_type)) {
     redirect(`/dashboard/${eventId}`);
   }
+
+  /*
+    ⚡ THE EVENT-ONLY READS START HERE, TOGETHER (2026-10-23, the speed pass). Past the host gate above, these need
+    nothing but the event's id and the viewer — yet each was awaited on its own line further down, so the Maker
+    waited for them one after another: whether the address was renamed before, the internal reading behind "View as
+    a free couple", the event type's profile, and the tour keys. They are STARTED here and awaited at the lines that
+    always awaited them (`lib/start-ahead.ts`); `viewAsFreeSwitch` and `resolveProfileByEvent` are per-request
+    caches, so their later calls are handed these same answers. Every one is awaited on every path below.
+    Held by `the-maker-reads-start-together.test.ts`.
+  */
+  void startAhead(viewAsFreeSwitch());
+  void startAhead(resolveProfileByEvent(eventId));
+  const renamedRead = startAhead(eventHasRenamed(eventId).catch(() => false));
+  const seenRead = startAhead(Promise.resolve(supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle()));
 
   /*
     🔒 MAY THIS VIEWER SEE THE REPLIES AT ALL?
@@ -596,7 +613,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   }
   const studioPro = proOwn && !storeShell ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
   /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
-  const addressRenamed = await eventHasRenamed(eventId).catch(() => false);
+  const addressRenamed = await renamedRead;
   const proLine: MakerProLine | null =
     !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
       ? null
@@ -855,11 +872,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      the first touch records it). The same read `MiniTour` makes.
      ⚠ A refused read shows nothing: an unread row must not replay the line on
      every visit, and ⋯ › About the Maker still opens the short tour. */
-  const { data: seenRow, error: seenError } = await supabase
-    .from('users')
-    .select('tour_seen_keys')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const { data: seenRow, error: seenError } = await seenRead;
   if (seenError) {
     logQueryError('LaunchPage.tourSeen', seenError, { event_id: eventId }, 'graceful_degrade');
   }
@@ -869,6 +882,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     !(((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]).includes(
       MAKER_TOUR_KEY,
     );
+  /* 🔦 THE MAKER'S OWN SPOTLIGHT (owner 2026-10-22, journey_fixes_later Host 4 · Option A): three stops — the quiet
+     line, the lower third, Apply — on the first open after the journey, mounted HERE (the journey waits under the
+     Maker; this one is `inMaker`). An unread row draws nothing, as above. While it is due the quiet line shows, since
+     it is the tour's first stop. */
+  const seenKeys: ReadonlyArray<string> | null = seenError
+    ? null
+    : (((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]);
+  const makerSpotlightDue =
+    hasWork && seenKeys !== null && seenKeys.includes(HOST_PAGE_TOURS_AFTER) && !seenKeys.includes(HOST_PAGE_TOURS.maker);
 
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
   // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
@@ -1122,21 +1144,32 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
   const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
   let studio: { tiles: StudioTileModel[] } | null = null;
+  /* ⚡ Started inside the block below (every `hasWork` path reads it in the toolbar's See-as roles). */
+  let roleNamesRead: ReturnType<typeof loadRoleNames> | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
+    /* ⚡ STARTED WITH THE BLOCK (2026-10-23, the speed pass): the See-as roles and their names need only the event's
+       id, yet were awaited last, in the toolbar's props. Awaited there still — on every `hasWork` path. */
+    void startAhead(resolveRoleSetForEvent(eventId));
+    roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'LaunchPage.roleNames'));
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
     const egiftAllP = readEgiftMethods(supabase, eventId);
     /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under
        RLS), and only while the new Maker's Studio is on: nothing else draws it. */
     const wishListP = stagesStudio ? readStudioWishList(supabase, eventId) : null;
-    const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
+    /* ⚡ A query builder only leaves when it is awaited, so this one is started here (it used to leave at its await). */
+    const egiftVisibilityP = startAhead(Promise.resolve(supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle()));
     /* 🧭 Studio › Info's Your Event Hub rows and What to bring — read only while the new Maker is on. */
     const studioHubP = stagesStudio
-      ? supabase
-          .from('events')
-          .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
-          .eq('event_id', eventId)
-          .maybeSingle()
+      ? startAhead(
+          Promise.resolve(
+            supabase
+              .from('events')
+              .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
+              .eq('event_id', eventId)
+              .maybeSingle(),
+          ),
+        )
       : null;
     /* 🧱 THE MISSING FIELDS (owner 2026-10-07) — the registry link and the QR switch,
        and the live main background (the hero row's `main`). Read on their own so a
@@ -1195,6 +1228,34 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         );
     if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
     if (printEvent) {
+      /* ⚡ Started as soon as the event's print row is in (2026-10-23, the speed pass) — each needs only it and the
+         event id, yet each was awaited after the reads above it. Each is awaited where it always was, on every path
+         below: the invitation base, where the reveal plays, the guests' count for the setup (only where the setup
+         applies and the viewer may read the guest list, as before), the draft (it waited for the Menu's sources),
+         the RSVP deadline and the requests count (they waited for Your event). */
+      const invitationBaseRead = startAhead(fetchInvitationBase(eventId, printEvent.slug).catch(() => null));
+      const revealStagesRead = startAhead(readMakerRevealStages(eventId));
+      const setupGuestsRead =
+        hubSetupApplies(printEvent.event_type) && mayReadGuestList ? startAhead(countSetupGuests(printAdmin, eventId)) : null;
+      const draftRead = startAhead(readHubDraft(supabase, eventId));
+      const deadlineRead = startAhead(
+        Promise.resolve(printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle()),
+      );
+      /* A COUNT, never names: this page reads no guest by name
+         (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
+         who may read the guest list asks at all (`mayReadGuestList`). Awaited with the RSVP deadline below. */
+      const requestsCountEarly = mayReadGuestList
+        ? startAhead(
+            Promise.resolve(
+              printAdmin
+                .from('guests')
+                .select('guest_id', { count: 'exact', head: true })
+                .eq('event_id', eventId)
+                .eq('entry_source', 'self_added_unlisted')
+                .is('deleted_at', null),
+            ),
+          )
+        : null;
       const stored = parsePrintDetails(printEvent.print_details);
       // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
       const menuSources = await readMenuSources(eventId, stored.menu);
@@ -1231,7 +1292,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 The custom address tried in the draft (owner 2026-10-22) — the Address field opens on it.
       let draftedAddress: string | null = null;
       try {
-        const d = await readHubDraft(supabase, eventId);
+        const d = await draftRead;
         draftedMarch = d?.march ?? [];
         draftedAddress = d?.address ?? null;
         if (d) draftedEvents = d.events as Record<string, unknown>;
@@ -1255,6 +1316,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       }
       /* ⏳ The opening line as drafted (owner 2026-10-08, "draft 1-3") — every Maker door reads `stored`. */
       if (draftedOpeningLine !== undefined) stored.openingLine = draftedOpeningLine;
+      /* ⚡ Whether a background was chosen needs only the drafted main ground just read — started now, awaited where
+         the guided facts are built (2026-10-23, the speed pass). */
+      const backgroundChosenRead = startAhead(readBackgroundChosen(printAdmin, eventId, draftedMain));
       /* 🔢 ONE COUNT, STARTED NOW (owner 2026-10-05: "10 of 18" here, "9 of 18"
          on Event Details; review 2026-10-05: it ran serially, re-reading what
          this page had just read, on every refresh). The plan Home and Event
@@ -1377,7 +1441,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       };
       /* 👪 Each parent's OWN guest card (Details → The Invitation, option (a)):
          the one loader the Guest list uses, so the card posts every column. */
-      const invitationBase = await fetchInvitationBase(eventId, printEvent.slug).catch(() => null);
+      const invitationBase = await invitationBaseRead;
       const parentCards = await Promise.all(
         printParents.map(async (p) => {
           const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
@@ -1430,18 +1494,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* A COUNT, never names: this page reads no guest by name
          (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
          who may read the guest list asks at all (`mayReadGuestList`). */
-      const requestsCountRead = mayReadGuestList
-        ? printAdmin
-            .from('guests')
-            .select('guest_id', { count: 'exact', head: true })
-            .eq('event_id', eventId)
-            .eq('entry_source', 'self_added_unlisted')
-            .is('deleted_at', null)
-        : null;
-      const [deadlineRes, requestsRes] = await Promise.all([
-        printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle(),
-        requestsCountRead,
-      ]);
+      const requestsCountRead = requestsCountEarly;
+      const [deadlineRes, requestsRes] = await Promise.all([deadlineRead, requestsCountRead]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
       /* ⏳ Reply by as the couple is editing it — the draft's, else live (owner 2026-10-08, "draft 1-3"). */
       const deadlineNow: string | null =
@@ -1591,7 +1645,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
-        backgroundChosen: await readBackgroundChosen(printAdmin, eventId, draftedMain),
+        backgroundChosen: await backgroundChosenRead,
       });
       const sharedPlan = await sharedPlanP;
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
@@ -1621,7 +1675,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           loveStoryMoments: detailsItemApplies('love-story', eventContext) ? (guided.story ? resolveMoments(guided.story).length : null) : 0,
           dressCode: 'dress_code_config' in draftedEvents ? draftedEvents.dress_code_config : printEvent.dress_code_config,
           replyBy: deadlineRes.error ? undefined : (deadlineNow),
-          guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
+          guests: setupGuestsRead ? await setupGuestsRead : null,
         });
       }
       /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
@@ -1915,7 +1969,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               heroDone: guided.hero,
               // The hero panel's own claim: made once, shown on these three and the poster.
               heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
-              revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
+              revealOn: (await revealStagesRead).map((s) => PUBLIC_STAGE_LABELS[s]),
             }}
           />
         ),
@@ -1938,6 +1992,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     !one(search.chain);
 
   return (
+    <>
     <MakerShell
       eventId={eventId}
       slug={eventSlug}
@@ -1966,6 +2021,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
       firstVisit={firstVisit}
+      tourHint={makerSpotlightDue}
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
@@ -1991,7 +2047,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         hasWork
           ? previewRoleOptions(
               (await resolveRoleSetForEvent(eventId)).offeredRoles,
-              await loadRoleNames(supabase, eventId, 'LaunchPage.roleNames'),
+              await (roleNamesRead ?? loadRoleNames(supabase, eventId, 'LaunchPage.roleNames')),
             )
           : []
       }
@@ -2022,5 +2078,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">{controller}</div>
       )}
     </MakerShell>
+    {hasWork ? (
+      <Spotlight tourKey={HOST_PAGE_TOURS.maker} seenKeys={seenKeys} after={HOST_PAGE_TOURS_AFTER} replay="page" inMaker />
+    ) : null}
+    </>
   );
 }

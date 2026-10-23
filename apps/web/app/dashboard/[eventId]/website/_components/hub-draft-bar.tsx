@@ -592,7 +592,7 @@ export function HubDraftToolbar({
         {maker?.previewMenu ?? null}
       </IconPill>
       <IconPill tone="apply">
-      <span className="relative inline-flex" data-maker-apply="">
+      <span className="relative inline-flex" data-maker-apply="" data-tour="maker-apply">
         <DraftButton
           label="Apply"
           name={applyName}

@@ -24,6 +24,7 @@ import {
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
+import { signOutAllAction } from '@/lib/account-jars';
 
 type Props = {
   data: SwitcherData;
@@ -513,7 +514,7 @@ export function SwitcherPanelBody({
       {/* ── 5 · Sign out of all accounts — one quiet line: every account on this phone (their jars revoked and
           expired, lib/account-jars.ts), then the one you are on. ── */}
       {!data.isAnonymous ? (
-        <form action="/auth/accounts/sign-out-all" method="post" className="flex justify-center pt-1.5">
+        <form action={signOutAllAction(data.otherAccounts)} method="post" className="flex justify-center pt-1.5">
           <button
             type="submit"
             data-sheet-sign-out-all=""
@@ -890,7 +891,10 @@ export function SwitcherPlaqueTrigger({
           background:
             'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.18), transparent 60%), var(--sn-glass-dark-bg, rgba(23,22,15,.82))',
           borderColor: 'var(--sn-glass-dark-line, rgba(255,255,255,.18))',
-          color: 'var(--sn-gold-100, #F3ECDF)',
+          // 🌗 A literal, on purpose: the plaque is DARK GLASS in both themes, so its words
+          // stay light in both. `--sn-gold-100` is the gold WASH, which goes dark (#413827)
+          // under html.dark — it painted the plaque's name dark-on-dark (dark B1, 2026-10-23).
+          color: '#F3ECDF',
           outlineColor: 'var(--sn-gold-500, #CBA766)',
         }}
       >

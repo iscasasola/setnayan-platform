@@ -117,7 +117,7 @@ export function HelpersView({
       <div className="mt-3 space-y-2">
         {search.error ? (
           <ShopNotice tone="gold" role="alert">
-            {decodeURIComponent(search.error)}
+            {search.error}
           </ShopNotice>
         ) : null}
         {search.invited ? (

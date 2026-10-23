@@ -837,7 +837,7 @@ export async function saveVerificationIdentityField(
   // The verified lock, read from the SAME helper the profile editor uses.
   if (
     (LOCKED_IDENTITY_FIELD_KEYS as readonly string[]).includes(column) &&
-    (await fetchVerifiedLock(auth.supabase, auth.userId))
+    (await fetchVerifiedLock(auth.supabase, auth.vendorProfileId))
   ) {
     return { ok: false, error: VERIFIED_LOCK_ERROR, locked: true };
   }

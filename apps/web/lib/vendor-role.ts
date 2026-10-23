@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
+import type { ActiveShop } from '@/lib/active-shop';
 
 /**
  * Vendor role helpers — the UI side of the multi-user vendor workspace.
@@ -32,42 +33,36 @@ export function canManageVendor(role: VendorTeamRole | null | undefined): boolea
 }
 
 /**
- * Resolve the current user's role within their vendor workspace.
+ * Resolve the current user's role IN THE SHOP THEY ARE STANDING IN — the active shop from `resolveActiveShop`
+ * (`lib/active-shop.ts`): the shop chosen in the avatar sheet, else the one they own, else their first seat.
  *
- * Source of truth = `vendor_team_members` (a user can sit on multiple vendors;
- * we take the highest-ranked membership). Legacy fallback: a user who owns a
- * `vendor_profiles` row but has no membership row (pre-seed trigger) is treated
- * as 'admin' (the store creator is the founding admin in the multi-admin org
- * model). Returns null if the user has no vendor relationship.
+ * 🔀 2026-10-22: this used to be the login's HIGHEST role across every seat, so a helper who is admin in one shop
+ * and viewer in another saw the admin nav in both, and an owner who switched into a shop they only help in kept
+ * the owner nav there. It is now the role on the active shop, via {@link resolveVendorRoleForProfile} (whose legacy
+ * founding-admin fallback is scoped to a shop this login OWNS). Returns null if the user has no shop — and when the
+ * shop reads are refused, which denies (a reduced nav), never grants.
  *
- * Wrapped in React `cache()` (2026-07-01 perf): the vendor layout AND the page
- * it renders both resolve the role in the SAME request. Because the server
- * `createClient()` is itself request-cached, both call sites pass the identical
- * client reference — so `cache()` keyed on `(supabase, userId)` collapses the
- * two calls into a single set of DB reads instead of running the queries twice.
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor layout AND the page it renders both resolve the role in
+ * the SAME request; `cache()` keyed on `(supabase, userId)` collapses the two into one set of reads.
  */
 export const resolveVendorRole = cache(async (
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorTeamRole | null> => {
-  const { data: memberships } = await supabase
-    .from('vendor_team_members')
-    .select('role')
-    .eq('user_id', userId);
-
-  const roles = (memberships ?? [])
-    .map((m) => (m as { role: VendorTeamRole }).role)
-    .filter((r): r is VendorTeamRole => r in ROLE_RANK);
-  if (roles.length > 0) {
-    return roles.sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0] ?? 'viewer';
+  // Loaded lazily: two client components import this module for its pure nav helpers, and the resolver reads the
+  // request's cookies — it must never be pulled into a client bundle.
+  let active: ActiveShop | null;
+  try {
+    const { resolveActiveShop } = await import('@/lib/active-shop');
+    active = await resolveActiveShop(supabase, userId);
+  } catch {
+    return null;
   }
-
-  const { data: owned } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return owned ? 'admin' : null;
+  if (!active) return null;
+  // ⚡ The resolver has already PROVEN whether this login owns the active shop (its `vendor_profiles` read is
+  // `user_id = <this login>`), so the legacy founding-owner fallback below needs no second read of the same fact —
+  // it was a trip in single file after the membership read on every supplier page (2026-10-23, Today 8 → 9 deep).
+  return resolveVendorRoleForProfile(supabase, userId, active.vendorProfileId, { ownsIt: active.owned });
 });
 
 /**
@@ -90,6 +85,8 @@ export async function resolveVendorRoleForProfile(
   supabase: SupabaseClient,
   userId: string,
   vendorProfileId: string,
+  /** Ownership already proven by the caller's own `vendor_profiles … user_id = userId` read (`resolveActiveShop`). */
+  known?: { ownsIt: boolean },
 ): Promise<VendorTeamRole | null> {
   const { data: memberships } = await supabase
     .from('vendor_team_members')
@@ -106,6 +103,7 @@ export async function resolveVendorRoleForProfile(
 
   // Legacy fallback: the founding owner of a vendor_profiles row with no
   // membership row is the founding admin — but ONLY for the profile they OWN.
+  if (known) return known.ownsIt ? 'admin' : null;
   const { data: owned } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id')

@@ -27,6 +27,8 @@ import {
   listCookieOptions,
   otherAccounts,
   parkInList,
+  accountCookiesOnSignOut,
+  signOutAllAction,
   type ParkedAccount,
 } from '@/lib/account-jars';
 import { performSwitch, type SwitchDeps } from '@/lib/account-switch';
@@ -168,12 +170,72 @@ test('"Sign out of all accounts" revokes and expires every jar, clears the list,
   assert.match(src, /response\.cookies\.set\(ACCOUNTS_LIST_COOKIE, '', \{ \.\.\.listCookieOptions\(secure\), maxAge: 0 \}\);/);
   assert.match(src, /new URL\('\/auth\/sign-out', request\.url\), \{ status: 307 \}/, 'the active account is not signed out after');
   // The sheet's quiet line goes there.
-  assert.match(code('app/_components/account-switcher/account-switcher.tsx'), /action="\/auth\/accounts\/sign-out-all"/);
+  // The sheet's quiet line goes there whenever another account is on the phone.
+  assert.equal(signOutAllAction([{ uid: CLAIRE, email: 'c@x', name: null }]), '/auth/accounts/sign-out-all');
 });
 
-test('signing out of the active account removes it from this phone (its jar and its row)', () => {
-  const src = code('app/auth/sign-out/route.ts');
-  assert.match(src, /unparkFromList\(/);
-  assert.match(src, /jarCookieName\(leaving\.id\)/);
-  void ACCOUNTS_LIST_COOKIE;
+/* ─── 4 · ONE ACCOUNT ON THIS PHONE BEHAVES EXACTLY AS BEFORE ─────────────
+   The App Store reviewer's demo account — and every login that never pressed "+ Add another account" — must not
+   see a single changed byte in sign-in or sign-out. */
+
+test('a single-account sign-out writes NO account cookie — the response is the old sign-out', () => {
+  for (const list of [undefined, null, '']) {
+    assert.deepEqual(accountCookiesOnSignOut(list, ICE, true), [], `sign-out with list=${String(list)} wrote account cookies`);
+  }
+  assert.deepEqual(accountCookiesOnSignOut(undefined, null, true), []);
+  // …and the route applies nothing else of the account switch: its only account writes are that decision's.
+  const route = code('app/auth/sign-out/route.ts');
+  assert.match(route, /for \(const c of accountCookiesOnSignOut\(request\.cookies\.get\(ACCOUNTS_LIST_COOKIE\)\?\.value, leaving\?\.id,/);
+  assert.doesNotMatch(route, /jarCookieName|encodeParkedList|unparkFromList|\/auth\/accounts/, 'the sign-out route writes account cookies outside the one decision');
+  // The old sweep is still there, unchanged in shape: every sb-* session cookie expired, then home.
+  assert.match(route, /if \(cookie\.name\.startsWith\('sb-'\)\)/);
+  assert.match(route, /NextResponse\.redirect\(new URL\('\/', request\.url\), \{ status: 303 \}\)/);
+});
+
+test('with other accounts parked, sign-out removes the leaving one from the phone (row + jar)', () => {
+  const list = encodeParkedList([
+    { uid: ICE, email: 'i@x', name: 'Ice' },
+    { uid: CLAIRE, email: 'c@x', name: 'Claire' },
+  ]);
+  const out = accountCookiesOnSignOut(list, ICE, true);
+  assert.deepEqual(out.map((c) => c.name), [ACCOUNTS_LIST_COOKIE, jarCookieName(ICE)]);
+  assert.deepEqual(decodeParkedList(out[0]!.value).map((a) => a.uid), [CLAIRE], 'the leaving account stayed on the phone');
+  assert.equal(out[1]!.options.maxAge, 0);
+  assert.equal(out[1]!.options.path, JAR_PATH);
+});
+
+test('with nobody else on the phone, both sign-outs on the sheet are the plain /auth/sign-out', () => {
+  assert.equal(signOutAllAction([]), '/auth/sign-out');
+  assert.equal(signOutAllAction(undefined), '/auth/sign-out');
+  assert.equal(signOutAllAction([{ uid: CLAIRE, email: 'c@x', name: null }]), '/auth/accounts/sign-out-all');
+  const sheet = code('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(sheet, /<form action="\/auth\/sign-out" method="post" className="flex flex-1 basis-0">/, 'the Sign out tile no longer posts straight to /auth/sign-out');
+  assert.match(sheet, /<form action=\{signOutAllAction\(data\.otherAccounts\)\}/);
+});
+
+test('sign-in is untouched — no sign-in file knows the account switch exists', () => {
+  const SIGN_IN = [
+    'app/login/page.tsx',
+    'app/login/actions.ts',
+    'app/auth/oauth-actions.ts',
+    'app/auth/native-marker-action.ts',
+    'app/auth/callback/route.ts',
+    'middleware.ts',
+    'lib/supabase/middleware.ts',
+    'lib/supabase/server.ts',
+    'lib/supabase/client.ts',
+    'lib/supabase/cookies.ts',
+  ];
+  let read = 0;
+  for (const rel of SIGN_IN) {
+    let src: string;
+    try {
+      src = code(rel);
+    } catch {
+      continue;
+    }
+    read += 1;
+    assert.doesNotMatch(src, /account-jars|account-switch|sn_acct|sn_accts|\/auth\/accounts/, `${rel} reaches into the account switch`);
+  }
+  assert.ok(read >= 8, `expected to read the sign-in files, read ${read} — a path moved`);
 });

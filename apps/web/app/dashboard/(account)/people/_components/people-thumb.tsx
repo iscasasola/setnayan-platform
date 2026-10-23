@@ -7,7 +7,7 @@ import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row'
 
 /**
  * people-thumb.tsx — the ONE thumb row for the views that are not the roster (Following · Followers · Groups):
- * ≡ (the views — owner 2026-10-22: Groups, Following and Followers live under it) · "Search or invite" · ＋ Invite,
+ * ≡ (the views — owner 2026-10-22: Groups, Following and Followers live under it) · "Find or invite" · ＋ Invite,
  * exactly the roster's row (prototypes/one_thumb_row_2026-10-22.html). What the field finds is drawn HERE, where
  * this sits in the view; the row itself floats over the list.
  */

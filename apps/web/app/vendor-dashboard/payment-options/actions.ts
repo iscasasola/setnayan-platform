@@ -9,7 +9,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   classifyPaymentLink,
   initialLinkModeration,
-  isVendorProActive,
+  isShopProActive,
   type PaymentMethodType,
 } from '@/lib/vendor-payment-methods';
 import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
@@ -46,7 +46,7 @@ async function requireVendor() {
 }
 
 export async function addPaymentMethod(formData: FormData) {
-  const { supabase, userId, vendorProfileId } = await requireVendor();
+  const { supabase, vendorProfileId } = await requireVendor();
 
   const methodType = str(formData.get('method_type')) as PaymentMethodType | null;
   if (methodType !== 'bank' && methodType !== 'qr' && methodType !== 'link') {
@@ -110,7 +110,7 @@ export async function addPaymentMethod(formData: FormData) {
     // link — Pro/Enterprise only
     // The final action — where a Pro-less shop is asked, and only while the
     // switch is on (vendorPaywallApplies). Off, every shop may add a link.
-    if (vendorPaywallApplies(await isVendorProActive(supabase, userId)))
+    if (vendorPaywallApplies(await isShopProActive(supabase, vendorProfileId)))
       fail('Payment links are part of Pro and Enterprise. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');

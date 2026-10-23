@@ -65,7 +65,7 @@ export function SettingsView({
               <div className="py-2" data-settings-push="">
                 <PushToggle />
               </div>
-              <DatesRow data="settings-email" title="Email" line="We email you when a couple writes, books or pays, and when a fee is due" />
+              <DatesRow data="settings-email" title="Email" line="Bookings · payments · messages after your yes" />
               <DatesRow
                 data="settings-recent"
                 title="Recent"

@@ -55,7 +55,7 @@ export type SwitcherContext = {
   /**
    * EVERY shop this login can open — one avatar-sheet row each (Direction 2, owner 2026-10-22). It used to be
    * `vendorName` alone (`vendorProfiles[0]`), so a helper in two shops saw one. `reachableShops` decides the list
-   * (an owner reaches their own shop; a helper with none of their own reaches every seat — lib/active-shop.ts).
+   * (every shop this login owns AND every shop it helps in — owner 2026-10-22; lib/active-shop.ts).
    */
   shops: SwitcherShop[];
 };

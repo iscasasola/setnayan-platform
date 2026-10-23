@@ -31,23 +31,30 @@ import { checkShopAddress, type AddressCheck } from '../address-actions';
  *
  * ⚠ AVAILABILITY IS ADVISORY, AND THE SERVER IS THE AUTHORITY. Two vendors can
  * be typing the same word right now; the answer here can be stale by submit. The
- * unique index is what actually decides, and `becomeVendor` catches the collision
- * and sends the vendor back with the field intact. This control's job is to make
- * that outcome rare, not to guarantee it.
+ * unique index is what actually decides: `becomeVendor` catches the collision and
+ * redirects to `/open-shop?…&error=`. That reload keeps what was typed because the
+ * wizard parked it as the form submitted (`lib/open-shop-draft.ts`, `atSubmit`) and
+ * restores it on the error — this box remounts holding the refused address
+ * (`initialValue`), focused, and its own check says "Taken — try another."
+ * (2026-10-22; before that this line promised "the field intact" and the reload
+ * kept nothing). This control's job is to make that outcome rare, not to guarantee it.
  */
 export function AddressPreview({
   shopName,
   existingSlug = null,
+  initialValue = null,
 }: {
   shopName: string;
   /** Already settled — render it, do not offer to change it. */
   existingSlug?: string | null;
+  /** The address a submit-time refusal sent back — held (as the vendor's own choice) and focused. */
+  initialValue?: string | null;
 }) {
   const derived = previewShopAddress(shopName);
   const derivedSlug = derived.kind === 'ok' ? derived.slug : '';
 
-  const [touched, setTouched] = useState(false);
-  const [value, setValue] = useState(derivedSlug);
+  const [touched, setTouched] = useState(Boolean(initialValue));
+  const [value, setValue] = useState(initialValue || derivedSlug);
   const [check, setCheck] = useState<AddressCheck | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -104,7 +111,7 @@ export function AddressPreview({
   if (existingSlug) {
     return (
       <span className="flex items-baseline gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-        Your website
+        Your Setnayan page
         <span className="font-mono text-[12px] font-medium" style={{ color: 'var(--m-ink)' }}>
           setnayan.com/{existingSlug}
         </span>
@@ -117,7 +124,7 @@ export function AddressPreview({
   return (
     <span className="block space-y-1.5">
       <span className="flex items-baseline gap-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-        Your website
+        Your Setnayan page
         <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-slate-3)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
           you can&rsquo;t change this later
@@ -160,6 +167,7 @@ export function AddressPreview({
           autoCapitalize="none"
           autoCorrect="off"
           aria-label="Your web address"
+          autoFocus={Boolean(initialValue)}
           className="w-full border-0 bg-transparent py-2 pl-0 pr-2.5 font-mono text-[13px] outline-none"
           style={{ color: 'var(--m-ink)' }}
         />

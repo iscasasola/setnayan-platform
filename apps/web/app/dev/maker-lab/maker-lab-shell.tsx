@@ -199,9 +199,12 @@ export function MakerLabShell({
   scrub = false,
   revealLab = null,
   ownsPro = false,
+  tourHint = false,
 }: {
   /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
   ownsPro?: boolean;
+  /** 🔦 `&spot=1` — the Maker's own spotlight is due: the quiet line shows (its stop 1). */
+  tourHint?: boolean;
   /** 🎭 `?reveal=owner|all` — the Reveal panel on the owner's map (`page.tsx` asks the guest page's own rule). */
   revealLab?: { themeName: string; defaultOpening: string; defaultIsTheme: boolean; openings: readonly string[] } | null;
   /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
@@ -446,6 +449,7 @@ export function MakerLabShell({
       storeShell={false}
       tourSlides={[]}
       firstVisit={false}
+      tourHint={tourHint}
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}

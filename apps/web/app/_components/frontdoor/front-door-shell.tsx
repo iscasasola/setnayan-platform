@@ -70,7 +70,6 @@ import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
-import { InsideEventContext } from './inside-event-context';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
@@ -1188,6 +1187,10 @@ export function FrontDoorShell({
         {/* The search keeps its own button and a mic beside it. A field with
             no button reads as decoration on a page whose job is to answer a
             word somebody typed. */}
+        {/* 🔍 NO SEARCH IN A SIGNED-IN TOP BAR (owner 2026-10-22, "One thumb row"): a host hands in `false` and the
+            bar is wordmark · ✉ · 🔔 · avatar — the search lives in the thumb row of the place you stand in.
+            Signed out (`undefined`) the marketplace box below is unchanged. */}
+        {search === false ? null : (
         <div className="fd-searchwrap">
           {search ?? <SearchBox />}
           {/*
@@ -1199,6 +1202,7 @@ export function FrontDoorShell({
             drawn affordance. Ship it when voice search exists.
           */}
         </div>
+        )}
 
         <div className="fd-topright" ref={menuRef}>
           {account.signedIn ? (
@@ -1323,7 +1327,6 @@ export function FrontDoorShell({
   return (
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
-    <InsideEventContext.Provider value={insideEvent}>
     <ShellBoundaryProvider value={boundary}>
     <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined}>
       <>
@@ -1394,7 +1397,7 @@ export function FrontDoorShell({
           how wide the window happened to be. The `?? <SearchBox />` fallback
           is the same one the desktop row uses, so a page that hands in
           nothing is byte-identical to before. */}
-      {inApp ? null : (
+      {inApp || search === false ? null : (
         <div className="fd-searchrow">
           {search ?? <SearchBox />}
         </div>
@@ -2041,7 +2044,6 @@ export function FrontDoorShell({
       {signInPanel}
     </div>
     </ShellBoundaryProvider>
-    </InsideEventContext.Provider>
   );
 }
 

@@ -125,7 +125,10 @@ test('the editor offers only the roles this wedding actually has', () => {
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', 'page.tsx'),
     'utf8',
   );
-  assert.match(page, /from\('guests'\)[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'it reads the real guest list');
+  // ⚡ 2026-10-23 (speed pass): the read is STARTED with the editor's other event-only reads and awaited where it was —
+  // both halves are held: the read is of the guest list, and its answer is what the fold is handed.
+  assert.match(page, /const roleRowsRead = startAhead\(Promise\.resolve\(\s*supabase\s*\.from\('guests'\)\s*\.select\('role'\)/, 'it reads the real guest list');
+  assert.match(page, /const \{ data: roleRows, error: roleRowsError \} = await roleRowsRead;[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'and folds what it read');
   /* `foldEventRoles` lives in `dress-code-config.ts` since 2026-10-21 (the plain readers, out of the form's module). */
   const fields = readFileSync(
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-config.ts'),

@@ -28,7 +28,8 @@ import {
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { SIDE_ORDER } from '@/lib/guests';
@@ -285,7 +286,8 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return (
       <div data-seat-plan-details="" className="flex min-h-0 flex-1 flex-col">
         {editorFor(seatParam === 'list' ? 'list' : 'plan', { lab, sides, part: seatParam === 'map' ? 'map' : null })}
-        <MiniTour tourKey="customer_seat_plan_v1" />
+        {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+        <Spotlight tourKey={HOST_PAGE_TOURS.seatPlan} after={MAKER_INNER_TOURS_AFTER} inMaker />
       </div>
     );
   }
@@ -303,7 +305,8 @@ export default async function SeatingPage({ params, searchParams }: Props) {
         {editorFor(viewParam === 'list' ? 'list' : 'plan')}
       </div>
 
-      <MiniTour tourKey="customer_seat_plan_v1" />
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.seatPlan} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </>
   );
 }

@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchOwnPaymentMethodsMeasured,
-  isVendorProActive,
+  isShopProActive,
   type ModerationStatus,
   type PaymentMethodType,
   type VendorPaymentMethodRow,
@@ -106,7 +106,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
   // 💳 Links are a Pro feature, asked through the one flag-aware question
   // (lib/vendor-feature-gate.ts). `linksOpen` = the shop's links count and are
   // shown; `linkAsks` = the switch is on and saving a link asks for Pro.
-  const linkAsks = vendorPaywallApplies(await isVendorProActive(supabase, user.id));
+  const linkAsks = vendorPaywallApplies(await isShopProActive(supabase, profile.vendor_profile_id));
   const isPro = !linkAsks;
 
   // Pre-resolve QR thumbnails through the shared helper, which presigns only a

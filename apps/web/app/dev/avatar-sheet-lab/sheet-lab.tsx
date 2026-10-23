@@ -40,6 +40,10 @@ const CASES: Record<
 > = {
   owner: { title: 'Events', data: person({ shops: [SETNAPROD], isAdmin: true, otherAccounts: [CLAIRE] }), here: 'events', unread: { events: 2, shop: 3, admin: 7 }, refer: true, shopRows: false },
   supplier: { title: 'Today', data: person({ shops: [SETNAPROD], isAdmin: true, otherAccounts: [CLAIRE] }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: 3, admin: 7 }, refer: false, shopRows: true },
+  // An OWNER of SetnaProd who also helps Bloom & Vine (owner 2026-10-22: every account switches between all of its
+  // shops). `owner2` stands in their own shop; `owner2b` is the same person after pressing Bloom & Vine.
+  owner2: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
+  owner2b: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
   helper: { title: 'Today', data: person({ displayName: 'Pia Reyes', email: 'pia@example.com', shops: [BLOOM, LENS], canOpenShop: true }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 1, shop: null, admin: 0 }, refer: false, shopRows: true },
   couple: { title: 'Events', data: person({ displayName: 'Claire Casasola', email: 'claire@example.com', canOpenShop: true, otherAccounts: [{ uid: '11111111-1111-4111-8111-111111111111', email: 'iscasasolaii@gmail.com', name: 'Ice Casasola' }] }), here: 'events', unread: { events: 4, shop: null, admin: 0 }, refer: true, shopRows: false },
 };

@@ -78,3 +78,17 @@ test('the line says the seats and the free Helper as two facts that cannot contr
     assert.doesNotMatch(line, /in use/, `"in use" beside a seat count reads as a contradiction: ${line}`);
   }
 });
+
+test('more people than the plan holds is said as that, never "3 of 1 seats used" (coordinator walk 2026-10-23)', () => {
+  const three = teamSeats([m('a', 'agent'), m('b', 'agent'), m('c', 'admin')], FOUNDER);
+  assert.equal(seatLine(three, 1), '3 with you · your plan holds 1 seat · plus 1 free Helper you can invite');
+  assert.equal(seatLine(teamSeats([m('a', 'agent')], FOUNDER), 0), '1 with you · your plan holds no team seats · plus 1 free Helper you can invite');
+  // Property: whatever the plan, a "N of M seats used" line never has N above M.
+  for (const cap of [0, 1, 3, 10]) {
+    for (const n of [0, 1, 2, 4, 11]) {
+      const line = seatLine(teamSeats(Array.from({ length: n }, (_, i) => m(String(i), 'agent')), FOUNDER), cap);
+      const used = /^(\d+) of (\d+) seats? used/.exec(line);
+      if (used) assert.ok(Number(used[1]) <= Number(used[2]), `over the plan reads as arithmetic: ${line}`);
+    }
+  }
+});

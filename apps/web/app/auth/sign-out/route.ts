@@ -6,7 +6,7 @@ import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/fa
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
 import { HOST_PREVIEW_PASS_COOKIE_NAME } from '@/lib/pass-account-rule';
 import { ACTIVE_SHOP_COOKIE } from '@/lib/active-shop';
-import { ACCOUNTS_LIST_COOKIE, decodeParkedList, encodeParkedList, jarCookieName, jarCookieOptions, listCookieOptions, unparkFromList } from '@/lib/account-jars';
+import { ACCOUNTS_LIST_COOKIE, accountCookiesOnSignOut } from '@/lib/account-jars';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -77,15 +77,10 @@ export async function POST(request: NextRequest) {
   // Question 1 recommendation, Facebook's "Log out of Claire") — its row leaves the list and any jar it had is
   // expired (by name: the jar lives at /auth/accounts, so it is not sent here, but it can still be expired here).
   // The OTHER parked accounts stay; "Sign out of all accounts" is the one that clears them.
-  if (leaving) {
-    const secure = process.env.NODE_ENV === 'production';
-    const list = decodeParkedList(request.cookies.get(ACCOUNTS_LIST_COOKIE)?.value);
-    response.cookies.set(ACCOUNTS_LIST_COOKIE, encodeParkedList(unparkFromList(list, leaving.id)), listCookieOptions(secure));
-    try {
-      response.cookies.set(jarCookieName(leaving.id), '', { ...jarCookieOptions(secure), maxAge: 0 });
-    } catch {
-      /* not a uid-shaped id — there is no jar by that name */
-    }
+  // 🔒 One login on this phone (no accounts list) → `accountCookiesOnSignOut` answers nothing: the response is the
+  // sign-out it always was. Held by lib/accounts-on-this-phone.test.ts.
+  for (const c of accountCookiesOnSignOut(request.cookies.get(ACCOUNTS_LIST_COOKIE)?.value, leaving?.id, process.env.NODE_ENV === 'production')) {
+    response.cookies.set(c.name, c.value, c.options);
   }
 
   return response;

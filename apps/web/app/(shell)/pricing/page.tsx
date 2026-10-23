@@ -33,6 +33,7 @@ import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -93,6 +94,7 @@ export const metadata = {
     `Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
       `Plan free, add the magic as you go. Transparent PHP prices. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
@@ -101,6 +103,7 @@ export const metadata = {
     siteName: 'Setnayan',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
     description: `Plan free · add software à la carte · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,

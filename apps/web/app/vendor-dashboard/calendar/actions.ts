@@ -26,11 +26,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import {
-  asVendorTier,
-  entryTierAllowance,
-  tierCaps,
-} from '@/lib/vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, entryTierAllowance } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { asDayPart, asRepeatRule, blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, type DayPart } from '@/lib/not-available';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
@@ -46,30 +42,15 @@ function str(formData: FormData, key: string): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-/** Clamp a requested daily capacity to the vendor's tier ceiling + the SQL
- *  CHECK max (50). Shared by updatePoolCapacity + the Named Calendars actions. */
-async function clampCapacityToTier(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-  raw: number,
-  /** A venue's hall is not limited by the plan's per-day number (owner 2026-10-14 🏛 "Halls don't count"). */
-  isHall = false,
-): Promise<number> {
-  if (isHall) return Math.min(raw, 50);
-  let tier: string | null = null;
-  try {
-    const { data } = await supabase
-      .from('vendor_profiles')
-      .select('tier_state')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    tier = (data as { tier_state?: string } | null)?.tier_state ?? null;
-  } catch {
-    tier = null;
-  }
-  const slotsCap = tierCaps(asVendorTier(tier)).slotsPerDay;
-  const ceiling = Number.isFinite(slotsCap) ? Math.max(1, slotsCap) : 50;
-  return Math.min(Math.min(raw, ceiling), 50);
+/**
+ * Clamp a requested daily capacity to the database's ceiling ({@link DAILY_CAPACITY_MAX}). Shared by
+ * updatePoolCapacity + the Named Calendars actions.
+ *
+ * ⚖ NO PLAN LIMIT (owner 2026-10-23, "plans price reach, not income"): the supplier's own number governs, on every
+ * plan. This used to clamp to the plan's `slotsPerDay` (Free 0 · Verified/Solo 1 · Pro 3 · Enterprise 8).
+ */
+function clampDailyCapacity(raw: number): number {
+  return Math.min(raw, DAILY_CAPACITY_MAX);
 }
 
 /** Filter host-supplied service ids down to the ones this vendor actually owns
@@ -645,8 +626,7 @@ export async function setCalendarDayState(formData: FormData): Promise<void> {
   backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
-/** Pool daily capacity — clamped to the tier's slotsPerDay ceiling (the
- *  pool grain inherits the #2 daily-capacity tier convention). */
+/** Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23). */
 export async function updatePoolCapacity(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const poolId = str(formData, 'pool_id');
@@ -655,13 +635,7 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_capacity');
   }
 
-  const { data: hallRow } = await supabase
-    .from('vendor_schedule_pools')
-    .select('is_hall')
-    .eq('pool_id', poolId)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, (hallRow as { is_hall?: boolean } | null)?.is_hall === true);
+  const capacity = clampDailyCapacity(raw);
 
   const { error } = await supabase
     .from('vendor_schedule_pools')
@@ -773,7 +747,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
     const n = Number(str(formData, key));
     return isHall && Number.isInteger(n) && n >= 1 && n <= 100000 ? n : null;
   };
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, isHall);
+  const capacity = clampDailyCapacity(raw);
   const services = await ownedServiceIds(
     supabase,
     profile.vendor_profile_id,
@@ -839,7 +813,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!pool) backToCalendar(formData, 'bad_pool');
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, (pool as { is_hall?: boolean } | null)?.is_hall === true);
+  const capacity = clampDailyCapacity(raw);
 
   // A hall's guests (2026-10-14 🏛) — only a hall carries them (the table's CHECK); blank = not said.
   const isHall = (pool as { is_hall?: boolean } | null)?.is_hall === true;

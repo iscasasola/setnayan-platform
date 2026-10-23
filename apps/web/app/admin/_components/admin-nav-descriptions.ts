@@ -47,7 +47,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     because the pre-V2 trail must stay readable during a dispute.
   */
   payouts: 'Closed trail from before Setnayan stopped handling supplier money — nothing new arrives here.',
-  subscriptions: 'Supplier Pro / Enterprise upgrades awaiting confirmation.',
+  subscriptions: 'Supplier Pro / Ultra upgrades awaiting confirmation.',
   'payment-options': 'Supplier payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and supplier disputes.',
   /*

@@ -227,7 +227,7 @@ export async function loadCollectionsData(
     },
     portfolioRefs,
     portfolioDisplayMap,
-    portfolioMax: Number.isFinite(portfolioCap) ? portfolioCap : 999,
+    portfolioMax: portfolioCap,
     galleryVideoLinks,
     igConfigured,
     igConnection: ig.connection,

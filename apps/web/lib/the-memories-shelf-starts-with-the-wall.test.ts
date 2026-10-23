@@ -39,7 +39,9 @@ const shape = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.jo
 const stepOf = (what: RegExp) => Number(VIEW.steps.find((s) => what.test(s))?.split(' ')[0] ?? NaN);
 
 test('0 · the page drew the shelf and the fixture reached both the wall and the albums', () => {
-  assert.ok(VIEW.shelfDrawn, 'the Memories page no longer draws <AlbumShelf> — re-point this guard');
+  // Since #6778 the page reads the albums itself (the shelf retired with the Papic gallery) — `shelfDrawn` is now
+  // "the albums were read in this view".
+  assert.ok(VIEW.shelfDrawn, 'the Memories page no longer reads its albums — re-point this guard');
   assert.ok(Number.isFinite(stepOf(/ people\(person_id/)), `the wall never read who I am:\n${shape(VIEW)}`);
   assert.ok(Number.isFinite(stepOf(/ events\(event_id,slug/)), `the shelf never read its addresses:\n${shape(VIEW)}`);
 });

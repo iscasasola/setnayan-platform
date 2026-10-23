@@ -75,11 +75,13 @@ const titleCase = (s: string) =>
 
 /** What each plan adds to the page — composed from the plan table, never typed (`TIER_CAPS` is the one source). */
 export function pagePlanLines(): PagePlanLine[] {
-  const photos = (t: keyof typeof TIER_CAPS) => `up to ${TIER_CAPS[t].portfolioPhotos.toLocaleString('en-PH')} photos`;
+  // 📸 The photo count is the SAME free base on every plan (owner 2026-10-23), so it is said once, on Free — a plan
+  // line never sells a photo count. Read from the table, never typed.
+  const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
   return [
-    { plan: 'Free', line: `Name · services · reviews · ${photos('free')}`, pro: false },
-    { plan: 'Solo', line: `Your About · your colour · what shows · ${photos('solo')}`, pro: true },
-    { plan: 'Pro', line: `A cover photo · a pinned review · stories · ${photos('pro')}`, pro: true },
+    { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
+    { plan: 'Solo', line: 'Your About · your colour · what shows', pro: true },
+    { plan: 'Pro', line: 'A cover photo · a pinned review · stories', pro: true },
   ];
 }
 

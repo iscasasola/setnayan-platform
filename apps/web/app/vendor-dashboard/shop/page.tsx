@@ -231,7 +231,7 @@ const TIER_LABEL: Record<string, string> = {
   free: 'Free',
   solo: 'Solo',
   pro: 'Pro',
-  enterprise: 'Enterprise',
+  enterprise: 'Ultra',
 };
 
 function tierLabel(tier: string | null): string {

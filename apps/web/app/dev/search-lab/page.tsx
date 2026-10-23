@@ -7,14 +7,17 @@
  * fixtures (no sign-in, no database — the shop and reading searches fail soft
  * to none, which is what an unpublished supplier meets anyway):
  *   ?state=before  — the old first hop: the front door (`/?q=`) as a member saw
- *                    it — the public top bar with "+ Create event", no account
+ *                    it — the public top bar (its "+ Create event" left on 2026-10-22), no account
  *                    bar, the old index (no suppliers), and the row that hands
  *                    the words to `/explore`.
  *   ?state=after   — `/dashboard/search?q=` as the `(account)` layout draws it:
  *                    the app top bar, the account bar, the supplier on your
  *                    event tagged "On your event".
  *   ?state=empty   — the shell's empty state for a word nothing matches.
- *   &q=…           — the words (default "seda").
+ *   &q=…           — the words (default "seda"; try "ana" for people).
+ *   &people=fail   — the People read refused: "We couldn't search people…", never "nobody".
+ *   The People rows (owner 2026-10-22) are the shipped builder `shellPeopleResults` over a fixture roster
+ *   and fixture hits — each opens `/dashboard/people?person=…`.
  */
 import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
@@ -24,6 +27,8 @@ import { loadFrontDoorArticles } from '@/app/_components/frontdoor/data';
 import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
 import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 import { ownSupplierItems } from '@/lib/own-supplier-items';
+import { shellPeopleResults } from '@/lib/shell-people-results';
+import type { RosterPerson } from '@/lib/people-roster';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,14 +52,43 @@ const SUPPLIER_ITEMS = ownSupplierItems(EVENTS, [
   { vendor_id: 'lab-saysay', event_id: EVENT_ID, vendor_name: 'Saysay Studio', archived_at: null },
 ]);
 
+const labPerson = (key: string, name: string, extra: Partial<RosterPerson> = {}): RosterPerson => ({
+  key,
+  name,
+  kind: 'connection',
+  connectionId: `lab-${key}`,
+  dependentId: null,
+  relation: null,
+  storedRelation: null,
+  ask: null,
+  sharesAnEvent: null,
+  careLabel: null,
+  state: 'connected',
+  fromEvent: null,
+  samahan: [],
+  canLabel: true,
+  ...extra,
+});
+const LAB_ROSTER = {
+  connectionsUnavailable: false,
+  people: [
+    labPerson('ar', 'Ana Reyes', { relation: 'parent', publicId: 'S89U-LABANA0001' }),
+    labPerson('ac', 'Anabel Cruz', { state: 'waiting_them', publicId: 'S89P-LABANB0001' }),
+    labPerson('bl', 'Bianca Lim', { relation: 'friend', publicId: 'S89U-LABBIA0001' }),
+  ],
+};
+const LAB_HITS = [
+  { publicId: 'S89U-LABMAR0001', name: 'Ana Santos', photoUrl: null, fullName: null, handle: '@anasantos', hint: 'Both at Cale & Ice', followable: true, following: false },
+];
+
 const Avatar = () => (
-  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">IC</span>
+  <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">IC</span>
 );
 
 export default async function SearchLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string; q?: string }>;
+  searchParams: Promise<{ state?: string; q?: string; people?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -98,6 +132,11 @@ export default async function SearchLabPage({
               commandItems={items}
               place="shell"
               findSuppliers={{ href: `/dashboard/${EVENT_ID}/vendors`, eventName: 'Cale & Ice' }}
+              people={shellPeopleResults({
+                query,
+                roster: sp.people === 'fail' ? null : LAB_ROSTER,
+                found: sp.people === 'fail' ? { hits: [], failed: true } : { hits: LAB_HITS.filter((h) => h.name.toLowerCase().includes(query.toLowerCase())), failed: false },
+              })}
             />
           </div>
         </main>

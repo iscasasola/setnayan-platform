@@ -24,10 +24,12 @@
 //     THIS thread's vendor_profile_id / event_id. The service-role client
 //     bypasses RLS, so the scoping here is the isolation boundary: the bot
 //     reads ONLY its own vendor's store + ONLY the inquiring couple's event.
-//   • DAILY CAP — counts vendor_bot_replies since start of Manila day against
-//     vendor_bot_config.daily_reply_cap (handoff log rows count too: the cap
-//     bounds engine RUNS per day, a straightforward reading a vendor can audit
-//     in the log).
+//   • NO PER-DAY LIMIT (owner 2026-10-23: "why do we limit the auto reply?").
+//     This used to count today's vendor_bot_replies against the supplier's
+//     daily_reply_cap and stop silently at the cap. It answers every couple
+//     message now: each reply is ₱0 (no model call — phrasings.ts) and the
+//     LOOP-GUARD above means it can only ever answer a person. The retired
+//     column stays in the table, unread. Held by `no-daily-limit.test.ts`.
 //
 // Service-role write path (§3b.2): a live-user session cannot author a bot
 // reply — sender_role and sender_user_id are derived from auth.uid() by the DB,
@@ -55,7 +57,7 @@ import type { VendorPackageWithItems } from '../vendor-packages';
 import { toEventBriefLite, toStoreSnapshot } from './adapter';
 import { maybeAutoAccept } from './auto-accept';
 import { decideReply } from './engine';
-import { evaluateAutoReplyGate, startOfManilaDayIso } from './inbox-decision';
+import { evaluateAutoReplyGate } from './inbox-decision';
 import { voicedReplyText } from './voice-runtime';
 import { isVendorAiAddonActive } from '../vendor-addon-pricing';
 
@@ -109,12 +111,12 @@ export async function runVendorAutoReply(
     const vendorId = thread.vendor_profile_id as string;
     const eventId = thread.event_id as string;
 
-    // 2. Bot config (opt-in) + 3. daily-cap count + the per-vendor Vendor AI
-    //    add-on entitlement → the tested gate decides. The auto_accept_* trio
-    //    rides along for the Phase-4A step at the tail.
+    // 2. Bot config (opt-in) + 3. the per-vendor Vendor AI add-on entitlement
+    //    → the tested gate decides. The auto_accept_* pair rides along for the
+    //    Phase-4A step at the tail.
     const { data: config } = await admin
       .from('vendor_bot_config')
-      .select('enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap')
+      .select('enabled,auto_accept_enabled,auto_accept_threshold')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
 
@@ -133,23 +135,11 @@ export async function runVendorAutoReply(
       (addonRow as { ai_addon_expires_at?: string | null } | null)?.ai_addon_expires_at ?? null,
     );
 
-    const { count: repliesToday } = await admin
-      .from('vendor_bot_replies')
-      .select('*', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorId)
-      .gte('created_at', startOfManilaDayIso());
-
     const gate = evaluateAutoReplyGate({
       flagEnabled: vendorAutoReplyEnabled(),
       senderRole: input.senderRole,
       addonActive,
-      config: config
-        ? {
-            enabled: config.enabled === true,
-            dailyReplyCap: Number(config.daily_reply_cap ?? 0),
-          }
-        : null,
-      repliesToday: repliesToday ?? 0,
+      config: config ? { enabled: config.enabled === true } : null,
     });
     if (!gate.run) return;
 
@@ -277,7 +267,10 @@ export async function runVendorAutoReply(
         addonActive,
         intent: decision.intent,
         neutralText: decision.replyText,
-        rotationKey: `${thread.thread_id}:${repliesToday ?? 0}`,
+        // Rotation varies with how many times the assistant has already
+        // spoken on THIS thread, so a couple asking twice does not get the
+        // same wording twice. (It used to ride on the retired per-day count.)
+        rotationKey: `${thread.thread_id}:${await countThreadReplies(admin, thread.thread_id as string)}`,
       });
 
       const { data: botMessage, error: insertError } = await admin
@@ -307,8 +300,8 @@ export async function runVendorAutoReply(
         was_llm: false,
       });
       if (logError) {
-        // The reply already posted; a missing log row only under-counts the cap.
-        // Surface it loudly so it can't rot silently.
+        // The reply already posted; a missing log row loses the supplier's
+        // record of what was said. Surface it loudly so it can't rot silently.
         console.error('[vendor-autoreply] reply log insert failed:', logError.message);
       }
     }
@@ -333,7 +326,6 @@ export async function runVendorAutoReply(
           ? {
               autoAcceptEnabled: config.auto_accept_enabled === true,
               autoAcceptThreshold: Number(config.auto_accept_threshold ?? 78),
-              dailyAutoAcceptCap: Number(config.daily_auto_accept_cap ?? 0),
             }
           : null,
         avgRating,
@@ -345,5 +337,19 @@ export async function runVendorAutoReply(
   } catch (err) {
     // FAIL-CLOSED: never propagate — the couple's message must be unaffected.
     console.error('[vendor-autoreply] runVendorAutoReply failed (non-fatal):', err);
+  }
+}
+
+/** How many times the assistant has logged a run on this one thread (0 on any
+ *  read failure — it only picks a wording, never decides whether to answer). */
+async function countThreadReplies(admin: SupabaseClient, threadId: string): Promise<number> {
+  try {
+    const { count } = await admin
+      .from('vendor_bot_replies')
+      .select('*', { count: 'exact', head: true })
+      .eq('thread_id', threadId);
+    return count ?? 0;
+  } catch {
+    return 0;
   }
 }

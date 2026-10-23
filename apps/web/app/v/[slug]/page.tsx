@@ -2160,7 +2160,7 @@ export async function renderVendorBySlug({
 
       <article
         className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${
-          /* Pro/Enterprise maximize the screen width (owner 2026-07-03); Free/Solo
+          /* Pro and up maximize the screen width (owner 2026-07-03); Free/Solo
              stay at a comfortable single-column reading width. */
           premiumLayout ? 'max-w-screen-2xl' : 'max-w-3xl'
         }`}

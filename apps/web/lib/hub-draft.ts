@@ -3196,10 +3196,14 @@ export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
   return typeof v === 'string' && (HUB_DRAFT_INTENTS as readonly string[]).includes(v);
 }
 
+/** The Apply sheet's "Remove Pro changes": the `effect` a `drop` carries to take EVERY held Pro effect off the draft. */
+export const HUB_DROP_ALL_PRO = '*';
+
 /** Why Apply held a key back. */
 export type HubDraftRefusal =
   | 'needs_pro'
-  | 'apply_on_the_web'
+  /** 📵 The store shell where Apple does not sell Pro: held, said neutrally — never "on the web" (anti-steering, 3.1.1). */
+  | 'waits_for_pro'
   | 'not_your_photo'
   /** 🎵 A drafted song from "Our music" whose track is no longer published. */
   | 'song_off_the_list'

@@ -7,7 +7,7 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { formatPhp } from '@/lib/php';
-import { APP_STORE_CHANNEL_KEY, appStorePriceFloorPhp, type IapProduct } from './products';
+import { APP_STORE_CHANNEL_KEY, appStorePriceFloorPhp, iapPriceRowFor, type IapProduct } from './products';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
 
 /**
@@ -132,7 +132,8 @@ async function orderAmountPhp(
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('retail_price_php')
-    .eq('service_code', tx.product.serviceKey)
+    // ✦ A Setnayan AI tier product is priced from its tier's row, not the flat SETNAYAN_AI one (`iapPriceRowFor`).
+    .eq('service_code', iapPriceRowFor(tx.product))
     .maybeSingle();
   if (error) console.error('[iap] could not read the catalogue price (Apple’s PHP figure is used when present):', error.message);
   const raw = (data as { retail_price_php?: number | string | null } | null)?.retail_price_php;
@@ -396,8 +397,9 @@ export async function fulfilAppleTransaction(
  * Apple refunded (or revoked) a transaction — App Store Server Notifications
  * v2 `REFUND`. The order leaves `paid` (`RELINQUISHED_STATUSES` then stops
  * counting it) and `deactivateOrderSku` takes back what activation granted
- * (Papic credits; Pro and Live Watch read ownership off the order and re-lock
- * by themselves). Idempotent: a second REFUND finds the order already refunded.
+ * (Papic credits, Mood Board render credits, Setnayan AI's stored flag; Pro, Live
+ * Watch, Music Maker, Patiktok and Thank You read ownership off the order and
+ * re-lock by themselves). Idempotent: a second REFUND finds the order already refunded.
  *
  * No `order_refunds` row: that table records a refund an ADMIN sent
  * (`refunded_by_admin_id` NOT NULL). Apple sent this one; the intent row

@@ -715,6 +715,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
         aria-label="Open account switcher"
         aria-haspopup="dialog"
         aria-expanded={open}
+        data-tour="account-avatar"
         onClick={() => setOpen((v) => !v)}
         className="fd-acct inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
@@ -804,6 +805,7 @@ export function AccountSwitcherIconTrigger({
       aria-label="Open account switcher"
       aria-haspopup="dialog"
       aria-expanded={open}
+      data-tour="account-avatar"
       onClick={onToggle}
       className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta"
     >

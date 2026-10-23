@@ -55,13 +55,18 @@ function lookFold(): string {
 
 test('A · the shared Fold draws a leadPress BESIDE its head, outside the head’s button', () => {
   const html = renderToStaticMarkup(
-    React.createElement(Fold, {
-      title: 'Look',
-      line: 'Champagne',
-      data: 'probe',
-      leadPress: React.createElement('button', { type: 'button', 'data-probe-circle': '' }, 'o'),
-      children: React.createElement('p', null, 'inside'),
-    }),
+    // `children` travels as the third argument (react/no-children-prop); the cast
+    // only tells the type that it is there.
+    React.createElement(
+      Fold,
+      {
+        title: 'Look',
+        line: 'Champagne',
+        data: 'probe',
+        leadPress: React.createElement('button', { type: 'button', 'data-probe-circle': '' }, 'o'),
+      } as React.ComponentProps<typeof Fold>,
+      React.createElement('p', null, 'inside'),
+    ),
   );
   const head = html.match(/<button[^>]*data-fold-head=""[^>]*>([\s\S]*?)<\/button>/);
   assert.ok(head, 'the Fold drew no head button');
@@ -71,7 +76,7 @@ test('A · the shared Fold draws a leadPress BESIDE its head, outside the head�
   assert.match(head[0], /aria-expanded="false"/, 'the head no longer says whether it is open');
 
   /* Absent → the head is exactly as it was: full width, no row wrapper. */
-  const plain = renderToStaticMarkup(React.createElement(Fold, { title: 'Look', data: 'plain', children: 'x' }));
+  const plain = renderToStaticMarkup(React.createElement(Fold, { title: 'Look', data: 'plain' } as React.ComponentProps<typeof Fold>, 'x'));
   assert.ok(!plain.includes('data-fold-row'), 'a Fold without leadPress grew a wrapper');
   assert.match(plain, /data-fold-head=""[^>]*class="[^"]*\bw-full\b/, 'a Fold without leadPress lost its full-width head');
 });

@@ -40,6 +40,8 @@ export type ThumbRound = {
   label: string;
   onClick?: () => void;
   href?: string;
+  /** A link that opens in a new tab (Shop › Page's 👁 View my page). */
+  target?: '_blank';
   /** `aria-expanded` for a toggle (⇕ Expand all). */
   expanded?: boolean;
   waiting?: boolean;
@@ -58,6 +60,13 @@ export type ThumbMenu = {
   mark?: string;
 };
 
+/**
+ * A seat whose control is a SHIPPED component that owns its own sheet or address (the supplier's Search box, Check a
+ * date, ＋ Add a booking, ✓ Log a payment): the row gives it the seat's shape — the field's glass and width, or the
+ * main verb's 44 round (its word kept as its accessible name) — and the component keeps everything it does.
+ */
+export type ThumbNode = { node: ReactNode };
+
 export type ThumbField = {
   /** Names the place — "Search guests". ≤ 3 words. */
   placeholder: string;
@@ -69,6 +78,16 @@ export type ThumbField = {
   input?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
   tour?: string;
 };
+
+/** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
+ *  ActionButton; the seat is the glass. */
+function NodeRound({ node }: { node: ReactNode }) {
+  return (
+    <span className={`sn-glass-row ${styles.round} ${styles.menu} ${styles.nodeRound}`} data-thumb-seat="round">
+      {node}
+    </span>
+  );
+}
 
 function Round({ r }: { r: ThumbRound }) {
   const common = {
@@ -84,7 +103,7 @@ function Round({ r }: { r: ThumbRound }) {
   return (
     <span className={`sn-glass-row ${styles.round}`} data-thumb-seat="round">
       {r.href ? (
-        <ActionButton {...common} href={r.href} />
+        <ActionButton {...common} href={r.href} target={r.target} />
       ) : (
         <ActionButton {...common} onClick={r.onClick} aria-expanded={r.expanded} />
       )}
@@ -104,25 +123,27 @@ export function ThumbRow({
   /** Which screen's row — the guard's and the tour's handle. */
   name: string;
   /** ≤ 2 neutral rounds before the field — ⇕ then ☑. */
-  left?: readonly ThumbRound[];
-  field?: ThumbField | null;
+  left?: readonly (ThumbRound | ThumbNode)[];
+  field?: ThumbField | ThumbNode | null;
   /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
   right?: readonly (ThumbRound | ThumbMenu)[];
   /** THE one main verb — terracotta, last. */
-  action?: ThumbRound | null;
+  action?: ThumbRound | ThumbNode | null;
   /** A mode row's own buttons, in place of the seats. */
   children?: ReactNode;
   className?: string;
 }) {
-  const FieldIcon = field?.kind === 'date' ? CalendarDays : Search;
+  const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   return (
     <div role="toolbar" aria-label={`${name} tools`} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {children ?? (
         <>
-          {left.slice(0, 2).map((r) => (
-            <Round key={r.label} r={r} />
-          ))}
-          {field ? (
+          {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
+          {field && 'node' in field ? (
+            <span data-glass-row="thumb-row-field-node" className={`sn-glass-row ${styles.field} ${styles.fieldNode}`} data-thumb-seat="field">
+              {field.node}
+            </span>
+          ) : field ? (
             <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
@@ -147,7 +168,11 @@ export function ThumbRow({
               <Round key={r.label} r={r} />
             ),
           )}
-          {action ? (
+          {action && 'node' in action ? (
+            <span className={`${styles.round} ${styles.actionNode}`} data-thumb-seat="action">
+              {action.node}
+            </span>
+          ) : action ? (
             <span className={styles.round} data-thumb-seat="action">
               {action.href ? (
                 <ActionButton tone="brand" filled iconOnly icon={action.icon} label={action.label} href={action.href} tour={action.tour} data-testid={action.testId} className={styles.btn} />

@@ -86,7 +86,8 @@ test('2 · ONE main on Money: Log a payment; the fee row’s Pay is not one, and
   // The waived row has nothing to pay, so nothing to press.
   assert.doesNotMatch(compactBranch(NOTICE, 'WaivedFeeRows'), /<ActionButton\b|<Link\b|<button\b/);
   // Exactly one SupplierThumbRow on Money, holding the log.
-  assert.match(SEGMENT, /<SupplierThumbRow name="money" label="Money actions">\s*<MoneyLog customers=\{logCustomers\} \/>\s*<\/SupplierThumbRow>/);
+  // The ONE row (owner 2026-10-22): Log a payment is the main verb's round, at the right — no band.
+  assert.match(SEGMENT, /<SupplierThumbRow name="money" label="Money actions" row=\{<ThumbRow name="money" action=\{\{ node: <MoneyLog customers=\{logCustomers\} \/> \}\} \/>\} \/>/);
 });
 
 // SABOTAGE: wrap the rows in `sn-tile` / a bordered rounded box → RED.

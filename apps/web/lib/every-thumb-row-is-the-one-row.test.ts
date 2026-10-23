@@ -12,7 +12,7 @@
  *  5. The account rows' Enter goes where the palette's step-out row goes, and never to a marketplace path or a path
  *     the iPhone app refuses.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { createElement } from 'react';
@@ -65,6 +65,12 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   guests: { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', mounts: /<ThumbRow\b/g, count: 2 },
   events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<EventsThumbRow\b/g, count: 1 },
   discover: { file: 'app/_components/frontdoor/front-door.tsx', mounts: /<DiscoverThumbRow\b/g, count: 1 },
+  // The supplier (PR2): People · Dates (with a schedule) · a day — one per screen, three screens in one file.
+  customers: { file: 'app/vendor-dashboard/customers/page.tsx', mounts: /<ThumbRow\b/g, count: 3 },
+  money: { file: 'app/vendor-dashboard/customers/_components/money-segment.tsx', mounts: /<ThumbRow\b/g, count: 1 },
+  page: { file: 'app/vendor-dashboard/website/_components/page-parts.tsx', mounts: /<ThumbRow\b/g, count: 1 },
+  // People (and Memories, once it lands on the same component): the account row draws through the shared one.
+  account: { file: 'app/dashboard/(account)/_components/account-thumb-row.tsx', mounts: /<ThumbRow\b/g, count: 1 },
 };
 
 function seats(html: string): string[] {
@@ -120,12 +126,30 @@ describe('every adopter mounts the one row', () => {
   });
 });
 
+describe('the supplier rows carry the one row, with no band', () => {
+  for (const key of ['customers', 'money', 'page'] as const) {
+    it(`${key}: every SupplierThumbRow hands in a row`, () => {
+      const src = stripComments(read(ADOPTERS[key]!.file));
+      const opens = [...src.matchAll(/<SupplierThumbRow\b/g)].length;
+      expect(opens > 0, 'premise: no SupplierThumbRow').toBeTruthy();
+      expect([...src.matchAll(/<SupplierThumbRow\b[^>]*?\brow=\{/g)].length).toBe(opens);
+    });
+  }
+  it('a row-carrying SupplierThumbRow draws no band', () => {
+    const src = stripComments(read('app/vendor-dashboard/_components/supplier-thumb-row.tsx'));
+    const branch = src.slice(src.indexOf('if (row) {'), src.indexOf('}', src.indexOf('document.body', src.indexOf('if (row) {'))));
+    expect(branch).toMatch(/className=\{styles\.lower\}/);
+    expect(branch).not.toMatch(/sn-glass-row/);
+  });
+});
+
 describe('placeholders name the place, short', () => {
   const files = [...Object.values(ADOPTERS).map((a) => a.file), 'app/_components/frontdoor/shell-thumb-rows.tsx'];
   const found: { file: string; words: string; alone: boolean }[] = [];
   for (const f of files) {
     const src = read(f);
-    for (const m of src.matchAll(/placeholder: '([^']+)'/g)) {
+    for (const m of src.matchAll(/placeholder(?:: '|=")([^'"]+)['"]/g)) {
+      if (src.lastIndexOf('<ThumbRow', m.index) === -1 && !/placeholder: '/.test(m[0])) continue;
       // A field alone in its row: the row literal around it has no `action`, `left` or `right`.
       const start = src.lastIndexOf('<ThumbRow', m.index);
       const end = src.indexOf('/>', m.index);
@@ -135,7 +159,7 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
-      ['Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      ['Search customers', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {
@@ -143,6 +167,18 @@ describe('placeholders name the place, short', () => {
       if (p.alone) continue;
       expect(p.words.split(/\s+/).length, `${p.file}: "${p.words}"`).toBeLessThanOrEqual(3);
     }
+  });
+  it('Memories (once #6778 lands) draws through the same account row — never a band of its own', () => {
+    const f = 'app/dashboard/(account)/library/_components/memories-thumb.tsx';
+    if (!existsSync(join(WEB, f))) return; // not on this branch yet — the account row it will use is pinned above
+    const src = stripComments(read(f));
+    expect(src).toMatch(/<AccountThumbRow\b/);
+    expect(src).not.toMatch(/sn-glass-row/);
+    expect(src).toMatch(/placeholder="Search memories"/);
+  });
+  it('People says the owner’s words, short', () => {
+    const src = read('app/dashboard/(account)/people/_components/find-or-invite.tsx');
+    expect(src).toMatch(/placeholder="Find or invite"/);
   });
   it('Find names the open category only while it stays short', () => {
     expect(findPlaceholder('all suppliers')).toBe('Search suppliers');

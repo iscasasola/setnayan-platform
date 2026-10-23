@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7898857019",
+  "generatedFromRef": "8bf1f90917",
   "routeCount": 459,
   "destinations": 1004,
   "actions": 667,
-  "blocks": 6822,
+  "blocks": 6825,
   "routes": {
     "/": {
       "files": [
@@ -11262,6 +11262,7 @@
         "SupplierThumbRow",
         "SupplierToast",
         "SupplierTodayScreen",
+        "ThumbRow",
         "TodayEasyLab",
         "TodayLab"
       ]
@@ -13623,6 +13624,7 @@
         "SupplierToast",
         "Suspense",
         "SwitchTrack",
+        "ThumbRow",
         "TypedRow",
         "WaivedFeeRows"
       ]
@@ -15041,7 +15043,8 @@
         "ShopSegments",
         "SupplierThumbRow",
         "SwitchRow",
-        "SwitchTrack"
+        "SwitchTrack",
+        "ThumbRow"
       ]
     },
     "/vendor-invite/[slug]": {

@@ -286,6 +286,11 @@ export async function loadUploadedTiers(
   return { loaded, redo };
 }
 
+/** Read a stored object's bytes by its ref (for a re-screen). Null when unreadable. */
+export async function readCaptureObject(ref: string): Promise<Uint8Array | null> {
+  return getObject(keyOf(ref));
+}
+
 export async function settleCaptureIntents(
   admin: SupabaseClient,
   stagingRefs: readonly string[],

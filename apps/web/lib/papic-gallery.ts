@@ -177,12 +177,14 @@ export async function fetchPapicGallery(
 
   const visibleSeat = seatRows.filter(
     (r) =>
-      r.moderation_state !== 'nsfw_blocked' &&
+      r.moderation_state === 'clean' &&
       !r.hidden_at &&
       (!r.expires_at || new Date(r.expires_at as string).getTime() > now),
   );
   const visibleGuest = guestRows.filter(
-    (r) => r.moderation_state !== 'nsfw_blocked' && !r.hidden_at,
+    // 🧼 'clean' only — the screen PASSED (relay 2026-10-23, "clean and safe");
+    // 'unscreened' is a row the screen has not seen yet, not a safe one.
+    (r) => r.moderation_state === 'clean' && !r.hidden_at,
   );
   // Defense-in-depth over the RLS policy: NSFW-checked, non-hidden vendor captures
   // only. (consent_basis <> pending is a backstop — the capture route stamps
@@ -497,7 +499,7 @@ export async function fetchTeaserFrames(
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: false })
       .limit(limit),
     supabase
@@ -505,6 +507,8 @@ export async function fetchTeaserFrames(
       .select('capture_id, display_r2_key, thumb_r2_key, captured_at')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
+      // 🧼 A teaser is a PUBLIC clip: the screen must have passed it.
+      .eq('moderation_state', 'clean')
       // Double consent gate — mirrors the recap's guest-capture public read.
       .eq('consent_to_public', true)
       .eq('couple_approved_for_showcase', true)

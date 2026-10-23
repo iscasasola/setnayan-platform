@@ -173,6 +173,14 @@ async function promoteAll(byTier: Map<CaptureTier, Loaded>): Promise<Map<Capture
 // sweep DEFER rather than drop. Handed off ONCE, with the final full copy.
 async function handOffToDrive(eventId: string, captureId: string, ref: string, isClip: boolean): Promise<void> {
   try {
+    // 🧼 Only a shot the screen PASSED (and nobody took down) leaves for Drive.
+    const { data: row } = await createAdminClient()
+      .from('vendor_papic_captures')
+      .select('nsfw_checked, hidden_at')
+      .eq('capture_id', captureId)
+      .maybeSingle();
+    const r = row as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+    if (r?.nsfw_checked !== true || r.hidden_at) return;
     const { enqueueDriveCopy, runDriveCopyBatch } = await import('@/lib/drive-copy');
     await enqueueDriveCopy({
       eventId,
@@ -454,6 +462,31 @@ export async function POST(req: Request) {
     const asked = Array.isArray(body.tiers) ? (body.tiers as unknown[]).filter(isCaptureTier) : [];
     const tiers = asked.filter((t): t is CaptureTier => t === 'tile' || t === 'display' || t === 'original');
     if (tiers.length === 0) return json({ error: 'bad_tier' }, 400);
+    // The record's own screen must have RUN before more of this shot is accepted
+    // (a classifier outage leaves nsfw_checked false — hidden from the couple);
+    // the phone's retry of this call is what heals it.
+    {
+      const { data: v } = await admin
+        .from('vendor_papic_captures')
+        .select('nsfw_checked, hidden_at')
+        .eq('capture_id', prior.capture_id)
+        .maybeSingle();
+      const verdictRow = v as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+      if (verdictRow?.hidden_at) return json({ status: 'ok', blocked: true });
+      if (verdictRow?.nsfw_checked !== true && prior.r2_object_key) {
+        const { readCaptureObject } = await import('@/lib/papic-upload-intents.server');
+        const bytes = await readCaptureObject(prior.r2_object_key);
+        await writeVerdict(admin, prior.capture_id, bytes, prior.r2_object_key, eventId);
+        const { data: v2 } = await admin
+          .from('vendor_papic_captures')
+          .select('nsfw_checked, hidden_at')
+          .eq('capture_id', prior.capture_id)
+          .maybeSingle();
+        const after2 = v2 as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+        if (after2?.nsfw_checked !== true) return json({ error: 'screen_unavailable' }, 503);
+        if (after2.hidden_at) return json({ status: 'ok', blocked: true });
+      }
+    }
     const intents = await readCaptureIntents(admin, vendorProfileId, clientCaptureId);
     if (!intents) return json({ error: 'attach_failed' }, 503);
     const checked = await loadOrRedo(intents, tiers);

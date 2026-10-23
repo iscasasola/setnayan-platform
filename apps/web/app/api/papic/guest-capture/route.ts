@@ -535,9 +535,9 @@ async function handleRecord(
     await afterVisible(session, captureId);
   });
   if (isClip && (!wantFull || playable === 'clip_raw')) {
-    await handOffToDrive(session, r2Ref, 'video/mp4');
+    await handOffToDrive(session, r2Ref, 'video/mp4', captureId);
   } else if (!isClip && photoFirst === 'original') {
-    await handOffToDrive(session, r2Ref, 'image/jpeg');
+    await handOffToDrive(session, r2Ref, 'image/jpeg', captureId);
   }
 
   return json({ ...result, captureId, wantFull });
@@ -561,8 +561,16 @@ async function afterVisible(session: GuestSession, captureId: string): Promise<v
 // cron-free: enqueue, then copy in the BACKGROUND. No-op until Drive is
 // connected; best-effort; dedup is per drive_copy_artifacts.r2_object_key.
 // Handed off ONCE, with the shot's final full copy (display, or the original).
-async function handOffToDrive(session: GuestSession, r2Ref: string, mimeType: string): Promise<void> {
+async function handOffToDrive(session: GuestSession, r2Ref: string, mimeType: string, captureId: string | null): Promise<void> {
   try {
+    // 🧼 Only a shot the screen PASSED leaves for the couple's Drive.
+    if (!captureId) return;
+    const { data: row } = await createAdminClient()
+      .from('papic_guest_captures')
+      .select('moderation_state')
+      .eq('capture_id', captureId)
+      .maybeSingle();
+    if ((row as { moderation_state?: string } | null)?.moderation_state !== 'clean') return;
     await enqueueDriveCopy({
       eventId: session.event_id,
       artifactType: 'papic',
@@ -595,6 +603,23 @@ async function handleAttach(
   const allowed: CaptureTier[] = isClip ? ['clip_raw'] : ['tile', 'display', 'original'];
   const tiers = asked.filter((t) => allowed.includes(t));
   if (tiers.length === 0) return json({ error: 'bad_tier' }, 400);
+  if (prior.moderation_state === 'nsfw_blocked') return json({ status: 'ok', blocked: true });
+
+  // The record's own screen must have RUN before more of this shot is accepted.
+  // A classifier outage at record leaves the row 'unscreened' (hidden from every
+  // other person); the phone's retry of this call is what heals it — and until
+  // it does, the phone keeps the pieces and says it is still sending.
+  if (prior.moderation_state === 'unscreened' && prior.r2_object_key) {
+    await screenCapture({ table: 'papic_guest_captures', r2ObjectKey: prior.r2_object_key }).catch(() => {});
+    const { data: again } = await admin
+      .from('papic_guest_captures')
+      .select('moderation_state')
+      .eq('capture_id', prior.capture_id)
+      .maybeSingle();
+    const state = (again as { moderation_state?: string } | null)?.moderation_state;
+    if (state === 'unscreened') return json({ error: 'screen_unavailable' }, 503);
+    if (state === 'nsfw_blocked') return json({ status: 'ok', blocked: true });
+  }
 
   const intents = await readCaptureIntents(admin, session.guest_id, clientCaptureId);
   if (!intents) return json({ error: 'attach_failed' }, 503);
@@ -690,10 +715,10 @@ async function handleAttach(
       }
       await afterVisible(session, captureId);
     });
-    if (!wantFull) await handOffToDrive(session, displayRef, 'image/webp');
+    if (!wantFull) await handOffToDrive(session, displayRef, 'image/webp', captureId);
   }
-  if (tiers.includes('original')) await handOffToDrive(session, refOf('original'), 'image/jpeg');
-  if (tiers.includes('clip_raw')) await handOffToDrive(session, refOf('clip_raw'), 'video/mp4');
+  if (tiers.includes('original')) await handOffToDrive(session, refOf('original'), 'image/jpeg', prior.capture_id);
+  if (tiers.includes('clip_raw')) await handOffToDrive(session, refOf('clip_raw'), 'video/mp4', prior.capture_id);
 
   return json({ status: 'ok' });
 }

@@ -114,12 +114,13 @@ async function loadOwnedAlbum(
   // Same visibility filter as lib/papic-gallery.ts.
   const visibleSeat = seatRows.filter(
     (r) =>
-      r.moderation_state !== 'nsfw_blocked' &&
+      r.moderation_state === 'clean' &&
       !r.hidden_at &&
       (!r.expires_at || new Date(r.expires_at as string).getTime() > now),
   );
   const visibleGuest = guestRows.filter(
-    (r) => r.moderation_state !== 'nsfw_blocked' && !r.hidden_at,
+    // 🧼 'clean' only — what the screen passed (relay 2026-10-23).
+    (r) => r.moderation_state === 'clean' && !r.hidden_at,
   );
 
   // Prefer the cheap thumb derivative for the album strip, then the existing

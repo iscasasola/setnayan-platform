@@ -62,6 +62,11 @@ type FileUploadBaseProps = {
   multiple?: boolean;
   /** Hard upper bound on number of files when `multiple` is true. */
   maxFiles?: number;
+  /**
+   * What to say when a pick would go past `maxFiles` — in place of the generic "N-file limit" line. For a limit that
+   * is a policy with its own words (the portfolio's free base, owner 2026-10-23).
+   */
+  limitMessage?: string;
   /** Per-file size cap in megabytes. Defaults to 5 MB. */
   maxSizeMB?: number;
   /**
@@ -479,6 +484,7 @@ export function FileUpload({
   pathPrefix,
   multiple = false,
   maxFiles,
+  limitMessage,
   maxSizeMB = 5,
   acceptedTypes = DEFAULT_TYPES,
   name,
@@ -716,7 +722,7 @@ export function FileUpload({
       if (slotsLeft === 0) {
         setError(
           multiple
-            ? `Already at the ${effectiveMaxFiles}-file limit. Remove a file to add a new one.`
+            ? (limitMessage ?? `Already at the ${effectiveMaxFiles}-file limit. Remove a file to add a new one.`)
             : 'Already have one file. Remove it to replace.',
         );
         return;
@@ -724,7 +730,7 @@ export function FileUpload({
       const toUpload = files.slice(0, slotsLeft);
       if (toUpload.length < files.length) {
         setError(
-          `Only the first ${formatCount(toUpload.length)} file${toUpload.length === 1 ? '' : 's'} will upload — limit is ${effectiveMaxFiles}.`,
+          `Only the first ${formatCount(toUpload.length)} file${toUpload.length === 1 ? '' : 's'} will upload — ${limitMessage ?? `limit is ${effectiveMaxFiles}.`}`,
         );
       }
 
@@ -826,6 +832,7 @@ export function FileUpload({
       compressVideo,
       disabled,
       effectiveMaxFiles,
+      limitMessage,
       inFlight.length,
       items,
       maxBytes,

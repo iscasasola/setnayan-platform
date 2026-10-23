@@ -242,7 +242,6 @@ export default async function CardMakerLabPage({
         coverageAsk={isEdit ? {} : coverageAsk}
         schedules={shop.schedules}
         scheduleOfKind={shop.scheduleOfKind}
-        slotsPerDay={typeKey === 'studio' ? 3 : typeKey === 'church' ? 1 : 0}
         branches={[]}
         initial={fx?.initial ?? null}
         editing={fx?.editing ?? null}

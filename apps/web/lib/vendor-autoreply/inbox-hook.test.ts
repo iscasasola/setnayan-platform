@@ -4,9 +4,9 @@
  *
  *   • FLAG OFF / non-couple sender → the function returns without touching the
  *     client AT ALL (the stub throws on any access — zero behavior change).
- *   • bot disabled / no config / cap reached / no active Vendor AI add-on → no
+ *   • bot disabled / no config / no active Vendor AI add-on → no
  *     bot message is inserted.
- *   • couple + enabled + under cap → posts ONE chat_messages row with
+ *   • couple + enabled → posts ONE chat_messages row with
  *     sender_role='vendor' + is_bot=true + sender_user_id=null, then logs a
  *     vendor_bot_replies row pointing at it.
  *   • ANY throw inside the pipeline (engine, DB, client construction) resolves
@@ -153,7 +153,7 @@ function happyCanned(overrides: Record<string, Canned> = {}): Record<string, Can
     // /admin/data-privacy, so the fail-closed privacy gate lets the run proceed.
     data_privacy_controls: { single: { status: 'active' } },
     chat_threads: { single: { thread_id: 't1', event_id: 'e1', vendor_profile_id: 'v1' } },
-    vendor_bot_config: { single: { enabled: true, daily_reply_cap: 30 } },
+    vendor_bot_config: { single: { enabled: true } },
     vendor_bot_replies: { count: 0 },
     chat_messages: { single: { body: 'How much is your wedding package?' } },
     // The stub returns ONE canned single per table, and vendor_profiles is read
@@ -192,7 +192,7 @@ test('bot disabled → no bot message, no log row', () =>
   withFlag('true', async () => {
     const log: InsertLogEntry[] = [];
     const canned = happyCanned({
-      vendor_bot_config: { single: { enabled: false, daily_reply_cap: 30 } },
+      vendor_bot_config: { single: { enabled: false } },
     });
     await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
     assert.equal(log.length, 0);
@@ -206,18 +206,23 @@ test('no vendor_bot_config row → no bot message (strictly opt-in)', () =>
     assert.equal(log.length, 0);
   }));
 
-test('daily cap reached → no bot message', () =>
+test('no per-day limit → a 500th reply today still posts (owner 2026-10-23)', () =>
   withFlag('true', async () => {
     const log: InsertLogEntry[] = [];
-    const canned = happyCanned({ vendor_bot_replies: { count: 30 } });
+    // A busy shop: the log already holds hundreds of runs, and even a stale
+    // retired column says 0. Neither may stop the assistant answering.
+    const canned = happyCanned({
+      vendor_bot_config: { single: { enabled: true, daily_reply_cap: 0 } },
+      vendor_bot_replies: { count: 500 },
+    });
     await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
-    assert.equal(log.length, 0);
+    assert.equal(log.filter((e) => e.table === 'chat_messages').length, 1);
   }));
 
 test('no active Vendor AI add-on → no bot message (paid-add-on gate)', () =>
   withFlag('true', async () => {
     const log: InsertLogEntry[] = [];
-    // Vendor is enabled + under cap, but the add-on window is expired → the
+    // Vendor is enabled, but the add-on window is expired → the
     // assistant must not run (the inbox still works by hand).
     const canned = happyCanned({
       vendor_profiles: {
@@ -240,7 +245,7 @@ test('DPO control inactive → no bot message (privacy fail-closed)', () =>
     assert.equal(log.length, 0);
   }));
 
-test('couple + enabled + under cap → posts AI-labelled reply + logs it', () =>
+test('couple + enabled → posts AI-labelled reply + logs it', () =>
   withFlag('true', async () => {
     const log: InsertLogEntry[] = [];
     await runVendorAutoReply(

@@ -112,7 +112,7 @@ export async function buyBoothBrandingForEvent(
     booth_addon_expires_at?: string | null;
   } | null;
   if (!isTierAtLeast(gate?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER)) {
-    return err('3D Booth branding comes with a paid plan — Solo, Pro, Enterprise or Custom. Move up to add it.');
+    return err('3D Booth branding comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.');
   }
   if (gate?.verification_state !== 'verified') {
     return err('Get your shop verified first — 3D Booth branding unlocks once you’re verified.');

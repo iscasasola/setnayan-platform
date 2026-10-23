@@ -47,7 +47,7 @@ function isValidLocale(value: unknown): value is LocalePref {
 export async function updateThemePreference(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const raw = formData.get('theme');
   if (!isAppearance(raw)) {
-    return { ok: false, error: 'Pick Light or Dark.' };
+    return { ok: false, error: 'Pick Light, Dark or Automatic.' };
   }
 
   const supabase = await createClient();

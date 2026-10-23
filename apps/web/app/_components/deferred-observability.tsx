@@ -31,8 +31,10 @@ import { STYLESHEET_FAILURE_KEY } from '@/lib/stylesheet-recovery';
 // acceptable trade for the perf recovery — the same window where the
 // browser is still parsing/executing the main bundle anyway.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { scrubFaceVectorsFromEvent } from '@/lib/observability-scrub';
+import { sessionReplayAllowed } from '@/lib/telemetry/replay-scope';
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -111,7 +113,38 @@ function scheduleIdle(cb: () => void): () => void {
   return () => window.clearTimeout(handle);
 }
 
+/** The SDK as this component loads it — only the exports named in its `webpackExports` comment. */
+type SentrySdk = Pick<typeof import('@sentry/nextjs'), 'init' | 'captureMessage' | 'addIntegration'>;
+
 export function DeferredObservability() {
+  /* 🎥 SESSION REPLAY ONLY ON SIGNED-IN SCREENS (owner 2026-10-23, `lib/telemetry/replay-scope.ts`). The SDK, once
+     loaded, is kept here; the recorder is fetched and added the first time the path is a signed-in work area — at
+     load, or later when a visitor moves into one. Never removed once added (a recording mid-session is kept whole). */
+  const pathname = usePathname();
+  const sentryRef = useRef<SentrySdk | null>(null);
+  const replayAddedRef = useRef(false);
+  const addReplayIfSignedIn = (path: string | null | undefined) => {
+    const Sentry = sentryRef.current;
+    if (!Sentry || replayAddedRef.current || !sessionReplayAllowed(path)) return;
+    replayAddedRef.current = true;
+    void import('@/lib/telemetry/sentry-replay')
+      .then(({ replayIntegration }) => {
+        // RA 10173 / NPC: mask ALL text and block ALL media in replays so
+        // no guest/vendor PII (names, emails, uploaded photos) is ever
+        // captured in a session recording. maskAllText redacts every text
+        // node; blockAllMedia strips images/video/canvas.
+        Sentry.addIntegration(replayIntegration({ maskAllText: true, blockAllMedia: true }));
+      })
+      .catch(() => {
+        // The recorder failed to load (offline, blocked): error reporting goes on without it.
+        replayAddedRef.current = false;
+      });
+  };
+  useEffect(() => {
+    addReplayIfSignedIn(pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs and a stable helper; the path is the trigger
+  }, [pathname]);
+
   // ── THE STALE-BUNDLE MARKER IS CLEARED HERE ──────────────────────────────
   // The error boundaries reload ONCE per session when a tab is left holding
   // JavaScript a deploy has replaced. Reaching this component means the app
@@ -167,7 +200,9 @@ export function DeferredObservability() {
       // Dynamic import keeps `@sentry/nextjs` out of the main entry chunk.
       // Webpack will split it into its own async chunk that's only fetched
       // when this useEffect runs (i.e. post-hydration, post-idle).
-      void import('@sentry/nextjs')
+      // `webpackExports` names what this component uses, so the Session Replay recorder is NOT in this chunk — it
+      // is its own (`lib/telemetry/sentry-replay.ts`), fetched only on signed-in screens (owner 2026-10-23).
+      void import(/* webpackExports: ["init", "captureMessage", "addIntegration"] */ '@sentry/nextjs')
         .then((Sentry) => {
           if (cancelled) return;
           // Mirror the previous `sentry.client.config.ts` Sentry.init call
@@ -177,22 +212,9 @@ export function DeferredObservability() {
             // Sample 10% of transactions for performance traces. Tune
             // up/down later once we have a feel for volume vs. quota.
             tracesSampleRate: 0.1,
-            // Register the Replay integration so the on-error sampling below
-            // actually records. Without it, replaysOnErrorSampleRate is inert
-            // (Sentry only captures replays when replayIntegration() is in the
-            // integration set). Loaded inside the deferred chunk, so it adds
-            // nothing to the main bundle / LCP path.
-            //
-            // RA 10173 / NPC: mask ALL text and block ALL media in replays so
-            // no guest/vendor PII (names, emails, uploaded photos) is ever
-            // captured in a session recording. maskAllText redacts every text
-            // node; blockAllMedia strips images/video/canvas.
-            integrations: [
-              Sentry.replayIntegration({
-                maskAllText: true,
-                blockAllMedia: true,
-              }),
-            ],
+            // 🎥 No Replay integration here: it is added after init, and only on a
+            // signed-in work area (`addReplayIfSignedIn`, owner 2026-10-23). The
+            // on-error sampling below applies once it is added.
             // Best-effort PII scrubber on the whole event payload (breadcrumbs,
             // request data, extra context, error messages), plus a fail-closed
             // biometric face-vector scrub (RA 10173 · One-Pool spec §3.4 step 5)
@@ -206,6 +228,9 @@ export function DeferredObservability() {
             // already visible in the terminal / browser console.
             enabled: process.env.NODE_ENV === 'production',
           });
+          // 🎥 The SDK is up: keep it, and add the recorder now if this is a signed-in screen.
+          sentryRef.current = Sentry;
+          addReplayIfSignedIn(window.location.pathname);
           // A stylesheet failed on an earlier load and the page reloaded
           // (lib/stylesheet-recovery.ts). Nothing on the server can see that —
           // Vercel's logs carry no CDN static requests — so this report is the

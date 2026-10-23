@@ -866,7 +866,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     ⚡ EVERY READ THAT NEEDS ONLY THIS EVENT'S ID LEAVES NOW, TOGETHER (2026-10-23). Production: the Post Event
     story took 2.3 s for a guest and 3.8 s for the couple's Maker canvas, and the page's own timer
     (`slug/invitation-body`) said 0.13–0.36 s of that was the page — the rest was this loader and the component
-    above it, ~50 database trips in single file (`editorial-reads.harness.ts`). Each read below is STARTED here
+    above it, ~50 database trips in single file (`tests/story/editorial-reads.harness.ts`). Each read below is STARTED here
     with exactly the query it always had (moved, not rewritten) and awaited at the line that always awaited it,
     inside the try/catch that always caught it — so every value, every fallback and every refusal arrives where it
     did; a story the component then refuses to show simply drops what was read. Reads that need an earlier

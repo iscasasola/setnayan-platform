@@ -1,5 +1,5 @@
 /**
- * editorial-reads.harness.ts — RUNS THE REAL POST EVENT STORY (`EditorialContent` and the loader under it,
+ * tests/story/editorial-reads.harness.ts — RUNS THE REAL POST EVENT STORY (`EditorialContent` and the loader under it,
  * `loadEditorialData`) AGAINST A DATABASE THAT COUNTS. Not a test: `the-story-reads-start-together.test.ts`
  * runs this file in its own process and reads the JSON it prints.
  *
@@ -16,6 +16,9 @@
  * clips or guests are skipped here — what it measures is the ORDER the reads leave in, which is the same
  * either way. Fewer reads than production, never a different order.
  */
+/* 📍 WHY IT LIVES IN tests/, NOT BESIDE THE STORY: it is a fixture driver, not guest-facing code. Under `app/[slug]` the
+   guest tree's guards read it as a surface — a wedding fixture's words, a hardcoded `belongsToEvent`, a direct call of
+   the story loader — and each would be right to object if it were one. */
 import Module from 'node:module';
 
 type Resolve = (request: string, ...rest: unknown[]) => string;
@@ -160,7 +163,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 type ViewReport = { calls: number; depth: number; ms: number; steps: string[] };
 
 async function main() {
-  const { EditorialContent } = await import('./editorial-content');
+  const { EditorialContent } = await import('@/app/[slug]/_components/editorial/editorial-content');
   /* 🔒 A READ STARTED AND THEN DROPPED IS STILL A READ. A render that returns early (the gate turning a viewer away)
      can leave reads it started still in flight; they reach `fetch` a moment AFTER the render resolved. Wait until no
      new request has arrived for a while, so they are counted for the view that started them — never lost, never
@@ -196,10 +199,10 @@ async function main() {
   /* 🔒 WHAT IS READ BEFORE THE GATE, alone: the three reads `EditorialContent` starts ahead of it (the words, the role
      names, the story's loader), with nothing of the component around them. A turned-away viewer may read exactly
      these and nothing more — whatever table a past-the-gate read touches (held by the guard's test 2). */
-  const { eventWordsForEvent } = await import('../../_lib/event-words');
+  const { eventWordsForEvent } = await import('@/app/[slug]/_lib/event-words');
   const { loadRoleNames } = await import('@/lib/role-names.server');
   const { createAdminClient } = await import('@/lib/supabase/admin');
-  const { loadEditorialData } = await import('./data');
+  const { loadEditorialData } = await import('@/app/[slug]/_components/editorial/data');
   viewMemo = new Map();
   dataCache.clear();
   sent = [];

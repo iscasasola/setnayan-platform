@@ -403,30 +403,33 @@ export async function EditorialContent({
     awaited at the line that always awaited it, with the same fallback. Every comment below still describes its
     read. Held by `the-story-reads-start-together.test.ts`.
   */
-  const monoRead: Promise<HeroMonogramData | null> = isSample
-    ? Promise.resolve(null)
-    : (async () => {
-        try {
-          const admin = createAdminClient();
-          const { data: monoRow } = await admin
-            .from('events')
-            .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
-            .eq('event_id', eventId)
-            .maybeSingle();
-          return await resolveEventMonogram(admin, eventId, monoRow);
-        } catch {
-          return null;
-        }
-      })();
-  const hideWatermarkRead: Promise<boolean> = isSample
-    ? Promise.resolve(false)
-    : (async () => {
-        try {
-          return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-        } catch {
-          return false;
-        }
-      })();
+  // Both reads stay behind the SAMPLE CHECK at the call itself (a sample id is not a uuid — `silent-query-refusals.test.ts`).
+  const monoRead: Promise<HeroMonogramData | null> = (async () => {
+    if (!isSample) {
+      try {
+        const admin = createAdminClient();
+        const { data: monoRow } = await admin
+          .from('events')
+          .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
+          .eq('event_id', eventId)
+          .maybeSingle();
+        return await resolveEventMonogram(admin, eventId, monoRow);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
+  const hideWatermarkRead: Promise<boolean> = (async () => {
+    if (!isSample) {
+      try {
+        return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  })();
   const backCoverRead: Promise<BackCover | null> = isSample
     ? Promise.resolve(null)
     : startAhead(loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer }));

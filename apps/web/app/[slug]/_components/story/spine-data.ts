@@ -316,7 +316,7 @@ export async function loadStorySpineFacts(args: {
     ⚡ THE SPINE'S READS LEAVE TOGETHER (2026-10-23). Every read below that needs only this event and its day's
     window — the event row, the contracts, the photos before and on the day, the broadcasts, the story's own state,
     the venue's suppliers and blocks, the dial and the room's freeze — waited for the one above it: ten trips in
-    single file at the bottom of the Post Event story (`editorial-reads.harness.ts`). Each is STARTED here with
+    single file at the bottom of the Post Event story (`tests/story/editorial-reads.harness.ts`). Each is STARTED here with
     exactly the query it always had (moved, not rewritten; the dial's bucket is the same pure `dialBucketMinutes`
     of the same window) and awaited at the line that always awaited it, inside the try/catch that always caught it.
     The live room (only when no freeze) and the table heat need earlier answers and stay where they were. Nothing

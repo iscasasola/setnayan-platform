@@ -4,7 +4,7 @@
  * MEASURED 2026-10-23 on production: the guest page on Post Event took 3.7–3.9 s for the couple's Maker canvas and
  * ~2.3 s for a guest, while the page's own timer (`slug/invitation-body`) said 0.13–0.36 s — the rest was the story,
  * which reads while it renders (`EditorialContent` → `loadEditorialData` → `loadStorySpineFacts`). Run here against a
- * database that counts (`editorial-reads.harness.ts`): 57 reads, 51 of them one after another; at 150 ms a trip,
+ * database that counts (`tests/story/editorial-reads.harness.ts`): 57 reads, 51 of them one after another; at 150 ms a trip,
  * 7.7 s. Every read that needs only the event (and the day's window, and the already-redacted story) is now STARTED
  * together and awaited where it always was: 51 → 10 deep, 1.5 s, the same 57 reads.
  *
@@ -22,7 +22,7 @@ const WEB = join(__dirname, '..', '..', '..', '..');
 function measure(): { host: View; guest: View; stranger: View; beforeTheGate: View } {
   const out = execFileSync(
     join(WEB, '..', '..', 'node_modules', '.bin', 'tsx'),
-    [join(WEB, 'app', '[slug]', '_components', 'editorial', 'editorial-reads.harness.ts')],
+    [join(WEB, 'tests', 'story', 'editorial-reads.harness.ts')],
     {
       cwd: WEB,
       encoding: 'utf8',

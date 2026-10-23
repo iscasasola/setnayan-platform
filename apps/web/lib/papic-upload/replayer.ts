@@ -275,8 +275,11 @@ export class PapicUploader {
     this.preparing = true;
     try {
       for (;;) {
+        // A guest clip's web copy needs the ffmpeg core from the network: made
+        // offline it would fail, and the clip would then send its whole raw.
+        // So a guest clip waits for signal to be prepared; photos never wait.
         const next = [...this.shots.values()]
-          .filter((s) => !s.prepared)
+          .filter((s) => !s.prepared && (s.media === 'photo' || s.lane !== 'guest' || this.deps.online()))
           .sort((a, b) => a.capturedAtMs - b.capturedAtMs)[0];
         if (!next) break;
         await this.prepareShot(next);

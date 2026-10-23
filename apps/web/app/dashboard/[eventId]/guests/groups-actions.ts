@@ -426,53 +426,6 @@ export async function deleteGuestGroup(
 }
 
 // -----------------------------------------------------------------------
-// Remove a single guest from a group · used by the "Remove from group"
-// chip on each guest row when viewing a custom-group view.
-// -----------------------------------------------------------------------
-
-export async function removeGuestFromGroup(
-  eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const groupId = clean(formData.get('group_id'));
-  const guestId = clean(formData.get('guest_id'));
-
-  if (!groupId || !guestId) {
-    redirect(backToList(eventId, { error: 'invalid_input' }));
-  }
-
-  const supabase = await createClient();
-  // RLS gates the delete to this event's couples + admins; we still
-  // double-check the group's event for an explicit error path.
-  const { data: groupRow } = await supabase
-    .from('guest_groups')
-    .select('event_id')
-    .eq('group_id', groupId)
-    .maybeSingle();
-  if (!groupRow || groupRow.event_id !== eventId) {
-    redirect(backToList(eventId, { error: 'invalid_group' }));
-  }
-
-  const { error } = await supabase
-    .from('guest_group_memberships')
-    .delete()
-    .eq('group_id', groupId)
-    .eq('guest_id', guestId);
-
-  if (error) {
-    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, {
-      group: groupId,
-      group_member_removed: '1',
-    }),
-  );
-}
-
-// -----------------------------------------------------------------------
 // Living Roster P1 · optimistic delete + undo. THE ONLY WAY THIS PAGE REMOVES
 // A GUEST (2026-09-06 — the redirect-based `bulkSoftDeleteGuests` that used to
 // sit above this was deleted; see "why there is only one" below).

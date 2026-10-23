@@ -22,4 +22,9 @@ only through the pipeline or an owner action, so this ships the tool; the owner 
   idempotent; service role only) · `lib/old-photo-copies.test.ts` (the rules; dry run until pressed; no delete; prints
   on the original). Ugat: one declined line (ops tooling).
 
+- Server-action budget (1,225, never raised): the press is one new route, so `removeGuestFromGroup`
+  (`app/dashboard/[eventId]/guests/groups-actions.ts`) — an exported action nothing in the repo calls any more (its
+  "Remove from group" chip is gone) — is removed, the #6003 / slice-A way. Budget back to 1,225 of 1,225.
+- The section is grouped by a rule and type, not a box (`lint:no-card`).
+
 SPEC IMPACT: None (an admin tool on an existing page; no product behaviour or SKU changes).

@@ -194,7 +194,7 @@ export default async function PapicStoragePage() {
           served at full size — 4.3 MB on the live Discover page that day. The count is the DRY RUN (a HEAD per object,
           nothing written); the button writes a web-size copy beside each original and points the cover at it. The
           original is never deleted, and prints keep using it. */}
-      <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm" data-old-photos="">
+      <section className="border-t border-ink/10 pt-5" data-old-photos="">
         <h2 className="text-base font-semibold text-ink">Make small copies of old photos</h2>
         <p className="mt-1 text-sm text-ink/60">
           Event covers over {formatBytes(OVERSIZED_BYTES)} get a {WEB_LONG_EDGE}px copy beside the original, and the

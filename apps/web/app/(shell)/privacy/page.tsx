@@ -1989,7 +1989,7 @@ export default function PrivacyPage() {
               connect their TikTok account via OAuth)
             </li>
             <li>
-              Apple (Sign in with Apple, for people who choose it; and purchases
+              Apple (signing in with Apple, for people who choose it; and purchases
               made in the iPhone app through Apple, when available in the app)
             </li>
           </ul>

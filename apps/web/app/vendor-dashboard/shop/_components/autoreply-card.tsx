@@ -101,20 +101,29 @@ export function AutoReplyCard({
     });
   }
 
+  // The value the next press steps from — a ref, so two quick presses never both read the same stale state.
+  const thresholdNow = useRef(initialAutoAcceptThreshold);
+
   function stepThreshold(delta: number) {
     const next = Math.max(
       AUTO_ACCEPT_THRESHOLD_MIN,
-      Math.min(AUTO_ACCEPT_THRESHOLD_MAX, threshold + delta),
+      Math.min(AUTO_ACCEPT_THRESHOLD_MAX, thresholdNow.current + delta),
     );
-    if (next === threshold) return;
+    if (next === thresholdNow.current) return;
+    thresholdNow.current = next;
     setThreshold(next);
     if (thresholdTimer.current) clearTimeout(thresholdTimer.current);
     thresholdTimer.current = setTimeout(() => {
-      if (next === savedThreshold.current) return;
-      save([['auto_accept_threshold', String(next)]], {
-        onError: () => setThreshold(savedThreshold.current),
+      const value = thresholdNow.current;
+      if (value === savedThreshold.current) return;
+      save([['auto_accept_threshold', String(value)]], {
+        onError: () => {
+          thresholdNow.current = savedThreshold.current;
+          setThreshold(savedThreshold.current);
+        },
         onSuccess: (res) => {
           savedThreshold.current = res.autoAcceptThreshold;
+          thresholdNow.current = res.autoAcceptThreshold;
           setThreshold(res.autoAcceptThreshold);
           toast.success('Saved.');
         },

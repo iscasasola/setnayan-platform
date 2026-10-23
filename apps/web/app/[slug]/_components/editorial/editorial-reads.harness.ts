@@ -161,6 +161,17 @@ type ViewReport = { calls: number; depth: number; ms: number; steps: string[] };
 
 async function main() {
   const { EditorialContent } = await import('./editorial-content');
+  /* 🔒 A READ STARTED AND THEN DROPPED IS STILL A READ. A render that returns early (the gate turning a viewer away)
+     can leave reads it started still in flight; they reach `fetch` a moment AFTER the render resolved. Wait until no
+     new request has arrived for a while, so they are counted for the view that started them — never lost, never
+     counted for the next one. */
+  async function settled() {
+    let seen = -1;
+    while (seen !== sent.length) {
+      seen = sent.length;
+      await new Promise((r) => setTimeout(r, DELAY * 4 + 40));
+    }
+  }
   async function view(viewer: { isHost: boolean; belongsToEvent: boolean }, hostPreview: boolean): Promise<ViewReport> {
     viewMemo = new Map();
     dataCache.clear();
@@ -168,6 +179,7 @@ async function main() {
     returned = 0;
     const t0 = performance.now();
     await EditorialContent({ eventId: EVENT_ID, viewer, hostPreview, makerMarkers: hostPreview } as never);
+    await settled();
     return {
       calls: sent.length,
       depth: Math.max(0, ...sent.map((s) => s.step)),
@@ -197,6 +209,7 @@ async function main() {
     loadRoleNames(createAdminClient(), EVENT_ID, 'EditorialContent.roleNames'),
     loadEditorialData(EVENT_ID),
   ]);
+  await settled();
   const beforeTheGate: ViewReport = {
     calls: sent.length,
     depth: Math.max(0, ...sent.map((s) => s.step)),

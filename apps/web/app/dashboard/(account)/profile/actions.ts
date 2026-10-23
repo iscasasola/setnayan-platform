@@ -18,13 +18,6 @@ import { isAppearance } from '@/lib/appearance';
 // 'auto' (2026-06-06 three-mode migration), but there is NO "follow the phone" option (call 1) and
 // 20271267769389 moved every 'auto' row to 'light' — so 'auto' is refused here.
 
-const VALID_PLANNER_MODES = ['guided', 'diy'] as const;
-type PlannerMode = (typeof VALID_PLANNER_MODES)[number];
-
-function isValidPlannerMode(value: unknown): value is PlannerMode {
-  return typeof value === 'string' && (VALID_PLANNER_MODES as readonly string[]).includes(value);
-}
-
 // Iteration 0025 — runtime EN/TL toggle. 'ceb' stays in the DB enum for a
 // future Cebuano dictionary; the UI only exposes EN/TL today.
 const VALID_LOCALES = ['en', 'tl'] as const;
@@ -300,27 +293,8 @@ export async function updateLocalePreference(formData: FormData) {
   revalidatePath('/dashboard', 'layout');
 }
 
-export async function updatePlannerMode(formData: FormData) {
-  const raw = formData.get('planner_mode');
-  if (!isValidPlannerMode(raw)) {
-    throw new Error('Invalid planner mode');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { error } = await supabase
-    .from('users')
-    .update({ planner_mode: raw, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath('/dashboard', 'layout');
-}
+// `updatePlannerMode` is gone with the Guided · DIY setting (owner 23 Oct 2026): nothing
+// ever read `users.planner_mode`, so the choice changed nothing. The column stays.
 
 // ---------------------------------------------------------------------------
 // Social-sharing follow-through #7a — vanity slug editor.

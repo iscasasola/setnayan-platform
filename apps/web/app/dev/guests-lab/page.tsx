@@ -60,7 +60,9 @@ import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quic
 import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
+import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
+import { GuestPapicCamera } from '@/app/dashboard/[eventId]/guests/_components/guest-papic-camera';
+import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
@@ -435,6 +437,12 @@ export default async function GuestsLabPage({
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
     const low = sp.low === '1';
+    const labPapic: GuestPapicState =
+      sp.papic === 'off'
+        ? { access: 'off', ceiling: undefined }
+        : sp.papic === 'unknown'
+          ? { access: 'unknown', ceiling: undefined }
+          : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };
     /* 🪪 `&title=atty` — the groom's mother as cale-ice holds her ("Atty.", no woman / man yet: the pending pick);
        `&gender=woman` after she is picked as "Atty. (Woman)". */
     const pickedGender: GuestRow['gender'] = sp.gender === 'woman' ? 'woman' : sp.gender === 'man' ? 'man' : null;
@@ -559,6 +567,10 @@ export default async function GuestsLabPage({
                   SendInvite={GuestInviteCell}
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
+                  DeleteControl={GuestDeleteControl}
+                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
+                  papic={labPapic}
+                  PapicCamera={GuestPapicCamera}
                   kit={TEMPLATE_KIT}
                 />
                 </LabGuestActions>

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Check } from 'lucide-react';
+import Link from 'next/link';
+import { Check, ChevronRight } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -15,6 +16,7 @@ import { entourageGroupOfRole, sectionUsualHeading } from '@/lib/entourage';
 import { isRenamableRole, roleNameOne, sectionName } from '@/lib/role-names';
 import type {
   CardBoxProps,
+  CardDoorProps,
   CardFieldProps,
   CardFoldProps,
   CardGroupProps,
@@ -82,11 +84,23 @@ export function CardField({ id, label, required = false, type = 'text', defaultV
 }
 
 /** On / off. The switch keeps its state here; the checkbox under it (`fieldName`) is what the form reads. */
-export function CardToggle({ name, defaultChecked, label, note }: CardToggleProps) {
+export function CardToggle({ name, defaultChecked, label, note, form }: CardToggleProps) {
   const [on, setOn] = useState(defaultChecked);
   // A fresh value from the server (a save landed, the row was edited elsewhere) moves the switch — and tells the form nothing.
   useEffect(() => setOn(defaultChecked), [defaultChecked]);
-  return <SwitchRow name={label} about={{ words: note }} on={on} onChange={setOn} fieldName={name} data={`card-${name}`} attrs={{ 'data-card-field': name }} />;
+  return <SwitchRow name={label} about={{ words: note }} on={on} onChange={setOn} fieldName={name} formId={form} data={`card-${name}`} attrs={{ 'data-card-field': name }} />;
+}
+
+/** 🚪 One line with one door — the row's name, its fact, and the one place it is changed ("Papic is off · Turn on ›"). */
+export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
+  return (
+    <FormRow name={label} line={value} data={data} attrs={{ 'data-card-door': data }}>
+      <Link href={href} className={actionButtonClass('brand', { extra: 'min-h-10' })}>
+        {action}
+        <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+      </Link>
+    </FormRow>
+  );
 }
 
 /** One row of the card: closed with a one-line summary, open its fields as ONE list of rows. */

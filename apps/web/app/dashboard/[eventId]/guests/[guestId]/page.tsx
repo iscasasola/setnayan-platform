@@ -15,7 +15,10 @@ import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-da
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import { GuestCardBody } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
+import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
+import { GuestPapicCamera } from '../_components/guest-papic-camera';
+import { forTheCouple, readGuestPapic } from '../_components/guest-papic-read';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
 import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
 import { UndoToastHost } from '../_components/undo-toast';
@@ -59,13 +62,18 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [data, inviteSetup] = await Promise.all([
+  const [data, inviteSetup, papicRead, storeShell] = await Promise.all([
     loadGuestCard(supabase, eventId, guestId),
     // Send invite · Copy message — the event's words + the couple's wording.
     loadInviteSetup(supabase, eventId),
+    // 📸 The event's Papic and this guest's camera (owner 2026-10-23) — handed on only to the couple (`forTheCouple`).
+    readGuestPapic(eventId, guestId),
+    // 🍎 The app never names Papic (a paid service): there the group stays the shipped "Photos" row.
+    isStoreShellRequest(),
   ]);
   if (!data) notFound();
   const { guest } = data;
+  const papic = forTheCouple(papicRead, data.canManageAccess);
   // A limited helper's grants, colours and record (the Hosts fold, F2) — couple only.
   const helper = data.canManageAccess
     ? await loadGuestHelperCard({ eventId, guestId, viewerUserId: user.id, displayName: guestDisplayName(guest) })
@@ -138,6 +146,10 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        DeleteControl={GuestDeleteControl}
+        papic={papic}
+        PapicCamera={GuestPapicCamera}
+        storeShell={storeShell}
         kit={TEMPLATE_KIT}
         // 🎟 The ticket at its versioned, year-long cached address (streamed — the card never waits).
         ticketVersion={passCardTicketVersion(createAdminClient(), guestId).catch(() => null)}

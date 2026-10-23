@@ -125,7 +125,8 @@ test('no sign-in link or invitation is emailed to a guest who passed away', () =
 
 test('the guest card is where the couple sets it — never for the couple themselves', () => {
   const body = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const toggle = /\{isCouple \? null : \(\s*<K\.Toggle\s+name="passed_away"/;
+  /* RE-AIMED 2026-10-23: its own group, out of Details (owner's groups) — and still never for the couple. */
+  const toggle = /\{isCouple \? null : \(\s*<K\.Fold summary="Passed Away"[^>]*>\s*<K\.Toggle\s+name="passed_away"/;
   assert.match(body, toggle, 'the Passed away toggle is missing, or offered to the bride and groom');
   assert.match(body, /label="Passed away"/);
   const action = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');

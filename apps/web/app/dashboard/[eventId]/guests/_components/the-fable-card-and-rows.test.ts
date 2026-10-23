@@ -93,17 +93,30 @@ test('card body: every choice is ONE shipped PickMenu — never a native select,
   assert.match(fields, /<PickMenu\b/, 'FormPick is not the shipped PickMenu');
 });
 
-test('card body: the name is open; the rest fold, one open at a time', () => {
-  const nameAt = CARD.indexOf('data-guest-card-name=""');
-  const firstFold = CARD.indexOf('<K.Fold summary=');
-  assert.ok(nameAt > 0 && firstFold > nameAt, 'the name is not open above the rows');
-  for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Note for them · they see it', 'Private note · only you', 'Access']) {
-    assert.match(CARD, new RegExp(`<K\\.Fold summary="${s}"`), `the ${s} row is gone`);
-  }
+/* RE-AIMED 2026-10-23 — THE OWNER'S GROUPS (prototype `guest_card_groups_and_papic_2026-10-23.html`): the name is no longer
+   open above the rows; it is Basic Info, the first group, CLOSED with the mobile in its summary. Every group is one row
+   (label · summary · open), in his order, and the read-only Tags line is gone (its words were the eyebrow and the summaries). */
+test('card body: the owner’s groups, in his order — every one folds, one open at a time; Tags gone', () => {
+  const ORDER = ['Basic Info', 'Details', 'Additional Guests', 'RSVP Status', 'Papic', 'Seat Plan', 'Note for them · Private note', 'Access', 'Passed Away', 'Delete'];
+  // Papic is named only off the app (🍎 — it is "Photos" there and in the Maker's cards).
+  const at = ORDER.map((g) => CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : `<K.Fold summary="${g}"`));
+  ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
+  for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
+  // The Papic group's one line while the event's Papic is off sits in Papic's own place.
+  const door = CARD.indexOf('<K.Door label="Papic"');
+  assert.ok(door > at[3]! && door < at[4]!, 'the "Papic is off" line is not where the Papic group is');
+  // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
+  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
+  const basic = CARD.slice(at[0]!, at[1]!);
+  assert.match(basic, /data-guest-card-name=""/, 'the name is not in Basic Info');
+  assert.match(basic, /<K\.Field id="mobile"/, 'the mobile is not in Basic Info');
+  assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
+  assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
+  assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
   assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');
   // …and on the Guests pages the shared Fold is one-open-at-a-time too (`useOneOpen`).
   assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the templated card’s rows are not the shared Fold');
-  assert.match(CARD, /data-guest-card-tags=""/, 'Tags is gone');
+  assert.doesNotMatch(CARD, /data-guest-card-tags=""|tagWords/, 'the Tags line is back');
 });
 
 test('card: RSVP is Attending · No reply · Not coming — Maybe only for a guest who said it', () => {

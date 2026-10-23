@@ -172,29 +172,35 @@ async function paintCard(over: Partial<GuestRow>): Promise<string> {
 const NAME_ROWS = ['first_name', 'middle_name', 'last_name', 'name_suffix', 'display_name', 'mobile'];
 
 test('2 · the card’s Tab order IS its row order: Title → First → … → Mobile, then the open section’s rows; shut sections skipped', async () => {
-  /* A guest who left a note: the card opens on RSVP (`open={Boolean(guest.guest_note)}`) — every other section is shut. */
+  /* A guest who left a note: the card opens on RSVP Status (`open={Boolean(guest.guest_note)}`) — every other group is shut,
+     Basic Info too (owner 2026-10-23: closed by default, the mobile in its summary). RE-AIMED 2026-10-23: Passed Away left the
+     form's box (it sits below Access and posts by `form=`), so the form holds one row fewer. */
   const rows = paintedRows(await paintCard({ guest_note: 'See you!', mobile: '0917 555 0101' }));
-  assert.ok(rows.length >= 20, `only ${rows.length} rows were read — the reader is blind`);
+  assert.ok(rows.length >= 18, `only ${rows.length} rows were read — the reader is blind`);
   assert.ok(rows.some((r) => !r.reachable) && rows.some((r) => r.reachable), 'no shut section on the card — nothing proves the skip');
-  assert.deepEqual(walk(rows, 'first_name', 1), [
-    ...NAME_ROWS,
-    'rsvp_status', // RSVP's Reply dropdown
+  assert.deepEqual(walk(rows, 'rsvp_status', 1), [
+    'rsvp_status', // RSVP Status's Reply dropdown
     'invited_to',
-    'plus_one_count', // Extra seats
     'meal_preference',
     'dietary_restrictions',
   ]);
-  assert.deepEqual(walk(rows, 'first_name', -1), ['first_name', 'name_title'], 'Shift+Tab from First is not the Title');
-  assert.deepEqual(walk(rows, 'dietary_restrictions', -1), ['dietary_restrictions', 'meal_preference', 'plus_one_count', 'invited_to', 'rsvp_status', ...[...NAME_ROWS].reverse(), 'name_title']);
+  assert.deepEqual(walk(rows, 'rsvp_status', -1), ['rsvp_status'], 'Shift+Tab from Reply reached into a shut group');
+  assert.deepEqual(walk(rows, 'dietary_restrictions', -1), ['dietary_restrictions', 'meal_preference', 'invited_to', 'rsvp_status']);
+  /* …and Basic Info, opened, is Title → First → Middle → Last → Suffix → Shown as → Mobile: the painted order, walked by the
+     kit's own rule with that one group open (every other row as painted). */
+  const nameFields = new Set(['name_title', ...NAME_ROWS]);
+  const basicOpen = rows.map((r) => (nameFields.has(r.field) ? { ...r, reachable: true } : r));
+  assert.deepEqual(walk(basicOpen, 'name_title', 1).slice(0, 7), ['name_title', ...NAME_ROWS], 'Basic Info’s rows are not in the name’s order');
+  assert.deepEqual(walk(basicOpen, 'first_name', -1), ['first_name', 'name_title'], 'Shift+Tab from First is not the Title');
+  assert.equal(walk(basicOpen, 'mobile', 1)[1], 'rsvp_status', 'from Mobile, Tab does not go on to the open group (shut ones skipped)');
 });
 
-test('2b · with every section shut, Mobile is the last stop — and nothing in a shut section is ever one', async () => {
+test('2b · with every group shut — Basic Info too — nothing in a shut group is ever a stop', async () => {
   const rows = paintedRows(await paintCard({}));
-  assert.deepEqual(walk(rows, 'name_title', 1), ['name_title', ...NAME_ROWS]);
-  for (const f of ['rsvp_status', 'meal_preference', 'dietary_restrictions', 'notes', 'photo_consent']) {
+  for (const f of ['first_name', 'mobile', 'rsvp_status', 'meal_preference', 'dietary_restrictions', 'notes', 'photo_consent']) {
     const r = rows.find((x) => x.field === f);
     assert.ok(r, `${f} is not on the card`);
-    assert.equal(r.reachable, false, `${f} sits in a shut section and is still a Tab stop`);
+    assert.equal(r.reachable, false, `${f} sits in a shut group and is still a Tab stop`);
   }
 });
 

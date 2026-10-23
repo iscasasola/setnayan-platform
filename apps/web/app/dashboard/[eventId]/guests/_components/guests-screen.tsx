@@ -123,6 +123,8 @@ import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
 import { NewGroupInlineForm } from './new-group-inline-form';
+import { GuestPapicBulkSheet, PAPIC_SET_OPTIONS } from './guest-papic-bulk';
+import type { GuestCamera } from '@/lib/papic-guest-camera';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
@@ -208,6 +210,11 @@ export type GuestsScreenProps = {
    * (`failed`). The mark says so, and nothing that writes is offered — no Select, no Remove, no Add.
    */
   copy?: GuestsCopyState | null;
+  /**
+   * 📸 The event's Papic, read for the couple (`readEventPapicAccess`): 'on' → Select's Set… ▾ gains a Papic group (owner
+   * 2026-10-23, "Papic · set N each"). Anything else — off, a check that did not answer, not the couple — offers none.
+   */
+  papic?: 'on' | 'off' | 'unknown' | null;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -535,6 +542,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
+  // ── Set… ▾ › Papic (owner 2026-10-23) — the sheet "Papic · set N each", open with the choice that was picked.
+  const [papicSheet, setPapicSheet] = useState<GuestCamera | null>(null);
   const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
@@ -856,6 +865,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     ...(hasSides
       ? (['bride', 'groom', 'both'] as GuestSide[]).map((s) => ({ key: `side:${s}`, label: SIDE_LABELS[s], group: 'Side' }))
       : []),
+    // 📸 Their camera, for everyone selected — only while the event's Papic is on (owner 2026-10-23).
+    ...(live.papic === 'on' && !copy ? PAPIC_SET_OPTIONS : []),
   ];
   const selectedIds = [...selected];
   const invitable = selectedIds
@@ -907,6 +918,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 if (selected.size === 0) return;
                 if (k === 'group:new') return setNewGroup(true);
                 if (k === 'reply:attending' || k === 'reply:declined') return void setReplies(selectedIds, k.slice(6) as 'attending' | 'declined');
+                if (k.startsWith('papic:')) return setPapicSheet(k.slice(6) as GuestCamera);
                 const [field, ...rest] = k.split(':');
                 const value = rest.join(':');
                 void applyBulk(field === 'group' ? 'group_id' : (field as 'table' | 'side'), value);
@@ -1308,6 +1320,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
             setRemoveError(refused);
           }}
         />
+        {papicSheet ? (
+          <GuestPapicBulkSheet
+            eventId={eventId}
+            ids={selectedIds}
+            names={selectedIds.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g)).map((g) => plusWords.get(g.guest_id)?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g)))}
+            start={papicSheet}
+            onClose={() => setPapicSheet(null)}
+            onDone={() => {
+              setPapicSheet(null);
+              leaveSelect();
+            }}
+          />
+        ) : null}
         {newGroup ? (
         <GuestPopup
           onClose={() => setNewGroup(false)}

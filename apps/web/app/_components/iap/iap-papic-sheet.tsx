@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -10,6 +10,8 @@ import { IAP_PAPIC_PRODUCTS } from '@/lib/iap/products';
 import { buyWithApple } from '@/lib/iap/native-store';
 import { useAppStorePrices } from '@/lib/iap/use-app-store-prices';
 import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
+import { CreditNeed } from '@/app/dashboard/[eventId]/studio/papic/_components/credit-need';
+import { papicBuySizes } from '@/app/dashboard/[eventId]/studio/papic/actions';
 
 /**
  * 🍎 PAPIC · ADD CREDITS — IN THE iPHONE APP (prototype
@@ -52,6 +54,23 @@ export function IapPapicSheet({
   );
   const [rung, setRung] = useState<StepperRung | null>(null);
   const onRung = useCallback((r: StepperRung) => setRung(r), []);
+  // 🧮 "How many do I need?" (owner 2026-10-23) — the web sheet's own helper, landing on Apple's packs. Its inputs
+  // (guests coming, the per-guest numbers) ride `papicBuySizes`; only `need` is used here — no web price is drawn.
+  type Need = { coming: number | null; each: number | null; named: { count: number; sum: number } | null };
+  const [need, setNeed] = useState<Need | null>(null);
+  const [jump, setJump] = useState<{ index: number; seq: number } | null>(null);
+  useEffect(() => {
+    if (!open || need) return;
+    let live = true;
+    papicBuySizes(eventId)
+      .then((r) => {
+        if (live && r.ok) setNeed(r.need);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [open, need, eventId]);
   const [buying, setBuying] = useState(false);
   const [screen, setScreen] = useState<IapScreen | null>(null);
   const [bought, setBought] = useState<number | null>(null);
@@ -121,7 +140,8 @@ export function IapPapicSheet({
           </p>
         ) : (
           <>
-            <CreditStepper rungs={rungs} onRungChange={onRung} />
+            {need ? <CreditNeed need={need} left={left} rungs={rungs} onJump={(index) => setJump((j) => ({ index, seq: (j?.seq ?? 0) + 1 }))} /> : null}
+            <CreditStepper rungs={rungs} onRungChange={onRung} jump={jump} />
             {left !== null && rung ? (
               <div className="sg-after" data-papic-after="">
                 <span>After this</span>
@@ -138,7 +158,7 @@ export function IapPapicSheet({
               >
                 {buying
                   ? 'Opening the App Store…'
-                  : `${screen?.kind === 'failed' ? 'Try again' : 'Buy'}${rung?.priceLabel ? ` · ${rung.priceLabel}` : ''}`}
+                  : `${screen?.kind === 'failed' ? 'Try again' : rung ? `Buy ${credits(rung.points)}` : 'Buy'}${rung?.priceLabel ? ` · ${rung.priceLabel}` : ''}`}
               </button>
               <p className="sg-step">Credits land on this event the moment Apple confirms.</p>
             </div>

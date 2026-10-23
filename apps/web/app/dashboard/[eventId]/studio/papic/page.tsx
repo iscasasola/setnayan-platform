@@ -22,19 +22,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
 import { formatPhp } from '@/lib/orders';
-import { eventSkuActive } from '@/lib/entitlements';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  getDriveOAuthConfig,
-} from '@/lib/papic-drive';
 import { readPapicStandings } from '@/lib/papic-standings';
 import {
   resolveStoredWindow,
-  formatWindowSummary,
-  formatCaptureCloseLabel,
-  formatPapicDayInWords,
-  captureWindowState,
   PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
@@ -58,7 +49,7 @@ import { RecapCard } from './_components/recap-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicTopBand } from './_components/papic-top-band';
 import { getIapGate } from '@/lib/request-platform';
-import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
+import { papicGlance, glanceTileFromStandings } from '@/lib/papic-glance';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { LifeFlashCard } from './_components/life-flash-card';
@@ -249,23 +240,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .maybeSingle()
       .then((r) => r.data ?? null),
   );
-  const driveConfigRead = startRead(getDriveOAuthConfig());
   /* ⛔ THE CAMERA RATES, THE TIER CONFIG AND THE ONE TIERS ARE NOT ASKED ANY MORE (owner 2026-10-23,
      "why do i have these?"): they priced the guest-camera tiers and the crew-camera ladder, and Papic
      sells credits only (`lib/papic-sells-only-credits.ts`). */
   // The entitlement client is asked ONCE (it is cache()d per event); each SKU waits on it alone.
   const entitlementClientRead = startRead(eventEntitlementClient(eventId));
-  const ownsSkuRead = (sku: string) =>
-    startRead(entitlementClientRead.then((ent) => eventSkuActive(ent, eventId, sku)));
-  const papicPlatformSettingsRead = startRead(fetchPlatformSettings(supabase));
-  const keepFullResRowRead = startRead(
-    unlockAdmin
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php, is_active')
-      .eq('service_code', 'HIGH_RES_ARCHIVE')
-      .maybeSingle(),
-  );
-  const ownsKeepFullResRead = ownsSkuRead('HIGH_RES_ARCHIVE');
+  /* 🗂 Drive's config, Keep full-res's price and ownership and the checkout settings left with the files (Memories ⚙,
+     2026-10-23) — this page asks none of them. */
   const cameraBridgeRowRead = startRead(
     unlockAdmin
       .from('platform_retail_catalog_v2')
@@ -339,9 +320,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // referenced NOWHERE in 1,785 lines. Splitting the page into three rooms would
   // only have made it easier to keep paying for an answer nobody asks for.
   // (asked above, with the page's other independent reads)
-  const [grantRaw, driveConfig] = await Promise.all([driveGrantRead, driveConfigRead]);
-  const driveGrant = (grantRaw ?? null) as DriveGrant | null;
-  const driveOAuthReady = driveConfig.ready;
+  // The Drive grant only names the connected account in the banner a Drive connect lands on.
+  const driveGrant = ((await driveGrantRead) ?? null) as DriveGrant | null;
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -350,26 +330,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     windowEnd: (ev.papic_window_end as string | null) ?? null,
     eventDate: (ev.event_date as string | null) ?? null,
   });
-  const papicDays = papicWindow.days;
-  // ⚠ THE CHOSEN DAYS, NOT THE CLOSING INSTANT. `endIso` now lands on the
-  // morning AFTER the last day, so passing it here turned a one-day wedding
-  // into "Dec 20 – Dec 21 · 2 days" on the tile the couple reads first.
-  const papicWindowSummary = formatWindowSummary(
-    papicWindow.startDate,
-    papicWindow.endDate,
-  );
-  // When the cameras actually stop — formatted from the gate's own number.
-  const papicCaptureCloseLabel = formatCaptureCloseLabel(papicWindow.endIso);
-  const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
-  /* 📸 The window IN WORDS, saved or the automatic default (owner 2026-10-13):
-     "On from Saturday, 12 June · until 12 h after your day" — or "Papic turns
-     on …" while the cameras wait (more than 6 months out). Never "set the dates". */
-  const papicWindowWords = (() => {
-    const on = formatPapicDayInWords(papicWindow.startDate);
-    if (!on) return 'Switches on when your date is set';
-    const waits = captureWindowState(papicWindow.startDate, papicWindow.endIso) === 'not_started';
-    return `${waits ? 'Papic turns on' : 'On from'} ${on} · ${PAPIC_UNTIL_WORDS}`;
-  })();
+  // (The window in words lives in the camera settings now — `PapicCameraSettings`, the one line.)
 
 
   /* ⛔ THE PHASE-ORDERED BLOCKS ARE GONE (2026-10-23): the Papic page is the camera only — one order, the owner's
@@ -385,32 +346,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   // (each started above, with the page's other independent reads)
-  const [
-    papicPlatformSettings,
-    { data: keepFullResRow, error: keepFullResRowError },
-    ownsKeepFullRes,
-    { data: cameraBridgeRow, error: cameraBridgeRowError },
-  ] = await Promise.all([
-    papicPlatformSettingsRead,
-    // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
-    keepFullResRowRead,
-    ownsKeepFullResRead,
-    // The DSLR bridge's price comes from the catalogue, never from copy — and
-    // only while the row is ACTIVE. CAMERA_BRIDGE was retired (migration
-    // 20270828170000), so today this resolves to "no price, nothing to buy".
-    cameraBridgeRowRead,
-  ]);
-  if (keepFullResRowError) {
-    logQueryError('PapicPage.keepFullResRow', keepFullResRowError, { event_id: eventId }, 'graceful_degrade');
-  }
+  // The DSLR bridge's price comes from the catalogue, never from copy — and only while the row is ACTIVE.
+  // CAMERA_BRIDGE was retired (migration 20270828170000), so today this resolves to "no price, nothing to buy".
+  // 🔒 THE HOST-ONLY CHECK, before any service-role write below — a visitor who is not a host is refused here. (It used
+  // to be awaited inside the catalogue batch that left with the files; it is awaited on its own now.)
+  await entitlementClientRead;
+  const { data: cameraBridgeRow, error: cameraBridgeRowError } = await cameraBridgeRowRead;
   if (cameraBridgeRowError) {
     logQueryError('PapicPage.cameraBridgeRow', cameraBridgeRowError, { event_id: eventId }, 'graceful_degrade');
   }
   const cameraBridgePricePhp = cameraBridgeRow?.is_active
     ? Number(cameraBridgeRow.retail_price_php)
-    : null;
-  const keepFullResPricePhp = keepFullResRow?.is_active
-    ? Number(keepFullResRow.retail_price_php)
     : null;
 
   // FREE cameras — "always 3 seats / event" (owner 2026-07-17 · brief PR-3).

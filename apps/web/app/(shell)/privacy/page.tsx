@@ -1160,7 +1160,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               One-click opt-out from{' '}
-              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/privacy</code>{' '}
+              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/website/privacy</code>{' '}
               removes the page from the index immediately.
             </li>
             <li>

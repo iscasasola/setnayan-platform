@@ -190,14 +190,15 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'Nothing deletes it on a timer yet; how long we keep it', m: { kind: 'kept', why: 'No job prunes user_devices — the 24-month promise was withdrawn for that reason.' } },
   // ── /privacy · face data ──
   { page: 'privacy', quote: 'Your selfie and your face vector are erased 12 hours after the event ends', m: { kind: 'job', job: 'face-selfie-papic-close', where: { file: 'lib/face-selfie-erase.ts', has: /runClaimedJob\(\s*'face-selfie-papic-close'/ } } },
-  { page: 'privacy', quote: 'erased 12 hours after the event ends(sooner if you sign out), and a weekly check deletes anything left 3 months after the event ends', m: { kind: 'job', job: 'face-data-retention', where: { file: 'lib/face-data-retention.ts', has: /runClaimedJob\(\s*'face-data-retention'/ } } },
+  { page: 'privacy', quote: 'erased 12 hours after the event ends (sooner if you sign out), and a weekly check deletes anything left 3 months after the event ends', m: { kind: 'job', job: 'face-data-retention', where: { file: 'lib/face-data-retention.ts', has: /runClaimedJob\(\s*'face-data-retention'/ } } },
   { page: 'privacy', quote: 'withdrawing your consent or asking us to remove it deletes it immediately', m: { kind: 'code', where: { file: 'app/[slug]/actions.ts', has: /eraseGuestFaceData/ } } },
   { page: 'privacy', quote: 'let you remove them at any time', m: { kind: 'code', where: { file: 'app/dashboard/(account)/profile/actions.ts', has: /export async function/ } } },
   // ── /privacy · connection tree, gifts, groups ──
   { page: 'privacy', quote: 'are both deleted after N days', m: { kind: 'job', job: 'connection-request-expiry', where: { file: 'lib/connection-request-expiry.ts', has: /expire_stale_connection_requests/ } } },
-  { page: 'privacy', quote: 'they are deleted with your event', m: { kind: 'code', where: { file: '../../supabase/migrations/20271266228704_the_wish_list_two_tables.sql', has: /create table[^;]*event_egift_methods[\s\S]*?references public\.events[^,]*on delete cascade/i } } },
+  { page: 'privacy', quote: 'they are deleted with your event', m: { kind: 'code', where: { file: '../../supabase/migrations/20270725802892_event_egift_methods.sql', has: /event_id\s+UUID NOT NULL REFERENCES public\.events\(event_id\) ON DELETE CASCADE/ } } },
   { page: 'privacy', quote: 'every record and screenshot is deleted with the event', m: { kind: 'code', where: GIFTS_CASCADE } },
   { page: 'privacy', quote: 'are removed when you leave a group or delete your account', m: { kind: 'code', where: ERASURE } },
+  { page: 'privacy', quote: 'We have kept this feature deliberately narrow', m: { kind: 'job', job: 'connection-request-expiry', where: { file: 'lib/connection-request-expiry.ts', has: /expire_stale_connection_requests/ } } },
   // ── /privacy · photos, calls ──
   { page: 'privacy', quote: 'we remove its EXIF/GPS metadata first', m: { kind: 'kept', why: 'Not a retention clock — the strip on every outbound copy, guarded by the photo-share tests.' } },
   { page: 'privacy', quote: 'We keep only the fact that a call took place', m: { kind: 'kept', why: 'Call metadata only; no media is stored, so there is nothing to delete.' } },
@@ -206,32 +207,32 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'the same rolling 180-day deletion described above', m: { kind: 'job', job: 'vendor-dossier-retention', where: { file: 'lib/vendor-dossier-retention.ts', has: /DOSSIER_RETENTION_DAYS/ } } },
   // ── /privacy · anti-fraud, public summary ──
   { page: 'privacy', quote: 'no data is deleted, and one review by our team reverses it', m: { kind: 'kept', why: 'An auto-hide is reversible and deletes nothing.' } },
-  { page: 'privacy', quote: 'Permanent action (removing a vendor’s reviews', m: { kind: 'human', where: { file: 'lib/fraud-enforcement.ts', has: /four|second|two/i } } },
+  { page: 'privacy', quote: 'Permanent action (removing a vendor’s reviews', m: { kind: 'human', where: { file: 'app/admin/fraud/actions.ts', has: /pending a second admin/ } } },
   { page: 'privacy', quote: 'or keep it private', m: { kind: 'kept', why: 'Quoted reminder-email copy, not a retention promise.' } },
-  { page: 'privacy', quote: 'removes the page from the index immediately', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/privacy/actions.ts', has: /export async function/ } } },
+  { page: 'privacy', quote: 'removes the page from the index immediately', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/website/privacy/actions.ts', has: /export async function updateLandingPageVisibility\b/ } } },
   // ── /privacy · THE RETENTION SCHEDULE (every line is a promise) ──
   { page: 'privacy', quote: 'the full-resolution originals are kept for 6 months', m: { kind: 'job', job: 'papic-fullres-drop', where: { file: 'lib/papic-fullres-drop.ts', has: /runClaimedJob\(\s*'papic-fullres-drop'/ } } },
   { page: 'privacy', quote: 'That compressed gallery stays online, free, for life', m: { kind: 'kept', why: 'No job deletes the compressed copy (retention-copy-is-true.test.ts).' } },
   { page: 'privacy', quote: 'If you connect Google Drive, every original is also saved', m: { kind: 'kept', why: 'The Drive copy is the couple’s; we never delete it.' } },
-  { page: 'privacy', quote: 'Face-recognition data— for the one event only', m: { kind: 'kept', why: 'Heading of the face line; its clocks are the next rows.' } },
+  { page: 'privacy', quote: 'Face-recognition data — for the one event only', m: { kind: 'kept', why: 'Heading of the face line; its clocks are the next rows.' } },
   { page: 'privacy', quote: 'You can end it sooner at any time', m: { kind: 'code', where: { file: 'app/[slug]/actions.ts', has: /eraseGuestFaceData/ } } },
   { page: 'privacy', quote: 'Deleting it takes away no photo and no tag', m: { kind: 'kept', why: 'face-selfie-keeps-tags.test.ts holds it.' } },
-  { page: 'privacy', quote: 'Messages between a couple and a vendor— 5 years after the event date', m: { kind: 'job', job: 'retention-sweep', where: { file: 'lib/retention-sweep.ts', has: /RETENTION_YEARS\s*=\s*5\b/ } } },
-  { page: 'privacy', quote: 'Payments, receipts and official receipts— 10 years', m: { kind: 'kept', why: 'BIR floor: kept, never deleted early; nothing deletes them at 10 years either, and the page no longer says it does.' } },
+  { page: 'privacy', quote: 'Messages between a couple and a vendor — 5 years after the event date', m: { kind: 'job', job: 'retention-sweep', where: { file: 'lib/retention-sweep.ts', has: /RETENTION_YEARS\s*=\s*5\b/ } } },
+  { page: 'privacy', quote: 'Payments, receipts and official receipts — 10 years', m: { kind: 'kept', why: 'BIR floor: kept, never deleted early; nothing deletes them at 10 years either, and the page no longer says it does.' } },
   { page: 'privacy', quote: 'This one is a legal floor under BIR rules', m: { kind: 'kept', why: 'See the row above.' } },
-  { page: 'privacy', quote: 'Contracts and e-signatures— 10 years', m: { kind: 'kept', why: 'Civil Code prescription; kept, no deletion promised.' } },
-  { page: 'privacy', quote: 'Your account and profile— for as long as the account is open', m: { kind: 'kept', why: 'Kept while open; the deletion rows follow.' } },
+  { page: 'privacy', quote: 'Contracts and e-signatures — 10 years', m: { kind: 'kept', why: 'Civil Code prescription; kept, no deletion promised.' } },
+  { page: 'privacy', quote: 'Your account and profile — for as long as the account is open', m: { kind: 'kept', why: 'Kept while open; the deletion rows follow.' } },
   { page: 'privacy', quote: 'our team reviews the request within 24 hours', m: { kind: 'human', where: DELETION_QUEUE } },
   { page: 'privacy', quote: 'your name, email, phone and photo are blanked out straight away', m: { kind: 'code', where: { file: 'lib/erasure/coverage.ts', has: /USERS_ANONYMIZE_NULLS/ } } },
   { page: 'privacy', quote: 'There is no waiting period after that', m: { kind: 'kept', why: 'eraseUserAccount runs inside approveAndDelete — no grace timer exists.' } },
-  { page: 'privacy', quote: 'Support messages— kept while your account is open', m: { kind: 'kept', why: 'No job deletes help_messages — the 2-year promise was withdrawn for that reason.' } },
+  { page: 'privacy', quote: 'Support messages — kept while your account is open', m: { kind: 'kept', why: 'No job deletes help_messages — the 2-year promise was withdrawn for that reason.' } },
   { page: 'privacy', quote: 'the words of your messages are blanked out', m: { kind: 'code', where: { file: 'lib/erasure/purge.ts', has: /'help-messages-anonymize'/ } } },
-  { page: 'privacy', quote: 'Error reports— kept by Sentry', m: { kind: 'vendor', who: 'Sentry project data-retention setting (ERROR_LOG_RETENTION_DAYS documents it; no job of ours).' } },
+  { page: 'privacy', quote: 'Error reports — kept by Sentry', m: { kind: 'vendor', who: 'Sentry project data-retention setting (ERROR_LOG_RETENTION_DAYS documents it; no job of ours).' } },
   { page: 'privacy', quote: 'We run no deletion of our own for them', m: { kind: 'kept', why: 'True by absence; see the Sentry row.' } },
-  { page: 'privacy', quote: 'The fraud-prevention device identifier— kept, and not deleted', m: { kind: 'kept', why: 'See the device rows above.' } },
+  { page: 'privacy', quote: 'The fraud-prevention device identifier — kept, and not deleted', m: { kind: 'kept', why: 'See the device rows above.' } },
   { page: 'privacy', quote: 'Nothing deletes it on a timer yet.', m: { kind: 'kept', why: 'See the device rows above.' } },
-  { page: 'privacy', quote: 'Gift records (Pabuya)— until the event is deleted', m: { kind: 'code', where: GIFTS_CASCADE } },
-  { page: 'privacy', quote: 'Daily visit codes— deleted the next day', m: { kind: 'code', where: VISITS_SQL } },
+  { page: 'privacy', quote: 'Gift records (Pabuya) — until the event is deleted', m: { kind: 'code', where: GIFTS_CASCADE } },
+  { page: 'privacy', quote: 'Daily visit codes — deleted the next day', m: { kind: 'code', where: VISITS_SQL } },
   { page: 'privacy', quote: 'Where you can end something sooner, you can', m: { kind: 'code', where: DELETION_QUEUE } },
   { page: 'privacy', quote: 'The two 10-year items are the exception', m: { kind: 'kept', why: 'Legal floors.' } },
   { page: 'privacy', quote: 'Different kinds of data have different lifespans', m: { kind: 'kept', why: 'The schedule’s own introduction.' } },
@@ -241,6 +242,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'One thing is not yet automatic: the copy of your Google or Apple sign-in details', m: { kind: 'human', where: { file: 'lib/erasure/coverage-guardrail.test.ts', has: /'auth\.identities':/ } } },
   // ── /privacy · TikTok, YouTube, Drive ──
   { page: 'privacy', quote: 'Grants are kept until you revoke them — from your Setnayan profile or from TikTok', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/studio/patiktok/actions.ts', has: /revoked_at/ } } },
+  { page: 'privacy', quote: 'We do not delete connections on a timer', m: { kind: 'kept', why: 'True by absence — no job deletes OAuth grants; disconnect erases the keys (rows above and below).' } },
   { page: 'privacy', quote: 'Setnayan cannot delete posts on your behalf', m: { kind: 'kept', why: 'Restraint — we hold no delete scope on TikTok.' } },
   { page: 'privacy', quote: 'Until you disconnect it, until you delete your Setnayan account', m: { kind: 'code', where: { file: 'app/api/oauth/youtube/disconnect/route.ts', has: /revoked_at/ } } },
   { page: 'privacy', quote: 'We keep the connection alive in the background', m: { kind: 'kept', why: 'Refresh only (oauth-refresh); no deletion.' } },
@@ -304,7 +306,7 @@ test('every keep-or-delete promise on the three pages is claimed by a row', () =
       if (!rows.some((r) => s.text.includes(r.quote))) orphans.push(`${PAGES[p]}: "${s.text}"`);
     }
   }
-  // A reader that reads nothing finds no orphans. Measured 2026-10-23: 64.
+  // A reader that reads nothing finds no orphans. Measured 2026-10-23: 66.
   assert.ok(seen >= 50, `only ${seen} promises were read — the reader is broken, so this proves nothing`);
   assert.deepEqual(
     orphans,
@@ -342,7 +344,11 @@ test('a "kept" or "human" row never hides an automatic deletion', () => {
   for (const r of PROMISES) {
     const s = sentencesOf(r.page).find((x) => x.text.includes(r.quote))?.text ?? '';
     // A "kept" sentence may say what is NOT deleted, never that something IS.
-    if (r.m.kind === 'kept' && /\b(?:is|are|gets?) (?:deleted|erased|purged|pruned)\b/i.test(s) && !/\bnot (?:deleted|erased)\b/i.test(s)) {
+    if (
+      r.m.kind === 'kept' &&
+      /\b(?:is|are|gets?) (?:deleted|erased|purged|pruned)\b/i.test(s) &&
+      !/\b(?:not|no [a-z]+ (?:is|are)) (?:deleted|erased)\b/i.test(s)
+    ) {
       lies.push(`kept, but says it is deleted: "${s}"`);
     }
     // A person is not a sweep.

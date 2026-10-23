@@ -34,6 +34,7 @@ import {
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '@/lib/vendor-tier-caps';
 
 export type VendorOption = { id: string; name: string; tier: string | null };
 
@@ -225,9 +226,9 @@ export function CustomComposer({
                 label={
                   comp.pipelineUnlimited
                     ? 'Customers per date · No limit'
-                    : 'Customers per date · 10'
+                    : `Customers per date · ${WHITELIST_PER_DATE_ALL_PLANS}`
                 }
-                hint="10 live customers per date included. This removes the ceiling."
+                hint={`${WHITELIST_PER_DATE_ALL_PLANS} live customers per date included. This removes the ceiling.`}
               >
                 <label className="mt-1.5 flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -453,7 +454,7 @@ export function CustomComposer({
                 <InfinityIcon className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
                 {comp.pipelineUnlimited
                   ? 'No limit on customers per date'
-                  : '10 customers per date'}
+                  : `${WHITELIST_PER_DATE_ALL_PLANS} customers per date`}
               </li>
               <li className="flex items-center gap-2">
                 <Users className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />

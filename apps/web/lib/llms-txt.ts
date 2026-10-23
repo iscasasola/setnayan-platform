@@ -39,6 +39,7 @@ import { isBookingFeeEnabled } from './booking-fee-gate';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 import { mobileAppAnswer } from './where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
+import { MIN_SERVICES_PER_LEAF, PORTFOLIO_FREE_BASE, TIER_CAPS, TIER_LABEL, WHITELIST_PER_DATE_ALL_PLANS } from './vendor-tier-caps';
 
 export type RetailRow = {
   service_code: string;
@@ -620,30 +621,32 @@ The visual mood board — palette, location feel, dress codes — is included fr
 
 | Tier | Cost | Public profile | Verified badge | Commission |
 |---|---|---|---|---|
-| Verified | free during launch | Listed in marketplace · real business name shown from day 1 · local reach · 1 category | Yes | 0% |
-| Solo | ${V('solo_vendor_annual')} / year OR ${V('solo_vendor_monthly')} / 28-day prepaid block | 1 category · solo operator (no agent seats) · custom website + slug · expanded reach + booking analytics | Yes | 0% |
+| Verified | free during launch | Listed in marketplace · real business name shown from day 1 · ${TIER_CAPS.verified.serviceRadiusKm} km reach · 1 category | Yes | 0% |
+| Solo | ${V('solo_vendor_annual')} / year OR ${V('solo_vendor_monthly')} / 28-day prepaid block | 1 category · solo operator (no agent seats) · custom website + slug · ${TIER_CAPS.solo.serviceRadiusKm} km reach + booking analytics | Yes | 0% |
 | Pro | ${V('pro_vendor_annual')} / year OR ${V('pro_vendor_monthly')} / 28-day prepaid block | 3 categories + 3 agent seats · premium tools · Market Intel + featured placement + wider reach | Yes | 0% |
-| Enterprise | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories + unlimited team + extended radius (100 km) · priority placement + read API | Yes | 0% |
+| ${TIER_LABEL.enterprise} | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories + unlimited team + extended radius (100 km) · priority placement + read API | Yes | 0% |
 
 Commission is 0% on every tier: couples pay suppliers directly and Setnayan never sits between them at checkout. ${supplierFee}
 
 Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
 
-All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and Enterprise vendors can add branches at ${V('vendor_additional_branch')} per 28-day block per branch.
+Every tier, the free one included, can sell the same way: answer every couple with no weekly limit, take as many bookings a day as the supplier sets, put up at least ${MIN_SERVICES_PER_LEAF} service cards per category, hold up to ${WHITELIST_PER_DATE_ALL_PLANS} couples for one date, and show ${PORTFOLIO_FREE_BASE} portfolio photos free. A plan's price buys reach — service area, categories, team seats, search visibility and its own web address — never the ability to take bookings.
+
+All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and ${TIER_LABEL.enterprise} vendors can add branches at ${V('vendor_additional_branch')} per 28-day block per branch.
 
 ## Answering couples (included free)
 
-Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies at no charge — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. Verified vendors can answer up to 10 new couples per rolling week; Solo, Pro, and Enterprise are unlimited. No per-lead fee, no listing fee, 0% commission. The booking fee applies only when a couple Setnayan introduced books.
+Reaching a matched couple is included with every vendor tier at no per-lead cost. A vendor accepts an inquiry and replies at no charge — one unlock covers every service that vendor offers for the event, anywhere in the Philippines. There is no weekly limit on any tier. No per-lead fee, no listing fee, 0% commission. The booking fee applies only when a couple Setnayan introduced books.
 
 ## Capabilities behind sign-in
 
 Couple-side: guest list with more than 30 Filipino ceremony roles (ninong, ninang, principal and secondary sponsors, candle/veil/cord/coin, bearers, entourage) and CSV import · QR-coded personal invitations · RSVP with live count · Setnayan AI assisted planning with religion-adaptive guidance · mood board · budget tracker with .ics export · seating chart with a 13-table catalog · in-app vendor messaging with couple identity masked until first reply.
 
-Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Pro and Enterprise · team management · earnings rollup · AI Proposal Builder (Pro+) · reverse-image portfolio theft monitoring (Pro+) · mood board sharing with booked couples.
+Vendor-side: public profile editor · inquiry inbox · calendar with intra-day blocks and multi-service shared calendars on Pro and ${TIER_LABEL.enterprise} · team management · earnings rollup · AI Proposal Builder (Pro+) · reverse-image portfolio theft monitoring (Pro+) · mood board sharing with booked couples.
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), Enterprise ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the vendor tier section).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the vendor tier section).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. The host can set some of it aside for one camera's QR, so the person they trust with the important moments has credits nobody else can spend; when those run out that camera carries on from the pot. Cameras are free and unlimited. Photos auto-tag to guests and feed per-guest highlight reels, and every guest goes home with their own copy.

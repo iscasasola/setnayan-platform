@@ -227,7 +227,11 @@ export async function loadDetailsData(
     return { branchFeePhp, branchPay };
   })();
   const payRead = fetchOwnPaymentMethodsMeasured(supabase, vendorId);
-  const inviteRead = readClaimedTeamInvite(createAdminClient(), vendorId).catch(() => null);
+  const inviteRead = (async () => readClaimedTeamInvite(createAdminClient(), vendorId))().catch((err) => {
+    // Unread → "from your invite" is simply not said; never a false claim.
+    logQueryError('VendorDetails.claimedInvite', err, { vendorId }, 'graceful_degrade');
+    return null;
+  });
 
   const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay] =
     await Promise.all([

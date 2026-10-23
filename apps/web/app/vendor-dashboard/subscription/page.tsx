@@ -447,7 +447,10 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   );
   const [allowance, claimedInvite] = await Promise.all([
     readPortfolioAllowance(supabase, profile.vendor_profile_id),
-    readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id).catch(() => null),
+    (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch((err) => {
+      console.error('[supabase-error] subscription · claimed invite', err);
+      return null;
+    }),
   ]);
   const invited = claimedInvite ? offerFromInvite(claimedInvite) : null;
   const todayDay = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);

@@ -77,6 +77,8 @@ SET description =
       'comes only with this.',
     updated_at = now()
 WHERE service_code = 'COUPLE_WEBSITE_PRO'
+  -- Only while the old phrase is still there (prod held it on 2026-10-23), so an admin's later edit is never overwritten.
+  AND description LIKE '%photo gallery%'
   AND description IS DISTINCT FROM
       'Every premium touch on your Event Hub in one unlock — the cinematic '
       'Save-the-Date reveal, a Save-the-Date video, background music, photos '

@@ -52,6 +52,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 import { PERIODIC_JOB_KEYS } from './periodic-job-registry';
+import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -263,12 +264,8 @@ const PROMISES: readonly Promise_[] = [
 // ── The checks ──────────────────────────────────────────────────────────────
 
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-/** Comment-stripped, so a pattern is matched against CODE, never a note about it. */
-const code = (rel: string) =>
-  read(rel)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*--.*$/gm, '')
-    .replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+/** Comment-stripped (the shared stripper), so a pattern is matched against CODE, never a note about it. */
+const code = (rel: string) => stripComments(read(rel));
 
 const sentencesOf = (p: Page) => readerSentences(read(PAGES[p]), PAGES[p]);
 

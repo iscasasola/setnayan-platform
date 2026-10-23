@@ -127,9 +127,20 @@ const EVENT: Record<string, unknown> = {
   print_details: {}, special_message: null, pabuya_message: null, rsvp_ask_config: null, style_preferences: null,
   love_story: null, mood_feel_key: null, launch_mode: 'manual', manual_phase: null,
 };
-type Sent = { step: number; what: string; key: string; by?: string };
+type Sent = { step: number; what: string; key: string; by?: string; late?: boolean };
 let sent: Sent[] = [];
+/* Two lanes since the tools arrive behind the Maker (`makerLateWork` in `./page.tsx`): the CANVAS's — the page,
+   then its editor — and the TOOLS', which runs beside it. One counter for both would add a trip of one lane to
+   the other's depth; each lane counts its own, the tools' starting from where the canvas's stood when it began. */
 let returned = 0;
+let returnedLate = 0;
+let lateBase: number | null = null;
+function inLateLane(): boolean {
+  const holder: { stack?: string } = {};
+  Error.stackTraceLimit = 60;
+  Error.captureStackTrace(holder);
+  return /makerLateWork/.test(holder.stack ?? '');
+}
 function whoAsked(): string {
   const holder: { stack?: string } = {};
   Error.stackTraceLimit = 60;
@@ -146,11 +157,14 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   const table = url.pathname.replace(/^\/rest\/v1\//, '');
   const select = url.searchParams.get('select') ?? '';
-  const step = returned + 1;
+  const late = inLateLane();
+  if (late && lateBase === null) lateBase = returned;
+  const step = (late ? Math.max(lateBase ?? 0, returnedLate) : returned) + 1;
   const who = String(headers.get('authorization') ?? '').includes('harness-service-role-key') ? 'service' : 'viewer';
-  sent.push({ step, what: `${who === 'service' ? '[service] ' : ''}${url.pathname.startsWith('/auth/') ? url.pathname : table}(${select.slice(0, 50)})`, key: `${init?.method ?? 'GET'} ${who} ${url.pathname}${url.search}`, ...(process.env.MAKER_PAGE_READS_WHO ? { by: whoAsked() } : {}) });
+  sent.push({ step, what: `${who === 'service' ? '[service] ' : ''}${url.pathname.startsWith('/auth/') ? url.pathname : table}(${select.slice(0, 50)})`, key: `${init?.method ?? 'GET'} ${who} ${url.pathname}${url.search}`, ...(late ? { late: true } : {}), ...(process.env.MAKER_PAGE_READS_WHO ? { by: whoAsked() } : {}) });
   await new Promise((r) => setTimeout(r, DELAY));
-  returned = Math.max(returned, step);
+  if (late) returnedLate = Math.max(returnedLate, step);
+  else returned = Math.max(returned, step);
   const accept = headers.get('accept') ?? '';
   const json = (body: unknown, extra: Record<string, string> = {}) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json', ...extra } });
   const rows = (list: Record<string, unknown>[]) => {
@@ -172,7 +186,20 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return rows([]);
 }) as typeof fetch;
 
-type ViewReport = { calls: number; depth: number; ms: number; steps: string[]; repeats: string[]; editorDrawn: boolean; pageDepth: number };
+type ViewReport = {
+  calls: number;
+  /** The canvas's lane: the page, then its editor — what a couple waits for before the canvas can load. */
+  depth: number;
+  ms: number;
+  steps: string[];
+  repeats: string[];
+  editorDrawn: boolean;
+  pageDepth: number;
+  /** ⚡ The tools' lane (`makerLateWork`), running beside the canvas's: its depth, and the time until it is in too. */
+  lateDepth: number;
+  lateCalls: number;
+  allMs: number;
+};
 
 function findEl(tree: unknown, type: unknown, seen = new Set<unknown>()): { props: Record<string, unknown> } | null {
   if (!tree || typeof tree !== 'object' || seen.has(tree)) return null;
@@ -191,10 +218,13 @@ function findEl(tree: unknown, type: unknown, seen = new Set<unknown>()): { prop
 async function main() {
   const { default: LaunchHubPage } = await import('./page');
   const { default: WebsiteEditorPage } = await import('../website/editor/page');
+  const { MakerShell } = await import('./_components/maker-shell');
   async function view(): Promise<ViewReport> {
     viewMemo = new Map();
     sent = [];
     returned = 0;
+    returnedLate = 0;
+    lateBase = null;
     const t0 = performance.now();
     const tree = await LaunchHubPage({ params: Promise.resolve({ eventId: EVENT_ID }), searchParams: Promise.resolve({}) } as never);
     const pageDepth = returned;
@@ -203,10 +233,17 @@ async function main() {
       try { await (WebsiteEditorPage as (p: never) => Promise<unknown>)(editor.props as never); }
       catch (error) { const d = String((error as { digest?: unknown })?.digest ?? ''); if (!d.startsWith('NEXT_REDIRECT')) throw error; }
     }
+    const ms = Math.round(performance.now() - t0);
+    const canvas = sent.filter((s) => !s.late);
+    /* The tools' lane is awaited too, so its reads are counted here and never spill into the next view. */
+    const late = findEl(tree, MakerShell)?.props.late as Promise<unknown> | null | undefined;
+    if (late) await late;
+    const lateSent = sent.filter((s) => s.late);
     const keys = sent.map((s) => s.key);
     return {
-      calls: sent.length, depth: Math.max(0, ...sent.map((s) => s.step)), ms: Math.round(performance.now() - t0), pageDepth,
-      steps: sent.map((s) => `${s.step} ${s.what}${s.by ? `  ← ${s.by}` : ''}`), repeats: [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))], editorDrawn: Boolean(editor),
+      calls: sent.length, depth: Math.max(0, ...canvas.map((s) => s.step)), ms, pageDepth,
+      lateDepth: Math.max(0, ...lateSent.map((s) => s.step)), lateCalls: lateSent.length, allMs: Math.round(performance.now() - t0),
+      steps: sent.map((s) => `${s.late ? 'L' : ''}${s.step} ${s.what}${s.by ? `  ← ${s.by}` : ''}`), repeats: [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))], editorDrawn: Boolean(editor),
     };
   }
   await view();

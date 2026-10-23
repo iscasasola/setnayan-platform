@@ -15,7 +15,15 @@
  *     Simulated at 150 ms a trip: 6,108 ms; after, 3,104 ms (page 15 deep, with its editor 20).
  *
  * Each read is now STARTED as soon as what it needs is in (`lib/start-ahead.ts`) and awaited where it
- * always was. The property held is the DEPTH — what a couple waits for before the Maker is drawn — and
+ * always was.
+ *
+ * ⚡ THEN THE TOOLS WENT BEHIND THE MAKER (2026-10-23, same day — production, new Maker on a phone: the page
+ * 5.4–6.3 s, the canvas 7.5–11.6 s). Studio's and Details' panels (`makerLateWork`) were 9 of the page's 15
+ * trips, and the editor that draws the canvas could only start after them. They now run beside the canvas
+ * and arrive in the same response (`lib/maker-late.ts`). Measured here at 150 ms a trip: the page 15 → 7
+ * deep, the page with its editor 20 → 12, the canvas's reads done 3,050 → 1,837 ms; the tools' own lane
+ * 13 deep, all in by 2,285 ms. The harness counts each lane on its own (a read is the tools' when
+ * `makerLateWork` is on its stack — one it misses is counted on the canvas's side, never hidden). The property held is the DEPTH — what a couple waits for before the Maker is drawn — and
  * that the event-only reads leave together. It also holds the index that `eventHasRenamed`'s read needs.
  */
 import test from 'node:test';
@@ -24,7 +32,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-type View = { calls: number; depth: number; pageDepth: number; ms: number; steps: string[]; repeats: string[]; editorDrawn: boolean };
+type View = { calls: number; depth: number; pageDepth: number; ms: number; steps: string[]; repeats: string[]; editorDrawn: boolean; lateDepth: number; lateCalls: number; allMs: number };
 
 const WEB = join(__dirname, '..');
 
@@ -44,7 +52,7 @@ function measure(): View {
 
 const VIEW = measure();
 const shape = (v: View) => `${v.calls} requests, ${v.depth} deep (page ${v.pageDepth})\n  ${v.steps.join('\n  ')}`;
-const stepOf = (what: RegExp) => Number(VIEW.steps.find((s) => what.test(s))?.split(' ')[0] ?? NaN);
+const stepOf = (what: RegExp) => Number(VIEW.steps.find((s) => what.test(s))?.split(' ')[0]?.replace(/^L/, '') ?? NaN);
 
 test('0 · the fixture drew the new Maker and its editor — or the depth below would be about nothing', () => {
   assert.ok(VIEW.editorDrawn, `the Maker no longer mounts the editor page — re-point this guard:\n${shape(VIEW)}`);
@@ -53,15 +61,15 @@ test('0 · the fixture drew the new Maker and its editor — or the depth below 
   }
 });
 
-/** MEASURED: the page 26 → 15, the page and its editor 40 → 20. */
-const PAGE_MAX_DEPTH = 15;
-const MAKER_MAX_DEPTH = 20;
+/** MEASURED: the page 26 → 15 → 7, the page and its editor 40 → 20 → 12 (the tools behind the Maker, above). */
+const PAGE_MAX_DEPTH = 8;
+const MAKER_MAX_DEPTH = 13;
 
-test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26)`, () => {
+test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26, then 15)`, () => {
   assert.ok(VIEW.pageDepth <= PAGE_MAX_DEPTH, `the Maker page waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
-test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40)`, () => {
+test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40, then 20)`, () => {
   assert.ok(VIEW.depth <= MAKER_MAX_DEPTH, `the Maker's editor waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
@@ -71,6 +79,11 @@ test('3 · the event-only reads leave together, right after the host gate', () =
   const gate = stepOf(/ event_members\(member_type\)/);
   assert.equal(renamed, gate + 1, `whether the address was renamed waits for more than the host gate:\n${shape(VIEW)}`);
   assert.equal(seen, gate + 1, `the tour keys wait for more than the host gate:\n${shape(VIEW)}`);
+});
+
+test('5 · the canvas never waits for the tools — they run behind it, and still arrive', () => {
+  assert.ok(VIEW.lateCalls > 0, `no read ran in the tools' lane (\`makerLateWork\`) — Studio's and Details' panels are awaited by the page again:\n${shape(VIEW)}`);
+  assert.ok(VIEW.pageDepth < VIEW.lateDepth, `the page returned only after the tools' last read — the canvas waits for them again:\n${shape(VIEW)}`);
 });
 
 test('4 · slug_change_log has the index its by-event read needs', () => {

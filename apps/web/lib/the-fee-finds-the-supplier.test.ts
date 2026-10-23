@@ -40,7 +40,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { bookingFeePhp, BOOKING_FEE } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import {
   BOOKING_FEE_BILL_SURFACES,
   billsForSurface,
@@ -373,7 +373,7 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
 
   // Same rule at sign-up: no schedule ⇒ no rate on screen, but still a warning.
   const noSchedule = bookingFeeJoinDisclosure(null);
-  assert.match(noSchedule.detail, new RegExp(`first ${FREE_BOOKING_LIMIT} of those are free`));
+  assert.ok(noSchedule.detail.includes(FIRST_BOOKING_ON_US_CLAUSE), 'sign-up lost the free first booking');
   assert.doesNotMatch(noSchedule.detail, /%/, 'sign-up printed a rate it could not load');
   assert.match(bookingFeeJoinDisclosure(BOOKING_FEE).detail, /5% of the first/);
 });
@@ -391,10 +391,14 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
  * → RED on the amount assertion. SABOTAGE: return the old bare
  * "Free — booking 3 of your first 5" → RED on BOTH the amount and the bare-Free
  * scan below.
+ *
+ * ⚖ ONE FREE BOOKING since 2026-10-23 (owner: "Your first booking is on us. Not
+ * 5."). Booking 1 is THE free one; a FROZEN booking 3 that was waived under the
+ * old five-booking rule keeps its waiver and says it stays free.
  */
 test('a waived booking names the amount it would have cost, and why it is free', () => {
   const free = bookingFeeForecast(
-    { kind: 'free', ordinal: 3, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   );
   assert.ok(free, 'silence on a free booking is the old defect');
@@ -403,21 +407,21 @@ test('a waived booking names the amount it would have cost, and why it is free',
   assert.equal(bookingFeePhp(10_170, BOOKING_FEE), 508.5);
   assert.match(free.headline, /₱508\.50/, 'the waived line did not name the amount');
   assert.match(free.headline, /waived/i, 'the waived line did not say it was waived');
-  assert.match(free.detail, /booking 3 of your first 5/, 'the reason is missing the position');
-  assert.match(free.detail, /which are free/, 'the reason is missing WHY it is waived');
-  assert.match(free.detail, /2 more free bookings/);
+  assert.match(free.detail, /This is your first booking from Setnayan/, 'the reason is missing the position');
+  assert.match(free.detail, /which is on us/, 'the reason is missing WHY it is waived');
 
-  // The last free one says so, and the next is payable.
-  const last = bookingFeeForecast(
-    { kind: 'free', ordinal: FREE_BOOKING_LIMIT, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+  // A booking frozen free under the earlier five-booking rule stays free.
+  const legacy = bookingFeeForecast(
+    { kind: 'free', ordinal: 3, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   )!;
-  assert.match(last.detail, /last of them/);
+  assert.match(legacy.headline, /waived/i);
+  assert.match(legacy.detail, /stays free/);
 
-  // 🔑 SAME LINE SHAPE once the free five are used up — the first payable fee
+  // 🔑 SAME LINE SHAPE once the free booking is used — the first payable fee
   // is the same sentence with a different verdict, not a new kind of news.
   const payable = bookingFeeForecast(
-    { kind: 'billable', ordinal: 6, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    { kind: 'billable', ordinal: 2, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   )!;
   for (const line of [free.headline, payable.headline]) {
@@ -426,16 +430,21 @@ test('a waived booking names the amount it would have cost, and why it is free',
   assert.match(payable.headline, /payable/i);
 
   // A projection is worded as one — before the booking is agreed there is no
-  // ledger row, so "this is booking 3" would be stating a fact we do not have.
+  // ledger row, so "this is your first booking" would be stating a fact we do not have.
   const projected = bookingFeeForecast(
-    { kind: 'free', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     10_170,
   )!;
-  assert.match(projected.detail, /would be booking 3/);
+  assert.match(projected.detail, /This would be your first booking/);
+  const projectedBill = bookingFeeForecast(
+    { kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    10_170,
+  )!;
+  assert.match(projectedBill.detail, /would be number 3/);
 
   // No amount ⇒ no number, and still no bare "Free".
   const noTotal = bookingFeeForecast(
-    { kind: 'free', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     null,
   )!;
   assert.match(noTotal.headline, /waived/i);
@@ -467,8 +476,8 @@ test('a waived CHARGE names its recorded amount, and never degrades to ₱0', ()
   assert.match(copy.headline, /₱508\.50/);
   assert.match(copy.headline, /waived/i);
   assert.match(copy.headline, /Rosa & Ben/);
-  assert.match(copy.detail, /booking 1 of your first 5/);
-  assert.match(copy.detail, /which are free/);
+  assert.match(copy.detail, /This was your first booking from Setnayan/);
+  assert.match(copy.detail, /which is on us/);
 
   // An unreadable computed amount prints NO number — never ₱0, which would say
   // the fee was nothing rather than that it was waived.
@@ -478,8 +487,8 @@ test('a waived CHARGE names its recorded amount, and never degrades to ₱0', ()
 
   // The position is only claimed when the ledger gave one.
   const noOrdinal = waivedFeeCopy({ ...charge, ordinal: null });
-  assert.doesNotMatch(noOrdinal.detail, /booking \d+ of/);
-  assert.match(noOrdinal.detail, /inside your first 5/);
+  assert.doesNotMatch(noOrdinal.detail, /first booking/);
+  assert.match(noOrdinal.detail, /one of your free bookings/);
 });
 
 /**

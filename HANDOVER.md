@@ -41,8 +41,8 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - Credits: STOPPED the reservation model (it would change pool rules = money; owner "don't
   guess"). Server checks at `sign` (no charge) and charges at `record` with the existing RPC. A
   shot refused for credits stays queued and the chip says "Credits ran out · N not sent".
-- Keep full-res = `events.papic_quality_tier = 'full_res'` OR the HIGH_RES_ARCHIVE SKU active
-  (`lib/papic-upload-keep.server.ts`). (The SKU has zero catalogue rows as of 2026-09-22.)
+- Keep full-res: see "Decisions made here" below (`eventKeepsFullRes` in lib/papic-upload-intents.server.ts).
+  (The HIGH_RES_ARCHIVE SKU has zero catalogue rows as of 2026-09-22.)
 
 ## State (2026-10-23, keep current)
 - [x] pure tiers + schedule + replayer (+ scenario tests: 10 photos + 2 clips offline → reconnect → 12 rows, a lost answer replayed as duplicate)

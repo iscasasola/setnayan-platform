@@ -59,7 +59,10 @@ export const resolveVendorRole = cache(async (
     return null;
   }
   if (!active) return null;
-  return resolveVendorRoleForProfile(supabase, userId, active.vendorProfileId);
+  // ⚡ The resolver has already PROVEN whether this login owns the active shop (its `vendor_profiles` read is
+  // `user_id = <this login>`), so the legacy founding-owner fallback below needs no second read of the same fact —
+  // it was a trip in single file after the membership read on every supplier page (2026-10-23, Today 8 → 9 deep).
+  return resolveVendorRoleForProfile(supabase, userId, active.vendorProfileId, { ownsIt: active.owned });
 });
 
 /**
@@ -82,6 +85,8 @@ export async function resolveVendorRoleForProfile(
   supabase: SupabaseClient,
   userId: string,
   vendorProfileId: string,
+  /** Ownership already proven by the caller's own `vendor_profiles … user_id = userId` read (`resolveActiveShop`). */
+  known?: { ownsIt: boolean },
 ): Promise<VendorTeamRole | null> {
   const { data: memberships } = await supabase
     .from('vendor_team_members')
@@ -98,6 +103,7 @@ export async function resolveVendorRoleForProfile(
 
   // Legacy fallback: the founding owner of a vendor_profiles row with no
   // membership row is the founding admin — but ONLY for the profile they OWN.
+  if (known) return known.ownsIt ? 'admin' : null;
   const { data: owned } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id')

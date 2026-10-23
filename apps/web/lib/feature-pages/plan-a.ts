@@ -427,7 +427,7 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Ang Setnayan date picker ang nagse-set ng petsa ng event mo o tumutulong pumili nito. Piliin ang petsang nasa isip mo na, o humingi ng tulong sa pagpili: inaayos nito ang mga kandidatong petsa ayon sa dami ng supplier sa shortlist mo na libre, at sinasabi kung katabi ng holiday long weekend ang petsa. Puwede ring sabihing hindi ka pa handa.',
     },
     forWho: {
-      en: 'Hosts who have not locked a date yet, or who want the date their suppliers can actually do.',
+      en: 'Hosts who have not set a date yet, or who want the date their suppliers can actually do.',
       tl: 'Para sa mga host na wala pang petsa, o gustong petsang kaya talaga ng mga supplier nila.',
     },
     steps: {

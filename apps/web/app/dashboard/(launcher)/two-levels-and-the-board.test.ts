@@ -842,7 +842,7 @@ test('every rail destination stays inside the event you opened', () => {
   }
 });
 
-test('the event rail is the one tree — five rows (Stage D)', () => {
+test('the event rail is the one tree — four rows (Stage D; More left 22 Oct 2026)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"so basically. this is what an event
     needs. Guestlist · Your Team · Event Hub Maker · Our Services"*). The
@@ -858,7 +858,8 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   );
   assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars']);
   assert.deepEqual(keysByGroup.event, ['personalization']);
-  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'studio']);
+  // More Services left the rail with the bar's More (owner 22 Oct 2026, "Yes remove more").
+  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —

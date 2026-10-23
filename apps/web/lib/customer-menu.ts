@@ -54,7 +54,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { SUITE_NAV_ON, studioHubHref } from './studio-hub';
+import { SUITE_NAV_ON } from './studio-hub';
 import { isStoreShellWebOnlyPath } from './store-shell';
 
 /* The Suite doorway flag + href come from `lib/studio-hub.ts` — one branch,
@@ -80,6 +80,8 @@ export type CustomerMenu = {
    *  plus the claims of any rail row that has no tab of its own. */
   activeMatch: string | string[];
   activeMatchExact?: boolean;
+  /** Exact-only landings beside the prefix claims (Home: its own address + the checklist). */
+  activeMatchAlsoExact?: string[];
 };
 
 export type CustomerMenuCtx = EventMenuCtx & {
@@ -351,7 +353,23 @@ export function buildEventMenuSections(
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
   // route shares `${base}/`, so only the exact pathname may light it.
-  put({ key: 'home', label: 'Home', href: base, icon: PILLAR_TAB_ICON.home, matchPrefix: '__home__' });
+  //
+  // 🏠 …AND, SINCE MORE LEFT THE MENU (owner 22 Oct 2026, "Yes remove more"), Home holds what More held:
+  // the services live on Home › Your services, so their pages (Studio products, Galleries) light Home —
+  // never nowhere. Where there is no Maker it also holds the pages the Maker would have.
+  put({
+    key: 'home',
+    label: 'Home',
+    href: base,
+    icon: PILLAR_TAB_ICON.home,
+    matchPrefix: '__home__',
+    alsoMatch: [
+      `${base}/studio`,
+      `${base}/galleries`,
+      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
+      ...(maker ? [] : seatPages),
+    ],
+  });
 
   // GUEST LIST — the people room: Access and Check-in are columns of the list
   // (F2 cut its parts row), and the pages about the same people light it.
@@ -406,7 +424,6 @@ export function buildEventMenuSections(
   // "Our Services" → "More Services" (owner 2026-09-30: *"it cannot be our
   // services since we have the guestlist, your team and event hub maker on the
   // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
-  const services = ctx.services ?? [];
   /*
     🍎 THE APP HAS NO MORE (owner 2026-10-21, testing TestFlight build 5:
     *"pressing more on the bottom nav jumps me to home. but i do not see the
@@ -415,25 +432,20 @@ export function buildEventMenuSections(
     (`STORE_SHELL_HIDDEN_ADDON_KEYS`, App Review 3.1.1), so this row had no
     children and its door was Home `?more=services` — a tab that only re-opened
     Home. It is not built in the app: the bar is Home · Guests · Suppliers ·
-    Hub, and the iPad rail and the ☰ drawer lose the same dead row. The web
-    always keeps it (the paid services live there).
-    `the-app-bar-has-no-more.test.ts` holds it.
+    Hub, and the iPad rail and the ☰ drawer lose the same dead row. (The web
+    kept it until 22 Oct 2026 — below.)
   */
-  if (!ctx.storeShell) put({
-    key: 'studio',
-    label: SUITE_NAV_ON ? 'More Services' : 'Studio',
-    href: studioHubHref(eventId),
-    menuDoor: true,
-    icon: PILLAR_TAB_ICON.studio,
-    ...(services.length ? { children: services.map((c) => ({ ...c })) } : {}),
-    alsoMatch: [
-      `${base}/studio`,
-      `${base}/galleries`,
-      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
-      ...(maker ? [] : seatPages),
-    ],
-  });
-
+  /*
+    🚫 NO MORE — ON THE WEB EITHER (owner 22 Oct 2026, verbatim *"Yes remove more"*, after every event
+    type was put on the wedding's bar). The app lost it on 2026-10-21 (above); the web now does too, so
+    the bar is Home · Guests · Suppliers · Hub everywhere, and the iPad/desktop rail and the ☰ drawer
+    lose the "More Services" row with it (supersedes the 2026-10-01 web More and the 2026-10-08
+    "desktop More opens the pop-up"). Nothing it listed is lost — every service has its row on Home ›
+    Your services on the web (`homeServices` / `homePaidFacts`, the same catalogue and `offered` rule),
+    held by `the-app-bar-has-no-more.test.ts`. The `studio` KEY and its registry slots stay (an admin
+    override still resolves); the row is simply never built, so its product pages light no tab.
+    `ctx.services` is no longer read by the tree.
+  */
   // THE PRODUCTS' PAGES — claimed by whichever row holds them.
   const claim = (key: string, paths: string[]) => {
     const host = rows.get(key);
@@ -446,7 +458,7 @@ export function buildEventMenuSections(
     const own = t.href.split('?')[0]!;
     const absorbed = STUDIO_ABSORBED[t.key];
     if (absorbed && claim(absorbed.into, [own, ...absorbed.routes(base)])) continue;
-    claim('studio', absorbed ? [own, ...absorbed.routes(base)] : [own]);
+    claim('home', absorbed ? [own, ...absorbed.routes(base)] : [own]);
   }
 
   // 🍎 A row the store shell refuses is never built — `storeShellRefusesMenuRow`.
@@ -523,9 +535,11 @@ export function buildCustomerMenuTree(
           label,
           icon: EVENT_MENU_ICONS[r.icon],
           href: r.href,
-          // The checklist is the Home page's own "View your full checklist".
-          activeMatch: [base, `${base}/checklist`],
-          activeMatchExact: true,
+          // Its own address and the checklist (Home's "View your full checklist") EXACTLY — every event
+          // page shares `${base}/` — plus, as prefixes, the service pages it holds since More left.
+          // ⚠ Never `${base}` itself as a prefix — that would light Home on every event page.
+          activeMatch: [...new Set(eventMenuRowClaims(r))].filter((p) => p !== base),
+          activeMatchAlsoExact: [base, `${base}/checklist`],
         },
       ];
     }

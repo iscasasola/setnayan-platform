@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from './customer-nav-config';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import { HomeCoverBand } from './home-cover-band';
 
 // The components are compiled with the classic JSX runtime under tsx.
@@ -59,7 +60,11 @@ test('1 · the rail draws no door to Event Details, and no row it could light fo
   const all = buildCustomerNavGroups('EVT123', { websiteEnabled: true });
   assert.ok(all.some((g) => g.key === 'event'), 'the `event` group left the tree — re-read what the rail filters');
   const drawn = all.filter((g) => g.key !== 'event').flatMap((g) => g.items);
-  assert.ok(drawn.length >= 5, 'the rail draws fewer than five rows — this check would pass vacuously');
+  // The floor is the ruled bar itself (owner 22 Oct 2026, "Yes remove more" — Home · Guests · Suppliers · Hub): the
+  // rail draws exactly the bar's rows, so a rail that lost one — or this check over nothing — goes red.
+  const bar = buildCustomerMenuTree('EVT123', { websiteEnabled: true }).map((m) => m.key);
+  assert.ok(bar.length >= 4, 'the bar lost a ruled tab — this check would pass vacuously');
+  assert.deepEqual(drawn.map((i) => i.key), bar, 'the rail draws other rows than the bar — this check would not see them');
   const drawnDetails = drawn.filter((i) => i.key === 'personalization' || DETAILS_HREF.test(i.href));
   assert.deepEqual(drawnDetails.map((i) => i.key), [], 'a drawn rail row opens Event Details');
 });

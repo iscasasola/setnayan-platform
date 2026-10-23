@@ -1183,12 +1183,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',
-    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    blurb: 'The four places that hold everything for an event — the same on phone and laptop.',
     slides: [
       {
         Icon: Sparkles,
-        title: 'Five places for your whole event',
-        body: 'Home, Guests, Suppliers, Hub and More. The same five sit at the bottom of your phone and down the side of your laptop.',
+        title: 'Four places for your whole event',
+        body: 'Home, Guests, Suppliers and Hub. The same four sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
@@ -1207,9 +1207,10 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Camera,
-        title: 'More Services',
-        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
-        // 🍎 Five paid web extras and a More tab the iPhone app does not have (#6725) — dropped there.
+        title: 'Your services',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok live on Home, under Your services &mdash; add the ones you want for your day.',
+        // 🍎 Five paid web extras (More left the bar 22 Oct 2026 — they live on Home › Your services); the
+        // iPhone app shows none of them (#6725), so this slide is dropped there.
         sells: true,
       },
     ],

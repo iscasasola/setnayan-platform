@@ -42,6 +42,7 @@ events.reception_design	# first run 2026-10-02 · host app · a screen saves an 
 events.rsvp_backdrop	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.intensity	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.theme	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.same_date_count_opt_out	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.seating_autoplace_enabled	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.seating_group_adjacency	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.share_budget_band	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

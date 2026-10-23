@@ -1192,7 +1192,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             It was not hypothetical — this query has been returning PGRST201,
             so the caution has never once been shown to anybody.
           */
-          'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date)',
+          'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date, same_date_count_opt_out)',
         )
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', ['considering', 'contracted'])
@@ -1207,11 +1207,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       if (holdsError) {
         logQueryError('CoupleVendorsPage.sameDateHolds', holdsError, { eventId }, 'graceful_degrade');
       }
+      // ⚖ DPO ruling 2026-10-23: a couple may leave the same-date count. The
+      // flag rides on the same row, and `groupHoldsByVendor` drops it.
       const holdRows: SameDateHold[] = (
-        (holds ?? []) as Array<{ marketplace_vendor_id: string | null; event_id: string }>
+        (holds ?? []) as Array<{
+          marketplace_vendor_id: string | null;
+          event_id: string;
+          event?: { same_date_count_opt_out?: boolean | null } | null;
+        }>
       ).map((h) => ({
         marketplaceVendorId: h.marketplace_vendor_id,
         eventId: h.event_id,
+        optedOut: h.event?.same_date_count_opt_out === true,
       }));
       const otherEventsByProfile = groupHoldsByVendor(holdRows);
 

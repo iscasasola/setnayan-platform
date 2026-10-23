@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { PapicHomeCard } from './papic-home-card';
+import type { PapicCardPhase } from '@/lib/papic-home-card';
+
 import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
@@ -23,6 +26,16 @@ import { seePhotosWord } from '@/lib/papic-glance';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
 import { switchOnNeed } from '../switch-on-actions';
+
+/** 📷 What Home hands Papic's card: its two new lines, and the camera settings it opens under itself. */
+export type PapicCardInput = {
+  coverage: string | null;
+  phase: PapicCardPhase | null;
+  /** The latest five (`PapicCardStrip`, a streamed server slot). */
+  strip: ReactNode;
+  thankYouHref: string | null;
+  settings: ReactNode;
+};
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -160,6 +173,12 @@ export type HomeFirstScreenProps = {
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
   /**
+   * 📷 PAPIC'S CARD (owner 2026-10-23, "a smaller widget on home. Then we can expand it" · "expanding opens the rest
+   * of the settings under it"): the coverage line, the latest five, and the camera settings it opens under itself.
+   * Absent = the shipped row (a lab, the app).
+   */
+  papicCard?: PapicCardInput | null;
+  /**
    * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
    * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
    * Guests door, no coming / no-reply tiles, and the One QR card in their place; no suppliers → no
@@ -216,6 +235,7 @@ export function HomeFirstScreen({
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  papicCard = null,
   needs = null,
   apple = null,
 }: HomeFirstScreenProps) {
@@ -374,7 +394,7 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} />
+        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicCard={papicCard} />
 
         {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
             "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -421,12 +441,14 @@ export function YourServices({
   apple = null,
   papicLeft,
   papicSizes = null,
+  papicCard = null,
 }: {
   eventId: string;
   services: HomeService[];
   apple?: HomeFirstScreenProps['apple'];
   papicLeft: number | null;
   papicSizes?: PoolRung[] | null;
+  papicCard?: PapicCardInput | null;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
   return (
@@ -465,7 +487,7 @@ export function YourServices({
         {services.map((svc, i) => {
           const Icon = SERVICE_ICON[svc.key];
           if (svc.key === 'papic' && svc.papic) {
-            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} card={papicCard} />;
           }
           if (svc.paid) {
             /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
@@ -505,7 +527,21 @@ export function YourServices({
  * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
  * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
  */
-function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
+function PapicServiceRow({
+  eventId,
+  svc,
+  doors,
+  left,
+  sizes,
+  card = null,
+}: {
+  eventId: string;
+  svc: HomeService;
+  doors: PapicRowDoors;
+  left: number | null;
+  sizes: PoolRung[] | null;
+  card?: PapicCardInput | null;
+}) {
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
@@ -524,6 +560,28 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
         {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/memories`} /> : null}
       </>
     ) : null;
+  const line = doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line;
+  // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now.
+  if (card) {
+    return (
+      <PapicHomeCard
+        name={svc.name}
+        brand={svc.brand}
+        icon={<Camera aria-hidden strokeWidth={1.9} />}
+        mood={doors.glance.mood}
+        pct={doors.glance.pct}
+        line={line}
+        meterLabel="Credits left"
+        coverage={card.coverage}
+        phase={card.phase}
+        strip={card.strip}
+        actions={acts}
+        thankYouHref={card.thankYouHref}
+        settings={card.settings}
+        marker={{ 'data-home-service': 'papic' }}
+      />
+    );
+  }
   return (
     <ServiceGlanceRow
       href={`/dashboard/${eventId}/studio/papic`}
@@ -532,7 +590,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       icon={<Camera aria-hidden strokeWidth={1.9} />}
       mood={doors.glance.mood}
       pct={doors.glance.pct}
-      line={doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line}
+      line={line}
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
@@ -553,18 +611,20 @@ export function DayPapicRow({
   svc,
   left,
   sizes = null,
+  card = null,
 }: {
   eventId: string;
   face: DayPapicFace;
   svc: HomeService | undefined;
   left: number | null;
   sizes?: PoolRung[] | null;
+  card?: PapicCardInput | null;
 }) {
   const view = dayPapicView(face, svc, eventId);
   if (view.kind === 'hidden' || !svc) return null;
   const body =
     view.kind === 'row' ? (
-      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} />
+      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} card={card} />
     ) : view.kind === 'say' ? (
       <ServiceGlanceRow
         href={view.href}

@@ -1,4 +1,9 @@
 import { Suspense } from 'react';
+import { PapicCardStrip } from './_components/papic-card-strip';
+import { PapicCameraSettings } from './studio/papic/_components/papic-camera-settings';
+import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import { OUR_SERVICE_PARTS } from '@/lib/our-services';
+import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -36,7 +41,7 @@ import {
   pickHomeNext,
 } from '@/lib/home-first-screen';
 import { homePaidFacts } from '@/lib/home-paid-services';
-import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
 import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
@@ -817,6 +822,40 @@ export default async function EventHomePage({
             : null,
       })
     : null;
+  /*
+    📷 PAPIC'S CARD (owner 2026-10-23: "a smaller widget on home. Then we can expand it" · "does not open to a new
+    page. just expands on home"): the coverage line, the latest five (streamed), and the camera settings it opens
+    UNDER itself — the same `PapicCameraSettings` `/studio/papic` draws. The couple's alone (the settings write as the
+    couple); a coordinator keeps the shipped row. The app keeps its own Papic row (`apple`).
+  */
+  const papicCardPhaseNow = papicCardPhase(papicWin.startIso, papicWin.endIso, Date.now());
+  const papicCard: PapicCardInput | null =
+    canViewPapicCounts && viewerMemberType === 'couple' && !appleFacts
+      ? {
+          coverage: papicCoverageWords({
+            startIso: papicWin.startIso,
+            endIso: papicWin.endIso,
+            now: Date.now(),
+            on: papicSwitch === undefined ? true : papicIsOn(papicSwitch),
+          }),
+          phase: papicCardPhaseNow,
+          strip: (
+            <Suspense fallback={null}>
+              <PapicCardStrip
+                eventId={eventId}
+                total={typeof papicNow.result === 'number' ? papicNow.result : null}
+                phase={papicCardPhaseNow}
+              />
+            </Suspense>
+          ),
+          thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
+          settings: (
+            <Suspense fallback={null}>
+              <PapicCameraSettings eventId={eventId} credits={{ total: papicNow.total, left: papicNow.count }} />
+            </Suspense>
+          ),
+        }
+      : null;
   const homeServicesInput: Parameters<typeof homeServices>[0] = {
     next: homeNext.kind,
     storeShell,
@@ -902,6 +941,7 @@ export default async function EventHomePage({
       figures={facts.figures}
       services={homeServiceRow}
       papicLeft={papicNow.count}
+      papicCard={papicCard}
       apple={
         appleFacts
           ? {
@@ -1131,6 +1171,7 @@ export default async function EventHomePage({
               })}
               svc={dayPapicSvc}
               left={papicNow.count}
+              card={papicCard}
             />
           }
         />

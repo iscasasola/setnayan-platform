@@ -15,7 +15,6 @@ import {
   Smartphone,
   CircleHelp,
   CheckCircle2,
-  Clock,
   Unlink2,
   BatteryWarning,
 } from 'lucide-react';
@@ -38,19 +37,14 @@ import {
   captureWindowState,
   PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
-import PapicWindowPicker from './papic-window-picker';
-import StylePicker from './style-picker';
-import { SettingRow } from './_components/setting-row';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
-import { VendorChallengesApproval } from './vendor-challenges-approval';
-import { CoupleChallengesManager } from './couple-challenges-manager';
 import {
   provisionFreeCamerasAdmin,
   provisionUploadsCameraAdmin,
   PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { papicChoices, papicIsOn } from '@/lib/event-answers';
+import { papicIsOn } from '@/lib/event-answers';
 import {
   countLimitedGuests,
   fetchActiveLimitedSnapshot,
@@ -58,24 +52,18 @@ import {
   syncGuestCameras,
   type LimitedSnapshotStatus,
 } from '@/lib/papic-limited';
-import { InfoTip } from '@/app/_components/info-tip';
 import { PAPIC_CAMERA_SALE_REFUSED, PAPIC_CAMERA_SALE_REFUSED_WORDS } from '@/lib/papic-sells-only-credits';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicTopBand } from './_components/papic-top-band';
 import { getIapGate } from '@/lib/request-platform';
 import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
-import { FaceTaggingChoice } from './_components/face-tagging-choice';
-import { GuestCamerasChoice } from './_components/guest-cameras-choice';
-import { GuestAllotmentsChoice } from './_components/guest-allotments-choice';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { LifeFlashCard } from './_components/life-flash-card';
 import { type DriveGrant } from './_components/drive-copy-card';
-import { FaceBlockingList } from './_components/face-blocking-list';
-import { AnswerPicker } from '@/app/dashboard/[eventId]/launch/_components/details-answers';
+import { PapicCameraSettings } from './_components/papic-camera-settings';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -673,48 +661,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         appleIap={appleIap}
       />
 
-      {/* (1) THE ONE LINE — Papic [switch] · the dates (owner, 23 Oct: "great"). The switch is the event's own
-          "Photos from your guests?" answer (`events.papic_on`, read by the capture gate) — the same writer as Event
-          Details, never a second on/off. The dates are the shipped window, behind a tap on them. */}
-      <section className="flex flex-col gap-1" data-papic-top-line="" data-tour="papic-coverage">
-        <div className="flex items-center justify-between gap-3">
-          <InfoTip label="Papic" labelAs="h2" labelClassName="text-lg font-semibold tracking-tight text-ink" align="start">
-            The switch is Papic itself: on, every guest&rsquo;s invite QR is a camera and the one code works; off, nothing
-            can be captured and your credits stay. The dates fill in by themselves — up to 6 months before your day, then
-            12 hours after it ends. Tap the dates to open the cameras earlier or later.
-          </InfoTip>
-          <AnswerPicker
-            eventId={eventId}
-            column="papic_on"
-            label="Papic"
-            choices={papicChoices()}
-            saved={((event as { papic_on?: boolean | null }).papic_on ?? null) as boolean | null}
-            as="switch"
-          />
-        </div>
-        {papicWindow.startDate ? (
-          <div className="divide-y divide-ink/10" data-papic-dates="">
-            <SettingRow
-              icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-              label="Dates"
-              value={papicWindowWords}
-              sheetTitle="Change dates"
-            >
-              <PapicWindowPicker
-                eventId={eventId}
-                eventType={(ev.event_type as string | null) ?? null}
-                eventDate={(ev.event_date as string | null) ?? null}
-                windowStart={(ev.papic_window_start as string | null) ?? null}
-                windowEnd={(ev.papic_window_end as string | null) ?? null}
-                windowIsSet={windowIsSet}
-                days={papicDays}
-                summary={papicWindowSummary}
-              />
-            </SettingRow>
-          </div>
-        ) : null}
-      </section>
-
       {/* (2) THE CREDITS — the one band: what is left · the meter · Add more (owner "Yes", 2026-10-13). */}
       <PapicTopBand
         eventId={eventId}
@@ -727,27 +673,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
       <GuestContributionsCard eventId={eventId} />
 
-      {/* (3) SETTINGS — his five, flat on the page: every control on its line, every explanation in its ⓘ. */}
-      <section className="flex flex-col gap-3" data-papic-settings="">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Settings</h2>
-        <div className="flex flex-col gap-2" data-papic-setting="filter">
-          <InfoTip label="Filter" labelClassName="text-[15px] font-semibold text-ink" align="start">
-            One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
-            Memories feel like one set. Guests cannot change it.
-          </InfoTip>
-          <StylePicker eventId={eventId} current={papicStyle} />
-        </div>
-        <div className="divide-y divide-ink/10">
-          <GuestCamerasChoice eventId={eventId} variant="row" />
-          <GuestAllotmentsChoice eventId={eventId} variant="row" />
-          <FaceTaggingChoice eventId={eventId} variant="row" />
-          <FaceBlockingList eventId={eventId} />
-        </div>
-      </section>
-
-      {/* (4) CHALLENGES — the board guests see, and what a supplier asks to add. */}
-      <CoupleChallengesManager eventId={eventId} />
-      <VendorChallengesApproval eventId={eventId} />
+      {/* (3) THE CAMERA — the one line (switch + dates), his five, the challenges: the SAME component Home's Papic
+          card opens under itself (`papic-camera-settings.tsx`). */}
+      <PapicCameraSettings eventId={eventId} />
 
       {/* MADE FROM YOUR MEMORIES — the keepsakes Papic's frames become (not in the owner's five; kept, unmoved). */}
       <MagazineCard eventId={eventId} />

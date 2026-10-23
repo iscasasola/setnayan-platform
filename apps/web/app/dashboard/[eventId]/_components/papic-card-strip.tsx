@@ -1,0 +1,110 @@
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { memoriesRefs } from '@/lib/papic-display-ref';
+import { formatCount } from '@/lib/format-number';
+import type { PapicCardPhase } from '@/lib/papic-home-card';
+
+/**
+ * papic-card-strip.tsx — THE LATEST FIVE on Home's Papic card (owner 2026-10-23; approved
+ * `prototypes/papic_controller_one_page_2026-10-23.html` "Home — the Papic widget"): four frames and "+N", then
+ * "N in your Memories · latest first · See all ›" — every press opens the event's MEMORIES tab (Papic is the camera,
+ * Memories the photos). The small compressed copy only (`memoriesRefs`), never a frame the content screen held back
+ * or the host hid. Streamed under its own Suspense, so Home never waits on it. A refused read says so.
+ */
+export async function PapicCardStrip({
+  eventId,
+  total,
+  phase,
+}: {
+  eventId: string;
+  /** Home's own photo count (the glance) — null when not measured. */
+  total: number | null;
+  phase: PapicCardPhase | null;
+}) {
+  const supabase = await createClient();
+  const [seat, guest] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id, photo_type, thumb_r2_key, tile_r2_key, display_r2_key, poster_r2_key, captured_at')
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .or('moderation_state.is.null,moderation_state.neq.nsfw_blocked')
+      .order('captured_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('papic_guest_captures')
+      .select('capture_id, media_type, thumb_r2_key, tile_r2_key, display_r2_key, poster_r2_key, captured_at')
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .or('moderation_state.is.null,moderation_state.neq.nsfw_blocked')
+      .order('captured_at', { ascending: false })
+      .limit(5),
+  ]);
+  if (seat.error) logQueryError('PapicCardStrip.seat', seat.error, { eventId }, 'graceful_degrade');
+  if (guest.error) logQueryError('PapicCardStrip.guest', guest.error, { eventId }, 'graceful_degrade');
+  if (seat.error || guest.error) {
+    return (
+      <p role="status" className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="refused">
+        Couldn’t load your photos — nothing has changed
+      </p>
+    );
+  }
+  type Row = { id: string; at: string; ref: string | null };
+  const rows: Row[] = [
+    ...(seat.data ?? []).map((r) => ({ id: r.photo_id as string, at: r.captured_at as string, ref: memoriesRefs(r as Parameters<typeof memoriesRefs>[0]).grid })),
+    ...(guest.data ?? []).map((r) => ({ id: r.capture_id as string, at: r.captured_at as string, ref: memoriesRefs(r as Parameters<typeof memoriesRefs>[0]).grid })),
+  ]
+    .filter((r) => r.ref)
+    .sort((a, b) => (a.at < b.at ? 1 : -1))
+    .slice(0, 5);
+  if (rows.length === 0) {
+    return (
+      <p className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="empty">
+        {phase === 'before' ? 'Frames fill as your guests shoot' : 'No photos yet'}
+      </p>
+    );
+  }
+  const frames = await Promise.all(rows.map(async (r) => ({ id: r.id, url: await displayUrlForStoredAsset(r.ref!) })));
+  const memories = `/dashboard/${eventId}/memories`;
+  const more = total !== null ? Math.max(0, total - frames.length) : 0;
+  const drawn = frames.slice(0, more > 0 ? 4 : 5);
+  return (
+    <div className="mt-2" data-papic-strip="">
+      <div className="grid grid-cols-5 gap-1.5">
+        {drawn.map((f) => (
+          <Link key={f.id} href={memories} aria-label="Open your Memories" className="block aspect-square overflow-hidden rounded-[7px] bg-ink/[0.06]">
+            {f.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={f.url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+            ) : null}
+          </Link>
+        ))}
+        {more > 0 ? (
+          <Link
+            href={memories}
+            aria-label={`${formatCount(more)} more in your Memories`}
+            className="grid aspect-square place-items-center rounded-[7px] bg-ink/[0.06] text-[12px] font-semibold text-terracotta"
+          >
+            +{formatCount(more)}
+          </Link>
+        ) : null}
+      </div>
+      <p className="mt-1.5 flex items-center justify-between gap-2 text-[12.5px] text-ink/60">
+        <span className="min-w-0 truncate">
+          {total !== null ? (
+            <>
+              <b className="font-semibold text-ink">{formatCount(total)}</b> in your Memories · latest first
+            </>
+          ) : (
+            'In your Memories · latest first'
+          )}
+        </span>
+        <Link href={memories} className="shrink-0 font-medium text-terracotta" data-papic-see-all="">
+          See all ›
+        </Link>
+      </p>
+    </div>
+  );
+}

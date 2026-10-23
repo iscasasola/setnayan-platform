@@ -23,6 +23,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const code = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
 const PAPIC = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+const CAMERA = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 const SETTINGS = 'app/dashboard/[eventId]/memories/_components/memories-settings.tsx';
 const DETAILS = 'app/dashboard/[eventId]/details/page.tsx';
 const ACCESS = 'app/dashboard/[eventId]/details/_components/people-with-access.tsx';
@@ -32,17 +33,20 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
   const page = code(PAPIC);
   const body = page.slice(page.indexOf('data-papic-page="camera"'));
   assert.ok(body.length > 100, 'premise: the camera page is drawn');
+  assert.match(body, /<PapicTopBand\b/, 'the Papic page lost the credits band');
+  assert.match(body, /<PapicCameraSettings eventId=\{eventId\}/, 'the Papic page no longer draws the camera settings');
+  // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
+  const cam = code(CAMERA);
   for (const must of [
     /<AnswerPicker[\s\S]{0,120}column="papic_on"[\s\S]{0,200}as="switch"/,
     /<PapicWindowPicker\b/,
-    /<PapicTopBand\b/,
     /<StylePicker\b/,
     /<GuestAllotmentsChoice\b/,
     /<FaceTaggingChoice\b/,
     /<FaceBlockingList\b/,
     /<CoupleChallengesManager\b/,
   ]) {
-    assert.match(body, must, `the Papic page lost ${must}`);
+    assert.match(cam, must, `the camera settings lost ${must}`);
   }
   for (const gone of [
     '<LiveWallCard',

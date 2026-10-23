@@ -141,9 +141,9 @@ test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
   // MB11: "add the per-category pair ALONGSIDE the existing quota precedent —
   // never overwriting it". These are the shipped portfolioPhotos figures; if a
   // future edit collapses the two axes into one, this goes red.
-  assert.equal(TIER_CAPS.free.portfolioPhotos, 30);
-  assert.equal(TIER_CAPS.pro.portfolioPhotos, 100);
-  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 300);
+  assert.equal(TIER_CAPS.free.portfolioPhotos, 50);
+  assert.equal(TIER_CAPS.pro.portfolioPhotos, 50);
+  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 50);
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
     assert.notEqual(
       TIER_CAPS[tier].portfolioPhotos,

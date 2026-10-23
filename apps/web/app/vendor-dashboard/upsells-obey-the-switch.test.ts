@@ -87,7 +87,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
 const PAYWALL_COPY: RegExp[] = [
   /\bupgrade\b/i,
   /\bunlocks? with\b/i,
-  /Pro (?:&|&amp;) Enterprise only/i,
+  /Pro (?:&|&amp;) (?:Enterprise|Ultra) only/i,
   /<VendorTierGate\b/,
   /<VendorTierTeaser\b/,
   /<PaidMark\b/,

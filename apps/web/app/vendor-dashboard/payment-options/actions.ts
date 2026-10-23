@@ -111,7 +111,7 @@ export async function addPaymentMethod(formData: FormData) {
     // The final action — where a Pro-less shop is asked, and only while the
     // switch is on (vendorPaywallApplies). Off, every shop may add a link.
     if (vendorPaywallApplies(await isShopProActive(supabase, vendorProfileId)))
-      fail('Payment links are part of Pro and Enterprise. Pick one on the Plans page to add this link.');
+      fail('Payment links are part of Pro and Ultra. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');
     const cls = classifyPaymentLink(url);

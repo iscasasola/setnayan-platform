@@ -32,7 +32,7 @@ import { blockClosesDay, repeatWords } from '@/lib/not-available';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
-import { asVendorTier, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -690,7 +690,7 @@ const DATES_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; r
   block_removed: { tone: 'ok', text: 'Open again — bookable on Setnayan.' },
   client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
   capacity_saved: { tone: 'ok', text: 'How many a day — saved.' },
-  capacity_clamped: { tone: 'note', text: 'Saved at the most a day your plan takes.' },
+  capacity_clamped: { tone: 'note', text: `Saved at ${DAILY_CAPACITY_MAX} a day — the most a calendar takes.` },
   pool_saved: { tone: 'ok', text: 'Saved — those services share that schedule now.' },
   waitlist_notified: { tone: 'ok', text: 'Told them — the couples waiting know the date is open.' },
   waitlist_settings_saved: { tone: 'ok', text: 'Waiting list saved.' },
@@ -818,9 +818,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   for (const r of (pickedRead.data ?? []) as { requested_date: string }[]) {
     pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
   }
-  // The plan's most events a day — the same clamp `updatePoolCapacity` applies (and the database's 50).
-  const slots = tierCaps(asVendorTier(tier)).slotsPerDay;
-  const ceiling = Math.min(Number.isFinite(slots) ? Math.max(1, slots) : 50, 50);
+  // The most events a day — the database's 50, the same clamp `updatePoolCapacity` applies. No plan limit (2026-10-23).
+  const ceiling = DAILY_CAPACITY_MAX;
 
   // Team (Pro+): one person's calendars in the month's dropdown — the services they are assigned narrow the pools.
   const agentsEnabled = tierCaps(tier).agentAccounts > 0;

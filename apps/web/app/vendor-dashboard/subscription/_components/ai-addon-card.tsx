@@ -155,7 +155,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
           {paidButUnverified ? (
             <span>Get your shop verified to unlock Vendor AI — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>Vendor AI is available on the paid plans (Solo, Pro, Enterprise). Upgrade above to add it.</span>
+            <span>Vendor AI is available on the paid plans (Solo, Pro, Ultra). Upgrade above to add it.</span>
           )}
         </div>
       ) : (

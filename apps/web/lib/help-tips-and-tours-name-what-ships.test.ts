@@ -234,6 +234,8 @@ test('the account screens’ tours are spotlights, and their optional stop is ne
     assert.ok(sp && sp.steps.length >= 2, `${k} has no spotlight`);
     assert.equal(TOURS[k].slides.length, 0, `${k} carries carousel slides — the carousel is off`);
   }
+  // The account bar's tabs are phone-only; its last stop is the avatar, drawn at every width.
+  assert.equal(TOURS.customer_account_bar_v1.spotlight!.steps.at(-1)!.anchor, 'account-avatar', 'the account-bar tour’s last stop is not the avatar — on a laptop it would stall');
   const people = TOURS.customer_people_v2.spotlight!.steps.map((s) => s.anchor);
   assert.notEqual(people.at(-1), 'people-loved-ones', 'Loved ones is People’s last stop — on an account without it the tour would stall');
   assert.equal(people.at(-1), 'people-find', 'People’s last stop is the thumb row’s field, which every view draws');

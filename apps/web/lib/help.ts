@@ -353,6 +353,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Yes. One account can run a shop and plan events. Create an event from Events, as anyone does. A shop you open or claim is also one of your loved ones in People, so you can make an event for your shop as well as for yourself.',
       },
       {
+        // The avatar sheet, Direction 2 (owner 2026-10-22, #6783) — one Switch to card, a row per shop (#6802).
+        slug: 'switch-between-your-places',
+        title: 'How do I switch between my events and my shop?',
+        body: 'Tap your picture at the top. Switch to lists Your events and each shop you run — tap one to go there, or View page to see a shop’s public page. Profile & settings is at the top of the same sheet.',
+      },
+      {
+        // Search stays in the shell (#6782): a signed-in search answers on the account's own results page.
+        slug: 'what-search-finds',
+        title: 'What does search find?',
+        appBody: 'Your events, the suppliers on them — marked On your event — and our stories and guides. The results open inside your account.',
+        body: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, and our stories and guides. The results open inside your account.',
+      },
+      {
         // The supplier bar (owner 2026-10-21 "SUPPLIER BAR — TODAY · CUSTOMERS · SHOP · HUB"; More left the bar).
         slug: 'supplier-dashboard-tabs',
         title: 'Suppliers: where is everything in my dashboard?',
@@ -380,7 +393,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'loved-ones',
         title: 'What are loved ones?',
-        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop.',
+        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop. An event made for a loved one or your shop says who it is for — on its card, and under its name on Home.',
       },
       {
         slug: 'memories',
@@ -509,6 +522,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Your Event Hub is the page at setnayan.com/your-slug where every invitation leads. Guests land there when they tap their personal link or scan their QR. It shows your event details, an RSVP form, a countdown, the venue map, the dress code, and more.',
       },
       {
+        // Event Hub Pro part by part (owner 2026-10-22, #6775/#6780). Web only — the app shows none of it. No figure
+        // here: prices are the catalogue's (platform_retail_catalog_v2), named on the Pricing page.
+        slug: 'event-hub-pro-parts',
+        title: 'Can I get only part of Event Hub Pro?',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page in Studio.',
+      },
+      {
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',
@@ -535,6 +556,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'track-vendor',
         title: 'Track a supplier',
         body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have paid them, they show as Booked.',
+      },
+      {
+        // A manual venue's pin is set in Studio › Info; a shop's venue follows the shop's pin (owner 2026-10-22, #6787).
+        slug: 'venue-pin',
+        title: 'How do I put my venue on the map?',
+        body: 'In Studio › Info › Venues, a venue you added yourself gets a pin you can move to the door. A venue booked from a shop on Setnayan follows the shop’s own pin — if the shop has not pinned its place yet, the map says so.',
       },
       {
         slug: 'budget-line-items',
@@ -623,7 +650,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'theme',
         title: 'Change your Event Hub’s theme',
-        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens keep Setnayan’s look.',
+        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens can be light or dark: choose Appearance in Profile › Preferences.',
       },
       {
         slug: 'cookies',

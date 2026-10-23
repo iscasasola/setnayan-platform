@@ -1079,12 +1079,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      segment>`, stamped by `<BottomNav>`) and walks nowhere, so nothing else can stack on it. Discover is not a
      stop: the iPhone app drops it, and its address `/` has no segment to stamp. Memories is lit on the BAR, not
      inside its page — the page is being redrawn (#6778) and a stop on it would point at something about to go.
-     Phone only, as the bar is (the laptop keeps the rail, which stamps no tab tokens): on a laptop no stop is
-     drawn and nothing is recorded. Sells nothing. */
+     The bar is phone only (the laptop keeps the rail, which stamps no tab tokens), so the last stop is the avatar —
+     drawn at every width — and a laptop's tour skips straight to it. Sells nothing. */
   customer_account_bar_v1: {
     key: 'customer_account_bar_v1',
     label: 'Your account bar',
-    blurb: 'Events, Memories and People — the bar on your account screens.',
+    blurb: 'Events, Memories and People — the bar on your account screens — and Switch to.',
     slides: [],
     spotlight: {
       steps: [
@@ -1102,6 +1102,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'tab-people',
           title: 'People',
           body: 'Everyone you’re connected to, your loved ones and your groups.',
+        },
+        {
+          // The avatar sheet's Switch to (#6783, #6802). The LAST stop on purpose: the top bar draws it at every
+          // width, so on a laptop — where the bar's tabs are the rail's and stamp nothing — the tour comes here.
+          anchor: 'account-avatar',
+          title: 'Switch to',
+          body: 'Your picture opens Switch to: your events and each shop you run, one tap apart. Profile & settings are there too.',
         },
       ],
       finale: {

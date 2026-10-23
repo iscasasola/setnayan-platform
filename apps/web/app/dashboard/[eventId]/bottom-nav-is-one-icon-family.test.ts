@@ -15,7 +15,7 @@
  * green the whole time; this one renders the bar the way the layout feeds it.
  *
  * WHAT THIS HOLDS:
- *   1 · The tree's five tabs are House · BookUser · Store · AppWindow · Grip.
+ *   1 · The tree's four tabs are House · BookUser · Store · AppWindow (Grip left with More, 22 Oct 2026).
  *   2 · The registry defaults for the five (bar AND rail) name those same five.
  *   3 · The RENDERED bar — fed the registry defaults, as production is — draws
  *       those five lucide line icons at one stroke, and no mark, no image.
@@ -27,7 +27,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { House, BookUser, Store, AppWindow, Grip, Heart, type LucideIcon } from 'lucide-react';
+import { House, BookUser, Store, AppWindow, Heart, type LucideIcon } from 'lucide-react';
 
 import { buildCustomerMenuTree, EVENT_MENU_ICONS, type CustomerMenuKey } from '@/lib/customer-menu';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
@@ -50,7 +50,7 @@ const FAMILY: ReadonlyArray<[CustomerMenuKey, LucideIcon, string]> = [
   ['guests', BookUser, 'lucide-book-user'],
   ['explore', Store, 'lucide-store'],
   ['launch', AppWindow, 'lucide-app-window'],
-  ['studio', Grip, 'lucide-grip'],
+  // `studio` (More, Grip) left the bar and the rail 22 Oct 2026 — owner, verbatim "Yes remove more".
 ];
 
 /** The slot map production serves when nobody has overridden anything —

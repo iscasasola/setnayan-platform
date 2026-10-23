@@ -49,16 +49,11 @@ const PAPIC_COPY_FILES = [
   'app/(shell)/pricing/page.tsx',
   'app/(shell)/pricing/_papic-estimator.tsx',
   'app/_components/home/pricing-data.ts',
-  'app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx',
+  // (guest-camera-tier-picker.tsx deleted 2026-10-23 — the per-guest camera tiers retired)
   // The onboarding services step (2026-07-29) — the FIRST place most couples
   // ever read a Papic number, and the one with the least room to be wrong.
   'app/onboarding/_shared/services-step.tsx',
-  // The extra-cameras picker (added 2026-07-31). It has rendered a capacity
-  // claim since it shipped and was never listed — so nothing here was watching
-  // when it printed "70 points a day — 70 photos, or 23 clips" off a hardcoded
-  // `/ 3` while enforcement metered a clip at 8. Listing it is half the fix;
-  // COMPUTED_POINTS_DIVISOR below is the other half.
-  'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx',
+  // (The extra-cameras picker, listed 2026-07-31, was deleted 2026-10-23 with the crew-camera tiers.)
   // The public Papic page and its credit dial (2026-08-29). The page replaced
   // sixteen printed price rows with a +/- dial, so it now renders a capacity
   // claim on every step of that dial — exactly the surface this list exists

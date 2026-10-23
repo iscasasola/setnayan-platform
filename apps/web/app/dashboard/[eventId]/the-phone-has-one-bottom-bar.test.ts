@@ -30,7 +30,6 @@ import { join, relative } from 'node:path';
 
 import { buildCustomerMenuTree, PHONE_BAR_SHORT, type CustomerMenuKey } from '@/lib/customer-menu';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
-import { SUITE_NAV_ON } from '@/lib/studio-hub';
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from './_components/customer-nav-config';
 
@@ -87,12 +86,12 @@ test('2 · no page in the event tree mounts a second bar, and the sub-nav stays 
   );
 });
 
-test('3 · the same five tabs in every phase, and the same five rows on the rail', () => {
+test('3 · the same four tabs in every phase, and the same four rows on the rail', () => {
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
   const bars = (['plan', 'dayof', 'after'] as const).map((phase) =>
     buildCustomerMenuTree(EVENT_ID, { ...ctx, phase }).map((m) => `${m.key}:${m.label}`),
   );
-  assert.equal(bars[0]!.length, 5, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
+  assert.equal(bars[0]!.length, 4, `the bar has ${bars[0]!.length} tabs: ${bars[0]!.join(' · ')}`);
   assert.deepEqual(bars[1], bars[0], 'the day-of bar rearranged itself');
   assert.deepEqual(bars[2], bars[0], 'the after bar rearranged itself');
   // Same rows, same order — and the same word, except the owner's one short
@@ -103,7 +102,7 @@ test('3 · the same five tabs in every phase, and the same five rows on the rail
   assert.deepEqual(bars[0], rail, 'the phone and the laptop disagree about the menu');
 });
 
-test('4 · Home · Guests · Suppliers · Hub · More — the rail says the same, save "More Services"', () => {
+test('4 · Home · Guests · Suppliers · Hub — the rail says the same (More left both, owner 22 Oct 2026)', () => {
   /*
     Owner, 2026-10-01 (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS ·
     SUPPLIERS · HUB · MORE"): the bar and the rail wear the same words; the one
@@ -112,13 +111,13 @@ test('4 · Home · Guests · Suppliers · Hub · More — the rail says the same
     wrapping to two lines on a 375px bar.
   */
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
-  const services = SUITE_NAV_ON;
+  // 🔁 22 Oct 2026, owner verbatim *"Yes remove more"*: the fifth tab and the rail's More Services row are gone.
   const bar = buildCustomerMenuTree(EVENT_ID, ctx).map((m) => m.label);
-  assert.deepEqual(bar, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More' : 'Studio']);
+  assert.deepEqual(bar, ['Home', 'Guests', 'Suppliers', 'Hub']);
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
     .items.map((i) => i.label);
-  assert.deepEqual(rail, ['Home', 'Guests', 'Suppliers', 'Hub', services ? 'More Services' : 'Studio']);
+  assert.deepEqual(rail, ['Home', 'Guests', 'Suppliers', 'Hub']);
   // The registry defaults are what the bar and the rail actually overlay first.
   const slot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s.label]));
   assert.equal(slot.get('customer.bottom-nav.launch'), 'Hub');
@@ -126,10 +125,7 @@ test('4 · Home · Guests · Suppliers · Hub · More — the rail says the same
   assert.equal(slot.get('customer.bottom-nav.explore'), 'Suppliers');
   assert.equal(slot.get('customer.sidebar.explore'), 'Suppliers');
   assert.equal(slot.get('customer.bottom-nav.guests'), 'Guests');
-  if (services) {
-    assert.equal(slot.get('customer.bottom-nav.studio'), 'More');
-    assert.equal(slot.get('customer.sidebar.studio'), 'More Services');
-  }
+  // The `studio` slots stay in the registry (an admin override still resolves), but no row is built for them.
 });
 
 test('5 · the day-of "Planning" pill is gone from the top bar (owner: "remove it")', () => {

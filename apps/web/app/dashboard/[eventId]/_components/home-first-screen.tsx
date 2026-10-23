@@ -4,7 +4,7 @@ import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapper
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
-import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey, PaidRow, PapicRowDoors } from '@/lib/home-first-screen';
+import { dayPapicView, type DayPapicFace, type HomeNext, type HomeNextKind, type HomeService, type HomeServiceKey, type PaidRow, type PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
@@ -374,72 +374,7 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        {services.length > 0 || apple?.papic || apple?.liveWatch ? (
-          <nav aria-label="Your services" data-home-services className="flex flex-col">
-            <p className="home-k2 !mt-1">Your services</p>
-            <div className="home-svc">
-              {apple?.papic ? (
-                <AppleServiceRow
-                  marker="papic"
-                  name={SERVICE_NAMES.papic.plain}
-                  brand={SERVICE_NAMES.papic.brand}
-                  icon={<Camera aria-hidden strokeWidth={1.9} />}
-                  status={apple.papic.status}
-                  href={apple.papic.open ?? null}
-                  action={apple.papic.buy ? <IapPapicSheet eventId={eventId} left={papicLeft} /> : null}
-                />
-              ) : null}
-              {apple?.liveWatch ? (
-                <AppleServiceRow
-                  marker="live-watch"
-                  name={SERVICE_NAMES['live-studio'].plain}
-                  brand={SERVICE_NAMES['live-studio'].brand}
-                  icon={<Radio aria-hidden strokeWidth={1.9} />}
-                  status={apple.liveWatch.status}
-                  action={
-                    apple.liveWatch.owned ? (
-                      apple.liveWatch.goLive ? (
-                        <ActionButton tone="neutral" icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Go live" href={apple.liveWatch.goLive} />
-                      ) : null
-                    ) : (
-                      <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />
-                    )
-                  }
-                />
-              ) : null}
-              {services.map((svc, i) => {
-                const Icon = SERVICE_ICON[svc.key];
-                if (svc.key === 'papic' && svc.papic) {
-                  return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
-                }
-                if (svc.paid) {
-                  /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
-                  const firstSlim = svc.paid.state === 'add' && services[i - 1]?.paid?.state !== 'add';
-                  return (
-                    <PaidServiceRow
-                      key={svc.key}
-                      svc={svc}
-                      row={svc.paid}
-                      glyph={Icon}
-                      heading={firstSlim}
-                    />
-                  );
-                }
-                return (
-                  <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
-                    <span className="home-t">
-                      <Icon aria-hidden strokeWidth={1.9} />
-                      <span className="truncate">{svc.name}</span>
-                    </span>
-                    {/* The Setnayan name, small under the plain one (owner d17). */}
-                    {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
-                    <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-        ) : null}
+        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} />
 
         {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
             "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -473,6 +408,94 @@ export function HomeFirstScreen({
   );
 }
 
+
+/**
+ * ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. Its own component since More
+ * left the event bar (owner 22 Oct 2026, "Yes remove more"): the services live HERE, so Home draws this
+ * list in every phase — the first screen, the event-day console and after the day — never a second copy.
+ * `id="your-services"` is the address a "your services" door scrolls to.
+ */
+export function YourServices({
+  eventId,
+  services,
+  apple = null,
+  papicLeft,
+  papicSizes = null,
+}: {
+  eventId: string;
+  services: HomeService[];
+  apple?: HomeFirstScreenProps['apple'];
+  papicLeft: number | null;
+  papicSizes?: PoolRung[] | null;
+}) {
+  if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
+  return (
+    <nav aria-label="Your services" id="your-services" data-home-services className="flex flex-col">
+      <p className="home-k2 !mt-1">Your services</p>
+      <div className="home-svc">
+        {apple?.papic ? (
+          <AppleServiceRow
+            marker="papic"
+            name={SERVICE_NAMES.papic.plain}
+            brand={SERVICE_NAMES.papic.brand}
+            icon={<Camera aria-hidden strokeWidth={1.9} />}
+            status={apple.papic.status}
+            href={apple.papic.open ?? null}
+            action={apple.papic.buy ? <IapPapicSheet eventId={eventId} left={papicLeft} /> : null}
+          />
+        ) : null}
+        {apple?.liveWatch ? (
+          <AppleServiceRow
+            marker="live-watch"
+            name={SERVICE_NAMES['live-studio'].plain}
+            brand={SERVICE_NAMES['live-studio'].brand}
+            icon={<Radio aria-hidden strokeWidth={1.9} />}
+            status={apple.liveWatch.status}
+            action={
+              apple.liveWatch.owned ? (
+                apple.liveWatch.goLive ? (
+                  <ActionButton tone="neutral" icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Go live" href={apple.liveWatch.goLive} />
+                ) : null
+              ) : (
+                <IapLiveWatchSheet eventId={eventId} askReady={apple.liveWatch.askReady} />
+              )
+            }
+          />
+        ) : null}
+        {services.map((svc, i) => {
+          const Icon = SERVICE_ICON[svc.key];
+          if (svc.key === 'papic' && svc.papic) {
+            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+          }
+          if (svc.paid) {
+            /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
+            const firstSlim = svc.paid.state === 'add' && services[i - 1]?.paid?.state !== 'add';
+            return (
+              <PaidServiceRow
+                key={svc.key}
+                svc={svc}
+                row={svc.paid}
+                glyph={Icon}
+                heading={firstSlim}
+              />
+            );
+          }
+          return (
+            <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
+              <span className="home-t">
+                <Icon aria-hidden strokeWidth={1.9} />
+                <span className="truncate">{svc.name}</span>
+              </span>
+              {/* The Setnayan name, small under the plain one (owner d17). */}
+              {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
+              <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
 
 /**
  * 🎨 PAPIC'S ROW — the service glance at Home size (owner "approve all",
@@ -513,6 +536,66 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
     />
+  );
+}
+
+/**
+ * 📷 PAPIC ON THE EVENT DAY (owner 22 Oct 2026, "Fix both") — Home › Your services' OWN Papic row on
+ * the event-day console, beside the Live photo wall card. Not a new card: the face is picked by
+ * `dayPapicFace` (lib/home-first-screen.ts) and the row is `PapicServiceRow` / the same plain door
+ * Your services draws. In the store shell `homeServices` builds no Papic entry, so this draws nothing
+ * there — exactly as Your services (the iPhone app shows no paid row, App Review 3.1.1).
+ */
+export function DayPapicRow({
+  eventId,
+  face,
+  svc,
+  left,
+  sizes = null,
+}: {
+  eventId: string;
+  face: DayPapicFace;
+  svc: HomeService | undefined;
+  left: number | null;
+  sizes?: PoolRung[] | null;
+}) {
+  const view = dayPapicView(face, svc, eventId);
+  if (view.kind === 'hidden' || !svc) return null;
+  const body =
+    view.kind === 'row' ? (
+      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} />
+    ) : view.kind === 'say' ? (
+      <ServiceGlanceRow
+        href={view.href}
+        name={svc.name}
+        brand={svc.brand}
+        icon={<Camera aria-hidden strokeWidth={1.9} />}
+        mood="plain"
+        pct={0}
+        meter={view.meter}
+        line={{ lead: view.words }}
+        meterLabel=""
+        actions={
+          view.door ? (
+            <ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label={view.door.label} href={view.door.href} />
+          ) : undefined
+        }
+        marker={{ 'data-home-service': 'papic', 'data-day-papic-face': view.face }}
+      />
+    ) : (
+      <Link href={view.href} data-home-service="papic" data-day-papic-face="plain" className="home-tile">
+        <span className="home-t">
+          <Camera aria-hidden strokeWidth={1.9} />
+          <span className="truncate">{svc.name}</span>
+        </span>
+        {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
+        <span className="block truncate text-[12.5px] text-ink/60">{view.status}</span>
+      </Link>
+    );
+  return (
+    <nav aria-label={svc.name} data-day-papic="" className="home-svc">
+      {body}
+    </nav>
   );
 }
 

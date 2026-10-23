@@ -321,7 +321,10 @@ test("5 · the toolbar draws them on the Venue scene, under its door, from the l
   assert.match(lazy, /export const VenuePictureRows = dynamic\(\(\) => import\(\s*'\.\/details-your-event'\)\.then\(\(m\) => m\.VenuePictureRows\)/);
   const launch = code('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /if \(yourEvent && stagesStudio\) venuePictures = \{ slots: yourEvent\.venues\.slots, pro: yourEvent\.venues\.pro \?\? \{ owns: false, storeShell \} \};/);
-  assert.match(launch, /venuePictures=\{venuePictures\}/);
+  /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`): the page returns it
+     in `late`, hands `late` to the shell, and the shell takes it from there. */
+  assert.match(launch, /return \{[^}]*\bvenuePictures,[^}]*opensOnGuide:/s, 'the launch page no longer hands it over with the tools');
+  assert.match(launch, /late=\{late\}/);
   // The venue itself keeps its one door — only the picture is edited in place.
   const { makerPartQuietRow } = require('./maker-parts') as typeof import('./maker-parts');
   assert.equal(makerPartQuietRow('venue')?.words, 'Change it in Suppliers');

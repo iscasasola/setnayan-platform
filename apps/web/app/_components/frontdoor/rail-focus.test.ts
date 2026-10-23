@@ -78,15 +78,12 @@ test('the shell draws the way back INSTEAD of Discover and My Home when focused'
   assert.ok(back < discover && discover < myHome && myHome < ctx,
     `Discover and My Home must sit in the focused branch's ELSE, before the context group ` +
     `(back ${back}, discover ${discover}, my home ${myHome}, context ${ctx}).`);
-  // The lists are emptied ONCE, not gated at render (see
-  // the-rail-renders-what-it-is-handed.test.ts for why that shape is required).
-  for (const g of ['plannerTools', 'builderTools', 'togetherTools']) {
-    assert.match(s, new RegExp(`const ${g} = focused \\? \\[\\] : ${g}In;`), `${g} still draws in focus.`);
-  }
-  assert.match(s, /const tools = focused && !insideEvent \? \[\] : toolsIn;/,
-    'Studio must stay inside an event and nowhere else in focus.');
-  assert.match(s, /\{tools\.length > 0 \? \(\s*<div className="fd-rgroup"(?: data-web-only="")?>\s*<div className="fd-rdiv" \/>\s*<div className="fd-rlabel">\s*Studio/,
-    'the Studio group no longer renders from its (focus-emptied) list.');
+  // 🧭 There are no tool lists to empty any more (owner 2026-10-01, built 2026-10-23):
+  // the shell takes no Planner · Builder · Together · Studio rows at all, so focus
+  // has nothing to hide but the account rows. `the-rail-lists-no-tools.test.ts`
+  // renders the rail and holds it.
+  assert.doesNotMatch(s, /\b(?:plannerTools|builderTools|togetherTools|toolsIn)\b/,
+    'the shell takes a tool list again.');
   // Hidden rows must not compete for the highlight.
   assert.match(s, /\.\.\.\(focused\s*\?\s*\[\]\s*:\s*railMatchRows\(/,
     'in focus the hidden account rows still compete for the lit row.');

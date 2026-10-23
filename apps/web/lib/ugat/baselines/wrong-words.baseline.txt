@@ -62,7 +62,6 @@ app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx "Verifying" →
 app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx "open the guest view" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/pakanta/page.tsx "love-story details" → /dashboard/[eventId]/details	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx "Play this day" → /dashboard/life-flash	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/papic/page.tsx "Show the QR codes" → /dashboard/[eventId]/studio/papic/crew	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/booth/page.tsx "Preview template + queue render" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/page.tsx "Choose template" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/vendors/_components/booked-row.tsx "Your record could not be opened. Nothing changed." → /dashboard/[eventId]/messages/[threadId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

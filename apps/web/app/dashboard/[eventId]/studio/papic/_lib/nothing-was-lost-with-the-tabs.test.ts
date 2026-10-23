@@ -42,6 +42,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
@@ -62,16 +63,19 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'DriveReconnectBanner',
   'DriveSafetyPanel',
   'DslrBridgeSection',
-  'ExtraCamerasPicker',
+  // ⛔ REMOVED DELIBERATELY, 2026-10-23 — `ExtraCamerasPicker`, `GuestCameraTierPicker` and `LimitedCard`.
+  // ⚖ Owner, over his own page: "why do i have these?" — the crew-camera tier ladder and the guest-camera
+  // Limited / Unlimited sheet ("activate 264 guest cameras · ₱6,000"). Both sold a camera of its own; the
+  // 2026-09-16 ruling — "we do not have papic seat. we only have papic with credits and shared amongst
+  // everybody" — retired that model. Their buy actions now REFUSE (`lib/papic-sells-only-credits.ts`), and
+  // `lib/papic-sells-only-credits.test.ts` keeps all three unmounted. Historical orders are untouched.
   'FaceTaggingChoice',
   'GalleryPreviewCard',
-  'GuestCameraTierPicker',
   'GuestCamerasChoice',
   'GuestContributionsCard',
   'InlineCheckoutDrawer',
   'LegendDot',
   'LifeFlashCard',
-  'LimitedCard',
   'Link',
   'LiveWallCard',
   'MagazineCard',
@@ -144,50 +148,40 @@ test('🚨 the tab strip cannot come back', () => {
   );
 });
 
-test('the four ways in are all four, and they are named the way the drawing names them', () => {
-  const waysIn = PAGE.slice(PAGE.indexOf('Four ways into your library'));
-  assert.ok(waysIn.length > 0, 'the ways-in section is gone');
-  for (const label of ['Crew cameras', 'Guest cameras', 'Your uploads', 'Suppliers']) {
-    assert.ok(
-      new RegExp(`label="${label}"`).test(waysIn),
-      `the "${label}" way in is missing — the four sources ARE the replacement for the tabs`,
-    );
+test('the ways in are named for the shared-credit model, and none of them sells a camera', () => {
+  // 2026-10-23: four ways became three. "Crew cameras" (a QR per seat + a tier ladder) became the ONE
+  // shared code; "Your uploads" moved INTO the library (one door — `AddPhotosDoor` on the stage); "Guest
+  // cameras" stays as a line saying the guest's invite QR is the camera; "Suppliers" says its true reason.
+  const waysIn = PAGE.slice(PAGE.indexOf('label="Ways into your library"'));
+  assert.ok(PAGE.includes('label="Ways into your library"'), 'the ways-in section is gone');
+  for (const label of ['One code for everyone', 'Guest cameras']) {
+    assert.ok(new RegExp(`label="${label}"`).test(waysIn), `the "${label}" way in is missing`);
   }
-  assert.equal(
-    (waysIn.match(/<SourceRow\b/g) ?? []).length,
-    4,
-    'there are no longer exactly four source rows',
-  );
+  assert.ok(/<SupplierWayInRow\b/.test(waysIn), 'the Suppliers way in is missing');
+  for (const gone of ['Crew cameras', 'Your uploads']) {
+    assert.ok(!new RegExp(`label="${gone}"`).test(PAGE), `the retired "${gone}" row is back`);
+  }
 });
 
-test('🚨 the supplier row offers no door, because the lane is switched off', () => {
-  // The supplier capture lane is built and dark behind the outstanding privacy
-  // ruling; today a booked photographer can only hand over a link to their own
-  // gallery. A row that opened a sheet would be a control that cannot do the
-  // thing it names — the gate-with-no-handle shape, in new clothes.
-  // ⚠ SLICE, DON'T PATTERN-MATCH THE WHOLE ELEMENT. A first cut tried to match
-  // `<SourceRow …/>` in one regex and failed on the row's OWN icon expression,
-  // `icon={<Camera … />}` — the inner `/>` ends the match early. It reported the
-  // row missing when it was there, which is a guard crying wolf on its first run.
-  const at = PAGE.indexOf('label="Suppliers"');
-  assert.ok(at > 0, 'the Suppliers row is gone — the gap it names is still real');
-  const start = PAGE.lastIndexOf('<SourceRow', at);
-  const row = PAGE.slice(start, PAGE.indexOf('</div>', at));
-  assert.ok(
-    /state="Not open yet"\s*\/>/.test(row),
-    'the Suppliers row grew children or lost its state — today it must be an inert line, ' +
-      'because a photographer still cannot put files into the library at all',
-  );
-  assert.ok(!/href=/.test(row), 'the Suppliers row links somewhere; the lane is not open');
+test('🚨 the supplier row offers no door, and says a reason it READ', () => {
+  // Nothing on that row is the couple's to set — hiding a supplier's photos is `VendorMediaControls`. And
+  // "Not open yet" was a hard-coded claim, false wherever a supplier is booked (the lane is LIVE behind the
+  // `vendor_papic_capture` control): the reason is now read (`lib/papic-supplier-way-in.ts`).
+  const row = readFileSync(join(PAPIC, '_components', 'supplier-way-in-row.tsx'), 'utf8');
+  const mount = row.slice(row.indexOf('<SourceRow'));
+  assert.ok(mount.length > 0, 'the Suppliers row is gone — the gap it names is still real');
+  assert.ok(!/href=/.test(mount) && !/sheetTitle=/.test(mount), 'the Suppliers row grew a door');
+  assert.ok(/state=\{supplierWayInLabel\(state\)\}/.test(mount), 'the Suppliers row no longer says the reason it read');
+  assert.ok(!/Not open yet/i.test(stripComments(PAGE + '\n' + row)), 'the hard-coded "Not open yet" is back');
 });
 
 test('an offer never outranks the day — the buy tiles come last', () => {
-  const waysIn = PAGE.indexOf('Four ways into your library');
-  const unlock = PAGE.indexOf('Everything Papic, one price');
+  // (The "Everything Papic, one price" unlock tile is gone — it sold "Unlimited cameras", 2026-10-23.)
+  const waysIn = PAGE.indexOf('label="Ways into your library"');
   const keep = PAGE.indexOf('Keep your full-res originals');
-  assert.ok(waysIn > 0 && unlock > 0 && keep > 0, 'an anchor is missing');
+  assert.ok(waysIn > 0 && keep > 0, 'an anchor is missing');
   assert.ok(
-    unlock > waysIn && keep > waysIn,
+    keep > waysIn,
     'a buy tile is back above the library. The unlock bundle used to be the first thing in ' +
       'Cameras & shots; an offer is not what a person came to this page to do.',
   );

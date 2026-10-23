@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import enStrings from './dashboard.en.json';
 import tlStrings from './dashboard.tl.json';
+import { DASHBOARD_TAGALOG_READY } from './tagalog-ready';
 
 /**
  * Iteration 0025 — runtime EN/TL locale toggle.
@@ -44,6 +45,9 @@ function normalizeLocale(raw: unknown): Locale {
  * auth+SELECT round-trips.
  */
 export const getLocale = cache(async (): Promise<Locale> => {
+  // 🙈 Tagalog is hidden until the whole app is translated (owner 23 Oct) — everyone
+  // reads English, a saved 'tl' included, and no read is spent asking. `tagalog-ready.ts`.
+  if (!DASHBOARD_TAGALOG_READY) return 'en';
   try {
     const user = await getCurrentUser();
     if (!user) return 'en';

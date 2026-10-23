@@ -181,8 +181,9 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the drop
   for (const key of ['light', 'dark', 'auto']) assert.match(control, new RegExp(`key: '${key}'`), `the dropdown must offer '${key}'`);
   const page = stripComments(read('app/dashboard/(account)/profile/page.tsx'));
   const pane = page.slice(page.indexOf('const preferencesPane'));
-  assert.ok(pane.indexOf('<AppearanceChoice') > -1 && pane.indexOf('<AppearanceChoice') < pane.indexOf('label="Planner mode"'),
-    'Appearance is the first row of Preferences, above Planner mode');
+  // Planner mode left Preferences on 2026-10-23 (owner); Appearance stays the first row.
+  assert.ok(pane.indexOf('<AppearanceChoice') > -1 && pane.indexOf('<AppearanceChoice') < pane.indexOf('label="Display language"'),
+    'Appearance is the first row of Preferences, above Display language');
   // 🚦 HIDDEN WHILE THE READY-LIST IS EMPTY (owner 2026-10-16): every mount sits behind the ONE condition.
   const mounts = [...page.matchAll(/<AppearanceChoice\b/g)].length;
   const gated = [...page.matchAll(/\{appearanceSwitchShown\(\) \? <AppearanceChoice\b[^}]*\} \/> : null\}/g)].length;

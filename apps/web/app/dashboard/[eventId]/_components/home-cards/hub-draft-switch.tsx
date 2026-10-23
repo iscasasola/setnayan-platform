@@ -47,7 +47,16 @@ export function HubDraftSwitch({
         () => hubDraftAction(eventId, fd),
         // one-render: keep (batched) — handed to makerSave, which owes no refresh for a held write.
         () => router.refresh(),
-        { held: true },
+        {
+          held: true,
+          // ↺ The inverse, drawn at once: the switch goes back (and forward again if the step back does not land).
+          undo: {
+            undraw: () => {
+              setShown(!want);
+              return { settle: Promise.resolve('shown' as const), now: true as const, landed: (ok: boolean) => { if (!ok) setShown(want); } };
+            },
+          },
+        },
       ).catch(() => null);
       if (!r || !r.ok) {
         setShown(!want);

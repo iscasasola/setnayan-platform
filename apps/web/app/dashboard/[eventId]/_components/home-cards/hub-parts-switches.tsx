@@ -64,7 +64,17 @@ export function HubPartsSwitches({ eventId, table, now }: { eventId: string; tab
         () => hubDraftAction(eventId, fd),
         // one-render: keep (batched) — handed to makerSave, which owes no refresh for a held write.
         () => router.refresh(),
-        { held: true },
+        {
+          held: true,
+          // ↺ The inverse, drawn at once: the switches go back to what they showed before this tap (and forward again
+          // if the step back does not land). The server's own step back is the journal's (`lib/maker-drawn-undo.ts`).
+          undo: {
+            undraw: () => {
+              setSent(before);
+              return { settle: Promise.resolve('shown' as const), now: true as const, landed: (ok: boolean) => { if (!ok) setSent(t.writes); } };
+            },
+          },
+        },
       ).catch(() => null);
       if (!r || !r.ok) {
         setSent(before);

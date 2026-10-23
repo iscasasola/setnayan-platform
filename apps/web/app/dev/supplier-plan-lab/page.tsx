@@ -11,6 +11,7 @@
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
+ *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
 import { notFound } from 'next/navigation';
@@ -32,6 +33,9 @@ import {
 import { SettingsView } from '@/app/vendor-dashboard/settings/settings-view';
 import { settingsMoreTools, SUPPLIER_HELP_ROWS } from '@/app/vendor-dashboard/settings/settings-rows';
 import { NotificationsView } from '@/app/vendor-dashboard/notifications/notifications-view';
+import { MarchRead } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/march-read';
+import { ConsolePlate } from '@/app/vendor-dashboard/on-the-day/_components/pahina-console';
+import type { MarchSection } from '@/lib/march-drag';
 import { BusinessDoing, type DoingWindow } from '@/app/vendor-dashboard/performance/_components/business-doing';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { BOOKING_FEE } from '@/lib/booking-fee';
@@ -155,6 +159,15 @@ function helpersFixture(who: Who) {
   );
 }
 
+/* 🚶 The march a band reads (owner 2026-10-23) — the shape `marchSections` hands the console. Names are samples. */
+const MARCH_FIXTURE: MarchSection[] = [
+  { key: 'groom', label: 'The Groom & his parents', rows: [[{ id: 'm1', name: 'Mr. Peregrino Dela Cruz', role: 'parent' }, { id: 'm2', name: 'Mrs. Milagros Dela Cruz', role: 'parent' }], [{ id: 'm3', name: 'Jose Dela Cruz', role: 'groom', tag: 'Groom' }, null]] },
+  { key: 'family', label: 'Immediate family', rows: [[{ id: 'm4', name: 'Ms. Carmen Reyes', role: 'family' }, { id: 'm5', name: 'Mr. Fidel Santos', role: 'family' }]] },
+  { key: 'honor', label: 'Maid of Honor & Best Man', rows: [[{ id: 'm6', name: 'Mr. Daniel Ramos', role: 'best_man' }, { id: 'm7', name: 'Ms. Ana Reyes Dela Cruz', role: 'maid_of_honor' }]] },
+  { key: 'sponsors', label: 'Principal sponsors', rows: [[{ id: 'm8', name: 'Hon. Ricardo Villahermosa', role: 'sponsor' }, { id: 'm9', name: 'Mrs. Jessica Villahermosa', role: 'sponsor' }], [{ id: 'm10', name: 'Atty. Cesar Lim', role: 'sponsor' }, { id: 'm11', name: 'Mrs. Pilar Lim', role: 'sponsor' }]] },
+  { key: 'bride', label: 'The Bride & her parents', rows: [[{ id: 'm12', name: 'Maria Santos', role: 'bride', tag: 'Bride' }, { id: 'm13', name: 'Mr. Andres Santos', role: 'parent' }]] },
+];
+
 const NOTICES: NotificationRow[] = [
   { notification_id: 'n1', user_id: ME, type: 'inquiry_displaced', title: 'Someone else was booked', body: 'Reyes · Sat 12 Dec · the couple booked another supplier, so this ask was released.', related_url: '/vendor-dashboard/messages/t1', read_at: null, created_at: '2026-10-14T03:00:00Z' },
   { notification_id: 'n2', user_id: ME, type: 'vendor_inquiry_received', title: 'New booking inquiry', body: 'Ana & Miguel asked about Sat 12 Dec.', related_url: '/vendor-dashboard/messages/t2', read_at: null, created_at: '2026-10-14T01:00:00Z' },
@@ -225,6 +238,12 @@ export default async function SupplierPlanLabPage({
           ))}
         </div>
       </>
+    );
+  else if (s === 'march')
+    body = (
+      <ConsolePlate>
+        <MarchRead sections={sp.unread === '1' ? [] : MARCH_FIXTURE} unread={sp.unread === '1'} />
+      </ConsolePlate>
     );
   else if (s === 'business')
     body = (

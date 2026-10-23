@@ -29,6 +29,10 @@ import { registeredSpecializationSets } from './_components/specialization-regis
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
+import { loadMarch } from '@/app/[slug]/_lib/loaders';
+import { marchSections } from '@/lib/march-sections';
+import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
+import { MarchRead } from './_components/march-read';
 
 export const metadata = { title: 'Live · Event Hub' };
 
@@ -232,6 +236,15 @@ export default async function VendorOnTheDayLivePage({
     bookedCategories: brief?.booked_categories ?? null,
     bookedServiceCategories,
   });
+  /* 🚶 THE BAND AND THE COORDINATOR SEE THE WEDDING MARCH, read-only (owner, tracker 2026-10-23: YES). Asked of
+     what they were booked FOR on this event — the same two lists the tiles are built from — never of the shop's
+     whole service list. Read with the admin client because `march_walks` RLS admits only the couple and their
+     moderators; this page has already proved the booking (or the day-of grant) above, and the read is scoped to
+     this `eventId`. The SAME loader the couple's march maker reads (`loadMarch` → `marchSections`), as applied. */
+  const seesMarch = supplierSeesMarch([...(brief?.booked_categories ?? []), ...bookedServiceCategories]);
+  const march = seesMarch ? await loadMarch(createAdminClient(), eventId) : null;
+  const marchShown = march ? (march.unread ? [] : marchSections(march.walking)) : [];
+
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 
@@ -334,6 +347,13 @@ export default async function VendorOnTheDayLivePage({
 
         {/* Run of show (reused realtime header) */}
         {has('run_of_show') ? <RunOfShowHeader eventId={eventId} initial={blocks} /> : null}
+
+        {/* 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks. */}
+        {march && (march.unread || marchWalkCount(marchShown) > 0) ? (
+          <ConsolePlate>
+            <MarchRead sections={marchShown} unread={march.unread === true} />
+          </ConsolePlate>
+        ) : null}
 
         {/* Headcount */}
         {has('pax_headcount') ? (

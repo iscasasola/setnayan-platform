@@ -1310,7 +1310,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         <dl className="sn-tile grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
           <Row label="Account type" value={profile?.account_type ?? '—'} />
-          <Row label="Locale" value={profile?.locale ?? '—'} />
+          <Row label="Language" value={activeLocale === 'tl' ? 'Tagalog' : 'English'} />
           <Row
             label="Internal account"
             value={

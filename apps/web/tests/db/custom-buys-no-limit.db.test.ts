@@ -17,7 +17,11 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '../../lib/vendor-tier-caps';
 
+
+/** The customers-per-date ceiling — 5 on every plan since 2026-10-23 (Custom's base was 10). */
+const WL = WHITELIST_PER_DATE_ALL_PLANS;
 let replay: ReplayResult;
 let db: ReplayResult['db'];
 
@@ -142,17 +146,17 @@ async function acceptN(
 // The ceiling, and buying it away
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('CONTROL: a Custom shop without the axis is still stopped at 10', async () => {
+test('CONTROL: a Custom shop without the axis is still stopped at the every-plan ceiling', async () => {
   // Without this the next test proves nothing — an accept that was never going
   // to be refused passes whether or not the axis works.
   const shop = await newVendor('capped', 'custom');
   await activePlan(shop.vendorProfileId, false);
-  const err = await acceptN(shop.vendorProfileId, '2027-07-07', 11, 'capped');
-  assert.match(String(err), /WHITELIST_DATE_LIMIT/, 'the eleventh must be refused');
-  assert.match(String(err), /10 client/, 'and the refusal must quote the ceiling it enforced');
+  const err = await acceptN(shop.vendorProfileId, '2027-07-07', WL + 1, 'capped');
+  assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the ${WL + 1}th must be refused`);
+  assert.match(String(err), new RegExp(`${WL} client`), 'and the refusal must quote the ceiling it enforced');
 });
 
-test('a Custom shop that bought "no limit" is not stopped at 10', async () => {
+test('a Custom shop that bought "no limit" is not stopped at the ceiling', async () => {
   const shop = await newVendor('unlimited', 'custom');
   await activePlan(shop.vendorProfileId, true);
   assert.equal(
@@ -192,7 +196,7 @@ test('a plan that is NOT active does not grant it', async () => {
     [shop.vendorProfileId],
   );
   assert.equal(r.rows[0]!.b, false, 'a quote nobody has paid for is not an entitlement');
-  const err = await acceptN(shop.vendorProfileId, '2027-07-09', 11, 'draft');
+  const err = await acceptN(shop.vendorProfileId, '2027-07-09', WL + 1, 'draft');
   assert.match(String(err), /WHITELIST_DATE_LIMIT/);
 });
 

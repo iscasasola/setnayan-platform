@@ -22,7 +22,9 @@ const SURFACES = {
   // 📷 The dates live in the camera settings since 2026-10-23 — the one component the Papic page and Home's Papic
   // card both draw (`PapicCameraSettings`).
   settings: read('_components', 'papic-camera-settings.tsx'),
-  stage: read('_components', 'papic-stage.tsx'),
+  // (the dark stage, `papic-stage.tsx`, deleted 2026-10-24 — unmounted once the library moved to Memories; Home's
+  // Papic card says the window in `lib/papic-home-card.ts`)
+  card: stripComments(readFileSync(join(PAPIC, '..', '..', '..', '..', '..', 'lib', 'papic-home-card.ts'), 'utf8')),
   picker: read('papic-window-picker.tsx'),
 };
 

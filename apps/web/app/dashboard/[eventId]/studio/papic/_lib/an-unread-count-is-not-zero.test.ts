@@ -38,9 +38,11 @@ const PAGE = join(PAPIC_DIR, 'page.tsx');
 // against the stage. Neither was dropped — check both files before concluding
 // this guard got easier.
 const READER = join(PAPIC_DIR, '..', '..', '..', '..', '..', 'lib', 'papic-standings.ts');
-const STAGE = join(PAPIC_DIR, '_components/papic-stage.tsx');
 const READS = readFileSync(READER, 'utf8');
-const SRC = readFileSync(STAGE, 'utf8');
+// 📍 The dark stage that DREW the facts (`papic-stage.tsx`) is deleted (2026-10-24): it was mounted nowhere once the
+// library moved to Memories (`tests/db/ugat-both-ends` found it). Its two render rules went with it — the honest count
+// is now Memories' own (`memories/the-memories-tab-is-this-events-memories.test.ts`) and Home's card says "—" through
+// `papicGlance`. The READ rules below stay: the shared reader still feeds the band and the card.
 
 /** The reads this strip makes, derived from the source rather than typed here. */
 function countReads(): string[] {
@@ -97,22 +99,6 @@ test('🚨 a failed read resolves to null, never to a number', () => {
   );
 });
 
-test('🚨 an unmeasured fact renders a dash, and 0 is only ever a real 0', () => {
-  assert.ok(SRC.includes('function Unmeasured()'), 'the Unmeasured fallback is gone');
-  const uses = SRC.split('<Unmeasured />').length - 1;
-  // Two READS are drawn on the strip — the library count and the credits. The third fact used to be
-  // `standings.cameras` (a seat count); it is now "Who shoots", a sentence the page derives from the host's
-  // own answer, not a read, so it has nothing to fall back from (owner 2026-10-23: never a seat count).
-  assert.ok(uses >= 2, `only ${uses} facts fall back to a dash — every read needs one`);
-  assert.ok(!/standings\.cameras|\bcameras\b[^\n]*Unmeasured/.test(SRC.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')), 'the strip draws a seat count again');
-  // The empty-library sentence must sit behind an explicit `=== 0`, never behind
-  // a falsy check that a null would also satisfy.
-  assert.ok(
-    /inLibrary === 0 \?/.test(SRC),
-    '"Empty — yours to start" is no longer gated on an exact 0 — a null would render it, telling a couple their photographs are gone',
-  );
-});
-
 test('a person is told where they stand before anything asks them to decide', () => {
   // 📷 2026-10-23 (owner): the Papic page is the camera only, in ONE order — the phase map that re-ordered the files is
   // gone with the files (Memories). So DOM order IS visual order again, and the property is asserted on it directly:
@@ -124,8 +110,4 @@ test('a person is told where they stand before anything asks them to decide', ()
   assert.ok(settings > 0, 'the camera settings are not mounted');
   assert.ok(band < settings, 'the camera settings ask for decisions before the balance says where the couple stands');
   assert.doesNotMatch(page, /\bBLOCK_ORDER\b/, 'a phase map is back — DOM order would stop being visual order');
-});
-
-test('the attention colour is the one that passes in BOTH themes', () => {
-  assert.ok(!SRC.includes('mulberry-700'), 'mulberry-700 is 3.05:1 on a dark panel — a fail a light-only check waves through');
 });

@@ -42,6 +42,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
@@ -171,7 +172,7 @@ test('🚨 the supplier row offers no door, and says a reason it READ', () => {
   assert.ok(mount.length > 0, 'the Suppliers row is gone — the gap it names is still real');
   assert.ok(!/href=/.test(mount) && !/sheetTitle=/.test(mount), 'the Suppliers row grew a door');
   assert.ok(/state=\{supplierWayInLabel\(state\)\}/.test(mount), 'the Suppliers row no longer says the reason it read');
-  assert.ok(!/Not open yet/.test(PAGE + row), 'the hard-coded "Not open yet" is back');
+  assert.ok(!/Not open yet/i.test(stripComments(PAGE + '\n' + row)), 'the hard-coded "Not open yet" is back');
 });
 
 test('an offer never outranks the day — the buy tiles come last', () => {

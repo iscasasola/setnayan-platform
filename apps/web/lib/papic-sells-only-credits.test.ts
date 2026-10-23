@@ -132,6 +132,8 @@ test('🚨 the Papic page draws no seat count, no "in your pocket" card, and no 
 });
 
 test('🚨 the library strip says WHO shoots — never a count of seats (render)', async () => {
+  // The stage file uses the automatic JSX runtime under Next; under tsx it compiles to `React.createElement`.
+  (globalThis as { React?: typeof React }).React = React;
   const { PapicStage } = await import('@/app/dashboard/[eventId]/studio/papic/_components/papic-stage');
   const html = renderToStaticMarkup(
     React.createElement(PapicStage, {
@@ -164,7 +166,7 @@ test('the Suppliers row says the reason it READ, and a failed read is never "not
   assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: null, over: false })), 'Couldn’t check');
   assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: 0, over: null })), 'Couldn’t check');
   assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: false, booked: 3, over: false })), 'Waiting on privacy approval');
-  assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: 0, over: false })), 'Opens when you book one');
+  assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: 0, over: false })), 'Book one to open');
   assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: 2, over: false })), '2 booked');
   assert.equal(supplierWayInLabel(supplierWayInState({ laneOn: true, booked: 2, over: true })), 'Closed after your day');
 });

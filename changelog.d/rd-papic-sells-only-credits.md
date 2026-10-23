@@ -18,10 +18,10 @@ from `fetchCameraRates`, never asking `papic_tier_config.is_active`, so it staye
 - **One upload door:** the library card's "Add the first memory" (empty) and "+ Add photos" (top bar)
   open the same `AddToLibrary` uploader in a sheet; both follow the uploads switch.
 - **True lines:** the library strip's "Ways in · 5 cameras" (a seat count) is "Who shoots · Every guest +
-  you"; "Suppliers · Not open yet" reads the lane control, the booked suppliers and the phase ("Opens when
-  you book one" / "N booked" / "Waiting on privacy approval" / "Closed after your day" / "Couldn't check");
-  "Allotment" is "Who shoots, and when" with an ⓘ, and "319 each" is "Up to 319 · equal share" or "Up to
-  50 · your limit"; the Challenges card's "3 of 8 chosen · 10 showing to guests" now says "Guests see 10:
+  you"; "Suppliers · Not open yet" reads the lane control, the booked suppliers and the phase ("Book one
+  to open" / "N booked" / "Waiting on privacy approval" / "Closed after your day" / "Couldn't check");
+  "Allotment" is "Who shoots, and when" with an ⓘ, and "How many credits each guest gets · 319 each" is "Each guest · Up to 319 ·
+  equal share" (or "Up to 50 · your limit" when the couple's typed number is what applies); the Challenges card's "3 of 8 chosen · 10 showing to guests" now says "Guests see 10:
   your 3 + 2 from suppliers + 5 suggested".
 - **Guard:** `apps/web/lib/papic-sells-only-credits.test.ts` (property + render; sabotaged three ways).
 

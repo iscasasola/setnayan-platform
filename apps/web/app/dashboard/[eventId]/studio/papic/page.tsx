@@ -946,9 +946,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           labelClassName="text-lg font-semibold tracking-tight text-ink"
           align="start"
         >
-          When guests can shoot: on your event day, or from now if you open it early. Credits per
-          guest: shared with no limit, unless you turn on a limit — then each guest may take up to the
-          number shown, an equal share of your credits unless you typed a lower one.
+          When guests can shoot: on your event day, or from now if you open it early. Each guest:
+          everyone shares one pot with no limit, unless you turn a limit on — then each guest may take up
+          to the number shown: an equal share of your credits, or a lower number you typed.
         </InfoTip>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
           <GuestCamerasChoice eventId={eventId} variant="row" />
@@ -1018,15 +1018,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           align="start"
         >
           One code for everyone: print it or show it at the door. Guest cameras: each invited
-          guest&rsquo;s invite QR opens their camera. Suppliers: what a booked supplier shoots on the
-          day lands here. Every shot, from anyone, comes out of your one shared pot of credits.
+          guest&rsquo;s invite QR opens their camera. Suppliers: what a supplier you booked on Setnayan
+          shoots on the day lands here. Every shot, from anyone, comes out of your one shared pot of credits.
         </InfoTip>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
           <SourceRow
             icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
             label="One code for everyone"
             blurb="Anyone who scans it shoots from your shared credits"
-            state="Show"
+            state="QR + link"
             href={`/dashboard/${eventId}/studio/papic/crew`}
           />
           {/* ⚠ INERT ON PURPOSE — nothing to set and nothing to buy: the guest's own invite QR IS the

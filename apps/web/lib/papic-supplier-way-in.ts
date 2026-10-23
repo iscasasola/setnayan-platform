@@ -56,7 +56,7 @@ export function supplierWayInLabel(state: SupplierWayInState): string {
     case 'lane_off':
       return 'Waiting on privacy approval';
     case 'none_booked':
-      return 'Opens when you book one';
+      return 'Book one to open';
     case 'closed':
       return 'Closed after your day';
     case 'booked':

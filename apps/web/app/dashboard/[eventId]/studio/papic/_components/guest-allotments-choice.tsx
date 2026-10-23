@@ -486,9 +486,9 @@ export async function GuestAllotmentsChoice({
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="Credits per guest"
+        label="Each guest"
         value={value}
-        sheetTitle="Credits per guest"
+        sheetTitle="Credits for each guest"
       >
         {control}
       </SettingRow>
@@ -525,9 +525,9 @@ function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="Credits per guest"
+        label="Each guest"
         value="Couldn’t load"
-        sheetTitle="Credits per guest"
+        sheetTitle="Credits for each guest"
       >
         {body}
       </SettingRow>

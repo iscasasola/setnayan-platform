@@ -10,6 +10,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
 import { HomeCardRow } from '../home-service-card';
 
 export function HubDraftSwitch({
@@ -40,13 +41,18 @@ export function HubDraftSwitch({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify({ events: { [column]: want } }));
-      const r = await hubDraftAction(eventId, fd).catch(() => null);
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      // The Maker's one save door: the Apply bar's count comes back with the write; the switch already shows it.
+      const r = await makerSave(
+        () => hubDraftAction(eventId, fd),
+        // one-render: keep (batched) — handed to makerSave, which owes no refresh for a held write.
+        () => router.refresh(),
+        { held: true },
+      ).catch(() => null);
       if (!r || !r.ok) {
         setShown(!want);
         setLine(r && !r.ok && r.error ? r.error : 'That did not save, so it is back as it was. Please try again.');
-        return;
       }
-      router.refresh();
     });
   };
 

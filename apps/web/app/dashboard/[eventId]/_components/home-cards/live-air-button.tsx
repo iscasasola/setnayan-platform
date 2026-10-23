@@ -8,7 +8,6 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Radio, Square } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { endOnAirTarget, type LiveAirSource } from '@/lib/live-studio-manual-air';
@@ -16,7 +15,6 @@ import { endPanoodBroadcast, goLivePanood } from '../../studio/panood/setup/acti
 import { endManualOnAir } from '@/app/panood/control/[eventId]/actions';
 
 export function LiveAirButton({ eventId, onAir, source }: { eventId: string; onAir: boolean; source: LiveAirSource | null }) {
-  const router = useRouter();
   const [line, setLine] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const target = endOnAirTarget(source);
@@ -32,9 +30,8 @@ export function LiveAirButton({ eventId, onAir, source }: { eventId: string; onA
       ).catch(() => ({ error: 'That did not go through. Please try again.' }));
       if ('error' in r) {
         setLine(r.error);
-        return;
       }
-      router.refresh();
+      // (No refresh: these actions revalidate, so their answer already carries Home's new render — one render per press.)
     });
 
   return (

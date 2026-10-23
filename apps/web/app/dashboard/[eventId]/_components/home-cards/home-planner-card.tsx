@@ -1,5 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { AI_LIVE_FIGURES, loadAiActivity } from '@/lib/setnayan-ai-activity';
 import { ActionButton } from '@/components/action-button';
 import { HomeCardRow, HomeServiceCard } from '../home-service-card';
@@ -26,6 +27,7 @@ export async function HomePlannerCard({ eventId, name, brand }: { eventId: strin
     .select('event_date, event_date_precision, event_type, ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (error) logQueryError('HomePlannerCard.event', error, { event_id: eventId }, 'graceful_degrade');
   const activity =
     error || !event
       ? null

@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 
 export type HomeMusicCardRead =
   | { ok: false }
@@ -56,7 +57,8 @@ export async function readHomeMusicCard(supabase: SupabaseClient, eventId: strin
     filename: event.pakanta_song_filename ?? null,
     previewUrl,
     adopted: event.pakanta_song_adopted_as_site_music === true,
-    hubHasMusic: Boolean(drafted.site_bg_music_r2_key),
+    // A Hub song is one the Event Hub can actually play — held to the public bucket, as every Hub signer holds it.
+    hubHasMusic: Boolean(siteMediaServeRef(drafted.site_bg_music_r2_key)),
     hubSource: (drafted.site_bg_music_source as string | null) ?? null,
     hubMusicOn: drafted.site_bg_music_enabled === true,
     draftUnread: draftRead.unread,

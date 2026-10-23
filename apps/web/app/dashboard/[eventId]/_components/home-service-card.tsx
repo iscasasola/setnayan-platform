@@ -93,6 +93,7 @@ export function HomeServiceCard({
             tone="neutral"
             icon={<RotateCw aria-hidden="true" strokeWidth={1.9} className={reloading ? 'animate-spin' : undefined} />}
             label="Reload"
+            // one-render: keep (retry) — the person's Reload on a card whose read failed; no write came before it.
             onClick={() => startReload(() => router.refresh())}
             disabled={reloading}
           />

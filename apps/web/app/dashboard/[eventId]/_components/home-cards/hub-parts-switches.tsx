@@ -17,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
 import {
   GUESTS_SEE_COLUMNS,
   guestsSeeOn,
@@ -58,14 +58,18 @@ export function HubPartsSwitches({ eventId, table, now }: { eventId: string; tab
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
-      const r = await hubDraftAction(eventId, fd).catch(() => null);
+      // The Maker's one save door: the Apply bar's count comes back WITH the write (`HUB_DRAFT_BAR_FIELD`, announced
+      // by `makerSave`), and the switch already shows the tap — held, so no second render is owed.
+      const r = await makerSave(
+        () => hubDraftAction(eventId, fd),
+        // one-render: keep (batched) — handed to makerSave, which owes no refresh for a held write.
+        () => router.refresh(),
+        { held: true },
+      ).catch(() => null);
       if (!r || !r.ok) {
         setSent(before);
         setLine(r && !r.ok && r.error ? r.error : 'That did not save, so it is back as it was. Please try again.');
-        return;
       }
-      // The table, the Apply bar's count and the stage lines are the server's — read them again.
-      router.refresh();
     });
   };
 

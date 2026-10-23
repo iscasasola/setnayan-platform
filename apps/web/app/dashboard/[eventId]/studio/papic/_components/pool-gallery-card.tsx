@@ -42,10 +42,10 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Shared gallery
+          Shared Memories
         </h2>
         <p className="mt-1 text-sm text-terracotta-700">
-          We couldn&rsquo;t check whether your shared gallery is open just now. Refresh the
+          We couldn&rsquo;t check whether your shared Memories are open just now. Refresh the
           page to see it and change it.
         </p>
       </section>
@@ -59,14 +59,14 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        Shared gallery
+        Shared Memories
       </h2>
       <p className="mt-1 text-sm text-ink/60">
         Let your guests browse <span className="font-medium text-ink/75">every</span>{' '}
         clean-screened photo and clip in your Papic library (web copies only) and tag
         themselves into photos they&rsquo;re in — tagged photos join their personal
-        gallery and download. Off by default; turning it off later closes the
-        gallery for everyone immediately.
+        Memories and download. Off by default; turning it off later closes the
+        shared Memories for everyone immediately.
       </p>
       <div className="mt-4">
         <PoolGalleryToggle eventId={eventId} initialOpen={open} />

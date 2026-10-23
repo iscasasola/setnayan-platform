@@ -8,6 +8,10 @@ import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
+import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
+import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import {
@@ -15,6 +19,9 @@ import {
   TIER_CAPS,
   asVendorTier,
   isTierAtLeast,
+  portfolioPhotoCap,
+  PORTFOLIO_FREE_BASE,
+  PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import {
@@ -150,7 +157,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // shared profile select). verification_state gates the Vendor AI add-on.
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state')
+    .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   const currentTier = asVendorTier(
@@ -427,6 +434,42 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   const gives = planGivesLines(currentTier, isVendorFeatureGateEnabled());
   const featured = TIER_CAPS[currentTier].editorialFeatures;
 
+  // 🎁 A PLAN SETNAYAN GAVE (prototype supplier_personal_invite_2026-10-23 C1 · C3, owner-approved). While it runs,
+  // the answer line names the gift instead of a price nobody pays, and the picker's rows say ₱0 until the day. Once a
+  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended. The
+  // photos row reads the shop's own allowance — the invite's 100 are kept (owner ruling 2026-10-23).
+  const gift = planGiftOf(
+    {
+      tier_state: (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
+      tier_source: (tierRow as { tier_source?: string | null } | null)?.tier_source ?? null,
+      tier_expires_at: tierExpiresAt,
+    },
+    now,
+  );
+  const [allowance, claimedInvite] = await Promise.all([
+    readPortfolioAllowance(supabase, profile.vendor_profile_id),
+    (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch((err) => {
+      console.error('[supabase-error] subscription · claimed invite', err);
+      return null;
+    }),
+  ]);
+  const invited = claimedInvite ? offerFromInvite(claimedInvite) : null;
+  const todayDay = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
+  const giftEnded =
+    !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
+      ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
+      : null;
+  // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
+  const photosLine = allowance.ok
+    ? portfolioPlanRowLine({
+        held: (profile.portfolio_r2_keys ?? []).length,
+        cap: portfolioPhotoCap(currentTier, allowance.allowance),
+        gifted: (allowance.allowance ?? 0) > PORTFOLIO_FREE_BASE,
+        giftUntilDay: gift ? gift.untilDay : null,
+        giftEnded: Boolean(giftEnded),
+      })
+    : PORTFOLIO_ALLOWANCE_UNREAD;
+
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
       <PlanRows
@@ -478,6 +521,17 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             cycle={currentCycleKey}
             verified={isVerifiedVendor}
             action={startSubscriptionPurchase}
+            gift={
+              gift
+                ? {
+                    untilShort: offerDayWords(gift.untilDay).replace(/ \d{4}$/, ''),
+                    untilFull: offerDayWords(gift.untilDay),
+                    // Last week: Pay comes back on the current plan, starting the day after — no forced Free gap.
+                    endsSoon: giftEndsSoon(gift),
+                    startsShort: dayAfterWords(gift.untilDay),
+                  }
+                : null
+            }
           />
         }
         feeRow={feeRow}
@@ -485,6 +539,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         receipts={planReceipts}
         papicPackPrice={papicPackPrice}
         featured={featured}
+        gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
+        photosLine={photosLine}
       />
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}

@@ -95,7 +95,7 @@ export const DAY_OF_FAMILY_META: Record<
   capture: {
     label: 'Capture the day',
     blurb:
-      'Your shot list against the couple’s live timeline, and a quick way to hand galleries over as you go.',
+      'Your shot list against the couple’s live timeline, and a quick way to hand albums over as you go.',
   },
   serve: {
     label: 'Serve the guests',

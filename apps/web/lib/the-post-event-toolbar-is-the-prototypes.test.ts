@@ -390,7 +390,7 @@ const FULL_DAY: PostEventSources = {
 const TEN: ReadonlyArray<readonly [MakerPartKey, string, string]> = [
   ['cover', 'cover', 'Front Page'],
   ['chapters', 'ch-1', 'Schedule'],
-  ['pegallery', 'gallery', 'Gallery'],
+  ['pegallery', 'gallery', 'Memories'],
   ['videos', 'videos', 'Videos'],
   ['letters', 'letters', 'Messages'],
   ['seating', 'seating', 'Where Everyone Sat'],

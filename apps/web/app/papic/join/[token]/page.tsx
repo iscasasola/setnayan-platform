@@ -150,7 +150,7 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
         </>
       }
       title="Opening your camera…"
-      sub="One tap turns your phone into a candid camera for the day. Every shot lands straight in the host's gallery — no app to install."
+      sub="One tap turns your phone into a candid camera for the day. Every shot lands straight in the host's Memories — no app to install."
     >
       {/* No-JS fallback: a scanner with JS disabled still reaches the camera. */}
       <noscript>

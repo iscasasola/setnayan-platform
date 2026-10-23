@@ -1054,7 +1054,7 @@ const STYLE_NOUNS: Record<AllStyleFamily, string[]> = {
     'Sovereign Vow', 'Palace Waltz',
   ],
   'editorial cream': [
-    'Gallery Vow', 'Studio Romance', 'Cream Page', 'Editorial Chapter', 'Muted Frame',
+    'Atelier Vow', 'Studio Romance', 'Cream Page', 'Editorial Chapter', 'Muted Frame',
     'Quiet Editorial', 'Blank Canvas Vow', 'Understated Feature', 'Concrete Poetry', 'Modern Manuscript',
     'Cream Manifesto', 'Minimal Frame',
   ],

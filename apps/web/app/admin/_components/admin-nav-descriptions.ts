@@ -73,7 +73,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
   'event-deletions': 'A couple has asked us to remove a celebration money is holding.',
-  'user-reports': 'Reported guest-gallery content awaiting moderation.',
+  'user-reports': 'Reported guest Memories content awaiting moderation.',
   'repost-watch':
     'Cross-supplier image matches flagged for review — detect only, never auto-takedown.',
   corrections: 'Verified-shop correction requests to apply or decline.',

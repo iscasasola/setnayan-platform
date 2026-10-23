@@ -40,6 +40,9 @@ import { BusinessDoing, type DoingWindow } from '@/app/vendor-dashboard/performa
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
+import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
+import { dayAfterWords } from '@/lib/personal-invite-offer';
+import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -100,6 +103,67 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
       }
       papicPackPrice={500}
       featured={shop.tier === 'pro'}
+    />
+  );
+}
+
+/**
+ * 🎁 `?s=plan&gift=running|soon|ended` (+ `&photos=100`) — a shop on a plan Setnayan gave, from a personal invite
+ * (prototype `supplier_personal_invite_2026-10-23` C1 · C3): Pro free until 31 Jan 2027, in its last week (Pay is back
+ * on Pro, starting 1 Feb — no Free gap), or after it ended. The words are the shipped helpers' (`lib/plan-gift.ts`);
+ * the lab's "now" is 1 Nov 2026 (running), 27 Jan 2027 (soon) or 2 Feb 2027 (ended).
+ */
+function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean) {
+  const now = Date.parse(
+    mode === 'running' ? '2026-11-01T02:00:00Z' : mode === 'soon' ? '2027-01-27T02:00:00Z' : '2027-02-02T02:00:00Z',
+  );
+  const tier = mode === 'ended' ? 'free' : 'pro';
+  const gift = planGiftOf({ tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: '2027-01-31T15:59:59.000Z' }, now);
+  const plans: PlanPick[] = [
+    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(tier, 'free', gift ? '31 January 2027' : null) },
+    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
+      key: t,
+      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      price: LAB_PRICES[t]!,
+      tooShort: { monthly: null, annual: null },
+      pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
+    })),
+  ];
+  const cap = portfolioPhotoCap(tier, photos100 ? 100 : null);
+  return (
+    <PlanRows
+      tier={tier}
+      pays="nothing to pay"
+      expiresOn={null}
+      expiresSoon={false}
+      isPaid={tier !== 'free'}
+      picker={
+        <PlanPicker
+          plans={plans}
+          current={tier}
+          cycle="monthly"
+          verified
+          action={startSubscriptionPurchase}
+          gift={
+            gift
+              ? { untilShort: '31 Jan', untilFull: '31 Jan 2027', endsSoon: giftEndsSoon(gift), startsShort: dayAfterWords(gift.untilDay) }
+              : null
+          }
+        />
+      }
+      feeRow={bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
+      gives={planGivesLines(tier, false)}
+      receipts={[]}
+      papicPackPrice={500}
+      featured={tier === 'pro'}
+      gift={gift ? { line: giftPlanLine(gift) } : { line: giftEndedLine('Pro', '2027-01-31') }}
+      photosLine={portfolioPlanRowLine({
+        held: mode === 'ended' ? 62 : 14,
+        cap,
+        gifted: photos100,
+        giftUntilDay: gift ? gift.untilDay : null,
+        giftEnded: mode === 'ended',
+      })}
     />
   );
 }
@@ -215,7 +279,12 @@ export default async function SupplierPlanLabPage({
   const who: Who = sp.who === 'parish' || sp.who === 'studio' ? sp.who : 'caterer';
 
   let body: React.ReactNode = null;
-  if (s === 'plan') body = planFixture(who, sp.unverified === '1', sp.fail === '1');
+  if (s === 'plan') {
+    body =
+      sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
+        ? giftPlanFixture(sp.gift, sp.photos === '100')
+        : planFixture(who, sp.unverified === '1', sp.fail === '1');
+  }
   else if (s === 'helpers') return helpersFixture(who);
   else if (s === 'settings')
     body = (

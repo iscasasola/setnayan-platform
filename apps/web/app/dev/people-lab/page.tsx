@@ -124,7 +124,7 @@ export default async function PeopleLabPage({
     <div className="sn-ambient min-h-dvh">
       <div className="flex h-[61px] items-center justify-between border-b border-ink/10 bg-paper px-4" data-lab-topbar="">
         <span className="text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]">SETNAYAN</span>
-        <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#a9834b] text-[12px] font-bold text-white">IC</span>
+        <span className="grid h-[34px] w-[34px] place-items-center rounded-full sn-initials text-[12px] font-bold">IC</span>
       </div>
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
         <div className="sn-page-enter">

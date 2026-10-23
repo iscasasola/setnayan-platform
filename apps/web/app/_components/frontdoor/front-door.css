@@ -496,7 +496,8 @@ html.dark .fd {
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: var(--fd-gold);
+  /* 🔤 the house initials ink (gold-800), not the gold — 4.27:1 on the wash (owner 2026-10-23). */
+  color: var(--sn-initials-ink);
   font-family: var(--fd-mono);
 }
 .fd-avatar::after {
@@ -1123,7 +1124,8 @@ html.dark .fd {
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: var(--fd-gold);
+  /* 🔤 the house initials ink (gold-800), not the gold — 4.27:1 on the wash (owner 2026-10-23). */
+  color: var(--sn-initials-ink);
   font-family: var(--fd-mono);
 }
 .fd-itxt {

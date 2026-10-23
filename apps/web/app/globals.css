@@ -3464,6 +3464,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      a 1px contact layer plus two soft ambients, warm, never grey. */
   --sn-glass-bg-raised: rgba(255,255,255,.86);
 
+  /* 🔤 AVATAR INITIALS ON GOLD — one pair for every initials chip that sits on the gold wash (owner yes,
+     2026-10-23). The chips read gold-700 #8C6932 on the wash #F3ECDF = 4.27:1, and the labs drew white on
+     gold-500 #A9834B = 3.48:1; both under AA. The house's own "text on the gold wash" ink is gold-800
+     (#5C4726 on #F3ECDF ≈ 8:1 · dark #ECD9AE on #413827 ≈ 8.3:1). Aliases, so dark follows the pair. */
+  --sn-initials-bg:  var(--sn-gold-100);
+  --sn-initials-ink: var(--sn-gold-800);
+
   /* 🌗 The phone's bottom dock (`bottom-nav.tsx` BottomDock / TravelPill / PressFlash).
      These are the bar's locked literals (NAV-9) moved into tokens, byte for byte, so
      light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
@@ -3548,6 +3555,13 @@ html.dark {
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 
+
+/* 🔤 The initials chip — `.sn-initials` is the one look for initials on gold outside the shell; the shell's
+   `.fd-avatar` / `.fd-ava` read the same ink (front-door.css). Held by lib/avatar-initials-read.test.ts. */
+.sn-initials {
+  background: var(--sn-initials-bg);
+  color: var(--sn-initials-ink);
+}
 
 /* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
  * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so

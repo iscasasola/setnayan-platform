@@ -54,19 +54,19 @@ export function manilaDayOf(iso: string): string | null {
   return new Date(t + 8 * 3_600_000).toISOString().slice(0, 10);
 }
 
-const DAY_FMT = new Intl.DateTimeFormat('en-PH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-const DAY_SHORT_FMT = new Intl.DateTimeFormat('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
-/** "31 Jan 2027" — a Manila day, written the way the prototype writes it. */
+/** "31 Jan 2027" — a Manila day, written the way the prototype writes it (day first, on every runtime). */
 export function offerDayWords(day: string): string {
-  return DAY_FMT.format(new Date(`${day}T00:00:00Z`)).replace(/,/g, '');
+  const d = new Date(`${day}T00:00:00Z`);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /** "1 Feb" — the day after the last free day: the day the supplier chooses. */
 export function dayAfterWords(day: string): string {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
-  return DAY_SHORT_FMT.format(d).replace(/,/g, '');
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 /**

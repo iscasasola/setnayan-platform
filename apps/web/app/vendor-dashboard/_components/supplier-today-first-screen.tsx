@@ -356,6 +356,7 @@ const DOOR_ICON: Record<SupplierWaitingDoor['id'], TodayRowIcon> = {
   setup: 'check',
   findable: 'shop',
   credit: 'clock',
+  gift: 'clock',
   payout: 'peso',
 };
 

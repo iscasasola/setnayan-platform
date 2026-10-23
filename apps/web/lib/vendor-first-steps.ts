@@ -40,11 +40,13 @@
 
 import { SERVICE_MAKER_HREF } from './service-picker-anchor';
 import { formatCount } from '@/lib/format-number';
+import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
 
 export type FirstStepKey =
   | 'shop_details'
   | 'logo'
   | 'service_card'
+  | 'inspiration'
   | 'documents'
   | 'not_available'
   | 'outside_bookings'
@@ -122,6 +124,13 @@ export type FirstStepsInput = {
   outsideCount?: number;
   /** Admin's decision reason when the application came back rejected. */
   rejectionReason?: string | null;
+  /**
+   * 🌱🖼 "Add to the inspiration library" as a COUNTED step (prototype `supplier_personal_invite_2026-10-23` frame
+   * B6, owner-approved) — present only when the shop's trades supply a part (`moodboardLibraryAccessForProfile`,
+   * the same rule as Today's row), on every shop, never by plan. `count` = the shop's live photos in the library;
+   * absent = not measured = not done. Absent object = the step is not drawn (the six steps, as before).
+   */
+  inspiration?: { count?: number } | null;
 };
 
 export type FirstStepsRail = {
@@ -129,7 +138,7 @@ export type FirstStepsRail = {
   /** Steps whose condition is met (go-live counts once verified). */
   doneCount: number;
   total: number;
-  /** The steps a supplier can DO — every step but the approval (six). Today's "N of 6". */
+  /** The steps a supplier can DO — every step but the approval (six; seven with the inspiration step). Today's "N of 6". */
   actionable: number;
   /** The single recommended step, or null when everything is done. */
   current: FirstStep | null;
@@ -219,6 +228,25 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       done: serviceCount > 0,
       waiting: false,
     },
+    ...(input.inspiration
+      ? [
+          {
+            key: 'inspiration' as const,
+            n: 0,
+            title: INSPIRATION_LIBRARY_ROW.label,
+            body: `${INSPIRATION_LIBRARY_ROW.line}.`,
+            href: INSPIRATION_LIBRARY_HREF,
+            cta: 'Add photos',
+            meter:
+              (input.inspiration.count ?? 0) > 0
+                ? `${formatCount(input.inspiration.count ?? 0)} in the library`
+                : null,
+            blockedBy: null,
+            done: (input.inspiration.count ?? 0) > 0,
+            waiting: false,
+          },
+        ]
+      : []),
     {
       key: 'documents',
       n: 4,
@@ -298,6 +326,10 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
   //
   // `go_live` is excluded from ever being `now` — a vendor cannot approve
   // themselves, so presenting it as an action would be a button-shaped lie.
+  // Numbered by position — the optional inspiration step moves the ones after it down by one.
+  draft.forEach((s, i) => {
+    s.n = i + 1;
+  });
   let assigned = false;
   const steps: FirstStep[] = draft.map((s) => {
     if (s.done) return toStep(s, 'done');

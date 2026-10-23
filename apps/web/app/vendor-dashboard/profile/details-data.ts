@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   businessProfileChecklist,
@@ -99,6 +100,13 @@ export type DetailsData = {
   pay: { methods: VendorPaymentMethodRow[]; measured: boolean };
   logoUnavailable: boolean;
   progress: DetailsProgress;
+  /**
+   * 🎁 The shop came from Setnayan's own invite (prototype `supplier_personal_invite_2026-10-23` frame B4): the
+   * staged rows read "from your invite". False when it did not — or when that could not be read (said nothing).
+   */
+  fromInvite?: boolean;
+  /** The logo is in — the Name and logo row then stops asking for it. */
+  hasLogo?: boolean;
 };
 
 type OwnRow = {
@@ -219,6 +227,7 @@ export async function loadDetailsData(
     return { branchFeePhp, branchPay };
   })();
   const payRead = fetchOwnPaymentMethodsMeasured(supabase, vendorId);
+  const inviteRead = readClaimedTeamInvite(createAdminClient(), vendorId).catch(() => null);
 
   const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay] =
     await Promise.all([
@@ -235,6 +244,7 @@ export async function loadDetailsData(
       branchPayRead,
       payRead,
     ]);
+  const fromInvite = (await inviteRead) !== null;
 
   const completion = businessProfileChecklist(profile);
   const uploads = (app?.doc_uploads ?? {}) as DocUploadMap;
@@ -347,5 +357,7 @@ export async function loadDetailsData(
     pay,
     logoUnavailable: logo.unavailable,
     progress,
+    fromInvite,
+    hasLogo: Boolean(profile.logo_url),
   };
 }

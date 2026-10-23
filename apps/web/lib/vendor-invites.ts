@@ -602,3 +602,30 @@ export async function lookupExistingVendorByEmail(
     business_name: data.business_name as string,
   };
 }
+
+/**
+ * 🎁 THE SETNAYAN INVITE THIS SHOP WAS CLAIMED FROM — its offer columns, or null when the shop did not come from one
+ * (or the read was refused: logged, and the pages then simply say nothing about an invite — never a false gift).
+ * Service role: an admin invite has no couple, so no browser policy reaches it; the shop id comes from the
+ * caller's own resolved shop. Read by Your details ("from your invite") and the Plan page (the gift's end).
+ */
+export async function readClaimedTeamInvite(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null> {
+  if (!vendorProfileId) return null;
+  const { data, error } = await admin
+    .from('vendor_invites')
+    .select('offer_tier, offer_until, offer_photo_allowance')
+    .eq('claimed_vendor_profile_id', vendorProfileId)
+    .eq('source', 'admin')
+    .eq('status', 'claimed')
+    .order('claimed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-invites · readClaimedTeamInvite', error);
+    return null;
+  }
+  return (data as { offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null) ?? null;
+}

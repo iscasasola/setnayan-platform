@@ -48,6 +48,7 @@ export function PlanPicker({
   cycle: startCycle,
   verified,
   action,
+  gift = null,
 }: {
   plans: readonly PlanPick[];
   /** The plan the shop is on now (`free` covers Free · Verified). */
@@ -56,6 +57,12 @@ export function PlanPicker({
   verified: boolean;
   /** The shipped `startSubscriptionPurchase`. */
   action: Action;
+  /**
+   * 🎁 The current plan is a gift from Setnayan (prototype `supplier_personal_invite_2026-10-23` C1): while the
+   * current plan is picked its rows say so — "Free until 31 Jan · then you choose", the cycle paid only if they keep
+   * it, and "What you pay" ₱0 with no Pay button (there is nothing to pay). Picking another plan shows it as shipped.
+   */
+  gift?: { untilShort: string; untilFull: string } | null;
 }) {
   const [picked, setPicked] = useState(plans.some((p) => p.key === current) ? current : 'free');
   const [cycle, setCycle] = useState<Cycle>(startCycle);
@@ -65,6 +72,7 @@ export function PlanPicker({
   const isCustom = plan.key === 'custom';
   const price = plan.price[cycle];
   const tooShort = plan.tooShort[cycle] ?? null;
+  const onGift = Boolean(gift) && plan.key === current;
 
   const options = plans.map((p) => ({
     key: p.key,
@@ -77,7 +85,7 @@ export function PlanPicker({
         data="plan-pick"
         lead={lead(Gem)}
         title="Your plan"
-        line={plan.pickLine}
+        line={onGift && gift ? `Free until ${gift.untilShort} · then you choose` : plan.pickLine}
         end={
           <PickMenu
             label="Your plan"
@@ -95,7 +103,13 @@ export function PlanPicker({
           data="plan-cycle"
           lead={lead(CalendarDays)}
           title="Cycle"
-          line={cycle === 'annual' ? 'Paid once a year' : 'Paid every 28 days'}
+          line={
+            onGift && gift
+              ? `${cycle === 'annual' ? 'Paid once a year' : 'Paid every 28 days'} — after ${gift.untilShort}, if you keep it`
+              : cycle === 'annual'
+                ? 'Paid once a year'
+                : 'Paid every 28 days'
+          }
           end={
             <PickMenu
               label="Cycle"
@@ -117,7 +131,9 @@ export function PlanPicker({
         lead={lead(Wallet)}
         title="What you pay"
         line={
-          isFree
+          onGift && gift
+            ? `${formatPhp(0)} until ${gift.untilFull} · nothing renews by itself`
+            : isFree
             ? 'Nothing to pay · nothing renews by itself'
             : isCustom
               ? 'Your Custom quote'
@@ -125,8 +141,9 @@ export function PlanPicker({
               ? 'Not sold on this cycle right now'
               : tooShort ?? `${formatPhp(price)} / ${CYCLE_WORD[cycle]} · Setnayan confirms your payment`
         }
+        badge={onGift ? { tone: 'ok', word: formatPhp(0) } : undefined}
         end={
-          isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
+          onGift || isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
             <form action={action} data-plan-pay-form="">
               <input type="hidden" name="sku_code" value={`${plan.key}_vendor_${cycle}`} />
               <SupplierSubmit

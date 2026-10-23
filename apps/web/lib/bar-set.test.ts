@@ -115,15 +115,76 @@ test('a press inside one bar is not a set change — the tab-to-tab slide keeps 
     assert.equal(barSlideDir(barSetOf(a), barSetOf(b)), null, `${a} → ${b}`);
 });
 
-test('🐢 reduced motion, no View Transitions, or no bar on screen → no slide, a plain link', () => {
-  const go = { fromPath: '/dashboard', toPath: '/vendor-dashboard', supported: true, dockShown: true, tabletUp: false };
+test('🐢 reduced motion, no View Transitions, or neither a bar nor a rail on screen → no slide, a plain link', () => {
+  const go = { fromPath: '/dashboard', toPath: '/vendor-dashboard', supported: true, dockShown: true, railShown: false };
   assert.equal(barSlideFor({ ...go, reduced: false }), 'fwd', 'the control case must slide, or the rest proves nothing');
   assert.equal(barSlideFor({ ...go, reduced: true }), null, 'reduced motion must swap instantly');
+  assert.equal(barSlideFor({ ...go, reduced: true, dockShown: false, railShown: true }), null, 'reduced motion: the rail swaps instantly too');
   assert.equal(barSlideFor({ ...go, reduced: false, supported: false }), null);
-  assert.equal(barSlideFor({ ...go, reduced: false, dockShown: false }), null, 'desktop (no dock drawn) is untouched');
-  // From 701 the event tree draws the rail strip, not a dock — nothing to slide into.
-  assert.equal(barSlideFor({ ...go, toPath: '/dashboard/S89E-7K2M9QX4PZ', reduced: false, tabletUp: true }), null);
-  assert.equal(barSlideFor({ ...go, reduced: false, tabletUp: true }), 'fwd', 'account → shop: both draw a dock to 1024');
+  assert.equal(barSlideFor({ ...go, reduced: false, dockShown: false }), null, 'nothing on screen to slide');
+});
+
+/*
+ * ↔ Q1 (owner 23 Oct 2026): "inside an event/shop the side menu swaps with a slide (one rule with the bottom bar)".
+ * On a wide screen the rail is what the bar is on a phone — so it must slide the same way, at the same pace, and the
+ * phone must not be touched by it.
+ */
+test('↔ desktop: the side menu slides the way the bar does — the same direction, the same 280 ms, the same easing', () => {
+  const desk = { supported: true, reduced: false, dockShown: false, railShown: true };
+  const cases: [string, string, string, string][] = [
+    ['/dashboard', '/vendor-dashboard', 'out to the left', 'in from the right'], //            account → Shop
+    ['/vendor-dashboard/bookings', '/dashboard', 'out to the right', 'in from the left'], //  Shop → account (the rail's My Home row)
+    ['/dashboard', '/dashboard/S89E-7K2M9QX4PZ', 'out to the right', 'in from the left'], //  account → an event (a board card)
+    ['/dashboard/S89E-7K2M9QX4PZ/guests', '/dashboard', 'out to the left', 'in from the right'], // an event → Events (its back row)
+    ['/', '/vendor-dashboard', 'out to the left', 'in from the right'], //                     Discover → Shop
+  ];
+  for (const [from, to, leaves, arrives] of cases) {
+    const dir = barSlideFor({ ...desk, fromPath: from, toPath: to });
+    assert.ok(dir, `${from} → ${to} on a desktop changes the set, so the rail must slide`);
+    assert.equal(dir, barSlideDir(barSetOf(from), barSetOf(to)), 'one direction map for bar and rail');
+    assert.equal(travel(keyframe(dir, 'old', 'sn-rail')), leaves, `${from} → ${to}: the rail rows that leave`);
+    assert.equal(travel(keyframe(dir, 'new', 'sn-rail')), arrives, `${from} → ${to}: the rail rows that arrive`);
+    // …the very keyframes the bar uses — "one rule".
+    assert.equal(keyframe(dir, 'old', 'sn-rail'), keyframe(dir, 'old', 'sn-bottomnav'));
+    assert.equal(keyframe(dir, 'new', 'sn-rail'), keyframe(dir, 'new', 'sn-bottomnav'));
+  }
+  // Inside one set the rail does not slide (Guests → Seat plan is the same event menu).
+  assert.equal(barSlideFor({ ...desk, fromPath: '/dashboard/S89E-7K2M9QX4PZ', toPath: '/dashboard/S89E-7K2M9QX4PZ/guests' }), null);
+  assert.equal(barSlideFor({ ...desk, fromPath: '/vendor-dashboard', toPath: '/vendor-dashboard/bookings' }), null);
+
+  // The same timing as the bar, read from the stylesheet — not a second number.
+  const timing = (name: string) => {
+    const i = css.indexOf(`html[data-sn-bar-dir]::view-transition-new(${name}) {`);
+    assert.ok(i >= 0, `no shared timing rule for ${name}`);
+    const body = css.slice(i, css.indexOf('}', i));
+    return {
+      d: /animation-duration:\s*([^;]+);/.exec(body)?.[1],
+      e: /animation-timing-function:\s*([^;]+);/.exec(body)?.[1],
+    };
+  };
+  assert.ok(timing('sn-bottomnav').d, 'the bar\'s duration must be readable or this proves nothing');
+  assert.deepEqual(timing('sn-rail'), timing('sn-bottomnav'), 'the rail and the bar move at one pace');
+  // The rail's group is frozen and clipped, like the dock's: its rows move THROUGH a column that stays.
+  const g = /html\[data-sn-bar-dir\]::view-transition-group\(sn-rail\) \{([^}]*)\}/.exec(css);
+  assert.ok(g, 'no group rule for sn-rail');
+  assert.match(g![1]!, /overflow:\s*clip/);
+  assert.match(g![1]!, /animation:\s*none/);
+});
+
+test('📱 the phone is untouched: the rail is named only during a set slide, and never as the open drawer', () => {
+  const m = /([^{}]*)\{\s*view-transition-name:\s*sn-rail;\s*\}/.exec(css);
+  assert.ok(m, 'no sn-rail name declared');
+  const sel = m![1]!.trim().split('\n').pop()!.trim();
+  assert.ok(sel.startsWith('html[data-sn-bar-dir] '), `the rail is named outside a set slide: ${sel}`);
+  assert.match(sel, /\.fd-rail/);
+  assert.match(sel, /:not\(\[data-open='true'\]\)/, 'the phone\'s open drawer would slide');
+  assert.match(sel, /:not\(\[data-open='closing'\]\)/, 'the phone\'s closing drawer would slide');
+  // The listener asks the same question of the real rail.
+  const src = stripComments(readFileSync(join(WEB, 'app/_components/nav/bar-set-slide.tsx'), 'utf8'));
+  assert.match(src, /querySelector<HTMLElement>\('\.fd-rail'\)/);
+  assert.match(src, /rail\.dataset\.open !== 'true'/);
+  assert.match(src, /rail\.dataset\.open !== 'closing'/);
+  assert.match(src, /getComputedStyle\(rail\)\.display !== 'none'/);
 });
 
 test('🐢 the listener asks the real reduced-motion query, and the stylesheet stills every transition under it', () => {

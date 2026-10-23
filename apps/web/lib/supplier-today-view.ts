@@ -75,6 +75,8 @@ export type SupplierTodayInput = {
   earnings: { confirmedPhp: number; expectedPhp: number; paydayMeasured: boolean } | null;
   /** The credit about to expire (`todayCreditNotice` said yes), with its two figures. */
   credit: { creditPhp: number; tierExpiresAt: string | null; href: string } | null;
+  /** 🎁 A plan Setnayan gave, ending within the week (`giftDoorWords`) — the door row. */
+  gift?: { title: string; body: string; href: string } | null;
   payoutReadiness: PayoutReadiness;
   payoutHref: string;
   shop: {
@@ -83,6 +85,8 @@ export type SupplierTodayInput = {
     details: { done: number; total: number; complete: boolean };
     awardWord: string | null;
     milestoneWord: string | null;
+    /** 🎁 The gift's own line (`giftShopLine`) — it IS the Shop line while a plan Setnayan gave runs (frame B6). */
+    giftLine?: string | null;
   };
   /** Page views in the last 28 days (`readTodayViews`), and new inquiries in the same window. */
   views: number | null;
@@ -184,6 +188,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     payout: payoutRule
       ? { title: PAYOUT_DOOR_WORDS.title, body: payoutRule.body, href: input.payoutHref, button: payoutRule.button }
       : null,
+    gift: input.gift ?? null,
     now,
   });
   const askRows: TodayAskRow[] = [
@@ -234,7 +239,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   const serviceWord = input.firstSteps
     ? (input.firstSteps.steps.find((st) => st.key === 'service_card')?.meter ?? 'No service yet')
     : input.shop.categoryWord;
-  const shopLine = [
+  const shopLine = input.shop.giftLine ?? [
     serviceWord,
     shopStateWords({ pill, docsWithSetnayan }),
     input.shop.details.complete ? null : `details ${input.shop.details.done} of ${input.shop.details.total}`,

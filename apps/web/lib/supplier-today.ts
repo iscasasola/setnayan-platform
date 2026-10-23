@@ -525,7 +525,7 @@ export type SupplierWaitingAsk = {
   open: boolean;
 };
 
-export type SupplierWaitingDoorId = 'setup' | 'findable' | 'credit' | 'payout';
+export type SupplierWaitingDoorId = 'setup' | 'findable' | 'credit' | 'gift' | 'payout';
 
 export type SupplierWaitingDoor = {
   id: SupplierWaitingDoorId;
@@ -558,6 +558,8 @@ export function supplierWaiting(args: {
   credit: { title: string; body: string; href: string } | null;
   /** Couples cannot see where to pay this shop (`PayoutMethodNudge`'s rule) — no rule above either. */
   payout: { title: string; body: string; href: string; button?: string | null } | null;
+  /** 🎁 A plan Setnayan gave ends within the week (`giftDoorWords`) — a row; tap opens Your plan. */
+  gift?: { title: string; body: string; href: string } | null;
   now: number;
 }): SupplierWaiting {
   const { next, needsAnswer, now } = args;
@@ -594,6 +596,9 @@ export function supplierWaiting(args: {
   }
   if (args.credit) {
     doors.push({ id: 'credit', label: args.credit.title, line: args.credit.body, target: { to: 'given', href: args.credit.href } });
+  }
+  if (args.gift) {
+    doors.push({ id: 'gift', label: args.gift.title, line: args.gift.body, target: { to: 'given', href: args.gift.href } });
   }
   if (args.payout) {
     doors.push({ id: 'payout', label: args.payout.title, line: args.payout.body, target: { to: 'given', href: args.payout.href }, button: args.payout.button ?? null });

@@ -168,7 +168,7 @@ export function SceneSlotsPanel({
                     })}
                     {photoChoices.length === 0 && !t.clip ? (
                       <span className="text-[0.6rem] text-ink/50">
-                        Add photos to your gallery first, then choose them here.
+                        Add your photos in Photos you add first, then choose them here.
                       </span>
                     ) : null}
                   </>

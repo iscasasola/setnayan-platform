@@ -133,6 +133,33 @@ export const PORTFOLIO_FREE_BASE = 50;
 export const PORTFOLIO_OVER_BASE_MESSAGE = `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free. More photos with Papic credits is coming soon.`;
 
 /**
+ * THE CAP A SHOP'S PAGE HOLDS — the plan's number (the every-plan base) or the shop's OWN allowance, whichever is
+ * more. The allowance (`vendor_profiles.portfolio_photo_allowance`) is given by a personal invite — the owner's 100
+ * (2026-10-23) — and is not the plan's, so it is KEPT after a gifted plan ends (owner ruling, DECISION_LOG
+ * 2026-10-23). Null / unread allowance = the base, never more. Every place that reads the 50 reads this instead.
+ */
+export function portfolioPhotoCap(tier: string | null | undefined, allowance: number | null | undefined): number {
+  const base = tierCaps(tier).portfolioPhotos;
+  const own = typeof allowance === 'number' && Number.isFinite(allowance) && allowance > 0 ? Math.floor(allowance) : 0;
+  return Math.max(base, own);
+}
+
+/**
+ * What the shop reads when its own allowance could not be read. 🔑 Never "50 free" in its place: a shop holding a
+ * personal invite's 100 would be told a smaller number that is not true. Saves stay inside the base while it is
+ * unread (withholding, never granting) and refuse with these words rather than the over-cap ones.
+ */
+export const PORTFOLIO_ALLOWANCE_UNREAD = "Couldn't read your photo allowance";
+export const PORTFOLIO_ALLOWANCE_UNREAD_SAVE = `${PORTFOLIO_ALLOWANCE_UNREAD}. Nothing was saved — try again.`;
+
+/** The refusal past the cap — the owner's words, with the shop's own number (100 for a personal invite's gift). */
+export function portfolioOverCapMessage(cap: number): string {
+  return cap === PORTFOLIO_FREE_BASE
+    ? PORTFOLIO_OVER_BASE_MESSAGE
+    : `Your first ${cap} portfolio photos are free. More photos with Papic credits is coming soon.`;
+}
+
+/**
  * Keep a requested portfolio list inside the free base — GRANDFATHERED. Pure.
  *
  * `requested` is the list the supplier is saving (already validated + deduped), `stored` the list on the row now.

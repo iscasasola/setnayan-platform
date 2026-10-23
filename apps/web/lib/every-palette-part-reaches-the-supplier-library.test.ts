@@ -214,7 +214,8 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   assert.match(words, /Add to the inspiration library Your photos help couples find you/);
   assert.equal(draw(false).includes(INSPIRATION_LIBRARY_HREF), false, 'Today draws the row for a shop the library would refuse');
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.match(page, /library=\{moodboardLibraryAccessForProfile\(profile\)\.allowed\}/, 'the Today page does not ask the shared predicate');
+  // The shared predicate first; since 2026-10-23 also "not while it is a first step still to do" (personal invite B6).
+  assert.match(page, /library=\{\s*moodboardLibraryAccessForProfile\(profile\)\.allowed\b/, 'the Today page does not ask the shared predicate');
   const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
   assert.match(screen, /library=\{library\}/, 'the Today screen drops the flag');
 

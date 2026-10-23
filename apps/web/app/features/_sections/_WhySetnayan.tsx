@@ -45,11 +45,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
   en: [
     {
       q: 'How is Setnayan different from other wedding apps?',
-      a: 'Most tools do one job — planning, or photo-sharing, or a supplier list. Setnayan does all three in one place, free to start, and adds what the others don’t have: a live per-guest photo gallery, personal video reels, and an AI that finds the suppliers that fit you.',
+      a: 'Most tools do one job — planning, or photo-sharing, or a supplier list. Setnayan does all three in one place, free to start, and adds what the others don’t have: live per-guest Memories, personal video reels, and an AI that finds the suppliers that fit you.',
     },
     {
       q: 'Do I need a separate app for guest photos?',
-      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged gallery and a personal reel, right on your Event Hub, and you keep every photo.',
+      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged Memories and a personal reel, right on your Event Hub, and you keep every photo.',
     },
     {
       q: 'Is it really free?',
@@ -67,11 +67,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
   tl: [
     {
       q: 'Ano ang pinagkaiba ng Setnayan sa ibang wedding apps?',
-      a: 'Karamihan ng tools, isang trabaho lang ang ginagawa — planning, o photo-sharing, o listahan ng supplier. Ang Setnayan, tatlo lahat sa isang lugar, libre pagsimula, at may dagdag pa na wala sa iba: live na per-guest photo gallery, personal na video reels, at AI na naghahanap ng suppliers na bagay sa’yo.',
+      a: 'Karamihan ng tools, isang trabaho lang ang ginagawa — planning, o photo-sharing, o listahan ng supplier. Ang Setnayan, tatlo lahat sa isang lugar, libre pagsimula, at may dagdag pa na wala sa iba: live na per-guest Memories, personal na video reels, at AI na naghahanap ng suppliers na bagay sa’yo.',
     },
     {
       q: 'Kailangan ko pa ba ng hiwalay na app para sa guest photos?',
-      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged gallery at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
+      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged Memories at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
     },
     {
       q: 'Libre ba talaga?',
@@ -110,11 +110,11 @@ const COPY: Record<
     juggle: [
       {
         label: 'A planning app',
-        line: 'Guest list, budget, seating — but no live guest gallery, and no AI that finds your suppliers.',
+        line: 'Guest list, budget, seating — but no live guest Memories, and no AI that finds your suppliers.',
       },
       {
         label: 'A photo-sharing app',
-        line: 'One shared pile of photos that expires in weeks — no per-guest galleries, no reels, and nothing to do with your plan.',
+        line: 'One shared pile of photos that expires in weeks — no per-guest Memories, no reels, and nothing to do with your plan.',
       },
       {
         label: 'A supplier directory',
@@ -128,7 +128,7 @@ const COPY: Record<
         body: 'Guest list, RSVP, seating, budget, and a 4-in-1 Event Hub — free to start.',
       },
       {
-        title: 'A live guest photo gallery',
+        title: 'Live guest Memories',
         body: 'Papic: every guest gets their own face-tagged photos and a personal video reel.',
       },
       {
@@ -151,11 +151,11 @@ const COPY: Record<
     juggle: [
       {
         label: 'Isang planning app',
-        line: 'Guest list, budget, seating — pero walang live na guest gallery, at walang AI na maghahanap ng suppliers mo.',
+        line: 'Guest list, budget, seating — pero walang live na guest Memories, at walang AI na maghahanap ng suppliers mo.',
       },
       {
         label: 'Isang photo-sharing app',
-        line: 'Isang shared pile ng litrato na nag-e-expire sa loob ng ilang linggo — walang per-guest gallery, walang reels, at walang kinalaman sa plano mo.',
+        line: 'Isang shared pile ng litrato na nag-e-expire sa loob ng ilang linggo — walang per-guest Memories, walang reels, at walang kinalaman sa plano mo.',
       },
       {
         label: 'Isang supplier directory',
@@ -169,7 +169,7 @@ const COPY: Record<
         body: 'Guest list, RSVP, seating, budget, at 4-in-1 Event Hub — libre pagsimula.',
       },
       {
-        title: 'Live na guest photo gallery',
+        title: 'Live na guest Memories',
         body: 'Papic: may sariling face-tagged photos at personal video reel ang bawat guest.',
       },
       {

@@ -81,7 +81,7 @@ export async function buildChapterTeaserPlan(
       ...base,
       canRender: false,
       reason:
-        'Add a Papic gallery id to this chapter’s substrate first — the teaser is built from that gallery’s photos.',
+        'Add a Papic Memories id to this chapter’s substrate first — the teaser is built from those photos.',
     };
   }
 
@@ -106,7 +106,7 @@ export async function buildChapterTeaserPlan(
     return {
       ...base,
       canRender: false,
-      reason: `Need at least ${TEASER_MIN_PHOTOS} showcase-approved photos in that Papic gallery to build a teaser — found ${photos.length}. (Only consent-cleared frames from galleries you have access to can be used.)`,
+      reason: `Need at least ${TEASER_MIN_PHOTOS} showcase-approved photos in those Papic Memories to build a teaser — found ${photos.length}. (Only consent-cleared frames from Memories you have access to can be used.)`,
     };
   }
 

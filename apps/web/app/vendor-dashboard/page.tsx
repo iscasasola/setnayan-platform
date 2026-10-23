@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
+import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import {
   readEventDayFacts,
   readTodaySchedules,
@@ -454,6 +455,15 @@ export default async function VendorOverviewPage({
   const creditNotice = shopRow
     ? todayCreditNotice({ creditPhp: shopRow.creditPhp, tierExpiresAt: shopRow.tierExpiresAt }, Date.now())
     : null;
+  // 🎁 A plan Setnayan gave (prototype supplier_personal_invite_2026-10-23 B6 · C2): the Shop line names it, and in
+  // its last week a door row says when it ends. Off the same one shop-row read; a failed read says nothing.
+  const gift = shopRow
+    ? planGiftOf(
+        { tier_state: shopRow.tierState, tier_source: shopRow.tierSource, tier_expires_at: shopRow.tierExpiresAt },
+        Date.now(),
+      )
+    : null;
+  const giftDoor = gift ? giftDoorWords(gift) : null;
 
   /*
     ── 📱 TODAY, THE SIMPLER WAY (owner APPROVE 2026-10-14 — corpus DECISION_LOG ✅ "THE SIMPLER SUPPLIER
@@ -504,6 +514,7 @@ export default async function VendorOverviewPage({
     feeEnforced,
     earnings,
     credit: creditNotice && shopRow ? { creditPhp: shopRow.creditPhp, tierExpiresAt: shopRow.tierExpiresAt, href: creditNotice.href } : null,
+    gift: giftDoor ? { ...giftDoor, href: '/vendor-dashboard/subscription' } : null,
     payoutReadiness,
     payoutHref: PAYMENT_OPTIONS_HREF,
     shop: {
@@ -513,6 +524,7 @@ export default async function VendorOverviewPage({
       details: businessProfileChecklist(profile),
       awardWord: [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]).join(' · ') || null,
       milestoneWord,
+      giftLine: gift ? giftShopLine(gift) : null,
     },
     views,
     inquiries28: data.inquiries28 ?? null,
@@ -577,7 +589,11 @@ export default async function VendorOverviewPage({
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
-        library={moodboardLibraryAccessForProfile(profile).allowed}
+        // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
+        library={
+          moodboardLibraryAccessForProfile(profile).allowed &&
+          !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
+        }
         actions={{
           acceptInquiry,
           declineInquiry,

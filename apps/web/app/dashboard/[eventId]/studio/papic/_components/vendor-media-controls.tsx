@@ -79,8 +79,8 @@ export async function VendorMediaControls({ eventId }: { eventId: string }) {
           Suppliers&rsquo; photos
         </h2>
         <p className="max-w-prose text-sm text-ink/60">
-          Suppliers who shot at your event put their photos in your gallery. Turn one
-          off and their photos leave your gallery — they keep their own copies, and
+          Suppliers who shot at your event put their photos in your Memories. Turn one
+          off and their photos leave your Memories — they keep their own copies, and
           nothing is deleted.
         </p>
       </div>
@@ -95,7 +95,7 @@ export async function VendorMediaControls({ eventId }: { eventId: string }) {
                   {v.vendor_name?.trim() || 'Your supplier'}
                 </p>
                 <p className="text-xs text-ink/55">
-                  {hidden ? 'Not in your gallery' : 'In your gallery'}
+                  {hidden ? 'Not in your Memories' : 'In your Memories'}
                 </p>
               </div>
               <form action={setVendorCapturesHidden}>

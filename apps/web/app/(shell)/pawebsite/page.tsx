@@ -147,7 +147,7 @@ const FAQ = [
   },
   {
     q: 'Can it grow with everything else?',
-    a: 'Yes. The same Event Hub is where your guest gallery, your live stream, and your day-of details live too — so one address carries your whole wedding, before, during, and after.',
+    a: 'Yes. The same Event Hub is where your Memories, your live stream, and your day-of details live too — so one address carries your whole wedding, before, during, and after.',
   },
 ];
 
@@ -228,7 +228,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Permanent home',
     t: 'One address, before, during, and after',
-    d: 'After the day, the same address is where your guest gallery, your live stream, and your day-of details live too. Not a separate site that expires — your wedding’s permanent home.',
+    d: 'After the day, the same address is where your Memories, your live stream, and your day-of details live too. Not a separate site that expires — your wedding’s permanent home.',
     media: { kind: 'still', src: '/add-ons/demo/stills/landing-page-3.jpg', alt: 'Event Hub — after the day, it becomes your story' },
   },
 ];
@@ -250,7 +250,7 @@ export default function PawebsiteLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Give your wedding its home',
-        body: 'Your Event Hub lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and gallery. Start planning free, and make it yours.',
+        body: 'Your Event Hub lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and Memories. Start planning free, and make it yours.',
         href: '/onboarding/wedding?from=pawebsite',
         label: 'Start planning · free',
       }}

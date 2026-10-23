@@ -276,7 +276,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
             </>
           }
           title="Your camera’s ready"
-          sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's gallery — no app to install."
+          sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's Memories — no app to install."
         >
           <a
             href={`/papic/me/${encodeURIComponent(cleanToken!)}/session?next=guest`}
@@ -373,7 +373,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         </>
       }
       title="Your camera’s ready"
-      sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's gallery — no app to install."
+      sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's Memories — no app to install."
     >
       <Link
         href={`/papic/seat/${encodeURIComponent(camera.claimToken)}`}

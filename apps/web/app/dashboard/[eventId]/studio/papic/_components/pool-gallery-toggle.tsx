@@ -31,7 +31,7 @@ export function PoolGalleryToggle({
       } else {
         setError(
           res.error === 'forbidden'
-            ? 'Only the couple can open or close the shared gallery.'
+            ? 'Only the couple can open or close the shared Memories.'
             : 'That didn’t save — try again.',
         );
       }

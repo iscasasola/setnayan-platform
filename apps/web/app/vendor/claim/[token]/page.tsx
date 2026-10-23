@@ -3,15 +3,16 @@ import Link from 'next/link';
 import { Mail, Phone, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
-import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
+import { fetchClaimLandingByToken, readInviteOffer } from '@/lib/vendor-invites';
+import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
-import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, displayServiceLabel, type VendorCategory } from '@/lib/vendors';
 import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
-import { CoupleLinkDoor, Perk, SnapshotField } from './_components/claim-parts';
+import { CoupleLinkDoor, Perk, SnapshotField, TeamInviteDoor } from './_components/claim-parts';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -157,58 +158,20 @@ export default async function VendorClaimPage({ params }: Props) {
       : '';
     const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
+    // 🎁 THE PERSONAL INVITE (owner 2026-10-23, prototype frame B1): the admin's door with **Your offer**. Read on
+    // its own (`readInviteOffer`) so a database without the columns still draws the door, just without the rows.
+    const stored = await readInviteOffer(admin, invite.invite_id);
+    const offer = stored ? doorOffer(offerFromInvite(stored)) : null;
     return (
-      <DoorShell
-        width="lg"
-        eyebrow="Team invite"
-        title={
-          <>
-            The Setnayan team set up a profile for{' '}
-            <strong className="font-semibold">{invite.business_name}</strong>.
-          </>
-        }
-        sub="Claim it now to add your photos, services, and pricing. Couples browsing the marketplace will see you once you publish."
-      >
-        <article className="space-y-6">
-          <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              What you get
-            </p>
-            <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
-              <Perk>Free supplier profile + marketplace listing</Perk>
-              <Perk>Chat with couples in-app</Perk>
-              <Perk>Calendar + bookings dashboard</Perk>
-              {/* A perk list is where half a promise hides best: "0% commission
-                  on bookings" read as the whole truth to a supplier who was
-                  about to be billed. Short form, still BOTH halves. */}
-              <Perk>{supplierCommissionShort(feeSchedule)}</Perk>
-              <Perk>No upfront cost · no credit card required</Perk>
-            </ul>
-          </section>
-
-          <div className="flex flex-wrap gap-3">
-            {existingVendor ? (
-              <Link
-                href={signInUrl}
-                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-              >
-                Sign in &amp; claim
-              </Link>
-            ) : (
-              <Link
-                href={signupUrl}
-                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-              >
-                Claim &amp; sign up
-              </Link>
-            )}
-            <DeclineForm token={invite.claim_token} />
-          </div>
-          <p className="text-xs text-ink/50">
-            Not the right business? Just ignore this page — we won&rsquo;t follow up.
-          </p>
-        </article>
-      </DoorShell>
+      <TeamInviteDoor
+        businessName={invite.business_name}
+        categoryLabel={invite.service_category ? displayServiceLabel(invite.service_category) : null}
+        offer={offer}
+        commissionPerk={supplierCommissionShort(feeSchedule)}
+        claimHref={existingVendor ? signInUrl : signupUrl}
+        claimLabel={existingVendor ? 'Sign in & claim' : 'Claim & sign up'}
+        decline={<DeclineForm token={invite.claim_token} />}
+      />
     );
   }
 

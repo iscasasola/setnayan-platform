@@ -58,7 +58,7 @@ export const LAB_CARDS: Record<string, BenchServiceCard> = {
   'v-bituin': card({ name: 'Wedding buffet · 150–250 pax', priceText: `from ${formatPhp(950)} / head`, includesLine: 'Tasting for 4 · crew meals · 2 live stations', notIncluded: ['corkage'] }),
   'v-hiraya': card({ name: 'Plated dinner · 100–200 pax', priceText: `from ${formatPhp(1200)} / head`, includesLine: 'Tasting for 2 · table styling' }),
   'v-lola': card({ name: 'Heirloom Filipino buffet · 100–250 pax', priceText: `from ${formatPhp(1100)} / head`, includesLine: 'Tasting for 2 · lechon carving station' }),
-  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day gallery' }),
+  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day album' }),
   'v-santuario': card({ name: 'Church ceremony · 3 pm slot', includesLine: 'Choir · coordinator for the rite' }),
 };
 

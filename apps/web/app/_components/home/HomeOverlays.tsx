@@ -323,8 +323,8 @@ function VendorsOverlay({
         <span className="hr-gintro-h">How the tiers stack</span>
         <span className="hr-gintro-b">
           Free is the whole ops spine · Solo adds your business analytics · Pro
-          adds a team, wider reach &amp; market intel · Enterprise lifts every
-          limit.
+          adds a team, wider reach &amp; market intel · Ultra reaches the
+          farthest.
         </span>
       </div>
       <div className="hr-gline">

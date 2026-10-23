@@ -55,7 +55,7 @@ export const BASE_ROWS: BaseRow[] = [
   // permanently empty by construction — it costs a row and a glance every day
   // forever. /admin/payouts itself STAYS, reachable from the Money menu, because
   // legacy orders may still need it. This removes the daily prompt, not the page.
-  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Supplier Pro / Enterprise upgrades awaiting confirmation.' },
+  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Supplier Pro / Ultra upgrades awaiting confirmation.' },
   { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Supplier payment destinations awaiting a fraud screen.' },
   { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and supplier disputes.' },
   { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },

@@ -8,6 +8,7 @@ import { InstagramConnectCard } from '@/app/vendor-dashboard/_components/instagr
 import { VideoLinksEditor } from '@/app/vendor-dashboard/_components/video-links-editor';
 import type { VendorIgConnectionStatus, VendorIgMediaRow } from '@/lib/vendor-instagram-status';
 import { updateVendorProfileField } from '../../actions';
+import { PORTFOLIO_OVER_BASE_MESSAGE } from '@/lib/vendor-tier-caps';
 import { CouldNotLoad } from './could-not-load';
 
 /*
@@ -78,7 +79,7 @@ export function GalleryMedia({
         toast={toast}
         successToast="Portfolio saved."
         title="Portfolio photos"
-        hint={`up to ${portfolioMax >= 999 ? 'unlimited' : portfolioMax}, 5 MB each`}
+        hint={`first ${portfolioMax} free, 5 MB each`}
       >
         <FileUpload
           bucket="media"
@@ -88,7 +89,10 @@ export function GalleryMedia({
           currentValue={portfolioRefs}
           initialDisplayUrls={portfolioDisplayMap}
           multiple
-          maxFiles={portfolioMax}
+          // 📸 The free base, GRANDFATHERED (owner 2026-10-23): a shop already past it keeps every photo, so the
+          // widget never holds fewer than are on the page — it only stops a NEW one past the base.
+          maxFiles={Math.max(portfolioMax, portfolioRefs.length)}
+          limitMessage={PORTFOLIO_OVER_BASE_MESSAGE}
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"

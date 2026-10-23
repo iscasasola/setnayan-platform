@@ -16,7 +16,7 @@
  * person experiences, and a screen is a reply.
  */
 
-export type PlanWord = 'Free' | 'Free · Verified' | 'Solo' | 'Pro' | 'Enterprise' | 'Custom';
+export type PlanWord = 'Free' | 'Free · Verified' | 'Solo' | 'Pro' | 'Ultra' | 'Custom';
 
 /** The plan names a supplier actually reads. */
 export function planWord(tier: string | null | undefined): PlanWord {
@@ -24,7 +24,7 @@ export function planWord(tier: string | null | undefined): PlanWord {
     case 'custom':
       return 'Custom';
     case 'enterprise':
-      return 'Enterprise';
+      return 'Ultra';
     case 'pro':
       return 'Pro';
     case 'solo':

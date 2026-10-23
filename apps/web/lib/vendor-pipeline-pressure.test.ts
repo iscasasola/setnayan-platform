@@ -78,7 +78,7 @@ test('each state says a different, true thing — and every one names the day', 
 
   assert.equal(at(1, 3), "You're chasing 1 of 3 customers for 14 Feb.");
   assert.equal(at(2, 3), "Your last slot for 14 Feb — you're chasing 2 of 3.");
-  assert.equal(at(3, 3), "You're chasing 3 of 3 for 14 Feb — your plan's limit.");
+  assert.equal(at(3, 3), "You're chasing 3 of 3 for 14 Feb — the most for one date.");
 
   for (const line of [at(1, 3), at(2, 3), at(3, 3)]) {
     assert.ok(line!.includes('14 Feb'), `every state must name the day: ${line}`);

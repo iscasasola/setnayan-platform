@@ -44,6 +44,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import zlib from 'node:zlib';
 import { NPC_DOCUMENTS } from './npc-documents';
+import { PERIODIC_JOB_KEYS } from './periodic-job-registry';
 
 const DOCS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'npc-docs');
 
@@ -189,25 +190,58 @@ test('the pack never calls device fingerprinting switched off — it is live', (
   );
 });
 
-test('an adopted-but-unbuilt retention rule always says it is not yet enforced', () => {
-  // The trap this closes: replacing a false promise ("auto-purged at 5 years")
-  // with a NEWER false promise ("deleted 3 months after the event") while
-  // production still has ZERO scheduled jobs and deletes nothing on a timer.
-  // Whenever the pack states one of the adopted periods, the same document must
-  // also say enforcement is pending.
+test('a deletion period the pack states is one a sweep in the code actually enforces', () => {
+  // 🔄 REPLACED 2026-10-23 (pack v1.1). Until 2026-08-23 no sweep existed, so
+  // this asked the reverse: "whenever the pack states an adopted period, it must
+  // also say ENFORCEMENT NOT YET BUILT". PR #4735 built the face-data and
+  // supplier-upload sweeps, PR #6195 the 12-hour selfie erase, and the
+  // 2026-10-22 pack says so. Left as it was, the old check stayed green only
+  // because the new pack QUOTES the retired qualifier while retracting it — a
+  // guard satisfied by the sentence that withdraws its subject proves nothing.
+  //
+  // The property now: every period the pack states is matched by a job in
+  // PERIODIC_JOBS whose constant has the same number. Delete the sweep, or move
+  // its number, and the filing is wrong — so this fails.
+  const src = (rel: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), rel), 'utf8');
+  const num = (rel: string, name: string) => {
+    const m = src(rel).match(new RegExp(`export const ${name} = (\\d+);`));
+    assert.ok(m, `${rel}: ${name} is not a plain number any more — read it another way, do not drop the check`);
+    return Number(m[1]);
+  };
+  // The face clock is an alias of the full-res floor; follow the alias, then read the number.
+  const faceGraceDays = () => {
+    assert.match(
+      src('face-data-retention-core.ts'),
+      /export const FACE_DATA_POST_EVENT_GRACE_DAYS = FULL_RES_POST_EVENT_GRACE_DAYS;/,
+      'the face-data clock no longer aliases the full-res floor — read its number directly',
+    );
+    return num('papic-fullres-drop-core.ts', 'FULL_RES_POST_EVENT_GRACE_DAYS');
+  };
+  const STATED: Array<{ re: RegExp; job: string; value: number; expect: number; what: string }> = [
+    { re: /3 MONTHS AFTER THE EVENT ENDS/i, job: 'face-data-retention', value: faceGraceDays(), expect: 92, what: 'face data, 3 months (92 days) after the event ends' },
+    { re: /12 hours after the event ends/i, job: 'face-selfie-papic-close', value: num('papic-window.ts', 'PAPIC_CAPTURE_GRACE_HOURS'), expect: 12, what: 'the face selfie, 12 hours after the event ends' },
+    { re: /90 DAYS AFTER the approve\/reject/i, job: 'vendor-identity-retention', value: num('vendor-identity-retention-core.ts', 'VENDOR_IDENTITY_RETENTION_DAYS'), expect: 90, what: 'supplier uploads, 90 days after the decision' },
+  ];
+  let stated = 0;
   for (const file of [ROPA, MANUAL]) {
     const text = pdfText(file);
     assertReadable(file, text);
-    const statesAdoptedPeriod =
-      /3 MONTHS AFTER THE EVENT ENDS/i.test(text) || /90 DAYS AFTER the approve\/reject/i.test(text);
-    if (!statesAdoptedPeriod) continue;
-    assert.match(
-      text,
-      /ENFORCEMENT NOT YET BUILT|not yet automated|enforcement is pending/i,
-      `${file}: states an adopted deletion period without saying it is not yet enforced — ` +
-        'that swaps an old false promise for a new one.',
-    );
+    for (const s of STATED) {
+      if (!s.re.test(text)) continue;
+      stated++;
+      assert.ok(PERIODIC_JOB_KEYS.includes(s.job), `${file} promises ${s.what}, but no '${s.job}' job exists in PERIODIC_JOBS`);
+      assert.equal(s.value, s.expect, `${file} promises ${s.what}; the code's constant says ${s.value}`);
+    }
+    // The retired qualifier may only appear while being retracted.
+    for (const m of text.matchAll(/ENFORCEMENT NOT YET BUILT/gi)) {
+      assert.match(
+        text.slice(m.index, m.index + 200),
+        /no longer tr/i,
+        `${file}: says "ENFORCEMENT NOT YET BUILT" as a live claim — the sweeps exist (PR #4735)`,
+      );
+    }
   }
+  assert.ok(stated >= 4, `only ${stated} stated periods were found — the reader or the pack changed; do not lower this`);
 });
 
 test('the withdrawn 5-year auto-purge is not still promised anywhere', () => {

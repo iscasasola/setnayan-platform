@@ -57,6 +57,28 @@ export type VendorInviteRow = {
 };
 
 /**
+ * 🎁 THE PERSONAL INVITE'S OFFER (migration `the_personal_invite_carries_its_offer`, owner 2026-10-23) — read on its
+ * OWN, never folded into the invite's select: naming a column a database does not have yet refuses the WHOLE select,
+ * and the claim page would then lose every invite, not just the offer. A failed read is logged and answers null —
+ * the door then draws no offer rows, and the claim (which reads the row itself, in SQL) still applies it.
+ */
+export async function readInviteOffer(
+  admin: SupabaseClient,
+  inviteId: string,
+): Promise<{ offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null> {
+  const { data, error } = await admin
+    .from('vendor_invites')
+    .select('offer_tier, offer_until, offer_photo_allowance')
+    .eq('invite_id', inviteId)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-invites · readInviteOffer', error);
+    return null;
+  }
+  return (data as { offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null) ?? null;
+}
+
+/**
  * A link a COUPLE made — by email (`couple`) or to share by hand
  * (`auto_share_link`). Both hang off an `event_vendors` row, so both can say
  * who invited the supplier and for which date. An `admin` invite has neither.
@@ -579,4 +601,31 @@ export async function lookupExistingVendorByEmail(
     vendor_profile_id: data.vendor_profile_id as string,
     business_name: data.business_name as string,
   };
+}
+
+/**
+ * 🎁 THE SETNAYAN INVITE THIS SHOP WAS CLAIMED FROM — its offer columns, or null when the shop did not come from one
+ * (or the read was refused: logged, and the pages then simply say nothing about an invite — never a false gift).
+ * Service role: an admin invite has no couple, so no browser policy reaches it; the shop id comes from the
+ * caller's own resolved shop. Read by Your details ("from your invite") and the Plan page (the gift's end).
+ */
+export async function readClaimedTeamInvite(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null> {
+  if (!vendorProfileId) return null;
+  const { data, error } = await admin
+    .from('vendor_invites')
+    .select('offer_tier, offer_until, offer_photo_allowance')
+    .eq('claimed_vendor_profile_id', vendorProfileId)
+    .eq('source', 'admin')
+    .eq('status', 'claimed')
+    .order('claimed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-invites · readClaimedTeamInvite', error);
+    return null;
+  }
+  return (data as { offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null) ?? null;
 }

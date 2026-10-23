@@ -295,7 +295,7 @@ export default async function GalleriesHubPage({ params }: Props) {
             'utility', which Our Services filters out, and its only link was on
             Memories. It hands the photographer's full gallery to the couple's
             Google Drive, so it belongs beside the other photo sources.
-          · Memories (`/alaala`) — the Photo Notes your guests left, the most
+          · Guest Stories (`/alaala`) — the Photo Notes your guests left, the most
             storied moments, and Story Assignments — linked from nowhere at all.
           These are doorways, not sources: neither claims a "ready" or
           "collecting" state this page has not measured. */}
@@ -350,7 +350,7 @@ function DOORWAYS(base: string): {
     },
     {
       key: 'memories',
-      name: 'Memories',
+      name: 'Guest Stories',
       line: 'The stories your guests left, and who tells each moment.',
       href: `${base}/alaala`,
       Icon: BookHeart,

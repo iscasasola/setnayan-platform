@@ -28,5 +28,11 @@ Search keywords keep the word (owner, 2026-10-23: *"keep the SEO keyword as
 gallery"*) — page metadata, never drawn: the home page, /papic and the
 day-memories feature page. Each is a named exemption in the guard.
 
+One name, two scopes (owner, 2026-10-23): the account's Memories holds every
+event; an event's Memories (`/galleries`) is the same, filtered to that event.
+So the door on that page to the guests' Photo Notes (`/alaala`) is named
+**"Guest Stories"** — the name the Live page already gives them — instead of a
+second "Memories".
+
 SPEC IMPACT: `DECISION_LOG.md` row "23 Oct: no 'gallery' in the UI — Memories /
 Portfolio / Inspiration".

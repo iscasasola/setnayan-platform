@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "81728cfc25",
-  "routeCount": 461,
+  "generatedFromRef": "d04577bb8a",
+  "routeCount": 462,
   "destinations": 1003,
   "actions": 667,
-  "blocks": 6860,
+  "blocks": 6863,
   "routes": {
     "/": {
       "files": [
@@ -5612,6 +5612,7 @@
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
+        "/dashboard/[seg]/memories",
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/nikah",
         "/dashboard/[seg]/orders/[seg]",
@@ -5619,7 +5620,6 @@
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/studio/papic",
-        "/dashboard/[seg]/studio/papic?gallery=open",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors?part=budget",
@@ -7632,6 +7632,18 @@
         "PostGigDrawer",
         "SearchParams",
         "SubmitButton"
+      ]
+    },
+    "/dashboard/[eventId]/memories": {
+      "files": [
+        "dashboard/[eventId]/memories/loading.tsx",
+        "dashboard/[eventId]/memories/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventMemoriesGallery",
+        "ListPageSkeleton"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -10704,6 +10716,7 @@
       "actions": [],
       "blocks": [
         "Cards",
+        "EventMemoriesGallery",
         "FrontDoorShell",
         "LabBar",
         "Link"

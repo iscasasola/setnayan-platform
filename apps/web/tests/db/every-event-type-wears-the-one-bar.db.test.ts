@@ -39,7 +39,8 @@ after(async () => {
 
 const PHASES: MenuLifecyclePhase[] = ['plan', 'dayof', 'after'];
 const SERVICES: EventMenuChild[] = [{ key: 'papic', label: 'Papic', href: '#papic', icon: 'papic' }];
-const FOUR = ['home', 'guests', 'explore', 'launch'];
+// Memories joined after Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
+const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
 const WORD: Record<string, string> = { home: 'Home', guests: 'Guests', explore: 'Suppliers', launch: 'Hub', studio: 'More' };
 
 async function everyProfile(): Promise<EventTypeProfile[]> {
@@ -80,7 +81,7 @@ test('🧭 every event type × needs preset × phase × shell in the migrations 
       for (const phase of PHASES) {
         for (const storeShell of [false, true]) {
           const keys = bar(p, phase, storeShell);
-          const want = FOUR; // web and app alike (owner 22 Oct 2026, "Yes remove more")
+          const want = FIVE; // web and app alike (owner 22 Oct 2026, "Yes remove more")
           if (keys.join(' ') !== want.join(' ')) {
             wrong.push(`${p.eventType} · ${preset} · ${phase} · ${storeShell ? 'app' : 'web'} → ${keys.map((k) => WORD[k]).join(' · ')}`);
           }

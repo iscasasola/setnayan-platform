@@ -28,7 +28,8 @@ background"; relay: "as realtime as possible", "clean and safe"):**
   guess" on money). The server checks at `sign` and charges at `record` with the existing RPC; a
   shot refused for credits stays on the phone and the chip says "Credits ran out · N not sent".
 - Status chip (corpus 0012 offline note §6, house words): "All saved" · "Offline · N waiting" ·
-  "Sending N of M" · "Credits ran out · N not sent" · "N not saved", details in ⓘ.
+  "Sending N of M" · "Credits ran out · N not sent" · "Not sent · N kept on this phone" ·
+  "Couldn’t save N", details in ⓘ.
 - Clean and safe: host Memories, the account library, the zip, save-photo, the magazine and the
   public teaser now allowlist `moderation_state = 'clean'` (they let `unscreened` through); Drive
   receives only screened shots; Guard A — the full-res drop never "replaces" an original that IS
@@ -38,7 +39,33 @@ background"; relay: "as realtime as possible", "clean and safe"):**
 - Migration `20271285508020_papic_bytes_go_straight_to_storage`: `papic_upload_intents`
   (service-role only) + `vendor_papic_captures.client_capture_id` (unique per supplier).
 
+**Review round (independent review, before merge):**
+
+- A refused shot is KEPT, never deleted, for the capture window, put-away and event-over — only
+  `blocked` and `terms_required` end a shot. The chip says "Not sent · N kept on this phone". The
+  server judges the window by the shot's own shutter time (`captured_at_ms`, at most 10 minutes
+  ahead of the server clock and no older than 8 days), so an in-window photo that finds signal
+  the next afternoon is still accepted.
+- Every queued shot carries its event and an HMAC owner tag; the guest pass is read for the
+  shot's event. A phone that now speaks for another event or another person answers
+  `other_event` / `other_owner` and the shot waits — it is never recorded elsewhere.
+- Final copies are written per attempt; a failed or lost attempt removes only its own copy;
+  `attach` is compare-and-set and refuses a tier the row already holds; a settled upload is never
+  promoted twice.
+- "Release to Drive" and the hosts' Memories density card read screened (`clean`) shots only, and
+  Drive skips a row still pointing at its thumbnail.
+- The phone keeps a raw clip until the server has read a playable web copy's duration itself.
+- The sweep runs hourly (also from the capture routes), in batches, forgets settled rows 15
+  minutes after they settle, sets aside a row it cannot delete, and removes an attempt's final
+  copy only when no row points at it.
+- "Keep this page open · not saved on the phone" when the phone refuses to store the shot;
+  other tabs follow the sender; Kwento says "Saved to the hosts' Memories" only once the display
+  copy has landed.
+- Migration adds `papic_upload_intents.final_ref` + `sweep_refused_at`.
+
 Guards: `lib/papic-upload/no-capture-route-takes-file-bytes.test.ts`,
+`lib/papic-upload/every-papic-media-reader-is-screened.test.ts` (every Papic media reader, derived
+from the tree), `lib/papic-upload/a-queued-shot-records-only-where-it-was-taken.test.ts`,
 `lib/papic-upload/nothing-unscreened-reaches-another-person.test.ts`, the replayer scenario
 suite `lib/papic-upload/replayer.test.ts` (10 photos + 2 clips offline → reconnect → each lands
 once), plus Guard A / sweep / daemon tests — each sabotaged red and restored green.

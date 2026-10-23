@@ -47,7 +47,7 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 ## State (2026-10-23, keep current)
 - [x] pure tiers + schedule + replayer (+ scenario tests: 10 photos + 2 clips offline → reconnect → 12 rows, a lost answer replayed as duplicate)
 - [x] migration 20271285508020 (papic_upload_intents + vendor client_capture_id) — NOT applied anywhere but the PGlite replay
-- [x] server: lib/papic-upload-intents.server.ts (sign → staging key; load + check size/type/magic; screen; promote to the final key; settle) + sweep lib/papic-upload-sweep.ts (admin layout, daily)
+- [x] server: lib/papic-upload-intents.server.ts (sign → staging key; load + check size/type/magic; screen; promote to the final key; settle) + sweep lib/papic-upload-sweep.ts (admin layout + capture routes, hourly — review round)
 - [x] guest + vendor routes → JSON ops sign · record · attach; multipart refused 415 bytes_not_accepted
 - [x] client: lib/papic-upload/{store,prepare,transport,lanes,replayer,browser,ownership}.ts; chip app/papic/_components/upload-chip.tsx; guest camera + supplier camera + Kwento decorator wired; legacy guest/vendor drains removed (adopted on page open); sync daemon skips them
 - [x] Guard A in the full-res drop; host readers → 'clean' allowlist; Drive only after the screen
@@ -59,6 +59,29 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - [x] PR #6849 (draft, do-not-auto-merge, auto-merge off). CI round 1 on 74dc6df: 27 pass · 2 skipped · 0 fail
 - [x] design-template ✓/✗ table in the PR body; refusal copy → "Couldn’t save N"; 375 px shots (both engines)
 - [ ] seat lane — NOT in this PR (see "Left")
+
+## Review round (independent review of #6849 head f160c5c7 — "DO NOT SHIP until fixed")
+- [x] B1 keep, never delete, for window / put-away / event-over (only blocked + terms_required drop); chip
+  "Not sent · N kept on this phone"; kept shots exempt from the 7-day TTL; record judges the window by
+  `captured_at_ms` (lib/papic-upload/shot-time.ts: ≤ now+10 min, ≥ now−8 d, else server time) — guest + vendor
+- [x] B2 every call carries event_id + an HMAC owner tag (lib/papic-upload/owner-tag-core.ts + .server.ts, keyed
+  with the guest-session seal); guest route reads the pass FOR the shot's event; mismatch → 409 other_event /
+  other_owner = WAIT (classifier `context`); replayer only sends shots whose event has a camera registered here
+- [x] M3 per-attempt final keys (`-a{8hex}`), final_ref written before the copy, a lost race / failed charge
+  discards only its own attempt, attach is CAS, a settled intent is never promoted twice (intentFor skips settled)
+- [x] M4 Release to Drive + the Memories density card read clean only; Drive skips rows still on their thumbnail/tile
+- [x] M5 raw clip stays on the phone until the server probes a playable web copy (mvhd 300–12000 ms)
+- [x] M6 sweep: batches in a 20 s budget; settled rows forgotten 15 min after settle (outlives the 5-min URL, so a
+  late re-PUT is dropped too); unsettled > 8 d by direct query; refused rows set aside (sweep_refused_at); an
+  attempt's final copy deleted only if no row references it (fail closed); hourly, also fired from both routes
+- [x] m7 memory-only chip · m8 attach refuses a held tier · m9 tabs sync + Kwento waits for the display copy
+- [x] m10 property guard lib/papic-upload/every-papic-media-reader-is-screened.test.ts (reader list derived from the
+  tree; caught the Memories density card on its first run)
+- Sabotage this round (all red → restored green): sweep deletes a referenced final · sweep forgets a refused staging
+  delete · put-away added to the drop set · the guest other_event check disabled · the tag stops binding the event ·
+  Drive release loses its clean filter
+- ⚠ Not changed, said plainly: the PAPARAZZI SEAT camera (papic-seat-capture + lib/offline/service-handlers/papic-drain.ts)
+  is not on this uploader and still treats put-away as terminal — B1 covers the save-first guest + supplier cameras.
 
 ## Sabotage runs (break → red → restore → green), 2026-10-23
 S1 multipart back in the guest route → no-bytes guard red · S2 attach writes before screening → safety guard red ·

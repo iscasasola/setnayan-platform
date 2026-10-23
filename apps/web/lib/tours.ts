@@ -156,6 +156,11 @@ export type TourKey =
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  // 🔦 The account screens' spotlights (owner 2026-10-22, "have you updated our Help, all (i) and spotlight
+  // tutorials?"): the account bar on the Events board, and People as it now looks. NEW keys — People was
+  // redrawn on 2026-10-22, and the old carousel's words described the dropdown it removed.
+  | 'customer_account_bar_v1'
+  | 'customer_people_v2'
   | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
   | 'customer_event_menu_v1'
@@ -221,6 +226,8 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_account_bar_v1',
+  'customer_people_v2',
   'customer_guest_invite_v1',
   'customer_apply_pro_v1',
   'customer_event_menu_v1',
@@ -267,12 +274,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Build your guest list',
-        body: 'Add guests one at a time or import a CSV. Setnayan ships 18 Filipino wedding roles — maid of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — plus plus-ones as first-class rows.',
+        body: 'Add guests one at a time or import a CSV. More than 30 Filipino wedding roles are built in — maid, matron or man of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — and each plus-one gets a seat of their own.',
       },
       {
         Icon: Send,
         title: 'Send branded invitations',
-        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on a personalized invitation site with RSVP, dress code, countdown.',
+        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on their own invitation on your Event Hub, with RSVP, dress code and a countdown.',
       },
       {
         Icon: Briefcase,
@@ -1052,7 +1059,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'One place for your people',
-        body: 'The picker at the top switches between Connected, Following, Followers, Loved ones and Groups. When somebody asks to add you, Requests shows up first &mdash; with a dot.',
+        body: 'The counts at the top show who is connected, who you are waiting for and who is asking you &mdash; tap one to see just them. Groups, Following and Followers are under &equiv; at the bottom.',
       },
       {
         Icon: CheckCircle2,
@@ -1065,6 +1072,86 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
       },
     ],
+  },
+  /* 🔦 THE ACCOUNT BAR (owner "yes to all" 2026-10-21, DECISION_LOG "THE ACCOUNT BAR — EVENTS · DISCOVER ·
+     MEMORIES · PEOPLE"). A first-visit SPOTLIGHT on the Events board, after the host's journey
+     (`host_spotlight_v1`), mounted by the board's own page. It lights the bar's own tabs (`tab-<last path
+     segment>`, stamped by `<BottomNav>`) and walks nowhere, so nothing else can stack on it. Discover is not a
+     stop: the iPhone app drops it, and its address `/` has no segment to stamp. Memories is lit on the BAR, not
+     inside its page — the page is being redrawn (#6778) and a stop on it would point at something about to go.
+     The bar is phone only (the laptop keeps the rail, which stamps no tab tokens), so the last stop is the avatar —
+     drawn at every width — and a laptop's tour skips straight to it. Sells nothing. */
+  customer_account_bar_v1: {
+    key: 'customer_account_bar_v1',
+    label: 'Your account bar',
+    blurb: 'Events, Memories and People — the bar on your account screens — and Switch to.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'tab-dashboard',
+          title: 'Your events',
+          body: 'Every event you host or are invited to. Tap one to open it — inside an event, the bar changes to that event’s own.',
+        },
+        {
+          anchor: 'tab-library',
+          title: 'Memories',
+          body: 'The photos and stories from all your events, kept in one place.',
+        },
+        {
+          anchor: 'tab-people',
+          title: 'People',
+          body: 'Everyone you’re connected to, your loved ones and your groups.',
+        },
+        {
+          // The avatar sheet's Switch to (#6783, #6802). The LAST stop on purpose: the top bar draws it at every
+          // width, so on a laptop — where the bar's tabs are the rail's and stamp nothing — the tour comes here.
+          anchor: 'account-avatar',
+          title: 'Switch to',
+          body: 'Your picture opens Switch to: your events and each shop you run, one tap apart. Profile & settings are there too.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'These stay at the bottom of your account screens.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 PEOPLE, AS IT LOOKS SINCE 2026-10-22 ("People wears the Guest list" — the counts line is the top, the thumb
+     row's field finds or invites, ≡ holds Groups · Following · Followers). A first-visit SPOTLIGHT, mounted by the
+     People page, after the host's journey. Loved ones is the middle stop on purpose: it is a section only some
+     accounts have, and a missing stop is skipped only when a LATER one is on screen (`spotlight-tour.tsx`) — the
+     thumb row's field always is. The field's own word is not quoted (it is being renamed, #6790). Sells nothing. */
+  customer_people_v2: {
+    key: 'customer_people_v2',
+    label: 'People — first visit',
+    blurb: 'The counts, your loved ones, and finding or inviting someone.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'people-counts',
+          title: 'Your people, counted',
+          body: 'Connected, waiting for them, asking you. Tap a number to see just those people; tap it again for everyone.',
+        },
+        {
+          anchor: 'people-loved-ones',
+          title: 'Loved ones',
+          body: 'The people you plan events for — a child, a lola, a pet. A shop you own is here too, so you can make an event for it.',
+        },
+        {
+          anchor: 'people-find',
+          title: 'Find someone, or invite them',
+          body: 'Type a name here to find someone — or to invite them, if they’re not on Setnayan yet. ≡ beside it opens Groups, Following and Followers.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Nobody is connected until they say yes.',
+        button: 'Done',
+      },
+    },
   },
   /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
      list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
@@ -1223,8 +1310,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // 📱 THE SUPPLIER PHONE APP — the first visit to the new Today and Customers
   // (owner-APPROVED 2026-10-01). Claims checked against what the pages do: one
   // Next card (the oldest answer owed, or "Run the day" on an event day), the
-  // bar of four with Messages · Insights · Event Hub in More, and the round +
-  // that opens the shipped "Import an outside client".
+  // bar of four — Today · Customers · Shop · Hub since 2026-10-21 (More left the
+  // bar; Messages = the envelope, Insights = Shop › How it is going, Settings =
+  // the profile picture) — and the round + that opens "Import an outside client".
   vendor_today_v1: {
     key: 'vendor_today_v1',
     label: 'Supplier — Today mini-tour',
@@ -1242,8 +1330,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Settings,
-        title: 'Everything else is in More',
-        body: 'The bar is Today, Customers, Shop and More. Messages, Insights and the Event Hub live in More — one tap away.',
+        title: 'Four places, nothing hidden',
+        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, How it is going is in Shop, and Settings is under your profile picture.',
       },
     ],
   },

@@ -86,9 +86,11 @@ test('bar tabs carry tab-<last path segment>, and every tab step names a real ta
   assert.match(nav.src, /data-tour=\{tabTourToken\(item\.href\)\}/, 'the bar no longer stamps its tabs');
   const tabs = steps.filter(({ s }) => s.anchor.startsWith('tab-')).map(({ s }) => s.anchor.slice(4));
   assert.ok(tabs.length >= 4, 'expected the guests / vendors / shop / customers tab steps');
-  const menus = SOURCES.filter(({ f }) => /customer-menu\.ts$|vendor-bottom-nav\.tsx$/.test(f)).map(({ src }) => src).join('\n');
+  // + the account bar (Events · Discover · Memories · People — `customer_account_bar_v1`, owner 2026-10-22).
+  const menus = SOURCES.filter(({ f }) => /customer-menu\.ts$|vendor-bottom-nav\.tsx$|account-bottom-nav\.tsx$/.test(f)).map(({ src }) => src).join('\n');
   for (const seg of tabs) {
-    const href = seg === 'vendor-dashboard' ? /['"`]\/vendor-dashboard['"`]/ : new RegExp(`/${seg}['"\`]`);
+    // A tab's token ignores its query (`/dashboard?hub=1` → tab-dashboard), as `tabTourToken` does.
+    const href = seg === 'vendor-dashboard' ? /['"`]\/vendor-dashboard['"`]/ : new RegExp(`/${seg}(?:\\?[^'"\`]*)?['"\`]`);
     assert.match(menus, href, `no bar tab has an address ending in /${seg} — the tab-${seg} step would never light`);
   }
 });

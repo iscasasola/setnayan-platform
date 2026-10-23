@@ -766,16 +766,12 @@ export function BottomDock({
   useEffect(() => {
     void import('./bar-set-slide').then((m) => setSetSlide(() => m.BarSetSlide));
   }, []);
-  /* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): while
-     the keyboard is up the bar slides away (`html[data-keyboard="open"] [data-bottom-dock]`, globals.css) and the
-     clearance it publishes is the KEYBOARD's instead (`lib/keyboard-ride.ts`): every row that stands on the bar —
-     `bottom: var(--sn-bottomdock-h)` — then stands on the keyboard with no change of its own. That is 0 wherever the
-     page itself shrinks for the keyboard (the iOS app, Android), and the keyboard's height in iPhone Safari, where a
-     fixed box at 0 would sit under it. */
-  const kb = useKeyboardRide();
-  const kbRef = useRef(kb);
-  kbRef.current = kb;
-  const publishRef = useRef<() => void>(() => {});
+  /* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): the
+     dock listens to the one keyboard reading (`lib/keyboard-ride.ts`) — listening is what publishes
+     `html[data-keyboard="open"]`, under which the bar slides away and cannot be focused (globals.css) — on every page
+     that has a bar, whatever field took the focus. Its clearance (`--sn-bottomdock-h`) stays ITS OWN height; a row
+     that stood on it stands on the keyboard through `--sn-ride-h` instead. */
+  useKeyboardRide();
   useEffect(() => {
     const el = dockRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -783,9 +779,8 @@ export function BottomDock({
     const publish = () =>
       root.style.setProperty(
         '--sn-bottomdock-h',
-        `${Math.round(kbRef.current.open ? kbRef.current.bottom : el.getBoundingClientRect().height)}px`,
+        `${Math.round(el.getBoundingClientRect().height)}px`,
       );
-    publishRef.current = publish;
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
@@ -795,7 +790,6 @@ export function BottomDock({
       root.style.removeProperty('--sn-bottomdock-h');
     };
   }, []);
-  useEffect(() => publishRef.current(), [kb.open, kb.bottom]);
 
   return (
     <BottomDockContext.Provider value={true}>

@@ -104,7 +104,8 @@ export function TypingBand(
     return (
       <div
         ref={barRef}
-        role="toolbar"
+        // A group, not a second toolbar: it lives inside the riding row, which is the toolbar.
+        role="group"
         aria-label={typeof place === 'string' ? `${place} — typing` : 'Typing'}
         data-typing-band="app"
         // The plate runs edge to edge (under a side safe area, as the bottom bar does); its words keep inside the
@@ -129,7 +130,8 @@ export function TypingBand(
     <div
       ref={barRef}
       {...attrs}
-      style={{ ...(style as CSSProperties | undefined), bottom: (atBottom as number | undefined) ?? k.bottom }}
+      // On the keyboard's top while it is up; at the foot otherwise (a pinch-zoom is not a keyboard — never float).
+      style={{ ...(style as CSSProperties | undefined), bottom: k.open ? ((atBottom as number | undefined) ?? k.bottom) : 0 }}
       className={`fixed inset-x-0 z-[85] ${(className as string | undefined) ?? ''} ${SP_KEY_BAR_FIXED}`.replace(/\s+/g, ' ')}
     >
       {before}

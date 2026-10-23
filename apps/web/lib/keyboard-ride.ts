@@ -11,6 +11,10 @@
  * ONE listener, shared: the first subscriber installs it on `visualViewport` (resize + scroll) and on the iOS app's
  * keyboard events; the last one to leave removes it. While anything listens it PUBLISHES on `<html>`:
  *   · `--sn-keyboard-h`        how much of the layout viewport the keyboard covers (`bottom`, px; 0 when closed);
+ *   · `--sn-ride-h`            ONLY while the keyboard is up: where a row that stands on the bottom bar stands instead
+ *                               (`bottom: var(--sn-ride-h, var(--sn-bottomdock-h))`) — the keyboard's top. Removed when
+ *                               it closes, so the row is back on the bar. `--sn-bottomdock-h` stays the bar's own
+ *                               height throughout (the page's bottom padding and every other reader keep their number);
  *   · `data-keyboard="open"`   while the keyboard is up (the rule below), so CSS can answer without state — the bottom
  *                               bar slides away under it (`bottom-nav.tsx`).
  *
@@ -50,8 +54,17 @@ export function keyboardIsOpen(scale: number, visualHeight: number, layoutHeight
   return Math.abs(scale - 1) < 0.01 && visualHeight < layoutHeight - 80;
 }
 
-/** The iOS app's word, from its keyboard events (null = no word: the viewport decides). */
+/** The iOS app's word, from its keyboard events (null = no word: the viewport decides). Trusted only while a field
+ *  that takes typing has the focus — a late `keyboardDidShow` after a hide can never leave the bar hidden. */
 let appOpen: boolean | null = null;
+
+/** A field that takes typing (where an on-screen keyboard can be up). */
+export function isTypingField(el: Element | null): boolean {
+  if (!el) return false;
+  if (el.tagName === 'TEXTAREA') return true;
+  if (el.tagName === 'INPUT') return !['date', 'checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'hidden', 'range', 'color', 'image'].includes((el as HTMLInputElement).type);
+  return (el as HTMLElement).isContentEditable === true;
+}
 
 /** A fresh reading. Safe on the server (closed). */
 export function readKeyboard(): KeyboardRead {
@@ -62,7 +75,8 @@ export function readKeyboard(): KeyboardRead {
   const height = vv?.height ?? inner;
   const scale = vv?.scale ?? 1;
   const bottom = Math.max(0, inner - (offsetTop + height));
-  const open = appOpen ?? (vv ? keyboardIsOpen(scale, height, inner) : false);
+  const viewportOpen = vv ? keyboardIsOpen(scale, height, inner) : false;
+  const open = appOpen === true ? isTypingField(document.activeElement) || viewportOpen : viewportOpen;
   return { open, bottom, offsetTop, height, scale, present: Boolean(vv) };
 }
 
@@ -74,12 +88,19 @@ let uninstall: (() => void) | null = null;
 /** Write the two published values on `<html>` — only when they change (this runs on every scroll frame). */
 let lastH = -1;
 let lastOpen: boolean | null = null;
+let lastRide: string | null = null;
 function publish(k: KeyboardRead) {
   const root = document.documentElement;
   const h = k.open ? Math.round(k.bottom) : 0;
   if (h !== lastH) {
     lastH = h;
     root.style.setProperty('--sn-keyboard-h', `${h}px`);
+  }
+  const ride = k.open ? `${Math.round(k.bottom)}px` : null;
+  if (ride !== lastRide) {
+    lastRide = ride;
+    if (ride) root.style.setProperty('--sn-ride-h', ride);
+    else root.style.removeProperty('--sn-ride-h');
   }
   if (k.open !== lastOpen) {
     lastOpen = k.open;
@@ -105,6 +126,9 @@ function emit(cause: KeyboardCause) {
   for (const fn of listeners) fn(snapshot, cause);
 }
 
+type PluginHandle = { remove: () => unknown };
+type KeyboardPlugin = { addListener: (event: string, fn: () => void) => PluginHandle | Promise<PluginHandle> };
+
 function install(): () => void {
   const vv = window.visualViewport;
   const onResize = () => emit('resize');
@@ -118,26 +142,49 @@ function install(): () => void {
     appOpen = null;
     emit('app');
   };
+  /* A field gaining or losing the focus re-reads (the app's word holds only while a field has it). */
+  const onFocusMove = () => window.setTimeout(() => emit('window'), 0);
   vv?.addEventListener('resize', onResize);
   vv?.addEventListener('scroll', onScroll);
   window.addEventListener('resize', onWindow);
-  window.addEventListener('keyboardWillShow', onAppShow);
-  window.addEventListener('keyboardDidShow', onAppShow);
-  window.addEventListener('keyboardWillHide', onAppHide);
-  window.addEventListener('keyboardDidHide', onAppHide);
+  document.addEventListener('focusin', onFocusMove);
+  document.addEventListener('focusout', onFocusMove);
+  /* The iOS app: the Capacitor Keyboard plugin's window events AND its listener API (either may be the one the remote
+     page receives — both say the same thing, so hearing one twice is harmless). */
+  const appEvents: Array<[string, () => void]> = [
+    ['keyboardWillShow', onAppShow],
+    ['keyboardDidShow', onAppShow],
+    ['keyboardWillHide', onAppHide],
+    ['keyboardDidHide', onAppHide],
+  ];
+  for (const [name, fn] of appEvents) window.addEventListener(name, fn);
+  const plugin = (window as unknown as { Capacitor?: { Plugins?: { Keyboard?: KeyboardPlugin } } }).Capacitor?.Plugins?.Keyboard;
+  const handles: Array<PluginHandle | Promise<PluginHandle>> = [];
+  if (plugin && typeof plugin.addListener === 'function') {
+    for (const [name, fn] of appEvents) {
+      try {
+        handles.push(plugin.addListener(name, fn));
+      } catch {
+        /* an older plugin without this event — the window events still speak */
+      }
+    }
+  }
   return () => {
     vv?.removeEventListener('resize', onResize);
     vv?.removeEventListener('scroll', onScroll);
     window.removeEventListener('resize', onWindow);
-    window.removeEventListener('keyboardWillShow', onAppShow);
-    window.removeEventListener('keyboardDidShow', onAppShow);
-    window.removeEventListener('keyboardWillHide', onAppHide);
-    window.removeEventListener('keyboardDidHide', onAppHide);
+    document.removeEventListener('focusin', onFocusMove);
+    document.removeEventListener('focusout', onFocusMove);
+    for (const [name, fn] of appEvents) window.removeEventListener(name, fn);
+    for (const h of handles) void Promise.resolve(h).then((x) => x?.remove?.()).catch(() => {});
+    appOpen = null;
     const root = document.documentElement;
     root.style.removeProperty('--sn-keyboard-h');
+    root.style.removeProperty('--sn-ride-h');
     root.removeAttribute('data-keyboard');
     lastH = -1;
     lastOpen = null;
+    lastRide = null;
   };
 }
 

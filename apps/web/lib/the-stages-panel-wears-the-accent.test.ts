@@ -142,7 +142,7 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   const bar = read(`${E}/type-in-place.tsx`);
   const keys = bar.slice(bar.indexOf('if (stagesStudio && !p.inline'), bar.indexOf('if (p.inline) {'));
   // The ONE typing band (`typing-band.tsx`, 2026-10-24) draws Done; the bar hands it the session's close.
-  assert.match(keys, /<TypingBand\b[\s\S]*?onDone=\{p\.onClose\}/, 'the typing bar is not the one band');
+  assert.match(keys, /<TypingBand\b(?:[^<>]|=>)*?onDone=\{p\.onClose\}/, 'the typing bar is not the one band');
   assert.match(read('app/_components/typing-band.tsx'), /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{onDone \?\? blurTyping\} \/>/, 'Done is not the main button');
   assert.doesNotMatch(keys, /#[0-9a-fA-F]{6}\b/, 'the typing bar writes a colour');
   const picker = read('app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx');

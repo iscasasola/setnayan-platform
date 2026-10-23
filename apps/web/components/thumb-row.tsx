@@ -183,6 +183,8 @@ export function ThumbRow({
   const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
     <div ref={rowRef} role="toolbar" aria-label={`${name} tools`} data-riding={riding ? '' : undefined} data-thumb-row={name} className={`${styles.row} ${className}`}>
+      {/* The band first in the reading order — it is drawn above the row (Done before the field, as seen). */}
+      {ride.band}
       {children ?? (
         <>
           {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
@@ -266,7 +268,6 @@ export function ThumbRow({
           ) : null}
         </>
       )}
-      {ride.band}
     </div>
   );
 }

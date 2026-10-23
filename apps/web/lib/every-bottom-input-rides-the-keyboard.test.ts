@@ -128,15 +128,16 @@ test('3 · every bottom row’s field rides — rendered — and an opt-out says
   const rows = SOURCES.filter((f) => f !== 'components/thumb-row.tsx' && /data-thumb-row=/.test(read(f)));
   assert.deepEqual(rows, [], `a hand-drawn thumb row:\n${rows.join('\n')}`);
 
-  // An opt-out carries its reason in the call (a comment within the three lines above it).
+  // An opt-out carries its reason INSIDE the same <ThumbRow …> element: a comment naming why, before `rides={false}`.
   const optOuts: string[] = [];
   for (const f of SOURCES) {
-    const raw = readFileSync(join(WEB, f), 'utf8').split('\n');
-    raw.forEach((line, i) => {
-      if (!/rides=\{false\}/.test(line) || f === 'components/thumb-row.tsx') return;
-      const above = raw.slice(Math.max(0, i - 3), i + 1).join('\n');
-      if (!/(\/\/|\/\*|\{\/\*)[^\n]*\S{4,}/.test(above)) optOuts.push(`${f}:${i + 1}`);
-    });
+    if (f === 'components/thumb-row.tsx') continue;
+    const raw = readFileSync(join(WEB, f), 'utf8');
+    for (const m of raw.matchAll(/rides=\{false\}/g)) {
+      const open = raw.lastIndexOf('<ThumbRow', m.index!);
+      const el = open >= 0 ? raw.slice(open, m.index!) : '';
+      if (!/(\/\/|\/\*)\s*\S+(?:\s+\S+){2,}/.test(el)) optOuts.push(`${f}:${raw.slice(0, m.index!).split('\n').length}`);
+    }
   }
   assert.deepEqual(optOuts, [], `rides={false} without a written reason:\n${optOuts.join('\n')}`);
 
@@ -146,12 +147,22 @@ test('3 · every bottom row’s field rides — rendered — and an opt-out says
   assert.match(read('app/_components/chat-send-form.tsx'), /typing && kb\.open \? \(\s*<TypingBand\b/, 'the composer does not wear the one typing band');
 });
 
-test('4 · keyboard up → bar down, and the bar’s clearance becomes the keyboard’s', () => {
+test('4 · keyboard up → bar down; a row on the bar stands on the keyboard; the bar keeps its own height', () => {
   const css = read('app/globals.css');
-  assert.match(css, /html\[data-keyboard='open'\] \[data-bottom-dock\] \{[^}]*transform:\s*translateY\(100%\)/, 'the bar stays up over the keyboard');
+  const hide = /html\[data-keyboard='open'\] \[data-bottom-dock\] \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(hide, /transform:\s*translateY\(100%\)/, 'the bar stays up over the keyboard');
+  assert.match(hide, /visibility:\s*hidden/, 'the hidden bar can still be tabbed to');
   const nav = read('app/_components/nav/bottom-nav.tsx');
-  assert.match(nav, /const kb = useKeyboardRide\(\);/, 'the dock does not read the keyboard');
-  assert.match(nav, /kbRef\.current\.open \? kbRef\.current\.bottom : el\.getBoundingClientRect\(\)\.height/, 'the dock’s clearance is not the keyboard’s while it is up');
+  assert.match(nav, /useKeyboardRide\(\);/, 'the dock does not listen to the keyboard (nothing publishes data-keyboard)');
+  assert.match(nav, /`\$\{Math\.round\(el\.getBoundingClientRect\(\)\.height\)\}px`/, 'the dock’s clearance is not its own height');
+  assert.doesNotMatch(nav, /kb\w*\.(?:current\.)?bottom/, 'the dock’s clearance is overloaded with the keyboard’s height');
+  const kb = read('lib/keyboard-ride.ts');
+  assert.match(kb, /root\.style\.setProperty\('--sn-ride-h', ride\)/, 'no ride height is published');
+  assert.match(kb, /root\.style\.removeProperty\('--sn-ride-h'\)/, 'the ride height outlives the keyboard');
+  // Every row that stood on the bar stands on the keyboard while it is up.
+  const hosts = SOURCES.concat(['app/dashboard/[eventId]/guests/_components/guests-screen.module.css', 'app/dashboard/[eventId]/budget/_components/budget-page.module.css', 'app/dashboard/(account)/people/_components/people-screen.module.css', 'app/vendor-dashboard/_components/supplier-thumb-row.module.css', 'components/thumb-row.module.css']);
+  const onBar = hosts.filter((f) => /bottom(?::\s*'?calc\(|:\s*'?|-\[(?:calc\()?)var\(--sn-bottomdock-h/.test(read(f)));
+  assert.deepEqual(onBar, [], `a row stands on the bar but not on the keyboard (wrap it in var(--sn-ride-h, …)):\n${onBar.join('\n')}`);
 });
 
 /** Files that pin something to the foot AND draw a text field — but the field is not in the pinned row. Each says why. */

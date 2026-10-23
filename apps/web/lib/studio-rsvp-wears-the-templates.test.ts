@@ -443,8 +443,8 @@ test('(9) the rest of the stage: Celebration ▾ in a Form row with the Pro mark
   const stage = read(STAGE);
   // It is the ONE typing band (`typing-band.tsx`, 2026-10-24): the stage hands it its own Done, and the band draws Done
   // as the app's main button.
-  assert.match(stage, /<TypingBand\b[\s\S]*?onDone=\{doneTyping\}/);
-  assert.match(read(`${E}/type-in-place.tsx`), /<TypingBand\b[\s\S]*?onDone=\{p\.onClose\}/, 'anti-vacuity: the shipped typing bar draws its Done some other way');
+  assert.match(stage, /<TypingBand\b(?:[^<>]|=>)*?onDone=\{doneTyping\}/);
+  assert.match(read(`${E}/type-in-place.tsx`), /<TypingBand\b(?:[^<>]|=>)*?onDone=\{p\.onClose\}/, 'anti-vacuity: the shipped typing bar draws its Done some other way');
   assert.match(read('app/_components/typing-band.tsx'), /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{onDone \?\? blurTyping\} \/>/, 'the one typing band’s Done is not the main button');
   assert.doesNotMatch(stage, /#[0-9a-fA-F]{6}\b|\btext-white\b|\bbg-ink(?![\/\w-])/, 'the RSVP stage writes a colour for a button');
 });

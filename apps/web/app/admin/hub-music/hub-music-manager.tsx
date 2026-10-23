@@ -438,7 +438,7 @@ export function HubMusicManager({
         ref={toolsRef}
         {...toolsRide.rowProps}
         className="sticky z-10 mt-4 flex items-center gap-2 bg-cream py-2"
-        style={{ bottom: 'calc(var(--sn-bottomdock-h, 0px) + 0.5rem)' }}
+        style={{ bottom: 'calc(var(--sn-ride-h, var(--sn-bottomdock-h, 0px)) + 0.5rem)' }}
         data-hub-music-tools=""
       >
         {toolsRide.band}
